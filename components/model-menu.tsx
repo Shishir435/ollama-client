@@ -31,7 +31,7 @@ function ModelMenu() {
 
   useEffect(() => {
     if (models && models.length > 0 && !selectedModel) {
-      setSelectedModel(models[0].name)
+      setSelectedModel(models[0].model)
     }
   }, [models, selectedModel, setSelectedModel])
 
