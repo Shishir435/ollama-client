@@ -13,14 +13,32 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { useOllamaModels } from "@/hooks/useOllamaModels"
+import { STORAGE_KEYS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+
+import { useStorage } from "@plasmohq/storage/hook"
 
 function ModelMenu() {
   const [open, setOpen] = useState(false)
-  const [value, setValue] = useState("")
+
+  const [selectedModel, setSelectedModel] = useStorage<string>(
+    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+    ""
+  )
   const { models, error, refresh, loading } = useOllamaModels()
+
+  useEffect(() => {
+    if (models && models.length > 0 && !selectedModel) {
+      setSelectedModel(models[0].name)
+    }
+  }, [models, selectedModel, setSelectedModel])
+
+  const handleSelect = (currentValue: string) => {
+    setSelectedModel(currentValue)
+    setOpen(false)
+  }
 
   return models ? (
     <Popover open={open} onOpenChange={setOpen}>
@@ -30,12 +48,13 @@ function ModelMenu() {
           role="combobox"
           aria-expanded={open}
           className="w-[200px] justify-between">
-          {value
-            ? models.find((model) => model.name === value)?.name
+          {selectedModel
+            ? models.find((m) => m.name === selectedModel)?.name
             : "Select model..."}
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
+
       <PopoverContent className="w-[200px] p-0">
         <div className="flex items-center justify-between border-b px-2 py-1 text-sm text-muted-foreground">
           <span>Models</span>
@@ -49,6 +68,7 @@ function ModelMenu() {
             />
           </button>
         </div>
+
         <Command>
           <CommandInput placeholder="Search model..." className="h-9" />
           <CommandList>
@@ -58,16 +78,13 @@ function ModelMenu() {
                 <CommandItem
                   key={model.name}
                   value={model.name}
-                  onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
+                  onSelect={handleSelect}
                   className="capitalize">
                   {model.name}
                   <Check
                     className={cn(
                       "ml-auto",
-                      value === model.name ? "opacity-100" : "opacity-0"
+                      selectedModel === model.name ? "opacity-100" : "opacity-0"
                     )}
                   />
                 </CommandItem>

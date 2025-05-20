@@ -4,6 +4,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 
 import "../globals.css"
 
+import ModelMenu from "@/components/model-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,10 @@ function OptionsIndex() {
   const [ollamaUrl, setOllamaUrl] = useStorage<string>(
     STORAGE_KEYS.OLLAMA.BASE_URL,
     "http://localhost:11434"
+  )
+  const [selectedModel] = useStorage<string>(
+    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+    ""
   )
   const [saved, setSaved] = useState(false)
 
@@ -42,6 +47,13 @@ function OptionsIndex() {
 
         {saved && <p className="mt-2 text-green-600">Saved!</p>}
       </div>
+      <div className="mt-6">
+        <Label className="font-medium">Selected Model:</Label>
+        <p className="mt-1 text-sm text-gray-700">
+          {selectedModel || "No model selected yet."}
+        </p>
+      </div>
+      <ModelMenu />
     </div>
   )
 }
