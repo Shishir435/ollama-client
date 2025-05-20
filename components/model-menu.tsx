@@ -1,7 +1,5 @@
-import type { OllamaModel } from "@/types";
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
  
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -16,33 +14,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useEffect, useState } from "react";
-import { MESSAGE_KEYS } from "@/lib/constant";
+import { useOllamaModels } from "@/hooks/useOllamaModels"
+import { cn } from "@/lib/utils"
+import { useState } from "react"
 
 function ModelMenu(){
     const [open, setOpen] = useState(false)
     const [value, setValue] = useState("")
-    const [models, setModels] = useState<OllamaModel[] | null>(null)
-      const [error, setError] = useState<string | null>(null)
+    const {models, error,refresh,loading}=useOllamaModels()
     
-      const fetchModels = () => {
-        chrome.runtime.sendMessage({ type: MESSAGE_KEYS.OLLAMA.GET_MODELS }, (response) => {
-          if (response.success) {
-            setModels(response.data.models ?? [])
-            console.log(models)
-            setError(null)
-          } else {
-            setError("Failed to fetch models. Ensure Ollama is running. or see the local ollama url")
-            setModels(null)
-          }
-        })
-      }
-    
-      useEffect(()=>{
-        fetchModels()
-      },[])
-    
- 
   return (models?
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -59,10 +39,20 @@ function ModelMenu(){
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
+        <div className="flex items-center justify-between px-2 py-1 border-b text-sm text-muted-foreground">
+        <span>Models</span>
+          <button
+            onClick={refresh}
+            className="hover:text-foreground transition-colors"
+            title="Refresh models"
+          >
+            <RotateCcw className={cn("transition-transform", loading && "animate-spin")} size={16} />
+          </button>
+      </div>
         <Command>
           <CommandInput placeholder="Search model..." className="h-9" />
           <CommandList>
-            <CommandEmpty>No framework found.</CommandEmpty>
+            <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>
               {models.map((model) => (
                 <CommandItem
@@ -72,6 +62,7 @@ function ModelMenu(){
                     setValue(currentValue === value ? "" : currentValue)
                     setOpen(false)
                   }}
+                  className="capitalize"
                 >
                   {model.name}
                   <Check
@@ -87,8 +78,6 @@ function ModelMenu(){
         </Command>
       </PopoverContent>
     </Popover>: <p className="text-red-500">{error}</p>)
-
-
 }
 
 export default ModelMenu
