@@ -1,13 +1,19 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useState } from "react"
+
+import { useStorage } from "@plasmohq/storage/hook"
+
 import "../globals.css"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { STORAGE_KEYS } from "@/lib/constant"
 
 function OptionsIndex() {
-  const [ollamaUrl, setOllamaUrl] = useStorage<string>(STORAGE_KEYS.OLLAMA.BASE_URL, "http://localhost:11434")
+  const [ollamaUrl, setOllamaUrl] = useStorage<string>(
+    STORAGE_KEYS.OLLAMA.BASE_URL,
+    "http://localhost:11434"
+  )
   const [saved, setSaved] = useState(false)
 
   const handleSave = () => {
@@ -17,28 +23,25 @@ function OptionsIndex() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Ollama Client Options</h1>
+      <h1 className="mb-4 text-xl font-bold">Ollama Client Options</h1>
 
-      <Label htmlFor="ollama-url" className="block font-medium mb-1">
+      <Label htmlFor="ollama-url" className="mb-1 block font-medium">
         Ollama Local URL:
       </Label>
-    <div className="flex w-full">
-
-      <Input
-        id="ollama-url"
-        type="text"
-        value={ollamaUrl}
-        onChange={(e) => setOllamaUrl(e.target.value)}
-        placeholder="http://localhost:11434"
-        className="w-1/4"
+      <div className="flex w-full">
+        <Input
+          id="ollama-url"
+          type="text"
+          value={ollamaUrl}
+          onChange={(e) => setOllamaUrl(e.target.value)}
+          placeholder="http://localhost:11434"
+          className="w-1/4"
         />
 
-      <Button onClick={handleSave}>
-        Save
-      </Button>
+        <Button onClick={handleSave}>Save</Button>
 
-      {saved && <p className="text-green-600 mt-2">Saved!</p>}
-    </div>
+        {saved && <p className="mt-2 text-green-600">Saved!</p>}
+      </div>
     </div>
   )
 }

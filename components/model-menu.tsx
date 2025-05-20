@@ -1,5 +1,3 @@
-import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
- 
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -7,31 +5,31 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList,
+  CommandList
 } from "@/components/ui/command"
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger,
+  PopoverTrigger
 } from "@/components/ui/popover"
 import { useOllamaModels } from "@/hooks/useOllamaModels"
 import { cn } from "@/lib/utils"
+import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import { useState } from "react"
 
-function ModelMenu(){
-    const [open, setOpen] = useState(false)
-    const [value, setValue] = useState("")
-    const {models, error,refresh,loading}=useOllamaModels()
-    
-  return (models?
+function ModelMenu() {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState("")
+  const { models, error, refresh, loading } = useOllamaModels()
+
+  return models ? (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between"
-        >
+          className="w-[200px] justify-between">
           {value
             ? models.find((model) => model.name === value)?.name
             : "Select model..."}
@@ -39,16 +37,18 @@ function ModelMenu(){
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
-        <div className="flex items-center justify-between px-2 py-1 border-b text-sm text-muted-foreground">
-        <span>Models</span>
+        <div className="flex items-center justify-between border-b px-2 py-1 text-sm text-muted-foreground">
+          <span>Models</span>
           <button
             onClick={refresh}
-            className="hover:text-foreground transition-colors"
-            title="Refresh models"
-          >
-            <RotateCcw className={cn("transition-transform", loading && "animate-spin")} size={16} />
+            className="transition-colors hover:text-foreground"
+            title="Refresh models">
+            <RotateCcw
+              className={cn("transition-transform", loading && "animate-spin")}
+              size={16}
+            />
           </button>
-      </div>
+        </div>
         <Command>
           <CommandInput placeholder="Search model..." className="h-9" />
           <CommandList>
@@ -62,8 +62,7 @@ function ModelMenu(){
                     setValue(currentValue === value ? "" : currentValue)
                     setOpen(false)
                   }}
-                  className="capitalize"
-                >
+                  className="capitalize">
                   {model.name}
                   <Check
                     className={cn(
@@ -77,7 +76,10 @@ function ModelMenu(){
           </CommandList>
         </Command>
       </PopoverContent>
-    </Popover>: <p className="text-red-500">{error}</p>)
+    </Popover>
+  ) : (
+    <p className="text-red-500">{error}</p>
+  )
 }
 
 export default ModelMenu
