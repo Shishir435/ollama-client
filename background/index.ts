@@ -46,7 +46,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             headers: { "Content-Type": "application/json" },
             credentials: "omit",
             mode: "cors",
-            body: JSON.stringify({ model, messages })
+            body: JSON.stringify({ model, messages, stream: false })
           }
         )
         console.log(model, message, chatResponse)
