@@ -2,7 +2,7 @@
   "name": "ollama-client",
   "displayName": "Ollama client",
   "version": "0.0.1",
-  "description": "This is a basic client side app for ollama",
+  "description": "Chat with your local Ollama LLMs directly in your browser. Lightweight, fast, and privacy-focused.",
   "author": "shishir.chaurasiya",
   "scripts": {
     "dev": "plasmo dev",
