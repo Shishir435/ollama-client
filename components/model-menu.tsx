@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -19,14 +20,26 @@ import { useEffect, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
+import { InfoPopup } from "./info-popup" // your generic dialog
+
 function ModelMenu() {
   const [open, setOpen] = useState(false)
+  const [showErrorPopup, setShowErrorPopup] = useState(false)
+  const [showEmptyPopup, setShowEmptyPopup] = useState(false)
 
   const [selectedModel, setSelectedModel] = useStorage<string>(
     STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
     ""
   )
   const { models, error, refresh, loading } = useOllamaModels()
+
+  useEffect(() => {
+    if (error) {
+      setShowErrorPopup(true)
+    } else if (models && models.length === 0) {
+      setShowEmptyPopup(true)
+    }
+  }, [error, models])
 
   useEffect(() => {
     if (models && models.length > 0 && !selectedModel) {
@@ -39,7 +52,35 @@ function ModelMenu() {
     setOpen(false)
   }
 
-  return models ? (
+  if (showErrorPopup) {
+    return (
+      <InfoPopup
+        open={showErrorPopup}
+        onClose={() => setShowErrorPopup(false)}
+        title="Failed to Load Models"
+        message={error!}
+        type="error"
+        actionButton={<Button onClick={refresh}>Retry</Button>}
+      />
+    )
+  }
+
+  if (showEmptyPopup) {
+    return (
+      <InfoPopup
+        open={showEmptyPopup}
+        onClose={() => setShowEmptyPopup(false)}
+        title="No Models Found"
+        message="Please pull at least one model in Ollama to get started."
+        type="warning"
+        actionButton={<Button onClick={refresh}>Refresh</Button>}
+      />
+    )
+  }
+
+  if (!models) return null
+
+  return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <div role="combobox" aria-expanded={open} className="justify-between">
@@ -91,8 +132,6 @@ function ModelMenu() {
         </Command>
       </PopoverContent>
     </Popover>
-  ) : (
-    <p className="text-red-500">{error}</p>
   )
 }
 

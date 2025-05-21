@@ -9,8 +9,10 @@ import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
+import BugReportIcon from "./bug-report-icon"
 import ModelMenu from "./model-menu"
 import SettingsButton from "./settings-button"
+import WelcomeScreen from "./welcome-screen"
 
 type Role = "user" | "assistant"
 
@@ -85,18 +87,25 @@ function Chat() {
   return (
     <div className="flex h-screen flex-col p-4">
       <ScrollArea className="flex-1 space-y-4 overflow-auto pr-2">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={cn(
-              "my-1 rounded-md p-3 text-sm",
-              msg.role === "user"
-                ? "ml-auto max-w-[80%] self-end bg-blue-100 text-blue-900"
-                : "mr-auto max-w-[80%] self-start bg-gray-200 text-gray-900"
-            )}>
-            {msg.content}
-          </div>
-        ))}
+        {messages.length === 0 ? (
+          <WelcomeScreen />
+        ) : (
+          <>
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "my-1 rounded-md p-3 text-sm",
+                  msg.role === "user"
+                    ? "ml-auto max-w-[80%] self-end bg-blue-100 text-blue-900"
+                    : "mr-auto max-w-[80%] self-start bg-gray-200 text-gray-900"
+                )}>
+                {msg.content}
+              </div>
+            ))}
+          </>
+        )}
+
         <div ref={scrollRef} />
       </ScrollArea>
 
@@ -115,6 +124,7 @@ function Chat() {
           <div className="absolute bottom-0 left-2 flex items-center gap-2">
             <ModelMenu />
             <SettingsButton />
+            <BugReportIcon />
           </div>
           <Button
             onClick={sendMessage}

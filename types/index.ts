@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react"
+
 export type OllamaModel = {
   name: string
   model: string
@@ -12,4 +14,10 @@ export type OllamaModel = {
     parameter_size: string
     quantization_level: string
   }
+}
+
+export interface SocialLink {
+  label: string
+  href: string
+  icon: LucideIcon
 }

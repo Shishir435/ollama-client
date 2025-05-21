@@ -5,19 +5,25 @@ import { useStorage } from "@plasmohq/storage/hook"
 import "../globals.css"
 
 import ModelMenu from "@/components/model-menu"
+import OllamaSetupInstructions from "@/components/ollama-setup-instructions"
+import SocialHandles from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { STORAGE_KEYS } from "@/lib/constant"
+import { CheckCircle2 } from "lucide-react"
 
 function OptionsIndex() {
   const [ollamaUrl, setOllamaUrl] = useStorage<string>(
     STORAGE_KEYS.OLLAMA.BASE_URL,
     "http://localhost:11434"
-  )
-  const [selectedModel] = useStorage<string>(
-    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
-    ""
   )
   const [saved, setSaved] = useState(false)
 
@@ -27,33 +33,59 @@ function OptionsIndex() {
   }
 
   return (
-    <div>
-      <h1 className="mb-4 text-xl font-bold">Ollama Client Options</h1>
+    <div className="space-y-6 p-4 text-sm text-gray-900">
+      <div className="fex-col flex flex-wrap items-center justify-center gap-8">
+        <Card className="w-3/4">
+          <CardHeader>
+            <CardTitle>Ollama Client Options</CardTitle>
+            <CardDescription>
+              Set your local Ollama server URL and review selected model.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="ollama-url">Ollama Local URL</Label>
+              <div className="mt-2 flex gap-2">
+                <Input
+                  id="ollama-url"
+                  type="text"
+                  value={ollamaUrl}
+                  onChange={(e) => setOllamaUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                  className="w-full"
+                />
+                <Button onClick={handleSave}>Save</Button>
+              </div>
+              {saved && (
+                <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 size={16} /> <span>Saved!</span>
+                </div>
+              )}
+            </div>
 
-      <Label htmlFor="ollama-url" className="mb-1 block font-medium">
-        Ollama Local URL:
-      </Label>
-      <div className="flex w-full">
-        <Input
-          id="ollama-url"
-          type="text"
-          value={ollamaUrl}
-          onChange={(e) => setOllamaUrl(e.target.value)}
-          placeholder="http://localhost:11434"
-          className="w-1/4"
-        />
-
-        <Button onClick={handleSave}>Save</Button>
-
-        {saved && <p className="mt-2 text-green-600">Saved!</p>}
+            <div className="flex items-center gap-4">
+              <Label>Selected Model</Label>
+              <ModelMenu />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="w-3/4">
+          <CardHeader>
+            <CardTitle>Configuration Guide</CardTitle>
+            <CardDescription>
+              Follow these steps to prevent CORS issues when using this
+              extension with Ollama.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OllamaSetupInstructions />
+          </CardContent>
+        </Card>
       </div>
-      <div className="mt-6">
-        <Label className="font-medium">Selected Model:</Label>
-        <p className="mt-1 text-sm text-gray-700">
-          {selectedModel || "No model selected yet."}
-        </p>
+
+      <div className="mt-8 flex justify-center">
+        <SocialHandles />
       </div>
-      <ModelMenu />
     </div>
   )
 }
