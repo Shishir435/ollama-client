@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -15,7 +14,7 @@ import {
 import { useOllamaModels } from "@/hooks/useOllamaModels"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
-import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
+import { Check, ChevronDown, RotateCcw } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -43,16 +42,14 @@ function ModelMenu() {
   return models ? (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-[200px] justify-between">
-          {selectedModel
-            ? models.find((m) => m.name === selectedModel)?.name
-            : "Select model..."}
-          <ChevronsUpDown className="opacity-50" />
-        </Button>
+        <div role="combobox" aria-expanded={open} className="justify-between">
+          <div className="flex items-center gap-2 capitalize">
+            {selectedModel
+              ? models.find((m) => m.name === selectedModel)?.name
+              : "Select model..."}
+            <ChevronDown className="opacity-50" size="16" />
+          </div>
+        </div>
       </PopoverTrigger>
 
       <PopoverContent className="w-[200px] p-0">
