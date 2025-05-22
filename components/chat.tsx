@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
 import { Circle, Send } from "lucide-react"
@@ -90,7 +90,7 @@ function Chat() {
       {messages.length === 0 ? (
         <WelcomeScreen />
       ) : (
-        <ScrollArea className="scrollbar-none flex-1">
+        <ScrollArea className="flex-1 scrollbar-none">
           {messages.map((msg, idx) => (
             <div
               key={idx}

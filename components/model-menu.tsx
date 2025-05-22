@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { useOllamaModels } from "@/hooks/useOllamaModels"
+import { useOllamaModels } from "@/hooks/use-ollama-models"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
 import { Check, ChevronDown, RotateCcw } from "lucide-react"
