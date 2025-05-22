@@ -1,4 +1,4 @@
-import { useMarkdownParser } from "@/hooks/useMarkdownParser"
+import { useMarkdownParser } from "@/hooks/use-markdown-parser"
 
 export function MarkdownRenderer({ content }: { content: string }) {
   const html = useMarkdownParser(content)

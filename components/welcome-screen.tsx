@@ -11,7 +11,7 @@ export default function WelcomeScreen() {
   if (!show) return null
 
   return (
-    <div className="scrollbar-none flex h-screen w-full flex-col items-center justify-center rounded-full px-4 text-center">
+    <div className="flex h-screen w-full flex-col items-center justify-center rounded-full px-4 text-center scrollbar-none">
       <h1 className="mb-2 text-2xl font-semibold">Welcome to Ollama Chat</h1>
       <p className="mb-6 max-w-md text-sm text-muted-foreground">
         Start chatting with your local models using Ollama. Type a message below

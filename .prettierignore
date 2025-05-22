@@ -15,3 +15,6 @@ package-lock.json
 # Optional: ignore generated or unnecessary folders
 .assets
 public
+
+#ignore .json files
+*.json

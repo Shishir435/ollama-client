@@ -1,18 +1,12 @@
 import type { SocialLink } from "@/types"
-import {
-  Bug,
-  Github,
-  Globe,
-  Instagram,
-  Linkedin,
-  Twitter,
-  type LucideIcon
-} from "lucide-react"
+import { Bug, Github, Globe, Instagram, Linkedin, Twitter } from "lucide-react"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {
     GET_MODELS: "get-ollama-models",
-    CHAT_WITH_MODEL: "chat-with-model"
+    CHAT_WITH_MODEL: "chat-with-model",
+    STREAM_RESPONSE: "ollama-stream-response",
+    STOP_GENERATION: "stop-generation"
   }
 }
 
