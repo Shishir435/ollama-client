@@ -1,4 +1,5 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { useChat } from "@/hooks/use-chat"
 
 import ChatInputBox from "./chat-input-box"
@@ -24,28 +25,47 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-screen flex-col rounded-md p-1">
-      {messages.length === 0 ? (
-        <WelcomeScreen />
-      ) : (
-        <ScrollArea className="flex-1 px-2 scrollbar-none">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={getMessageMargin(idx)}>
-              <ChatMessageBubble msg={msg} />
-            </div>
-          ))}
-          <div ref={scrollRef} />
-        </ScrollArea>
-      )}
-      <div className="sticky bottom-0 z-10 w-full bg-background pt-2">
-        <ChatInputBox
-          input={input}
-          setInput={setInput}
-          isLoading={isLoading}
-          onSend={sendMessage}
-          stopGeneration={stopGeneration}
-        />
+    <TooltipProvider>
+      <div className="flex h-screen flex-col rounded-md p-1">
+        {messages.length === 0 ? (
+          <WelcomeScreen />
+        ) : (
+          <ScrollArea className="flex-1 px-2 scrollbar-none">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={getMessageMargin(idx)}>
+                <ChatMessageBubble
+                  msg={msg}
+                  isLoading={
+                    isLoading &&
+                    msg.role === "assistant" &&
+                    idx === messages.length - 1
+                  }
+                  onRegenerate={
+                    msg.role === "assistant"
+                      ? (model) => {
+                          const prevUser = [...messages.slice(0, idx)]
+                            .reverse()
+                            .find((m) => m.role === "user")
+                          if (prevUser) sendMessage(prevUser.content, model)
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            ))}
+            <div ref={scrollRef} />
+          </ScrollArea>
+        )}
+        <div className="sticky bottom-0 z-10 w-full bg-background pt-2">
+          <ChatInputBox
+            input={input}
+            setInput={setInput}
+            isLoading={isLoading}
+            onSend={sendMessage}
+            stopGeneration={stopGeneration}
+          />
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }

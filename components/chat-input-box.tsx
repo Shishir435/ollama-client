@@ -1,11 +1,10 @@
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { Circle, Send } from "lucide-react"
 import { useRef } from "react"
 
 import BugReportIcon from "./bug-report-icon"
 import ModelMenu from "./model-menu"
+import SendOrStopButton from "./send-or-stop-button"
 import SettingsButton from "./settings-button"
 
 export default function ChatInputBox({
@@ -43,23 +42,15 @@ export default function ChatInputBox({
         autoFocus
       />
       <div className="absolute bottom-0 left-2 flex items-center gap-2">
-        <ModelMenu />
+        <ModelMenu tooltipTextContent="Switch model" />
         <SettingsButton />
         <BugReportIcon />
       </div>
-      {isLoading ? (
-        <Button
-          onClick={stopGeneration}
-          className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
-          <Circle size="16" />
-        </Button>
-      ) : (
-        <Button
-          onClick={onSend}
-          className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
-          <Send size="16" />
-        </Button>
-      )}
+      <SendOrStopButton
+        isLoading={isLoading}
+        onSend={onSend}
+        stopGeneration={stopGeneration}
+      />
     </div>
   )
 }

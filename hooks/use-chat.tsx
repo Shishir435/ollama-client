@@ -8,6 +8,8 @@ export type Role = "user" | "assistant"
 export interface ChatMessage {
   role: Role
   content: string
+  done?: boolean
+  model?: string
 }
 
 export const useChat = () => {
@@ -26,13 +28,14 @@ export const useChat = () => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const sendMessage = () => {
-    if (!input.trim()) return
+  const sendMessage = (customInput?: string, customModel?: string) => {
+    const messageText = customInput?.trim() ?? input.trim()
+    if (!messageText) return
 
-    const userMessage: ChatMessage = { role: "user", content: input }
+    const userMessage: ChatMessage = { role: "user", content: messageText }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
-    setInput("")
+    if (!customInput) setInput("")
     setIsLoading(true)
 
     const port = chrome.runtime.connect({
@@ -40,8 +43,12 @@ export const useChat = () => {
     })
 
     portRef.current = port
-
-    let assistantMessage: ChatMessage = { role: "assistant", content: "" }
+    const modelUsed = customModel || selectedModel
+    let assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: "",
+      model: modelUsed
+    }
     setMessages([...newMessages, assistantMessage])
 
     port.onMessage.addListener((msg) => {
@@ -58,8 +65,11 @@ export const useChat = () => {
         if (msg.error) {
           setMessages([
             ...newMessages,
-            { role: "assistant", content: `❌ Error: ${msg.error}` }
+            { role: "assistant", content: `❌ Error: ${msg.error}`, done: true }
           ])
+        } else {
+          assistantMessage = { ...assistantMessage, done: true }
+          setMessages([...newMessages, assistantMessage])
         }
         port.disconnect()
         portRef.current = null
@@ -69,7 +79,7 @@ export const useChat = () => {
     port.postMessage({
       type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
       payload: {
-        model: selectedModel,
+        model: customModel || selectedModel,
         messages: newMessages
       }
     })
