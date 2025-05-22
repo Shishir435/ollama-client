@@ -40,8 +40,8 @@ module.exports = {
         }
       },
       borderRadius: {
-        lg: "`var(--radius)`",
-        md: "`calc(var(--radius) - 2px)`",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)"
       },
       keyframes: {
@@ -71,6 +71,6 @@ module.exports = {
   plugins: [
     require("tailwindcss-animate"),
     require("@tailwindcss/typography"),
-    require("tailwind-scrollbar")
+    require("tailwind-scrollbar")({ nocompatible: true })
   ]
 }

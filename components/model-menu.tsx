@@ -83,7 +83,10 @@ function ModelMenu() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div role="combobox" aria-expanded={open} className="justify-between">
+        <div
+          role="combobox"
+          aria-expanded={open}
+          className="cursor-pointer justify-between">
           <div className="flex items-center gap-2 capitalize">
             {selectedModel
               ? models.find((m) => m.name === selectedModel)?.name

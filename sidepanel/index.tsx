@@ -3,11 +3,7 @@ import "../globals.css"
 import Chat from "@/components/chat"
 
 function IndexSidePanel() {
-  return (
-    <div>
-      <Chat />
-    </div>
-  )
+  return <Chat />
 }
 
 export default IndexSidePanel
