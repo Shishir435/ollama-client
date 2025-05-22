@@ -12,7 +12,8 @@ import {
 export const MESSAGE_KEYS = {
   OLLAMA: {
     GET_MODELS: "get-ollama-models",
-    CHAT_WITH_MODEL: "chat-with-model"
+    CHAT_WITH_MODEL: "chat-with-model",
+    STREAM_RESPONSE: "ollama-stream-response"
   }
 }
 

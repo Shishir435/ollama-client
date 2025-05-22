@@ -48,34 +48,44 @@ function Chat() {
     setInput("")
     setIsLoading(true)
 
-    chrome.runtime.sendMessage(
-      {
-        type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
-        payload: {
-          model: selectedModel,
-          messages: newMessages
+    const port = chrome.runtime.connect({
+      name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
+    })
+
+    let assistantMessage: ChatMessage = { role: "assistant", content: "" }
+    setMessages([...newMessages, assistantMessage])
+
+    port.onMessage.addListener((msg) => {
+      if (msg.delta !== undefined) {
+        assistantMessage = {
+          ...assistantMessage,
+          content: assistantMessage.content + msg.delta
         }
-      },
-      (response) => {
-        setIsLoading(false)
-        if (response.success) {
-          const lastMessage = response.data.choices?.[0]?.message
-          if (lastMessage?.role && lastMessage?.content) {
-            setMessages([...newMessages, lastMessage])
-          } else {
-            setMessages([
-              ...newMessages,
-              { role: "assistant", content: "❌ Invalid response from model." }
-            ])
-          }
-        } else {
-          setMessages([
-            ...newMessages,
-            { role: "assistant", content: `❌ Error: ${response.error}` }
-          ])
-        }
+        setMessages([...newMessages, { ...assistantMessage }])
       }
-    )
+
+      if (msg.done) {
+        setIsLoading(false)
+        port.disconnect()
+      }
+
+      if (msg.error) {
+        setIsLoading(false)
+        setMessages([
+          ...newMessages,
+          { role: "assistant", content: `❌ Error: ${msg.error}` }
+        ])
+        port.disconnect()
+      }
+    })
+
+    port.postMessage({
+      type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
+      payload: {
+        model: selectedModel,
+        messages: newMessages
+      }
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
