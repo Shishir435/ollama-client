@@ -20,6 +20,7 @@ export const useChat = () => {
   )
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const portRef = useRef<chrome.runtime.Port | null>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -38,6 +39,8 @@ export const useChat = () => {
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
     })
 
+    portRef.current = port
+
     let assistantMessage: ChatMessage = { role: "assistant", content: "" }
     setMessages([...newMessages, assistantMessage])
 
@@ -50,7 +53,7 @@ export const useChat = () => {
         setMessages([...newMessages, { ...assistantMessage }])
       }
 
-      if (msg.done || msg.error) {
+      if (msg.done || msg.error || msg.aborted) {
         setIsLoading(false)
         if (msg.error) {
           setMessages([
@@ -59,6 +62,7 @@ export const useChat = () => {
           ])
         }
         port.disconnect()
+        portRef.current = null
       }
     })
 
@@ -71,12 +75,20 @@ export const useChat = () => {
     })
   }
 
+  const stopGeneration = () => {
+    portRef.current?.postMessage({
+      type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+    })
+    setIsLoading(false)
+  }
+
   return {
     input,
     setInput,
     messages,
     isLoading,
     sendMessage,
+    stopGeneration,
     scrollRef
   }
 }

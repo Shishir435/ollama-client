@@ -8,6 +8,8 @@ chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error("SidePanel error:", error))
 
+let abortController: AbortController | null = null
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE) return
 
@@ -19,6 +21,8 @@ chrome.runtime.onConnect.addListener((port) => {
         (await storage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) ??
         "http://localhost:11434"
 
+      abortController = new AbortController()
+
       try {
         const response = await fetch(`${baseUrl}/v1/chat/completions`, {
           method: "POST",
@@ -26,8 +30,9 @@ chrome.runtime.onConnect.addListener((port) => {
           body: JSON.stringify({
             model,
             messages,
-            stream: true // enable streaming
-          })
+            stream: true
+          }),
+          signal: abortController.signal
         })
 
         if (!response.ok || !response.body) {
@@ -68,9 +73,16 @@ chrome.runtime.onConnect.addListener((port) => {
 
         port.postMessage({ done: true, content: fullText })
       } catch (err) {
-        console.error("Streaming error:", err.message)
-        port.postMessage({ error: err.message })
+        if (err.name === "AbortError") {
+          port.postMessage({ done: true, aborted: true })
+        } else {
+          console.error("Streaming error:", err.message)
+          port.postMessage({ error: err.message })
+        }
       }
+    }
+    if (msg.type === MESSAGE_KEYS.OLLAMA.STOP_GENERATION) {
+      abortController?.abort()
     }
   })
 })

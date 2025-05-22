@@ -12,12 +12,14 @@ export default function ChatInputBox({
   input,
   setInput,
   isLoading,
-  onSend
+  onSend,
+  stopGeneration
 }: {
   input: string
   setInput: (val: string) => void
   isLoading: boolean
   onSend: () => void
+  stopGeneration: () => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useAutoResizeTextarea(textareaRef, input)
@@ -45,12 +47,19 @@ export default function ChatInputBox({
         <SettingsButton />
         <BugReportIcon />
       </div>
-      <Button
-        onClick={onSend}
-        disabled={isLoading}
-        className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
-        {isLoading ? <Circle size="16" /> : <Send size="16" />}
-      </Button>
+      {isLoading ? (
+        <Button
+          onClick={stopGeneration}
+          className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
+          <Circle size="16" />
+        </Button>
+      ) : (
+        <Button
+          onClick={onSend}
+          className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
+          <Send size="16" />
+        </Button>
+      )}
     </div>
   )
 }

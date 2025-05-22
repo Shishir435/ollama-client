@@ -6,8 +6,15 @@ import ChatMessageBubble from "./chat-message-bubble"
 import WelcomeScreen from "./welcome-screen"
 
 export default function Chat() {
-  const { input, setInput, messages, isLoading, sendMessage, scrollRef } =
-    useChat()
+  const {
+    input,
+    setInput,
+    messages,
+    isLoading,
+    sendMessage,
+    stopGeneration,
+    scrollRef
+  } = useChat()
 
   const getMessageMargin = (currentIndex: number): string => {
     if (currentIndex === 0) return "mt-2"
@@ -36,6 +43,7 @@ export default function Chat() {
           setInput={setInput}
           isLoading={isLoading}
           onSend={sendMessage}
+          stopGeneration={stopGeneration}
         />
       </div>
     </div>
