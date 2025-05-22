@@ -23,14 +23,17 @@
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
     "lucide-react": "0.474.0",
+    "markdown-it": "^14.1.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tailwind-merge": "3.0.1",
+    "tailwind-scrollbar": "^4.0.2",
     "tailwindcss-animate": "1.0.7"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/chrome": "0.0.258",
     "@types/node": "20.11.5",
     "@types/react": "18.2.48",
