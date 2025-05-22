@@ -1,98 +1,19 @@
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Textarea } from "@/components/ui/textarea"
-import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
-import { cn } from "@/lib/utils"
-import { Circle, Send } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useChat } from "@/hooks/use-chat"
 
-import { useStorage } from "@plasmohq/storage/hook"
-
-import BugReportIcon from "./bug-report-icon"
-import { MarkdownRenderer } from "./markdown-renderer"
-import ModelMenu from "./model-menu"
-import SettingsButton from "./settings-button"
+import ChatInputBox from "./chat-input-box"
+import ChatMessageBubble from "./chat-message-bubble"
 import WelcomeScreen from "./welcome-screen"
 
-type Role = "user" | "assistant"
+export default function Chat() {
+  const { input, setInput, messages, isLoading, sendMessage, scrollRef } =
+    useChat()
 
-interface ChatMessage {
-  role: Role
-  content: string
-}
-
-function Chat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [selectedModel] = useStorage<string>(
-    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
-    ""
-  )
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useAutoResizeTextarea(textareaRef, input)
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  const sendMessage = async () => {
-    if (!input.trim()) return
-
-    const userMessage: ChatMessage = { role: "user", content: input }
-    const newMessages = [...messages, userMessage]
-    setMessages(newMessages)
-    setInput("")
-    setIsLoading(true)
-
-    const port = chrome.runtime.connect({
-      name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
-    })
-
-    let assistantMessage: ChatMessage = { role: "assistant", content: "" }
-    setMessages([...newMessages, assistantMessage])
-
-    port.onMessage.addListener((msg) => {
-      if (msg.delta !== undefined) {
-        assistantMessage = {
-          ...assistantMessage,
-          content: assistantMessage.content + msg.delta
-        }
-        setMessages([...newMessages, { ...assistantMessage }])
-      }
-
-      if (msg.done) {
-        setIsLoading(false)
-        port.disconnect()
-      }
-
-      if (msg.error) {
-        setIsLoading(false)
-        setMessages([
-          ...newMessages,
-          { role: "assistant", content: `❌ Error: ${msg.error}` }
-        ])
-        port.disconnect()
-      }
-    })
-
-    port.postMessage({
-      type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
-      payload: {
-        model: selectedModel,
-        messages: newMessages
-      }
-    })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isLoading) {
-      e.preventDefault()
-      sendMessage()
-    }
+  const getMessageMargin = (currentIndex: number): string => {
+    if (currentIndex === 0) return "mt-2"
+    const prev = messages[currentIndex - 1]
+    const curr = messages[currentIndex]
+    return prev.role !== curr.role ? "mt-4" : "mt-1"
   }
 
   return (
@@ -100,54 +21,23 @@ function Chat() {
       {messages.length === 0 ? (
         <WelcomeScreen />
       ) : (
-        <ScrollArea className="flex-1 scrollbar-none">
+        <ScrollArea className="flex-1 px-2 scrollbar-none">
           {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                "my-1 rounded-md p-3 text-sm",
-                msg.role === "user"
-                  ? "ml-auto max-w-[80%] self-end bg-blue-100 text-blue-900"
-                  : "mr-auto max-w-[80%] self-start bg-gray-200 text-gray-900"
-              )}>
-              {msg.role === "assistant" ? (
-                <MarkdownRenderer content={msg.content} />
-              ) : (
-                msg.content
-              )}
+            <div key={idx} className={getMessageMargin(idx)}>
+              <ChatMessageBubble msg={msg} />
             </div>
           ))}
           <div ref={scrollRef} />
         </ScrollArea>
       )}
-
-      <div className="sticky bottom-0 z-10 w-full">
-        <div className="relative h-auto">
-          <Textarea
-            id="chat-input-textarea"
-            ref={textareaRef}
-            placeholder="Type your message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="max-h-[300px] min-h-[80px] w-full resize-none overflow-hidden rounded-b-2xl pb-10"
-            autoFocus
-          />
-          <div className="absolute bottom-0 left-2 flex items-center gap-2">
-            <ModelMenu />
-            <SettingsButton />
-            <BugReportIcon />
-          </div>
-          <Button
-            onClick={sendMessage}
-            disabled={isLoading}
-            className="absolute right-0 top-1/2 mr-2 -translate-y-1/2">
-            {isLoading ? <Circle size="16" /> : <Send size="16" />}
-          </Button>
-        </div>
+      <div className="sticky bottom-0 z-10 w-full bg-background pt-2">
+        <ChatInputBox
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          onSend={sendMessage}
+        />
       </div>
     </div>
   )
 }
-
-export default Chat
