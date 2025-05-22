@@ -140,7 +140,11 @@ function ModelMenu({
         </div>
 
         <Command>
-          <CommandInput placeholder="Search model..." className="h-9" />
+          <CommandInput
+            placeholder="Search model..."
+            className="h-9"
+            autoFocus
+          />
           <CommandList>
             <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>
