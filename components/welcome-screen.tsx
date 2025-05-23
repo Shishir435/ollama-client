@@ -11,9 +11,9 @@ export default function WelcomeScreen() {
   if (!show) return null
 
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center rounded-full px-4 text-center scrollbar-none">
+    <div className="flex h-screen w-full flex-col items-center justify-center rounded-b-lg rounded-t-2xl bg-white px-4 text-center text-gray-900 scrollbar-none dark:bg-gray-900 dark:text-gray-100">
       <h1 className="mb-2 text-2xl font-semibold">Welcome to Ollama Chat</h1>
-      <p className="mb-6 max-w-md text-sm text-muted-foreground">
+      <p className="dark:text-muted-foreground-dark mb-6 max-w-md text-sm text-muted-foreground">
         Start chatting with your local models using Ollama. Type a message below
         to get started.
       </p>
@@ -34,7 +34,7 @@ export default function WelcomeScreen() {
 
       <Button
         variant="ghost"
-        className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+        className="dark:text-muted-foreground-dark mt-2 text-xs text-muted-foreground hover:text-foreground dark:hover:text-gray-200"
         onClick={() => setShow(false)}>
         <PanelTopClose className="mr-1 h-4 w-4" />
         Hide Welcome

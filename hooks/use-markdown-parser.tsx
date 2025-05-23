@@ -8,7 +8,7 @@ import highlightjs from "markdown-it-highlightjs"
 import taskLists from "markdown-it-task-lists"
 import { useEffect, useState } from "react"
 
-import "highlight.js/styles/github.css"
+import "highlight.js/styles/github-dark.css"
 
 const md = new MarkdownIt({
   html: true,

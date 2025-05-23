@@ -25,15 +25,15 @@ export default function ChatMessageBubble({
       )}>
       <div
         className={cn(
-          "max-w-2xl rounded-xl px-3 py-2 text-sm shadow transition-colors",
+          "max-w-2xl rounded-xl p-2 text-sm shadow transition-colors",
           isUser
-            ? "max-w-[80%] bg-blue-400 text-white dark:bg-blue-500"
-            : "bg-gray-100 text-gray-900 dark:bg-[#1e1e1e] dark:text-gray-100"
+            ? "bg-gray-200 text-gray-900 dark:bg-gray-900 dark:text-gray-100"
+            : "bg-gray-100 text-gray-900 dark:bg-zinc-900 dark:text-zinc-100"
         )}>
         <MarkdownRenderer content={msg.content} />
 
         {msg.role === "assistant" && msg.model && !isLoading && (
-          <div className="mt-2 flex items-center gap-1 text-xs text-foreground">
+          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground dark:text-zinc-400">
             <CopyButton text={msg.content} />
             <RegenerateButton
               model={msg.model}
