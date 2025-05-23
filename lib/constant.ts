@@ -14,6 +14,9 @@ export const STORAGE_KEYS = {
   OLLAMA: {
     BASE_URL: "ollama-base-url",
     SELECTED_MODEL: "selected-ollama-model"
+  },
+  THEME: {
+    PREFERENCE: "light-dark-theme"
   }
 }
 
