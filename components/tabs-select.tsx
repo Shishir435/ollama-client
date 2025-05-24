@@ -1,12 +1,12 @@
 import { MultiSelect } from "@/components/ui/multi-select"
+import { useSelectedTabs } from "@/context/selected-tab-context"
 import useOpenTabs from "@/hooks/use-open-tab"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-const trimTitle = (title: string, max = 30) =>
+const trimTitle = (title: string, max = 25) =>
   title
     ? title.length > max
       ? title.slice(0, max) + "..."
@@ -22,7 +22,7 @@ export default function TabsSelect() {
     false
   )
   const openTabs = useOpenTabs(tabAccess)
-  const [selectedTabs, setSelectedTabs] = useState<string[]>([])
+  const { selectedTabs, setSelectedTabs } = useSelectedTabs()
   if (!tabAccess) return null
 
   const tabOptions = openTabs.map((tab) => ({

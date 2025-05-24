@@ -9,7 +9,8 @@ export const MESSAGE_KEYS = {
     STOP_GENERATION: "stop-generation"
   },
   BROWSER: {
-    OPEN_TAB: "open-tab"
+    OPEN_TAB: "open-tab",
+    GET_PAGE_CONTENT: "get-page-content"
   }
 }
 
