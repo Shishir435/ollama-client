@@ -106,4 +106,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     return true
   }
+  if (message.type === MESSAGE_KEYS.BROWSER.OPEN_TAB) {
+    chrome.tabs.query({}, (tabs) => {
+      console.log(tabs)
+      sendResponse({ tabs })
+    })
+    return true
+  }
 })

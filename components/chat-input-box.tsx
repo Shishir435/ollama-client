@@ -1,11 +1,13 @@
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { useEffect, useRef } from "react"
+import { useRef } from "react"
 
 import BugReportIcon from "./bug-report-icon"
 import ModelMenu from "./model-menu"
 import SendOrStopButton from "./send-or-stop-button"
 import SettingsButton from "./settings-button"
+import TabsSelect from "./tabs-select"
+import TabsToggle from "./tabs-toggle"
 import ThemeToggle from "./theme-toggle"
 
 export default function ChatInputBox({
@@ -33,6 +35,7 @@ export default function ChatInputBox({
 
   return (
     <div className="relative h-auto">
+      <TabsSelect />
       <Textarea
         id="chat-input-textarea"
         ref={textareaRef}
@@ -48,6 +51,7 @@ export default function ChatInputBox({
         <SettingsButton />
         <BugReportIcon />
         <ThemeToggle />
+        <TabsToggle />
       </div>
       <SendOrStopButton
         isLoading={isLoading}

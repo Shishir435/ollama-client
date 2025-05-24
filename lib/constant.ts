@@ -7,6 +7,10 @@ export const MESSAGE_KEYS = {
     CHAT_WITH_MODEL: "chat-with-model",
     STREAM_RESPONSE: "ollama-stream-response",
     STOP_GENERATION: "stop-generation"
+  },
+  BROWSER: {
+    OPEN_TAB: "open-tab",
+    GET_PAGE_CONTENT: "get-page-content"
   }
 }
 
@@ -17,6 +21,9 @@ export const STORAGE_KEYS = {
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
+  },
+  BROWSER: {
+    TABS_ACCESS: "browser-tab-access"
   }
 }
 

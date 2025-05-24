@@ -1,7 +1,10 @@
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
+
+import { useTabContents } from "./use-tab-contents"
 
 export type Role = "user" | "assistant"
 
@@ -24,6 +27,9 @@ export const useChat = () => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const portRef = useRef<chrome.runtime.Port | null>(null)
 
+  const { tabContents, errors } = useTabContents()
+  const { selectedTabIds } = useSelectedTabIds()
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
@@ -32,7 +38,38 @@ export const useChat = () => {
     const messageText = customInput?.trim() ?? input.trim()
     if (!messageText) return
 
-    const userMessage: ChatMessage = { role: "user", content: messageText }
+    // Build tab context
+    const buildContextText = () => {
+      return selectedTabIds
+        .map((id, index) => {
+          const tabId = parseInt(id)
+          const content = tabContents[tabId]
+          const title = content?.title || "Untitled"
+          const header = `Context-${index + 1}`
+
+          if (errors[tabId]) {
+            return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
+          }
+
+          if (!content) {
+            return `${header}\nTitle: ${title}\nContent:\n(No content)`
+          }
+
+          return `${header}\nTitle: ${title}\nContent:\n${content.html}`
+        })
+        .join("\n\n---\n\n")
+    }
+
+    let contentWithContext = messageText
+    if (selectedTabIds.length > 0) {
+      const contextText = buildContextText()
+      contentWithContext += `\n\n---\n\n\n${contextText}`
+    }
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: contentWithContext
+    }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     if (!customInput) setInput("")
