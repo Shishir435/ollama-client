@@ -1,4 +1,4 @@
-import { useSelectedTabs } from "@/context/selected-tab-context"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { useEffect, useRef, useState } from "react"
 
@@ -28,7 +28,7 @@ export const useChat = () => {
   const portRef = useRef<chrome.runtime.Port | null>(null)
 
   const { tabContents, errors } = useTabContents()
-  const { selectedTabs } = useSelectedTabs()
+  const { selectedTabIds } = useSelectedTabIds()
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -39,19 +39,36 @@ export const useChat = () => {
     if (!messageText) return
 
     // Build tab context
-    const contextText = selectedTabs
-      .map((id) => {
-        const tabId = parseInt(id)
-        if (errors[tabId]) {
-          return `Tab ${tabId}:\n❌ Error: ${errors[tabId]}`
-        }
-        return `Tab ${tabId}:\n${tabContents[tabId] || "(No content)"}`
-      })
-      .join("\n\n")
+    const buildContextText = () => {
+      return selectedTabIds
+        .map((id, index) => {
+          const tabId = parseInt(id)
+          const content = tabContents[tabId]
+          const title = content?.title || "Untitled"
+          const header = `Context-${index + 1}`
+
+          if (errors[tabId]) {
+            return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
+          }
+
+          if (!content) {
+            return `${header}\nTitle: ${title}\nContent:\n(No content)`
+          }
+
+          return `${header}\nTitle: ${title}\nContent:\n${content.html}`
+        })
+        .join("\n\n---\n\n")
+    }
+
+    let contentWithContext = messageText
+    if (selectedTabIds.length > 0) {
+      const contextText = buildContextText()
+      contentWithContext += `\n\n---\n\n\n${contextText}`
+    }
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: `${messageText}\n\n---\n\nContext:\n${contextText}`
+      content: contentWithContext
     }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)

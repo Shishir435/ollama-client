@@ -1,4 +1,4 @@
-import { SelectedTabsProvider } from "@/context/selected-tab-context"
+import { SelectedTabsProvider } from "@/context/selected-tab-ids-context"
 
 import "../globals.css"
 

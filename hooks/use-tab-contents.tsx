@@ -1,6 +1,11 @@
-import { useSelectedTabs } from "@/context/selected-tab-context"
-import { MESSAGE_KEYS } from "@/lib/constant"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useState } from "react"
+
+import { useStorage } from "@plasmohq/storage/hook"
+
+import useOpenTabs from "./use-open-tab"
 
 const fetchTabContent = (tabId: number) => {
   return new Promise<string>((resolve, reject) => {
@@ -17,24 +22,41 @@ const fetchTabContent = (tabId: number) => {
   })
 }
 export const useTabContents = () => {
-  const { selectedTabs, setErrors } = useSelectedTabs()
-  const [tabContents, setTabContents] = useState<Record<number, string>>({})
+  const { selectedTabIds, setErrors } = useSelectedTabIds()
+  const [tabContents, setTabContents] = useState<
+    Record<number, { title: string; html: string }>
+  >({})
   const [loading, setLoading] = useState(false)
+  const [tabAccess] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
 
+  const openTabs = useOpenTabs(tabAccess)
+
+  const fetchTabTitle = (tabId: number) => {
+    const tab = openTabs.find((tab) => tab.id === tabId)?.title
+    return tab || ""
+  }
   useEffect(() => {
-    if (selectedTabs.length === 0) return
+    if (selectedTabIds.length === 0) return
 
     const fetchAll = async () => {
       setLoading(true)
-      const newContents: Record<number, string> = {}
+      const newContents: Record<number, { title: string; html: string }> = {}
       const newErrors: Record<number, string> = {}
 
-      for (const idStr of selectedTabs) {
+      for (const idStr of selectedTabIds) {
         const tabId = parseInt(idStr)
+
         try {
           const html = await fetchTabContent(tabId)
+          const title = await fetchTabTitle(tabId)
           // Optional: parse HTML to check it's valid, sanitize if needed
-          newContents[tabId] = html
+          newContents[tabId] = { html, title }
         } catch (err) {
           newErrors[tabId] = typeof err === "string" ? err : "Unknown error"
         }
@@ -46,7 +68,7 @@ export const useTabContents = () => {
     }
 
     fetchAll()
-  }, [selectedTabs])
+  }, [selectedTabIds])
 
-  return { tabContents, loading, errors: useSelectedTabs().errors }
+  return { tabContents, loading, errors: useSelectedTabIds().errors }
 }

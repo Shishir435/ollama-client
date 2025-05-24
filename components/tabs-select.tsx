@@ -1,5 +1,5 @@
 import { MultiSelect } from "@/components/ui/multi-select"
-import { useSelectedTabs } from "@/context/selected-tab-context"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import useOpenTabs from "@/hooks/use-open-tab"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -22,7 +22,7 @@ export default function TabsSelect() {
     false
   )
   const openTabs = useOpenTabs(tabAccess)
-  const { selectedTabs, setSelectedTabs } = useSelectedTabs()
+  const { selectedTabIds, setSelectedTabIds } = useSelectedTabIds()
   if (!tabAccess) return null
 
   const tabOptions = openTabs.map((tab) => ({
@@ -34,8 +34,8 @@ export default function TabsSelect() {
     <div className="mb-2 w-full">
       <MultiSelect
         options={tabOptions}
-        onValueChange={setSelectedTabs}
-        defaultValue={selectedTabs}
+        onValueChange={setSelectedTabIds}
+        defaultValue={selectedTabIds}
         placeholder="Select open tabs"
       />
     </div>
