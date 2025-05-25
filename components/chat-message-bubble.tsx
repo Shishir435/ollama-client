@@ -15,8 +15,6 @@ export default function ChatMessageBubble({
   isLoading?: boolean
 }) {
   const isUser = msg.role === "user"
-  const isShort = isLoading && msg.content.length < 80
-  console.log(isShort)
 
   return (
     <div
