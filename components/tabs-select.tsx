@@ -26,11 +26,21 @@ export default function TabsSelect() {
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabIds()
   const getTabStatus = useTabStatusMap()
   if (!tabAccess) return null
+  const isAccessibleTab = (url: string | undefined) => {
+    if (!url) return false
+    return (
+      !url.startsWith("chrome://") &&
+      !url.startsWith("chrome-extension://") &&
+      !url.startsWith("chrome-untrusted://")
+    )
+  }
 
-  const tabOptions = openTabs.map((tab) => ({
-    label: trimTitle(tab.title),
-    value: tab.id?.toString() || tab.title
-  }))
+  const tabOptions = openTabs
+    .filter((tab) => isAccessibleTab(tab.url))
+    .map((tab) => ({
+      label: trimTitle(tab.title),
+      value: tab.id?.toString() || tab.title
+    }))
 
   return (
     <div className="mb-2 w-full">
