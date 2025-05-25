@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover"
 import { useOllamaModels } from "@/hooks/use-ollama-models"
 import { STORAGE_KEYS } from "@/lib/constant"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import { Check, ChevronDown, RotateCcw } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -39,7 +40,7 @@ function ModelMenu({
   const [showEmptyPopup, setShowEmptyPopup] = useState(false)
 
   const [selectedModel, setSelectedModel] = useStorage<string>(
-    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+    { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
   )
 

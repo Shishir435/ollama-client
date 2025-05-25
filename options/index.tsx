@@ -21,11 +21,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constant"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { CheckCircle2 } from "lucide-react"
 
 function OptionsIndex() {
   const [ollamaUrl, setOllamaUrl] = useStorage<string>(
-    STORAGE_KEYS.OLLAMA.BASE_URL,
+    { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"
   )
   const [saved, setSaved] = useState(false)

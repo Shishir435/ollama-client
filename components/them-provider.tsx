@@ -1,7 +1,7 @@
 import { STORAGE_KEYS } from "@/lib/constant"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { createContext, useContext, useEffect } from "react"
 
-import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
 
 type Theme = "dark" | "light" | "system"
@@ -24,8 +24,6 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-const storage = new Storage()
-
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -34,7 +32,7 @@ export function ThemeProvider({
   const [theme, setTheme] = useStorage<Theme>(
     {
       key: storageKey,
-      instance: storage
+      instance: plasmoGlobalStorage
     },
     defaultTheme
   )

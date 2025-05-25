@@ -1,6 +1,5 @@
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
-
-import { Storage } from "@plasmohq/storage"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export {}
 
@@ -16,9 +15,8 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener(async (msg) => {
     if (msg.type === MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL) {
       const { model, messages } = msg.payload
-      const storage = new Storage()
       const baseUrl =
-        (await storage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) ??
+        (await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) ??
         "http://localhost:11434"
 
       abortController = new AbortController()
@@ -88,10 +86,8 @@ chrome.runtime.onConnect.addListener((port) => {
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const storage = new Storage()
-
   if (message.type === MESSAGE_KEYS.OLLAMA.GET_MODELS) {
-    storage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
+    plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
       const OllamaBaseUrl = url ?? "http://localhost:11434"
       fetch(`${OllamaBaseUrl}/api/tags`)
         .then((res) => {

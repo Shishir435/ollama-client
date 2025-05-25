@@ -1,5 +1,6 @@
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -20,7 +21,7 @@ export const useChat = () => {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [selectedModel] = useStorage<string>(
-    STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+    { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
   )
 
