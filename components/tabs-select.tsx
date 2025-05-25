@@ -2,7 +2,7 @@ import { MultiSelect } from "@/components/ui/multi-select"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import useOpenTabs from "@/hooks/use-open-tab"
 import { useTabStatusMap } from "@/hooks/use-tab-status-map"
-import { STORAGE_KEYS } from "@/lib/constant"
+import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -25,14 +25,18 @@ export default function TabsSelect() {
   const openTabs = useOpenTabs(tabAccess)
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabIds()
   const getTabStatus = useTabStatusMap()
+  const [excludedPatterns] = useStorage<string[]>(
+    {
+      key: STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_EXCLUDE_URLS
+  )
   if (!tabAccess) return null
+
   const isAccessibleTab = (url: string | undefined) => {
     if (!url) return false
-    return (
-      !url.startsWith("chrome://") &&
-      !url.startsWith("chrome-extension://") &&
-      !url.startsWith("chrome-untrusted://")
-    )
+    return !excludedPatterns?.some((pattern) => new RegExp(pattern).test(url))
   }
 
   const tabOptions = openTabs

@@ -4,6 +4,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 
 import "../globals.css"
 
+import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
 import OllamaSetupInstructions from "@/components/ollama-setup-instructions"
 import SocialHandles from "@/components/social-handles"
@@ -68,6 +69,7 @@ function OptionsIndex() {
                     </div>
                   )}
                 </div>
+                <ExcludedUrls />
 
                 <div className="flex items-center gap-4">
                   <Label>Selected Model</Label>

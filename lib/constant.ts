@@ -23,10 +23,16 @@ export const STORAGE_KEYS = {
     PREFERENCE: "light-dark-theme"
   },
   BROWSER: {
-    TABS_ACCESS: "browser-tab-access"
+    TABS_ACCESS: "browser-tab-access",
+    EXCLUDE_URL_PATTERNS: "exclude-url-pattern"
   }
 }
 
+export const DEFAULT_EXCLUDE_URLS = [
+  "^chrome://",
+  "^chrome-extension://",
+  "^chrome-untrusted://"
+]
 export const SOCIAL_LINKS: SocialLink[] = [
   {
     label: "GitHub Page",
