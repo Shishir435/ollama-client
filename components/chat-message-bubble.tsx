@@ -15,14 +15,12 @@ export default function ChatMessageBubble({
   isLoading?: boolean
 }) {
   const isUser = msg.role === "user"
-  const isShort = msg.content.length < 40
+  const isShort = isLoading && msg.content.length < 80
+  console.log(isShort)
 
   return (
     <div
-      className={cn(
-        "flex w-full",
-        isUser ? "justify-end" : isShort ? "justify-start" : "justify-center"
-      )}>
+      className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
           "max-w-2xl rounded-xl p-2 text-sm shadow transition-colors",
