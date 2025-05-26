@@ -98,12 +98,56 @@ Or see [https://ollama.com](https://ollama.com) for help.
 
 ### ⚠️ Unable to Reach Ollama
 
-Make sure Ollama is installed and running.
+This extension couldn't connect to your **Ollama server**. It might not be running, or it could be misconfigured.
 
-Install: [https://ollama.com](https://ollama.com)
+---
 
-Run:
+### ✅ Make Sure Ollama is Installed and Running
 
-```bash
+If you haven't already:
+
+- **Download Ollama:** [https://ollama.com](https://ollama.com)
+- **Start the server manually:**
+
+\`\`\`bash
 ollama serve
-```
+\`\`\`
+
+> This command starts Ollama's local server, typically at \`http://localhost:11434\`
+
+---
+
+### :mag: How to Check if It's Running
+
+1. Open your browser and go to:  
+   [http://localhost:11434](http://localhost:11434)
+
+   If the page doesn't load, Ollama is not running.
+
+2. Open a terminal and run:
+
+   \`\`\`bash
+   curl http://localhost:11434/api/tags
+   \`\`\`
+
+   If you get a list of models or an empty JSON response, Ollama is up.
+
+---
+
+### ⚙️ Configure the Base URL (Optional)
+
+If you're using a remote Ollama server or a custom port:
+
+- Click the **Settings** (⚙️) icon in the top-right of the chat panel.
+- This opens the **Options** page.
+- There, you can configure:
+  - Custom **Base URL** (e.g., \`http://localhost:11434\`)
+  - Default **model**
+  - Theme preferences and more.
+
+---
+
+Still having trouble?  
+Make sure no VPN, firewall, or network policy is blocking requests to \`localhost:11434\`.
+
+For help, visit: [https://ollama.com](https://ollama.com)
