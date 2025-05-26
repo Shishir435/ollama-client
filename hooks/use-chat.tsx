@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { useStorage } from "@plasmohq/storage/hook"
 
 import { useTabContents } from "./use-tab-contents"
+import { useTokenSize } from "./use-token-size"
 
 export type Role = "user" | "assistant"
 
@@ -31,6 +32,35 @@ export const useChat = () => {
   const { tabContents, errors } = useTabContents()
   const { selectedTabIds } = useSelectedTabIds()
 
+  const buildContextText = () => {
+    return selectedTabIds
+      .map((id, index) => {
+        const tabId = parseInt(id)
+        const content = tabContents[tabId]
+        const title = content?.title || "Untitled"
+        const header = `Context-${index + 1}`
+
+        if (errors[tabId]) {
+          return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
+        }
+
+        if (!content) {
+          return `${header}\nTitle: ${title}\nContent:\n(No content)`
+        }
+
+        return `${header}\nTitle: ${title}\nContent:\n${content.html}`
+      })
+      .join("\n\n---\n\n")
+  }
+
+  const contextText = buildContextText()
+  const contentWithContext =
+    selectedTabIds.length > 0
+      ? `${input.trim()}\n\n---\n\n\n${contextText}`
+      : input.trim()
+
+  const tokenSize = useTokenSize(contentWithContext)
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
@@ -39,34 +69,12 @@ export const useChat = () => {
     const messageText = customInput?.trim() ?? input.trim()
     if (!messageText) return
 
-    // Build tab context
-    const buildContextText = () => {
-      return selectedTabIds
-        .map((id, index) => {
-          const tabId = parseInt(id)
-          const content = tabContents[tabId]
-          const title = content?.title || "Untitled"
-          const header = `Context-${index + 1}`
-
-          if (errors[tabId]) {
-            return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
-          }
-
-          if (!content) {
-            return `${header}\nTitle: ${title}\nContent:\n(No content)`
-          }
-
-          return `${header}\nTitle: ${title}\nContent:\n${content.html}`
-        })
-        .join("\n\n---\n\n")
-    }
-
     let contentWithContext = messageText
     if (selectedTabIds.length > 0) {
       const contextText = buildContextText()
       contentWithContext += `\n\n---\n\n\n${contextText}`
     }
-
+    console.log("token size: ", tokenSize)
     const userMessage: ChatMessage = {
       role: "user",
       content: contentWithContext
@@ -137,6 +145,7 @@ export const useChat = () => {
     isLoading,
     sendMessage,
     stopGeneration,
-    scrollRef
+    scrollRef,
+    tokenSize
   }
 }

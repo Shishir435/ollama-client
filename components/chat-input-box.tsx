@@ -15,13 +15,15 @@ export default function ChatInputBox({
   setInput,
   isLoading,
   onSend,
-  stopGeneration
+  stopGeneration,
+  tokenSize
 }: {
   input: string
   setInput: (val: string) => void
   isLoading: boolean
   onSend: () => void
   stopGeneration: () => void
+  tokenSize: number
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useAutoResizeTextarea(textareaRef, input)
@@ -32,10 +34,11 @@ export default function ChatInputBox({
       onSend()
     }
   }
-
+  console.log()
   return (
     <div className="relative h-auto">
       <TabsSelect />
+      <div>token size{tokenSize}</div>
       <Textarea
         id="chat-input-textarea"
         ref={textareaRef}

@@ -16,7 +16,8 @@ export default function Chat() {
     isLoading,
     sendMessage,
     stopGeneration,
-    scrollRef
+    scrollRef,
+    tokenSize
   } = useChat()
 
   const getMessageMargin = (currentIndex: number): string => {
@@ -66,6 +67,7 @@ export default function Chat() {
               isLoading={isLoading}
               onSend={sendMessage}
               stopGeneration={stopGeneration}
+              tokenSize={tokenSize}
             />
           </div>
         </div>
