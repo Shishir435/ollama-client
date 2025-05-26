@@ -35,7 +35,10 @@ chrome.runtime.onConnect.addListener((port) => {
 
         if (!response.ok || !response.body) {
           port.postMessage({
-            error: `HTTP ${response.status}: ${response.statusText}`
+            error: {
+              status: response.status,
+              message: response.statusText
+            }
           })
           return
         }
@@ -75,7 +78,12 @@ chrome.runtime.onConnect.addListener((port) => {
           port.postMessage({ done: true, aborted: true })
         } else {
           console.error("Streaming error:", err.message)
-          port.postMessage({ error: err.message })
+          port.postMessage({
+            error: {
+              status: 0,
+              messages: err.message
+            }
+          })
         }
       }
     }
@@ -91,14 +99,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const OllamaBaseUrl = url ?? "http://localhost:11434"
       fetch(`${OllamaBaseUrl}/api/tags`)
         .then((res) => {
-          if (!res.ok)
-            throw new Error(`Failed to fetch models: ${res.statusText}`)
+          if (!res.ok) {
+            sendResponse({
+              success: false,
+              error: { status: res.status, message: res.statusText }
+            })
+            return
+          }
+          // throw new Error(`Failed to fetch models: ${res.statusText}`)
           return res.json()
         })
         .then((data) => {
           sendResponse({ success: true, data })
         })
-        .catch((err) => sendResponse({ success: false, error: err.message }))
+        .catch((err) =>
+          sendResponse({
+            success: false,
+            error: { status: 0, message: err.message }
+          })
+        )
     })
     return true
   }

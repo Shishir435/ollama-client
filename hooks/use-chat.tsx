@@ -1,5 +1,5 @@
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
+import { ERROR_MESSAGES, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useRef, useState } from "react"
 
@@ -101,9 +101,14 @@ export const useChat = () => {
       if (msg.done || msg.error || msg.aborted) {
         setIsLoading(false)
         if (msg.error) {
+          const { status } = msg.error
+          const errorMessage =
+            ERROR_MESSAGES[status] ??
+            `❌ Unknown error: ${msg.error.message || "No message"}`
+
           setMessages([
             ...newMessages,
-            { role: "assistant", content: `❌ Error: ${msg.error}`, done: true }
+            { role: "assistant", content: errorMessage, done: true }
           ])
         } else {
           assistantMessage = { ...assistantMessage, done: true }
