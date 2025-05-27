@@ -1,11 +1,11 @@
+import { useChatInput } from "@/context/chat-input-context"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
+import { useTabContentContext } from "@/context/tab-context-context"
 import { ERROR_MESSAGES, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
-
-import { useTabContents } from "./use-tab-contents"
 
 export type Role = "user" | "assistant"
 
@@ -18,59 +18,39 @@ export interface ChatMessage {
 
 export const useChat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [selectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
   )
 
+  const { input, setInput } = useChatInput()
+  const { selectedTabIds } = useSelectedTabIds()
+  const contextText = useTabContentContext()
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const portRef = useRef<chrome.runtime.Port | null>(null)
-
-  const { tabContents, errors } = useTabContents()
-  const { selectedTabIds } = useSelectedTabIds()
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
   const sendMessage = (customInput?: string, customModel?: string) => {
-    const messageText = customInput?.trim() ?? input.trim()
-    if (!messageText) return
+    const rawInput = customInput?.trim() ?? input.trim()
+    if (!rawInput) return
 
-    // Build tab context
-    const buildContextText = () => {
-      return selectedTabIds
-        .map((id, index) => {
-          const tabId = parseInt(id)
-          const content = tabContents[tabId]
-          const title = content?.title || "Untitled"
-          const header = `Context-${index + 1}`
-
-          if (errors[tabId]) {
-            return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
-          }
-
-          if (!content) {
-            return `${header}\nTitle: ${title}\nContent:\n(No content)`
-          }
-
-          return `${header}\nTitle: ${title}\nContent:\n${content.html}`
-        })
-        .join("\n\n---\n\n")
-    }
-
-    let contentWithContext = messageText
-    if (selectedTabIds.length > 0) {
-      const contextText = buildContextText()
-      contentWithContext += `\n\n---\n\n\n${contextText}`
-    }
+    // Only add context if not customInput (i.e. initial message, not regenerated)
+    const includeContext =
+      !customInput && selectedTabIds.length > 0 && contextText?.trim()
+    const contentWithContext = includeContext
+      ? `${rawInput}\n\n---\n\n${contextText}`
+      : rawInput
 
     const userMessage: ChatMessage = {
       role: "user",
       content: contentWithContext
     }
+
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     if (!customInput) setInput("")
@@ -82,11 +62,13 @@ export const useChat = () => {
 
     portRef.current = port
     const modelUsed = customModel || selectedModel
+
     let assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
       model: modelUsed
     }
+
     setMessages([...newMessages, assistantMessage])
 
     port.onMessage.addListener((msg) => {
@@ -122,7 +104,7 @@ export const useChat = () => {
     port.postMessage({
       type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
       payload: {
-        model: customModel || selectedModel,
+        model: modelUsed,
         messages: newMessages
       }
     })
@@ -136,8 +118,6 @@ export const useChat = () => {
   }
 
   return {
-    input,
-    setInput,
     messages,
     isLoading,
     sendMessage,

@@ -1,4 +1,5 @@
 import { Textarea } from "@/components/ui/textarea"
+import { useChatInput } from "@/context/chat-input-context"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useRef } from "react"
 
@@ -11,18 +12,15 @@ import TabsToggle from "./tabs-toggle"
 import ThemeToggle from "./theme-toggle"
 
 export default function ChatInputBox({
-  input,
-  setInput,
   isLoading,
   onSend,
   stopGeneration
 }: {
-  input: string
-  setInput: (val: string) => void
   isLoading: boolean
   onSend: () => void
   stopGeneration: () => void
 }) {
+  const { input, setInput } = useChatInput()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useAutoResizeTextarea(textareaRef, input)
 

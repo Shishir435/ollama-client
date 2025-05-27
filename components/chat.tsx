@@ -9,15 +9,8 @@ import { ThemeProvider } from "./them-provider"
 import WelcomeScreen from "./welcome-screen"
 
 export default function Chat() {
-  const {
-    input,
-    setInput,
-    messages,
-    isLoading,
-    sendMessage,
-    stopGeneration,
-    scrollRef
-  } = useChat()
+  const { messages, isLoading, sendMessage, stopGeneration, scrollRef } =
+    useChat()
 
   const getMessageMargin = (currentIndex: number): string => {
     if (currentIndex === 0) return "mt-2"
@@ -61,8 +54,6 @@ export default function Chat() {
           )}
           <div className="sticky bottom-0 z-10 w-full bg-background pt-2">
             <ChatInputBox
-              input={input}
-              setInput={setInput}
               isLoading={isLoading}
               onSend={sendMessage}
               stopGeneration={stopGeneration}
