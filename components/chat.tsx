@@ -9,8 +9,14 @@ import { ThemeProvider } from "./them-provider"
 import WelcomeScreen from "./welcome-screen"
 
 export default function Chat() {
-  const { messages, isLoading, sendMessage, stopGeneration, scrollRef } =
-    useChat()
+  const {
+    messages,
+    isLoading,
+    isStreaming,
+    sendMessage,
+    stopGeneration,
+    scrollRef
+  } = useChat()
 
   const getMessageMargin = (currentIndex: number): string => {
     if (currentIndex === 0) return "mt-2"
@@ -39,6 +45,7 @@ export default function Chat() {
                     onRegenerate={
                       msg.role === "assistant"
                         ? (model) => {
+                            if (isLoading || isStreaming) return
                             const prevUser = [...messages.slice(0, idx)]
                               .reverse()
                               .find((m) => m.role === "user")
@@ -55,6 +62,7 @@ export default function Chat() {
           <div className="sticky bottom-0 z-10 w-full bg-background pt-2">
             <ChatInputBox
               isLoading={isLoading}
+              isStreaming={isStreaming}
               onSend={sendMessage}
               stopGeneration={stopGeneration}
             />
