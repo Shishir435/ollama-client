@@ -4,17 +4,20 @@ import "../globals.css"
 
 import Chat from "@/components/chat"
 import { ChatInputProvider } from "@/context/chat-input-context"
+import { LoadStreamProvider } from "@/context/load-stream-context"
 import { TabContentContextProvider } from "@/context/tab-context-context"
 
 function IndexSidePanel() {
   return (
-    <ChatInputProvider>
-      <SelectedTabsProvider>
-        <TabContentContextProvider>
-          <Chat />
-        </TabContentContextProvider>
-      </SelectedTabsProvider>
-    </ChatInputProvider>
+    <LoadStreamProvider>
+      <ChatInputProvider>
+        <SelectedTabsProvider>
+          <TabContentContextProvider>
+            <Chat />
+          </TabContentContextProvider>
+        </SelectedTabsProvider>
+      </ChatInputProvider>
+    </LoadStreamProvider>
   )
 }
 

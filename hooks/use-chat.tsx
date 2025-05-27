@@ -1,4 +1,5 @@
 import { useChatInput } from "@/context/chat-input-context"
+import { useLoadStream } from "@/context/load-stream-context"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { useTabContentContext } from "@/context/tab-context-context"
 import { ERROR_MESSAGES, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
@@ -18,7 +19,6 @@ export interface ChatMessage {
 
 export const useChat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
@@ -27,6 +27,8 @@ export const useChat = () => {
   const { input, setInput } = useChatInput()
   const { selectedTabIds } = useSelectedTabIds()
   const contextText = useTabContentContext()
+  const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
+    useLoadStream()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const portRef = useRef<chrome.runtime.Port | null>(null)
@@ -55,6 +57,7 @@ export const useChat = () => {
     setMessages(newMessages)
     if (!customInput) setInput("")
     setIsLoading(true)
+    setIsStreaming(false)
 
     const port = chrome.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
@@ -71,7 +74,13 @@ export const useChat = () => {
 
     setMessages([...newMessages, assistantMessage])
 
+    let firstChunkReceived = false
+
     port.onMessage.addListener((msg) => {
+      if (!firstChunkReceived) {
+        setIsStreaming(true)
+        firstChunkReceived = true
+      }
       if (msg.delta !== undefined) {
         assistantMessage = {
           ...assistantMessage,
@@ -82,6 +91,7 @@ export const useChat = () => {
 
       if (msg.done || msg.error || msg.aborted) {
         setIsLoading(false)
+        setIsStreaming(false)
         if (msg.error) {
           const { status } = msg.error
           const errorMessage =
@@ -115,11 +125,13 @@ export const useChat = () => {
       type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
     })
     setIsLoading(false)
+    setIsStreaming(false)
   }
 
   return {
     messages,
     isLoading,
+    isStreaming,
     sendMessage,
     stopGeneration,
     scrollRef

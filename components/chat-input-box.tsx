@@ -13,10 +13,12 @@ import ThemeToggle from "./theme-toggle"
 
 export default function ChatInputBox({
   isLoading,
+  isStreaming,
   onSend,
   stopGeneration
 }: {
   isLoading: boolean
+  isStreaming: boolean
   onSend: () => void
   stopGeneration: () => void
 }) {
@@ -53,6 +55,7 @@ export default function ChatInputBox({
       </div>
       <SendOrStopButton
         isLoading={isLoading}
+        isStreaming={isStreaming}
         onSend={onSend}
         stopGeneration={stopGeneration}
       />
