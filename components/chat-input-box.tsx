@@ -1,4 +1,6 @@
 import { Textarea } from "@/components/ui/textarea"
+import { useChatInput } from "@/context/chat-input-context"
+import { useLoadStream } from "@/context/load-stream-context"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useRef } from "react"
 
@@ -11,18 +13,14 @@ import TabsToggle from "./tabs-toggle"
 import ThemeToggle from "./theme-toggle"
 
 export default function ChatInputBox({
-  input,
-  setInput,
-  isLoading,
   onSend,
   stopGeneration
 }: {
-  input: string
-  setInput: (val: string) => void
-  isLoading: boolean
   onSend: () => void
   stopGeneration: () => void
 }) {
+  const { input, setInput } = useChatInput()
+  const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useAutoResizeTextarea(textareaRef, input)
 
@@ -47,17 +45,13 @@ export default function ChatInputBox({
         autoFocus
       />
       <div className="absolute bottom-0 left-2 flex items-center gap-1">
-        <ModelMenu tooltipTextContent="Switch model" />
+        <ModelMenu showStatusPopup={false} tooltipTextContent="Switch model" />
         <SettingsButton />
         <BugReportIcon />
         <ThemeToggle />
         <TabsToggle />
       </div>
-      <SendOrStopButton
-        isLoading={isLoading}
-        onSend={onSend}
-        stopGeneration={stopGeneration}
-      />
+      <SendOrStopButton onSend={onSend} stopGeneration={stopGeneration} />
     </div>
   )
 }

@@ -4,35 +4,36 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useLoadStream } from "@/context/load-stream-context"
 import { Circle, SendHorizontal } from "lucide-react"
 
 export default function SendOrStopButton({
-  isLoading,
   onSend,
   stopGeneration
 }: {
-  isLoading: boolean
   onSend: () => void
   stopGeneration: () => void
 }) {
+  const { isLoading, isStreaming } = useLoadStream()
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          onClick={isLoading ? stopGeneration : onSend}
+          onClick={isStreaming ? stopGeneration : onSend}
           variant="ghost"
           size="icon"
           className="absolute bottom-1 right-0 mr-2 rounded-full"
-          aria-label={isLoading ? "Stop generation" : "Send message"}>
-          {isLoading ? (
-            <Circle size={16} className="animate-pulse" />
+          aria-label={isStreaming ? "Stop generation" : "Send message"}
+          disabled={isLoading && !isStreaming}>
+          {isStreaming ? (
+            <Circle size={16} className="animate-pulse text-red-500" />
           ) : (
             <SendHorizontal size={16} />
           )}
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isLoading ? "Stop generation" : "Send message"}
+        {isStreaming ? "Stop generation" : "Send message"}
       </TooltipContent>
     </Tooltip>
   )

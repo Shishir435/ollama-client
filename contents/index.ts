@@ -1,6 +1,7 @@
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
+import { normalizeWhitespace } from "@/lib/utils"
 import { Readability } from "@mozilla/readability"
 
 const isExcludedUrl = async (url: string): Promise<boolean> => {
@@ -43,8 +44,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           document.cloneNode(true) as Document
         ).parse()
 
-        const readableText = article?.textContent || ""
-
+        let readableText = article?.textContent || ""
+        readableText = normalizeWhitespace(readableText)
         const transcript = getTranscript()
         const finalContent =
           (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
