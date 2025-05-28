@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama client",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Chat with your local Ollama LLMs directly in your browser. Lightweight, fast, and privacy-focused.",
   "author": "shishir.chaurasiya",
   "scripts": {
