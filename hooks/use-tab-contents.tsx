@@ -37,7 +37,7 @@ export const useTabContents = () => {
 
   const openTabs = useOpenTabs(tabAccess)
 
-  const fetchTabTitle = (tabId: number) => {
+  const getTabTitle = (tabId: number) => {
     const tab = openTabs.find((tab) => tab.id === tabId)?.title
     return tab || ""
   }
@@ -54,7 +54,7 @@ export const useTabContents = () => {
 
         try {
           const html = await fetchTabContent(tabId)
-          const title = await fetchTabTitle(tabId)
+          const title = getTabTitle(tabId)
           // Optional: parse HTML to check it's valid, sanitize if needed
           newContents[tabId] = { html, title }
         } catch (err) {
