@@ -1,11 +1,8 @@
----
 # 🧠 Ollama Client — Chat with Local LLMs in Your Browser
 
 **Ollama Client** is a powerful yet lightweight Chrome extension that lets you interact with locally hosted LLMs using [Ollama](https://ollama.com). Perfect for developers, researchers, and power users who want fast, private AI responses directly inside their browser.
 
 > ✅ Now available on the Chrome Web Store: [Install Ollama Client](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-
----
 
 ## 🚀 Key Features
 
