@@ -28,34 +28,28 @@ interface ModelMenuProps {
   trigger?: React.ReactNode
   onSelectModel?: (model: string) => void
   tooltipTextContent: string
+  showStatusPopup?: boolean
 }
 
 function ModelMenu({
   trigger,
   onSelectModel,
-  tooltipTextContent
+  tooltipTextContent,
+  showStatusPopup = true
 }: ModelMenuProps) {
   const [open, setOpen] = useState(false)
-  const [showErrorPopup, setShowErrorPopup] = useState(false)
-  const [showEmptyPopup, setShowEmptyPopup] = useState(false)
-
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
   )
 
-  const { models, error, refresh, loading } = useOllamaModels()
+  const { status, models, error, refresh, loading } = useOllamaModels()
 
   useEffect(() => {
-    if (error) setShowErrorPopup(true)
-    else if (models && models.length === 0) setShowEmptyPopup(true)
-  }, [error, models])
-
-  useEffect(() => {
-    if (models && models.length > 0 && !selectedModel) {
+    if (status === "ready" && models.length > 0 && !selectedModel) {
       setSelectedModel(models[0].name)
     }
-  }, [models, selectedModel, setSelectedModel])
+  }, [status, models, selectedModel, setSelectedModel])
 
   const handleSelect = (modelName: string) => {
     if (onSelectModel) {
@@ -66,11 +60,11 @@ function ModelMenu({
     setOpen(false)
   }
 
-  if (showErrorPopup) {
+  if (showStatusPopup && status === "error") {
     return (
       <InfoPopup
-        open={showErrorPopup}
-        onClose={() => setShowErrorPopup(false)}
+        open={true}
+        onClose={() => {}}
         title="Failed to Load Models"
         message={error!}
         type="error"
@@ -79,11 +73,11 @@ function ModelMenu({
     )
   }
 
-  if (showEmptyPopup) {
+  if (showStatusPopup && status === "empty") {
     return (
       <InfoPopup
-        open={showEmptyPopup}
-        onClose={() => setShowEmptyPopup(false)}
+        open={true}
+        onClose={() => {}}
         title="No Models Found"
         message="Please pull at least one model in Ollama to get started."
         type="warning"

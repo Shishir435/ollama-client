@@ -45,7 +45,7 @@ export default function ChatInputBox({
         autoFocus
       />
       <div className="absolute bottom-0 left-2 flex items-center gap-1">
-        <ModelMenu tooltipTextContent="Switch model" />
+        <ModelMenu showStatusPopup={false} tooltipTextContent="Switch model" />
         <SettingsButton />
         <BugReportIcon />
         <ThemeToggle />

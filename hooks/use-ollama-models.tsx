@@ -30,5 +30,13 @@ export function useOllamaModels() {
     fetchModels()
   }, [])
 
-  return { models, error, loading, refresh: fetchModels }
+  const status: "loading" | "error" | "empty" | "ready" = loading
+    ? "loading"
+    : error
+      ? "error"
+      : !models || models.length === 0
+        ? "empty"
+        : "ready"
+
+  return { models, error, loading, status, refresh: fetchModels }
 }
