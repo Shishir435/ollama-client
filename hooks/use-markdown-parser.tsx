@@ -10,6 +10,8 @@ import { useEffect, useState } from "react"
 
 import "highlight.js/styles/github-dark.css"
 
+import { normalizeWhitespace } from "@/lib/utils"
+
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -35,7 +37,8 @@ export function useMarkdownParser(markdown: string) {
   const [html, setHtml] = useState("")
 
   useEffect(() => {
-    const rawHtml = md.render(markdown)
+    const cleanedMarkdown = normalizeWhitespace(markdown)
+    const rawHtml = md.render(cleanedMarkdown)
     const safeHtml = DOMPurify.sanitize(rawHtml)
     setHtml(safeHtml)
   }, [markdown])
