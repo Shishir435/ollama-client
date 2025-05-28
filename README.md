@@ -1,143 +1,124 @@
-Here’s a refined and clean version of your `README.md` with better formatting, corrected markdown syntax, and consistent styling:
+---
+# 🧠 Ollama Client — Chat with Local LLMs in Your Browser
+
+**Ollama Client** is a powerful yet lightweight Chrome extension that lets you interact with locally hosted LLMs using [Ollama](https://ollama.com). Perfect for developers, researchers, and power users who want fast, private AI responses directly inside their browser.
+
+> ✅ Now available on the Chrome Web Store: [Install Ollama Client](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
 
 ---
 
-# 🧠 Ollama Client — Chat with Local LLMs via Browser Extension
+## 🚀 Key Features
 
-A lightweight and user-friendly browser extension that lets you chat with locally hosted Ollama LLMs — right from your browser. Perfect for quick AI interactions without leaving your current workflow!
-
----
-
-## 🚀 Features
-
-- 🔌 **Connect to Local Ollama** – Easily hook into your local Ollama server.
-- 💬 **Chat Interface** – Minimal and responsive UI for seamless chatting.
-- 📦 **Model Selector** – Switch between models on the fly.
-- ⚙️ **Settings Page** – Configure server URL and choose default model.
-- 🐞 **Report Bugs** – One-click shortcut to report issues or request features.
+- 🔌 **Local Ollama Integration** – Connect to your own Ollama server, no API keys required.
+- 💬 **In-Browser Chat UI** – Lightweight, minimal chat interface.
+- 🔄 **Model Switcher** – Choose from any installed Ollama model on the fly.
+- ⚙️ **Custom Settings Panel** – Configure base URL, default model, theme, and excluded URLs.
+- ✂️ **Content Parsing** – Automatically reads and summarizes page content using Mozilla Readability.
+- 📜 **Transcript Parsing** – Extracts transcripts from supported platforms like YouTube, Udemy, and Coursera.
+- 📋 **Regenerate / Copy Response** – Rerun answers and easily copy outputs.
 
 ---
 
-## 🛠️ Installation
+## 🧰 How to Set Up Ollama for This Extension
 
-> 🔜 Coming soon to Chrome Web Store and Firefox Add-ons!
+To use this extension, you need to:
 
-### Manual Installation (Development)
+1. **Install Ollama on your machine**
+2. **Pull a model** (e.g., `gemma:3b` or `llama3:8b`)
+3. **Allow Chrome Extensions via CORS**
 
-1. Clone the repo:
-
-   ```bash
-   git clone https://github.com/Shishir435/ollama-client.git
-   cd ollama-client
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pnpm install
-   ```
-
-3. Build the extension:
-
-   ```bash
-   pnpm build
-   ```
-
-4. Load the unpacked extension in your browser:
-
-   - Go to `chrome://extensions` (or your browser’s equivalent)
-   - Enable **Developer Mode**
-   - Click **Load unpacked** and select the `dist/` folder
+Follow this step-by-step guide:
+📖 [Ollama Setup Guide for Browser Extensions](https://shishir435.github.io/ollama-client/ollama-setup-guide)
 
 ---
 
-## ⚙️ Configuration
+## 🛠️ Quick Installation Guide
 
-Make sure your [Ollama](https://ollama.com) server is running:
+### ✅ 1. Install the Chrome Extension
+
+Get it from the Chrome Web Store:
+👉 [Ollama Client - Chrome Extension](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+
+---
+
+### ✅ 2. Install Ollama on Your System
+
+Visit: [https://ollama.com](https://ollama.com)
+Then run:
 
 ```bash
 ollama serve
 ```
 
-1. Click the extension icon to open the chat window.
-2. Go to the **Options** page:
-
-   - Set your local Ollama server URL (default: `http://localhost:11434`)
-   - Select your preferred model (`llama2`, `mistral`, `codellama`, etc.)
+This starts a local server at `http://localhost:11434`.
 
 ---
 
-## 🔐 Avoiding CORS Issues
-
-To allow the browser extension to communicate with your local Ollama server, configure the `OLLAMA_ORIGINS` environment variable on your system.
-
-### 🖥️ macOS (Launch Agent)
-
-1. Edit the launch agent:
-
-   ```bash
-   nano ~/Library/LaunchAgents/com.ollama.server.plist
-   ```
-
-2. Add inside `<key>EnvironmentVariables</key>`:
-
-   ```xml
-   <key>OLLAMA_ORIGINS</key>
-   <string>chrome-extension://*</string>
-   ```
-
-3. Save and reload the launch agent:
-
-   ```bash
-   launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
-   launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
-   ```
-
----
-
-### 🐧 Linux (systemd)
-
-1. Edit the Ollama service:
-
-   ```bash
-   sudo systemctl edit --full ollama.service
-   ```
-
-2. Add under `[Service]`:
-
-   ```bash
-   Environment="OLLAMA_ORIGINS=chrome-extension://*"
-   ```
-
-3. Reload and restart:
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart ollama
-   ```
-
----
-
-### 🪟 Windows
-
-1. Press `Win + R`, type `sysdm.cpl`, and press Enter.
-2. Go to the **Advanced** tab → click **Environment Variables**.
-3. Add a new **User Variable**:
-
-   - **Name:** `OLLAMA_ORIGINS`
-   - **Value:** `chrome-extension://*`
-
-4. Restart Ollama to apply changes.
-
----
-
-### 💡 Allowing Multiple Origins
-
-To allow both the extension and local web apps:
+### ✅ 3. Pull a Model (e.g., Gemma 3B)
 
 ```bash
-OLLAMA_ORIGINS=chrome-extension://*,http://localhost:3000
+ollama pull gemma3:1b
 ```
+
+> You can also pull other models like `llama3:8b`, `mistral`, `codellama`, etc.
+
+---
+
+### ⚙️ 4. Configure CORS for Chrome Extension Access
+
+If you see this error:
+
+> ❌ 403 Forbidden: CORS Error
+> Your Ollama server is blocking requests from this Chrome extension.
+
+Then follow the full instructions here:
+📖 [Ollama Setup Guide](https://shishir435.github.io/ollama-client/ollama-setup-guide)
+
+It includes specific steps for:
+
+- 🖥️ macOS (Launch Agent)
+- 🐧 Linux (systemd)
+- 🪟 Windows (Environment Variables)
+
+Example config:
+
+```bash
+export OLLAMA_ORIGINS=chrome-extension://*
+```
+
+---
+
+## ⚙️ Configuration & Options
+
+After installing:
+
+1. Click the **Ollama Client** icon in your browser.
+2. Open the ⚙️ **Settings Page**.
+3. Configure:
+
+   - ✅ Base URL (`http://localhost:11434`)
+   - 🤖 Default Model (e.g., `gemma:3b`)
+   - 🎨 Theme Preferences
+   - 🚫 Excluded URLs (for auto-context)
+
+---
+
+### 🤔 Which Ollama Model Should You Use?
+
+Not sure what model your machine can handle? Here's a quick guide based on your hardware:
+
+| System Specs                         | Recommended Models           | Notes                                                                |
+| ------------------------------------ | ---------------------------- | -------------------------------------------------------------------- |
+| 🔹 **8GB RAM** (no GPU)              | `gemma:2b`, `mistral:7b-q4`  | Stick to small **quantized** models (e.g., `q4_0`)                   |
+| 🔹 **16GB RAM** (no GPU)             | `gemma:2b`, `gemma:3b-q4`    | Avoid anything above 3B. Use quantized models for better performance |
+| 🔹 **16GB+ RAM** with GPU (6GB VRAM) | `gemma:3b`, `llama3:8b-q4`   | Still use quantized models. Avoid full-precision large models        |
+| 🔹 **32GB+ RAM** or **high-end GPU** | `llama3:8b`, `codellama:13b` | Can run larger models with better speed and quality                  |
+| 🔹 **RTX 3090+ / Apple M3 Max**      | `llama3:70b`, `mixtral`      | These are massive models — only use on very high-end machines        |
+
+> ✅ **Tip:** Always prefer quantized models (e.g., `gemma:3b-q4_0`) for better compatibility on low-memory systems.
+
+📚 **Browse More Models**:
+👉 [Ollama Model Library](https://ollama.com/library)
 
 ---
 
@@ -148,14 +129,16 @@ OLLAMA_ORIGINS=chrome-extension://*,http://localhost:3000
 - **TailwindCSS**
 - **Lucide Icons**
 - **Chrome Extension APIs**
-- **Ollama (local LLM server)**
+- **Ollama (LLM backend)**
 
 ---
 
-## 📎 Useful Links
+## 🔗 Useful Links
 
-- 🔗 [GitHub Repo](https://github.com/Shishir435/ollama-client)
-- 🌐 [Portfolio](https://www.shishirchaurasiya.in)
-- 🐛 [Report a Bug or Request a Feature](https://github.com/Shishir435/ollama-client/issues)
+- 🌐 **Install Extension**: [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+- 📖 **Setup Guide**: [Ollama Setup Instructions](https://shishir435.github.io/ollama-client/ollama-setup-guide)
+- 💻 **GitHub Repo**: [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
+- 🐛 **Issue Tracker**: [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
+- 🙋‍♂️ **Portfolio**: [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
 
 ---
