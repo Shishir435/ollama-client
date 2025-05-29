@@ -1,0 +1,502 @@
+<!-- <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ollama Client Promo Tile - Centered Layout</title>
+    <style>
+      @font-face {
+        font-family: "Google Sans Rounded";
+        src: url("https://fonts.gstatic.com/s/googlesans/v34/4UaGrENHsxJlGDuGo1OIlL3Owp4.woff2")
+          format("woff2");
+        font-display: swap;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      font-family:
+        &quot;Google Sans Rounded&quot;,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    ">
+    <div
+      style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      ">
+      <canvas
+        id="promoCanvas"
+        width="440"
+        height="280"
+        style="
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+          background: white;
+        "></canvas>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px">
+      <button
+        onclick="downloadImage()"
+        style="
+          background: linear-gradient(45deg, #6366f1, #8b5cf6);
+          color: white;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+          transition: all 0.2s ease;
+        ">
+        Download PNG
+      </button>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("promoCanvas")
+      const ctx = canvas.getContext("2d")
+
+      const colors = {
+        primary: "#6366f1",
+        primaryLight: "#8b5cf6",
+        secondary: "#10b981",
+        surface: "#ffffff",
+        onSurface: "#1f2937",
+        onSurfaceVariant: "#6b7280",
+        outline: "#e5e7eb"
+      }
+
+      ctx.fillStyle = colors.surface
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Grid background
+      ctx.save()
+      ctx.globalAlpha = 0.03
+      ctx.strokeStyle = colors.primary
+      ctx.lineWidth = 1
+      for (let i = 0; i <= canvas.width; i += 40) {
+        ctx.beginPath()
+        ctx.moveTo(i, 0)
+        ctx.lineTo(i, canvas.height)
+        ctx.stroke()
+      }
+      for (let j = 0; j <= canvas.height; j += 40) {
+        ctx.beginPath()
+        ctx.moveTo(0, j)
+        ctx.lineTo(canvas.width, j)
+        ctx.stroke()
+      }
+      ctx.restore()
+
+      // Floating bubbles
+      const floatingElements = [
+        { x: 50, y: 40, size: 8, color: colors.primary, opacity: 0.2 },
+        { x: 380, y: 60, size: 6, color: colors.primaryLight, opacity: 0.3 },
+        { x: 60, y: 220, size: 4, color: colors.secondary, opacity: 0.4 },
+        { x: 400, y: 180, size: 10, color: colors.secondary, opacity: 0.15 }
+      ]
+
+      floatingElements.forEach((el) => {
+        ctx.save()
+        ctx.globalAlpha = el.opacity
+        ctx.fillStyle = el.color
+        ctx.beginPath()
+        ctx.arc(el.x, el.y, el.size, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      })
+
+      // Load and render image + text after image is loaded
+      const logoImg = new Image()
+      logoImg.onload = () => {
+        const logoWidth = 150
+        const logoHeight = 150
+        const spacing = 10
+
+        // Approx width of right-hand text block
+        const textBlockWidth = 240
+        const totalBlockWidth = logoWidth + spacing + textBlockWidth
+        const leftOffset = (canvas.width - totalBlockWidth) / 2
+
+        // Logo
+        ctx.drawImage(logoImg, 10, 70, logoWidth, logoHeight)
+
+        // Text
+        ctx.fillStyle = colors.onSurface
+        ctx.font =
+          '600 42px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+        ctx.textAlign = "left"
+        ctx.fillText("Ollama Client", 160, 110)
+
+        ctx.fillStyle = colors.onSurfaceVariant
+        ctx.font =
+          '400 20px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+        ctx.fillText("Chat with Local LLM", 161, 140)
+        ctx.fillText("inside your browser", 162, 165)
+
+        // Feature chips
+        const features = ["Private", "Fast", "Secure"]
+        let chipX = 162
+        const chipY = 200
+
+        features.forEach((feature, index) => {
+          const chipWidth = ctx.measureText(feature).width + 24
+          const chipHeight = 28
+
+          ctx.fillStyle = index === 1 ? colors.secondary : colors.primary
+          ctx.globalAlpha = 0.1
+          ctx.beginPath()
+          ctx.roundRect(chipX, chipY, chipWidth, chipHeight, 14)
+          ctx.fill()
+
+          ctx.globalAlpha = 0.2
+          ctx.strokeStyle = index === 1 ? colors.secondary : colors.primary
+          ctx.lineWidth = 1
+          ctx.stroke()
+          ctx.globalAlpha = 1
+
+          ctx.fillStyle = index === 1 ? colors.secondary : colors.primary
+          ctx.font =
+            '500 14px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+          ctx.textAlign = "center"
+          ctx.fillText(feature, chipX + chipWidth / 2, chipY + 18)
+
+          chipX += chipWidth + 12
+        })
+
+        // Gradient line
+        const gradient = ctx.createLinearGradient(161, 245, canvas.width, 245)
+        gradient.addColorStop(0, colors.primary)
+        gradient.addColorStop(0.6, colors.primaryLight)
+        gradient.addColorStop(1, "transparent")
+
+        ctx.strokeStyle = gradient
+        ctx.lineWidth = 4
+        ctx.lineCap = "round"
+        ctx.beginPath()
+        ctx.moveTo(215, 245)
+        ctx.lineTo(canvas.width - 100, 245)
+        ctx.stroke()
+      }
+      logoImg.src = "icon-promo-light.png"
+
+      function downloadImage() {
+        const link = document.createElement("a")
+        link.download = "ollama-client-material-promo-440x280.png"
+        link.href = canvas.toDataURL("image/png")
+        link.click()
+      }
+
+      if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (
+          x,
+          y,
+          width,
+          height,
+          radius
+        ) {
+          this.moveTo(x + radius, y)
+          this.lineTo(x + width - radius, y)
+          this.quadraticCurveTo(x + width, y, x + width, y + radius)
+          this.lineTo(x + width, y + height - radius)
+          this.quadraticCurveTo(
+            x + width,
+            y + height,
+            x + width - radius,
+            y + height
+          )
+          this.lineTo(x + radius, y + height)
+          this.quadraticCurveTo(x, y + height, x, y + height - radius)
+          this.lineTo(x, y + radius)
+          this.quadraticCurveTo(x, y, x + radius, y)
+          this.closePath()
+        }
+      }
+    </script>
+  </body>
+</html> -->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ollama Client Promo Tile - Centered Layout</title>
+    <style>
+      @font-face {
+        font-family: "Google Sans Rounded";
+        src: url("https://fonts.gstatic.com/s/googlesans/v34/4UaGrENHsxJlGDuGo1OIlL3Owp4.woff2")
+          format("woff2");
+        font-display: swap;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      font-family:
+        &quot;Google Sans Rounded&quot;,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    ">
+    <div
+      style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      ">
+      <canvas
+        id="promoCanvas"
+        width="440"
+        height="280"
+        style="
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+          background: white;
+        "></canvas>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px">
+      <button
+        onclick="downloadImage()"
+        style="
+          background: linear-gradient(45deg, #6366f1, #8b5cf6);
+          color: white;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+          transition: all 0.2s ease;
+        ">
+        Download PNG
+      </button>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("promoCanvas")
+      const ctx = canvas.getContext("2d")
+
+      const colors = {
+        primary: "#6366f1",
+        primaryLight: "#8b5cf6",
+        secondary: "#10b981",
+        surface: "#ffffff",
+        onSurface: "#1f2937",
+        onSurfaceVariant: "#6b7280",
+        outline: "#e5e7eb",
+        accentBlue: "#3b82f6",
+        accentPurple: "#8b5cf6",
+        accentGreen: "#10b981"
+      }
+
+      ctx.fillStyle = colors.surface
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Grid background
+      ctx.save()
+      ctx.globalAlpha = 0.03
+      ctx.strokeStyle = colors.primary
+      ctx.lineWidth = 1
+      for (let i = 0; i <= canvas.width; i += 40) {
+        ctx.beginPath()
+        ctx.moveTo(i, 0)
+        ctx.lineTo(i, canvas.height)
+        ctx.stroke()
+      }
+      for (let j = 0; j <= canvas.height; j += 40) {
+        ctx.beginPath()
+        ctx.moveTo(0, j)
+        ctx.lineTo(canvas.width, j)
+        ctx.stroke()
+      }
+      ctx.restore()
+
+      // Floating bubbles
+      const floatingElements = [
+        { x: 50, y: 40, size: 8, color: colors.primary, opacity: 0.2 },
+        { x: 380, y: 60, size: 6, color: colors.primaryLight, opacity: 0.3 },
+        { x: 60, y: 220, size: 4, color: colors.secondary, opacity: 0.4 },
+        { x: 400, y: 180, size: 10, color: colors.secondary, opacity: 0.15 }
+      ]
+
+      floatingElements.forEach((el) => {
+        ctx.save()
+        ctx.globalAlpha = el.opacity
+        ctx.fillStyle = el.color
+        ctx.beginPath()
+        ctx.arc(el.x, el.y, el.size, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      })
+
+      function drawIcon(type, x, y, size, stroke) {
+        ctx.save()
+        ctx.strokeStyle = stroke
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.lineJoin = "round"
+        if (type === "lock") {
+          ctx.beginPath()
+          ctx.moveTo(x + size * 0.25, y + size * 0.45)
+          ctx.lineTo(x + size * 0.75, y + size * 0.45)
+          ctx.lineTo(x + size * 0.75, y + size * 0.9)
+          ctx.lineTo(x + size * 0.25, y + size * 0.9)
+          ctx.closePath()
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(
+            x + size * 0.5,
+            y + size * 0.45,
+            size * 0.25,
+            Math.PI,
+            2 * Math.PI
+          )
+          ctx.stroke()
+        } else if (type === "bolt") {
+          ctx.beginPath()
+          ctx.moveTo(x + size * 0.5, y)
+          ctx.lineTo(x + size * 0.35, y + size * 0.5)
+          ctx.lineTo(x + size * 0.6, y + size * 0.5)
+          ctx.lineTo(x + size * 0.4, y + size)
+          ctx.stroke()
+        } else if (type === "shield") {
+          ctx.beginPath()
+          ctx.moveTo(x + size / 2, y)
+          ctx.lineTo(x + size, y + size * 0.3)
+          ctx.lineTo(x + size * 0.85, y + size * 0.9)
+          ctx.lineTo(x + size * 0.15, y + size * 0.9)
+          ctx.lineTo(x, y + size * 0.3)
+          ctx.closePath()
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
+
+      const logoImg = new Image()
+      logoImg.onload = () => {
+        const logoWidth = 140
+        const logoHeight = 140
+        const spacing = 5
+        const textBlockWidth = 240
+        const totalBlockWidth = logoWidth + spacing + textBlockWidth
+        const leftOffset = (canvas.width - totalBlockWidth) / 2
+
+        ctx.drawImage(logoImg, 10, 70, logoWidth, logoHeight)
+
+        ctx.fillStyle = colors.onSurface
+        ctx.font =
+          '600 42px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+        ctx.textAlign = "left"
+        ctx.fillText("Ollama Client", 140, 110)
+
+        ctx.fillStyle = colors.onSurfaceVariant
+        ctx.font =
+          '400 20px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+        ctx.fillText("Chat with Local LLM", 141, 140)
+        ctx.fillText("inside your browser", 142, 165)
+
+        // Chips
+        const chips = [
+          { text: "Private", icon: "lock", color: colors.accentGreen },
+          { text: "Fast", icon: "bolt", color: colors.accentBlue },
+          { text: "Secure", icon: "shield", color: colors.accentPurple }
+        ]
+
+        let chipX = 102
+        const chipY = 200
+
+        chips.forEach((chip, index) => {
+          const iconSize = 14
+          const padding = 8
+          const textWidth = ctx.measureText(chip.text).width
+          const chipWidth = iconSize + padding + textWidth + 16
+          const chipHeight = 28
+
+          // Outline rectangle
+          ctx.globalAlpha = 1
+          ctx.strokeStyle = chip.color
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.roundRect(chipX, chipY, chipWidth, chipHeight, 14)
+          ctx.stroke()
+
+          // Icon
+          drawIcon(chip.icon, chipX + 8, chipY + 7, iconSize, chip.color)
+
+          // Text
+          ctx.fillStyle = chip.color
+          ctx.font =
+            '500 14px "Google Sans Rounded", -apple-system, BlinkMacSystemFont, sans-serif'
+          ctx.textAlign = "left"
+          ctx.fillText(chip.text, chipX + 8 + iconSize + 6, chipY + 18)
+
+          chipX += chipWidth + 12
+        })
+
+        // Gradient line
+        const gradient = ctx.createLinearGradient(81, 245, canvas.width, 245)
+        gradient.addColorStop(0, colors.primary)
+        gradient.addColorStop(0.6, colors.primaryLight)
+        gradient.addColorStop(1, "transparent")
+
+        ctx.strokeStyle = gradient
+        ctx.lineWidth = 4
+        ctx.lineCap = "round"
+        ctx.beginPath()
+        ctx.moveTo(130, 245)
+        ctx.lineTo(canvas.width - 100, 245)
+        ctx.stroke()
+      }
+      logoImg.src = "icon-promo-light.png"
+
+      function downloadImage() {
+        const link = document.createElement("a")
+        link.download = "ollama-client-material-promo-440x280.png"
+        link.href = canvas.toDataURL("image/png")
+        link.click()
+      }
+
+      if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (
+          x,
+          y,
+          width,
+          height,
+          radius
+        ) {
+          this.moveTo(x + radius, y)
+          this.lineTo(x + width - radius, y)
+          this.quadraticCurveTo(x + width, y, x + width, y + radius)
+          this.lineTo(x + width, y + height - radius)
+          this.quadraticCurveTo(
+            x + width,
+            y + height,
+            x + width - radius,
+            y + height
+          )
+          this.lineTo(x + radius, y + height)
+          this.quadraticCurveTo(x, y + height, x, y + height - radius)
+          this.lineTo(x, y + radius)
+          this.quadraticCurveTo(x, y, x + radius, y)
+          this.closePath()
+        }
+      }
+    </script>
+  </body>
+</html>
