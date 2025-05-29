@@ -38,6 +38,8 @@ function ModelMenu({
   showStatusPopup = true
 }: ModelMenuProps) {
   const [open, setOpen] = useState(false)
+  const [showEmptyPopup, setShowEmptyPopup] = useState(false)
+  const [showErrorPopup, setShowErrorPopup] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
@@ -63,8 +65,8 @@ function ModelMenu({
   if (showStatusPopup && status === "error") {
     return (
       <InfoPopup
-        open={true}
-        onClose={() => {}}
+        open={showErrorPopup}
+        onClose={() => setShowErrorPopup(false)}
         title="Failed to Load Models"
         message={error!}
         type="error"
@@ -76,8 +78,8 @@ function ModelMenu({
   if (showStatusPopup && status === "empty") {
     return (
       <InfoPopup
-        open={true}
-        onClose={() => {}}
+        open={showEmptyPopup}
+        onClose={() => setShowEmptyPopup(false)}
         title="No Models Found"
         message="Please pull at least one model in Ollama to get started."
         type="warning"
