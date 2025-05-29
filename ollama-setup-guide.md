@@ -56,8 +56,7 @@ Follow the instructions based on your operating system:
 
 ---
 
-<details>
-<summary>🖥️ macOS (Launch Agent)</summary>
+🖥️ macOS (Launch Agent)
 
 1. Open Terminal:
 
@@ -79,12 +78,9 @@ Follow the instructions based on your operating system:
    launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
    ```
 
-</details>
-
 ---
 
-<details>
-<summary>🐧 Linux (systemd)</summary>
+🐧 Linux (systemd)
 
 1. Edit Ollama's systemd service:
 
@@ -105,12 +101,9 @@ Follow the instructions based on your operating system:
    sudo systemctl restart ollama
    ```
 
-</details>
-
 ---
 
-<details>
-<summary>🪟 Windows</summary>
+🪟 Windows
 
 1. Press `Win + R`, type `sysdm.cpl`, and hit Enter.
 
@@ -122,8 +115,6 @@ Follow the instructions based on your operating system:
    - Value: `chrome-extension://*`
 
 4. Restart Ollama.
-
-</details>
 
 ---
 
