@@ -63,6 +63,7 @@ function ModelMenu({
   }
 
   if (showStatusPopup && status === "error") {
+    setShowErrorPopup(true)
     return (
       <InfoPopup
         open={showErrorPopup}
@@ -76,6 +77,7 @@ function ModelMenu({
   }
 
   if (showStatusPopup && status === "empty") {
+    setShowEmptyPopup(true)
     return (
       <InfoPopup
         open={showEmptyPopup}
