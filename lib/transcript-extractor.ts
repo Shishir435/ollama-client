@@ -55,16 +55,9 @@ const extractCourseraTranscript = (): string | null => {
   ) {
     return null
   }
-  const transcriptPanel = document.querySelector('div[role="tabpanel"]')
-  if (!transcriptPanel) return null
-
-  const cues = transcriptPanel.querySelectorAll('[data-purpose="cue-text"]')
-  if (!cues || cues.length === 0) return null
-
-  const transcript = Array.from(cues)
-    .map((cue) => cue.textContent?.trim())
-    .filter(Boolean)
-    .join("\n")
+  let transcript = Array.from(document.querySelectorAll(".rc-Phrase"))
+    .map((phrase) => phrase.textContent)
+    .join(" ")
 
   return transcript.length > 0 ? transcript : null
 }
