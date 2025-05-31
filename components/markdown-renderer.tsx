@@ -1,9 +1,14 @@
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
+import { useCopyCode } from "markdown-it-copy-code"
+import { useEffect } from "react"
 
 import TypingDots from "./ui/typing-dots"
 
 export function MarkdownRenderer({ content }: { content: string }) {
   const html = useMarkdownParser(content)
+  useEffect(() => {
+    useCopyCode()
+  }, [])
   if (html.length === 0) return <TypingDots />
   return (
     <div
