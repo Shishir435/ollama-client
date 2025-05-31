@@ -61,7 +61,7 @@ export default function ChatInputBox({
       <Textarea
         id="chat-input-textarea"
         ref={textareaRef}
-        placeholder="Type your message..."
+        placeholder="Type your message... or '/'"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
