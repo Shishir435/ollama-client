@@ -69,6 +69,19 @@
     @apply bg-background font-sans text-foreground antialiased;
   }
 
+  /* For inline code, allow wrapping and breaking long words */
+  .markdown-container code {
+    white-space: pre-wrap !important;
+    word-break: break-word;
+  }
+
+  /* For pre blocks, allow horizontal scroll and max width */
+  .markdown-container pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
   /* Highlight.js GitHub Light Theme */
   pre.hljs {
     background: #f6f8fa;
