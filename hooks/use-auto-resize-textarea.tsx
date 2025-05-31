@@ -3,25 +3,25 @@ import { useLayoutEffect } from "react"
 export function useAutoResizeTextarea(
   ref: React.RefObject<HTMLTextAreaElement>,
   value: string,
-  minHeight: number = 80,
-  maxHeight: number = 300
+  minHeight = 100,
+  maxHeight = 300
 ) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
 
-    // Reset height to measure correct scrollHeight
+    // 💥 Force initial height to 100px on first mount
+    if (value === "") {
+      el.style.height = `${minHeight}px`
+      el.style.overflowY = "hidden"
+      return
+    }
+
+    // Dynamic resizing
     el.style.height = "auto"
-
-    // Edge case: when there's no content, scrollHeight might return more than needed
-    const rawHeight = el.scrollHeight
-
-    // Clamp height manually between minHeight and maxHeight
-    const newHeight =
-      value.trim() === ""
-        ? minHeight
-        : Math.max(minHeight, Math.min(rawHeight, maxHeight))
-
-    el.style.height = `${newHeight}px`
+    const scrollHeight = el.scrollHeight
+    const clampedHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight))
+    el.style.height = `${clampedHeight}px`
+    el.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden"
   }, [ref, value, minHeight, maxHeight])
 }

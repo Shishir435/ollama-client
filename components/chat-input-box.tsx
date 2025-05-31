@@ -65,7 +65,7 @@ export default function ChatInputBox({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="max-h-[300px] min-h-[80px] w-full resize-none overflow-hidden rounded-b-2xl pb-10"
+        className="h-[100px] max-h-[300px] w-full resize-none overflow-hidden rounded-b-2xl pb-10 scrollbar-none"
         autoFocus
       />
       <div className="absolute bottom-0 left-2 flex items-center gap-1">
