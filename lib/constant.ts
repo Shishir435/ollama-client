@@ -17,7 +17,8 @@ export const MESSAGE_KEYS = {
 export const STORAGE_KEYS = {
   OLLAMA: {
     BASE_URL: "ollama-base-url",
-    SELECTED_MODEL: "selected-ollama-model"
+    SELECTED_MODEL: "selected-ollama-model",
+    PROMPT_TEMPLATES: "ollama-prompt-templates"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
@@ -28,10 +29,112 @@ export const STORAGE_KEYS = {
   }
 }
 
+export type PromptTemplate = {
+  id: string
+  title: string
+  systemPrompt?: string
+  userPrompt: string
+}
+
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: "summarize",
+    title: "Summarize",
+    userPrompt: "Summarize the following content in bullet points."
+  },
+  {
+    id: "explain-code",
+    title: "Explain Code",
+    userPrompt: "Explain the following code step by step."
+  },
+  {
+    id: "translate",
+    title: "Translate",
+    userPrompt: "Translate the following text into English."
+  },
+  {
+    id: "critique",
+    title: "Critique",
+    userPrompt: "Provide constructive critique for this content."
+  }
+]
+
 export const DEFAULT_EXCLUDE_URLS = [
   "^chrome://",
   "^chrome-extension://",
   "^chrome-untrusted://"
+]
+
+export const SETUP_TABS = [
+  {
+    value: "macos",
+    label: "🖥️ macOS",
+    markdown: `
+If you’re using a **Launch Agent**:
+
+1. Open terminal and run:
+   \`\`\`bash
+   nano ~/Library/LaunchAgents/com.ollama.server.plist
+   \`\`\`
+
+2. Add this inside \`<key>EnvironmentVariables</key>\`:
+   \`\`\`xml
+   <key>OLLAMA_ORIGINS</key>
+   <string>chrome-extension://*</string>
+   \`\`\`
+
+3. Save the file and reload the Launch Agent:
+   \`\`\`bash
+   launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
+   launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
+   \`\`\`
+    `
+  },
+  {
+    value: "linux",
+    label: "🐧 Linux",
+    markdown: `
+1. Edit the Ollama service:
+   \`\`\`bash
+   sudo systemctl edit --full ollama.service
+   \`\`\`
+
+2. Under \`[Service]\`, add:
+   \`\`\`ini
+   Environment="OLLAMA_ORIGINS=chrome-extension://*"
+   \`\`\`
+
+3. Reload and restart:
+   \`\`\`bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart ollama
+   \`\`\`
+    `
+  },
+  {
+    value: "windows",
+    label: "🪟 Windows",
+    markdown: `
+1. Open Run (Win + R), type \`sysdm.cpl\`, and press Enter.
+2. Go to the **Advanced** tab → click **Environment Variables**.
+3. Add a new **User Variable**:
+   - **Name:** \`OLLAMA_ORIGINS\`
+   - **Value:** \`chrome-extension://*\`
+
+4. Restart Ollama for the changes to take effect.
+    `
+  },
+  {
+    value: "multi-origin",
+    label: "💡 Multiple Origins",
+    markdown: `
+If you want to allow multiple origins (e.g., localhost + extension), set:
+
+\`\`\`bash
+OLLAMA_ORIGINS=chrome-extension://*,http://localhost:3000
+\`\`\`
+    `
+  }
 ]
 
 export const ERROR_MESSAGES: Record<number, string> = {

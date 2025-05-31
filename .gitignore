@@ -31,3 +31,6 @@ dist/
 
 # typescript
 .tsbuildinfo
+
+.gptree_config
+gptree_output.txt

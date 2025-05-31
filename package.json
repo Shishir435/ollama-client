@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Chat privately with your local Ollama LLM models in-browser. Fast, lightweight, and secure AI without cloud dependencies.",
   "author": "shishir.chaurasiya",
   "scripts": {
@@ -24,6 +24,7 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "1.1.2",
     "@radix-ui/react-switch": "^1.2.5",
+    "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -43,7 +44,8 @@
     "react-dom": "18.2.0",
     "tailwind-merge": "3.0.1",
     "tailwind-scrollbar": "^4.0.2",
-    "tailwindcss-animate": "1.0.7"
+    "tailwindcss-animate": "1.0.7",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
