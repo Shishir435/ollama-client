@@ -21,12 +21,12 @@ export default function OllamaSetupInstructions() {
       </CardHeader>
       <CardContent className="space-y-4 p-4">
         <Tabs defaultValue="macos" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-4">
+          <TabsList className="flex h-auto w-full flex-wrap gap-2">
             {SETUP_TABS.map(({ value, label }) => (
               <TabsTrigger
                 key={value}
                 value={value}
-                className="text-xs sm:text-sm">
+                className="flex-1 text-xs sm:text-sm">
                 {label}
               </TabsTrigger>
             ))}

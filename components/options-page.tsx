@@ -25,7 +25,7 @@ const OptionsPage = () => {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4">
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="flex gap-2">
+        <TabsList className="flex h-auto flex-wrap gap-2">
           {tabConfig.map(({ value, label }) => (
             <TabsTrigger key={value} value={value} className="flex-1">
               {label}

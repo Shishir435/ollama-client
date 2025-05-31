@@ -1,5 +1,6 @@
 import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
+import { useTheme } from "@/components/them-provider"
 import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +32,8 @@ const OllamaOptions = () => {
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }
+
+  const { theme } = useTheme()
 
   const tabSections = {
     general: {
@@ -71,7 +74,7 @@ const OllamaOptions = () => {
       label: "Appearance",
       content: (
         <div className="flex items-center justify-center gap-2">
-          <Label className="whitespace-nowrap">Theme</Label>
+          <Label className="whitespace-nowrap">{theme}</Label>
           <ThemeToggle />
         </div>
       )
@@ -89,7 +92,7 @@ const OllamaOptions = () => {
 
       <CardContent>
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="mb-4 flex flex-wrap gap-2">
+          <TabsList className="mb-4 flex h-auto flex-wrap gap-2">
             {Object.entries(tabSections).map(([key, tab]) => (
               <TabsTrigger key={key} value={key} className="flex-1">
                 {tab.label}
