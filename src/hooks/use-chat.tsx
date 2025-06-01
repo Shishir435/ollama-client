@@ -2,13 +2,12 @@ import { useChatInput } from "@/context/chat-input-context"
 import { useLoadStream } from "@/context/load-stream-context"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { useTabContentContext } from "@/context/tab-content-context"
+import { useOllamaStream } from "@/hooks/use-ollama-stream"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
-
-import { useOllamaStream } from "./use-ollama-stream"
 
 export type Role = "user" | "assistant"
 

@@ -1,4 +1,4 @@
-import { useTabContents } from "./use-tab-contents"
+import { useTabContents } from "@/hooks/use-tab-contents"
 
 export function useTabStatusMap() {
   const { tabContents, loading, errors } = useTabContents()
