@@ -1,10 +1,11 @@
+import { Settings } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Settings } from "lucide-react"
 
 function SettingsButton() {
   return (

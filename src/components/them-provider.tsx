@@ -1,6 +1,7 @@
+import { createContext, useContext, useEffect } from "react"
+
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { createContext, useContext, useEffect } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 

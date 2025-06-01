@@ -1,7 +1,7 @@
 import { MultiSelect } from "@/components/ui/multi-select"
-import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import useOpenTabs from "@/hooks/use-open-tab"
 import { useTabStatusMap } from "@/hooks/use-tab-status-map"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 

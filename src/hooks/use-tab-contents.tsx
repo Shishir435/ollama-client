@@ -1,8 +1,9 @@
-import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
+import { useEffect, useState } from "react"
+
 import useOpenTabs from "@/hooks/use-open-tab"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useEffect, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 

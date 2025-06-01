@@ -1,3 +1,7 @@
+import { useState } from "react"
+
+import { CheckCircle2 } from "lucide-react"
+
 import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
 import { useTheme } from "@/components/them-provider"
@@ -15,8 +19,6 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { CheckCircle2 } from "lucide-react"
-import { useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 

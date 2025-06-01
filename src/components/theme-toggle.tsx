@@ -1,3 +1,5 @@
+import { Moon, Sun } from "lucide-react"
+
 import { useTheme } from "@/components/them-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,7 +13,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Moon, Sun } from "lucide-react"
 
 export default function ThemeToggle() {
   const { setTheme } = useTheme()

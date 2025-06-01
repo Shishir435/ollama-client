@@ -1,7 +1,7 @@
-import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constant"
 import { useRef } from "react"
 
-import type { ChatMessage } from "./use-chat"
+import type { ChatMessage } from "@/hooks/use-chat"
+import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constant"
 
 interface StreamOptions {
   model: string

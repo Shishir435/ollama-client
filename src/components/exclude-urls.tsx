@@ -1,10 +1,12 @@
+import { useState } from "react"
+
+import { Trash2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { Trash2 } from "lucide-react"
-import { useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
 

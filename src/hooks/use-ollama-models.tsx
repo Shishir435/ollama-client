@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react"
+
 import { MESSAGE_KEYS } from "@/lib/constant"
 import type { OllamaModel } from "@/types"
-import { useEffect, useState } from "react"
 
 export function useOllamaModels() {
   const [models, setModels] = useState<OllamaModel[] | null>(null)

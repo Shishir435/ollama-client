@@ -1,3 +1,5 @@
+import { useRef, useState } from "react"
+
 import BugReportIcon from "@/components/bug-report-icon"
 import ModelMenu from "@/components/model-menu"
 import PromptSelectorDialog from "@/components/prompt-selector-dialog"
@@ -7,10 +9,9 @@ import TabsSelect from "@/components/tabs-select"
 import TabsToggle from "@/components/tabs-toggle"
 import ThemeToggle from "@/components/theme-toggle"
 import { Textarea } from "@/components/ui/textarea"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useChatInput } from "@/context/chat-input-context"
 import { useLoadStream } from "@/context/load-stream-context"
-import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { useRef, useState } from "react"
 
 export default function ChatInputBox({
   onSend,

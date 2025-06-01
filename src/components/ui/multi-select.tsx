@@ -1,3 +1,13 @@
+import { useState } from "react"
+
+import {
+  Check,
+  CheckIcon,
+  ChevronsUpDown,
+  Loader2,
+  XCircle
+} from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
 import {
   Command,
@@ -11,14 +21,6 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import {
-  Check,
-  CheckIcon,
-  ChevronsUpDown,
-  Loader2,
-  XCircle
-} from "lucide-react"
-import { useState } from "react"
 
 export type Option = {
   label: string

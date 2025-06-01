@@ -1,6 +1,7 @@
-import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
-import { useTabContents } from "@/hooks/use-tab-contents"
 import React, { createContext, useContext, useMemo } from "react"
+
+import { useTabContents } from "@/hooks/use-tab-contents"
+import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 
 const TabContentContext = createContext<string>("")
 

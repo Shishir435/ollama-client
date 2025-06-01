@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react"
+
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -7,7 +9,6 @@ import {
 } from "@/components/ui/tooltip"
 import { SOCIAL_LINKS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
-import type { LucideIcon } from "lucide-react"
 
 export default function BugReportIcon() {
   const bugLink = SOCIAL_LINKS.find((link) =>

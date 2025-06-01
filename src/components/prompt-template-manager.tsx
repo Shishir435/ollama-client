@@ -1,12 +1,14 @@
+import { useState } from "react"
+
+import { Trash2 } from "lucide-react"
+import { v4 as uuidv4 } from "uuid"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { usePromptTemplates } from "@/hooks/use-prompt-templates"
-import { Trash2 } from "lucide-react"
-import { useState } from "react"
-import { v4 as uuidv4 } from "uuid"
 
 export const PromptTemplateManager = () => {
   const { templates, addTemplate, updateTemplate, deleteTemplate } =

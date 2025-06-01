@@ -1,8 +1,9 @@
+import { Readability } from "@mozilla/readability"
+
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import { normalizeWhitespace } from "@/lib/utils"
-import { Readability } from "@mozilla/readability"
 
 const isExcludedUrl = async (url: string): Promise<boolean> => {
   const patterns = await plasmoGlobalStorage.get<string[]>(

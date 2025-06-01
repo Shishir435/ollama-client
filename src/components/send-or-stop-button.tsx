@@ -1,3 +1,5 @@
+import { Circle, SendHorizontal } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -5,7 +7,6 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { useLoadStream } from "@/context/load-stream-context"
-import { Circle, SendHorizontal } from "lucide-react"
 
 export default function SendOrStopButton({
   onSend,

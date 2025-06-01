@@ -1,7 +1,9 @@
+import { useEffect } from "react"
+
+import { useCopyCode } from "markdown-it-copy-code"
+
 import TypingDots from "@/components/ui/typing-dots"
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
-import { useCopyCode } from "markdown-it-copy-code"
-import { useEffect } from "react"
 
 export function MarkdownRenderer({ content }: { content: string }) {
   const html = useMarkdownParser(content)

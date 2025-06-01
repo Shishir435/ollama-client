@@ -1,5 +1,6 @@
-import { MESSAGE_KEYS } from "@/lib/constant"
 import { useEffect, useState } from "react"
+
+import { MESSAGE_KEYS } from "@/lib/constant"
 
 function useOpenTabs(enabled: boolean) {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])

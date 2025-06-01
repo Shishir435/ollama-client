@@ -1,5 +1,6 @@
-import type { SocialLink } from "@/types"
 import { Bug, Github, Globe, Instagram, Linkedin, Twitter } from "lucide-react"
+
+import type { SocialLink } from "@/types"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {

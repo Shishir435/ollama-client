@@ -1,11 +1,13 @@
+import { useState } from "react"
+
+import { Check, Copy } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Check, Copy } from "lucide-react"
-import { useState } from "react"
 
 export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)

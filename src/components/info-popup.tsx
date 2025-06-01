@@ -1,3 +1,5 @@
+import { AlertCircle, AlertTriangle, CheckCircle, Info, X } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -7,7 +9,6 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { AlertCircle, AlertTriangle, CheckCircle, Info, X } from "lucide-react"
 
 type AlertType = "error" | "warning" | "info" | "success"
 

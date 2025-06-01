@@ -15,15 +15,28 @@ export default {
     "prettier-plugin-tailwindcss"
   ],
   importOrder: [
-    "<BUILTIN_MODULES>", // Node.js built-in modules
-    "<THIRD_PARTY_MODULES>", // Imports not matched by other special words or groups.
-    "", // Empty line
-    "^@plasmo/(.*)$",
+    "^react$", // React first
+    "^react/(.*)$", // Then React submodules
     "",
+
+    "<BUILTIN_MODULES>", // Node.js built-ins
+    "<THIRD_PARTY_MODULES>", // All other 3rd party modules
+    "",
+
+    "^@/components/(.*)$",
+    "^@/hooks/(.*)$",
+    "^@/context/(.*)$",
+    "^@/lib/(.*)$",
+    "^@/(.*)$", // Catch-all for other aliases
+    "",
+
+    "^@plasmo/(.*)$",
     "^@plasmohq/(.*)$",
     "",
-    "^~(.*)$",
+
+    "^~(.*)$", // e.g., `~/utils/foo`
     "",
-    "^[./]"
+
+    "^[./]" // Relative imports at the end
   ]
 }
