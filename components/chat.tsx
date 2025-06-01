@@ -1,10 +1,9 @@
+import ChatInputBox from "@/components/chat-input-box"
+import ChatMessageBubble from "@/components/chat-message-bubble"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import WelcomeScreen from "@/components/welcome-screen"
 import { useLoadStream } from "@/context/load-stream-context"
 import { useChat } from "@/hooks/use-chat"
-
-import ChatInputBox from "./chat-input-box"
-import ChatMessageBubble from "./chat-message-bubble"
-import WelcomeScreen from "./welcome-screen"
 
 export default function Chat() {
   const { messages, sendMessage, stopGeneration, scrollRef } = useChat()

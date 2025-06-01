@@ -1,10 +1,9 @@
+import SettingsButton from "@/components/settings-button"
+import SocialHandles from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
 import { useOllamaModels } from "@/hooks/use-ollama-models"
 import { PanelTopClose } from "lucide-react"
 import { useState } from "react"
-
-import SettingsButton from "./settings-button"
-import SocialHandles from "./social-handles"
 
 export default function WelcomeScreen() {
   const [show, setShow] = useState(true)

@@ -1,7 +1,6 @@
+import ModelMenu from "@/components/model-menu"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, RefreshCcw } from "lucide-react"
-
-import ModelMenu from "./model-menu"
 
 interface RegenerateButtonProps {
   model: string

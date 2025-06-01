@@ -1,3 +1,4 @@
+import { InfoPopup } from "@/components/info-popup"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -12,6 +13,11 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useOllamaModels } from "@/hooks/use-ollama-models"
 import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -20,9 +26,6 @@ import { Check, ChevronDown, RotateCcw } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
-
-import { InfoPopup } from "./info-popup"
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 interface ModelMenuProps {
   trigger?: React.ReactNode

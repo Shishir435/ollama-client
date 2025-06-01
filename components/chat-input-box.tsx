@@ -1,17 +1,16 @@
+import BugReportIcon from "@/components/bug-report-icon"
+import ModelMenu from "@/components/model-menu"
+import PromptSelectorDialog from "@/components/prompt-selector-dialog"
+import SendOrStopButton from "@/components/send-or-stop-button"
+import SettingsButton from "@/components/settings-button"
+import TabsSelect from "@/components/tabs-select"
+import TabsToggle from "@/components/tabs-toggle"
+import ThemeToggle from "@/components/theme-toggle"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInput } from "@/context/chat-input-context"
 import { useLoadStream } from "@/context/load-stream-context"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useRef, useState } from "react"
-
-import BugReportIcon from "./bug-report-icon"
-import ModelMenu from "./model-menu"
-import PromptSelectorOverlay from "./prompt-selector-dialog"
-import SendOrStopButton from "./send-or-stop-button"
-import SettingsButton from "./settings-button"
-import TabsSelect from "./tabs-select"
-import TabsToggle from "./tabs-toggle"
-import ThemeToggle from "./theme-toggle"
 
 export default function ChatInputBox({
   onSend,
@@ -52,7 +51,7 @@ export default function ChatInputBox({
     <div className="relative h-auto">
       <TabsSelect />
       {showPromptOverlay && (
-        <PromptSelectorOverlay
+        <PromptSelectorDialog
           open={showPromptOverlay}
           onSelect={handleSelectPrompt}
           onClose={() => setShowPromptOverlay(false)}

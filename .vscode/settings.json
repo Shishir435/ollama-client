@@ -14,5 +14,10 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "prettier.enableDebugLogs": true,
-  "prettier.requireConfig": true
+  "prettier.requireConfig": true,
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "javascript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "@radix-ui/react-*"
+  ]
 }

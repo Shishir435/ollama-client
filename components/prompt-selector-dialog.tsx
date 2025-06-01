@@ -1,3 +1,4 @@
+import SettingsButton from "@/components/settings-button"
 import {
   Dialog,
   DialogContent,
@@ -6,8 +7,6 @@ import {
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { usePromptTemplates } from "@/hooks/use-prompt-templates"
-
-import SettingsButton from "./settings-button"
 
 export default function PromptSelectorDialog({
   open,

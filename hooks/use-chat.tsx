@@ -1,12 +1,14 @@
 import { useChatInput } from "@/context/chat-input-context"
 import { useLoadStream } from "@/context/load-stream-context"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
-import { useTabContentContext } from "@/context/tab-context-context"
-import { ERROR_MESSAGES, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
+import { useTabContentContext } from "@/context/tab-content-context"
+import { STORAGE_KEYS } from "@/lib/constant"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useEffect, useRef, useState } from "react"
 
 import { useStorage } from "@plasmohq/storage/hook"
+
+import { useOllamaStream } from "./use-ollama-stream"
 
 export type Role = "user" | "assistant"
 
@@ -31,7 +33,11 @@ export const useChat = () => {
     useLoadStream()
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const portRef = useRef<chrome.runtime.Port | null>(null)
+  const { startStream, stopStream } = useOllamaStream({
+    setMessages,
+    setIsLoading,
+    setIsStreaming
+  })
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -41,7 +47,6 @@ export const useChat = () => {
     const rawInput = customInput?.trim() ?? input.trim()
     if (!rawInput) return
 
-    // Only add context if not customInput (i.e. initial message, not regenerated)
     const includeContext =
       !customInput && selectedTabIds.length > 0 && contextText?.trim()
     const contentWithContext = includeContext
@@ -59,73 +64,10 @@ export const useChat = () => {
     setIsLoading(true)
     setIsStreaming(false)
 
-    const port = chrome.runtime.connect({
-      name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
+    startStream({
+      model: customModel || selectedModel,
+      messages: newMessages
     })
-
-    portRef.current = port
-    const modelUsed = customModel || selectedModel
-
-    let assistantMessage: ChatMessage = {
-      role: "assistant",
-      content: "",
-      model: modelUsed
-    }
-
-    setMessages([...newMessages, assistantMessage])
-
-    let firstChunkReceived = false
-
-    port.onMessage.addListener((msg) => {
-      if (!firstChunkReceived) {
-        setIsStreaming(true)
-        firstChunkReceived = true
-      }
-      if (msg.delta !== undefined) {
-        assistantMessage = {
-          ...assistantMessage,
-          content: assistantMessage.content + msg.delta
-        }
-        setMessages([...newMessages, { ...assistantMessage }])
-      }
-
-      if (msg.done || msg.error || msg.aborted) {
-        setIsLoading(false)
-        setIsStreaming(false)
-        if (msg.error) {
-          const { status } = msg.error
-          const errorMessage =
-            ERROR_MESSAGES[status] ??
-            `❌ Unknown error: ${msg.error.message || "No message"}`
-
-          setMessages([
-            ...newMessages,
-            { role: "assistant", content: errorMessage, done: true }
-          ])
-        } else {
-          assistantMessage = { ...assistantMessage, done: true }
-          setMessages([...newMessages, assistantMessage])
-        }
-        port.disconnect()
-        portRef.current = null
-      }
-    })
-
-    port.postMessage({
-      type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
-      payload: {
-        model: modelUsed,
-        messages: newMessages
-      }
-    })
-  }
-
-  const stopGeneration = () => {
-    portRef.current?.postMessage({
-      type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
-    })
-    setIsLoading(false)
-    setIsStreaming(false)
   }
 
   return {
@@ -133,7 +75,7 @@ export const useChat = () => {
     isLoading,
     isStreaming,
     sendMessage,
-    stopGeneration,
+    stopGeneration: stopStream,
     scrollRef
   }
 }
