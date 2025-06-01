@@ -21,3 +21,12 @@ export interface SocialLink {
   href: string
   icon: LucideIcon
 }
+
+export type Role = "user" | "assistant"
+
+export interface ChatMessage {
+  role: Role
+  content: string
+  done?: boolean
+  model?: string
+}

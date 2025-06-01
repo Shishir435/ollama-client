@@ -1,5 +1,6 @@
 import ChatInputBox from "@/components/chat-input-box"
 import ChatMessageBubble from "@/components/chat-message-bubble"
+import ChatSessionSelector from "@/components/chat-session-selector"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import WelcomeScreen from "@/components/welcome-screen"
 import { useChat } from "@/hooks/use-chat"
@@ -18,6 +19,9 @@ export default function Chat() {
 
   return (
     <div className="flex h-screen flex-col rounded-md p-1">
+      <div className="fixed left-0 top-0 z-50">
+        <ChatSessionSelector />
+      </div>
       {messages.length === 0 ? (
         <WelcomeScreen />
       ) : (
