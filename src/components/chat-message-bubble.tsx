@@ -1,8 +1,8 @@
 import { CopyButton } from "@/components/copy-button"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import RegenerateButton from "@/components/regenerate-button"
-import type { ChatMessage } from "@/hooks/use-chat"
 import { cn } from "@/lib/utils"
+import type { ChatMessage } from "@/types"
 
 export default function ChatMessageBubble({
   msg,
