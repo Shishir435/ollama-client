@@ -2,6 +2,7 @@ import SettingsButton from "@/components/settings-button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
@@ -26,6 +27,9 @@ export default function PromptSelectorDialog({
           <DialogTitle className="mr-6 flex items-center justify-between text-sm font-medium">
             Prompt Templates <SettingsButton />
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Select a prompt to quickly fill in the chat input.
+          </DialogDescription>
         </DialogHeader>
 
         {templates?.length ? (
