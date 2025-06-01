@@ -7,6 +7,7 @@ import { useLoadStream } from "@/context/load-stream-context"
 import { useSelectedTabIds } from "@/context/selected-tab-ids-context"
 import { useTabContentContext } from "@/context/tab-content-context"
 import { STORAGE_KEYS } from "@/lib/constant"
+import { db } from "@/lib/db"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage } from "@/types"
 
@@ -27,8 +28,14 @@ export const useChat = () => {
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 
-  const { currentSessionId, sessions, updateMessages, renameSessionTitle } =
-    useChatSessions()
+  const {
+    currentSessionId,
+    sessions,
+    updateMessages,
+    renameSessionTitle,
+    createSession,
+    setCurrentSessionId
+  } = useChatSessions()
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -47,8 +54,26 @@ export const useChat = () => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  const ensureSessionId = async (): Promise<string | null> => {
+    if (currentSessionId) return currentSessionId
+    await createSession()
+    const latest = await db.sessions.orderBy("createdAt").reverse().first()
+    if (!latest) return null
+    setCurrentSessionId(latest.id)
+    return latest.id
+  }
+
+  const autoRenameSession = async (sessionId: string, content: string) => {
+    const currentTitle = sessions.find((s) => s.id === sessionId)?.title
+    if (currentTitle === "New Chat") {
+      const firstLine = content.split("\n")[0].slice(0, 40)
+      await renameSessionTitle(sessionId, firstLine)
+    }
+  }
+
   const sendMessage = async (customInput?: string, customModel?: string) => {
-    if (!currentSessionId) return
+    let sessionId = await ensureSessionId()
+    if (!sessionId) return
 
     const rawInput = customInput?.trim() ?? input.trim()
     if (!rawInput) return
@@ -71,11 +96,7 @@ export const useChat = () => {
     await updateMessages(currentSessionId, newMessages)
 
     // Rename session title if it's still "New Chat"
-    const currentTitle = sessions.find((s) => s.id === currentSessionId)?.title
-    if (currentTitle === "New Chat") {
-      const firstLine = rawInput.split("\n")[0].slice(0, 40)
-      await renameSessionTitle(currentSessionId, firstLine)
-    }
+    await autoRenameSession(sessionId, rawInput)
 
     if (!customInput) setInput("")
     setIsLoading(true)

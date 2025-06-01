@@ -4,12 +4,13 @@ import ChatSessionSelector from "@/components/chat-session-selector"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import WelcomeScreen from "@/components/welcome-screen"
 import { useChat } from "@/hooks/use-chat"
+import { useEnsureFirstSession } from "@/hooks/use-ensure-first-session"
 import { useLoadStream } from "@/context/load-stream-context"
 
 export default function Chat() {
   const { messages, sendMessage, stopGeneration, scrollRef } = useChat()
   const { isLoading, isStreaming } = useLoadStream()
-
+  useEnsureFirstSession()
   const getMessageMargin = (currentIndex: number): string => {
     if (currentIndex === 0) return "mt-2"
     const prev = messages[currentIndex - 1]

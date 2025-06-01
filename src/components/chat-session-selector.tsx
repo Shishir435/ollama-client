@@ -48,7 +48,9 @@ export default function ChatSessionSelector() {
                         : "text-muted-foreground"
                     )}
                     onClick={() => setCurrentSessionId(session.id)}>
-                    {session.title}
+                    {session.title.length > 20
+                      ? session.title.slice(0, 20)
+                      : session.title}
                   </button>
                   <button
                     onClick={() => deleteSession(session.id)}
