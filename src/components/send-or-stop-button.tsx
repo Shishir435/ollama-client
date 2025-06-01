@@ -23,7 +23,7 @@ export default function SendOrStopButton({
           onClick={isStreaming ? stopGeneration : () => onSend()}
           variant="ghost"
           size="icon"
-          className="absolute bottom-1 right-0 mr-2 rounded-full"
+          className="rounded-full"
           aria-label={isStreaming ? "Stop generation" : "Send message"}
           disabled={isLoading && !isStreaming}>
           {isStreaming ? (

@@ -15,6 +15,7 @@ interface ChatSessionContextValue {
     messages: ChatSession["messages"]
   ) => Promise<void>
   renameSessionTitle: (id: string, title: string) => Promise<void>
+  hasSession: boolean
 }
 
 const ChatSessionContext = createContext<ChatSessionContextValue | null>(null)
@@ -39,6 +40,7 @@ export const ChatSessionProvider = ({ children }) => {
     }
     loadSessions()
   }, [])
+  const hasSession = currentSessionId !== null
 
   const createSession = async () => {
     const id = uuidv4()
@@ -91,7 +93,8 @@ export const ChatSessionProvider = ({ children }) => {
         createSession,
         deleteSession,
         updateMessages,
-        renameSessionTitle
+        renameSessionTitle,
+        hasSession
       }}>
       {children}
     </ChatSessionContext.Provider>

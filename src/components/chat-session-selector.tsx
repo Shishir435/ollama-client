@@ -1,5 +1,9 @@
 import { Menu, MessageSquare, SquarePen, Trash2 } from "lucide-react"
 
+import BugReportIcon from "@/components/bug-report-icon"
+import SettingsButton from "@/components/settings-button"
+import { useTheme } from "@/components/them-provider"
+import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -14,6 +18,8 @@ export default function ChatSessionSelector() {
     createSession,
     deleteSession
   } = useChatSessions()
+
+  const { theme } = useTheme()
 
   return (
     <Sheet>
@@ -42,7 +48,6 @@ export default function ChatSessionSelector() {
             </div>
           </div>
 
-          {/* New Chat Button */}
           <div className="p-3 pb-2">
             <Button
               onClick={createSession}
@@ -53,7 +58,6 @@ export default function ChatSessionSelector() {
             </Button>
           </div>
 
-          {/* Sessions List */}
           <ScrollArea className="flex-1 px-3">
             <div className="space-y-1 pb-3">
               {sessions.length === 0 ? (
@@ -126,7 +130,6 @@ export default function ChatSessionSelector() {
                           </div>
                         </Button>
 
-                        {/* Delete Button */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -150,8 +153,22 @@ export default function ChatSessionSelector() {
               )}
             </div>
           </ScrollArea>
+          <div className="border-t border-border/50 p-2">
+            <div className="flex items-center justify-center gap-2">
+              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
+                <SettingsButton />
+              </div>
 
-          {/* Footer */}
+              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
+                <BugReportIcon />
+              </div>
+
+              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
+                <ThemeToggle />
+              </div>
+            </div>
+          </div>
+
           <div className="border-t border-border/50 bg-muted/20 p-3 pt-2">
             <div className="text-center text-xs text-muted-foreground">
               {sessions.length} {sessions.length === 1 ? "session" : "sessions"}

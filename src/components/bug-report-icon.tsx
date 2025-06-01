@@ -10,7 +10,11 @@ import {
 import { SOCIAL_LINKS } from "@/lib/constant"
 import { cn } from "@/lib/utils"
 
-export default function BugReportIcon() {
+export default function BugReportIcon({
+  showText = true
+}: {
+  showText?: boolean
+}) {
   const bugLink = SOCIAL_LINKS.find((link) =>
     link.label.toLowerCase().includes("bug")
   )
@@ -33,6 +37,7 @@ export default function BugReportIcon() {
             )}
             aria-label="Report a bug or request a feature">
             <Icon size="16" />
+            {showText && <span>Bug</span>}
           </a>
         </TooltipTrigger>
         <TooltipContent>Report a bug or request a feature</TooltipContent>
