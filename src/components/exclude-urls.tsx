@@ -40,22 +40,30 @@ export default function ExcludedUrls() {
 
   return (
     <div className="space-y-4">
-      <Label className="block">Exclude URLs (RegExp)</Label>
-      <div className="flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. ^https://example.com/private"
-        />
-        <Button onClick={handleAdd}>Add</Button>
+      <div>
+        <Label htmlFor="exclude-url">Exclude URLs (RegExp)</Label>
+        <div className="mt-2 flex gap-2">
+          <Input
+            id="exclude-url"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="e.g. ^https://example.com/private"
+          />
+          <Button onClick={handleAdd} className="whitespace-nowrap">
+            Add
+          </Button>
+        </div>
       </div>
-      <ul className="space-y-1 text-sm">
+
+      <ul className="space-y-2 text-sm">
         {patterns.map((pattern) => (
-          <li key={pattern} className="flex items-center justify-between">
-            <span className="font-mono text-gray-700">{pattern}</span>
+          <li
+            key={pattern}
+            className="flex items-center justify-between rounded-md border px-3 py-1.5">
+            <span className="font-mono text-muted-foreground">{pattern}</span>
             {!DEFAULT_EXCLUDE_URLS.includes(pattern) && (
               <Button
-                size="sm"
+                size="icon"
                 variant="ghost"
                 onClick={() => handleRemove(pattern)}>
                 <Trash2 size={16} className="text-red-500" />

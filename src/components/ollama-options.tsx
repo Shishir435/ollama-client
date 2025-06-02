@@ -4,7 +4,6 @@ import { CheckCircle2 } from "lucide-react"
 
 import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
-import { useTheme } from "@/components/them-provider"
 import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,13 +34,11 @@ const OllamaOptions = () => {
     setTimeout(() => setSaved(false), 1500)
   }
 
-  const { theme } = useTheme()
-
   const tabSections = {
     general: {
       label: "General",
       content: (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <Label htmlFor="ollama-url">Local Ollama URL</Label>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -51,9 +48,10 @@ const OllamaOptions = () => {
                 value={ollamaUrl}
                 onChange={(e) => setOllamaUrl(e.target.value)}
                 placeholder="http://localhost:11434"
-                className="w-full"
               />
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave} className="w-full sm:w-auto">
+                Save
+              </Button>
             </div>
             {saved && (
               <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
@@ -61,8 +59,9 @@ const OllamaOptions = () => {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="whitespace-nowrap">Selected Model : </Label>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="whitespace-nowrap">Selected Model:</Label>
             <ModelMenu tooltipTextContent="Switch model" />
           </div>
         </div>
@@ -76,7 +75,6 @@ const OllamaOptions = () => {
       label: "Appearance",
       content: (
         <div className="flex items-center justify-center gap-2">
-          <Label className="whitespace-nowrap">{theme}</Label>
           <ThemeToggle />
         </div>
       )
