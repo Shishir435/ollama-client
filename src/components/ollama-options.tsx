@@ -64,6 +64,16 @@ const OllamaOptions = () => {
             <Label className="whitespace-nowrap">Selected Model:</Label>
             <ModelMenu tooltipTextContent="Switch model" />
           </div>
+
+          <div>
+            <p className="mt-4 text-sm text-muted-foreground">
+              ⚠️ <strong>Performance Notice:</strong> This extension is a user
+              interface for your local Ollama server. Response time and model
+              output quality depend entirely on your device's hardware (CPU,
+              RAM, GPU) and the specific model you're using. No processing is
+              done by the extension itself.
+            </p>
+          </div>
         </div>
       )
     },
