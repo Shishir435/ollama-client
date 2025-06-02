@@ -23,7 +23,7 @@ export default function ChatMessageBubble({
       )}>
       <div
         className={cn(
-          "relative w-full max-w-[90vw] rounded-2xl p-3 text-sm shadow-sm transition-all duration-200 sm:max-w-2xl sm:p-4",
+          "relative w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-sm transition-all duration-200 sm:max-w-2xl sm:p-4",
           "hover:shadow-md",
           isUser
             ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"

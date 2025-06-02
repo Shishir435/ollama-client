@@ -63,7 +63,7 @@ export default function ChatInputBox({
 
       <div
         className={cn(
-          "relative rounded-2xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
+          "relative rounded-xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
           isFocused
             ? "border-primary/50 shadow-lg shadow-primary/10"
             : "border-border/50 hover:border-border"
@@ -86,7 +86,7 @@ export default function ChatInputBox({
           autoFocus
         />
 
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-2xl border-t border-border/30 bg-muted/30 p-2">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-xl border-t border-border/30 bg-muted/30 p-2">
           <div className="flex items-center gap-4">
             <ModelMenu
               showStatusPopup={false}
