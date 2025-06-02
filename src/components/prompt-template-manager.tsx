@@ -4,6 +4,7 @@ import {
   BarChart3,
   Calendar,
   Copy,
+  CopyCheck,
   Download,
   MoreHorizontal,
   Plus,
@@ -70,7 +71,7 @@ export const PromptTemplateManager = () => {
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "alphabetical">(
     "recent"
   )
-
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [newTemplate, setNewTemplate] = useState({
     title: "",
     description: "",
@@ -177,9 +178,11 @@ export const PromptTemplateManager = () => {
     }
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text)
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
       console.error("Failed to copy: ", err)
     }
@@ -442,8 +445,14 @@ export const PromptTemplateManager = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => duplicateTemplate(template.id)}>
-                    <Copy className="h-4 w-4" />
+                    onClick={() =>
+                      copyToClipboard(template.userPrompt, template.id)
+                    }>
+                    {copiedId === template.id ? (
+                      <CopyCheck className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
