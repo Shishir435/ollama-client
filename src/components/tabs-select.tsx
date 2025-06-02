@@ -22,7 +22,7 @@ export default function TabsSelect() {
     },
     false
   )
-  const openTabs = useOpenTabs(tabAccess)
+  const { tabs: openTabs, refreshTabs } = useOpenTabs(tabAccess)
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabIds()
   const getTabStatus = useTabStatusMap()
   const [excludedPatterns] = useStorage<string[]>(
@@ -51,9 +51,10 @@ export default function TabsSelect() {
       <MultiSelect
         options={tabOptions}
         onValueChange={setSelectedTabIds}
+        onRefresh={refreshTabs}
         defaultValue={selectedTabIds}
         placeholder="Select open tabs"
-        statusForValue={(id) => getTabStatus(id)}
+        statusForValue={getTabStatus}
       />
     </div>
   )
