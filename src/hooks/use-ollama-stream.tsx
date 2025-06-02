@@ -1,7 +1,7 @@
 import { useRef } from "react"
 
-import type { ChatMessage } from "@/hooks/use-chat"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constant"
+import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -20,6 +20,7 @@ export const useOllamaStream = ({
   setIsStreaming
 }: UseOllamaStreamProps) => {
   const portRef = useRef<chrome.runtime.Port | null>(null)
+  const currentMessagesRef = useRef<ChatMessage[]>([])
 
   const startStream = ({ model, messages }: StreamOptions) => {
     const port = chrome.runtime.connect({
@@ -33,7 +34,10 @@ export const useOllamaStream = ({
       model
     }
 
-    setMessages([...messages, assistantMessage])
+    // Initialize with user + assistant shell
+    currentMessagesRef.current = [...messages, assistantMessage]
+    setMessages(currentMessagesRef.current)
+
     let firstChunk = true
 
     port.onMessage.addListener((msg) => {
@@ -44,25 +48,32 @@ export const useOllamaStream = ({
 
       if (msg.delta !== undefined) {
         assistantMessage.content += msg.delta
-        setMessages([...messages, { ...assistantMessage }])
+        // Replace the last message (assistant) with updated content
+        const updated = [...messages, { ...assistantMessage }]
+        currentMessagesRef.current = updated
+        setMessages(updated)
       }
 
       if (msg.done || msg.error || msg.aborted) {
         setIsLoading(false)
         setIsStreaming(false)
 
+        let finalMessages: ChatMessage[]
+
         if (msg.error) {
-          const status = msg.error.status
           const errMsg =
-            ERROR_MESSAGES[status] ??
+            ERROR_MESSAGES[msg.error.status] ??
             `❌ Unknown error: ${msg.error.message || "No message"}`
-          setMessages([
+          finalMessages = [
             ...messages,
             { role: "assistant", content: errMsg, done: true }
-          ])
+          ]
         } else {
-          setMessages([...messages, { ...assistantMessage, done: true }])
+          finalMessages = [...messages, { ...assistantMessage, done: true }]
         }
+
+        currentMessagesRef.current = finalMessages
+        setMessages(finalMessages)
 
         port.disconnect()
         portRef.current = null
@@ -79,7 +90,9 @@ export const useOllamaStream = ({
   }
 
   const stopStream = () => {
-    portRef.current?.postMessage({ type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION })
+    portRef.current?.postMessage({
+      type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+    })
     setIsLoading(false)
     setIsStreaming(false)
   }

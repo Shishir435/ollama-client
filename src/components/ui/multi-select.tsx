@@ -5,10 +5,12 @@ import {
   CheckIcon,
   ChevronsUpDown,
   Loader2,
+  RefreshCw,
   XCircle
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandGroup,
@@ -32,6 +34,7 @@ export type MultiSelectProps = {
   options: Option[]
   defaultValue?: string[]
   onValueChange?: (values: string[]) => void
+  onRefresh?: () => void
   maxCount?: number
   placeholder?: string
   variant?: "default" | "flat"
@@ -46,6 +49,7 @@ export function MultiSelect({
   options,
   defaultValue = [],
   onValueChange,
+  onRefresh,
   maxCount = 3,
   placeholder = "Select items",
   variant = "default",
@@ -68,7 +72,7 @@ export function MultiSelect({
       <PopoverTrigger asChild>
         <div
           className={cn(
-            "flex h-auto w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm",
+            "flex h-auto w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm",
             "cursor-pointer"
           )}>
           {selectedValues.length === 0 ? (
@@ -124,7 +128,16 @@ export function MultiSelect({
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command>
-          <CommandInput placeholder={placeholder} />
+          <div className="relative w-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRefresh}
+              className="z-2 absolute right-0 rounded-full bg-transparent text-xs hover:bg-transparent">
+              <RefreshCw />
+            </Button>
+            <CommandInput placeholder={placeholder} />
+          </div>
           <CommandGroup>
             {options.map((option) => (
               <CommandItem

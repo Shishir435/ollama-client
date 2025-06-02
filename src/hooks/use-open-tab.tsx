@@ -5,9 +5,8 @@ import { MESSAGE_KEYS } from "@/lib/constant"
 function useOpenTabs(enabled: boolean) {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
 
-  useEffect(() => {
+  const fetchTabs = () => {
     if (!enabled) return
-
     chrome.runtime.sendMessage(
       { type: MESSAGE_KEYS.BROWSER.OPEN_TAB },
       (response) => {
@@ -16,9 +15,13 @@ function useOpenTabs(enabled: boolean) {
         }
       }
     )
+  }
+
+  useEffect(() => {
+    fetchTabs()
   }, [enabled])
 
-  return tabs
+  return { tabs, refreshTabs: fetchTabs }
 }
 
 export default useOpenTabs

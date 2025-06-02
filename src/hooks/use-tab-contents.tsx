@@ -35,7 +35,7 @@ export const useTabContents = () => {
     false
   )
 
-  const openTabs = useOpenTabs(tabAccess)
+  const { tabs: openTabs } = useOpenTabs(tabAccess)
 
   const getTabTitle = (tabId: number) => {
     const tab = openTabs.find((tab) => tab.id === tabId)?.title

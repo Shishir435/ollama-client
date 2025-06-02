@@ -13,8 +13,7 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "prettier.enableDebugLogs": true,
-  "prettier.requireConfig": true,
+  "prettier.configPath": "./.prettierrc.mjs",
   "typescript.preferences.importModuleSpecifier": "non-relative",
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "typescript.preferences.autoImportFileExcludePatterns": [

@@ -1,17 +1,15 @@
 import { useRef, useState } from "react"
 
-import BugReportIcon from "@/components/bug-report-icon"
 import ModelMenu from "@/components/model-menu"
 import PromptSelectorDialog from "@/components/prompt-selector-dialog"
 import SendOrStopButton from "@/components/send-or-stop-button"
-import SettingsButton from "@/components/settings-button"
 import TabsSelect from "@/components/tabs-select"
 import TabsToggle from "@/components/tabs-toggle"
-import ThemeToggle from "@/components/theme-toggle"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useChatInput } from "@/context/chat-input-context"
 import { useLoadStream } from "@/context/load-stream-context"
+import { cn } from "@/lib/utils"
 
 export default function ChatInputBox({
   onSend,
@@ -24,6 +22,7 @@ export default function ChatInputBox({
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
 
   useAutoResizeTextarea(textareaRef, input)
 
@@ -49,8 +48,11 @@ export default function ChatInputBox({
   }
 
   return (
-    <div className="relative h-auto">
-      <TabsSelect />
+    <div className="relative">
+      <div className="mb-2">
+        <TabsSelect />
+      </div>
+
       {showPromptOverlay && (
         <PromptSelectorDialog
           open={showPromptOverlay}
@@ -58,24 +60,58 @@ export default function ChatInputBox({
           onClose={() => setShowPromptOverlay(false)}
         />
       )}
-      <Textarea
-        id="chat-input-textarea"
-        ref={textareaRef}
-        placeholder="Type your message... or '/'"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        className="h-[100px] max-h-[300px] w-full resize-none overflow-hidden rounded-b-2xl pb-10 scrollbar-none"
-        autoFocus
-      />
-      <div className="absolute bottom-0 left-2 flex items-center gap-1">
-        <ModelMenu showStatusPopup={false} tooltipTextContent="Switch model" />
-        <SettingsButton />
-        <BugReportIcon />
-        <ThemeToggle />
-        <TabsToggle />
+
+      <div
+        className={cn(
+          "relative rounded-xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
+          isFocused
+            ? "border-primary/50 shadow-lg shadow-primary/10"
+            : "border-border/50 hover:border-border"
+        )}>
+        <Textarea
+          id="chat-input-textarea"
+          ref={textareaRef}
+          placeholder="Type your message... Press '/' for prompts"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className={cn(
+            "max-h-[300px] min-h-[100px] w-full resize-none border-0 bg-transparent",
+            "pb-12 pl-4 pr-16 pt-4 text-sm leading-relaxed scrollbar-none",
+            "focus-visible:ring-0 focus-visible:ring-offset-0",
+            "placeholder:text-muted-foreground/70"
+          )}
+          autoFocus
+        />
+
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-xl border-t border-border/30 bg-muted/30 p-2">
+          <div className="flex items-center gap-4">
+            <ModelMenu
+              showStatusPopup={false}
+              tooltipTextContent="Switch model"
+            />
+            <TabsToggle />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="font-mono text-xs text-muted-foreground">
+              {input.length > 0 && `${input.length} chars`}
+            </div>
+            <div className="hidden text-xs text-muted-foreground sm:block">
+              <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                Enter
+              </kbd>{" "}
+              to send
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute right-3 top-3">
+          <SendOrStopButton onSend={onSend} stopGeneration={stopGeneration} />
+        </div>
       </div>
-      <SendOrStopButton onSend={onSend} stopGeneration={stopGeneration} />
     </div>
   )
 }

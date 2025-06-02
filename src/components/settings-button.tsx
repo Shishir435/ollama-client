@@ -7,7 +7,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 
-function SettingsButton() {
+function SettingsButton({ showText = true }: { showText?: boolean }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -19,6 +19,7 @@ function SettingsButton() {
           }}
           aria-label="Extension Settings">
           <Settings size="16" className="opacity-80" />
+          {showText && <span>Setting</span>}
         </Button>
       </TooltipTrigger>
       <TooltipContent>Extension Settings</TooltipContent>
