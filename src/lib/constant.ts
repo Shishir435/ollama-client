@@ -8,7 +8,10 @@ export const MESSAGE_KEYS = {
     CHAT_WITH_MODEL: "chat-with-model",
     STREAM_RESPONSE: "ollama-stream-response",
     STOP_GENERATION: "stop-generation",
-    SHOW_MODEL_DETAILS: "show-model-details"
+    SHOW_MODEL_DETAILS: "show-model-details",
+    PULL_MODEL: "OLLAMA.PULL_MODEL",
+    SCRAPE_MODEL: "scrape-ollama-model",
+    SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",

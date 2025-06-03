@@ -4,6 +4,7 @@ import { CheckCircle2 } from "lucide-react"
 
 import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
+import { ModelPullPanel } from "@/components/model-pull-panel"
 import { ModelSettingsForm } from "@/components/model-settings-form"
 import PerformanceWarning from "@/components/performance-warning"
 import ThemeToggle from "@/components/theme-toggle"
@@ -70,6 +71,10 @@ const OllamaOptions = () => {
           </div>
         </div>
       )
+    },
+    modelPull: {
+      label: "Pull model",
+      content: <ModelPullPanel />
     },
     exclusions: {
       label: "Excluded URLs",
