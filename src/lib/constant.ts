@@ -1,13 +1,14 @@
 import { Bug, Github, Globe, Instagram, Linkedin, Twitter } from "lucide-react"
 
-import type { SocialLink } from "@/types"
+import type { ModelConfig, SocialLink } from "@/types"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {
     GET_MODELS: "get-ollama-models",
     CHAT_WITH_MODEL: "chat-with-model",
     STREAM_RESPONSE: "ollama-stream-response",
-    STOP_GENERATION: "stop-generation"
+    STOP_GENERATION: "stop-generation",
+    SHOW_MODEL_DETAILS: "show-model-details"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
@@ -19,7 +20,8 @@ export const STORAGE_KEYS = {
   OLLAMA: {
     BASE_URL: "ollama-base-url",
     SELECTED_MODEL: "selected-ollama-model",
-    PROMPT_TEMPLATES: "ollama-prompt-templates"
+    PROMPT_TEMPLATES: "ollama-prompt-templates",
+    MODEL_CONFIGS: "ollama-model-config"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
@@ -130,6 +132,15 @@ export const DEFAULT_EXCLUDE_URLS = [
   "^chrome-extension://",
   "^chrome-untrusted://"
 ]
+
+export const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  temperature: 0.7,
+  top_k: 40,
+  top_p: 0.9,
+  repeat_penalty: 1.1,
+  stop: [],
+  system_prompt: ""
+}
 
 export const SETUP_TABS = [
   {

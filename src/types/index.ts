@@ -16,6 +16,17 @@ export type OllamaModel = {
   }
 }
 
+export type ModelConfig = {
+  temperature: number
+  top_k: number
+  top_p: number
+  repeat_penalty: number
+  stop: string[]
+  system_prompt: string
+}
+
+export type ModelConfigMap = Record<string, ModelConfig>
+
 export interface SocialLink {
   label: string
   href: string

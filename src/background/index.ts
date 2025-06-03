@@ -20,6 +20,10 @@ chrome.runtime.onConnect.addListener((port) => {
         "http://localhost:11434"
 
       abortController = new AbortController()
+      const modelConfigMap =
+        (await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.MODEL_CONFIGS)) ?? {}
+      const modelParams = modelConfigMap[model] ?? {}
+      console.log(modelParams)
 
       try {
         const response = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -28,7 +32,8 @@ chrome.runtime.onConnect.addListener((port) => {
           body: JSON.stringify({
             model,
             messages,
-            stream: true
+            stream: true,
+            ...modelParams
           }),
           signal: abortController.signal
         })
@@ -121,6 +126,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     return true
   }
+
+  if (message.type === MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS) {
+    const model = message.payload
+    plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
+      const baseUrl = url ?? "http://localhost:11434"
+      fetch(`${baseUrl}/api/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: model })
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            sendResponse({
+              success: false,
+              error: { status: res.status, message: res.statusText }
+            })
+            return
+          }
+          const data = await res.json()
+
+          sendResponse({ success: true, data })
+        })
+        .catch((err) => {
+          sendResponse({
+            success: false,
+            error: { status: 0, message: err.message }
+          })
+        })
+    })
+    return true
+  }
+
   if (message.type === MESSAGE_KEYS.BROWSER.OPEN_TAB) {
     chrome.tabs.query({}, (tabs) => {
       console.log(tabs)
