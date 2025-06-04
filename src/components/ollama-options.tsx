@@ -4,6 +4,9 @@ import { CheckCircle2 } from "lucide-react"
 
 import ExcludedUrls from "@/components/exclude-urls"
 import ModelMenu from "@/components/model-menu"
+import { ModelPullPanel } from "@/components/model-pull-panel"
+import { ModelSettingsForm } from "@/components/model-settings-form"
+import PerformanceWarning from "@/components/performance-warning"
 import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,23 +62,19 @@ const OllamaOptions = () => {
               </div>
             )}
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Label className="whitespace-nowrap">Selected Model:</Label>
-            <ModelMenu tooltipTextContent="Switch model" />
+          <div>
+            <ModelSettingsForm />
           </div>
 
           <div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              ⚠️ <strong>Performance Notice:</strong> This extension is a user
-              interface for your local Ollama server. Response time and model
-              output quality depend entirely on your device's hardware (CPU,
-              RAM, GPU) and the specific model you're using. No processing is
-              done by the extension itself.
-            </p>
+            <PerformanceWarning />
           </div>
         </div>
       )
+    },
+    modelPull: {
+      label: "Pull model",
+      content: <ModelPullPanel />
     },
     exclusions: {
       label: "Excluded URLs",
