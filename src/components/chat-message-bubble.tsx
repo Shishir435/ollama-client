@@ -1,6 +1,7 @@
 import { CopyButton } from "@/components/copy-button"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import RegenerateButton from "@/components/regenerate-button"
+import { SpeakButton } from "@/components/speak-button"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
@@ -18,12 +19,12 @@ export default function ChatMessageBubble({
   return (
     <div
       className={cn(
-        "group flex w-full transition-all duration-200",
-        isUser ? "justify-end" : "justify-start"
+        "group flex w-full flex-col items-start transition-all duration-200",
+        isUser && "items-end"
       )}>
       <div
         className={cn(
-          "relative w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-sm transition-all duration-200 sm:max-w-2xl sm:p-4",
+          "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-sm sm:max-w-2xl sm:p-4",
           "hover:shadow-md",
           isUser
             ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
@@ -40,10 +41,7 @@ export default function ChatMessageBubble({
         {isLoading && !isUser && (
           <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <div className="flex gap-1">
-              <div
-                className="h-1 w-1 animate-pulse rounded-full bg-current"
-                style={{ animationDelay: "0ms" }}
-              />
+              <div className="h-1 w-1 animate-pulse rounded-full bg-current" />
               <div
                 className="h-1 w-1 animate-pulse rounded-full bg-current"
                 style={{ animationDelay: "150ms" }}
@@ -56,32 +54,33 @@ export default function ChatMessageBubble({
             <span>Thinking...</span>
           </div>
         )}
+      </div>
 
-        {msg.role === "assistant" && msg.model && !isLoading && (
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-200 pt-2 dark:border-gray-600">
-            <div className="flex items-center gap-1">
-              <CopyButton text={msg.content} />
-              <RegenerateButton
-                model={msg.model}
-                onSelectModel={(model) => onRegenerate?.(model)}
-              />
-            </div>
+      {/* Footer Tools */}
+      <div
+        className={cn(
+          "mt-1 flex w-full max-w-[85vw] items-center justify-between text-xs text-gray-500 sm:max-w-2xl",
+          isUser ? "flex-row-reverse" : "flex-row"
+        )}>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <CopyButton text={msg.content} />
+          <SpeakButton text={msg.content} />
+          {!isUser && msg.model && !isLoading && (
+            <RegenerateButton
+              model={msg.model}
+              onSelectModel={(model) => onRegenerate?.(model)}
+            />
+          )}
+        </div>
 
-            {/* Model indicator */}
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {msg.model}
-            </div>
-          </div>
-        )}
-
-        {isUser && (
-          <div className="absolute -bottom-6 right-2 text-xs text-gray-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-400">
-            {new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit"
-            })}
-          </div>
-        )}
+        <div className="pt-1 text-[11px] opacity-70">
+          {isUser
+            ? new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              })
+            : msg.model || ""}
+        </div>
       </div>
     </div>
   )
