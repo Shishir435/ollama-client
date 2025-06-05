@@ -44,6 +44,31 @@ Once the model is downloaded, you're ready to chat!
 
 ---
 
+## 🤔 Do You Need to Set Up CORS?
+
+<details>
+<summary>Probably NOT if you’re using Ollama Client v0.1.3 or later (click to expand)</summary>
+
+Starting from version 0.1.3 of the Ollama Client Chrome extension, you likely **do NOT need to manually configure CORS or set `OLLAMA_ORIGINS`** in Ollama.
+
+This is because the extension now uses **Chrome’s Declarative Net Request (DNR) API** to **dynamically rewrite the `Origin` header** on all requests to the local Ollama API server.
+
+By modifying the `Origin` header at the browser level, the extension **bypasses CORS restrictions seamlessly**, allowing your extension to communicate with Ollama without manual backend changes.
+
+---
+
+### Why might you still want to set `OLLAMA_ORIGINS` manually?
+
+- If you are running an older version of the extension before 0.1.3
+- If you still encounter CORS errors despite using the latest extension
+- If you want to allow other clients or tools to connect to Ollama
+
+In these cases, follow the instructions below to set the `OLLAMA_ORIGINS` environment variable accordingly.
+
+</details>
+
+---
+
 ## 🚫 3. Fix ❌ 403 Forbidden: CORS Error
 
 By default, Ollama blocks requests from browser extensions for security reasons.
