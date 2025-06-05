@@ -3,6 +3,7 @@ import { useRef, useState } from "react"
 import ModelMenu from "@/components/model-menu"
 import PromptSelectorDialog from "@/components/prompt-selector-dialog"
 import SendOrStopButton from "@/components/send-or-stop-button"
+import SettingsButton from "@/components/settings-button"
 import TabsSelect from "@/components/tabs-select"
 import TabsToggle from "@/components/tabs-toggle"
 import { Textarea } from "@/components/ui/textarea"
@@ -93,6 +94,7 @@ export default function ChatInputBox({
               tooltipTextContent="Switch model"
             />
             <TabsToggle />
+            <SettingsButton showText={false} />
           </div>
 
           <div className="flex items-center gap-3">
