@@ -1,4 +1,4 @@
-import { SOCIAL_LINKS } from "@/lib/constant"
+import { SOCIAL_LINKS } from "@/lib/constants"
 
 function SocialHandles() {
   return (

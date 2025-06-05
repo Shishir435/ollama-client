@@ -1,15 +1,15 @@
-import { SelectedTabsProvider } from "@/context/selected-tab-ids-context"
+import { SelectedTabsProvider } from "@/features/tabs/context/selected-tab-ids-context"
 
 import "../globals.css"
 
-import Chat from "@/components/chat"
-import { ThemeProvider } from "@/components/them-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ChatInputProvider } from "@/context/chat-input-context"
-import { ChatSessionProvider } from "@/context/chat-session-context"
 import { LoadStreamProvider } from "@/context/load-stream-context"
-import { TabContentContextProvider } from "@/context/tab-content-context"
-import { STORAGE_KEYS } from "@/lib/constant"
+import { ThemeProvider } from "@/context/them-provider-context"
+import { STORAGE_KEYS } from "@/lib/constants"
+import Chat from "@/features/chat/components/chat"
+import { ChatInputProvider } from "@/features/chat/context/chat-input-context"
+import { ChatSessionProvider } from "@/features/sessions/context/chat-session-context"
+import { TabContentContextProvider } from "@/features/tabs/context/tab-content-context"
 
 function IndexSidePanel() {
   return (

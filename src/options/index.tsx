@@ -1,7 +1,7 @@
-import OptionsPage from "@/components/options-page"
-import { ThemeProvider } from "@/components/them-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { STORAGE_KEYS } from "@/lib/constant"
+import { ThemeProvider } from "@/context/them-provider-context"
+import { STORAGE_KEYS } from "@/lib/constants"
+import OptionsPage from "@/options/components/options-page"
 
 import "../globals.css"
 
