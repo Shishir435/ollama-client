@@ -3,6 +3,7 @@ import { useLoadStream } from "@/context/load-stream-context"
 import ChatInputBox from "@/features/chat/components/chat-input-box"
 import ChatMessageBubble from "@/features/chat/components/chat-message-bubble"
 import { useChat } from "@/features/chat/hooks/use-chat"
+import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import ChatSessionSelector from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/context/chat-session-context"
 import WelcomeScreen from "@/sidepanel/components/welcome-screen"
@@ -26,6 +27,9 @@ export default function Chat() {
     <div className="flex h-screen flex-col rounded-lg bg-gradient-to-br from-background via-background to-background/95 p-1">
       <div className="fixed left-2 top-2 z-50">
         <ChatSessionSelector />
+      </div>
+      <div className="fixed right-2 top-2 z-50">
+        <OllamaStatusIndicator />
       </div>
 
       {hasSession ? (

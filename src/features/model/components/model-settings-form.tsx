@@ -10,6 +10,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import ModelInfo from "@/features/model/components/model-info"
 import ModelMenu from "@/features/model/components/model-menu"
+import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -54,7 +55,8 @@ export function ModelSettingsForm() {
   return (
     <Card className="space-y-4 p-4">
       <h2 className="flex items-center gap-4 text-lg font-semibold">
-        Model Settings: <ModelMenu tooltipTextContent="Switch model" />
+        Model Settings: <ModelMenu tooltipTextContent="Switch model" />{" "}
+        <OllamaStatusIndicator />
       </h2>
 
       <ModelInfo selectedModel={selectedModel} />
