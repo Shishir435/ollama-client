@@ -8,10 +8,10 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ExcludedUrls from "@/features/model/components/exclude-urls"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
-import BaseUrlSettings from "@/options/components/base-url-settings"
-import ExcludedUrls from "@/options/components/exclude-urls"
+import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
 
 const OllamaOptions = () => {
   const tabSections = {
@@ -19,7 +19,6 @@ const OllamaOptions = () => {
       label: "General",
       content: (
         <div className="space-y-6">
-          <BaseUrlSettings />
           <ModelSettingsForm />
           <PerformanceWarning />
         </div>

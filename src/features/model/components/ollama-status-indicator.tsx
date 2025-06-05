@@ -19,14 +19,14 @@ import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 export function OllamaStatusIndicator() {
   const { status, refresh, error } = useOllamaModels()
 
-  //   useEffect(() => {
-  //     // Auto-refresh every 30 seconds
-  //     const interval = setInterval(() => {
-  //       refresh()
-  //     }, 30_000)
+  useEffect(() => {
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      refresh()
+    }, 10_000)
 
-  //     return () => clearInterval(interval)
-  //   }, [refresh])
+    return () => clearInterval(interval)
+  }, [refresh])
 
   const iconMap = {
     loading: <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />,

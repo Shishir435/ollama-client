@@ -19,7 +19,7 @@ const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
         <div className="text-sm text-red-500">{error}</div>
       ) : modelInfo ? (
         <>
-          <div className="flex flex-wrap items-center justify-evenly gap-2 space-y-1 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 space-y-1 text-sm">
             <p>
               <strong>Quantization:</strong>{" "}
               <span className="text-muted-foreground">

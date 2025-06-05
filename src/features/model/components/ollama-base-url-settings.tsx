@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
@@ -15,6 +16,7 @@ export default function BaseUrlSettings() {
     { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"
   )
+  const { refresh } = useOllamaModels()
 
   const [saved, setSaved] = useState(false)
 
@@ -25,6 +27,7 @@ export default function BaseUrlSettings() {
         payload: ollamaUrl
       })
       setSaved(true)
+      refresh()
 
       console.log("Base URL updated and DNR rule applied")
     } catch (err) {
@@ -36,7 +39,9 @@ export default function BaseUrlSettings() {
 
   return (
     <div>
-      <Label htmlFor="ollama-url">Local Ollama URL</Label>
+      <Label htmlFor="ollama-url" className="text-sm">
+        Local Ollama URL
+      </Label>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <Input
           id="ollama-url"

@@ -1,8 +1,8 @@
 import SocialHandles from "@/components/social-handles"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import OllamaSetupInstructions from "@/features/model/components/ollama-setup-instructions"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import OllamaOptions from "@/options/components/ollama-options"
-import OllamaSetupInstructions from "@/options/components/ollama-setup-instructions"
 
 const tabConfig = [
   {

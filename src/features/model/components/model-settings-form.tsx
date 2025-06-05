@@ -10,6 +10,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import ModelInfo from "@/features/model/components/model-info"
 import ModelMenu from "@/features/model/components/model-menu"
+import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 
@@ -60,6 +61,8 @@ export function ModelSettingsForm() {
       </h2>
 
       <ModelInfo selectedModel={selectedModel} />
+
+      <BaseUrlSettings />
 
       <div className="space-y-4 pt-2">
         {error && <p className="text-sm text-red-600">{error}</p>}
