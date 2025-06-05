@@ -7,6 +7,45 @@ chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error("SidePanel error:", error))
 
+async function updateDNRRules() {
+  const baseUrl =
+    (await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) ??
+    "http://localhost:11434"
+
+  const origin = new URL(baseUrl).origin
+
+  await chrome.declarativeNetRequest
+    .updateDynamicRules({
+      removeRuleIds: [1],
+      addRules: [
+        {
+          id: 1,
+          priority: 1,
+          action: {
+            type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+            requestHeaders: [
+              {
+                header: "Origin",
+                operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+                value: origin
+              }
+            ]
+          },
+          condition: {
+            urlFilter: `${origin}/*`,
+            resourceTypes: [
+              chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST
+            ]
+          }
+        }
+      ]
+    })
+    .catch(console.error)
+}
+
+chrome.runtime.onInstalled.addListener(updateDNRRules)
+chrome.runtime.onStartup.addListener(updateDNRRules)
+
 let abortController: AbortController | null = null
 const pullAbortControllers: Record<string, AbortController> = {}
 
@@ -213,96 +252,144 @@ chrome.runtime.onConnect.addListener((port) => {
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === MESSAGE_KEYS.OLLAMA.GET_MODELS) {
-    plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
-      const OllamaBaseUrl = url ?? "http://localhost:11434"
-      fetch(`${OllamaBaseUrl}/api/tags`)
-        .then((res) => {
-          if (!res.ok) {
+  switch (message.type) {
+    case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
+      plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
+        const OllamaBaseUrl = url ?? "http://localhost:11434"
+        fetch(`${OllamaBaseUrl}/api/tags`)
+          .then((res) => {
+            if (!res.ok) {
+              sendResponse({
+                success: false,
+                error: { status: res.status, message: res.statusText }
+              })
+              return
+            }
+            // throw new Error(`Failed to fetch models: ${res.statusText}`)
+            return res.json()
+          })
+          .then((data) => {
+            sendResponse({ success: true, data })
+          })
+          .catch((err) =>
             sendResponse({
               success: false,
-              error: { status: res.status, message: res.statusText }
+              error: { status: 0, message: err.message }
             })
-            return
-          }
-          // throw new Error(`Failed to fetch models: ${res.statusText}`)
-          return res.json()
+          )
+      })
+      return true
+    }
+
+    case MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS: {
+      const model = message.payload
+      plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
+        const baseUrl = url ?? "http://localhost:11434"
+        fetch(`${baseUrl}/api/show`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: model })
         })
-        .then((data) => {
-          sendResponse({ success: true, data })
-        })
-        .catch((err) =>
-          sendResponse({
-            success: false,
-            error: { status: 0, message: err.message }
+          .then(async (res) => {
+            if (!res.ok) {
+              sendResponse({
+                success: false,
+                error: { status: res.status, message: res.statusText }
+              })
+              return
+            }
+            const data = await res.json()
+
+            sendResponse({ success: true, data })
           })
+          .catch((err) => {
+            sendResponse({
+              success: false,
+              error: { status: 0, message: err.message }
+            })
+          })
+      })
+      return true
+    }
+
+    case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
+      chrome.tabs.query({}, (tabs) => {
+        console.log(tabs)
+        sendResponse({ tabs })
+      })
+      return true
+    }
+
+    case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL: {
+      if (message.query) {
+        fetch(
+          `https://ollama.com/search?q=${encodeURIComponent(message.query)}`
         )
-    })
-    return true
-  }
-
-  if (message.type === MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS) {
-    const model = message.payload
-    plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL).then((url) => {
-      const baseUrl = url ?? "http://localhost:11434"
-      fetch(`${baseUrl}/api/show`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: model })
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            sendResponse({
-              success: false,
-              error: { status: res.status, message: res.statusText }
-            })
-            return
-          }
-          const data = await res.json()
-
-          sendResponse({ success: true, data })
-        })
-        .catch((err) => {
-          sendResponse({
-            success: false,
-            error: { status: 0, message: err.message }
+          .then((res) => res.text())
+          .then((html) => {
+            sendResponse({ html })
           })
-        })
-    })
-    return true
-  }
+          .catch((err) => {
+            sendResponse({ error: err.message })
+          })
+        return true
+      }
+      break
+    }
 
-  if (message.type === MESSAGE_KEYS.BROWSER.OPEN_TAB) {
-    chrome.tabs.query({}, (tabs) => {
-      console.log(tabs)
-      sendResponse({ tabs })
-    })
-    return true
-  }
-  if (message.type === MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL && message.query) {
-    fetch(`https://ollama.com/search?q=${encodeURIComponent(message.query)}`)
-      .then((res) => res.text())
-      .then((html) => {
-        sendResponse({ html })
-      })
-      .catch((err) => {
-        sendResponse({ error: err.message })
-      })
-    return true
-  }
+    case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS: {
+      if (message.name) {
+        fetch(`https://ollama.com/library/${encodeURIComponent(message.name)}`)
+          .then((res) => res.text())
+          .then((html) => {
+            sendResponse({ html })
+          })
+          .catch((err) => {
+            sendResponse({ error: err.message })
+          })
+        return true
+      }
+      break
+    }
 
-  if (
-    message.type === MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS &&
-    message.name
-  ) {
-    fetch(`https://ollama.com/library/${encodeURIComponent(message.name)}`)
-      .then((res) => res.text())
-      .then((html) => {
-        sendResponse({ html })
-      })
-      .catch((err) => {
-        sendResponse({ error: err.message })
-      })
-    return true
+    case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
+      try {
+        const origin = new URL(message.payload).origin
+
+        chrome.declarativeNetRequest
+          .updateDynamicRules({
+            removeRuleIds: [1],
+            addRules: [
+              {
+                id: 1,
+                priority: 1,
+                action: {
+                  type: chrome.declarativeNetRequest.RuleActionType
+                    .MODIFY_HEADERS,
+                  requestHeaders: [
+                    {
+                      header: "Origin",
+                      operation:
+                        chrome.declarativeNetRequest.HeaderOperation.SET,
+                      value: origin
+                    }
+                  ]
+                },
+                condition: {
+                  urlFilter: `${origin}/*`,
+                  resourceTypes: [
+                    chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST
+                  ]
+                }
+              }
+            ]
+          })
+          .then(() => sendResponse({ success: true }))
+          .catch((err) => sendResponse({ success: false, error: err.message }))
+      } catch (err) {
+        sendResponse({ success: false, error: err.message })
+      }
+      return true
+    }
   }
 })
