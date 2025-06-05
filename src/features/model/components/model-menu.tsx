@@ -43,14 +43,12 @@ function ModelMenu({
   showStatusPopup = true
 }: ModelMenuProps) {
   const [open, setOpen] = useState(false)
-  const [showEmptyPopup, setShowEmptyPopup] = useState(false)
-  const [showErrorPopup, setShowErrorPopup] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
   )
 
-  const { status, models, error, refresh, loading } = useOllamaModels()
+  const { status, models, refresh, loading } = useOllamaModels()
 
   useEffect(() => {
     if (status === "ready" && models.length > 0 && !selectedModel) {
@@ -65,34 +63,6 @@ function ModelMenu({
       setSelectedModel(modelName) // for global selection
     }
     setOpen(false)
-  }
-
-  if (showStatusPopup && status === "error") {
-    setShowErrorPopup(true)
-    return (
-      <InfoPopup
-        open={showErrorPopup}
-        onClose={() => setShowErrorPopup(false)}
-        title="Failed to Load Models"
-        message={error!}
-        type="error"
-        actionButton={<Button onClick={refresh}>Retry</Button>}
-      />
-    )
-  }
-
-  if (showStatusPopup && status === "empty") {
-    setShowEmptyPopup(true)
-    return (
-      <InfoPopup
-        open={showEmptyPopup}
-        onClose={() => setShowEmptyPopup(false)}
-        title="No Models Found"
-        message="Please pull at least one model in Ollama to get started."
-        type="warning"
-        actionButton={<Button onClick={refresh}>Refresh</Button>}
-      />
-    )
   }
 
   if (!models) return null
