@@ -1,36 +1,47 @@
 ## 📄 Privacy Policy
 
-**Effective Date:** May 23, 2025
+**Effective Date:** June 5, 2025
 
-Thank you for using the Ollama Client browser extension (“Extension”). Your privacy is important to us. This privacy policy explains what information we collect, how we use it, and your choices regarding your data.
+Thank you for using the Ollama Client browser extension (“Extension”). Your privacy and security are important to us. This privacy policy explains what information we collect, how the Extension operates, and how we protect your data.
 
 ### 1. Information We Collect
 
-We do **not** collect, store, or transmit any personal data or identifiable information from users of the Extension.
+- The Extension **does not collect, store, or transmit any personal data or personally identifiable information (PII)** from users.
+- No data is sent to external servers or third-party services by this Extension.
+- Any data processed (e.g., chat inputs and model responses) remains **locally on your device**.
 
 ### 2. How the Extension Works
 
-All interactions with large language models (LLMs) occur **locally on your machine** using the Ollama platform. No chat data is sent to any external servers or third-party APIs by this Extension.
+- The Extension acts as a client interface to communicate with **locally hosted large language models (LLMs)** via the Ollama platform.
+- All AI model interactions, including message processing and generation, occur **entirely on your machine**, through Ollama’s local API.
+- The Extension supports multiple models such as Gemma, LLaMA 2, Mistral, CodeLLaMA, and others installed locally.
+- User chat history and session data are stored locally in **browser storage or IndexedDB**. Users have full control and may delete saved sessions at any time.
+- The Extension uses **Declarative Net Request (DNR) API** to bypass CORS restrictions, eliminating the need for users to modify backend CORS settings in most cases (effective from v0.1.3).
 
-### 3. Permissions
+### 3. Permissions and Data Access
 
-The Extension only requests permissions necessary to function properly and never accesses any personal data unrelated to its core functionality.
+- The Extension requests only the minimal necessary permissions, including:
 
-### 4. Third-Party Services
+  - Access to tabs and active browser context to enable content extraction from webpages and improve usability.
+  - Localhost communication to interface with the Ollama API.
 
-This Extension does not use any third-party analytics, advertising, or tracking services.
+- It does **not** access personal data unrelated to its functionality (e.g., browsing history, cookies).
+- No third-party analytics, tracking, or advertising services are integrated.
 
-### 5. Data Storage
+### 4. Data Storage and Retention
 
-All user inputs and model responses are processed and rendered **in your browser**. The Extension does not store any data remotely or persist any data beyond the session unless explicitly saved by the user.
+- By default, the Extension stores chat sessions locally in the browser’s IndexedDB using Dexie for efficient and reliable storage.
 
-### 6. Changes to This Policy
+- Users have full control and can delete saved chats at any time through the Extension’s interface.
 
-We may update this policy from time to time. We encourage you to review this page periodically. Continued use of the Extension after updates means you accept the changes.
+- No chat data is synced, backed up, or transmitted externally.
 
-### 7. Contact
+### 5. Changes to This Policy
 
-If you have any questions about this privacy policy, please contact us at:
+We may update this Privacy Policy as our Extension evolves. Users are encouraged to review this policy periodically. Continued use of the Extension after updates constitutes acceptance of the changes.
+
+### 6. Contact
+
+If you have any questions or concerns about this policy, please contact:
+
 📧 **[shishirchaurasiya435@gmail.com](mailto:shishirchaurasiya435@gmail.com)**
-
----
