@@ -27,6 +27,7 @@ export default {
     "^@/hooks/(.*)$",
     "^@/context/(.*)$",
     "^@/lib/(.*)$",
+    "^@/features/(.*)$",
     "^@/(.*)$", // Catch-all for other aliases
     "",
 
