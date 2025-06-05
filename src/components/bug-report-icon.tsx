@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { SOCIAL_LINKS } from "@/lib/constant"
+import { SOCIAL_LINKS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 export default function BugReportIcon({

@@ -1,6 +1,5 @@
 import { Moon, Sun } from "lucide-react"
 
-import { useTheme } from "@/components/them-provider"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useTheme } from "@/context/them-provider-context"
 
 export default function ThemeToggle({
   showText = true

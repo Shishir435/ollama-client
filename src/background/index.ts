@@ -1,4 +1,4 @@
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constant"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export {}
