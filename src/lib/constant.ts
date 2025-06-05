@@ -11,7 +11,8 @@ export const MESSAGE_KEYS = {
     SHOW_MODEL_DETAILS: "show-model-details",
     PULL_MODEL: "OLLAMA.PULL_MODEL",
     SCRAPE_MODEL: "scrape-ollama-model",
-    SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant"
+    SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
+    UPDATE_BASE_URL: "ollama-update-base-url"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
