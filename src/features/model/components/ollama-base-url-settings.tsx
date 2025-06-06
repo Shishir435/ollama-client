@@ -28,7 +28,6 @@ export default function BaseUrlSettings() {
       })
       setSaved(true)
       refresh()
-
       console.log("Base URL updated and DNR rule applied")
     } catch (err) {
       console.error("Failed to update base URL:", err)
@@ -37,8 +36,13 @@ export default function BaseUrlSettings() {
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleSave()
+  }
+
   return (
-    <div>
+    <form onSubmit={handleSubmit}>
       <Label htmlFor="ollama-url" className="text-sm">
         Local Ollama URL
       </Label>
@@ -50,7 +54,7 @@ export default function BaseUrlSettings() {
           onChange={(e) => setOllamaUrl(e.target.value)}
           placeholder="http://localhost:11434"
         />
-        <Button onClick={handleSave} className="w-full sm:w-auto">
+        <Button type="submit" className="w-full sm:w-auto">
           Save
         </Button>
       </div>
@@ -59,6 +63,6 @@ export default function BaseUrlSettings() {
           <CheckCircle2 size={16} /> <span>Saved!</span>
         </div>
       )}
-    </div>
+    </form>
   )
 }
