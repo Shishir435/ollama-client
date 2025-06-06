@@ -22,7 +22,7 @@ export type ModelConfig = {
   top_p: number
   repeat_penalty: number
   stop: string[]
-  system_prompt: string
+  system: string
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>
@@ -40,4 +40,12 @@ export interface ChatMessage {
   content: string
   done?: boolean
   model?: string
+  metrics?: {
+    total_duration?: number
+    load_duration?: number
+    prompt_eval_count?: number
+    prompt_eval_duration?: number
+    eval_count?: number
+    eval_duration?: number
+  }
 }
