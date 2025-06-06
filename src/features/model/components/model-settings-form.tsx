@@ -126,8 +126,8 @@ export function ModelSettingsForm() {
           <Label htmlFor="system_prompt">System Prompt</Label>
           <Textarea
             id="system_prompt"
-            value={config.system_prompt}
-            onChange={(e) => updateConfig({ system_prompt: e.target.value })}
+            value={config.system}
+            onChange={(e) => updateConfig({ system: e.target.value })}
             placeholder="You are a helpful assistant..."
           />
         </div>

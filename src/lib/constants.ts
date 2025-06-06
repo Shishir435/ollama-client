@@ -143,7 +143,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   top_p: 0.9,
   repeat_penalty: 1.1,
   stop: [],
-  system_prompt: ""
+  system: ""
 }
 
 export const SETUP_TABS = [
