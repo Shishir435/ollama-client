@@ -1,5 +1,6 @@
 import { useState } from "react"
 
+import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -58,6 +59,7 @@ export function ModelSettingsForm() {
       <h2 className="flex items-center gap-4 text-lg font-semibold">
         Model Settings: <ModelMenu tooltipTextContent="Switch model" />{" "}
         <OllamaStatusIndicator />
+        <ThemeToggle />
       </h2>
 
       <ModelInfo selectedModel={selectedModel} />

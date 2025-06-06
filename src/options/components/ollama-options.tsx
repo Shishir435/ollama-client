@@ -1,5 +1,4 @@
 import PerformanceWarning from "@/components/performance-warning"
-import ThemeToggle from "@/components/theme-toggle"
 import {
   Card,
   CardContent,
@@ -8,10 +7,10 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import SpeechSettings from "@/features/chat/components/speech-settings"
 import ExcludedUrls from "@/features/model/components/exclude-urls"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
-import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
 
 const OllamaOptions = () => {
   const tabSections = {
@@ -19,26 +18,22 @@ const OllamaOptions = () => {
       label: "General",
       content: (
         <div className="space-y-6">
-          <ModelSettingsForm />
           <PerformanceWarning />
+          <ModelSettingsForm />
         </div>
       )
     },
     modelPull: {
-      label: "Pull model",
+      label: "Model Library",
       content: <ModelPullPanel />
     },
     exclusions: {
       label: "Excluded URLs",
       content: <ExcludedUrls />
     },
-    appearance: {
-      label: "Appearance",
-      content: (
-        <div className="flex items-center justify-center gap-2">
-          <ThemeToggle />
-        </div>
-      )
+    voices: {
+      label: "Voice Settings",
+      content: <SpeechSettings />
     }
   }
 
