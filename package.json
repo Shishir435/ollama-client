@@ -89,7 +89,6 @@
     "permissions": [
       "storage",
       "sidePanel",
-      "scripting",
       "tabs",
       "declarativeNetRequest"
     ]
