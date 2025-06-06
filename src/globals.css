@@ -215,10 +215,11 @@
   box-sizing: border-box;
 }
 
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
 .scrollbar-none {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

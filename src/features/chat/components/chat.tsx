@@ -62,9 +62,7 @@ export default function Chat() {
           </div>
         </ScrollArea>
       ) : (
-        <div className="flex flex-1 items-center justify-center scrollbar-none">
-          <WelcomeScreen />
-        </div>
+        <WelcomeScreen />
       )}
 
       {hasSession && (

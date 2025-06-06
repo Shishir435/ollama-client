@@ -64,7 +64,7 @@ export default function WelcomeScreen() {
   const statusConfig = getStatusConfig()
 
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-start overflow-y-auto rounded-b-lg rounded-t-2xl bg-white px-4 py-6 text-center text-gray-900 scrollbar-none dark:bg-gray-900 dark:text-gray-100">
+    <div className="flex w-full flex-col items-center justify-start overflow-auto rounded-b-lg rounded-t-2xl bg-white px-4 py-6 text-center text-gray-900 scrollbar-none dark:bg-gray-900 dark:text-gray-100">
       <div className="mb-6 flex flex-col items-center">
         <div className="mb-3 rounded-3xl bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 p-3 shadow-xl transition-transform hover:scale-105 dark:shadow-blue-500/20">
           <Sparkles className="h-8 w-8 animate-pulse text-white" />
@@ -78,71 +78,24 @@ export default function WelcomeScreen() {
       </div>
 
       <div className="mb-6 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="group flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 transition-all hover:scale-105 hover:shadow-md dark:border-green-800 dark:bg-green-950/30">
-          <div className="rounded-lg bg-green-500 p-1.5 transition-transform group-hover:rotate-12">
-            <Shield className="h-4 w-4 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-              100% Private
-            </p>
-            <p className="text-xs text-green-600 dark:text-green-400">
-              Your data stays local
-            </p>
-          </div>
-        </div>
-
-        <div className="group flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 transition-all hover:scale-105 hover:shadow-md dark:border-blue-800 dark:bg-blue-950/30">
-          <div className="rounded-lg bg-blue-500 p-1.5 transition-transform group-hover:rotate-12">
-            <Globe className="h-4 w-4 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-              Works Offline
-            </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400">
-              No internet needed
-            </p>
-          </div>
-        </div>
-
-        <div className="group flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 p-3 transition-all hover:scale-105 hover:shadow-md dark:border-purple-800 dark:bg-purple-950/30">
-          <div className="rounded-lg bg-purple-500 p-1.5 transition-transform group-hover:rotate-12">
-            <Cpu className="h-4 w-4 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-purple-800 dark:text-purple-300">
-              Local Processing
-            </p>
-            <p className="text-xs text-purple-600 dark:text-purple-400">
-              Full control
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-5 max-w-lg rounded-xl border-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 p-4 shadow-lg dark:border-yellow-700 dark:from-yellow-950/30 dark:to-amber-950/30">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 p-1.5 shadow-md">
-            <AlertTriangle className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="mb-1 text-base font-bold text-yellow-800 dark:text-yellow-300">
-              Setup Required
-            </p>
-            <p className="mb-3 text-sm leading-relaxed text-yellow-700 dark:text-yellow-400">
-              Make sure you've set up Ollama correctly on your system.
-            </p>
-            <a
-              href="https://shishir435.github.io/ollama-client/ollama-setup-guide"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-blue-700 hover:shadow-lg">
-              <ExternalLink className="h-3 w-3" />
-              Setup Guide
-            </a>
-          </div>
-        </div>
+        <FeatureCard
+          icon={Shield}
+          color="green"
+          title="100% Private"
+          description="Your data stays local"
+        />
+        <FeatureCard
+          icon={Globe}
+          color="blue"
+          title="Works Offline"
+          description="No internet needed"
+        />
+        <FeatureCard
+          icon={Cpu}
+          color="purple"
+          title="Local Processing"
+          description="Full control"
+        />
       </div>
 
       {statusConfig && (
@@ -198,36 +151,52 @@ export default function WelcomeScreen() {
               </p>
 
               {status === "error" && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={refresh}
-                    className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/30">
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    Retry
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={refresh}
+                  className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/30">
+                  <RefreshCw className="mr-1 h-3 w-3" />
+                  Retry
+                </Button>
               )}
 
               {status === "empty" && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <a
-                    href="https://shishir435.github.io/ollama-client/ollama-setup-guide"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-blue-700">
-                    <ExternalLink className="h-3 w-3" />
-                    Setup Guide
-                  </a>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={refresh}
-                    className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/30">
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    Refresh
-                  </Button>
+                <div className="flex flex-col gap-3 text-left text-sm text-yellow-700 dark:text-yellow-400">
+                  <p className="font-medium">
+                    Before you start, follow these quick steps:
+                  </p>
+                  <ol className="list-inside list-decimal space-y-1">
+                    <li>
+                      Install <code className="font-mono">ollama</code> on your
+                      system
+                    </li>
+                    <li>
+                      Run <code className="font-mono">ollama run llama3</code>{" "}
+                      or any model
+                    </li>
+                    <li>
+                      Return here and click <b>Refresh</b>
+                    </li>
+                  </ol>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <a
+                      href="https://shishir435.github.io/ollama-client/ollama-setup-guide"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-blue-700">
+                      <ExternalLink className="h-3 w-3" />
+                      Full Setup Guide
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={refresh}
+                      className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/30">
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -287,6 +256,37 @@ export default function WelcomeScreen() {
         <PanelTopClose className="mr-2 h-3 w-3 transition-transform group-hover:-rotate-12" />
         Hide Welcome Screen
       </Button>
+    </div>
+  )
+}
+
+function FeatureCard({
+  icon: Icon,
+  color,
+  title,
+  description
+}: {
+  icon: any
+  color: "green" | "blue" | "purple"
+  title: string
+  description: string
+}) {
+  return (
+    <div
+      className={`group flex items-center gap-2 rounded-xl border border-${color}-200 bg-${color}-50 p-3 transition-all hover:scale-105 hover:shadow-md dark:border-${color}-800 dark:bg-${color}-950/30`}>
+      <div
+        className={`rounded-lg bg-${color}-500 p-1.5 transition-transform group-hover:rotate-12`}>
+        <Icon className="h-4 w-4 text-white" />
+      </div>
+      <div className="text-left">
+        <p
+          className={`text-sm font-semibold text-${color}-800 dark:text-${color}-300`}>
+          {title}
+        </p>
+        <p className={`text-xs text-${color}-600 dark:text-${color}-400`}>
+          {description}
+        </p>
+      </div>
     </div>
   )
 }

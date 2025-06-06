@@ -392,6 +392,11 @@ export const SOCIAL_LINKS: SocialLink[] = [
     icon: Globe
   },
   {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/in/shishir-chaurasiya/",
+    icon: Linkedin
+  },
+  {
     label: "Twitter",
     href: "https://twitter.com/_shishir435",
     icon: Twitter
@@ -400,11 +405,6 @@ export const SOCIAL_LINKS: SocialLink[] = [
     label: "Instagram",
     href: "https://www.instagram.com/_shishir435/",
     icon: Instagram
-  },
-  {
-    label: "LinkedIn",
-    href: "https://www.linkedin.com/in/shishir-chaurasiya/",
-    icon: Linkedin
   },
   {
     label: "Report Bug / Feature",
