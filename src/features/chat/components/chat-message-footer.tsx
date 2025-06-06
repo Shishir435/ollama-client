@@ -1,6 +1,6 @@
 import { CopyButton } from "@/features/chat/components/copy-button"
 import RegenerateButton from "@/features/chat/components/regenerate-button"
-import { SpeakButton } from "@/features/chat/components/speak-button"
+import SpeechButton from "@/features/chat/components/speech-button"
 import type { ChatMessage } from "@/types"
 
 export default function ChatMessageFooter({
@@ -22,7 +22,7 @@ export default function ChatMessageFooter({
       }>
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <CopyButton text={msg.content} />
-        <SpeakButton text={msg.content} />
+        <SpeechButton text={msg.content} />
         {!isUser && msg.model && !isLoading && (
           <RegenerateButton
             model={msg.model}
@@ -31,7 +31,7 @@ export default function ChatMessageFooter({
         )}
       </div>
 
-      <div className="pt-1 text-[11px] opacity-70">
+      <div className="pt-1 text-[11px]">
         {isUser
           ? new Date().toLocaleTimeString([], {
               hour: "2-digit",
