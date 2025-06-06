@@ -138,8 +138,10 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
 
 export const DEFAULT_EXCLUDE_URLS = [
   "^chrome://",
-  "^chrome-extension://",
-  "^chrome-untrusted://"
+  "^brave://",
+  "^edge://",
+  "^vivaldi://",
+  "^opera://"
 ]
 
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {

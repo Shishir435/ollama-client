@@ -22,11 +22,12 @@ export default function ExcludedUrls() {
   const [input, setInput] = useState("")
 
   const handleAdd = () => {
-    if (!input.trim()) return
+    const trimmed = input.trim()
+    if (!trimmed) return
     try {
-      new RegExp(input) // validate regex
-      if (!patterns.includes(input)) {
-        setPatterns([...patterns, input])
+      new RegExp(trimmed) // validate regex
+      if (!patterns.includes(trimmed)) {
+        setPatterns([...patterns, trimmed])
         setInput("")
       }
     } catch {
@@ -38,21 +39,26 @@ export default function ExcludedUrls() {
     setPatterns(patterns.filter((p) => p !== pattern))
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleAdd()
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <Label htmlFor="exclude-url">Exclude URLs (RegExp)</Label>
-        <div className="mt-2 flex gap-2">
+        <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
           <Input
             id="exclude-url"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="e.g. ^https://example.com/private"
           />
-          <Button onClick={handleAdd} className="whitespace-nowrap">
+          <Button type="submit" className="whitespace-nowrap">
             Add
           </Button>
-        </div>
+        </form>
       </div>
 
       <ul className="space-y-2 text-sm">
