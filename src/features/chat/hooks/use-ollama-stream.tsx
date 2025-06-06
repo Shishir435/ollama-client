@@ -69,7 +69,10 @@ export const useOllamaStream = ({
             { role: "assistant", content: errMsg, done: true }
           ]
         } else {
-          finalMessages = [...messages, { ...assistantMessage, done: true }]
+          finalMessages = [
+            ...messages,
+            { ...assistantMessage, metrics: msg.metrics, done: true }
+          ]
         }
 
         currentMessagesRef.current = finalMessages

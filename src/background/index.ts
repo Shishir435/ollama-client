@@ -1,5 +1,10 @@
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_MODEL_CONFIG,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { ModelConfigMap } from "@/types"
 
 export {}
 
@@ -59,12 +64,14 @@ chrome.runtime.onConnect.addListener((port) => {
 
       abortController = new AbortController()
       const modelConfigMap =
-        (await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.MODEL_CONFIGS)) ?? {}
-      const modelParams = modelConfigMap[model] ?? {}
-      console.log(modelParams)
+        (await plasmoGlobalStorage.get<ModelConfigMap>(
+          STORAGE_KEYS.OLLAMA.MODEL_CONFIGS
+        )) ?? {}
+      const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
+      console.log("modelParams: ", modelParams)
 
       try {
-        const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+        const response = await fetch(`${baseUrl}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -89,33 +96,79 @@ chrome.runtime.onConnect.addListener((port) => {
         const reader = response.body.getReader()
         const decoder = new TextDecoder("utf-8")
         let fullText = ""
+        let buffer = ""
 
         while (true) {
           const { value, done } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value, { stream: true })
+          // Accumulate chunks in buffer
+          buffer += decoder.decode(value, { stream: true })
 
-          // Process each line starting with 'data:'
-          const lines = chunk
-            .split("\n")
-            .filter((line) => line.trim().startsWith("data:"))
+          // Process complete lines
+          const lines = buffer.split("\n")
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || ""
+
           for (const line of lines) {
-            const jsonStr = line.replace("data: ", "").trim()
-            if (jsonStr === "[DONE]") continue
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
 
             try {
-              const data = JSON.parse(jsonStr)
-              const delta = data.choices?.[0]?.delta?.content || ""
-              fullText += delta
-              port.postMessage({ delta })
+              const data = JSON.parse(trimmedLine)
+
+              // Handle streaming content
+              if (data.message?.content) {
+                const delta = data.message.content
+                fullText += delta
+                port.postMessage({ delta })
+              }
+
+              // Handle completion - when done is true, we get the final response with metrics
+              if (data.done === true) {
+                // Send the final message with metrics
+                port.postMessage({
+                  done: true,
+                  content: fullText,
+                  metrics: {
+                    total_duration: data.total_duration,
+                    load_duration: data.load_duration,
+                    prompt_eval_count: data.prompt_eval_count,
+                    prompt_eval_duration: data.prompt_eval_duration,
+                    eval_count: data.eval_count,
+                    eval_duration: data.eval_duration
+                  }
+                })
+                return
+              }
             } catch (err) {
-              console.warn("Failed to parse chunk line:", line)
+              console.warn("Failed to parse chunk line:", trimmedLine, err)
             }
           }
         }
 
-        port.postMessage({ done: true, content: fullText })
+        // Process any remaining data in buffer
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer.trim())
+            if (data.done === true) {
+              port.postMessage({
+                done: true,
+                content: fullText,
+                metrics: {
+                  total_duration: data.total_duration,
+                  load_duration: data.load_duration,
+                  prompt_eval_count: data.prompt_eval_count,
+                  prompt_eval_duration: data.prompt_eval_duration,
+                  eval_count: data.eval_count,
+                  eval_duration: data.eval_duration
+                }
+              })
+            }
+          } catch (parseError) {
+            console.warn("Failed to parse final buffer:", buffer, parseError)
+          }
+        }
       } catch (err) {
         if (err.name === "AbortError") {
           port.postMessage({ done: true, aborted: true })
