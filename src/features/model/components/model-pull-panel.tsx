@@ -22,20 +22,29 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { useDebounce } from "@/hooks/use-debounce"
 import { cn } from "@/lib/utils"
+import ModelList from "@/features/model/components/model-list"
 import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"
 import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 
 export const ModelPullPanel = () => {
-  const { models, setSearchQuery, loading, loadVariants } =
-    useOllamaModelSearch()
-  const { pullModel, progress, pullingModel, cancelPull } = useOllamaPull()
+  const [progressMap, setProgressMap] = useState<Record<string, string>>({})
+  const [cancelledModels, setCancelledModels] = useState<Set<string>>(new Set())
+  const [searchTerm, setSearchTerm] = useState("")
   const [loadingVariantsFor, setLoadingVariantsFor] = useState<string | null>(
     null
   )
 
-  const [progressMap, setProgressMap] = useState<Record<string, string>>({})
-  const [cancelledModels, setCancelledModels] = useState<Set<string>>(new Set())
+  const { models, setSearchQuery, loading, loadVariants } =
+    useOllamaModelSearch()
+  const { pullModel, progress, pullingModel, cancelPull } = useOllamaPull()
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  useEffect(() => {
+    setSearchQuery(debouncedSearchTerm)
+  }, [debouncedSearchTerm])
 
   const handleLoadVariants = async (modelName: string) => {
     if (loadingVariantsFor) return
@@ -82,13 +91,16 @@ export const ModelPullPanel = () => {
         <p className="text-muted-foreground">
           Discover and download AI models for your projects
         </p>
+        <div>
+          <ModelList />
+        </div>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search models by name or description..."
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="h-11 border-2 bg-background/50 pl-10 transition-all focus:bg-background"
         />
       </div>
