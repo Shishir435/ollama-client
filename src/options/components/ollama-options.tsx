@@ -11,6 +11,8 @@ import SpeechSettings from "@/features/chat/components/speech-settings"
 import ExcludedUrls from "@/features/model/components/exclude-urls"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
+import OllamaSetupInstructions from "@/features/model/components/ollama-setup-instructions"
+import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 
 const OllamaOptions = () => {
   const tabSections = {
@@ -34,15 +36,24 @@ const OllamaOptions = () => {
     voices: {
       label: "Voice Settings",
       content: <SpeechSettings />
+    },
+    templates: {
+      label: "Prompt Templates",
+      content: <PromptTemplateManager />
+    },
+    setup: {
+      label: "CORS Setup",
+      content: <OllamaSetupInstructions />
     }
   }
 
   return (
-    <Card>
+    <Card className="mx-auto my-4 max-w-4xl space-y-6 p-4">
       <CardHeader>
         <CardTitle className="text-lg">Ollama Client Settings</CardTitle>
         <CardDescription>
-          Configure your Ollama server, excluded sites, and appearance.
+          Manage your Ollama setup, models, prompt templates, voice settings,
+          and exclusions — all in one place.
         </CardDescription>
       </CardHeader>
 
