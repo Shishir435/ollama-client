@@ -13,6 +13,7 @@ import {
   Zap
 } from "lucide-react"
 
+import PerformanceWarning from "@/components/performance-warning"
 import SettingsButton from "@/components/settings-button"
 import SocialHandles from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
@@ -225,24 +226,8 @@ export default function WelcomeScreen() {
         </Button>
         <SettingsButton />
       </div>
-
-      <div className="mb-5 max-w-lg rounded-xl border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 p-4 shadow-lg dark:border-orange-700 dark:from-orange-950/30 dark:to-amber-950/30">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-gradient-to-r from-orange-400 to-amber-500 p-1.5 shadow-md">
-            <Cpu className="h-4 w-4" />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="mb-1 text-base font-bold text-orange-800 dark:text-orange-300">
-              ⚠️ Performance Notice
-            </p>
-            <p className="text-sm leading-relaxed text-orange-700 dark:text-orange-400">
-              Response time and output quality depend entirely on your system
-              configuration (CPU, RAM, GPU) and the Ollama model selected. This
-              extension is a user interface only — all model processing happens
-              locally on your device via Ollama.
-            </p>
-          </div>
-        </div>
+      <div className="mb-5">
+        <PerformanceWarning />
       </div>
 
       <div className="mb-4 transform transition-transform hover:scale-105">
