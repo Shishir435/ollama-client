@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { markdownToSpeechText } from "@/lib/utils"
+import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
+import { useVoices } from "@/features/chat/hooks/use-voice"
+
 export function useSpeechSynthesis() {
   const [speaking, setSpeaking] = useState(false)
+  const [isLoadingVoices, setIsLoadingVoices] = useState(true)
+  const voices = useVoices()
+  const { rate, pitch, voiceURI } = useSpeechSettings()
+  useEffect(() => {
+    if (voices.length > 0 && isLoadingVoices) {
+      setIsLoadingVoices(false)
+    }
+  }, [voices, isLoadingVoices])
 
   useEffect(() => {
     const handleEnd = () => setSpeaking(false)
@@ -18,16 +30,24 @@ export function useSpeechSynthesis() {
   }, [])
 
   const speak = useCallback(
-    (text: string) => {
-      if (!text || speaking) return
+    (markdownText: string) => {
+      if (!markdownText || speaking || isLoadingVoices) return
 
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel()
       }
 
-      const utterance = new SpeechSynthesisUtterance(text)
-      // TODO: set voice, lang, pitch, rate here
-      // TODO: utterance.lang = navigator.language
+      const cleanText = markdownToSpeechText(markdownText)
+      const utterance = new SpeechSynthesisUtterance(cleanText)
+
+      utterance.rate = rate
+      utterance.pitch = pitch
+      utterance.lang = navigator.language
+
+      const matchedVoice = voices.find((v) => v.voiceURI === voiceURI)
+      if (matchedVoice) {
+        utterance.voice = matchedVoice
+      }
 
       utterance.onstart = () => setSpeaking(true)
       utterance.onend = () => setSpeaking(false)
@@ -35,7 +55,7 @@ export function useSpeechSynthesis() {
 
       window.speechSynthesis.speak(utterance)
     },
-    [speaking]
+    [speaking, rate, pitch, voiceURI, voices, isLoadingVoices]
   )
 
   const stop = useCallback(() => {
@@ -56,5 +76,5 @@ export function useSpeechSynthesis() {
     [speaking, speak, stop]
   )
 
-  return { speaking, speak, stop, toggle }
+  return { speaking, speak, stop, toggle, isLoadingVoices, voices }
 }

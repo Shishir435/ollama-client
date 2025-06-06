@@ -13,7 +13,7 @@ interface SpeakButtonProps {
 }
 
 export function SpeakButton({ text }: SpeakButtonProps) {
-  const { speaking, toggle } = useSpeechSynthesis()
+  const { speaking, toggle, isLoadingVoices } = useSpeechSynthesis()
 
   if (!text.trim()) return null
 
@@ -24,9 +24,22 @@ export function SpeakButton({ text }: SpeakButtonProps) {
           size="sm"
           variant="link"
           className="h-6 px-2"
-          aria-label={speaking ? "Stop speaking" : "Speak message"}
-          title={speaking ? "Stop speaking" : "Speak message"}
-          onClick={() => toggle(text)}
+          aria-label={
+            isLoadingVoices
+              ? "Loading voices..."
+              : speaking
+                ? "Stop speaking"
+                : "Speak message"
+          }
+          title={
+            isLoadingVoices
+              ? "Loading voices..."
+              : speaking
+                ? "Stop speaking"
+                : "Speak message"
+          }
+          onClick={() => !isLoadingVoices && toggle(text)}
+          disabled={isLoadingVoices}
           type="button">
           {speaking ? (
             <MicOff size={16} className="text-destructive" />
@@ -36,7 +49,11 @@ export function SpeakButton({ text }: SpeakButtonProps) {
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {speaking ? "Stop speaking" : "Speak message"}
+        {isLoadingVoices
+          ? "Loading voices..."
+          : speaking
+            ? "Stop speaking"
+            : "Speak message"}
       </TooltipContent>
     </Tooltip>
   )

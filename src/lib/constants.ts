@@ -33,6 +33,11 @@ export const STORAGE_KEYS = {
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern"
+  },
+  TTS: {
+    RATE: "tts-rate",
+    PITCH: "tts-pitch",
+    VOICE_URI: "tts-voice-uri"
   }
 }
 

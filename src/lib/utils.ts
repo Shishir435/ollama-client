@@ -41,3 +41,13 @@ export const formatTokensPerSecond = (
 
   return `${Math.round(tokensPerSecond)} t/s`
 }
+
+export function markdownToSpeechText(markdown: string): string {
+  return markdown
+    .replace(/`{1,3}[^`]*`{1,3}/g, "") // remove inline/code blocks
+    .replace(/[*_~#>[\]()`]/g, "") // remove symbols
+    .replace(/\\+/g, "") // remove backslashes
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1") // format links: [text](url) → text
+    .replace(/\s+/g, " ") // normalize whitespace
+    .trim()
+}
