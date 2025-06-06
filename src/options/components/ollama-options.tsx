@@ -1,4 +1,5 @@
 import PerformanceWarning from "@/components/performance-warning"
+import SocialHandles from "@/components/social-handles"
 import {
   Card,
   CardContent,
@@ -11,8 +12,8 @@ import SpeechSettings from "@/features/chat/components/speech-settings"
 import ExcludedUrls from "@/features/model/components/exclude-urls"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
-import OllamaSetupInstructions from "@/features/model/components/ollama-setup-instructions"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
+import Guides from "@/options/components/guides"
 
 const OllamaOptions = () => {
   const tabSections = {
@@ -24,6 +25,10 @@ const OllamaOptions = () => {
           <ModelSettingsForm />
         </div>
       )
+    },
+    templates: {
+      label: "Prompt Templates",
+      content: <PromptTemplateManager />
     },
     modelPull: {
       label: "Model Library",
@@ -37,13 +42,15 @@ const OllamaOptions = () => {
       label: "Voice Settings",
       content: <SpeechSettings />
     },
-    templates: {
-      label: "Prompt Templates",
-      content: <PromptTemplateManager />
-    },
     setup: {
-      label: "CORS Setup",
-      content: <OllamaSetupInstructions />
+      label: "Guides",
+      content: (
+        <div className="space-y-6">
+          <PerformanceWarning />
+          <Guides />
+          <SocialHandles />
+        </div>
+      )
     }
   }
 
@@ -52,8 +59,8 @@ const OllamaOptions = () => {
       <CardHeader>
         <CardTitle className="text-lg">Ollama Client Settings</CardTitle>
         <CardDescription>
-          Manage your Ollama setup, models, prompt templates, voice settings,
-          and exclusions — all in one place.
+          Manage your Ollama setup, models, prompts, voices, and more — all in
+          one place. For tips and setup instructions, see the Guides tab.
         </CardDescription>
       </CardHeader>
 

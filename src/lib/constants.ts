@@ -153,75 +153,22 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   system: ""
 }
 
-export const SETUP_TABS = [
+export const GUIDES = [
   {
-    value: "macos",
-    label: "🖥️ macOS",
-    markdown: `
-If you’re using a **Launch Agent**:
-
-1. Open terminal and run:
-   \`\`\`bash
-   nano ~/Library/LaunchAgents/com.ollama.server.plist
-   \`\`\`
-
-2. Add this inside \`<key>EnvironmentVariables</key>\`:
-   \`\`\`xml
-   <key>OLLAMA_ORIGINS</key>
-   <string>chrome-extension://*</string>
-   \`\`\`
-
-3. Save the file and reload the Launch Agent:
-   \`\`\`bash
-   launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
-   launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
-   \`\`\`
-    `
+    label: "📖 Ollama Client Setup Guide",
+    href: "https://shishir435.github.io/ollama-client/ollama-setup-guide"
   },
   {
-    value: "linux",
-    label: "🐧 Linux",
-    markdown: `
-1. Edit the Ollama service:
-   \`\`\`bash
-   sudo systemctl edit --full ollama.service
-   \`\`\`
-
-2. Under \`[Service]\`, add:
-   \`\`\`ini
-   Environment="OLLAMA_ORIGINS=chrome-extension://*"
-   \`\`\`
-
-3. Reload and restart:
-   \`\`\`bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart ollama
-   \`\`\`
-    `
+    label: "📚 Official Ollama Model Library",
+    href: "https://ollama.com/library"
   },
   {
-    value: "windows",
-    label: "🪟 Windows",
-    markdown: `
-1. Open Run (Win + R), type \`sysdm.cpl\`, and press Enter.
-2. Go to the **Advanced** tab → click **Environment Variables**.
-3. Add a new **User Variable**:
-   - **Name:** \`OLLAMA_ORIGINS\`
-   - **Value:** \`chrome-extension://*\`
-
-4. Restart Ollama for the changes to take effect.
-    `
+    label: "🔗 Github Repo",
+    href: "https://github.com/Shishir435/ollama-client"
   },
   {
-    value: "multi-origin",
-    label: "💡 Multiple Origins",
-    markdown: `
-If you want to allow multiple origins (e.g., localhost + extension), set:
-
-\`\`\`bash
-OLLAMA_ORIGINS=chrome-extension://*,http://localhost:3000
-\`\`\`
-    `
+    label: "🛠️ Troubleshooting & FAQ",
+    href: "https://github.com/Shishir435/ollama-client/issues"
   }
 ]
 
