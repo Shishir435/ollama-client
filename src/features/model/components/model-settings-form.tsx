@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import { Textarea } from "@/components/ui/textarea"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import ModelInfo from "@/features/model/components/model-info"
@@ -27,7 +26,15 @@ export function ModelSettingsForm() {
   const [newStop, setNewStop] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  if (!selectedModel) return <div className="text-sm">No model selected.</div>
+  if (!selectedModel) {
+    return (
+      <Card className="space-y-4 p-4">
+        <h2 className="text-lg font-semibold">Model Settings</h2>
+        <p className="text-sm text-muted-foreground">No model selected.</p>
+        <BaseUrlSettings />
+      </Card>
+    )
+  }
 
   const validateAndSet = (key: keyof typeof config, value: any) => {
     setError(null)
@@ -44,8 +51,7 @@ export function ModelSettingsForm() {
 
   const handleAddStop = () => {
     const trimmed = newStop.trim()
-    if (trimmed.length === 0) return
-    if (config.stop.includes(trimmed)) return
+    if (trimmed.length === 0 || config.stop.includes(trimmed)) return
     updateConfig({ stop: [...config.stop, trimmed] })
     setNewStop("")
   }
@@ -57,13 +63,12 @@ export function ModelSettingsForm() {
   return (
     <Card className="space-y-4 p-4">
       <h2 className="flex items-center gap-4 text-lg font-semibold">
-        Model Settings: <ModelMenu tooltipTextContent="Switch model" />{" "}
+        Model Settings: <ModelMenu tooltipTextContent="Switch model" />
         <OllamaStatusIndicator />
         <ThemeToggle />
       </h2>
 
       <ModelInfo selectedModel={selectedModel} />
-
       <BaseUrlSettings />
 
       <div className="space-y-4 pt-2">
@@ -125,48 +130,33 @@ export function ModelSettingsForm() {
         </div>
 
         <div>
-          <Label htmlFor="system_prompt">System Prompt</Label>
-          <Textarea
-            id="system_prompt"
-            value={config.system}
-            onChange={(e) => updateConfig({ system: e.target.value })}
-            placeholder="You are a helpful assistant..."
-          />
-        </div>
-
-        <div>
-          <Label>Stop Sequences</Label>
-          <div className="mt-2 flex gap-2">
+          <Label htmlFor="stop-sequences">Stop Sequences</Label>
+          <div className="flex gap-2">
             <Input
-              placeholder="Add stop sequence"
+              id="stop-sequences"
               value={newStop}
+              placeholder="Add stop word"
               onChange={(e) => setNewStop(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleAddStop()
-                }
-              }}
+              onKeyDown={(e) => e.key === "Enter" && handleAddStop()}
             />
-            <Button onClick={handleAddStop} type="button" variant="outline">
+            <Button type="button" onClick={handleAddStop}>
               Add
             </Button>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {config.stop.map((word) => (
-              <div
-                key={word}
-                className="flex items-center gap-1 rounded bg-muted px-2 py-1 text-sm">
-                {word}
-                <button
-                  onClick={() => handleRemoveStop(word)}
-                  className="text-red-600 hover:underline"
-                  type="button">
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
+          {config.stop.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+              {config.stop.map((word) => (
+                <li key={word} className="rounded bg-muted px-2 py-1">
+                  {word}
+                  <button
+                    className="ml-2 text-red-500 hover:text-red-700"
+                    onClick={() => handleRemoveStop(word)}>
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </Card>
