@@ -20,13 +20,14 @@ export default function SendOrStopButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          onClick={isStreaming ? stopGeneration : () => onSend()}
+          onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
           variant="ghost"
           size="icon"
           className="rounded-full"
-          aria-label={isStreaming ? "Stop generation" : "Send message"}
-          disabled={isLoading && !isStreaming}>
-          {isStreaming ? (
+          aria-label={
+            isStreaming || isLoading ? "Stop generation" : "Send message"
+          }>
+          {isStreaming || isLoading ? (
             <Circle size={16} className="animate-pulse text-red-500" />
           ) : (
             <SendHorizontal size={16} />
@@ -34,7 +35,7 @@ export default function SendOrStopButton({
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isStreaming ? "Stop generation" : "Send message"}
+        {isStreaming || isLoading ? "Stop generation" : "Send message"}
       </TooltipContent>
     </Tooltip>
   )
