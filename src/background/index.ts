@@ -54,7 +54,23 @@ chrome.runtime.onStartup.addListener(updateDNRRules)
 let abortController: AbortController | null = null
 const pullAbortControllers: Record<string, AbortController> = {}
 
+function safePostMessage(port, message) {
+  try {
+    port.postMessage(message)
+  } catch (error) {
+    console.warn("Failed to send message to port:", error.message)
+  }
+}
+
 chrome.runtime.onConnect.addListener((port) => {
+  let isPortClosed = false
+
+  port.onDisconnect.addListener(() => {
+    isPortClosed = true
+    // Clean up any ongoing operations when port is disconnected
+    abortController?.abort()
+  })
+
   port.onMessage.addListener(async (msg) => {
     if (msg.type === MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL) {
       const { model, messages } = msg.payload
@@ -68,7 +84,7 @@ chrome.runtime.onConnect.addListener((port) => {
           STORAGE_KEYS.OLLAMA.MODEL_CONFIGS
         )) ?? {}
       const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
-      console.log("modelParams: ", modelParams)
+      console.log("modelParams: ", model, modelParams)
 
       try {
         const response = await fetch(`${baseUrl}/api/chat`, {
@@ -84,7 +100,7 @@ chrome.runtime.onConnect.addListener((port) => {
         })
 
         if (!response.ok || !response.body) {
-          port.postMessage({
+          safePostMessage(port, {
             error: {
               status: response.status,
               message: response.statusText
@@ -121,13 +137,13 @@ chrome.runtime.onConnect.addListener((port) => {
               if (data.message?.content) {
                 const delta = data.message.content
                 fullText += delta
-                port.postMessage({ delta })
+                safePostMessage(port, { delta })
               }
 
               // Handle completion - when done is true, we get the final response with metrics
               if (data.done === true) {
                 // Send the final message with metrics
-                port.postMessage({
+                safePostMessage(port, {
                   done: true,
                   content: fullText,
                   metrics: {
@@ -152,7 +168,7 @@ chrome.runtime.onConnect.addListener((port) => {
           try {
             const data = JSON.parse(buffer.trim())
             if (data.done === true) {
-              port.postMessage({
+              safePostMessage(port, {
                 done: true,
                 content: fullText,
                 metrics: {
@@ -171,13 +187,15 @@ chrome.runtime.onConnect.addListener((port) => {
         }
       } catch (err) {
         if (err.name === "AbortError") {
-          port.postMessage({ done: true, aborted: true })
+          if (!isPortClosed) {
+            safePostMessage(port, { done: true, aborted: true })
+          }
         } else {
           console.error("Streaming error:", err.message)
-          port.postMessage({
+          safePostMessage(port, {
             error: {
               status: 0,
-              messages: err.message
+              message: err.message
             }
           })
         }
@@ -211,14 +229,14 @@ chrome.runtime.onConnect.addListener((port) => {
         })
 
         if (!res.ok) {
-          port.postMessage({
+          safePostMessage(port, {
             error: { status: res.status, message: res.statusText }
           })
           return
         }
 
         if (!res.body) {
-          port.postMessage({ error: "No response body received" })
+          safePostMessage(port, { error: "No response body received" })
           return
         }
 
@@ -229,6 +247,11 @@ chrome.runtime.onConnect.addListener((port) => {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
+          // Check if port is still connected
+          if (isPortClosed) {
+            reader.cancel()
+            break
+          }
 
           // Accumulate chunks in buffer
           buffer += decoder.decode(value, { stream: true })
@@ -247,11 +270,11 @@ chrome.runtime.onConnect.addListener((port) => {
 
               // Handle different response types from Ollama
               if (data.status) {
-                port.postMessage({ status: data.status })
+                safePostMessage(port, { status: data.status })
 
                 // Check for completion - Ollama returns "success" when done
                 if (data.status === "success") {
-                  port.postMessage({ done: true })
+                  safePostMessage(port, { done: true })
                   delete pullAbortControllers[modelName]
                   return
                 }
@@ -259,7 +282,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
               // Handle error responses
               if (data.error) {
-                port.postMessage({ error: data.error })
+                safePostMessage(port, { error: data.error })
                 delete pullAbortControllers[modelName]
                 return
               }
@@ -267,7 +290,7 @@ chrome.runtime.onConnect.addListener((port) => {
               // Handle progress updates (downloading, verifying, etc.)
               if (data.completed !== undefined && data.total !== undefined) {
                 const progress = Math.round((data.completed / data.total) * 100)
-                port.postMessage({
+                safePostMessage(port, {
                   status: `Downloading: ${progress}%`,
                   progress: progress
                 })
@@ -284,7 +307,7 @@ chrome.runtime.onConnect.addListener((port) => {
           try {
             const data = JSON.parse(buffer.trim())
             if (data.status === "success") {
-              port.postMessage({ done: true })
+              safePostMessage(port, { done: true })
             }
           } catch (parseError) {
             console.warn("Failed to parse final buffer:", buffer, parseError)
@@ -293,12 +316,13 @@ chrome.runtime.onConnect.addListener((port) => {
         delete pullAbortControllers[modelName]
       } catch (err) {
         if (err.name === "AbortError") {
-          port.postMessage({ error: "Download cancelled" })
+          safePostMessage(port, { error: "Download cancelled" })
         } else {
-          port.postMessage({
+          safePostMessage(port, {
             error: { status: 0, message: err.message || "Failed to pull model" }
           })
         }
+        delete pullAbortControllers[modelName]
       }
     })
   }
