@@ -28,7 +28,7 @@ export default function ChatInputBox({
   useAutoResizeTextarea(textareaRef, input)
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.key === "/" && e.ctrlKey) || e.key === "/") {
+    if (e.key === "/" && e.ctrlKey) {
       setShowPromptOverlay(true)
     }
 
@@ -72,7 +72,7 @@ export default function ChatInputBox({
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
-          placeholder="Type your message... Press '/' for prompts"
+          placeholder="Type message... Ctrl + / for prompts"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
