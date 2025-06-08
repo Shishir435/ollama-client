@@ -175,35 +175,44 @@ export const GUIDES = [
 export const ERROR_MESSAGES: Record<number, string> = {
   403: `### ❌ 403 Forbidden: CORS Error
 
-Your Ollama server is blocking requests from this Chrome extension.
+  Your Ollama server is **blocking requests** from this browser extension.
 
-#### Fix it:
+---
 
-# Ollama Configuration Required
+### 🧭 When Does This Happen?
 
-> To avoid CORS issues, configure your Ollama server to allow requests from Chrome extensions.
+This error is **most common on Firefox**, where extensions **cannot use DNR** to override CORS headers like in Chrome-based browsers.
+
+In **Chromium-based browsers** (Chrome, Brave, Edge, etc.), the extension uses DNR (Declarative Net Request) to handle CORS automatically.
+
+---
+
+### 🛠️ Fix it: Configure Ollama to Allow Extension Requests
+
+You must manually allow requests from browser extensions by setting \`OLLAMA_ORIGINS\`.
+
+> ✅ Recommended value:  
+> \`OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\`
 
 ---
 
 <details>
-<summary>macOS</summary>
+<summary>macOS (Launch Agent)</summary>
 
-If you’re using a Launch Agent:
-
-1. Open terminal and run:
+1. Open terminal:
 
    \`\`\`bash
    nano ~/Library/LaunchAgents/com.ollama.server.plist
    \`\`\`
 
-2. Add this inside \`<key>EnvironmentVariables</key>\`:
+2. Inside \`<key>EnvironmentVariables</key>\`, add:
 
    \`\`\`xml
    <key>OLLAMA_ORIGINS</key>
-   <string>chrome-extension://*</string>
+   <string>chrome-extension://*,moz-extension://*</string>
    \`\`\`
 
-3. Save the file and reload the Launch Agent:
+3. Save and reload the service:
 
    \`\`\`bash
    launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
@@ -217,16 +226,16 @@ If you’re using a Launch Agent:
 <details>
 <summary>Linux (systemd)</summary>
 
-1. Edit the Ollama service:
+1. Edit the Ollama systemd service:
 
    \`\`\`bash
    sudo systemctl edit --full ollama.service
    \`\`\`
 
-2. Under \`[Service]\`, add:
+2. Add this to the \`[Service]\` section:
 
    \`\`\`ini
-   Environment="OLLAMA_ORIGINS=chrome-extension://*"
+   Environment="OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*"
    \`\`\`
 
 3. Reload and restart:
@@ -243,14 +252,14 @@ If you’re using a Launch Agent:
 <details>
 <summary>Windows</summary>
 
-1. Open Run (\`Win + R\`), type \`sysdm.cpl\`, and press Enter.
-2. Go to the **Advanced** tab → click **Environment Variables**.
+1. Press \`Win + R\`, type \`sysdm.cpl\`, and press Enter.  
+2. Go to the **Advanced** tab → click **Environment Variables**.  
 3. Add a new **User Variable**:
 
-   - **Name:** \`OLLAMA_ORIGINS\`
-   - **Value:** \`chrome-extension://*\`
+   - **Name:** \`OLLAMA_ORIGINS\`  
+   - **Value:** \`chrome-extension://*,moz-extension://*\`
 
-4. Restart Ollama for the changes to take effect.
+4. Restart Ollama.
 
 </details>
 
@@ -259,21 +268,21 @@ If you’re using a Launch Agent:
 <details>
 <summary>Allowing Multiple Origins</summary>
 
-If you want to allow multiple origins (e.g., localhost + extension), use:
+To allow both extensions and web clients (like localhost dev tools):
 
 \`\`\`bash
-OLLAMA_ORIGINS=chrome-extension://*,http://localhost:3000
+OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
 \`\`\`
 
 </details>
 
-Please refer: [ollama-setup-guide](https://shishir435.github.io/ollama-client/ollama-setup-guide).
-
-Or see [https://ollama.com](https://ollama.com) for help.`,
+📖 For step-by-step instructions: [ollama-setup-guide](https://shishir435.github.io/ollama-client/ollama-setup-guide)  
+🔗 Official docs: [https://ollama.com](https://ollama.com)
+`,
 
   0: `### ⚠️ Unable to Reach Ollama
 
-This extension couldn't connect to your **Ollama server**. It might not be running, or it could be misconfigured.
+This extension couldn't connect to your **Ollama server**. It might not be running, or the base URL is incorrect.
 
 ---
 
@@ -288,44 +297,40 @@ If you haven't already:
 ollama serve
 \`\`\`
 
-> This command starts Ollama's local server, typically at \`http://localhost:11434\`
+This launches Ollama at \`http://localhost:11434\`.
 
 ---
 
-### :mag: How to Check if It's Running
+### 🔎 How to Check If It's Running
 
-1. Open your browser and go to:  
+1. Open your browser to:  
    [http://localhost:11434](http://localhost:11434)
 
-   If the page doesn't load, Ollama is not running.
-
-2. Open a terminal and run:
+2. Or run in terminal:
 
    \`\`\`bash
    curl http://localhost:11434/api/tags
    \`\`\`
 
-   If you get a list of models or an empty JSON response, Ollama is up.
+You should see a JSON response. If not, Ollama isn't active.
 
 ---
 
-### ⚙️ Configure the Base URL (Optional)
+### ⚙️ Set the Correct Base URL
 
-If you're using a remote Ollama server or a custom port:
+If you’re using a remote server or non-standard port:
 
-- Click the **Settings** (⚙️) icon in the top-right of the chat panel.
-- This opens the **Options** page.
-- There, you can configure:
-  - Custom **Base URL** (e.g., \`http://localhost:11434\`)
-  - Default **model**
-  - Theme preferences and more.
+- Click the ⚙️ **Settings** icon in the extension popup
+- Enter your correct **Base URL** (e.g. \`http://192.168.*.**:11434\`)
+- Save and retry
 
 ---
 
-Still having trouble?  
-Make sure no VPN, firewall, or network policy is blocking requests to \`localhost:11434\`.
+Still not working?
 
-For help, visit: [https://ollama.com](https://ollama.com)
+- Check your firewall or VPN
+- Try restarting the browser
+- Visit: [https://ollama.com](https://ollama.com) for troubleshooting
 `
 }
 
