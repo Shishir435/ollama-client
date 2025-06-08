@@ -43,8 +43,14 @@ export function ModelSettingsForm() {
       setError("Repeat penalty must be greater than 0.")
       return
     }
-    if (key === "top_k" && (value < 1 || isNaN(value))) {
-      setError("Top K must be a number greater than 0.")
+    if (
+      (key === "top_k" ||
+        key === "num_ctx" ||
+        key === "repeat_last_n" ||
+        key === "num_predict") &&
+      (value < 0 || isNaN(value))
+    ) {
+      setError(`${key} must be a number greater than or equal to 0.`)
       return
     }
     updateConfig({ [key]: value })
@@ -63,7 +69,7 @@ export function ModelSettingsForm() {
 
   return (
     <Card className="space-y-4 p-4">
-      <h2 className="flex items-center gap-4 text-lg font-semibold">
+      <h2 className="flex flex-wrap items-center gap-4 text-lg font-semibold">
         Model Settings: <ModelMenu tooltipTextContent="Switch model" />
         <OllamaStatusIndicator />
         <ThemeToggle />
@@ -74,72 +80,14 @@ export function ModelSettingsForm() {
 
       <div className="space-y-4 pt-2">
         {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <div>
-          <Label htmlFor="temperature">Temperature</Label>
-          <Slider
-            id="temperature"
-            min={0}
-            max={1}
-            step={0.01}
-            value={[config.temperature]}
-            onValueChange={([v]) => validateAndSet("temperature", v)}
-          />
-          <div className="mt-1 text-xs text-muted-foreground">
-            {config.temperature}
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="top_k">Top K</Label>
-          <Input
-            id="top_k"
-            type="number"
-            min={1}
-            value={config.top_k}
-            onChange={(e) => validateAndSet("top_k", parseInt(e.target.value))}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="top_p">Top P</Label>
-          <Slider
-            id="top_p"
-            min={0}
-            max={1}
-            step={0.01}
-            value={[config.top_p]}
-            onValueChange={([v]) => validateAndSet("top_p", v)}
-          />
-          <div className="mt-1 text-xs text-muted-foreground">
-            {config.top_p}
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="repeat_penalty">Repeat Penalty</Label>
-          <Input
-            id="repeat_penalty"
-            type="number"
-            step={0.1}
-            min={0.1}
-            value={config.repeat_penalty}
-            onChange={(e) =>
-              validateAndSet("repeat_penalty", parseFloat(e.target.value))
-            }
-          />
-        </div>
         <div>
           <Label htmlFor="system">System Prompt</Label>
           <Textarea
             id="system"
+            placeholder="Enter a custom system prompt for this model"
             value={config.system}
-            placeholder="e.g., You are a helpful assistant running locally via Ollama Client."
             onChange={(e) => validateAndSet("system", e.target.value)}
           />
-          <div className="mt-1 text-xs text-muted-foreground">
-            Custom instructions sent with every prompt.
-          </div>
         </div>
 
         <div>
@@ -170,6 +118,129 @@ export function ModelSettingsForm() {
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="temperature">Temperature</Label>
+            <Slider
+              id="temperature"
+              min={0}
+              max={1}
+              step={0.01}
+              value={[config.temperature]}
+              onValueChange={([v]) => validateAndSet("temperature", v)}
+            />
+            <div className="mt-1 text-xs text-muted-foreground">
+              {config.temperature}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="top_p">Top P</Label>
+            <Slider
+              id="top_p"
+              min={0}
+              max={1}
+              step={0.01}
+              value={[config.top_p]}
+              onValueChange={([v]) => validateAndSet("top_p", v)}
+            />
+            <div className="mt-1 text-xs text-muted-foreground">
+              {config.top_p}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="top_k">Top K</Label>
+            <Input
+              id="top_k"
+              type="number"
+              min={1}
+              value={config.top_k}
+              onChange={(e) =>
+                validateAndSet("top_k", parseInt(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="repeat_penalty">Repeat Penalty</Label>
+            <Input
+              id="repeat_penalty"
+              type="number"
+              step={0.1}
+              min={0.1}
+              value={config.repeat_penalty}
+              onChange={(e) =>
+                validateAndSet("repeat_penalty", parseFloat(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="num_ctx">Context Size</Label>
+            <Input
+              id="num_ctx"
+              type="number"
+              min={128}
+              value={config.num_ctx}
+              onChange={(e) =>
+                validateAndSet("num_ctx", parseInt(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="repeat_last_n">Repeat Last N</Label>
+            <Input
+              id="repeat_last_n"
+              type="number"
+              min={-1}
+              value={config.repeat_last_n}
+              onChange={(e) =>
+                validateAndSet("repeat_last_n", parseInt(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="num_predict">Max Tokens (num_predict)</Label>
+            <Input
+              id="num_predict"
+              type="number"
+              value={config.num_predict}
+              onChange={(e) =>
+                validateAndSet("num_predict", parseInt(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="min_p">Min P</Label>
+            <Input
+              id="min_p"
+              type="number"
+              step={0.01}
+              min={0.0}
+              max={1.0}
+              value={config.min_p}
+              onChange={(e) =>
+                validateAndSet("min_p", parseFloat(e.target.value))
+              }
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="seed">Seed</Label>
+            <Input
+              id="seed"
+              type="number"
+              min={0}
+              value={config.seed}
+              onChange={(e) => validateAndSet("seed", parseInt(e.target.value))}
+            />
+          </div>
         </div>
       </div>
     </Card>

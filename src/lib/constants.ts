@@ -150,7 +150,12 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   top_p: 0.9,
   repeat_penalty: 1.1,
   stop: [],
-  system: ""
+  system: "",
+  num_ctx: 2048,
+  repeat_last_n: 64,
+  seed: 0,
+  num_predict: -1,
+  min_p: 0.0
 }
 
 export const GUIDES = [
