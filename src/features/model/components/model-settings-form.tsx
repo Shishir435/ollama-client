@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
+import { Textarea } from "@/components/ui/textarea"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import ModelInfo from "@/features/model/components/model-info"
@@ -127,6 +128,18 @@ export function ModelSettingsForm() {
               validateAndSet("repeat_penalty", parseFloat(e.target.value))
             }
           />
+        </div>
+        <div>
+          <Label htmlFor="system">System Prompt</Label>
+          <Textarea
+            id="system"
+            value={config.system}
+            placeholder="e.g., You are a helpful assistant running locally via Ollama Client."
+            onChange={(e) => validateAndSet("system", e.target.value)}
+          />
+          <div className="mt-1 text-xs text-muted-foreground">
+            Custom instructions sent with every prompt.
+          </div>
         </div>
 
         <div>
