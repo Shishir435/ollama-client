@@ -34,3 +34,6 @@ dist/
 
 .gptree_config
 gptree_output.txt
+
+#zip files
+*.zip
