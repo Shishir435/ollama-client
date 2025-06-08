@@ -86,15 +86,22 @@ chrome.runtime.onConnect.addListener((port) => {
       console.log("modelParams: ", modelParams)
 
       try {
+        const requestBody = {
+          model,
+          messages,
+          stream: true,
+          ...modelParams
+        }
+
+        console.log(
+          "🛰️ Sending to Ollama /api/chat:",
+          JSON.stringify(requestBody, null, 2)
+        )
+
         const response = await fetch(`${baseUrl}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model,
-            messages,
-            stream: true,
-            ...modelParams
-          }),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal
         })
 
