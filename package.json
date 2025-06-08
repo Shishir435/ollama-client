@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Chat privately with your local Ollama LLM models in-browser. Fast, lightweight, and secure AI without cloud dependencies.",
   "author": "shishir.chaurasiya",
   "scripts": {
@@ -92,7 +92,13 @@
       "sidePanel",
       "tabs",
       "declarativeNetRequest"
-    ]
+    ],
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "shishirchaurasiya435@gmail.com",
+        "strict_min_version": "109.0"
+      }
+    }
   },
   "packageManager": "pnpm@10.7.1+sha512.2d92c86b7928dc8284f53494fb4201f983da65f0fb4f0d40baafa5cf628fa31dae3e5968f12466f17df7e97310e30f343a648baea1b9b350685dafafffdf5808"
 }
