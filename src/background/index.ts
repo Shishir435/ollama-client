@@ -8,9 +8,22 @@ import type { ModelConfigMap } from "@/types"
 
 export {}
 
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => console.error("SidePanel error:", error))
+function isChromiumBased() {
+  return (
+    typeof chrome !== "undefined" &&
+    typeof chrome.declarativeNetRequest !== "undefined"
+  )
+}
+
+if (isChromiumBased() && "sidePanel" in chrome) {
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error("SidePanel error:", error))
+}
+
+if (!isChromiumBased()) {
+  console.warn("DNR not available: skipping CORS workaround (likely Firefox)")
+}
 
 async function updateDNRRules() {
   const baseUrl =
@@ -48,8 +61,10 @@ async function updateDNRRules() {
     .catch(console.error)
 }
 
-chrome.runtime.onInstalled.addListener(updateDNRRules)
-chrome.runtime.onStartup.addListener(updateDNRRules)
+if (isChromiumBased()) {
+  chrome.runtime.onInstalled.addListener(updateDNRRules)
+  chrome.runtime.onStartup.addListener(updateDNRRules)
+}
 
 let abortController: AbortController | null = null
 const pullAbortControllers: Record<string, AbortController> = {}
