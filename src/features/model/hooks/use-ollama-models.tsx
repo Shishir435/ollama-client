@@ -27,6 +27,28 @@ export function useOllamaModels() {
     )
   }
 
+  const deleteModel = (modelName: string) => {
+    chrome.runtime.sendMessage(
+      {
+        type: MESSAGE_KEYS.OLLAMA.DELETE_MODEL,
+        payload: modelName
+      },
+      (response) => {
+        if (response?.success) {
+          // Optimistically update local state
+          setModels((prev) =>
+            prev ? prev.filter((model) => model.name !== modelName) : null
+          )
+        } else {
+          console.error(
+            `Failed to delete model "${modelName}":`,
+            response?.error?.message
+          )
+        }
+      }
+    )
+  }
+
   useEffect(() => {
     fetchModels()
   }, [])
@@ -39,5 +61,12 @@ export function useOllamaModels() {
         ? "empty"
         : "ready"
 
-  return { models, error, loading, status, refresh: fetchModels }
+  return {
+    models,
+    error,
+    loading,
+    status,
+    refresh: fetchModels,
+    deleteModel
+  }
 }

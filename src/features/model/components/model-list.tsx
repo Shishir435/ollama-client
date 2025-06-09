@@ -6,9 +6,21 @@ import {
   ChevronUp,
   Database,
   HardDrive,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -73,7 +85,7 @@ const getModelIcon = (modelName: string): string => {
 }
 
 export default function ModelList(): JSX.Element {
-  const { models, loading, error, refresh } = useOllamaModels()
+  const { models, loading, error, deleteModel, refresh } = useOllamaModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
 
   if (loading) {
@@ -181,11 +193,11 @@ export default function ModelList(): JSX.Element {
         <CollapsibleContent>
           <div className="border-t">
             <ScrollArea className="h-64">
-              <div className="space-y-1 p-2">
+              <div className="flex flex-wrap justify-center gap-1 space-y-1 p-2">
                 {models.map((model: OllamaModel) => (
                   <Card
                     key={model.name}
-                    className="cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
+                    className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-muted text-sm">
@@ -209,6 +221,36 @@ export default function ModelList(): JSX.Element {
                             </div>
                           </div>
                         </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                              onClick={(e) => e.stopPropagation()}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete model "{model.name}"?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. The model will be
+                                permanently removed from your local system.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteModel(model.name)}
+                                className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </CardContent>
                   </Card>
