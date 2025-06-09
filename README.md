@@ -28,13 +28,24 @@
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank">
     <img src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Install%20Ollama%20Client&logo=googlechrome&style=for-the-badge&color=4F46E5&labelColor=000" />
   </a>
+  
 </div>
 
 ---
 
+## ❤️ Upvote Us on Product Hunt!
+
+<div align="center">
+<a href="https://www.producthunt.com/products/ollama-client?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-ollama&#0045;client" target="_blank">
+  <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=975260&theme=light&t=1749488134483" alt="Ollama&#0032;Client - Chat&#0032;with&#0032;local&#0032;LLMs&#0032;—&#0032;right&#0032;inside&#0032;your&#0032;browser | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" />
+</a>
+</div>
+
 ## 🌐 Explore More
 
+<div align="center">
 <a href="https://shishir435.github.io/ollama-client/ollama-client" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
+</div>
 
 ---
 
@@ -45,6 +56,11 @@
 - ⚙️ **Custom Settings** – Control model parameters, themes, prompt templates
 - 🔄 **Model Switcher** – Switch between models in real time
 - 🔍 **Model Search & Pull** – Pull models directly in the UI (with progress indicator)
+
+* 🗑️ **Model Deletion with Confirmation** – Clean up unused models from the UI
+* 🧳 **Load/Unload Models** – Manage Ollama memory footprint efficiently
+* 📦 **Model Version Display** – View and compare model versions easily
+
 - 🎛️ **Tune Parameters** – Temperature, top_k, top_p, repeat penalty, stop sequences
 - 🧠 **Transcript & Page Summarization** – Works with YouTube, Udemy, Coursera & web articles
 - 🔊 **TTS** – Built-in Text-to-Speech via Web Speech API
@@ -240,7 +256,6 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 ## 🔮 Roadmap / Upcoming
 
 - Chat search, filter, and export
-- Import/export prompt templates
 - Improved error handling and offline UI fallback
 - Better feedback for failed pulls or unreachable server
 
