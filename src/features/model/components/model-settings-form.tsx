@@ -14,6 +14,7 @@ import ModelInfo from "@/features/model/components/model-info"
 import ModelMenu from "@/features/model/components/model-menu"
 import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
+import { OllamaVersion } from "@/features/model/components/ollama-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -70,14 +71,19 @@ export function ModelSettingsForm() {
 
   return (
     <Card className="space-y-4 p-4">
-      <h2 className="flex flex-wrap items-center gap-4 text-lg font-semibold">
-        Model Settings: <ModelMenu tooltipTextContent="Switch model" />
-        <OllamaStatusIndicator />
-        <ThemeToggle />
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 text-lg font-semibold">
+        <h2 className="flex flex-wrap items-center gap-4">
+          Model Settings:
+          <ModelMenu tooltipTextContent="Switch model" />
+          <ThemeToggle />
+        </h2>
+        <div className="flex items-center gap-4">
+          <OllamaStatusIndicator />
+          <OllamaVersion />
+        </div>
+      </div>
       <ModelInfo selectedModel={selectedModel} />
       <LoadedModelsInfo />
-      <BaseUrlSettings />
 
       <div className="space-y-4 pt-2">
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -122,6 +128,19 @@ export function ModelSettingsForm() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="seed">Seed</Label>
+            <Input
+              id="seed"
+              type="number"
+              min={0}
+              value={config.seed}
+              onChange={(e) => validateAndSet("seed", parseInt(e.target.value))}
+            />
+          </div>
+          <div>
+            <BaseUrlSettings />
+          </div>
           <div>
             <Label htmlFor="temperature">Temperature</Label>
             <Slider
@@ -229,17 +248,6 @@ export function ModelSettingsForm() {
               onChange={(e) =>
                 validateAndSet("min_p", parseFloat(e.target.value))
               }
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="seed">Seed</Label>
-            <Input
-              id="seed"
-              type="number"
-              min={0}
-              value={config.seed}
-              onChange={(e) => validateAndSet("seed", parseInt(e.target.value))}
             />
           </div>
         </div>
