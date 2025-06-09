@@ -1,14 +1,16 @@
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
 import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
+import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
-import { isChromiumBased } from "@/background/lib/utils"
+import { getBaseUrl, isChromiumBased } from "@/background/lib/utils"
 import type {
   ChatWithModelMessage,
   ChromeMessage,
@@ -107,12 +109,15 @@ chrome.runtime.onMessage.addListener(
         break
       }
 
-      case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
+      case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS:
+        handleGetLoadedModels(sendResponse)
+        return true
+
+      case MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL:
         if (typeof message.payload === "string") {
-          handleUpdateBaseUrl(message.payload, sendResponse)
+          handleUnloadModel(message.payload, sendResponse)
         }
         return true
-      }
     }
   }
 )

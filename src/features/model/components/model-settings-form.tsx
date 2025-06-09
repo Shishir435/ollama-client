@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import LoadedModelsInfo from "@/features/model/components/loaded-models-info"
 import ModelInfo from "@/features/model/components/model-info"
 import ModelMenu from "@/features/model/components/model-menu"
 import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
@@ -74,8 +75,8 @@ export function ModelSettingsForm() {
         <OllamaStatusIndicator />
         <ThemeToggle />
       </h2>
-
       <ModelInfo selectedModel={selectedModel} />
+      <LoadedModelsInfo />
       <BaseUrlSettings />
 
       <div className="space-y-4 pt-2">
