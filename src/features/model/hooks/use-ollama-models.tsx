@@ -8,6 +8,9 @@ export function useOllamaModels() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
+  const [version, setVersion] = useState<string | null>(null)
+  const [versionError, setVersionError] = useState<string | null>(null)
+
   const fetchModels = () => {
     setLoading(true)
     chrome.runtime.sendMessage(
@@ -49,8 +52,24 @@ export function useOllamaModels() {
     )
   }
 
+  const fetchOllamaVersion = () => {
+    chrome.runtime.sendMessage(
+      { type: MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION },
+      (response) => {
+        if (response?.success) {
+          setVersion(response.data.version)
+          setVersionError(null)
+        } else {
+          setVersionError("Failed to fetch Ollama version.")
+          setVersion(null)
+        }
+      }
+    )
+  }
+
   useEffect(() => {
     fetchModels()
+    fetchOllamaVersion()
   }, [])
 
   const status: "loading" | "error" | "empty" | "ready" = loading
@@ -67,6 +86,9 @@ export function useOllamaModels() {
     loading,
     status,
     refresh: fetchModels,
-    deleteModel
+    deleteModel,
+    version,
+    versionError,
+    fetchOllamaVersion
   }
 }

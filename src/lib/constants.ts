@@ -15,7 +15,8 @@ export const MESSAGE_KEYS = {
     UPDATE_BASE_URL: "ollama-update-base-url",
     GET_LOADED_MODELS: "get-loaded-model",
     UNLOAD_MODEL: "unload-model",
-    DELETE_MODEL: "delete-model"
+    DELETE_MODEL: "delete-model",
+    GET_OLLAMA_VERSION: "get-ollama-version"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",

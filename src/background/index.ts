@@ -3,6 +3,7 @@ import { handleChatWithModel } from "@/background/handlers/handle-chat-with-mode
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
+import { handleGetOllamaVersion } from "@/background/handlers/handle-get-ollama-version"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
@@ -120,10 +121,16 @@ chrome.runtime.onMessage.addListener(
         }
         return true
       }
+
       case MESSAGE_KEYS.OLLAMA.DELETE_MODEL: {
         if (typeof message.payload === "string") {
           handleDeleteModel(message.payload, sendResponse)
         }
+        return true
+      }
+
+      case MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION: {
+        handleGetOllamaVersion(sendResponse)
         return true
       }
     }
