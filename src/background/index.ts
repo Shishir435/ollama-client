@@ -9,6 +9,7 @@ import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
 import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
+import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { isChromiumBased } from "@/background/lib/utils"
@@ -108,6 +109,12 @@ chrome.runtime.onMessage.addListener(
           return true
         }
         break
+      }
+
+      case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
+        if (typeof message.payload === "string")
+          handleUpdateBaseUrl(message.payload, sendResponse)
+        return true
       }
 
       case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
