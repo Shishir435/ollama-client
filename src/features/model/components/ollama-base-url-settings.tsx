@@ -1,12 +1,11 @@
 import { useState } from "react"
 
-import { CheckCircle2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { cn } from "@/lib/utils"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -38,15 +37,16 @@ export default function BaseUrlSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     await handleSave()
   }
 
   return (
     <form onSubmit={handleSubmit}>
       <Label htmlFor="ollama-url" className="text-sm">
-        Local Ollama URL
+        Ollama URL
       </Label>
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           id="ollama-url"
           type="text"
@@ -54,15 +54,14 @@ export default function BaseUrlSettings() {
           onChange={(e) => setOllamaUrl(e.target.value)}
           placeholder="http://localhost:11434"
         />
-        <Button type="submit" className="w-full sm:w-auto">
-          Save
+        <Button
+          type="submit"
+          className={cn(
+            saved && "border-green-200 bg-green-50 !text-green-500"
+          )}>
+          {saved ? "Saved!" : "Save"}
         </Button>
       </div>
-      {saved && (
-        <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
-          <CheckCircle2 size={16} /> <span>Saved!</span>
-        </div>
-      )}
     </form>
   )
 }

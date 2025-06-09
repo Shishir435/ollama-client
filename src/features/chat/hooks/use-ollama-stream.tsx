@@ -40,7 +40,7 @@ export const useOllamaStream = ({
 
     let firstChunk = true
 
-    port.onMessage.addListener((msg) => {
+    const listener = (msg: any) => {
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false
@@ -49,7 +49,10 @@ export const useOllamaStream = ({
       if (msg.delta !== undefined) {
         assistantMessage.content += msg.delta
         // Replace the last message (assistant) with updated content
-        const updated = [...messages, { ...assistantMessage }]
+        const updated = [
+          ...currentMessagesRef.current.slice(0, -1),
+          { ...assistantMessage }
+        ]
         currentMessagesRef.current = updated
         setMessages(updated)
       }
@@ -65,12 +68,12 @@ export const useOllamaStream = ({
             ERROR_MESSAGES[msg.error.status] ??
             `❌ Unknown error: ${msg.error.message || "No message"}`
           finalMessages = [
-            ...messages,
+            ...currentMessagesRef.current.slice(0, -1),
             { role: "assistant", content: errMsg, done: true }
           ]
         } else {
           finalMessages = [
-            ...messages,
+            ...currentMessagesRef.current.slice(0, -1),
             { ...assistantMessage, metrics: msg.metrics, done: true }
           ]
         }
@@ -78,10 +81,13 @@ export const useOllamaStream = ({
         currentMessagesRef.current = finalMessages
         setMessages(finalMessages)
 
+        port.onMessage.removeListener(listener)
         port.disconnect()
         portRef.current = null
       }
-    })
+    }
+
+    port.onMessage.addListener(listener)
 
     port.postMessage({
       type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,

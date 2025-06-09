@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -124,13 +124,13 @@ export const ModelPullPanel = () => {
               </div>
             </div>
             {!cancelledModels.has(model) && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <div
                 onClick={handleCancel}
-                className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400">
+                className={cn(
+                  buttonVariants({ variant: "destructive", size: "sm" })
+                )}>
                 <Trash className="h-4 w-4" />
-              </Button>
+              </div>
             )}
           </CardContent>
         </Card>

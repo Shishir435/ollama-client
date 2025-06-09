@@ -256,19 +256,45 @@ function FeatureCard({
   title: string
   description: string
 }) {
+  const colorVariants = {
+    green: {
+      border: "border-green-200 dark:border-green-800",
+      bg: "bg-green-50 dark:bg-green-950/30",
+      iconBg: "bg-green-500",
+      titleText: "text-green-800 dark:text-green-300",
+      descText: "text-green-600 dark:text-green-400"
+    },
+    blue: {
+      border: "border-blue-200 dark:border-blue-800",
+      bg: "bg-blue-50 dark:bg-blue-950/30",
+      iconBg: "bg-blue-500",
+      titleText: "text-blue-800 dark:text-blue-300",
+      descText: "text-blue-600 dark:text-blue-400"
+    },
+    purple: {
+      border: "border-purple-200 dark:border-purple-800",
+      bg: "bg-purple-50 dark:bg-purple-950/30",
+      iconBg: "bg-purple-500",
+      titleText: "text-purple-800 dark:text-purple-300",
+      descText: "text-purple-600 dark:text-purple-400"
+    }
+  }
+
+  const variant = colorVariants[color]
+
   return (
     <div
-      className={`group flex items-center gap-2 rounded-xl border border-${color}-200 bg-${color}-50 p-3 transition-all hover:scale-105 hover:shadow-md dark:border-${color}-800 dark:bg-${color}-950/30`}>
+      className={`group flex items-center gap-3 rounded-xl border p-4 transition-all duration-200 hover:scale-105 hover:shadow-lg ${variant.border} ${variant.bg}`}>
       <div
-        className={`rounded-lg bg-${color}-500 p-1.5 transition-transform group-hover:rotate-12`}>
-        <Icon className="h-4 w-4 text-white" />
+        className={`flex-shrink-0 rounded-lg p-2 transition-transform duration-200 group-hover:rotate-12 ${variant.iconBg}`}>
+        <Icon className="h-5 w-5 text-white" />
       </div>
-      <div className="text-left">
+      <div className="flex-1 text-left">
         <p
-          className={`text-sm font-semibold text-${color}-800 dark:text-${color}-300`}>
+          className={`text-sm font-semibold leading-tight ${variant.titleText}`}>
           {title}
         </p>
-        <p className={`text-xs text-${color}-600 dark:text-${color}-400`}>
+        <p className={`text-xs leading-relaxed ${variant.descText}`}>
           {description}
         </p>
       </div>

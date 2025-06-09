@@ -12,7 +12,11 @@ export const MESSAGE_KEYS = {
     PULL_MODEL: "OLLAMA.PULL_MODEL",
     SCRAPE_MODEL: "scrape-ollama-model",
     SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
-    UPDATE_BASE_URL: "ollama-update-base-url"
+    UPDATE_BASE_URL: "ollama-update-base-url",
+    GET_LOADED_MODELS: "get-loaded-model",
+    UNLOAD_MODEL: "unload-model",
+    DELETE_MODEL: "delete-model",
+    GET_OLLAMA_VERSION: "get-ollama-version"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
