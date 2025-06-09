@@ -21,8 +21,13 @@ export type ModelConfig = {
   top_k: number
   top_p: number
   repeat_penalty: number
-  stop: string[]
+  stop: any[]
   system: string
+  num_ctx: number
+  repeat_last_n: number
+  seed: number
+  num_predict: number
+  min_p: number
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>

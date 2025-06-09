@@ -1,15 +1,32 @@
 # 🧠 Ollama Client — Chat with Local LLMs in Your Browser
 
-**Ollama Client** is a powerful yet lightweight Chrome extension that lets you interact with locally hosted LLMs using [Ollama](https://ollama.com). Perfect for developers, researchers, and power users who want fast, private AI responses directly inside their browser.
+**Ollama Client** is a powerful, privacy-first Chrome extension that lets you chat with locally hosted LLMs using [Ollama](https://ollama.com) — no cloud, no tracking. It’s lightweight, open source, and designed for fast, offline-friendly AI conversations.
 
 ---
 
-### 🚀 Get Started — Install Now!
+  <!-- Browser Support Badges -->
+<div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+  <img src="https://img.shields.io/badge/Chrome-Supported-brightgreen?logo=googlechrome&style=for-the-badge" alt="Chrome Supported" />
+  <img src="https://img.shields.io/badge/Chromium-Supported-blue?logo=googlechrome&style=for-the-badge" alt="Chromium Supported" />
+  <img src="https://img.shields.io/badge/Brave-Supported-orange?logo=brave&style=for-the-badge" alt="Brave Supported" />
+  <img src="https://img.shields.io/badge/Edge-Supported-blue?logo=microsoftedge&style=for-the-badge" alt="Edge Supported" />
+  <img src="https://img.shields.io/badge/Opera-Supported-red?logo=opera&style=for-the-badge" alt="Opera Supported" />
+  <img src="https://img.shields.io/badge/Arc-Supported-9cf?style=for-the-badge" alt="Arc Supported" />
+  <img src="https://img.shields.io/badge/Firefox-Experimental-lightgrey?logo=firefox-browser&style=for-the-badge" alt="Firefox Experimental" />
+</div>
 
-<div style="text-align:center; margin: 20px 0;">
-  <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" 
-     style="background-color:#4F46E5; color:white; font-size:18px; font-weight:bold; padding: 15px 40px; border-radius:8px; text-decoration:none; display:inline-block;">
-    🚀 Install Ollama Client from Chrome Web Store
+---
+
+> ✅ Works with any Chromium-based browser: **Chrome**, **Brave**, **Edge**, **Opera**, **Chromium**, and **Arc**.  
+> 🦊 **Firefox support** available via [temporary addon installation](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/) (manual permissions setup required).
+
+---
+
+## 🚀 Get Started — Install Now
+
+<div align="center">
+  <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank">
+    <img src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Install%20Ollama%20Client&logo=googlechrome&style=for-the-badge&color=4F46E5&labelColor=000" />
   </a>
 </div>
 
@@ -17,113 +34,24 @@
 
 ## 🌐 Explore More
 
-Check out the official landing page with full documentation and guides:
-👉 [ollama-client](https://shishir435.github.io/ollama-client/ollama-client)
+<a href="https://shishir435.github.io/ollama-client/ollama-client" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
 
 ---
 
-## 🚀 Key Features
+## ✨ Features
 
-- 🔌 **Local Ollama Integration** – Connect to your own Ollama server, no API keys required.
-- 💬 **In-Browser Chat UI** – Lightweight, minimal chat interface.
-- ⚙️ **Custom Settings Panel** – Configure base URL, default model, themes, excluded URLs, and prompt templates.
-- 🔄 **Model Switcher** – Switch between any installed Ollama models on the fly.
-- 🧭 **Model Search & Add** – Search, pull, and add new Ollama models and track download progress directly from the options page. _(Known issue: pressing Stop during model pull may cause some glitches.)_
-- 🎛️ **Model Parameter Tuning** – Adjust temperature, top_k, top_p, repeat penalty and stop sequence.
-- ✂️ **Content Parsing** – Automatically extract and summarize page content with Mozilla Readability.
-- 📜 **Transcript Parsing** – Supports transcripts from YouTube, Udemy, Coursera.
-- 🔊 **Text-to-Speech** – Click the “Speak” button to have the browser read aloud chat responses or page summaries using the Web Speech API.
-- 📋 **Regenerate / Copy Response** – Easily rerun AI responses or copy results to clipboard.
-- 🗂️ **Multi-Chat Sessions** – Manage multiple chat sessions locally with save, load, and delete.
-- 🛡️ **Privacy-First** – All data processing and storage stays local on your machine.
-- 🧯 **Declarative Net Request (DNR)** – Handles CORS automatically, no manual config needed (since v0.1.3).
-
----
-
-## 🛠️ Quick Installation Guide
-
-### ✅ 1. Install the Chrome Extension
-
-Get it from the Chrome Web Store:
-👉 [Ollama Client - Chrome Extension](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-
----
-
-### ✅ 2. Install Ollama on Your System
-
-Visit: [https://ollama.com](https://ollama.com)
-Then run:
-
-```bash
-ollama serve
-```
-
-This starts the local server at `http://localhost:11434`.
-
----
-
-### ✅ 3. Pull a Model (e.g., Gemma 3B)
-
-```bash
-ollama pull gemma3:1b
-```
-
-> You can also pull other models like `llama3:8b`, `mistral`, `codellama`, etc.
-
----
-
-### ⚙️ 4. Configure CORS for Chrome Extension Access (If Needed)
-
-Since v0.1.3, Ollama Client uses Chrome's **Declarative Net Request** API to bypass CORS automatically in most environments.
-If you still encounter:
-
-> ❌ 403 Forbidden: CORS Error
-
-Please follow this detailed setup:
-📖 [Ollama Setup Guide](https://shishir435.github.io/ollama-client/ollama-setup-guide)
-
----
-
-### ⚙️ Configuration & Options
-
-After installing:
-
-1. Click the **Ollama Client** icon in your browser.
-2. Open the ⚙️ **Settings Page**.
-3. Configure:
-
-   - ✅ Base URL (`http://localhost:11434`)
-   - 🤖 Default Model (e.g., `gemma:3b`)
-   - 🎨 Theme Preferences
-   - 🚫 Excluded URLs (for auto-context)
-   - 📌 Prompt Templates (prefilled tasks like summarize, translate, explain)
-   - 🔧 **Model Parameters**:
-
-     - 🔥 **Temperature** (e.g., `0.87`)
-     - 🎯 **Top-K** (e.g., `37`)
-     - 📈 **Top-P** (e.g., `0.6`)
-     - 🧠 **Repeat Penalty** (e.g., `1.1`)
-     - 🧾 **System Prompt** (e.g., `You are a helpful assistant...`)
-     - 🛑 **Stop Sequences** (e.g., custom output termination strings)
-
-> These settings are saved per model and can be adjusted anytime via the options menu.
-
----
-
-## 🤔 Which Ollama Model Should You Use?
-
-| System Specs                         | Recommended Models           | Notes                                                               |
-| ------------------------------------ | ---------------------------- | ------------------------------------------------------------------- |
-| 🔹 **8GB RAM** (no GPU)              | `gemma:2b`, `mistral:7b-q4`  | Prefer small quantized models (e.g., `q4_0`) for smooth performance |
-| 🔹 **16GB RAM** (no GPU)             | `gemma:2b`, `gemma:3b-q4`    | Avoid large models; quantized recommended                           |
-| 🔹 **16GB+ RAM** with GPU (6GB VRAM) | `gemma:3b`, `llama3:8b-q4`   | Still use quantized models for efficiency                           |
-| 🔹 **32GB+ RAM** or high-end GPU     | `llama3:8b`, `codellama:13b` | Can run larger models with better speed                             |
-| 🔹 **RTX 3090+ / Apple M3 Max**      | `llama3:70b`, `mixtral`      | For high-end machines only due to resource demands                  |
-
-> ✅ **Tip:** Quantized models (e.g., `gemma:3b-q4_0`) are preferred for better compatibility and performance.
-
-📚 **Browse More Models**:
-👉 [Ollama Model Library](https://ollama.com/library)
+- 🔌 **Local Ollama Integration** – Connect to a local Ollama server (no API keys)
+- 💬 **In-Browser Chat UI** – Lightweight, minimal, fast
+- ⚙️ **Custom Settings** – Control model parameters, themes, prompt templates
+- 🔄 **Model Switcher** – Switch between models in real time
+- 🔍 **Model Search & Pull** – Pull models directly in the UI (with progress indicator)
+- 🎛️ **Tune Parameters** – Temperature, top_k, top_p, repeat penalty, stop sequences
+- 🧠 **Transcript & Page Summarization** – Works with YouTube, Udemy, Coursera & web articles
+- 🔊 **TTS** – Built-in Text-to-Speech via Web Speech API
+- 🗂️ **Multi-Chat Sessions** – Save/load/delete local chats
+- 🧯 **Declarative Net Request (DNR)** – Automatic CORS handling
+- 🛡️ **100% Local and Private** – All storage and inference happen on your device
+- 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
 
 ---
 
@@ -131,36 +59,211 @@ After installing:
 
 - TypeScript
 - React + Vite
-- Shadcn Ui
-- Chrome Extension APIs (Declarative Net Request)
+- Plasmo (for Chrome extension boilerplate)
+- Shadcn UI
 - Ollama (local LLM backend)
+- Chrome Extension APIs (`declarativeNetRequest`, `storage`, `sidePanel`)
 
 ---
 
-## 🐞 Known Issues and Limitations
+## 🛠️ Quick Setup
 
-- 🚫 **Stop Generation Bug:** "Stop" only works after generation starts streaming; sometimes it doesn’t abort early.
-- 🤖 **Stop pulling model bug** pressing "Stop" during model pull may cause some glitches.
-- 🛑 **CORS Issues:** Mostly resolved via DNR, but manual CORS setup may still be needed in some environments.
-- 💾 **Storage Size:** IndexedDB storage is local; large chat histories may affect performance on low-end devices.
+### ✅ 1. Install the Extension
+
+👉 [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+
+### ✅ 2. Install Ollama on Your Machine
+
+```bash
+brew install ollama  # macOS
+ollama serve         # starts at http://localhost:11434
+```
+
+More info: [https://ollama.com](https://ollama.com)
+
+### ✅ 3. Pull a Model
+
+```bash
+ollama pull gemma3:1b
+```
+
+Other options: `mistral`, `llama3:8b`, `codellama`, etc.
+
+### ⚙️ 4. Configure the Extension
+
+- Click the **Ollama Client** icon
+- Open ⚙️ **Settings**
+- Set your:
+
+  - Local base URL: `http://localhost:11434`
+  - Default model (e.g. `gemma:2b`)
+  - Theme & appearance
+  - Model parameters
+  - Prompt templates
+
+> Advanced parameters like system prompts and stop sequences are available per model.
 
 ---
 
-## 🔮 Upcoming Features
+## 🛠️ Local Development Setup
 
-- Enhanced chat history management with search and export options.
-- Improved error handling and user notifications.
+Want to contribute or customize? You can run and modify the Ollama Client extension locally using Plasmo.
+
+### ⚙️ Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or newer recommended)
+- [pnpm](https://pnpm.io/) (recommended) or npm
+- [Ollama](https://ollama.com) installed locally
+
+---
+
+### 📦 1. Clone the Repo
+
+```bash
+git clone https://github.com/Shishir435/ollama-client.git
+cd ollama-client
+```
+
+---
+
+### 📥 2. Install Dependencies
+
+Using **pnpm** (recommended):
+
+```bash
+pnpm install
+```
+
+Or with **npm**:
+
+```bash
+npm install
+```
+
+---
+
+### 🧪 3. Run the Extension (Dev Mode)
+
+Start development mode with hot reload:
+
+```bash
+pnpm dev
+```
+
+Or with npm:
+
+```bash
+npm run dev
+```
+
+This launches the Plasmo dev server and gives instructions for loading the unpacked extension in Chrome:
+
+- Open `chrome://extensions`
+- Enable **Developer mode**
+- Click **Load unpacked**
+- Select the `dist/` folder generated by Plasmo
+
+---
+
+### 🧪 4. Run in Firefox (Experimental)
+
+```bash
+pnpm dev --target=firefox
+```
+
+Load as a [temporary extension](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+
+---
+
+### 🛠 5. Build for Production
+
+```bash
+pnpm build
+```
+
+Output will be in the `build/` or `dist/` folder depending on your Plasmo version.
+
+---
+
+### 📁 Code Structure
+
+- `src/`: Core logic and components
+- `background.ts`: API bridge + streaming
+- `sidepanel.tsx`: Main chat UI
+- `options.tsx`: Settings page
+- `content.ts`: Summarizer / Readability
+- `lib/`: Utility functions
+- `hooks/`, `features/`, `context/`: Modular structure for maintainability
+
+---
+
+### ✅ Tips
+
+- Change manifest settings in `package.json`
+- PRs welcome! Check [issues](https://github.com/Shishir435/ollama-client/issues) for open tasks
+
+## 💡 Recommended Models by Device
+
+| System Specs                 | Suggested Models            |
+| ---------------------------- | --------------------------- |
+| 💻 8GB RAM (no GPU)          | `gemma:2b`, `mistral:7b-q4` |
+| 💻 16GB RAM (no GPU)         | `gemma:3b-q4`, `mistral`    |
+| 🎮 16GB+ with GPU (6GB VRAM) | `llama3:8b-q4`, `gemma:3b`  |
+| 🔥 RTX 3090+ or Apple M3 Max | `llama3:70b`, `mixtral`     |
+
+📦 Prefer **quantized models** (`q4_0`, `q5_1`, etc.) for better performance.
+
+Explore: [Ollama Model Library](https://ollama.com/library)
+
+---
+
+## 🧪 Firefox Support (Experimental)
+
+Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
+
+1. Go to `about:debugging`
+2. Click "Load Temporary Add-on"
+3. Select the `manifest.json` from the extension folder
+4. Manually allow CORS access (see [setup guide](https://shishir435.github.io/ollama-client/ollama-setup-guide))
+
+---
+
+## 🐛 Known Issues
+
+- ⛔ "Stop Generation" doesn't always abort early
+- ⛔ "Stop Pull" during model download may glitch
+- 🔒 CORS mostly handled via DNR, but can fail on older Chromium or network policies
+- 💾 Large chat histories in IndexedDB may affect performance
+
+---
+
+## 🔮 Roadmap / Upcoming
+
+- Chat search, filter, and export
+- Import/export prompt templates
+- Improved error handling and offline UI fallback
+- Better feedback for failed pulls or unreachable server
 
 ---
 
 ## 🔗 Useful Links
 
 - 🌐 **Install Extension:** [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-- 🚀 **Landing Page** [ollama client](https://shishir435.github.io/ollama-client/ollama-client)
+- 📘 **Docs & Landing Page:** [ollama-client](https://shishir435.github.io/ollama-client/ollama-client)
+- 🐙 **GitHub Repo:** [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
 - 📖 **Setup Guide:** [Ollama Setup Instructions](https://shishir435.github.io/ollama-client/ollama-setup-guide)
-- 💻 **GitHub Repo:** [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
-- 🐛 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
+- 🐞 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
 - 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
-- 💌 **Feature request** [email](mailto:shishirchaurasiya435@gmail.com)
+- 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
 
 ---
+
+## 📢 Spread the Word!
+
+If you find Ollama Client helpful, please consider:
+
+- ⭐ Starring the repo
+- 📝 Leaving a review on the Chrome Web Store
+- 💬 Sharing on socials (tag `#OllamaClient`)
+
+> Built with ❤️ by [@Shishir435](https://www.shishirchaurasiya.in)

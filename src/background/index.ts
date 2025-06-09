@@ -32,15 +32,25 @@ export {}
 
 // Global state
 let abortController: AbortController | null = null
-const pullAbortControllers: AbortControllerMap = {}
+const pullAbortControllers: Record<string, AbortController> = {}
 
 // Initialize side panel and DNR rules
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error: Error) => console.error("SidePanel error:", error))
+function isChromiumBased() {
+  return (
+    typeof chrome !== "undefined" &&
+    typeof chrome.declarativeNetRequest !== "undefined"
+  )
+}
 
-chrome.runtime.onInstalled.addListener(updateDNRRules)
-chrome.runtime.onStartup.addListener(updateDNRRules)
+if (isChromiumBased() && "sidePanel" in chrome) {
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error("SidePanel error:", error))
+}
+
+if (!isChromiumBased()) {
+  console.warn("DNR not available: skipping CORS workaround (likely Firefox)")
+}
 
 function safePostMessage(
   port: ChromePort,
@@ -104,6 +114,11 @@ function limitMessagesForModel(
   return messages
 }
 
+if (isChromiumBased()) {
+  chrome.runtime.onInstalled.addListener(updateDNRRules)
+  chrome.runtime.onStartup.addListener(updateDNRRules)
+}
+
 // Handle streaming response from Ollama chat API
 async function handleChatStream(
   response: Response,
@@ -139,7 +154,24 @@ async function handleChatStream(
           error: {
             status: 0,
             message: "Request timeout - try regenerating"
-          }
+          }     
+        const requestBody = {
+          model,
+          messages,
+          stream: true,
+          ...modelParams
+        }
+
+        console.log(
+          "🛰️ Sending to Ollama /api/chat:",
+          JSON.stringify(requestBody, null, 2)
+        )
+
+        const response = await fetch(`${baseUrl}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+          signal: abortController.signal
         })
       }
     }, 10000) // 10 second timeout
