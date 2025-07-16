@@ -18,8 +18,16 @@ export const usePromptTemplates = () => {
     DEFAULT_PROMPT_TEMPLATES
   )
 
-  const effectiveTemplates =
-    templates && templates.length > 0 ? templates : DEFAULT_PROMPT_TEMPLATES
+ const effectiveTemplates =
+    templates && templates.length > 0
+      ? templates.map((t) => ({
+          ...t,
+          createdAt: new Date(t.createdAt)
+        }))
+      : DEFAULT_PROMPT_TEMPLATES.map((t) => ({
+          ...t,
+          createdAt: new Date(t.createdAt)
+        }))
 
   const addTemplate = useCallback(
     (template: Omit<PromptTemplate, "createdAt" | "usageCount">) => {

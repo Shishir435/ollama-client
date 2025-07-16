@@ -74,7 +74,10 @@ export default function PromptSelectorDialog({
           return a.title.localeCompare(b.title)
         case "recent":
         default:
-          return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+          return (
+            (new Date(b.createdAt).getTime() || 0) -
+            (new Date(a.createdAt).getTime() || 0)
+          )
       }
     })
 
