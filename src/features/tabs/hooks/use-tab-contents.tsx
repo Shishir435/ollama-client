@@ -8,7 +8,7 @@ import useOpenTabs from "@/features/tabs/hooks/use-open-tab"
 import { useStorage } from "@plasmohq/storage/hook"
 
 const fetchTabContent = (tabId: number) => {
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<{ html: string; source: string }>((resolve, reject) => {
     chrome.tabs.sendMessage(
       tabId,
       { type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT },
@@ -16,17 +16,29 @@ const fetchTabContent = (tabId: number) => {
         if (chrome.runtime.lastError) {
           return reject(chrome.runtime.lastError.message)
         }
-        resolve(response?.html || "")
+
+        if (!response || !response.html) {
+          return reject("Empty response from content script.")
+        }
+
+        resolve({
+          html: response.html,
+          source: response.source || "unknown"
+        })
       }
     )
   })
 }
+
 export const useTabContents = () => {
   const { selectedTabIds, setErrors } = useSelectedTabIds()
+
   const [tabContents, setTabContents] = useState<
-    Record<number, { title: string; html: string }>
+    Record<number, { title: string; html: string; source: string }>
   >({})
+
   const [loading, setLoading] = useState(false)
+
   const [tabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
@@ -46,17 +58,19 @@ export const useTabContents = () => {
 
     const fetchAll = async () => {
       setLoading(true)
-      const newContents: Record<number, { title: string; html: string }> = {}
+      const newContents: Record<
+        number,
+        { title: string; html: string; source: string }
+      > = {}
       const newErrors: Record<number, string> = {}
 
       for (const idStr of selectedTabIds) {
         const tabId = parseInt(idStr)
 
         try {
-          const html = await fetchTabContent(tabId)
+          const { html, source } = await fetchTabContent(tabId)
           const title = getTabTitle(tabId)
-          // Optional: parse HTML to check it's valid, sanitize if needed
-          newContents[tabId] = { html, title }
+          newContents[tabId] = { html, title, source }
         } catch (err) {
           newErrors[tabId] = typeof err === "string" ? err : "Unknown error"
         }
