@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 
 import {
   ChevronDown,
@@ -7,6 +7,7 @@ import {
   FileText,
   Info,
   Layers,
+  Loader2,
   RefreshCw,
   Settings,
   Zap
@@ -14,13 +15,18 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
 
 const fileTypeMap: Record<number, string> = {
@@ -151,7 +157,14 @@ const DetailRow = ({
 
 const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   const { error, loading, modelInfo, refresh } = useModelInfo(selectedModel)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
+  const handleRefresh = () => {
+    setRefreshing(true)
+    refresh()
+    setRefreshing(false)
+  }
   const flatMeta = modelInfo?.model_info
     ? flattenObject(modelInfo.model_info)
     : {}
@@ -211,94 +224,133 @@ const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   }
 
   return (
-    <Collapsible>
-      <CollapsibleTrigger asChild>
-        <div className="cursor-pointer rounded-lg border bg-card transition-colors hover:bg-accent/50">
-          <div className="flex items-center justify-between p-3">
+    <Card className="w-full rounded-lg border-border bg-card text-card-foreground">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger asChild>
+          <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
-              <Cpu className="h-4 w-4" />
-              <span className="text-sm font-semibold">Model Info</span>
-            </div>
-
-            <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
-              {primaryEntries.map(([key, val]) => (
-                <HeaderSpec
-                  key={key}
-                  label={
-                    key.includes("parameter")
-                      ? "Params"
-                      : key.includes("context")
-                        ? "Context"
-                        : key.includes("architecture")
-                          ? "Arch"
-                          : key.includes("file_type")
-                            ? "Format"
-                            : formatKey(key)
-                  }
-                  value={
-                    key.includes("file_type") && typeof val === "number"
-                      ? fileTypeMap[val] ?? `Unknown (${val})`
-                      : formatCompactNumber(val)
-                  }
-                />
-              ))}
+              <Cpu className="h-4 w-4 text-primary" />
+              <h3 className="text-lg font-semibold">Model Information</h3>
+              {loading && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  refresh()
-                }}
-                className="h-6 w-6 p-0">
-                <RefreshCw className="h-3 w-3" />
-              </Button>
-              <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-            </div>
-          </div>
-        </div>
-      </CollapsibleTrigger>
+              {modelInfo && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {primaryEntries.map(([key, val], index) => (
+                    <React.Fragment key={key}>
+                      <span className="font-mono text-xs">
+                        {key.includes("parameter")
+                          ? `${formatCompactNumber(val)} Params`
+                          : key.includes("context")
+                            ? `${formatCompactNumber(val)} Ctx`
+                            : key.includes("file_type") &&
+                                typeof val === "number"
+                              ? fileTypeMap[val] ?? val
+                              : val}
+                      </span>
+                      {index < primaryEntries.length - 1 && <span>•</span>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
 
-      <CollapsibleContent>
-        <div className="space-y-3 rounded-b-lg border-x border-b bg-card px-4 py-3">
-          {capabilities.length > 0 && (
-            <div className="border-b bg-accent/20 px-2 py-2">
-              <div className="mb-2 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold">Capabilities</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {capabilities.map((cap) => (
-                  <Badge key={cap} variant="outline" className="gap-1 text-xs">
-                    {getCapabilityIcon(cap)}
-                    {cap}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRefresh()
+                      }}
+                      disabled={refreshing}
+                      className="h-8 w-8 p-0">
+                      <RefreshCw
+                        className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh model info</p>
+                  </TooltipContent>
+                </Tooltip>
 
-          <div className="p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">Technical Details</span>
-            </div>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {allEntries.map(([key, val]) => (
-                <DetailRow
-                  key={key}
-                  icon={getIconForKey(key)}
-                  label={formatKey(key)}
-                  value={formatNumber(val)}
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
                 />
-              ))}
+              </div>
             </div>
           </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-4 pb-4 pt-4">
+            {!modelInfo || error ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <Cpu className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">
+                  {error
+                    ? "Error fetching model data"
+                    : "No model data available"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/70">
+                  {error ? error : "Could not retrieve model details."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {capabilities.length > 0 && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" />
+                      <h4 className="font-semibold">Capabilities</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {capabilities.map((cap) => (
+                        <Badge
+                          key={cap}
+                          variant="secondary"
+                          className="gap-1.5 text-xs">
+                          {getCapabilityIcon(cap)}
+                          {cap}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <h4 className="font-semibold">Technical Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {allEntries.map(([key, val]) => (
+                      <DetailRow
+                        key={key}
+                        icon={getIconForKey(key)}
+                        label={formatKey(key)}
+                        value={
+                          key.includes("file_type") && typeof val === "number"
+                            ? fileTypeMap[val] ?? `Unknown (${val})`
+                            : formatNumber(val)
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   )
 }
 

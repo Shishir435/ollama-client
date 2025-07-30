@@ -30,6 +30,11 @@ import {
 } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import type { OllamaModel } from "@/types"
 
@@ -87,6 +92,13 @@ const getModelIcon = (modelName: string): string => {
 export default function ModelList(): JSX.Element {
   const { models, loading, error, deleteModel, refresh } = useOllamaModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    refresh()
+    setRefreshing(false)
+  }
 
   if (loading) {
     return (
@@ -156,13 +168,12 @@ export default function ModelList(): JSX.Element {
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="rounded-lg border bg-card">
-        {/* Header */}
+    <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-sm">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="h-auto w-full justify-between p-3 hover:bg-muted/50">
+            className="h-auto w-full justify-between p-2 hover:bg-muted/50">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               <span className="text-sm font-medium">
@@ -170,16 +181,26 @@ export default function ModelList(): JSX.Element {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation()
-                  refresh()
-                }}
-                className="h-6 w-6 p-0 hover:bg-muted">
-                <RefreshCw className="h-3 w-3" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRefresh()
+                    }}
+                    disabled={refreshing}
+                    className="h-8 w-8 p-0">
+                    <RefreshCw
+                      className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh model</p>
+                </TooltipContent>
+              </Tooltip>
               {isOpen ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
@@ -189,7 +210,6 @@ export default function ModelList(): JSX.Element {
           </Button>
         </CollapsibleTrigger>
 
-        {/* Collapsible Content */}
         <CollapsibleContent>
           <div className="border-t">
             <ScrollArea className="h-64">
@@ -259,7 +279,7 @@ export default function ModelList(): JSX.Element {
             </ScrollArea>
           </div>
         </CollapsibleContent>
-      </div>
-    </Collapsible>
+      </Collapsible>
+    </Card>
   )
 }
