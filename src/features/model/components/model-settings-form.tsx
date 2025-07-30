@@ -87,7 +87,7 @@ export function ModelSettingsForm() {
 
       <div className="space-y-4 pt-2">
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <div>
+        <div className="space-y-2">
           <Label htmlFor="system">System Prompt</Label>
           <Textarea
             id="system"
@@ -97,7 +97,7 @@ export function ModelSettingsForm() {
           />
         </div>
 
-        <div>
+        <div className="space-y-2">
           <Label htmlFor="stop-sequences">Stop Sequences</Label>
           <div className="flex gap-2">
             <Input
@@ -128,7 +128,7 @@ export function ModelSettingsForm() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="seed">Seed</Label>
             <Input
               id="seed"
@@ -141,7 +141,7 @@ export function ModelSettingsForm() {
           <div>
             <BaseUrlSettings />
           </div>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="temperature">Temperature</Label>
             <Slider
               id="temperature"
@@ -156,7 +156,7 @@ export function ModelSettingsForm() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="top_p">Top P</Label>
             <Slider
               id="top_p"
@@ -171,7 +171,7 @@ export function ModelSettingsForm() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="top_k">Top K</Label>
             <Input
               id="top_k"
@@ -184,7 +184,7 @@ export function ModelSettingsForm() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="repeat_penalty">Repeat Penalty</Label>
             <Input
               id="repeat_penalty"
@@ -198,7 +198,7 @@ export function ModelSettingsForm() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="num_ctx">Context Size</Label>
             <Input
               id="num_ctx"
@@ -211,7 +211,7 @@ export function ModelSettingsForm() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="repeat_last_n">Repeat Last N</Label>
             <Input
               id="repeat_last_n"
@@ -224,7 +224,7 @@ export function ModelSettingsForm() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="num_predict">Max Tokens (num_predict)</Label>
             <Input
               id="num_predict"
@@ -236,7 +236,7 @@ export function ModelSettingsForm() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="min_p">Min P</Label>
             <Input
               id="min_p"

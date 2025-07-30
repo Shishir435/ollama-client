@@ -18,7 +18,7 @@ export const usePromptTemplates = () => {
     DEFAULT_PROMPT_TEMPLATES
   )
 
- const effectiveTemplates =
+  const effectiveTemplates =
     templates && templates.length > 0
       ? templates.map((t) => ({
           ...t,

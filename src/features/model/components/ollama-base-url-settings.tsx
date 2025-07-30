@@ -43,24 +43,26 @@ export default function BaseUrlSettings() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Label htmlFor="ollama-url" className="text-sm">
-        Ollama URL
-      </Label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
-          id="ollama-url"
-          type="text"
-          value={ollamaUrl}
-          onChange={(e) => setOllamaUrl(e.target.value)}
-          placeholder="http://localhost:11434"
-        />
-        <Button
-          type="submit"
-          className={cn(
-            saved && "border-green-200 bg-green-50 !text-green-500"
-          )}>
-          {saved ? "Saved!" : "Save"}
-        </Button>
+      <div className="space-y-1.5">
+        <Label htmlFor="ollama-url" className="text-sm">
+          Ollama URL
+        </Label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="ollama-url"
+            type="text"
+            value={ollamaUrl}
+            onChange={(e) => setOllamaUrl(e.target.value)}
+            placeholder="http://localhost:11434"
+          />
+          <Button
+            type="submit"
+            className={cn(
+              saved && "border-green-200 bg-green-50 !text-green-500"
+            )}>
+            {saved ? "Saved!" : "Save"}
+          </Button>
+        </div>
       </div>
     </form>
   )
