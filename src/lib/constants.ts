@@ -154,8 +154,14 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   top_p: 0.9,
   repeat_penalty: 1.1,
   stop: [],
-  system: "",
-  num_ctx: 2048,
+  system: `You are a helpful, honest, and concise AI assistant.
+- Always provide accurate information.
+- Be clear and to the point, but offer details when helpful.
+- Use friendly, natural language.
+- If unsure about something, say so rather than making up facts.
+- Avoid repeating yourself unless it helps clarity.
+- Format responses with markdown for readability when appropriate.`,
+  num_ctx: 6144,
   repeat_last_n: 64,
   seed: 0,
   num_predict: -1,
