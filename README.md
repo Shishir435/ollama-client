@@ -44,7 +44,7 @@
 ## 🌐 Explore More
 
 <div align="center">
-<a href="https://shishir435.github.io/ollama-client/ollama-client" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
+<a href="https://ollama-client.shishirchaurasiya.in/" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
 </div>
 
 ---
@@ -284,9 +284,9 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 ## 🔗 Useful Links
 
 - 🌐 **Install Extension:** [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-- 📘 **Docs & Landing Page:** [ollama-client](https://shishir435.github.io/ollama-client/ollama-client)
+- 📘 **Docs & Landing Page:** [ollama-client](https://ollama-client.shishirchaurasiya.in/)
 - 🐙 **GitHub Repo:** [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
-- 📖 **Setup Guide:** [Ollama Setup Instructions](https://shishir435.github.io/ollama-client/ollama-setup-guide)
+- 📖 **Setup Guide:** [Ollama Setup Instructions](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
 - 🐞 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
 - 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
 - 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
