@@ -181,23 +181,43 @@ This launches the Plasmo dev server and gives instructions for loading the unpac
 
 ---
 
-### 🧪 4. Run in Firefox (Experimental)
-
-```bash
-pnpm dev --target=firefox
-```
-
-Load as a [temporary extension](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
-
----
-
-### 🛠 5. Build for Production
+### 🛠 4. Build for Production
 
 ```bash
 pnpm build
 ```
 
-Output will be in the `build/` or `dist/` folder depending on your Plasmo version.
+---
+
+### ⛓️ 5. Package for Production
+
+```bash
+pnpm package
+```
+
+---
+
+### 🧪 6. Run, build and package in Firefox (Experimental)
+
+```bash
+pnpm dev --target=firefox
+```
+
+```bash
+pnpm build --target=firefox
+```
+
+```bash
+pnpm package --target=firefox
+```
+
+Or with npm:
+
+```bash
+npm run dev -- --target=firefox
+```
+
+Load as a [temporary extension](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
 
 ---
 
