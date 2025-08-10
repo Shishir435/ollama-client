@@ -56,7 +56,7 @@ export async function handleChatStream(
       if (!hasReceivedData) {
         hasReceivedData = true
         if (timeoutId) clearTimeout(timeoutId)
-        console.log("First data chunk received")
+        console.log("[Handle chat stream]First data chunk received")
       }
 
       // Check if port is still connected before processing
