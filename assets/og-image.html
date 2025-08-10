@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ollama Client OG Image</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        padding: 40px;
+        background: #f8fafc;
+      }
+      canvas {
+        display: block;
+        margin: 0 auto 20px auto;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: bold;
+        background: linear-gradient(
+          to right,
+          #6366f1,
+          #8b5cf6,
+          #a855f7,
+          #3b82f6
+        );
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="bannerCanvas" width="1200" height="630"></canvas>
+    <button onclick="downloadBanner()">Download Banner as PNG</button>
+
+    <script>
+      const canvas = document.getElementById("bannerCanvas")
+      const ctx = canvas.getContext("2d")
+
+      // Gradient background
+      const gradient = ctx.createLinearGradient(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      )
+      gradient.addColorStop(0, "#6366f1")
+      gradient.addColorStop(0.33, "#8b5cf6")
+      gradient.addColorStop(0.66, "#a855f7")
+      gradient.addColorStop(1, "#3b82f6")
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Sparkles
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)"
+      const sparkles = [
+        { x: 120, y: 150 },
+        { x: 200, y: 250 },
+        { x: 150, y: 350 },
+        { x: 80, y: 300 },
+        { x: 250, y: 180 }
+      ]
+      sparkles.forEach(({ x, y }) => {
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.rotate(Math.PI / 4)
+        ctx.fillRect(-4, -4, 8, 8)
+        ctx.restore()
+      })
+
+      // Emoji on left side
+      ctx.font = "48px Arial, sans-serif"
+      ctx.textAlign = "left"
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
+      ctx.fillText("✨", 100, canvas.height / 2)
+
+      // Main title
+      ctx.fillStyle = "white"
+      ctx.font = "bold 64px Arial, sans-serif"
+      ctx.textAlign = "center"
+      ctx.fillText("Ollama Client", canvas.width / 2, canvas.height / 2 - 30)
+
+      // Subtitle
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+      ctx.font = "28px Arial, sans-serif"
+      ctx.fillText(
+        "Chat with local LLM in your browser",
+        canvas.width / 2,
+        canvas.height / 2 + 40
+      )
+
+      function downloadBanner() {
+        const dataURL = canvas.toDataURL("image/png", 1.0)
+        const link = document.createElement("a")
+        link.href = dataURL
+        link.download = "ollama-client-og-image.png"
+        link.click()
+      }
+    </script>
+  </body>
+</html>
