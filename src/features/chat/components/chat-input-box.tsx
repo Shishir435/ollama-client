@@ -22,13 +22,24 @@ export default function ChatInputBox({
   const { input, setInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const selectionStartRef = useRef<number | null>(null)
+  const selectionEndRef = useRef<number | null>(null)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
 
   useAutoResizeTextarea(textareaRef, input)
 
+  const updateSelection = () => {
+    if (textareaRef.current) {
+      selectionStartRef.current = textareaRef.current.selectionStart
+      selectionEndRef.current = textareaRef.current.selectionEnd
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "/" && e.ctrlKey) {
+      e.preventDefault()
+      updateSelection()
       setShowPromptOverlay(true)
     }
 
@@ -43,9 +54,42 @@ export default function ChatInputBox({
   }
 
   const handleSelectPrompt = (prompt: string) => {
-    setInput(prompt)
+    const start = selectionStartRef.current
+    const end = selectionEndRef.current
+
+    const addSpaceIfNeeded = (before: string, after: string) => {
+      let result = prompt
+      if (before && !/\s$/.test(before)) result = " " + result
+      if (after && !/^\s/.test(after)) result = result + " "
+      return result
+    }
+
+    if (start !== null && end !== null) {
+      if (start !== end) {
+        const before = input.slice(0, start)
+        const after = input.slice(end)
+        const newPrompt = addSpaceIfNeeded(before, after)
+        setInput(before + newPrompt + after)
+      } else {
+        const before = input.slice(0, start)
+        const after = input.slice(start)
+        const newPrompt = addSpaceIfNeeded(before, after)
+        setInput(before + newPrompt + after)
+      }
+    } else {
+      const before = ""
+      const after = input
+      const newPrompt = addSpaceIfNeeded(before, after)
+      setInput(newPrompt + input)
+    }
     setShowPromptOverlay(false)
-    textareaRef.current?.focus()
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        const pos = (start ?? 0) + prompt.length
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(pos, pos)
+      }
+    })
   }
 
   return (
@@ -74,9 +118,17 @@ export default function ChatInputBox({
           ref={textareaRef}
           placeholder="Type message... Ctrl + / for prompts"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value)
+            updateSelection()
+          }}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
+          onSelect={updateSelection}
+          onKeyUp={updateSelection}
+          onFocus={() => {
+            setIsFocused(true)
+            updateSelection()
+          }}
           onBlur={() => setIsFocused(false)}
           className={cn(
             "max-h-[300px] min-h-[100px] w-full resize-none border-0 bg-transparent",
