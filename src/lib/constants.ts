@@ -171,7 +171,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 export const GUIDES = [
   {
     label: "📖 Ollama Client Setup Guide",
-    href: "https://shishir435.github.io/ollama-client/ollama-setup-guide"
+    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide"
   },
   {
     label: "📚 Official Ollama Model Library",
@@ -291,7 +291,7 @@ OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
 
 </details>
 
-📖 For step-by-step instructions: [ollama-setup-guide](https://shishir435.github.io/ollama-client/ollama-setup-guide)  
+📖 For step-by-step instructions: [ollama-setup-guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)  
 🔗 Official docs: [https://ollama.com](https://ollama.com)
 `,
 

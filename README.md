@@ -260,7 +260,7 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 1. Go to `about:debugging`
 2. Click "Load Temporary Add-on"
 3. Select the `manifest.json` from the extension folder
-4. Manually allow CORS access (see [setup guide](https://shishir435.github.io/ollama-client/ollama-setup-guide))
+4. Manually allow CORS access (see [setup guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide))
 
 ---
 

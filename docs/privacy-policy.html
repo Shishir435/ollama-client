@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Privacy Policy - Ollama Client Extension</title>
-    <!-- Basic SEO -->
     <meta
       name="description"
       content="Read the Ollama Client Privacy Policy to understand how we protect your data, ensure privacy, and maintain a secure AI chat experience." />
@@ -96,7 +95,6 @@
         padding: 0 20px;
       }
 
-      /* Header */
       .header {
         background: var(--bg-gradient);
         color: white;
@@ -261,7 +259,6 @@
         font-size: 1.1rem;
       }
 
-      /* Highlight boxes */
       .highlight-box {
         background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
         border: 1px solid #7dd3fc;
@@ -285,7 +282,6 @@
         color: var(--primary-dark);
       }
 
-      /* Contact section */
       .contact-section {
         background: var(--bg-gradient);
         color: white;
@@ -301,6 +297,7 @@
         padding: 2rem;
         border: 1px solid rgba(255, 255, 255, 0.2);
         display: flex;
+        justify-content: center;
       }
 
       .contact-email {
@@ -322,7 +319,6 @@
         transform: scale(1.05);
       }
 
-      /* Useful Links Section */
       .links-section {
         background: white;
         padding: 3rem 0;
@@ -375,7 +371,6 @@
         text-decoration: underline;
       }
 
-      /* Footer */
       .footer {
         background: var(--secondary-color);
         color: white;
@@ -387,7 +382,6 @@
         opacity: 0.8;
       }
 
-      /* Responsive Design */
       @media (max-width: 768px) {
         .container {
           padding: 0 15px;
@@ -696,9 +690,7 @@
     </footer>
 
     <script>
-      // Add smooth scrolling and subtle animations
       document.addEventListener("DOMContentLoaded", function () {
-        // Smooth reveal animation for sections
         const observer = new IntersectionObserver((entries) => {
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
@@ -715,7 +707,6 @@
           observer.observe(section)
         })
 
-        // Add click animation to cards
         document
           .querySelectorAll(".link-card, .content-card")
           .forEach((card) => {

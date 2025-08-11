@@ -318,7 +318,6 @@
         color: #cbd5e0;
       }
 
-      /* Responsive Design */
       @media (max-width: 768px) {
         .container {
           padding: 1rem 0.5rem;
@@ -379,7 +378,6 @@
         }
       }
 
-      /* Animation */
       @keyframes fadeInUp {
         from {
           opacity: 0;
@@ -728,29 +726,30 @@
         </div>
       </div>
 
-      <div class="footer">
-        <p>Made with ❤️ for the Ollama community</p>
-      </div>
+      <footer class="footer">
+        <div class="container">
+          <p>
+            &copy; 2025 Ollama Client Extension. All rights reserved. | Built
+            with privacy in mind.
+          </p>
+        </div>
+      </footer>
     </div>
 
     <script>
       function switchTab(event, tabName) {
-        // Hide all tab contents
         const tabContents = document.querySelectorAll(".tab-content")
         tabContents.forEach((content) => {
           content.classList.remove("active")
         })
 
-        // Remove active class from all buttons
         const tabButtons = document.querySelectorAll(".tab-button")
         tabButtons.forEach((button) => {
           button.classList.remove("active")
         })
 
-        // Show selected tab content
         document.getElementById(tabName).classList.add("active")
 
-        // Add active class to clicked button
         event.target.classList.add("active")
       }
 
@@ -758,12 +757,10 @@
         const content = element.nextElementSibling
         content.classList.toggle("open")
 
-        // Rotate arrow or change indicator
         const isOpen = content.classList.contains("open")
         element.style.background = isOpen ? "#cbd5e0" : "#e2e8f0"
       }
 
-      // Add smooth scrolling for anchor links
       document.addEventListener("DOMContentLoaded", function () {
         const links = document.querySelectorAll('a[href^="#"]')
         links.forEach((link) => {
