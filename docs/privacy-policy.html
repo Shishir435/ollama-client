@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ollama Client - Privacy Policy</title>
+    <title>Privacy Policy - Ollama Client Extension</title>
     <!-- Basic SEO -->
     <meta
       name="description"
@@ -53,11 +53,27 @@
       type="image/png"
       sizes="16x16"
       href="../assets/favicon-16x16.png" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet" />
     <style>
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+      }
+
+      :root {
+        --primary-color: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary-color: #0f172a;
+        --accent-color: #10b981;
+        --text-light: #64748b;
+        --text-dark: #1e293b;
+        --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+          0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        --border-radius: 16px;
       }
 
       body {
@@ -68,28 +84,26 @@
           "Segoe UI",
           Roboto,
           sans-serif;
-        line-height: 1.6;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        line-height: 1.7;
+        color: var(--text-dark);
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         min-height: 100vh;
-        padding: 20px;
       }
 
       .container {
-        max-width: 900px;
+        max-width: 1200px;
         margin: 0 auto;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
+        padding: 0 20px;
       }
 
+      /* Header */
       .header {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        background: var(--bg-gradient);
         color: white;
-        padding: 40px;
+        padding: 4rem 0;
         text-align: center;
         position: relative;
+        overflow: hidden;
       }
 
       .header::before {
@@ -99,175 +113,307 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
-        opacity: 0.3;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20"><defs><radialGradient id="a" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(255,255,255,.1)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="100" height="20" fill="url(%23a)"/></svg>')
+          repeat;
+        animation: shimmer 3s ease-in-out infinite;
+      }
+
+      @keyframes shimmer {
+        0%,
+        100% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 0.1;
+        }
+      }
+
+      .header-content {
+        position: relative;
+        z-index: 1;
+      }
+
+      .logo {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
       }
 
       .header h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-        position: relative;
-        z-index: 1;
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        font-weight: 800;
+        margin-bottom: 1rem;
+        text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .header p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto;
       }
 
       .effective-date {
-        font-size: 1.1rem;
-        opacity: 0.9;
-        position: relative;
-        z-index: 1;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        padding: 0.75rem 2rem;
+        border-radius: 50px;
+        display: inline-block;
+        margin-top: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
       }
 
-      .content {
-        padding: 40px;
+      /* Main Content */
+      .main-content {
+        padding: 4rem 0;
       }
 
-      .intro {
-        font-size: 1.1rem;
-        color: #4b5563;
-        margin-bottom: 40px;
-        padding: 20px;
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-        border-radius: 12px;
-        border-left: 4px solid #4f46e5;
+      .content-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        padding: 3rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+
+      .content-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.15);
       }
 
       .section {
-        margin-bottom: 35px;
+        margin-bottom: 3rem;
       }
 
-      .section h3 {
-        color: #1f2937;
-        font-size: 1.4rem;
-        font-weight: 600;
-        margin-bottom: 15px;
+      .section:last-child {
+        margin-bottom: 0;
+      }
+
+      .section h2 {
+        color: var(--primary-color);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 0.75rem;
       }
 
-      .section h3::before {
-        content: "";
-        width: 4px;
-        height: 20px;
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        border-radius: 2px;
-      }
-
-      .section p,
-      .section li {
-        color: #4b5563;
-        margin-bottom: 12px;
+      .section h2 i {
+        width: 32px;
+        height: 32px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 1rem;
       }
 
+      .section h3 {
+        color: var(--text-dark);
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-left: 1rem;
+        border-left: 3px solid var(--accent-color);
+      }
+
+      .section p {
+        color: var(--text-light);
+        margin-bottom: 1rem;
+      }
+
       .section ul {
-        margin-left: 20px;
-        margin-bottom: 15px;
+        list-style: none;
+        padding-left: 0;
       }
 
       .section li {
-        margin-bottom: 8px;
+        position: relative;
+        padding-left: 2rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-light);
+      }
+
+      .section li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--accent-color);
+        font-weight: bold;
+        font-size: 1.1rem;
+      }
+
+      /* Highlight boxes */
+      .highlight-box {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #7dd3fc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
         position: relative;
       }
 
-      .section li::marker {
-        color: #4f46e5;
+      .highlight-box::before {
+        content: "🔒";
+        position: absolute;
+        top: -10px;
+        left: 20px;
+        background: white;
+        padding: 0 8px;
+        font-size: 1.2rem;
       }
 
-      .highlight {
-        background: linear-gradient(120deg, #fef3c7, #fde68a);
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-weight: 500;
+      .highlight-box strong {
+        color: var(--primary-dark);
       }
 
-      .card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border-radius: 16px;
-        padding: 30px;
-        margin-top: 40px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-      }
-
-      .card h2 {
-        color: #1f2937;
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 20px;
+      /* Contact section */
+      .contact-section {
+        background: var(--bg-gradient);
+        color: white;
         text-align: center;
+        padding: 3rem 0;
+        margin-top: 2rem;
+      }
+
+      .contact-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+      }
+
+      .contact-email {
+        color: white;
+        text-decoration: none;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: transform 0.3s ease;
+        word-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-all;
+        overflow-wrap: break-word;
+      }
+
+      .contact-email:hover {
+        transform: scale(1.05);
+      }
+
+      /* Useful Links Section */
+      .links-section {
+        background: white;
+        padding: 3rem 0;
+        border-top: 1px solid rgba(226, 232, 240, 0.8);
       }
 
       .links-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 2rem;
       }
 
       .link-card {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 20px;
-        background: white;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 1.5rem;
         border-radius: 12px;
-        text-decoration: none;
-        color: inherit;
-        border: 2px solid transparent;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
       }
 
       .link-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border-color: #4f46e5;
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
       }
 
-      .link-card span {
-        font-size: 1.5rem;
-        min-width: 30px;
-      }
-
-      .link-card strong {
-        color: #1f2937;
+      .link-card h4 {
+        color: var(--primary-color);
         font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
-      .link-card small {
-        color: #6b7280;
+      .link-card p {
+        color: var(--text-light);
+        font-size: 0.9rem;
       }
 
-      .contact-section {
-        text-align: center;
-        margin-top: 30px;
-        padding: 25px;
-        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        border-radius: 12px;
-        border: 1px solid #a7f3d0;
-      }
-
-      .contact-section a {
-        color: #047857;
+      .link-card a {
+        color: var(--primary-color);
         text-decoration: none;
-        font-weight: 600;
-        font-size: 1.1rem;
+        font-weight: 500;
       }
 
-      .contact-section a:hover {
+      .link-card a:hover {
         text-decoration: underline;
       }
 
+      /* Footer */
+      .footer {
+        background: var(--secondary-color);
+        color: white;
+        text-align: center;
+        padding: 2rem 0;
+      }
+
+      .footer p {
+        opacity: 0.8;
+      }
+
+      /* Responsive Design */
       @media (max-width: 768px) {
-        .header h1 {
-          font-size: 2rem;
+        .container {
+          padding: 0 15px;
         }
 
-        .content,
         .header {
-          padding: 20px;
+          padding: 3rem 0;
+        }
+
+        .header h1 {
+          font-size: 2.5rem;
+        }
+
+        .content-card {
+          padding: 2rem 1.5rem;
+        }
+
+        .main-content {
+          padding: 2rem 0;
+        }
+
+        .section h2 {
+          font-size: 1.5rem;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.5rem;
         }
 
         .links-grid {
@@ -275,204 +421,312 @@
         }
       }
 
-      .fade-in {
-        animation: fadeIn 0.8s ease-in;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
+      @media (max-width: 480px) {
+        .header h1 {
+          font-size: 2rem;
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+
+        .header p {
+          font-size: 1rem;
+        }
+
+        .content-card {
+          padding: 1.5rem 1rem;
+        }
+
+        .section h2 i {
+          width: 28px;
+          height: 28px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="container fade-in">
-      <div class="header">
-        <h1>📄 Privacy Policy</h1>
-        <div class="effective-date">Effective Date: June 5, 2025</div>
+    <header class="header">
+      <div class="container">
+        <div class="header-content">
+          <div class="logo">🔒</div>
+          <h1>Privacy Policy</h1>
+          <p>
+            Your privacy and security are our top priorities. Learn how the
+            Ollama Client extension protects your data.
+          </p>
+          <div class="effective-date">
+            <strong>Effective Date:</strong> June 5, 2025
+          </div>
+        </div>
       </div>
+    </header>
 
-      <div class="content">
-        <div class="intro">
-          Thank you for using the
-          <strong>Ollama Client browser extension</strong> ("Extension"). Your
-          privacy and security are important to us. This privacy policy explains
-          what information we collect, how the Extension operates, and how we
-          protect your data.
+    <main class="main-content">
+      <div class="container">
+        <div class="content-card">
+          <div class="section">
+            <p
+              style="
+                font-size: 1.1rem;
+                color: var(--text-dark);
+                margin-bottom: 2rem;
+              ">
+              Thank you for using the
+              <strong>Ollama Client browser extension</strong> ("Extension").
+              Your privacy and security are important to us. This privacy policy
+              explains what information we collect, how the Extension operates,
+              and how we protect your data.
+            </p>
+          </div>
+
+          <div class="section">
+            <h2><i class="fas fa-database"></i> Information We Collect</h2>
+            <div class="highlight-box">
+              <p>
+                <strong
+                  >The Extension does not collect, store, or transmit any
+                  personal data or personally identifiable information
+                  (PII)</strong
+                >
+                from users.
+              </p>
+            </div>
+            <ul>
+              <li>
+                No data is sent to external servers or third-party services by
+                this Extension
+              </li>
+              <li>
+                Any data processed (e.g., chat inputs and model responses)
+                remains <strong>locally on your device</strong>
+              </li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2><i class="fas fa-cogs"></i> How the Extension Works</h2>
+            <ul>
+              <li>
+                The Extension acts as a client interface to communicate with
+                <strong>locally hosted large language models (LLMs)</strong> via
+                the Ollama platform
+              </li>
+              <li>
+                All AI model interactions, including message processing and
+                generation, occur <strong>entirely on your machine</strong>,
+                through Ollama's local API
+              </li>
+              <li>
+                The Extension supports multiple models such as Gemma, LLaMA 2,
+                Mistral, CodeLLaMA, and others installed locally
+              </li>
+              <li>
+                User chat history and session data are stored locally in
+                <strong>browser storage or IndexedDB</strong>. Users have full
+                control and may delete saved sessions at any time
+              </li>
+              <li>
+                The Extension uses
+                <strong>Declarative Net Request (DNR) API</strong> to bypass
+                CORS restrictions, eliminating the need for users to modify
+                backend CORS settings in most cases (effective from v0.1.3)
+              </li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2>
+              <i class="fas fa-shield-alt"></i> Permissions and Data Access
+            </h2>
+            <p>
+              The Extension requests only the minimal necessary permissions,
+              including:
+            </p>
+            <ul>
+              <li>
+                Access to tabs and active browser context to enable content
+                extraction from webpages and improve usability
+              </li>
+              <li>Localhost communication to interface with the Ollama API</li>
+            </ul>
+            <div class="highlight-box">
+              <p>
+                It does <strong>not</strong> access personal data unrelated to
+                its functionality (e.g., browsing history, cookies).
+              </p>
+            </div>
+            <ul>
+              <li>
+                No third-party analytics, tracking, or advertising services are
+                integrated
+              </li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2><i class="fas fa-save"></i> Data Storage and Retention</h2>
+            <ul>
+              <li>
+                By default, the Extension stores chat sessions locally in the
+                browser's IndexedDB using Dexie for efficient and reliable
+                storage
+              </li>
+              <li>
+                Users have full control and can delete saved chats at any time
+                through the Extension's interface
+              </li>
+              <li>
+                No chat data is synced, backed up, or transmitted externally
+              </li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2><i class="fas fa-edit"></i> Changes to This Policy</h2>
+            <p>
+              We may update this Privacy Policy as our Extension evolves. Users
+              are encouraged to review this policy periodically. Continued use
+              of the Extension after updates constitutes acceptance of the
+              changes.
+            </p>
+          </div>
         </div>
+      </div>
+    </main>
 
-        <div class="section">
-          <h3>1. Information We Collect</h3>
-          <ul>
-            <li>
-              The Extension
-              <span class="highlight"
-                >does not collect, store, or transmit any personal data or
-                personally identifiable information (PII)</span
-              >
-              from users.
-            </li>
-            <li>
-              No data is sent to external servers or third-party services by
-              this Extension.
-            </li>
-            <li>
-              Any data processed (e.g., chat inputs and model responses) remains
-              <span class="highlight">locally on your device</span>.
-            </li>
-          </ul>
-        </div>
+    <section class="links-section">
+      <div class="container">
+        <h2
+          style="
+            text-align: center;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+          ">
+          Useful Resources
+        </h2>
+        <p
+          style="
+            text-align: center;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+          ">
+          Learn more about AI privacy, browser extensions, and related
+          technologies
+        </p>
 
-        <div class="section">
-          <h3>2. How the Extension Works</h3>
-          <ul>
-            <li>
-              The Extension acts as a client interface to communicate with
-              <span class="highlight"
-                >locally hosted large language models (LLMs)</span
-              >
-              via the Ollama platform.
-            </li>
-            <li>
-              All AI model interactions, including message processing and
-              generation, occur
-              <span class="highlight">entirely on your machine</span>, through
-              Ollama's local API.
-            </li>
-            <li>
-              The Extension supports multiple models such as Gemma, LLaMA 2,
-              Mistral, CodeLLaMA, and others installed locally.
-            </li>
-            <li>
-              User chat history and session data are stored locally in
-              <span class="highlight">browser storage or IndexedDB</span>. Users
-              have full control and may delete saved sessions at any time.
-            </li>
-            <li>
-              The Extension uses
-              <span class="highlight">Declarative Net Request (DNR) API</span>
-              to bypass CORS restrictions, eliminating the need for users to
-              modify backend CORS settings in most cases (effective from
-              v0.1.3).
-            </li>
-          </ul>
-        </div>
+        <div class="links-grid">
+          <div class="link-card">
+            <h4><i class="fas fa-robot"></i> Ollama Platform</h4>
+            <p>
+              Run large language models locally with Ollama - the open-source
+              platform for running LLMs on your machine.
+            </p>
+            <a href="https://ollama.com" target="_blank" rel="noopener"
+              >Visit Ollama →</a
+            >
+          </div>
 
-        <div class="section">
-          <h3>3. Permissions and Data Access</h3>
-          <p>
-            The Extension requests only the minimal necessary permissions,
-            including:
-          </p>
-          <ul>
-            <li>
-              Access to tabs and active browser context to enable content
-              extraction from webpages and improve usability.
-            </li>
-            <li>Localhost communication to interface with the Ollama API.</li>
-          </ul>
-          <ul>
-            <li>
-              It does <span class="highlight">not</span> access personal data
-              unrelated to its functionality (e.g., browsing history, cookies).
-            </li>
-            <li>
-              No third-party analytics, tracking, or advertising services are
-              integrated.
-            </li>
-          </ul>
-        </div>
+          <div class="link-card">
+            <h4>
+              <i class="fas fa-shield-alt"></i> Browser Extension Security
+            </h4>
+            <p>
+              Learn about browser extension security best practices and how to
+              protect your privacy online.
+            </p>
+            <a
+              href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/User_actions"
+              target="_blank"
+              rel="noopener"
+              >MDN Web Docs →</a
+            >
+          </div>
 
-        <div class="section">
-          <h3>4. Data Storage and Retention</h3>
-          <ul>
-            <li>
-              By default, the Extension stores chat sessions locally in the
-              browser's IndexedDB using Dexie for efficient and reliable
-              storage.
-            </li>
-            <li>
-              Users have full control and can delete saved chats at any time
-              through the Extension's interface.
-            </li>
-            <li>
-              No chat data is synced, backed up, or transmitted externally.
-            </li>
-          </ul>
-        </div>
+          <div class="link-card">
+            <h4><i class="fas fa-database"></i> Local Data Storage</h4>
+            <p>
+              Understand how IndexedDB and local storage work to keep your data
+              private and secure.
+            </p>
+            <a
+              href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API"
+              target="_blank"
+              rel="noopener"
+              >Learn about IndexedDB →</a
+            >
+          </div>
 
-        <div class="section">
-          <h3>5. Changes to This Policy</h3>
-          <p>
-            We may update this Privacy Policy as our Extension evolves. Users
-            are encouraged to review this policy periodically. Continued use of
-            the Extension after updates constitutes acceptance of the changes.
-          </p>
-        </div>
-
-        <div class="section">
-          <h3>6. Contact</h3>
-          <p>
-            If you have any questions or concerns about this policy, please
-            contact:
-          </p>
-          <div class="contact-section">
-            📧
-            <a href="mailto:shishirchaurasiya435@gmail.com"
-              >shishirchaurasiya435@gmail.com</a
+          <div class="link-card">
+            <h4><i class="fas fa-cog"></i> CORS & Web APIs</h4>
+            <p>
+              Learn about Cross-Origin Resource Sharing and how modern web APIs
+              work.
+            </p>
+            <a
+              href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS"
+              target="_blank"
+              rel="noopener"
+              >Understanding CORS →</a
             >
           </div>
         </div>
+      </div>
+    </section>
 
-        <div class="card">
-          <h2>📎 Helpful Links</h2>
-          <div class="links-grid">
-            <a href="https://ollama.com" class="link-card" target="_blank">
-              <span>🌐</span>
-              <div>
-                <strong>Ollama Documentation</strong><br />
-                <small>Official documentation and guides</small>
-              </div>
-            </a>
-            <a
-              href="https://chromewebstore.google.com/detail/Ollama%20client/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-              class="link-card"
-              target="_blank">
-              <span>🧩</span>
-              <div>
-                <strong>Chrome Extension</strong><br />
-                <small>Download from Chrome Web Store</small>
-              </div>
-            </a>
-            <a
-              href="https://github.com/shishir435/ollama-client"
-              class="link-card"
-              target="_blank">
-              <span>💻</span>
-              <div>
-                <strong>GitHub Repository</strong><br />
-                <small>Source code and issues</small>
-              </div>
-            </a>
-            <a
-              href="https://ollama-client.shishirchaurasiya.in"
-              class="link-card"
-              target="_blank">
-              <span>🚀</span>
-              <div>
-                <strong>Ollama Client Website</strong><br />
-                <small>Official project website</small>
-              </div>
-            </a>
-          </div>
+    <section class="contact-section">
+      <div class="container">
+        <h2 style="margin-bottom: 1rem">Contact Us</h2>
+        <p style="margin-bottom: 2rem">
+          If you have any questions or concerns about this policy, please
+          contact:
+        </p>
+        <div class="contact-card">
+          <a href="mailto:shishirchaurasiya435@gmail.com" class="contact-email">
+            <i class="fas fa-envelope"></i>
+            shishirchaurasiya435@gmail.com
+          </a>
         </div>
       </div>
-    </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container">
+        <p>
+          &copy; 2025 Ollama Client Extension. All rights reserved. | Built with
+          privacy in mind.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Add smooth scrolling and subtle animations
+      document.addEventListener("DOMContentLoaded", function () {
+        // Smooth reveal animation for sections
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.opacity = "1"
+              entry.target.style.transform = "translateY(0)"
+            }
+          })
+        })
+
+        document.querySelectorAll(".section").forEach((section) => {
+          section.style.opacity = "0"
+          section.style.transform = "translateY(20px)"
+          section.style.transition = "all 0.6s ease"
+          observer.observe(section)
+        })
+
+        // Add click animation to cards
+        document
+          .querySelectorAll(".link-card, .content-card")
+          .forEach((card) => {
+            card.addEventListener("click", function () {
+              this.style.transform = "scale(0.98)"
+              setTimeout(() => {
+                this.style.transform = ""
+              }, 150)
+            })
+          })
+      })
+    </script>
   </body>
 </html>

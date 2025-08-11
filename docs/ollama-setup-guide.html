@@ -3,9 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🧠 How to Set Up Ollama for Chrome Extension</title>
-
-    <!-- Basic SEO -->
+    <title>Ollama Chrome Extension Setup Guide</title>
     <meta
       name="description"
       content="Step-by-step guide to installing and setting up Ollama Client — a powerful, privacy-first AI chat Chrome extension." />
@@ -62,306 +60,327 @@
       }
 
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        line-height: 1.7;
+        color: #2d3748;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        color: #333;
-        line-height: 1.6;
       }
 
       .container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 20px;
+        padding: 2rem 1rem;
       }
 
       .hero {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 40px;
-        margin-bottom: 30px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
         text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        margin-bottom: 3rem;
+        padding: 3rem 0;
       }
 
       .hero h1 {
-        font-size: 2.5rem;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        font-weight: 800;
+        color: white;
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #fff, #e2e8f0);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        margin-bottom: 20px;
-        animation: slideInDown 0.8s ease-out;
       }
 
       .hero p {
-        font-size: 1.2rem;
-        color: #666;
-        margin-bottom: 30px;
-        animation: slideInUp 0.8s ease-out;
+        font-size: 1.25rem;
+        color: rgba(255, 255, 255, 0.9);
+        max-width: 600px;
+        margin: 0 auto;
       }
 
-      .card {
+      .content-card {
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 30px;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         transition:
           transform 0.3s ease,
           box-shadow 0.3s ease;
-        animation: fadeInUp 0.8s ease-out;
       }
 
-      .card:hover {
+      .content-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
       }
 
-      .card h2 {
-        font-size: 1.8rem;
-        margin-bottom: 20px;
-        color: #4a5568;
+      .section-header {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e2e8f0;
       }
 
-      .step-number {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 1.2rem;
+      .section-header h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1a202c;
+        margin: 0;
+      }
+
+      .emoji {
+        font-size: 2rem;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
       }
 
       .code-block {
         background: #1a202c;
         color: #e2e8f0;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 15px 0;
-        font-family: "Consolas", "Monaco", monospace;
-        overflow-x: scroll;
-        border-left: 4px solid #667eea;
-        white-space: nowrap;
-        position: relative;
-      }
-
-      .code-block::before {
-        content: attr(data-lang);
-        position: absolute;
-        top: 5px;
-        right: 10px;
-        background: #667eea;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-      }
-
-      .highlight {
-        background: linear-gradient(
-          135deg,
-          rgba(102, 126, 234, 0.1),
-          rgba(118, 75, 162, 0.1)
-        );
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-        margin: 15px 0;
-      }
-
-      .platform-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-        margin: 20px 0;
-      }
-
-      .platform-card {
-        background: linear-gradient(
-          135deg,
-          rgba(102, 126, 234, 0.05),
-          rgba(118, 75, 162, 0.05)
-        );
-        border: 2px solid rgba(102, 126, 234, 0.2);
+        padding: 1.5rem;
         border-radius: 12px;
-        padding: 20px;
-        transition: all 0.3s ease;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        margin: 1rem 0;
+        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        border: 1px solid #2d3748;
       }
 
-      .platform-card:hover {
-        border-color: #667eea;
-        transform: scale(1.02);
+      .inline-code {
+        background: #f7fafc;
+        color: #2d3748;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+        font-size: 0.85em;
+        border: 1px solid #e2e8f0;
       }
 
-      .platform-card h3 {
-        color: #4a5568;
-        margin-bottom: 15px;
-        display: flex;
+      .download-link {
+        display: inline-flex;
         align-items: center;
-        gap: 10px;
-        font-size: 1.3rem;
-      }
-
-      .btn {
-        display: inline-block;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #4299e1, #3182ce);
         color: white;
-        padding: 12px 25px;
         text-decoration: none;
-        border-radius: 25px;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
         font-weight: 600;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+      }
+
+      .download-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+      }
+
+      .platform-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      .tab-button {
+        padding: 0.75rem 1.5rem;
+        border: 2px solid #e2e8f0;
+        background: white;
+        color: #4a5568;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+
+      .tab-button.active {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
       }
 
-      .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+      .tab-button:hover:not(.active) {
+        border-color: #cbd5e0;
+        background: #f7fafc;
       }
 
-      .collapsible {
-        background: rgba(102, 126, 234, 0.1);
-        border: 2px solid rgba(102, 126, 234, 0.2);
-        border-radius: 12px;
-        margin: 20px 0;
-        overflow: hidden;
-      }
-
-      .collapsible-header {
-        background: linear-gradient(
-          135deg,
-          rgba(102, 126, 234, 0.8),
-          rgba(118, 75, 162, 0.8)
-        );
-        color: white;
-        padding: 15px 20px;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: 600;
-        transition: all 0.3s ease;
-      }
-
-      .collapsible-header:hover {
-        background: linear-gradient(
-          135deg,
-          rgba(102, 126, 234, 0.9),
-          rgba(118, 75, 162, 0.9)
-        );
-      }
-
-      .collapsible-content {
-        padding: 20px;
+      .tab-content {
         display: none;
-        animation: slideDown 0.3s ease-out;
       }
 
-      .collapsible-content.active {
+      .tab-content.active {
         display: block;
       }
 
-      .toggle-icon {
-        transition: transform 0.3s ease;
-      }
-
-      .toggle-icon.rotated {
-        transform: rotate(180deg);
-      }
-
-      .links-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 15px;
-        margin: 20px 0;
-      }
-
-      .link-card {
-        background: linear-gradient(
-          135deg,
-          rgba(102, 126, 234, 0.1),
-          rgba(118, 75, 162, 0.1)
-        );
-        border: 2px solid rgba(102, 126, 234, 0.2);
-        border-radius: 10px;
-        padding: 15px;
-        text-decoration: none;
-        color: #4a5568;
+      .details-card {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        margin: 1.5rem 0;
+        overflow: hidden;
         transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 10px;
       }
 
-      .link-card:hover {
-        border-color: #667eea;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+      .details-summary {
+        padding: 1.5rem;
+        background: #e2e8f0;
+        cursor: pointer;
+        font-weight: 600;
+        color: #2d3748;
+        user-select: none;
+        transition: background 0.3s ease;
       }
 
-      .warning {
-        background: linear-gradient(
-          135deg,
-          rgba(255, 193, 7, 0.1),
-          rgba(255, 138, 101, 0.1)
-        );
-        border-left: 4px solid #ffc107;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 15px 0;
+      .details-summary:hover {
+        background: #cbd5e0;
       }
 
-      .success {
-        background: linear-gradient(
-          135deg,
-          rgba(40, 167, 69, 0.1),
-          rgba(72, 187, 120, 0.1)
-        );
-        border-left: 4px solid #28a745;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 15px 0;
+      .details-content {
+        padding: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.3s ease;
       }
 
-      ul {
-        padding-left: 20px;
-        margin: 10px 0;
+      .details-content.open {
+        padding: 1.5rem;
+        max-height: 1000px;
       }
 
-      li {
-        margin: 8px 0;
-        position: relative;
+      .warning-box {
+        background: #fed7d7;
+        border: 2px solid #fc8181;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+        color: #742a2a;
       }
 
-      li::marker {
-        color: #667eea;
+      .success-box {
+        background: #c6f6d5;
+        border: 2px solid #68d391;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+        color: #22543d;
       }
 
-      @keyframes slideInDown {
-        from {
-          opacity: 0;
-          transform: translateY(-30px);
+      .info-box {
+        background: #bee3f8;
+        border: 2px solid #63b3ed;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+        color: #2c5282;
+      }
+
+      .grid {
+        display: grid;
+        gap: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .grid-3 {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: 4rem;
+        padding: 2rem;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .footer a {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+      }
+
+      .footer a:hover {
+        color: #cbd5e0;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .container {
+          padding: 1rem 0.5rem;
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+
+        .content-card {
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+          border-radius: 15px;
+        }
+
+        .hero {
+          padding: 2rem 0;
+          margin-bottom: 2rem;
+        }
+
+        .section-header {
+          flex-direction: column;
+          text-align: center;
+          gap: 0.5rem;
+        }
+
+        .platform-tabs {
+          justify-content: center;
+        }
+
+        .tab-button {
+          padding: 0.6rem 1rem;
+          font-size: 0.8rem;
+        }
+
+        .code-block {
+          font-size: 0.8rem;
+          padding: 1rem;
         }
       }
 
-      @keyframes slideInUp {
+      @media (max-width: 480px) {
+        .hero h1 {
+          font-size: 2rem;
+        }
+
+        .hero p {
+          font-size: 1rem;
+        }
+
+        .content-card {
+          padding: 1rem;
+          border-radius: 12px;
+        }
+
+        .section-header h2 {
+          font-size: 1.5rem;
+        }
+
+        .emoji {
+          font-size: 1.5rem;
+        }
+      }
+
+      /* Animation */
+      @keyframes fadeInUp {
         from {
           opacity: 0;
           transform: translateY(30px);
@@ -372,468 +391,394 @@
         }
       }
 
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+      .content-card {
+        animation: fadeInUp 0.6s ease forwards;
       }
 
-      @keyframes slideDown {
-        from {
-          opacity: 0;
-          max-height: 0;
-        }
-        to {
-          opacity: 1;
-          max-height: 1000px;
-        }
+      .content-card:nth-child(2) {
+        animation-delay: 0.1s;
       }
-
-      .floating-elements {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: -1;
+      .content-card:nth-child(3) {
+        animation-delay: 0.2s;
       }
-
-      .floating-circle {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        animation: float 6s ease-in-out infinite;
+      .content-card:nth-child(4) {
+        animation-delay: 0.3s;
       }
-
-      .floating-circle:nth-child(1) {
-        width: 80px;
-        height: 80px;
-        top: 20%;
-        left: 10%;
-        animation-delay: 0s;
-      }
-
-      .floating-circle:nth-child(2) {
-        width: 60px;
-        height: 60px;
-        top: 60%;
-        right: 10%;
-        animation-delay: 2s;
-      }
-
-      .floating-circle:nth-child(3) {
-        width: 100px;
-        height: 100px;
-        bottom: 20%;
-        left: 20%;
-        animation-delay: 4s;
-      }
-
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0px);
-        }
-        50% {
-          transform: translateY(-20px);
-        }
-      }
-
-      @media (max-width: 768px) {
-        .hero h1 {
-          font-size: 2rem;
-        }
-
-        .card {
-          padding: 20px;
-        }
-
-        .platform-section {
-          grid-template-columns: 1fr;
-        }
+      .content-card:nth-child(5) {
+        animation-delay: 0.4s;
       }
     </style>
   </head>
   <body>
-    <div class="floating-elements">
-      <div class="floating-circle"></div>
-      <div class="floating-circle"></div>
-      <div class="floating-circle"></div>
-    </div>
-
     <div class="container">
       <div class="hero">
-        <h1>🧠 How to Set Up Ollama for Chrome Extension</h1>
-        <p>
-          This comprehensive guide walks you through setting up the Ollama
-          backend so it works seamlessly with the
-          <strong>Ollama Client Chrome Extension</strong>.
-        </p>
-        <div
-          style="
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-          ">
-          <span>✅ Installing Ollama</span>
-          <span>🤖 Pulling your first model</span>
-          <span>🔐 Fixing CORS errors</span>
-        </div>
+        <h1>🧠 Ollama Setup Guide</h1>
+        <p>Complete guide to set up Ollama backend for the Chrome Extension</p>
       </div>
 
-      <div class="card">
-        <h2><span class="step-number">1</span> Install Ollama</h2>
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">✅</span>
+          <h2>1. Install Ollama</h2>
+        </div>
         <p>Visit the official website to download Ollama:</p>
-        <div style="text-align: center; margin: 20px 0">
-          <a href="https://ollama.com" class="btn" target="_blank"
-            >👉 Download Ollama</a
-          >
-        </div>
+        <p style="margin: 1.5rem 0">
+          <a href="https://ollama.com" class="download-link" target="_blank">
+            👉 Download Ollama
+          </a>
+        </p>
         <p>Once installed, start the Ollama server:</p>
-        <div class="code-block" data-lang="bash">ollama serve</div>
-        <div class="highlight">
-          <strong>📍 This launches the Ollama API at:</strong><br />
-          <code
-            style="
-              background: rgba(102, 126, 234, 0.2);
-              padding: 4px 8px;
-              border-radius: 4px;
-            "
-            >http://localhost:11434</code
-          >
-        </div>
-        <div class="warning">
-          <strong>⚠️ Important:</strong> Keep this running while using the
-          extension.
+        <div class="code-block">ollama serve</div>
+        <p>This launches the Ollama API at:</p>
+        <div class="code-block">http://localhost:11434</div>
+        <div class="info-box">
+          💡 Keep this running while using the extension.
         </div>
       </div>
 
-      <div class="card">
-        <h2><span class="step-number">2</span> Pull a Model (e.g. Gemma 3B)</h2>
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">🤖</span>
+          <h2>2. Pull a Model (e.g. Gemma 3B)</h2>
+        </div>
         <p>After installation, run a model of your choice:</p>
-        <div class="code-block" data-lang="bash">ollama run gemma3:1b</div>
-        <div class="success">
-          <strong>🎉 Once downloaded, you're ready to chat!</strong>
-        </div>
-        <div class="highlight">
-          💡 <strong>Pro Tip:</strong> Replace <code>gemma3:1b</code> with other
-          models like <code>llama3</code>, <code>mistral</code>, etc.
+        <div class="code-block">ollama run gemma3:1b</div>
+        <p>Once downloaded, you're ready to chat!</p>
+        <div class="success-box">
+          💡 Replace <span class="inline-code">gemma3:1b</span> with other
+          models like <span class="inline-code">llama3</span>,
+          <span class="inline-code">mistral</span>, etc.
         </div>
       </div>
 
-      <div class="card">
-        <h2><span class="step-number">3</span> Do You Need to Set Up CORS?</h2>
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">🔐</span>
+          <h2>Do You Need to Set Up CORS?</h2>
+        </div>
 
-        <div class="collapsible">
-          <div class="collapsible-header" onclick="toggleCollapsible(this)">
-            <span
-              ><strong
-                >Yes, if you're using Firefox. Probably not for Chrome or other
-                Chromium browsers</strong
-              ></span
-            >
-            <span class="toggle-icon">▼</span>
+        <div class="details-card">
+          <div class="details-summary" onclick="toggleDetails(this)">
+            Yes, if you're using <strong>Firefox</strong>. Probably
+            <strong>not</strong> for Chrome or other Chromium browsers (click to
+            expand)
           </div>
-          <div class="collapsible-content">
+          <div class="details-content">
             <p>Whether you need to configure CORS depends on your browser:</p>
 
-            <div style="margin: 20px 0">
-              <h3 style="color: #28a745; margin-bottom: 10px">
-                ✅ Chrome / Chromium (e.g., Brave, Edge)
-              </h3>
-              <p>
-                If you're using <strong>Chrome-based browsers</strong> and
-                extension version <strong>0.1.3 or later</strong>, you likely
-                <strong>do not need to set any CORS headers</strong>.
-              </p>
-              <p>
-                Ollama Client uses
-                <strong>Chrome's Declarative Net Request (DNR)</strong> API to
-                rewrite <code>Origin</code> headers in requests to
-                <code>localhost</code>, which lets it
-                <strong>bypass CORS errors without backend changes</strong>.
-              </p>
-            </div>
+            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">
+              ✅ Chrome / Chromium (e.g., Brave, Edge)
+            </h3>
+            <p>
+              If you're using <strong>Chrome-based browsers</strong> and
+              extension version <strong>0.1.3 or later</strong>, you likely
+              <strong>do not need to set any CORS headers</strong>.
+            </p>
+            <p>
+              Ollama Client uses
+              <strong>Chrome's Declarative Net Request (DNR)</strong> API to
+              rewrite <span class="inline-code">Origin</span> headers in
+              requests to <span class="inline-code">localhost</span>, which lets
+              it <strong>bypass CORS errors without backend changes</strong>.
+            </p>
 
-            <div style="margin: 20px 0">
-              <h3 style="color: #ff6b35; margin-bottom: 10px">🦊 Firefox</h3>
-              <p>
-                Firefox does <strong>not support Chrome's DNR API</strong>, so
-                <strong>manual configuration is required</strong>.
-              </p>
-              <p>If you're using Firefox, set this in your environment:</p>
-              <div class="code-block" data-lang="bash">
-                OLLAMA_ORIGINS=moz-extension://*
-              </div>
-            </div>
+            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">🦊 Firefox</h3>
+            <p>
+              Firefox does <strong>not support Chrome's DNR API</strong>, so
+              <strong>manual configuration is required</strong>.
+            </p>
+            <p>If you're using Firefox, set this in your environment:</p>
+            <div class="code-block">OLLAMA_ORIGINS=moz-extension://*</div>
 
-            <div class="highlight">
-              <h4>When should you manually set <code>OLLAMA_ORIGINS</code>?</h4>
-              <ul>
-                <li>You're using <strong>Firefox</strong></li>
-                <li>You're on <strong>extension version &lt; 0.1.3</strong></li>
-                <li>
-                  You're calling from <strong>localhost:3000</strong> or another
-                  frontend
-                </li>
-                <li>
-                  You're still getting ❌ <code>403 Forbidden</code> errors
-                </li>
-              </ul>
-            </div>
+            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">
+              When should you manually set OLLAMA_ORIGINS?
+            </h3>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem">
+              <li>You're using <strong>Firefox</strong></li>
+              <li>You're on <strong>extension version &lt; 0.1.3</strong></li>
+              <li>
+                You're calling from <strong>localhost:3000</strong> or another
+                frontend
+              </li>
+              <li>
+                You're still getting ❌
+                <span class="inline-code">403 Forbidden</span> errors
+              </li>
+            </ul>
 
             <p>To cover both Chrome and Firefox, you can combine origins:</p>
-            <div class="code-block" data-lang="bash">
+            <div class="code-block">
               OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*
             </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <h2>
-          <span class="step-number">4</span> Fix ❌ 403 Forbidden: CORS Error
-        </h2>
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">🚫</span>
+          <h2>3. Fix ❌ 403 Forbidden: CORS Error</h2>
+        </div>
         <p>
           If you're seeing CORS errors or using Firefox, follow these
-          platform-specific instructions to set <code>OLLAMA_ORIGINS</code>:
+          platform-specific instructions to set
+          <span class="inline-code">OLLAMA_ORIGINS</span>:
         </p>
 
-        <div class="platform-section">
-          <div class="platform-card">
-            <h3>🖥️ macOS (Launch Agent)</h3>
-            <p><strong>1.</strong> Edit the plist file:</p>
-            <div class="code-block" data-lang="bash">
-              nano ~/Library/LaunchAgents/com.ollama.server.plist
-            </div>
+        <div class="platform-tabs">
+          <button class="tab-button active" onclick="switchTab(event, 'macos')">
+            🖥️ macOS
+          </button>
+          <button class="tab-button" onclick="switchTab(event, 'linux')">
+            🐧 Linux
+          </button>
+          <button class="tab-button" onclick="switchTab(event, 'windows')">
+            🪟 Windows
+          </button>
+        </div>
 
-            <p>
-              <strong>2.</strong> Add inside
-              <code>&lt;key&gt;EnvironmentVariables&lt;/key&gt;</code>:
-            </p>
-            <div class="code-block" data-lang="xml">
-              &lt;key&gt;OLLAMA_ORIGINS&lt;/key&gt;
-              &lt;string&gt;chrome-extension://*,moz-extension://*&lt;/string&gt;
-            </div>
-
-            <p><strong>3.</strong> Reload the agent:</p>
-            <div class="code-block" data-lang="bash">
-              launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
-              launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
-            </div>
+        <div id="macos" class="tab-content active">
+          <h3 style="color: #2d3748; margin-bottom: 1rem">
+            macOS (Launch Agent)
+          </h3>
+          <p><strong>1.</strong> Edit the plist file:</p>
+          <div class="code-block">
+            nano ~/Library/LaunchAgents/com.ollama.server.plist
           </div>
 
-          <div class="platform-card">
-            <h3>🐧 Linux (systemd)</h3>
-            <p><strong>1.</strong> Edit the service file:</p>
-            <div class="code-block" data-lang="bash">
-              sudo systemctl edit --full ollama.service
-            </div>
-
-            <p><strong>2.</strong> Add under <code>[Service]</code>:</p>
-            <div class="code-block" data-lang="ini">
-              Environment="OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*"
-            </div>
-
-            <p><strong>3.</strong> Reload and restart:</p>
-            <div class="code-block" data-lang="bash">
-              sudo systemctl daemon-reload sudo systemctl restart ollama
-            </div>
+          <p>
+            <strong>2.</strong> Add inside
+            <span class="inline-code"
+              >&lt;key&gt;EnvironmentVariables&lt;/key&gt;</span
+            >:
+          </p>
+          <div class="code-block">
+            &lt;key&gt;OLLAMA_ORIGINS&lt;/key&gt;
+            &lt;string&gt;chrome-extension://*,moz-extension://*&lt;/string&gt;
           </div>
 
-          <div class="platform-card">
-            <h3>🪟 Windows</h3>
-            <p>
-              <strong>1.</strong> Press <code>Win + R</code>, type
-              <code>sysdm.cpl</code>, press Enter.
-            </p>
-
-            <p>
-              <strong>2.</strong> Go to <strong>Advanced</strong> →
-              <strong>Environment Variables</strong>.
-            </p>
-
-            <p><strong>3.</strong> Add a new <strong>User variable</strong>:</p>
-            <ul>
-              <li><strong>Name:</strong> <code>OLLAMA_ORIGINS</code></li>
-              <li>
-                <strong>Value:</strong>
-                <code>chrome-extension://*,moz-extension://*</code>
-              </li>
-            </ul>
-
-            <p><strong>4.</strong> Restart Ollama.</p>
+          <p><strong>3.</strong> Reload the agent:</p>
+          <div class="code-block">
+            launchctl unload ~/Library/LaunchAgents/com.ollama.server.plist
+            launchctl load -w ~/Library/LaunchAgents/com.ollama.server.plist
           </div>
         </div>
 
-        <div class="highlight">
-          <h4>💡 Multiple Origins Support</h4>
+        <div id="linux" class="tab-content">
+          <h3 style="color: #2d3748; margin-bottom: 1rem">Linux (systemd)</h3>
+          <p><strong>1.</strong> Edit the service file:</p>
+          <div class="code-block">
+            sudo systemctl edit --full ollama.service
+          </div>
+
+          <p>
+            <strong>2.</strong> Add under
+            <span class="inline-code">[Service]</span>:
+          </p>
+          <div class="code-block">
+            Environment="OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*"
+          </div>
+
+          <p><strong>3.</strong> Reload and restart:</p>
+          <div class="code-block">
+            sudo systemctl daemon-reload sudo systemctl restart ollama
+          </div>
+        </div>
+
+        <div id="windows" class="tab-content">
+          <h3 style="color: #2d3748; margin-bottom: 1rem">Windows</h3>
+          <p>
+            <strong>1.</strong> Press <span class="inline-code">Win + R</span>,
+            type <span class="inline-code">sysdm.cpl</span>, press Enter.
+          </p>
+          <p>
+            <strong>2.</strong> Go to <strong>Advanced</strong> →
+            <strong>Environment Variables</strong>.
+          </p>
+          <p><strong>3.</strong> Add a new <strong>User variable</strong>:</p>
+          <ul style="margin-left: 1.5rem; margin-bottom: 1rem">
+            <li>Name: <span class="inline-code">OLLAMA_ORIGINS</span></li>
+            <li>
+              Value:
+              <span class="inline-code"
+                >chrome-extension://*,moz-extension://*</span
+              >
+            </li>
+          </ul>
+          <p><strong>4.</strong> Restart Ollama.</p>
+        </div>
+
+        <div class="info-box" style="margin-top: 2rem">
+          <h4 style="margin-bottom: 0.5rem">💡 Multiple Origins Support</h4>
           <p>You can also allow local web apps like this:</p>
-          <div class="code-block" data-lang="bash">
+          <div class="code-block" style="margin-top: 0.5rem">
             OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <h2><span class="step-number">5</span> Verify Ollama is Running</h2>
-        <p>Open this in your browser:</p>
-        <div class="code-block" data-lang="url">http://localhost:11434</div>
-
-        <p>Or use curl:</p>
-        <div class="code-block" data-lang="bash">
-          curl http://localhost:11434/api/tags
+      <div class="grid-2 grid">
+        <div class="content-card">
+          <div class="section-header">
+            <span class="emoji">🔍</span>
+            <h2>4. Verify Ollama</h2>
+          </div>
+          <p>Open this in your browser:</p>
+          <div class="code-block">http://localhost:11434</div>
+          <p>Or use curl:</p>
+          <div class="code-block">curl http://localhost:11434/api/tags</div>
+          <div class="success-box">
+            You should see a JSON response with available models.
+          </div>
         </div>
 
-        <div class="success">
-          <strong>✅ Expected Result:</strong> You should see a JSON response
-          with available models.
+        <div class="content-card">
+          <div class="section-header">
+            <span class="emoji">⚙️</span>
+            <h2>5. Configure Extension</h2>
+          </div>
+          <p>
+            <strong>1.</strong> Click the <strong>⚙️ Settings</strong> icon in
+            the extension popup.
+          </p>
+          <p><strong>2.</strong> You can configure:</p>
+          <ul style="margin-left: 1.5rem; margin-top: 0.5rem">
+            <li>
+              Base URL (<span class="inline-code">http://localhost:11434</span>)
+            </li>
+            <li>
+              Default model (<span class="inline-code">gemma:3b</span>,
+              <span class="inline-code">llama3</span>, etc.)
+            </li>
+            <li>Theme and other preferences</li>
+          </ul>
         </div>
       </div>
 
-      <div class="card">
-        <h2><span class="step-number">6</span> Configure the Extension</h2>
-        <p>
-          <strong>1.</strong> Click the <strong>⚙️ Settings</strong> icon in the
-          extension popup.
-        </p>
-        <p><strong>2.</strong> You can configure:</p>
-        <ul>
-          <li>Base URL (<code>http://localhost:11434</code>)</li>
-          <li>
-            Default model (<code>gemma:3b</code>, <code>llama3</code>, etc.)
-          </li>
-          <li>Theme and other preferences</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h2>🧯 Troubleshooting</h2>
-        <ul>
-          <li>Ensure <code>ollama serve</code> is running</li>
-          <li>
-            Make sure your model is pulled:
-            <code>ollama pull &lt;model&gt;</code>
-          </li>
-          <li>Avoid firewalls/VPNs that block <code>localhost</code></li>
-          <li>Verify your <code>OLLAMA_ORIGINS</code> is correctly set</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h2>📎 Helpful Links</h2>
-        <div class="links-grid">
-          <a href="https://ollama.com" class="link-card" target="_blank">
-            <span>🌐</span>
-            <div>
-              <strong>Ollama Documentation</strong><br />
-              <small>Official documentation and guides</small>
-            </div>
-          </a>
-          <a
-            href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-            class="link-card"
-            target="_blank">
-            <span>🧩</span>
-            <div>
-              <strong>Chrome Extension</strong><br />
-              <small>Download from Chrome Web Store</small>
-            </div>
-          </a>
-          <a
-            href="https://github.com/shishir435/ollama-client"
-            class="link-card"
-            target="_blank">
-            <span>💻</span>
-            <div>
-              <strong>GitHub Repository</strong><br />
-              <small>Source code and issues</small>
-            </div>
-          </a>
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">🧯</span>
+          <h2>Troubleshooting</h2>
         </div>
+        <div class="grid-2 grid">
+          <div>
+            <h4 style="color: #2d3748; margin-bottom: 0.5rem">
+              Common Issues:
+            </h4>
+            <ul style="margin-left: 1.5rem">
+              <li>
+                Ensure <span class="inline-code">ollama serve</span> is running
+              </li>
+              <li>
+                Make sure your model is pulled:
+                <span class="inline-code">ollama pull &lt;model&gt;</span>
+              </li>
+              <li>
+                Avoid firewalls/VPNs that block
+                <span class="inline-code">localhost</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="color: #2d3748; margin-bottom: 0.5rem">
+              Still Having Issues?
+            </h4>
+            <ul style="margin-left: 1.5rem">
+              <li>
+                Verify your <span class="inline-code">OLLAMA_ORIGINS</span> is
+                correctly set
+              </li>
+              <li>Check browser console for error messages</li>
+              <li>Restart Ollama service after config changes</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-card">
+        <div class="section-header">
+          <span class="emoji">📎</span>
+          <h2>Helpful Links</h2>
+        </div>
+        <div class="grid-3 grid">
+          <div style="text-align: center">
+            <h4 style="margin-bottom: 1rem">🌐 Documentation</h4>
+            <a href="https://ollama.com" class="download-link" target="_blank"
+              >Ollama Docs</a
+            >
+          </div>
+          <div style="text-align: center">
+            <h4 style="margin-bottom: 1rem">🧩 Extension</h4>
+            <a
+              href="https://chromewebstore.google.com/detail/Ollama%20client/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+              class="download-link"
+              target="_blank"
+              >Chrome Store</a
+            >
+          </div>
+          <div style="text-align: center">
+            <h4 style="margin-bottom: 1rem">💻 Source Code</h4>
+            <a
+              href="https://github.com/shishir435/ollama-client"
+              class="download-link"
+              target="_blank"
+              >GitHub</a
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>Made with ❤️ for the Ollama community</p>
       </div>
     </div>
 
     <script>
-      function toggleCollapsible(header) {
-        const content = header.nextElementSibling
-        const icon = header.querySelector(".toggle-icon")
-
-        if (content.classList.contains("active")) {
+      function switchTab(event, tabName) {
+        // Hide all tab contents
+        const tabContents = document.querySelectorAll(".tab-content")
+        tabContents.forEach((content) => {
           content.classList.remove("active")
-          icon.classList.remove("rotated")
-        } else {
-          content.classList.add("active")
-          icon.classList.add("rotated")
-        }
+        })
+
+        // Remove active class from all buttons
+        const tabButtons = document.querySelectorAll(".tab-button")
+        tabButtons.forEach((button) => {
+          button.classList.remove("active")
+        })
+
+        // Show selected tab content
+        document.getElementById(tabName).classList.add("active")
+
+        // Add active class to clicked button
+        event.target.classList.add("active")
       }
 
-      // Add smooth scrolling animation for cards
-      const observerOptions = {
-        threshold: 0.1,
-        rootMargin: "0px 0px -50px 0px"
+      function toggleDetails(element) {
+        const content = element.nextElementSibling
+        content.classList.toggle("open")
+
+        // Rotate arrow or change indicator
+        const isOpen = content.classList.contains("open")
+        element.style.background = isOpen ? "#cbd5e0" : "#e2e8f0"
       }
 
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.style.opacity = "1"
-            entry.target.style.transform = "translateY(0)"
-          }
-        })
-      }, observerOptions)
-
-      // Initially hide cards for animation
-      document.querySelectorAll(".card").forEach((card, index) => {
-        card.style.opacity = "0"
-        card.style.transform = "translateY(30px)"
-        card.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`
-        observer.observe(card)
-      })
-
-      // Add click effects to buttons
-      document.querySelectorAll(".btn").forEach((btn) => {
-        btn.addEventListener("click", function (e) {
-          const ripple = document.createElement("div")
-          ripple.style.position = "absolute"
-          ripple.style.borderRadius = "50%"
-          ripple.style.background = "rgba(255,255,255,0.6)"
-          ripple.style.transform = "scale(0)"
-          ripple.style.animation = "ripple 0.6s linear"
-          ripple.style.left = e.clientX - e.target.offsetLeft + "px"
-          ripple.style.top = e.clientY - e.target.offsetTop + "px"
-
-          this.appendChild(ripple)
-
-          setTimeout(() => {
-            ripple.remove()
-          }, 600)
+      // Add smooth scrolling for anchor links
+      document.addEventListener("DOMContentLoaded", function () {
+        const links = document.querySelectorAll('a[href^="#"]')
+        links.forEach((link) => {
+          link.addEventListener("click", function (e) {
+            e.preventDefault()
+            const target = document.querySelector(this.getAttribute("href"))
+            if (target) {
+              target.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+              })
+            }
+          })
         })
       })
-
-      // Add CSS for ripple effect
-      const style = document.createElement("style")
-      style.textContent = `
-            @keyframes ripple {
-                to {
-                    transform: scale(4);
-                    opacity: 0;
-                }
-            }
-            .btn {
-                position: relative;
-                overflow: hidden;
-            }
-        `
-      document.head.appendChild(style)
     </script>
   </body>
 </html>
