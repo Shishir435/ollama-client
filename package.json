@@ -8,8 +8,12 @@
     "dev": "plasmo dev",
     "build": "plasmo build",
     "package": "plasmo package",
+    "dev:firefox": "plasmo dev --target=firefox",
+    "build:firefox": "plasmo build --target=firefox && ./tools/fix-firefox-icon.sh",
+    "package:firefox": "./tools/fix-firefox-icon.sh && plasmo package --target=firefox",
     "format:check": "prettier . --check",
     "format:fix": "prettier . --write",
+    "clean": "rm -rf build",
     "prepare": "husky"
   },
   "dependencies": {
