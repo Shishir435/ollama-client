@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ollama Client Banners</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        padding: 40px;
+        background: #f8fafc;
+      }
+      .banner-container {
+        margin-bottom: 50px;
+      }
+      canvas {
+        display: block;
+        margin: 0 auto 20px auto;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: bold;
+        background: linear-gradient(
+          to right,
+          #6366f1,
+          #8b5cf6,
+          #a855f7,
+          #3b82f6
+        );
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner-container">
+      <canvas id="banner1400x560" width="1400" height="560"></canvas>
+      <button
+        onclick="downloadBanner('banner1400x560', 'ollama-client-banner.png')">
+        Download Chrome Web Store Banner (1400×560)
+      </button>
+    </div>
+
+    <div class="banner-container">
+      <canvas id="banner1200x630" width="1200" height="630"></canvas>
+      <button
+        onclick="downloadBanner('banner1200x630', 'ollama-client-og-image.png')">
+        Download OG Image (1200×630)
+      </button>
+    </div>
+
+    <div class="banner-container">
+      <canvas id="banner1280x800" width="1280" height="800"></canvas>
+      <button
+        onclick="downloadBanner('banner1280x800', 'graphic-assets-image.png')">
+        Download Graphic Assets Image (1280×800)
+      </button>
+    </div>
+
+    <div class="banner-container">
+      <canvas id="banner1280x720" width="1280" height="720"></canvas>
+      <button
+        onclick="downloadBanner('banner1280x720', 'ollama-client-youtube-thumb.png')">
+        Download YouTube Thumbnail (1280×720)
+      </button>
+    </div>
+
+    <script>
+      function drawBanner(canvasId, mainFontSize, subFontSize) {
+        const canvas = document.getElementById(canvasId)
+        const ctx = canvas.getContext("2d")
+
+        // Gradient background
+        const gradient = ctx.createLinearGradient(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        )
+        gradient.addColorStop(0, "#6366f1")
+        gradient.addColorStop(0.33, "#8b5cf6")
+        gradient.addColorStop(0.66, "#a855f7")
+        gradient.addColorStop(1, "#3b82f6")
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // Sparkles
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)"
+        const sparkles = [
+          { x: canvas.width * 0.09, y: canvas.height * 0.27 },
+          { x: canvas.width * 0.15, y: canvas.height * 0.45 },
+          { x: canvas.width * 0.11, y: canvas.height * 0.63 },
+          { x: canvas.width * 0.06, y: canvas.height * 0.54 },
+          { x: canvas.width * 0.18, y: canvas.height * 0.32 }
+        ]
+        sparkles.forEach(({ x, y }) => {
+          ctx.save()
+          ctx.translate(x, y)
+          ctx.rotate(Math.PI / 4)
+          ctx.fillRect(-4, -4, 8, 8)
+          ctx.restore()
+        })
+
+        // Emoji on left
+        ctx.font = "48px Arial, sans-serif"
+        ctx.textAlign = "left"
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
+        ctx.fillText("✨", 100, canvas.height / 2)
+
+        // Main title
+        ctx.fillStyle = "white"
+        ctx.font = `bold ${mainFontSize}px Arial, sans-serif`
+        ctx.textAlign = "center"
+        ctx.fillText("Ollama Client", canvas.width / 2, canvas.height / 2 - 30)
+
+        // Subtitle
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+        ctx.font = `${subFontSize}px Arial, sans-serif`
+        ctx.fillText(
+          "Chat with local LLM in your browser",
+          canvas.width / 2,
+          canvas.height / 2 + 40
+        )
+      }
+
+      function downloadBanner(canvasId, filename) {
+        const canvas = document.getElementById(canvasId)
+        const dataURL = canvas.toDataURL("image/png", 1.0)
+        const link = document.createElement("a")
+        link.href = dataURL
+        link.download = filename
+        link.click()
+      }
+
+      // Draw all banners
+      drawBanner("banner1400x560", 72, 32) // Chrome Web Store
+      drawBanner("banner1200x630", 64, 28) // OG image
+      drawBanner("banner1280x800", 80, 36) // Graphic Assets Image
+      drawBanner("banner1280x720", 80, 36) // YouTube Thumbnail
+    </script>
+  </body>
+</html>
