@@ -266,18 +266,46 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 
 ## 🐛 Known Issues
 
-- ⛔ "Stop Generation" doesn't always abort early
-- ⛔ "Stop Pull" during model download may glitch
-- 🔒 CORS mostly handled via DNR, but can fail on older Chromium or network policies
-- 💾 Large chat histories in IndexedDB may affect performance
+- [ ] "Stop Generation" doesn’t always abort promptly
+- [ ] "Stop Pull" during model downloads may glitch
+- [ ] CORS is mostly handled via DNR, but may fail on older Chromium/Firefox versions or under certain network policies
+- [ ] Large chat histories in IndexedDB can impact performance
 
 ---
 
-## 🔮 Roadmap / Upcoming
+## What’s Next (Roadmap)
 
-- Chat search, filter, and export
-- Improved error handling and offline UI fallback
-- Better feedback for failed pulls or unreachable server
+Here’s what’s coming up next in **Ollama Client**—grouped by priority:
+
+### High Priority
+
+- [ ] Migrate state management to **Zustand** for cleaner logic and global state control
+- [ ] Add **Export / Import Chat History** (JSON, txt or PDF format)
+- [ ] Add **Reset App Data** button (“Start Fresh”) under **Options → Advanced** (clears IndexedDB + localStorage)
+
+### Embeddings & Semantic Search
+
+- [ ] Implement **Hybrid Embeddings**:
+  - [ ] Default: transformer.js
+  - [ ] Optional: pull Ollama-hosted(locally) embedding models when toggled
+- [ ] Enable **Local RAG** over chats, PDFs, and image text
+- [ ] Optional **Web Search Enrichment**:
+  - [ ] Offline-first architecture
+  - [ ] Opt-in Brave / DuckDuckGo API (user-provided key)
+  - [ ] WASM fallback (e.g., tinysearch) when no key
+
+### File Upload & Processing
+
+- [ ] Plain text-based formats: `.txt`, `.md`, `.js`, `.ts` (direct read)
+- [ ] Support `.pdf` uploads via **pdf.js**
+- [ ] Image OCR via **Tesseract.js** (lazy-loaded)
+- [ ] Optional future support: `.docx` (via `mammoth.js`) etc.
+
+### UX & Metrics Enhancements
+
+- [ ] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
+- [ ] Enable **Semantic Chat Search / Filter** once embeddings are in place
+- [ ] Add **Export/Import UI Buttons** next to Reset App Data under advanced settings
 
 ---
 
@@ -285,8 +313,9 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 
 - 🌐 **Install Extension:** [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
 - 📘 **Docs & Landing Page:** [ollama-client](https://ollama-client.shishirchaurasiya.in/)
-- 🐙 **GitHub Repo:** [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
-- 📖 **Setup Guide:** [Ollama Setup Instructions](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
+- 🐙 **GitHub Repo:** [Github Repo](https://github.com/Shishir435/ollama-client)
+- 📖 **Setup Guide:** [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
+- 🔒 **Privacy Policy** [Privacy Policy](https://ollama-client.shishirchaurasiya.in/privacy-policy)
 - 🐞 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
 - 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
 - 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
