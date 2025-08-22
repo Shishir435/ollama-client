@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 
 import { MESSAGE_KEYS } from "@/lib/constants"
 
-function useOpenTabs(enabled: boolean) {
+export const useOpenTabs = (enabled: boolean) => {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([])
 
   const fetchTabs = () => {
@@ -23,5 +23,3 @@ function useOpenTabs(enabled: boolean) {
 
   return { tabs, refreshTabs: fetchTabs }
 }
-
-export default useOpenTabs

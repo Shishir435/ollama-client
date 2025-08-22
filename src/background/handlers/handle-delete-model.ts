@@ -1,10 +1,10 @@
 import { getBaseUrl } from "@/background/lib/utils"
 import type { SendResponseFunction } from "@/types"
 
-export async function handleDeleteModel(
+export const handleDeleteModel = async (
   modelName: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const baseUrl = await getBaseUrl()
     const ollamaUrl = baseUrl ?? "http://localhost:11434"

@@ -14,11 +14,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useThemeStore } from "@/stores/theme"
 
-export default function ThemeToggle({
-  showText = true
-}: {
-  showText?: boolean
-}) {
+export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
   const { setTheme, theme } = useThemeStore()
 
   return (

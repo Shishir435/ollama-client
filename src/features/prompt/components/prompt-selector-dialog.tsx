@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 
 import { Clock, Copy, Eye, Filter, Search, Star, Tag, Zap } from "lucide-react"
 
-import SettingsButton from "@/components/settings-button"
+import { SettingsButton } from "@/components/settings-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,11 +23,11 @@ interface PromptSelectorDialogProps {
   onClose: () => void
 }
 
-export default function PromptSelectorDialog({
+export const PromptSelectorDialog = ({
   open,
   onSelect,
   onClose
-}: PromptSelectorDialogProps) {
+}: PromptSelectorDialogProps) => {
   const { templates, incrementUsageCount } = usePromptTemplates()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)

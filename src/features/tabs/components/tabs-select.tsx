@@ -1,7 +1,7 @@
 import { MultiSelect } from "@/components/ui/multi-select"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import useOpenTabs from "@/features/tabs/hooks/use-open-tab"
+import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 
@@ -14,7 +14,7 @@ const trimTitle = (title: string, max = 25) =>
       : title
     : "undefined"
 
-export default function TabsSelect() {
+export const TabsSelect = () => {
   const [tabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,

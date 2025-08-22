@@ -8,13 +8,13 @@ import {
 } from "@/components/ui/tooltip"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 
-export default function SendOrStopButton({
+export const SendOrStopButton = ({
   onSend,
   stopGeneration
 }: {
   onSend: () => void
   stopGeneration: () => void
-}) {
+}) => {
   const { isLoading, isStreaming } = useLoadStream()
   return (
     <Tooltip>

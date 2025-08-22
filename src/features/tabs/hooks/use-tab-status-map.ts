@@ -1,6 +1,6 @@
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 
-export function useTabStatusMap() {
+export const useTabStatusMap = () => {
   const { tabContents, loading, errors } = useTabContents()
 
   return (tabId: string) => {

@@ -1,6 +1,6 @@
 import { SOCIAL_LINKS } from "@/lib/constants"
 
-function SocialHandles() {
+export const SocialHandles = () => {
   return (
     <div className="mb-8">
       <div className="mb-6 text-center">
@@ -54,5 +54,3 @@ function SocialHandles() {
     </div>
   )
 }
-
-export default SocialHandles

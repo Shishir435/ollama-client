@@ -24,7 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useDebounce } from "@/hooks/use-debounce"
 import { cn } from "@/lib/utils"
-import ModelList from "@/features/model/components/model-list"
+import { ModelList } from "@/features/model/components/model-list"
 import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"
 import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 

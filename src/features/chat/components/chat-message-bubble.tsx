@@ -1,9 +1,9 @@
-import ChatMessageContainer from "@/features/chat/components/chat-message-container"
-import ChatMessageContent from "@/features/chat/components/chat-message-content"
-import ChatMessageFooter from "@/features/chat/components/chat-message-footer"
+import { ChatMessageContainer } from "@/features/chat/components/chat-message-container"
+import { ChatMessageContent } from "@/features/chat/components/chat-message-content"
+import { ChatMessageFooter } from "@/features/chat/components/chat-message-footer"
 import type { ChatMessage } from "@/types"
 
-export default function ChatMessageBubble({
+export const ChatMessageBubble = ({
   msg,
   onRegenerate,
   isLoading
@@ -11,7 +11,7 @@ export default function ChatMessageBubble({
   msg: ChatMessage
   onRegenerate?: (model: string) => void
   isLoading?: boolean
-}) {
+}) => {
   const isUser = msg.role === "user"
 
   return (

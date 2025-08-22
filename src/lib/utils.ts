@@ -1,11 +1,11 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-export function cn(...inputs: ClassValue[]) {
+export const cn = (...inputs: ClassValue[]) => {
   return twMerge(clsx(inputs))
 }
 
-export function normalizeWhitespace(text: string): string {
+export const normalizeWhitespace = (text: string): string => {
   return text
     .replace(/\s+\n/g, "\n") // Remove trailing spaces before newlines
     .replace(/\n{3,}/g, "\n\n") // Limit consecutive newlines to 2
@@ -42,7 +42,7 @@ export const formatTokensPerSecond = (
   return `${Math.round(tokensPerSecond)} t/s`
 }
 
-export function markdownToSpeechText(markdown: string): string {
+export const markdownToSpeechText = (markdown: string): string => {
   return markdown
     .replace(/`{1,3}[^`]*`{1,3}/g, "") // remove inline/code blocks
     .replace(/[*_~#>[\]()`]/g, "") // remove symbols

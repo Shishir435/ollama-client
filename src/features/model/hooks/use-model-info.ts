@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { MESSAGE_KEYS } from "@/lib/constants"
 
-export function useModelInfo(model: string) {
+export const useModelInfo = (model: string) => {
   const [modelInfo, setModelInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

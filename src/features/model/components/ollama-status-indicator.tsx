@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 
-export function OllamaStatusIndicator() {
+export const OllamaStatusIndicator = () => {
   const { status, refresh, error } = useOllamaModels()
 
   useEffect(() => {

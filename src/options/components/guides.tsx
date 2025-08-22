@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card"
 import { GUIDES } from "@/lib/constants"
 
-export default function Guides() {
+export const Guides = () => {
   return (
     <Card>
       <CardHeader>

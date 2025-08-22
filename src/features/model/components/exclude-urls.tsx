@@ -10,7 +10,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export default function ExcludedUrls() {
+export const ExcludedUrls = () => {
   const [patterns, setPatterns] = useStorage<string[]>(
     {
       key: STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,

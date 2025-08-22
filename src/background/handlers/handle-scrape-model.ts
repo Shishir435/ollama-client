@@ -1,9 +1,9 @@
 import type { SendResponseFunction } from "@/types"
 
-export async function handleScrapeModel(
+export const handleScrapeModel = async (
   query: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const res = await fetch(
       `https://ollama.com/search?q=${encodeURIComponent(query)}`

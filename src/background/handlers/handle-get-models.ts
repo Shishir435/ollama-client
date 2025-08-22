@@ -1,9 +1,9 @@
 import { getBaseUrl } from "@/background/lib/utils"
 import type { OllamaTagsResponse, SendResponseFunction } from "@/types"
 
-export async function handleGetModels(
+export const handleGetModels = async (
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const url = await getBaseUrl()
     const OllamaBaseUrl = url ?? "http://localhost:11434"

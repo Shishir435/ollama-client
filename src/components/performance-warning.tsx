@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function PerformanceWarning() {
+export const PerformanceWarning = () => {
   return (
     <Card className="mt-6 border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
       <CardHeader className="pb-2">

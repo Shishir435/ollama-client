@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
 
-export function useVoices() {
+export const useVoices = () => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
 
   useEffect(() => {
-    function loadVoices() {
+    const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices()
       if (availableVoices.length > 0) {
         setVoices(availableVoices)

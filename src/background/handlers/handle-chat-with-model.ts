@@ -13,11 +13,21 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-export async function handleChatWithModel(
+const limitMessagesForModel = (
+  model: string,
+  messages: ChatMessage[]
+): ChatMessage[] => {
+  if (model.includes("135m") || model.includes("0.6b")) {
+    return messages.slice(-5) // Only last 5 messages for small models
+  }
+  return messages
+}
+
+export const handleChatWithModel = async (
   msg: ChatWithModelMessage,
   port: ChromePort,
   isPortClosed: PortStatusFunction
-): Promise<void> {
+): Promise<void> => {
   const { model, messages } = msg.payload
   const baseUrl = await getBaseUrl()
 
@@ -75,14 +85,4 @@ export async function handleChatWithModel(
     // Always clear the controller after request completes or fails
     setAbortController(port.name, null)
   }
-}
-
-function limitMessagesForModel(
-  model: string,
-  messages: ChatMessage[]
-): ChatMessage[] {
-  if (model.includes("135m") || model.includes("0.6b")) {
-    return messages.slice(-5) // Only last 5 messages for small models
-  }
-  return messages
 }

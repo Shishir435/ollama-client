@@ -89,7 +89,7 @@ const getModelIcon = (modelName: string): string => {
   return "🤖"
 }
 
-export default function ModelList(): JSX.Element {
+export const ModelList = (): JSX.Element => {
   const { models, loading, error, deleteModel, refresh } = useOllamaModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState(false)

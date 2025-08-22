@@ -13,14 +13,14 @@ import {
   Zap
 } from "lucide-react"
 
-import PerformanceWarning from "@/components/performance-warning"
-import SettingsButton from "@/components/settings-button"
-import SocialHandles from "@/components/social-handles"
+import { PerformanceWarning } from "@/components/performance-warning"
+import { SettingsButton } from "@/components/settings-button"
+import { SocialHandles } from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
-export default function WelcomeScreen() {
+export const WelcomeScreen = () => {
   const [show, setShow] = useState(true)
   const { status, refresh } = useOllamaModels()
   const { createSession } = useChatSessions()
@@ -245,7 +245,7 @@ export default function WelcomeScreen() {
   )
 }
 
-function FeatureCard({
+const FeatureCard = ({
   icon: Icon,
   color,
   title,
@@ -255,7 +255,7 @@ function FeatureCard({
   color: "green" | "blue" | "purple"
   title: string
   description: string
-}) {
+}) => {
   const colorVariants = {
     green: {
       border: "border-green-200 dark:border-green-800",

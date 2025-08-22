@@ -10,7 +10,7 @@ import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export default function BaseUrlSettings() {
+export const BaseUrlSettings = () => {
   const [ollamaUrl, setOllamaUrl] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"

@@ -4,7 +4,7 @@ import { useCopyCode } from "markdown-it-copy-code"
 
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
 
-export function MarkdownRenderer({ content }: { content: string }) {
+export const MarkdownRenderer = ({ content }: { content: string }) => {
   const html = useMarkdownParser(content)
   useEffect(() => {
     useCopyCode()

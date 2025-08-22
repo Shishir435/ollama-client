@@ -26,7 +26,7 @@ const colorMap = {
   success: "text-green-600"
 }
 
-export function InfoPopup({
+export const InfoPopup = ({
   open,
   onClose,
   title,
@@ -40,7 +40,7 @@ export function InfoPopup({
   message: string
   type?: AlertType
   actionButton?: React.ReactNode
-}) {
+}) => {
   const Icon = iconMap[type]
   const color = colorMap[type]
 

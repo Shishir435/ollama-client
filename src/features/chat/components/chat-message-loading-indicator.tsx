@@ -1,10 +1,10 @@
-export default function ChatMessageLoadingIndicator({
+export const ChatMessageLoadingIndicator = ({
   label = "Loading...",
   showDots = false
 }: {
   label?: string
   showDots?: boolean
-}) {
+}) => {
   return (
     <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
       <span>{label}</span>

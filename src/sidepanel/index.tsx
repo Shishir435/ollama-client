@@ -2,9 +2,9 @@ import "../globals.css"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
-import Chat from "@/features/chat/components/chat"
+import { Chat } from "@/features/chat/components/chat"
 
-function IndexSidePanel() {
+const IndexSidePanel = () => {
   useThemeWatcher()
   return (
     <TooltipProvider>

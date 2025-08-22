@@ -1,6 +1,6 @@
 import { useState } from "react"
 
-import ThemeToggle from "@/components/theme-toggle"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,17 +9,17 @@ import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import LoadedModelsInfo from "@/features/model/components/loaded-models-info"
-import ModelInfo from "@/features/model/components/model-info"
-import ModelMenu from "@/features/model/components/model-menu"
-import BaseUrlSettings from "@/features/model/components/ollama-base-url-settings"
+import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
+import { ModelInfo } from "@/features/model/components/model-info"
+import { ModelMenu } from "@/features/model/components/model-menu"
+import { BaseUrlSettings } from "@/features/model/components/ollama-base-url-settings"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { OllamaVersion } from "@/features/model/components/ollama-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export function ModelSettingsForm() {
+export const ModelSettingsForm = () => {
   const [selectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""

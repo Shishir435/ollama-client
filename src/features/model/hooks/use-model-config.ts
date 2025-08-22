@@ -5,7 +5,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export function useModelConfig(modelName: string) {
+export const useModelConfig = (modelName: string) => {
   const [modelConfigs, setModelConfigs] = useStorage<
     Record<string, typeof DEFAULT_MODEL_CONFIG>
   >(

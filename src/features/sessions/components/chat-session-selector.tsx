@@ -1,15 +1,15 @@
 import { Menu, MessageSquare, SquarePen, Trash2 } from "lucide-react"
 
-import BugReportIcon from "@/components/bug-report-icon"
-import SettingsButton from "@/components/settings-button"
-import ThemeToggle from "@/components/theme-toggle"
+import { BugReportIcon } from "@/components/bug-report-icon"
+import { SettingsButton } from "@/components/settings-button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
-export default function ChatSessionSelector() {
+export const ChatSessionSelector = () => {
   const {
     sessions,
     currentSessionId,

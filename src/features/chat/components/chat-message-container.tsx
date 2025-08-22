@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils"
 
-export default function ChatMessageContainer({
+export const ChatMessageContainer = ({
   isUser,
   children
 }: {
   isUser: boolean
   children: React.ReactNode
-}) {
+}) => {
   return (
     <div
       className={cn(

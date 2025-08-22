@@ -1,24 +1,24 @@
 import { useRef, useState } from "react"
 
-import SettingsButton from "@/components/settings-button"
+import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { cn } from "@/lib/utils"
-import SendOrStopButton from "@/features/chat/components/send-or-stop-button"
+import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
-import ModelMenu from "@/features/model/components/model-menu"
-import PromptSelectorDialog from "@/features/prompt/components/prompt-selector-dialog"
-import TabsSelect from "@/features/tabs/components/tabs-select"
-import TabsToggle from "@/features/tabs/components/tabs-toggle"
+import { ModelMenu } from "@/features/model/components/model-menu"
+import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
+import { TabsSelect } from "@/features/tabs/components/tabs-select"
+import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 
-export default function ChatInputBox({
+export const ChatInputBox = ({
   onSend,
   stopGeneration
 }: {
   onSend: () => void
   stopGeneration: () => void
-}) {
+}) => {
   const { input, setInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)

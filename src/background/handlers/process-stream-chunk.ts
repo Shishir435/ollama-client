@@ -1,19 +1,15 @@
 import { safePostMessage } from "@/background/lib/utils"
 import type { ChromePort, OllamaChatResponse, StreamChunkResult } from "@/types"
 
-export function processStreamChunk(
+export const processStreamChunk = (
   value: Uint8Array,
   decoder: TextDecoder,
   buffer: string,
   fullText: string,
   port: ChromePort
-): StreamChunkResult {
-  // Accumulate chunks in buffer
+): StreamChunkResult => {
   buffer += decoder.decode(value, { stream: true })
-
-  // Process complete lines
   const lines = buffer.split("\n")
-  // Keep the last incomplete line in buffer
   buffer = lines.pop() || ""
 
   for (const line of lines) {
@@ -23,17 +19,14 @@ export function processStreamChunk(
     try {
       const data: OllamaChatResponse = JSON.parse(trimmedLine)
 
-      // Handle streaming content
       if (data.message?.content) {
         const delta = data.message.content
         fullText += delta
         safePostMessage(port, { delta })
       }
 
-      // Handle completion - when done is true, we get the final response with metrics
       if (data.done === true) {
         console.log("Generation completed, total tokens:", fullText.length)
-        // Send the final message with metrics
         safePostMessage(port, {
           done: true,
           content: fullText,
@@ -51,7 +44,6 @@ export function processStreamChunk(
     } catch (err) {
       const error = err as Error
       console.warn("Failed to parse chunk line:", trimmedLine, error)
-      // If we can't parse multiple chunks, the connection might be corrupted
       if (error.name === "SyntaxError") {
         console.warn(
           "Multiple parse errors detected, connection may be corrupted"

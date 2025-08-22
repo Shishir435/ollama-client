@@ -2,17 +2,17 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatStreamMessage, ChromePort, PullStreamMessage } from "@/types"
 
-export function isChromiumBased() {
+export const isChromiumBased = () => {
   return (
     typeof chrome !== "undefined" &&
     typeof chrome.declarativeNetRequest !== "undefined"
   )
 }
 
-export function safePostMessage(
+export const safePostMessage = (
   port: ChromePort,
   message: ChatStreamMessage | PullStreamMessage
-): void {
+): void => {
   try {
     port.postMessage(message)
   } catch (error) {
@@ -20,13 +20,16 @@ export function safePostMessage(
   }
 }
 
-export async function getBaseUrl(): Promise<string> {
+export const getBaseUrl = async (): Promise<string> => {
   return (
     ((await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) as string) ??
     "http://localhost:11434"
   )
 }
 
-export function getPullAbortControllerKey(portName: string, modelName: string) {
+export const getPullAbortControllerKey = (
+  portName: string,
+  modelName: string
+) => {
   return `${portName}:${modelName}`
 }

@@ -13,7 +13,7 @@ import { Slider } from "@/components/ui/slider"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 
-export default function SpeechSettings() {
+export const SpeechSettings = () => {
   const voices = useVoices()
   const { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI } =
     useSpeechSettings()

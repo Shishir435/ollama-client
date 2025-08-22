@@ -35,12 +35,12 @@ interface ModelMenuProps {
   showStatusPopup?: boolean
 }
 
-function ModelMenu({
+export const ModelMenu = ({
   trigger,
   onSelectModel,
   tooltipTextContent,
   showStatusPopup = true
-}: ModelMenuProps) {
+}: ModelMenuProps) => {
   const [open, setOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
@@ -143,5 +143,3 @@ function ModelMenu({
     </Popover>
   )
 }
-
-export default ModelMenu
