@@ -6,7 +6,6 @@ import ThemeToggle from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useTheme } from "@/context/them-provider-context"
 import { cn } from "@/lib/utils"
 import { useChatSessions } from "@/features/sessions/context/chat-session-context"
 
@@ -18,8 +17,6 @@ export default function ChatSessionSelector() {
     createSession,
     deleteSession
   } = useChatSessions()
-
-  const { theme } = useTheme()
 
   return (
     <Sheet>

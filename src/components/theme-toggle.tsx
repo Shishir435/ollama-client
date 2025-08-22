@@ -12,14 +12,14 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useTheme } from "@/context/them-provider-context"
+import { useThemeStore } from "@/store/theme"
 
 export default function ThemeToggle({
   showText = true
 }: {
   showText?: boolean
 }) {
-  const { setTheme, theme } = useTheme()
+  const { setTheme, theme } = useThemeStore()
 
   return (
     <DropdownMenu>
