@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react"
 
-import { useLoadStream } from "@/context/load-stream-context"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useChatInput } from "@/features/chat/context/chat-input-context"
+import { useChatInput } from "@/features/chat/hooks/use-chat-input"
+import { useLoadStream } from "@/features/chat/hooks/use-load-stream"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
 import { useChatSessions } from "@/features/sessions/context/chat-session-context"
 import { useSelectedTabIds } from "@/features/tabs/context/selected-tab-ids-context"
