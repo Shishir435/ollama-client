@@ -5,7 +5,7 @@ import { useChat } from "@/features/chat/hooks/use-chat"
 import { useLoadStream } from "@/features/chat/hooks/use-load-stream"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import ChatSessionSelector from "@/features/sessions/components/chat-session-selector"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
+import { useChatSessions } from "@/features/sessions/hooks/use-chat-sessions"
 import WelcomeScreen from "@/sidepanel/components/welcome-screen"
 
 export default function Chat() {

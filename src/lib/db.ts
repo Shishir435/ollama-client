@@ -1,14 +1,6 @@
 import Dexie, { type Table } from "dexie"
 
-import type { ChatMessage } from "@/types"
-
-export interface ChatSession {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
-  messages: ChatMessage[]
-}
+import type { ChatSession } from "@/types"
 
 class ChatDatabase extends Dexie {
   sessions!: Table<ChatSession>

@@ -55,6 +55,14 @@ export interface ChatMessage {
   }
 }
 
+export interface ChatSession {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+}
+
 export interface ChromePort extends chrome.runtime.Port {
   postMessage(message: any): void
   onMessage: chrome.events.Event<(message: any) => void>
@@ -247,4 +255,19 @@ export interface NetworkError extends Error {
 export interface ParseError extends Error {
   line?: string
   data?: any
+}
+
+export interface ChatSessionState {
+  sessions: ChatSession[]
+  currentSessionId: string | null
+  hasSession: boolean
+  createSession: () => Promise<void>
+  deleteSession: (id: string) => Promise<void>
+  updateMessages: (
+    id: string,
+    messages: ChatSession["messages"]
+  ) => Promise<void>
+  renameSessionTitle: (id: string, title: string) => Promise<void>
+  setCurrentSessionId: (id: string | null) => void
+  loadSessions: () => Promise<void>
 }

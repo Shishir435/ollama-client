@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
+import { useChatSessions } from "@/features/sessions/hooks/use-chat-sessions"
 
 export default function ChatSessionSelector() {
   const {
