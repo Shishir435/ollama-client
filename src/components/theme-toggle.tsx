@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useThemeStore } from "@/store/theme"
+import { useThemeStore } from "@/stores/theme"
 
 export default function ThemeToggle({
   showText = true

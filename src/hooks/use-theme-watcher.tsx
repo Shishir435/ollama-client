@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import { useThemeStore } from "@/store/theme"
+import { useThemeStore } from "@/stores/theme"
 
 export function useThemeWatcher() {
   const theme = useThemeStore((s) => s.theme)
