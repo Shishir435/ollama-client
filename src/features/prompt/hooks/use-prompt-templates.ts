@@ -1,11 +1,8 @@
 import { useCallback } from "react"
 
-import {
-  DEFAULT_PROMPT_TEMPLATES,
-  STORAGE_KEYS,
-  type PromptTemplate
-} from "@/lib/constants"
+import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { PromptTemplate } from "@/types"
 
 import { useStorage } from "@plasmohq/storage/hook"
 

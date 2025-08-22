@@ -49,8 +49,8 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { type PromptTemplate } from "@/lib/constants"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
+import type { PromptTemplate } from "@/types"
 
 export const PromptTemplateManager = () => {
   const {
@@ -58,7 +58,6 @@ export const PromptTemplateManager = () => {
     addTemplate,
     updateTemplate,
     deleteTemplate,
-    duplicateTemplate,
     importTemplates,
     exportTemplates,
     resetToDefaults,
@@ -377,22 +376,6 @@ export const PromptTemplateManager = () => {
                   }
                 />
               </div>
-
-              {/* <div className="space-y-2">
-                <Label htmlFor="system-prompt">System Prompt (Optional)</Label>
-                <Textarea
-                  id="system-prompt"
-                  placeholder="System instructions for the AI"
-                  rows={3}
-                  value={newTemplate.systemPrompt}
-                  onChange={(e) =>
-                    setNewTemplate((prev) => ({
-                      ...prev,
-                      systemPrompt: e.target.value
-                    }))
-                  }
-                />
-              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="user-prompt">User Prompt *</Label>

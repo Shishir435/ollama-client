@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import { useChatSessions } from "@/features/sessions/hooks/use-chat-sessions"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export const useEnsureFirstSession = () => {
   const { sessions, currentSessionId, createSession, setCurrentSessionId } =

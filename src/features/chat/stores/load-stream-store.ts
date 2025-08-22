@@ -1,11 +1,7 @@
 import { create } from "zustand"
+import { useShallow } from "zustand/react/shallow"
 
-interface LoadStreamState {
-  isLoading: boolean
-  isStreaming: boolean
-  setIsLoading: (loading: boolean) => void
-  setIsStreaming: (streaming: boolean) => void
-}
+import type { LoadStreamState } from "@/types"
 
 export const loadStreamStore = create<LoadStreamState>((set) => ({
   isLoading: false,
@@ -13,3 +9,14 @@ export const loadStreamStore = create<LoadStreamState>((set) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setIsStreaming: (streaming) => set({ isStreaming: streaming })
 }))
+
+export const useLoadStream = () => {
+  return loadStreamStore(
+    useShallow((s) => ({
+      isLoading: s.isLoading,
+      isStreaming: s.isStreaming,
+      setIsLoading: s.setIsLoading,
+      setIsStreaming: s.setIsStreaming
+    }))
+  )
+}

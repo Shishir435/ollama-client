@@ -18,7 +18,7 @@ import SettingsButton from "@/components/settings-button"
 import SocialHandles from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export default function WelcomeScreen() {
   const [show, setShow] = useState(true)

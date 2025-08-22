@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 
 import { Check, ChevronDown, RotateCcw } from "lucide-react"
 
-import { InfoPopup } from "@/components/info-popup"
 import { Button } from "@/components/ui/button"
 import {
   Command,

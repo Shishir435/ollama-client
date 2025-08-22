@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useSelectedTabIds } from "@/features/tabs/context/selected-tab-ids-context"
 import useOpenTabs from "@/features/tabs/hooks/use-open-tab"
+import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
@@ -22,7 +22,7 @@ const fetchTabContent = (tabId: number) => {
   })
 }
 export const useTabContents = () => {
-  const { selectedTabIds, setErrors } = useSelectedTabIds()
+  const { selectedTabIds, setErrors } = useSelectedTabs()
   const [tabContents, setTabContents] = useState<
     Record<number, { title: string; html: string }>
   >({})
@@ -70,5 +70,5 @@ export const useTabContents = () => {
     fetchAll()
   }, [selectedTabIds])
 
-  return { tabContents, loading, errors: useSelectedTabIds().errors }
+  return { tabContents, loading, errors: useSelectedTabs().errors }
 }

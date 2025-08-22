@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid"
 import { create } from "zustand"
+import { useShallow } from "zustand/react/shallow"
 
 import { db } from "@/lib/db"
 import type { ChatSession, ChatSessionState } from "@/types"
@@ -68,3 +69,19 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     }))
   }
 }))
+
+export const useChatSessions = () => {
+  return chatSessionStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      currentSessionId: s.currentSessionId,
+      hasSession: s.hasSession,
+      createSession: s.createSession,
+      deleteSession: s.deleteSession,
+      updateMessages: s.updateMessages,
+      renameSessionTitle: s.renameSessionTitle,
+      setCurrentSessionId: s.setCurrentSessionId,
+      loadSessions: s.loadSessions
+    }))
+  )
+}

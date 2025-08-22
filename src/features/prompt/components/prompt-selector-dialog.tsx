@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { PromptTemplate } from "@/lib/constants"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
+import type { PromptTemplate } from "@/types"
 
 interface PromptSelectorDialogProps {
   open: boolean

@@ -3,13 +3,7 @@ import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
-type Theme = "dark" | "light" | "system"
-
-type ThemeState = {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-}
+import type { ThemeState } from "@/types"
 
 export const useThemeStore = create<ThemeState>()(
   persist(

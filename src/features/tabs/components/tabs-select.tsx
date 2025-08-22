@@ -1,9 +1,9 @@
 import { MultiSelect } from "@/components/ui/multi-select"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useSelectedTabIds } from "@/features/tabs/context/selected-tab-ids-context"
 import useOpenTabs from "@/features/tabs/hooks/use-open-tab"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
+import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
@@ -23,7 +23,7 @@ export default function TabsSelect() {
     false
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(tabAccess)
-  const { selectedTabIds, setSelectedTabIds } = useSelectedTabIds()
+  const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
   const getTabStatus = useTabStatusMap()
   const [excludedPatterns] = useStorage<string[]>(
     {

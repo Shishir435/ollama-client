@@ -2,10 +2,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import ChatInputBox from "@/features/chat/components/chat-input-box"
 import ChatMessageBubble from "@/features/chat/components/chat-message-bubble"
 import { useChat } from "@/features/chat/hooks/use-chat"
-import { useLoadStream } from "@/features/chat/hooks/use-load-stream"
+import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import ChatSessionSelector from "@/features/sessions/components/chat-session-selector"
-import { useChatSessions } from "@/features/sessions/hooks/use-chat-sessions"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import WelcomeScreen from "@/sidepanel/components/welcome-screen"
 
 export default function Chat() {

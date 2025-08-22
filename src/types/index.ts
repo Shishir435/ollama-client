@@ -271,3 +271,46 @@ export interface ChatSessionState {
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
 }
+
+export interface SelectedTabsState {
+  selectedTabIds: string[]
+  errors: Record<number, string>
+  setSelectedTabIds: (tabs: string[]) => void
+  setErrors: (errors: Record<number, string>) => void
+}
+
+export type Theme = "dark" | "light" | "system"
+
+export interface ThemeState {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+}
+
+export type PromptTemplate = {
+  id: string
+  title: string
+  description?: string
+  category?: string
+  systemPrompt?: string
+  userPrompt: string
+  tags?: string[]
+  createdAt?: Date
+  usageCount?: number
+}
+
+export interface TabContentState {
+  builtContent: string
+  setBuiltContent: (builtContent: string) => void
+}
+
+export interface LoadStreamState {
+  isLoading: boolean
+  isStreaming: boolean
+  setIsLoading: (loading: boolean) => void
+  setIsStreaming: (streaming: boolean) => void
+}
+
+export interface ChatInput {
+  input: string
+  setInput: (value: string) => void
+}

@@ -1,6 +1,6 @@
 import { Bug, Github, Globe, Instagram, Linkedin, Twitter } from "lucide-react"
 
-import type { ModelConfig, SocialLink } from "@/types"
+import type { ModelConfig, PromptTemplate, SocialLink } from "@/types"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {
@@ -43,18 +43,6 @@ export const STORAGE_KEYS = {
     PITCH: "tts-pitch",
     VOICE_URI: "tts-voice-uri"
   }
-}
-
-export type PromptTemplate = {
-  id: string
-  title: string
-  description?: string
-  category?: string
-  systemPrompt?: string
-  userPrompt: string
-  tags?: string[]
-  createdAt?: Date
-  usageCount?: number
 }
 
 export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [

@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useLoadStream } from "@/features/chat/hooks/use-load-stream"
+import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 
 export default function SendOrStopButton({
   onSend,
