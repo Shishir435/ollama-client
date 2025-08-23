@@ -1,14 +1,14 @@
 import { useEffect, useRef } from "react"
 
-import { useLoadStream } from "@/context/load-stream-context"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useChatInput } from "@/features/chat/context/chat-input-context"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
-import { useSelectedTabIds } from "@/features/tabs/context/selected-tab-ids-context"
-import { useTabContentContext } from "@/features/tabs/context/tab-content-context"
+import { useChatInput } from "@/features/chat/stores/chat-input-store"
+import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
+import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import type { ChatMessage } from "@/types"
 
 import { useStorage } from "@plasmohq/storage/hook"
@@ -23,8 +23,8 @@ export const useChat = () => {
   )
 
   const { input, setInput } = useChatInput()
-  const { selectedTabIds } = useSelectedTabIds()
-  const contextText = useTabContentContext()
+  const { selectedTabIds } = useSelectedTabs()
+  const { builtContent: contextText } = useTabContent()
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 

@@ -1,9 +1,9 @@
 import type { SendResponseFunction } from "@/types"
 
-export async function handleUpdateBaseUrl(
+export const handleUpdateBaseUrl = async (
   payload: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const origin = new URL(payload).origin
 

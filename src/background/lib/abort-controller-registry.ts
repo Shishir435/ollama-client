@@ -1,18 +1,23 @@
 const controllerMap = new Map<string, AbortController>()
 
-export function setAbortController(key: string, controller: AbortController) {
+export const setAbortController = (
+  key: string,
+  controller: AbortController
+) => {
   controllerMap.set(key, controller)
 }
 
-export function getAbortController(key: string): AbortController | undefined {
+export const getAbortController = (
+  key: string
+): AbortController | undefined => {
   return controllerMap.get(key)
 }
 
-export function clearAbortController(key: string) {
+export const clearAbortController = (key: string) => {
   controllerMap.delete(key)
 }
 
-export function abortAndClearController(key: string) {
+export const abortAndClearController = (key: string) => {
   const controller = controllerMap.get(key)
   if (controller) {
     controller.abort()
@@ -20,6 +25,6 @@ export function abortAndClearController(key: string) {
   }
 }
 
-export function hasAbortController(key: string): boolean {
+export const hasAbortController = (key: string): boolean => {
   return controllerMap.has(key)
 }

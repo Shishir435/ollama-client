@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import type { OllamaModel } from "@/types"
 
-export function useOllamaModels() {
+export const useOllamaModels = () => {
   const [models, setModels] = useState<OllamaModel[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)

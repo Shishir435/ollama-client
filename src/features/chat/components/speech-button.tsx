@@ -12,7 +12,7 @@ interface SpeakButtonProps {
   text: string
 }
 
-export default function SpeechButton({ text }: SpeakButtonProps) {
+export const SpeechButton = ({ text }: SpeakButtonProps) => {
   const { speaking, toggle, isLoadingVoices } = useSpeechSynthesis()
 
   if (!text.trim()) return null

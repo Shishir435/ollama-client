@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 
 import { Check, ChevronDown, RotateCcw } from "lucide-react"
 
-import { InfoPopup } from "@/components/info-popup"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -36,12 +35,12 @@ interface ModelMenuProps {
   showStatusPopup?: boolean
 }
 
-function ModelMenu({
+export const ModelMenu = ({
   trigger,
   onSelectModel,
   tooltipTextContent,
   showStatusPopup = true
-}: ModelMenuProps) {
+}: ModelMenuProps) => {
   const [open, setOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
@@ -144,5 +143,3 @@ function ModelMenu({
     </Popover>
   )
 }
-
-export default ModelMenu

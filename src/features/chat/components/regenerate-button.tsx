@@ -1,14 +1,17 @@
 import { ChevronDown, RefreshCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import ModelMenu from "@/features/model/components/model-menu"
+import { ModelMenu } from "@/features/model/components/model-menu"
 
 interface RegenerateButtonProps {
   model: string
   onSelectModel: (model: string) => void
 }
 
-function RegenerateButton({ model, onSelectModel }: RegenerateButtonProps) {
+export const RegenerateButton = ({
+  model,
+  onSelectModel
+}: RegenerateButtonProps) => {
   return (
     <ModelMenu
       trigger={
@@ -29,5 +32,3 @@ function RegenerateButton({ model, onSelectModel }: RegenerateButtonProps) {
     />
   )
 }
-
-export default RegenerateButton

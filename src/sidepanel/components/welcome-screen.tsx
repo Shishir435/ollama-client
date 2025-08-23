@@ -1,31 +1,25 @@
-import { useState } from "react"
-
 import {
   AlertTriangle,
   CheckCircle,
   Cpu,
   ExternalLink,
   Globe,
-  PanelTopClose,
   RefreshCw,
   Shield,
   Sparkles,
   Zap
 } from "lucide-react"
 
-import PerformanceWarning from "@/components/performance-warning"
-import SettingsButton from "@/components/settings-button"
-import SocialHandles from "@/components/social-handles"
+import { PerformanceWarning } from "@/components/performance-warning"
+import { SettingsButton } from "@/components/settings-button"
+import { SocialHandles } from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
-export default function WelcomeScreen() {
-  const [show, setShow] = useState(true)
+export const WelcomeScreen = () => {
   const { status, refresh } = useOllamaModels()
   const { createSession } = useChatSessions()
-
-  if (!show) return null
 
   const getStatusConfig = () => {
     switch (status) {
@@ -233,19 +227,11 @@ export default function WelcomeScreen() {
       <div className="mb-4 transform transition-transform hover:scale-105">
         <SocialHandles />
       </div>
-
-      <Button
-        variant="ghost"
-        className="dark:text-muted-foreground-dark group rounded-xl px-4 py-2 text-sm text-muted-foreground transition-all duration-300 hover:scale-105 hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800 dark:hover:text-gray-200"
-        onClick={() => setShow(false)}>
-        <PanelTopClose className="mr-2 h-3 w-3 transition-transform group-hover:-rotate-12" />
-        Hide Welcome Screen
-      </Button>
     </div>
   )
 }
 
-function FeatureCard({
+const FeatureCard = ({
   icon: Icon,
   color,
   title,
@@ -255,7 +241,7 @@ function FeatureCard({
   color: "green" | "blue" | "purple"
   title: string
   description: string
-}) {
+}) => {
   const colorVariants = {
     green: {
       border: "border-green-200 dark:border-green-800",

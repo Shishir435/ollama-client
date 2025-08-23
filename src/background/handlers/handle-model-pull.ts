@@ -17,11 +17,11 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-export async function handleModelPull(
+export const handleModelPull = async (
   msg: ModelPullMessage,
   port: ChromePort,
   isPortClosed: PortStatusFunction
-): Promise<void> {
+): Promise<void> => {
   const modelName = msg.payload
   if (msg.cancel) {
     abortAndClearController(modelName)

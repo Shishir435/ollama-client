@@ -55,6 +55,14 @@ export interface ChatMessage {
   }
 }
 
+export interface ChatSession {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+}
+
 export interface ChromePort extends chrome.runtime.Port {
   postMessage(message: any): void
   onMessage: chrome.events.Event<(message: any) => void>
@@ -247,4 +255,62 @@ export interface NetworkError extends Error {
 export interface ParseError extends Error {
   line?: string
   data?: any
+}
+
+export interface ChatSessionState {
+  sessions: ChatSession[]
+  currentSessionId: string | null
+  hasSession: boolean
+  createSession: () => Promise<void>
+  deleteSession: (id: string) => Promise<void>
+  updateMessages: (
+    id: string,
+    messages: ChatSession["messages"]
+  ) => Promise<void>
+  renameSessionTitle: (id: string, title: string) => Promise<void>
+  setCurrentSessionId: (id: string | null) => void
+  loadSessions: () => Promise<void>
+}
+
+export interface SelectedTabsState {
+  selectedTabIds: string[]
+  errors: Record<number, string>
+  setSelectedTabIds: (tabs: string[]) => void
+  setErrors: (errors: Record<number, string>) => void
+}
+
+export type Theme = "dark" | "light" | "system"
+
+export interface ThemeState {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+}
+
+export type PromptTemplate = {
+  id: string
+  title: string
+  description?: string
+  category?: string
+  systemPrompt?: string
+  userPrompt: string
+  tags?: string[]
+  createdAt?: Date
+  usageCount?: number
+}
+
+export interface TabContentState {
+  builtContent: string
+  setBuiltContent: (builtContent: string) => void
+}
+
+export interface LoadStreamState {
+  isLoading: boolean
+  isStreaming: boolean
+  setIsLoading: (loading: boolean) => void
+  setIsStreaming: (streaming: boolean) => void
+}
+
+export interface ChatInput {
+  input: string
+  setInput: (value: string) => void
 }

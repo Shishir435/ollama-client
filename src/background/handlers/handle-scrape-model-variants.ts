@@ -1,9 +1,9 @@
 import type { SendResponseFunction } from "@/types"
 
-export async function handleScrapeModelVariants(
+export const handleScrapeModelVariants = async (
   name: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const res = await fetch(
       `https://ollama.com/library/${encodeURIComponent(name)}`

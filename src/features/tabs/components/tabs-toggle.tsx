@@ -9,7 +9,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export default function TabsToggle() {
+export const TabsToggle = () => {
   const [tabAccess, setTabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,

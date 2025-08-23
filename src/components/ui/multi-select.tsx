@@ -45,7 +45,7 @@ export type MultiSelectProps = {
   }
 }
 
-export function MultiSelect({
+export const MultiSelect = ({
   options,
   defaultValue = [],
   onValueChange,
@@ -54,7 +54,7 @@ export function MultiSelect({
   placeholder = "Select items",
   variant = "default",
   statusForValue
-}: MultiSelectProps) {
+}: MultiSelectProps) => {
   const [selectedValues, setSelectedValues] = useState<string[]>(defaultValue)
   const [open, setOpen] = useState(false)
 

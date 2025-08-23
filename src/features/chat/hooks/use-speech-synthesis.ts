@@ -4,7 +4,7 @@ import { markdownToSpeechText } from "@/lib/utils"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 
-export function useSpeechSynthesis() {
+export const useSpeechSynthesis = () => {
   const [speaking, setSpeaking] = useState(false)
   const [isLoadingVoices, setIsLoadingVoices] = useState(true)
   const voices = useVoices()

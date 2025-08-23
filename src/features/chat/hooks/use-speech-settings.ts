@@ -3,7 +3,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"
 
-export function useSpeechSettings() {
+export const useSpeechSettings = () => {
   const [rate, setRate] = useStorage<number>(
     { key: STORAGE_KEYS.TTS.RATE, instance: plasmoGlobalStorage },
     1

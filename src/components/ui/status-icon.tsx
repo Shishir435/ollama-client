@@ -1,12 +1,12 @@
 import { CheckIcon, Loader2, TriangleAlert } from "lucide-react"
 
-export function StatusIcon({
+export const StatusIcon = ({
   loading,
   error
 }: {
   loading: boolean
   error: Error | string | null
-}) {
+}) => {
   if (loading) {
     return (
       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground dark:text-muted" />

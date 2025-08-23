@@ -1,10 +1,10 @@
 import { getBaseUrl } from "@/background/lib/utils"
 import type { SendResponseFunction } from "@/types"
 
-export async function handleUnloadModel(
+export const handleUnloadModel = async (
   modelName: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const url = await getBaseUrl()
     const OllamaBaseUrl = url ?? "http://localhost:11434"

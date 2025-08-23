@@ -1,5 +1,5 @@
-import PerformanceWarning from "@/components/performance-warning"
-import SocialHandles from "@/components/social-handles"
+import { PerformanceWarning } from "@/components/performance-warning"
+import { SocialHandles } from "@/components/social-handles"
 import {
   Card,
   CardContent,
@@ -8,14 +8,15 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import SpeechSettings from "@/features/chat/components/speech-settings"
-import ExcludedUrls from "@/features/model/components/exclude-urls"
+import { SpeechSettings } from "@/features/chat/components/speech-settings"
+import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
-import Guides from "@/options/components/guides"
+import { Guides } from "@/options/components/guides"
+import { ResetStorage } from "@/options/components/reset-storage"
 
-const OllamaOptions = () => {
+export const OllamaOptions = () => {
   const tabSections = {
     general: {
       label: "General",
@@ -27,20 +28,24 @@ const OllamaOptions = () => {
       )
     },
     templates: {
-      label: "Prompt Templates",
+      label: "Prompts",
       content: <PromptTemplateManager />
     },
     modelPull: {
-      label: "Model Library",
+      label: "Models",
       content: <ModelPullPanel />
     },
     exclusions: {
-      label: "Excluded URLs",
+      label: "Exclusions",
       content: <ExcludedUrls />
     },
     voices: {
-      label: "Voice Settings",
+      label: "Voices",
       content: <SpeechSettings />
+    },
+    reset: {
+      label: "Reset",
+      content: <ResetStorage />
     },
     setup: {
       label: "Guides",
@@ -84,5 +89,3 @@ const OllamaOptions = () => {
     </Card>
   )
 }
-
-export default OllamaOptions

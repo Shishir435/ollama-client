@@ -5,10 +5,10 @@ import type {
   SendResponseFunction
 } from "@/types"
 
-export async function handleShowModelDetails(
+export const handleShowModelDetails = async (
   model: string,
   sendResponse: SendResponseFunction
-): Promise<void> {
+): Promise<void> => {
   try {
     const url = await getBaseUrl()
     const baseUrl = url ?? "http://localhost:11434"

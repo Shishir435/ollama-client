@@ -21,7 +21,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-  highlight: function (str, lang) {
+  highlight: (str, lang) => {
     if (lang && hljs.getLanguage(lang)) {
       try {
         return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`
@@ -43,7 +43,7 @@ md.use(highlightjs, { hljs })
   .use(sub)
   .use(sup)
 
-export function useMarkdownParser(markdown: string) {
+export const useMarkdownParser = (markdown: string) => {
   const [html, setHtml] = useState("")
   const md = useMemo(() => {
     const instance = new MarkdownIt({

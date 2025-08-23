@@ -6,11 +6,38 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-export async function handleChatStream(
+const processRemainingBuffer = (
+  buffer: string,
+  fullText: string,
+  port: ChromePort
+): void => {
+  try {
+    const data: OllamaChatResponse = JSON.parse(buffer.trim())
+    if (data.done === true) {
+      console.log("Final completion from buffer")
+      safePostMessage(port, {
+        done: true,
+        content: fullText,
+        metrics: {
+          total_duration: data.total_duration,
+          load_duration: data.load_duration,
+          prompt_eval_count: data.prompt_eval_count,
+          prompt_eval_duration: data.prompt_eval_duration,
+          eval_count: data.eval_count,
+          eval_duration: data.eval_duration
+        }
+      })
+    }
+  } catch (parseError) {
+    console.warn("Failed to parse final buffer:", buffer, parseError)
+  }
+}
+
+export const handleChatStream = async (
   response: Response,
   port: ChromePort,
   isPortClosed: PortStatusFunction
-): Promise<void> {
+): Promise<void> => {
   if (!response.body) {
     console.error("No response body received")
     safePostMessage(port, {
@@ -92,32 +119,5 @@ export async function handleChatStream(
     throw error
   } finally {
     if (timeoutId) clearTimeout(timeoutId)
-  }
-}
-
-function processRemainingBuffer(
-  buffer: string,
-  fullText: string,
-  port: ChromePort
-): void {
-  try {
-    const data: OllamaChatResponse = JSON.parse(buffer.trim())
-    if (data.done === true) {
-      console.log("Final completion from buffer")
-      safePostMessage(port, {
-        done: true,
-        content: fullText,
-        metrics: {
-          total_duration: data.total_duration,
-          load_duration: data.load_duration,
-          prompt_eval_count: data.prompt_eval_count,
-          prompt_eval_duration: data.prompt_eval_duration,
-          eval_count: data.eval_count,
-          eval_duration: data.eval_duration
-        }
-      })
-    }
-  } catch (parseError) {
-    console.warn("Failed to parse final buffer:", buffer, parseError)
   }
 }

@@ -1,7 +1,7 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
-export async function updateDNRRules(): Promise<void> {
+export const updateDNRRules = async (): Promise<void> => {
   try {
     const baseUrl =
       ((await plasmoGlobalStorage.get(

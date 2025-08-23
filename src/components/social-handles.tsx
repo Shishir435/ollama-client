@@ -1,6 +1,6 @@
 import { SOCIAL_LINKS } from "@/lib/constants"
 
-function SocialHandles() {
+export const SocialHandles = () => {
   return (
     <div className="mb-8">
       <div className="mb-6 text-center">
@@ -32,27 +32,9 @@ function SocialHandles() {
             <span className="relative z-10 whitespace-nowrap text-sm font-medium tracking-wide transition-all duration-200 group-hover:text-foreground">
               {label}
             </span>
-
-            <div className="absolute inset-0 -translate-x-full transform rounded-xl bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:translate-x-full group-hover:opacity-100"></div>
-
-            <div className="absolute inset-0 rounded-xl border border-primary/20 opacity-0 transition-opacity duration-200 group-hover:opacity-100"></div>
           </a>
-        ))}
-      </div>
-
-      <div className="mt-8 flex justify-center space-x-2">
-        {[...Array(3)].map((_, i) => (
-          <div
-            key={i}
-            className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-primary/40 to-primary/60 transition-all duration-300"
-            style={{
-              animation: `pulse 2s ease-in-out infinite`,
-              animationDelay: `${i * 0.4}s`
-            }}></div>
         ))}
       </div>
     </div>
   )
 }
-
-export default SocialHandles

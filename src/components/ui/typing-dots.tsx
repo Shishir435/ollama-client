@@ -1,4 +1,4 @@
-export default function TypingDots() {
+export const TypingDots = () => {
   return (
     <span className="p- flex items-center space-x-1">
       <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:0s] dark:bg-zinc-500" />

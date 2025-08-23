@@ -79,10 +79,10 @@ const formatCompactNumber = (n: number) =>
           : n.toString()
     : n
 
-function flattenObject(
+const flattenObject = (
   obj: Record<string, any>,
   prefix = ""
-): Record<string, any> {
+): Record<string, any> => {
   return Object.entries(obj).reduce(
     (acc, [key, value]) => {
       const path = prefix ? `${prefix}.${key}` : key
@@ -155,7 +155,7 @@ const DetailRow = ({
   </div>
 )
 
-const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
+export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   const { error, loading, modelInfo, refresh } = useModelInfo(selectedModel)
   const [isExpanded, setIsExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -216,7 +216,7 @@ const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
     return (
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center justify-center text-xs text-muted-foreground">
-          <Database className="mr-2 h-4 w-4 opacity-50" />
+          <Database className="mr-2 h-4 w-4 text-muted-foreground" />
           No model data
         </div>
       </div>
@@ -229,7 +229,7 @@ const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-primary" />
+              <Cpu className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold">Model Information</h3>
               {loading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -353,5 +353,3 @@ const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
     </Card>
   )
 }
-
-export default ModelInfo

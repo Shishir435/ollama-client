@@ -1,12 +1,12 @@
 import { formatDuration, formatTokensPerSecond } from "@/lib/utils"
-import MetricCard from "@/features/chat/components/metric-card"
+import { MetricCard } from "@/features/chat/components/metric-card"
 import type { ChatMessage } from "@/types"
 
-export default function ChatMessageMetricsDropdown({
+export const ChatMessageMetricsDropdown = ({
   metrics
 }: {
   metrics: ChatMessage["metrics"]
-}) {
+}) => {
   return (
     <div className="mt-3 w-full border-t border-gray-200 pt-2 dark:border-gray-600">
       <details className="group">

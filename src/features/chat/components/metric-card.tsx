@@ -11,7 +11,7 @@ const COLOR_MAP = {
     "text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700"
 }
 
-export default function MetricCard({
+export const MetricCard = ({
   title,
   value,
   color
@@ -19,7 +19,7 @@ export default function MetricCard({
   title: string
   value: string
   color: keyof typeof COLOR_MAP
-}) {
+}) => {
   const classes = COLOR_MAP[color]
   return (
     <div className={`flex flex-col rounded-lg border p-2 ${classes}`}>

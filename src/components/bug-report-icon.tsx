@@ -10,11 +10,7 @@ import {
 import { SOCIAL_LINKS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
-export default function BugReportIcon({
-  showText = true
-}: {
-  showText?: boolean
-}) {
+export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   const bugLink = SOCIAL_LINKS.find((link) =>
     link.label.toLowerCase().includes("bug")
   )

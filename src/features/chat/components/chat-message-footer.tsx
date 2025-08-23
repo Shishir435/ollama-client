@@ -1,9 +1,9 @@
 import { CopyButton } from "@/features/chat/components/copy-button"
-import RegenerateButton from "@/features/chat/components/regenerate-button"
-import SpeechButton from "@/features/chat/components/speech-button"
+import { RegenerateButton } from "@/features/chat/components/regenerate-button"
+import { SpeechButton } from "@/features/chat/components/speech-button"
 import type { ChatMessage } from "@/types"
 
-export default function ChatMessageFooter({
+export const ChatMessageFooter = ({
   msg,
   isUser,
   isLoading,
@@ -13,7 +13,7 @@ export default function ChatMessageFooter({
   isUser: boolean
   isLoading?: boolean
   onRegenerate?: (model: string) => void
-}) {
+}) => {
   return (
     <div
       className={

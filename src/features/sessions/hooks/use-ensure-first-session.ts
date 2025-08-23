@@ -1,7 +1,6 @@
 import { useEffect } from "react"
 
-import { db } from "@/lib/db"
-import { useChatSessions } from "@/features/sessions/context/chat-session-context"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export const useEnsureFirstSession = () => {
   const { sessions, currentSessionId, createSession, setCurrentSessionId } =
