@@ -3,7 +3,7 @@ import { useState } from "react"
 import { CircleCheckIcon, RefreshCcwIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -23,6 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { useResetOllamaStorage } from "@/hooks/use-reset-ollama-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+import { cn } from "@/lib/utils"
 
 export const ResetStorage = () => {
   const reset = useResetOllamaStorage()
@@ -140,7 +141,10 @@ export const ResetStorage = () => {
 
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive">Reset All</Button>
+                <span
+                  className={cn(buttonVariants({ variant: "destructive" }))}>
+                  Reset All
+                </span>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
