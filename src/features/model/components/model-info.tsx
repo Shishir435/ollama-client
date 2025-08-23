@@ -216,7 +216,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
     return (
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center justify-center text-xs text-muted-foreground">
-          <Database className="mr-2 h-4 w-4 opacity-50" />
+          <Database className="mr-2 h-4 w-4 text-muted-foreground" />
           No model data
         </div>
       </div>
@@ -229,7 +229,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-primary" />
+              <Cpu className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold">Model Information</h3>
               {loading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

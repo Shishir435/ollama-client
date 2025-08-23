@@ -1,12 +1,9 @@
-import { useState } from "react"
-
 import {
   AlertTriangle,
   CheckCircle,
   Cpu,
   ExternalLink,
   Globe,
-  PanelTopClose,
   RefreshCw,
   Shield,
   Sparkles,
@@ -21,11 +18,8 @@ import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export const WelcomeScreen = () => {
-  const [show, setShow] = useState(true)
   const { status, refresh } = useOllamaModels()
   const { createSession } = useChatSessions()
-
-  if (!show) return null
 
   const getStatusConfig = () => {
     switch (status) {
@@ -233,14 +227,6 @@ export const WelcomeScreen = () => {
       <div className="mb-4 transform transition-transform hover:scale-105">
         <SocialHandles />
       </div>
-
-      <Button
-        variant="ghost"
-        className="dark:text-muted-foreground-dark group rounded-xl px-4 py-2 text-sm text-muted-foreground transition-all duration-300 hover:scale-105 hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800 dark:hover:text-gray-200"
-        onClick={() => setShow(false)}>
-        <PanelTopClose className="mr-2 h-3 w-3 transition-transform group-hover:-rotate-12" />
-        Hide Welcome Screen
-      </Button>
     </div>
   )
 }

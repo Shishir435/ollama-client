@@ -1,4 +1,14 @@
-import { Bug, Github, Globe, Instagram, Linkedin, Twitter } from "lucide-react"
+import {
+  BookOpen,
+  Bug,
+  Github,
+  Globe,
+  HelpCircle,
+  Instagram,
+  Library,
+  Linkedin,
+  Twitter
+} from "lucide-react"
 
 import type { ModelConfig, PromptTemplate, SocialLink } from "@/types"
 
@@ -130,10 +140,13 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
 
 export const DEFAULT_EXCLUDE_URLS = [
   "^chrome://",
-  "^brave://",
+  "^chrome-extension://",
   "^edge://",
+  "^brave://",
   "^vivaldi://",
-  "^opera://"
+  "^opera://",
+  "^moz-extension://",
+  "^about:.*"
 ]
 
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {
@@ -158,20 +171,32 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 
 export const GUIDES = [
   {
-    label: "📖 Ollama Client Setup Guide",
-    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide"
+    label: "Ollama Client Setup Guide",
+    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
+    icon: BookOpen,
+    description: "Complete installation and configuration guide",
+    badge: "Guide"
   },
   {
-    label: "📚 Official Ollama Model Library",
-    href: "https://ollama.com/library"
+    label: "Official Ollama Model Library",
+    href: "https://ollama.com/library",
+    icon: Library,
+    description: "Browse available AI models and documentation",
+    badge: "Library"
   },
   {
-    label: "🔗 Github Repo",
-    href: "https://github.com/Shishir435/ollama-client"
+    label: "GitHub Repo",
+    href: "https://github.com/Shishir435/ollama-client",
+    icon: Github,
+    description: "Source code, releases, and contribution guidelines",
+    badge: "Code"
   },
   {
-    label: "🛠️ Troubleshooting & FAQ",
-    href: "https://github.com/Shishir435/ollama-client/issues"
+    label: "Troubleshooting & FAQ",
+    href: "https://github.com/Shishir435/ollama-client/issues",
+    icon: HelpCircle,
+    description: "Common issues and community support",
+    badge: "Help"
   }
 ]
 

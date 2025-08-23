@@ -130,7 +130,7 @@ export const ModelList = (): JSX.Element => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
+            <Database className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Models</span>
           </div>
         </div>
@@ -150,7 +150,7 @@ export const ModelList = (): JSX.Element => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
+            <Database className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Models</span>
           </div>
         </div>
@@ -175,7 +175,7 @@ export const ModelList = (): JSX.Element => {
             variant="ghost"
             className="h-auto w-full justify-between p-2 hover:bg-muted/50">
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
+              <Database className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">
                 Models ({models.length})
               </span>

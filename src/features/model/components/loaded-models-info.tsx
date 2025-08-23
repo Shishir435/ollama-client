@@ -111,7 +111,7 @@ export const LoadedModelsInfo = () => {
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-primary" />
+              <Brain className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold">Models Loaded in Memory</h3>
               {loading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
