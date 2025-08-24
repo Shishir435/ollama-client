@@ -57,14 +57,16 @@
 - 🔄 **Model Switcher** – Switch between models in real time
 - 🔍 **Model Search & Pull** – Pull models directly in the UI (with progress indicator)
 
-* 🗑️ **Model Deletion with Confirmation** – Clean up unused models from the UI
-* 🧳 **Load/Unload Models** – Manage Ollama memory footprint efficiently
-* 📦 **Model Version Display** – View and compare model versions easily
+- 🗑️ **Model Deletion with Confirmation** – Clean up unused models from the UI
+- 🧳 **Load/Unload Models** – Manage Ollama memory footprint efficiently
+- 📦 **Model Version Display** – View and compare model versions easily
 
 - 🎛️ **Tune Parameters** – Temperature, top_k, top_p, repeat penalty, stop sequences
 - 🧠 **Transcript & Page Summarization** – Works with YouTube, Udemy, Coursera & web articles
 - 🔊 **TTS** – Built-in Text-to-Speech via Web Speech API
 - 🗂️ **Multi-Chat Sessions** – Save/load/delete local chats
+- 📤 Export Chat Sessions – Export single or all chat sessions as **PDF** or **JSON**
+- 📥 Import Chat Sessions – Import single or multiple chat sessions from JSON files
 - 🧯 **Declarative Net Request (DNR)** – Automatic CORS handling
 - 🛡️ **100% Local and Private** – All storage and inference happen on your device
 - 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
