@@ -1,3 +1,5 @@
+import { useEffect } from "react"
+
 import { v4 as uuidv4 } from "uuid"
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
@@ -9,16 +11,19 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
   currentSessionId: null,
   hasSession: false,
+  hydrated: false,
 
   setCurrentSessionId: (id) =>
     set({ currentSessionId: id, hasSession: id !== null }),
 
   loadSessions: async () => {
+    if (get().sessions.length > 0 || get().hydrated) return
     const all = await db.sessions.orderBy("updatedAt").reverse().toArray()
     set({
       sessions: all,
       currentSessionId: all.length > 0 ? all[0].id : null,
-      hasSession: all.length > 0
+      hasSession: all.length > 0,
+      hydrated: true
     })
   },
 
@@ -71,7 +76,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 }))
 
 export const useChatSessions = () => {
-  return chatSessionStore(
+  const store = chatSessionStore(
     useShallow((s) => ({
       sessions: s.sessions,
       currentSessionId: s.currentSessionId,
@@ -84,4 +89,10 @@ export const useChatSessions = () => {
       loadSessions: s.loadSessions
     }))
   )
+  useEffect(() => {
+    if (!store.sessions.length && !store.hasSession) {
+      store.loadSessions()
+    }
+  }, [])
+  return store
 }
