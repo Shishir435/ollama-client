@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
+import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
+import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export const ChatSessionSelector = () => {
@@ -33,7 +36,6 @@ export const ChatSessionSelector = () => {
         side="left"
         className="w-80 border-r border-border/50 bg-background/95 p-0 backdrop-blur-xl">
         <div className="flex h-full flex-col">
-          {/* Header */}
           <div className="border-b border-border/50 p-4 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="rounded-lg bg-primary/10 p-1.5">
@@ -87,13 +89,11 @@ export const ChatSessionSelector = () => {
                           ? "border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/10 shadow-sm"
                           : "border border-transparent hover:bg-accent/50"
                       )}>
-                      {/* Active indicator */}
                       {isActive && (
                         <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-gradient-to-b from-primary to-primary/70" />
                       )}
 
-                      <div className="flex items-center p-2 pl-3">
-                        {/* Session Button */}
+                      <div className="flex items-center p-2">
                         <Button
                           variant="ghost"
                           className={cn(
@@ -126,23 +126,12 @@ export const ChatSessionSelector = () => {
                             </span>
                           </div>
                         </Button>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-                            "opacity-0 group-hover:opacity-100",
-                            "hover:bg-destructive/10 hover:text-destructive",
-                            "focus:bg-destructive/10 focus:text-destructive focus:opacity-100"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteSession(session.id)
-                          }}
-                          aria-label={`Delete chat session: ${session.title}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ChatExportButton sessionId={session.id} />
+                        <ChatDeleteButton
+                          sessionId={session.id}
+                          sessionTitle={session.title}
+                          onDelete={() => deleteSession(session.id)}
+                        />
                       </div>
                     </div>
                   )
@@ -167,8 +156,10 @@ export const ChatSessionSelector = () => {
           </div>
 
           <div className="border-t border-border/50 bg-muted/20 p-3 pt-2">
-            <div className="text-center text-xs text-muted-foreground">
-              {sessions.length} {sessions.length === 1 ? "session" : "sessions"}
+            <div className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+              {sessions.length} {sessions.length === 1 ? "session" : "sessions"}{" "}
+              <ChatExportButton showAllSessions />
+              <ChatImportButton />
             </div>
           </div>
         </div>
