@@ -172,7 +172,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 export const GUIDES = [
   {
     label: "Ollama Client Setup Guide",
-    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
+    href: "https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/ollama-setup-guide",
     icon: BookOpen,
     description: "Complete installation and configuration guide",
     badge: "Guide"
@@ -186,14 +186,14 @@ export const GUIDES = [
   },
   {
     label: "GitHub Repo",
-    href: "https://github.com/Shishir435/ollama-client",
+    href: "https://github.com/naveedus/ollama-client/tree/refactored",
     icon: Github,
     description: "Source code, releases, and contribution guidelines",
     badge: "Code"
   },
   {
     label: "Troubleshooting & FAQ",
-    href: "https://github.com/Shishir435/ollama-client/issues",
+    href: "https://github.com/naveedus/ollama-client/tree/refactored",
     icon: HelpCircle,
     description: "Common issues and community support",
     badge: "Help"
@@ -304,7 +304,7 @@ OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
 
 </details>
 
-📖 For step-by-step instructions: [ollama-setup-guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)  
+📖 For step-by-step instructions: [ollama-setup-guide](https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/ollama-setup-guide)  
 🔗 Official docs: [https://ollama.com](https://ollama.com)
 `,
 
@@ -365,32 +365,32 @@ Still not working?
 export const SOCIAL_LINKS: SocialLink[] = [
   {
     label: "GitHub Page",
-    href: "https://github.com/Shishir435/ollama-client",
+    href: "https://github.com/naveedus/ollama-client/tree/refactored",
     icon: Github
   },
   {
     label: "Portfolio",
-    href: "https://www.shishirchaurasiya.in/",
+    href: "https://www.ltcjenkins.ltc.tadn.ibm.com/",
     icon: Globe
   },
   {
     label: "LinkedIn",
-    href: "https://www.linkedin.com/in/shishir-chaurasiya/",
+    href: "https://www.linkedin.com/in/ltctest/",
     icon: Linkedin
   },
   {
     label: "Twitter",
-    href: "https://twitter.com/_shishir435",
+    href: "https://twitter.com/ltctest",
     icon: Twitter
   },
   {
     label: "Instagram",
-    href: "https://www.instagram.com/_shishir435/",
+    href: "https://www.instagram.com/ltctest/",
     icon: Instagram
   },
   {
     label: "Report Bug / Feature",
-    href: "https://github.com/Shishir435/ollama-client/issues",
+    href: "https://github.com/naveedus/ollama-client/tree/refactored",
     icon: Bug
   }
 ]

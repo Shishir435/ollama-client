@@ -44,7 +44,7 @@
 ## 🌐 Explore More
 
 <div align="center">
-<a href="https://ollama-client.shishirchaurasiya.in/" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
+<a href="https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
 </div>
 
 ---
@@ -138,7 +138,7 @@ Want to contribute or customize? You can run and modify the Ollama Client extens
 ### 📦 1. Clone the Repo
 
 ```bash
-git clone https://github.com/Shishir435/ollama-client.git
+git clone https://github.com/naveedus/ollama-client/tree/refactored
 cd ollama-client
 ```
 
@@ -238,7 +238,7 @@ Load as a [temporary extension](https://extensionworkshop.com/documentation/deve
 ### ✅ Tips
 
 - Change manifest settings in `package.json`
-- PRs welcome! Check [issues](https://github.com/Shishir435/ollama-client/issues) for open tasks
+- PRs welcome! Check [issues](https://github.com/naveedus/ollama-client/tree/refactored) for open tasks
 
 ## 💡 Recommended Models by Device
 
@@ -262,7 +262,7 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 1. Go to `about:debugging`
 2. Click "Load Temporary Add-on"
 3. Select the `manifest.json` from the extension folder
-4. Manually allow CORS access (see [setup guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide))
+4. Manually allow CORS access (see [setup guide](https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/ollama-setup-guide))
 
 ---
 
@@ -314,13 +314,13 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 ## 🔗 Useful Links
 
 - 🌐 **Install Extension:** [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-- 📘 **Docs & Landing Page:** [ollama-client](https://ollama-client.shishirchaurasiya.in/)
-- 🐙 **GitHub Repo:** [Github Repo](https://github.com/Shishir435/ollama-client)
-- 📖 **Setup Guide:** [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
-- 🔒 **Privacy Policy** [Privacy Policy](https://ollama-client.shishirchaurasiya.in/privacy-policy)
-- 🐞 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
-- 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
-- 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
+- 📘 **Docs & Landing Page:** [ollama-client](https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/)
+- 🐙 **GitHub Repo:** [Github Repo](https://github.com/naveedus/ollama-client/tree/refactored)
+- 📖 **Setup Guide:** [Ollama Setup Guide](https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/ollama-setup-guide)
+- 🔒 **Privacy Policy** [Privacy Policy](https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/privacy-policy)
+- 🐞 **Issue Tracker:** [Report a Bug](https://github.com/naveedus/ollama-client/tree/refactored)
+- 🙋‍♂️ **Portfolio:** [ltcjenkins.ltc.tadn.ibm.com](https://www.ltcjenkins.ltc.tadn.ibm.com)
+- 💡 **Feature Requests:** [Email Me](mailto:ltctest@in.ibm.com)
 
 ---
 
@@ -332,4 +332,4 @@ If you find Ollama Client helpful, please consider:
 - 📝 Leaving a review on the Chrome Web Store
 - 💬 Sharing on socials (tag `#OllamaClient`)
 
-> Built with ❤️ by [@Shishir435](https://www.shishirchaurasiya.in)
+> Built with ❤️ by [@LTC-Test](https://www.ltcjenkins.ltc.tadn.ibm.com)

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ollama-client.shishirchaurasiya.in/sitemap.xml
+Sitemap: https://ollama-client.ltcjenkins.ltc.tadn.ibm.com/sitemap.xml

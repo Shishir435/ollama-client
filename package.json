@@ -3,7 +3,7 @@
   "displayName": "Ollama Client - Chat with Local LLM Models",
   "version": "0.2.3",
   "description": "Privacy-first Ollama Chrome extension to chat with local AI models like LLaMA, Mistral, Gemma — fully offline.",
-  "author": "Shishir Chaurasiya",
+  "author": "LTC Test",
   "keywords": [
     "ollama client",
     "ollama",
@@ -47,11 +47,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Shishir435/ollama-client.git"
+    "url": "https://github.com/naveedus/ollama-client/tree/refactored"
   },
-  "homepage": "https://ollama-client.shishirchaurasiya.in",
+  "homepage": "https://ollama-client.ltcjenkins.ltc.tadn.ibm.com",
   "bugs": {
-    "url": "https://github.com/shishir435/ollama-client/issues"
+    "url": "https://github.com/naveedus/ollama-client/tree/refactored"
   },
   "scripts": {
     "dev": "plasmo dev",
@@ -151,7 +151,7 @@
     ],
     "browser_specific_settings": {
       "gecko": {
-        "id": "shishirchaurasiya435@gmail.com",
+        "id": "ltctest@in.ibm.com",
         "strict_min_version": "113.0"
       }
     }
