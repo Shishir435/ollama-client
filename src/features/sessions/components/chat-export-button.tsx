@@ -91,7 +91,7 @@ export const ChatExportButton = ({
 
       {options.length > 0 && (
         <PopoverContent
-          className="w-48 p-2"
+          className="w-min p-2"
           align={showAllSessions ? "center" : "end"}>
           <div className="flex flex-col gap-1">
             {options.map(({ label, icon: Icon, action }) => (
