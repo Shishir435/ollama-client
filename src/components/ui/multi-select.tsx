@@ -22,6 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 export type Option = {
@@ -139,19 +140,21 @@ export const MultiSelect = ({
             <CommandInput placeholder={placeholder} />
           </div>
           <CommandGroup>
-            {options.map((option) => (
-              <CommandItem
-                key={option.value}
-                onSelect={() => toggleOption(option.value)}>
-                <div className="flex items-center gap-2">
-                  {option.icon && <option.icon className="h-4 w-4" />}
-                  <span>{option.label}</span>
-                </div>
-                {selectedValues.includes(option.value) && (
-                  <Check className="ml-auto h-4 w-4" />
-                )}
-              </CommandItem>
-            ))}
+            <ScrollArea className="max-h-[300px] overflow-y-scroll">
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  onSelect={() => toggleOption(option.value)}>
+                  <div className="flex items-center gap-2">
+                    {option.icon && <option.icon className="h-4 w-4" />}
+                    <span>{option.label}</span>
+                  </div>
+                  {selectedValues.includes(option.value) && (
+                    <Check className="ml-auto h-4 w-4" />
+                  )}
+                </CommandItem>
+              ))}
+            </ScrollArea>
           </CommandGroup>
         </Command>
       </PopoverContent>
