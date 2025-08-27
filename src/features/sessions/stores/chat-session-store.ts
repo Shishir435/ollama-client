@@ -1,6 +1,5 @@
 import { useEffect } from "react"
 
-import { v4 as uuidv4 } from "uuid"
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 
@@ -28,7 +27,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   },
 
   createSession: async () => {
-    const id = uuidv4()
+    const id = crypto.randomUUID()
     const now = Date.now()
     const newSession: ChatSession = {
       id,

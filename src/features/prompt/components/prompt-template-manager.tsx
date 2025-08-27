@@ -15,7 +15,6 @@ import {
   Trash2,
   Upload
 } from "lucide-react"
-import { v4 as uuidv4 } from "uuid"
 
 import {
   AlertDialog,
@@ -122,7 +121,7 @@ export const PromptTemplateManager = () => {
     if (!newTemplate.title.trim() || !newTemplate.userPrompt.trim()) return
 
     const template: Omit<PromptTemplate, "createdAt" | "usageCount"> = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       title: newTemplate.title.trim(),
       description: newTemplate.description.trim() || undefined,
       category: newTemplate.category.trim() || undefined,
