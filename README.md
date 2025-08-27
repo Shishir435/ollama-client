@@ -281,9 +281,9 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 ### High Priority
 
-- [ ] Migrate state management to **Zustand** for cleaner logic and global state control
-- [ ] Add **Export / Import Chat History** (JSON, txt or PDF format)
-- [ ] Add **Reset App Data** button (“Start Fresh”) under **Options → Advanced** (clears IndexedDB + localStorage)
+- [x] Migrate state management to **Zustand** for cleaner logic and global state control
+- [x] Add **Export / Import Chat History** (JSON, txt or PDF format)
+- [x] Add **Reset App Data** button (“Reset All”) under **Options → Reset** (clears IndexedDB + localStorage)
 
 ### Embeddings & Semantic Search
 
@@ -307,7 +307,7 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 - [ ] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
 - [ ] Enable **Semantic Chat Search / Filter** once embeddings are in place
-- [ ] Add **Export/Import UI Buttons** next to Reset App Data under advanced settings
+- [x] Add **Export/Import UI Buttons** in chat selector ui
 
 ---
 
