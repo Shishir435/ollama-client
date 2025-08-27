@@ -1,5 +1,4 @@
 import DOMPurify from "dompurify"
-import hljs from "highlight.js"
 import html2pdf from "html2pdf.js"
 import MarkdownIt from "markdown-it"
 import container from "markdown-it-container"
@@ -7,12 +6,12 @@ import MarkdownItCopyCode from "markdown-it-copy-code"
 import deflist from "markdown-it-deflist"
 import { full as emoji } from "markdown-it-emoji"
 import footnote from "markdown-it-footnote"
-import highlightjs from "markdown-it-highlightjs"
 import markdownItMark from "markdown-it-mark"
 import sub from "markdown-it-sub"
 import sup from "markdown-it-sup"
 import taskLists from "markdown-it-task-lists"
 
+import { hljs } from "@/lib/hljs"
 import type { ChatSession } from "@/types"
 
 const createMarkdownParser = () => {
@@ -30,8 +29,7 @@ const createMarkdownParser = () => {
     }
   })
 
-  md.use(highlightjs, { hljs })
-    .use(taskLists, { enabled: true })
+  md.use(taskLists, { enabled: true })
     .use(footnote)
     .use(container, "info")
     .use(container, "warning")
