@@ -1,4 +1,4 @@
-import { Menu, MessageSquare, SquarePen, Trash2 } from "lucide-react"
+import { Menu, MessageSquare, SquarePen } from "lucide-react"
 
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
@@ -47,7 +47,7 @@ export const ChatSessionSelector = () => {
             </div>
           </div>
 
-          <div className="p-3 pb-2">
+          <div className="p-2">
             <Button
               onClick={createSession}
               className="flex h-10 w-full items-center justify-start rounded-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
@@ -57,7 +57,7 @@ export const ChatSessionSelector = () => {
             </Button>
           </div>
 
-          <ScrollArea className="flex-1 px-3">
+          <ScrollArea className="flex-1 px-2">
             <div className="space-y-1 pb-3">
               {sessions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -93,7 +93,7 @@ export const ChatSessionSelector = () => {
                         <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-gradient-to-b from-primary to-primary/70" />
                       )}
 
-                      <div className="flex items-center p-2">
+                      <div className="flex items-center p-2 pr-1">
                         <Button
                           variant="ghost"
                           className={cn(
