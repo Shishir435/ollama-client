@@ -11,13 +11,12 @@
   <img src="https://img.shields.io/badge/Brave-Supported-orange?logo=brave&style=for-the-badge" alt="Brave Supported" />
   <img src="https://img.shields.io/badge/Edge-Supported-blue?logo=microsoftedge&style=for-the-badge" alt="Edge Supported" />
   <img src="https://img.shields.io/badge/Opera-Supported-red?logo=opera&style=for-the-badge" alt="Opera Supported" />
-  <img src="https://img.shields.io/badge/Arc-Supported-9cf?style=for-the-badge" alt="Arc Supported" />
   <img src="https://img.shields.io/badge/Firefox-Experimental-lightgrey?logo=firefox-browser&style=for-the-badge" alt="Firefox Experimental" />
 </div>
 
 ---
 
-> ✅ Works with any Chromium-based browser: **Chrome**, **Brave**, **Edge**, **Opera**, **Chromium**, and **Arc**.  
+> ✅ Works with any Chromium-based browser: **Chrome**, **Brave**, **Edge**, **Opera**, and **Chromium**  
 > 🦊 **Firefox support** available via [temporary addon installation](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/) (manual permissions setup required).
 
 ---
