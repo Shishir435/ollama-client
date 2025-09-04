@@ -23,10 +23,23 @@ import type {
 
 export {}
 
+const openOllamaClient = () => {
+  chrome.windows.create({
+    url: chrome.runtime.getURL("sidepanel.html"),
+    type: "popup",
+    width: 420,
+    height: 640
+  })
+}
+
 if (isChromiumBased() && "sidePanel" in chrome) {
   chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error("SidePanel error:", error))
+} else {
+  chrome.action.onClicked.addListener(() => {
+    openOllamaClient()
+  })
 }
 
 if (!isChromiumBased()) {
