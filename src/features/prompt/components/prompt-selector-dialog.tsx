@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 
-import { Clock, Copy, Eye, Filter, Search, Star, Tag, Zap } from "lucide-react"
-
 import { SettingsButton } from "@/components/settings-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +12,16 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Clock,
+  Copy,
+  Eye,
+  Filter,
+  Search,
+  Star,
+  Tag,
+  Zap
+} from "@/lib/lucide-icon"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import type { PromptTemplate } from "@/types"
 

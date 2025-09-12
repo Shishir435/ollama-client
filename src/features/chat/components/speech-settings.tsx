@@ -1,7 +1,5 @@
 import { useEffect } from "react"
 
-import { Mic, Settings, Volume2 } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -19,6 +17,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 

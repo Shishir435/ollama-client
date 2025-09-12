@@ -1,18 +1,5 @@
 import React, { useState } from "react"
 
-import {
-  ChevronDown,
-  Cpu,
-  Database,
-  FileText,
-  Info,
-  Layers,
-  Loader2,
-  RefreshCw,
-  Settings,
-  Zap
-} from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -27,6 +14,18 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  ChevronDown,
+  Cpu,
+  Database,
+  FileText,
+  Info,
+  Layers,
+  Loader2,
+  RefreshCw,
+  Settings,
+  Zap
+} from "@/lib/lucide-icon"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
 
 const fileTypeMap: Record<number, string> = {

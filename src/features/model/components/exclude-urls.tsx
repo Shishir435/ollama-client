@@ -1,7 +1,5 @@
 import { useState } from "react"
 
-import { AlertCircle, Globe, Plus, Shield, Trash2 } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
+import { AlertCircle, Globe, Plus, Shield, Trash2 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { useStorage } from "@plasmohq/storage/hook"

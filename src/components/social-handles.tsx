@@ -1,4 +1,4 @@
-import { SOCIAL_LINKS } from "@/lib/constants"
+import { SOCIAL_LINKS } from "@/lib/constants-ui"
 
 export const SocialHandles = () => {
   return (

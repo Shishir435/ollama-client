@@ -1,7 +1,5 @@
 import { useState } from "react"
 
-import { CircleCheckIcon, RefreshCcwIcon } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -23,6 +21,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { useResetOllamaStorage } from "@/hooks/use-reset-ollama-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+import { CircleCheck, RefreshCcw } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ResetStorage = () => {
@@ -74,7 +73,7 @@ export const ResetStorage = () => {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
-            <RefreshCcwIcon className="h-5 w-5 text-muted-foreground" />
+            <RefreshCcw className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">Reset Settings</CardTitle>
           </div>
           <CardDescription className="text-sm">
@@ -116,8 +115,7 @@ export const ResetStorage = () => {
                       await reset(module)
                       setTimeout(() => setResetting(false), 1000)
                     }}>
-                    Reset{" "}
-                    {resetting ? <CircleCheckIcon className="h-4 w-4" /> : ""}
+                    Reset {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
                   </Button>
                 </div>
               )
@@ -128,7 +126,7 @@ export const ResetStorage = () => {
 
           <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 p-3">
             <div className="flex items-center gap-3">
-              <RefreshCcwIcon className="h-4 w-4 flex-shrink-0 text-destructive" />
+              <RefreshCcw className="h-4 w-4 flex-shrink-0 text-destructive" />
               <div>
                 <h4 className="text-sm font-medium text-destructive">
                   Danger Zone

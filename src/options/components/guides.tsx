@@ -1,5 +1,3 @@
-import { ExternalLink, Notebook } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -9,7 +7,8 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import { GUIDES } from "@/lib/constants"
+import { GUIDES } from "@/lib/constants-ui"
+import { ExternalLink, Notebook } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const Guides = () => {

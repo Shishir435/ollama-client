@@ -1,19 +1,18 @@
 import { useEffect } from "react"
 
-import {
-  AlertTriangle,
-  CheckCircle,
-  Loader2,
-  RefreshCw,
-  XCircle
-} from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  RefreshCw,
+  XCircle
+} from "@/lib/lucide-icon"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 
 export const OllamaStatusIndicator = () => {

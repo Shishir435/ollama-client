@@ -1,5 +1,3 @@
-import { Moon, Sun } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,6 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Moon, Sun } from "@/lib/lucide-icon"
 import { useThemeStore } from "@/stores/theme"
 
 export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {

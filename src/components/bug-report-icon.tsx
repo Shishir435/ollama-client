@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react"
-
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -7,7 +5,8 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { SOCIAL_LINKS } from "@/lib/constants"
+import { SOCIAL_LINKS } from "@/lib/constants-ui"
+import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {

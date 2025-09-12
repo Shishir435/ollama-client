@@ -1,17 +1,5 @@
 import { useState } from "react"
 
-import {
-  Brain,
-  Eye,
-  Hash,
-  Layers,
-  MessageSquare,
-  Settings,
-  StopCircle,
-  Target,
-  Thermometer
-} from "lucide-react"
-
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +16,17 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { STORAGE_KEYS } from "@/lib/constants"
+import {
+  Brain,
+  Eye,
+  Hash,
+  Layers,
+  MessageSquare,
+  Settings,
+  StopCircle,
+  Target,
+  Thermometer
+} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
 import { ModelInfo } from "@/features/model/components/model-info"

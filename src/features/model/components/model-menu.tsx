@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react"
 
-import { Check, ChevronDown, RotateCcw } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -22,6 +20,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"

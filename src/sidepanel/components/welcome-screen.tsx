@@ -1,3 +1,7 @@
+import { PerformanceWarning } from "@/components/performance-warning"
+import { SettingsButton } from "@/components/settings-button"
+import { SocialHandles } from "@/components/social-handles"
+import { Button } from "@/components/ui/button"
 import {
   AlertTriangle,
   CheckCircle,
@@ -8,12 +12,7 @@ import {
   Shield,
   Sparkles,
   Zap
-} from "lucide-react"
-
-import { PerformanceWarning } from "@/components/performance-warning"
-import { SettingsButton } from "@/components/settings-button"
-import { SocialHandles } from "@/components/social-handles"
-import { Button } from "@/components/ui/button"
+} from "@/lib/lucide-icon"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 

@@ -1,11 +1,10 @@
-import { Trash2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface ChatDeleteButtonProps {

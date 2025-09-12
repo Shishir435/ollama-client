@@ -1,16 +1,4 @@
-import {
-  BookOpen,
-  Bug,
-  Github,
-  Globe,
-  HelpCircle,
-  Instagram,
-  Library,
-  Linkedin,
-  Twitter
-} from "lucide-react"
-
-import type { ModelConfig, PromptTemplate, SocialLink } from "@/types"
+import type { ModelConfig, PromptTemplate } from "@/types"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {
@@ -168,37 +156,6 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   num_predict: -1,
   min_p: 0.0
 }
-
-export const GUIDES = [
-  {
-    label: "Ollama Client Setup Guide",
-    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
-    icon: BookOpen,
-    description: "Complete installation and configuration guide",
-    badge: "Guide"
-  },
-  {
-    label: "Official Ollama Model Library",
-    href: "https://ollama.com/library",
-    icon: Library,
-    description: "Browse available AI models and documentation",
-    badge: "Library"
-  },
-  {
-    label: "GitHub Repo",
-    href: "https://github.com/Shishir435/ollama-client",
-    icon: Github,
-    description: "Source code, releases, and contribution guidelines",
-    badge: "Code"
-  },
-  {
-    label: "Troubleshooting & FAQ",
-    href: "https://github.com/Shishir435/ollama-client/issues",
-    icon: HelpCircle,
-    description: "Common issues and community support",
-    badge: "Help"
-  }
-]
 
 export const ERROR_MESSAGES: Record<number, string> = {
   403: `### ❌ 403 Forbidden: CORS Error
@@ -361,36 +318,3 @@ Still not working?
 - Visit: [https://ollama.com](https://ollama.com) for troubleshooting
 `
 }
-
-export const SOCIAL_LINKS: SocialLink[] = [
-  {
-    label: "GitHub Page",
-    href: "https://github.com/Shishir435/ollama-client",
-    icon: Github
-  },
-  {
-    label: "Portfolio",
-    href: "https://www.shishirchaurasiya.in/",
-    icon: Globe
-  },
-  {
-    label: "LinkedIn",
-    href: "https://www.linkedin.com/in/shishir-chaurasiya/",
-    icon: Linkedin
-  },
-  {
-    label: "Twitter",
-    href: "https://twitter.com/_shishir435",
-    icon: Twitter
-  },
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/_shishir435/",
-    icon: Instagram
-  },
-  {
-    label: "Report Bug / Feature",
-    href: "https://github.com/Shishir435/ollama-client/issues",
-    icon: Bug
-  }
-]

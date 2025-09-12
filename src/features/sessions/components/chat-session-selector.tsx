@@ -1,11 +1,10 @@
-import { Menu, MessageSquare, SquarePen } from "lucide-react"
-
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"

@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react"
-
 export type OllamaModel = {
   name: string
   model: string
@@ -31,12 +29,6 @@ export type ModelConfig = {
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>
-
-export interface SocialLink {
-  label: string
-  href: string
-  icon: LucideIcon
-}
 
 export type Role = "user" | "assistant"
 

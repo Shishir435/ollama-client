@@ -1,22 +1,6 @@
 import { useRef, useState } from "react"
 
 import {
-  BarChart3,
-  Calendar,
-  Copy,
-  CopyCheck,
-  Download,
-  FileText,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Search,
-  Star,
-  Trash2,
-  Upload
-} from "lucide-react"
-
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -55,6 +39,21 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  BarChart3,
+  Calendar,
+  Copy,
+  CopyCheck,
+  Download,
+  FileText,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Star,
+  Trash2,
+  Upload
+} from "@/lib/lucide-icon"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import type { PromptTemplate } from "@/types"
 

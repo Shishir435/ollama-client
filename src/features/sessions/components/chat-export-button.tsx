@@ -1,7 +1,5 @@
 import { useState } from "react"
 
-import { Download, FileDown, FileText } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -13,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Download, FileDown, FileText } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"

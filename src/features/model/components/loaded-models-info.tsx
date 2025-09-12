@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react"
 
-import { Brain, ChevronDown, Loader2, RefreshCw, Trash } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,6 +16,13 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import {
+  Brain,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+  Trash
+} from "@/lib/lucide-icon"
 
 interface LoadedModel {
   name: string

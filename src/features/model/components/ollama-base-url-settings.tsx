@@ -1,7 +1,5 @@
 import { useState } from "react"
 
-import { Check, ExternalLink, Loader2, Server } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"

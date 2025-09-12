@@ -1,13 +1,12 @@
 import React, { useRef } from "react"
 
-import { Upload } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { useImportChat } from "@/features/sessions/hooks/use-import-chat"
 

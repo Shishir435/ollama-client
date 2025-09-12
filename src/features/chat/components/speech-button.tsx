@@ -1,11 +1,10 @@
-import { Mic, MicOff } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Mic, MicOff } from "@/lib/lucide-icon"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 
 interface SpeakButtonProps {

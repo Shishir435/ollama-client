@@ -1,15 +1,5 @@
 import { useEffect, useState } from "react"
 
-import {
-  Download,
-  ExternalLink,
-  Info,
-  Loader2,
-  Package,
-  Search,
-  Trash
-} from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +13,15 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useDebounce } from "@/hooks/use-debounce"
+import {
+  Download,
+  ExternalLink,
+  Info,
+  Loader2,
+  Package,
+  Search,
+  Trash
+} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { ModelList } from "@/features/model/components/model-list"
 import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"

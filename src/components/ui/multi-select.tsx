@@ -1,14 +1,5 @@
 import { useState } from "react"
 
-import {
-  Check,
-  CheckIcon,
-  ChevronsUpDown,
-  Loader2,
-  RefreshCw,
-  XCircle
-} from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +14,14 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Check,
+  CheckIcon,
+  ChevronsUpDown,
+  Loader2,
+  RefreshCw,
+  XCircle
+} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export type Option = {

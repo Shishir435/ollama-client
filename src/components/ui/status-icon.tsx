@@ -1,4 +1,4 @@
-import { CheckIcon, Loader2, TriangleAlert } from "lucide-react"
+import { CheckIcon, Loader2, TriangleAlert } from "@/lib/lucide-icon"
 
 export const StatusIcon = ({
   loading,

@@ -1,16 +1,6 @@
 import { useState } from "react"
 
 import {
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  HardDrive,
-  RefreshCw,
-  Trash2
-} from "lucide-react"
-
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -35,6 +25,15 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  HardDrive,
+  RefreshCw,
+  Trash2
+} from "@/lib/lucide-icon"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import type { OllamaModel } from "@/types"
 
