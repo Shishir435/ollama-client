@@ -9,6 +9,7 @@ const isExcludedUrl = async (url: string): Promise<boolean> => {
   const patterns = await plasmoGlobalStorage.get<string[]>(
     STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
   )
+
   return (
     patterns?.some((pattern) => {
       try {
@@ -27,45 +28,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tabAccessEnabled = await plasmoGlobalStorage.get<boolean>(
           STORAGE_KEYS.BROWSER.TABS_ACCESS
         )
+
         if (!tabAccessEnabled) {
           sendResponse({ html: "❌ Tab access is disabled by the user." })
           return
         }
+
         const currentUrl = window.location.href
+
         if (await isExcludedUrl(currentUrl)) {
           sendResponse({ html: "❌ This page is excluded by your settings." })
           return
         }
 
-        let readableText = ""
-        // Custom Bugzilla extractor
-        if (/bugzilla\./i.test(window.location.hostname)) {
-          // Extract bug summary & comments
-          const summary =
-            document.querySelector("#short_desc_nonedit_display")
-              ?.textContent || ""
-          const comments = Array.from(
-            document.querySelectorAll(".bz_comment_text")
-          )
-            .map((el) => el.textContent?.trim() || "")
-            .join("\n\n---\n\n")
-          readableText =
-            "Bug summary:\n" +
-            summary +
-            "\n\nComments:\n" +
-            (comments || "None found")
-        } else {
-          // Fallback to generic article extractor for non-Bugzilla sites
-          const article = new Readability(
-            document.cloneNode(true) as Document
-          ).parse()
-          readableText = article?.textContent || ""
-        }
+        const article = new Readability(
+          document.cloneNode(true) as Document
+        ).parse()
+
+        let readableText = article?.textContent || ""
         readableText = normalizeWhitespace(readableText)
         const transcript = getTranscript()
         const finalContent =
-          (transcript ? `\n\nTranscript:\n${transcript}\n\n` : "") +
-          readableText
+          (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
 
         sendResponse({ html: finalContent })
       } catch (err) {
@@ -73,6 +57,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ html: "❌ Failed to parse content." })
       }
     })()
+
     return true
   }
 })
