@@ -1,7 +1,15 @@
+import { isChromiumBased } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const updateDNRRules = async (): Promise<void> => {
+  if (!isChromiumBased()) {
+    console.warn(
+      "DNR not available: Firefox requires OLLAMA_ORIGINS configuration"
+    )
+    return
+  }
+
   try {
     const baseUrl =
       ((await plasmoGlobalStorage.get(
@@ -36,6 +44,7 @@ export const updateDNRRules = async (): Promise<void> => {
       ]
     })
   } catch (error) {
+    // Don't throw - allow extension to continue without DNR
     console.error("Failed to update DNR rules:", error)
   }
 }

@@ -93,8 +93,32 @@
 
 ```bash
 brew install ollama  # macOS
+# or visit https://ollama.com for Windows/Linux installers
+
 ollama serve         # starts at http://localhost:11434
 ```
+
+**💡 Quick Setup Script** (Cross-platform):
+
+For easier setup with LAN access and Firefox CORS support:
+
+```bash
+# Cross-platform bash script (macOS/Linux/Windows with Git Bash)
+./tools/ollama-env.sh firefox   # Firefox with CORS + LAN access
+./tools/ollama-env.sh chrome    # Chrome with LAN access
+```
+
+📄 **Script file:** [`tools/ollama-env.sh`](https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh)
+
+This script automatically:
+
+- Configures Ollama for LAN access (`0.0.0.0`)
+- Sets up CORS for Firefox extensions (if needed)
+- Shows your local IP address for network access
+- Detects your OS (macOS, Linux, Windows) automatically
+- Stops any running Ollama instances before starting
+
+If you don't have the script file, you can [download it directly](https://raw.githubusercontent.com/Shishir435/ollama-client/main/tools/ollama-env.sh) or see the full setup guide: [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
 
 More info: [https://ollama.com](https://ollama.com)
 
@@ -200,6 +224,19 @@ pnpm package
 
 ### 🧪 6. Run, build and package in Firefox (Experimental)
 
+**Setup Ollama for Firefox:**
+
+Firefox requires manual CORS configuration. Use the helper script:
+
+```bash
+# Cross-platform bash script (macOS/Linux/Windows with Git Bash)
+./tools/ollama-env.sh firefox
+```
+
+This configures `OLLAMA_ORIGINS` for Firefox extension support.
+
+**Build and run:**
+
 ```bash
 pnpm dev --target=firefox
 ```
@@ -267,9 +304,7 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 
 ## 🐛 Known Issues
 
-- [ ] "Stop Generation" doesn’t always abort promptly
 - [ ] "Stop Pull" during model downloads may glitch
-- [ ] CORS is mostly handled via DNR, but may fail on older Chromium/Firefox versions or under certain network policies
 - [ ] Large chat histories in IndexedDB can impact performance
 
 ---

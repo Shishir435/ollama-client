@@ -1,5 +1,6 @@
 import { useRef } from "react"
 
+import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
 import type { ChatMessage } from "@/types"
 
@@ -19,14 +20,19 @@ export const useOllamaStream = ({
   setIsLoading,
   setIsStreaming
 }: UseOllamaStreamProps) => {
-  const portRef = useRef<chrome.runtime.Port | null>(null)
+  const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
 
   const startStream = ({ model, messages }: StreamOptions) => {
-    const port = chrome.runtime.connect({
+    // Create port synchronously BEFORE any async operations
+    const port = browser.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
     })
     portRef.current = port
+
+    // Now set loading state - port exists, so stop will work
+    setIsLoading(true)
+    setIsStreaming(false)
 
     let assistantMessage: ChatMessage = {
       role: "assistant",
@@ -99,11 +105,25 @@ export const useOllamaStream = ({
   }
 
   const stopStream = () => {
-    portRef.current?.postMessage({
-      type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
-    })
-    setIsLoading(false)
-    setIsStreaming(false)
+    // Handle case where port hasn't been created yet
+    if (!portRef.current) {
+      console.warn("Stop requested but port not created yet")
+      setIsLoading(false)
+      setIsStreaming(false)
+      return
+    }
+
+    try {
+      portRef.current.postMessage({
+        type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+      })
+    } catch (error) {
+      console.error("Failed to send stop message:", error)
+    } finally {
+      // Always reset state, even if message fails
+      setIsLoading(false)
+      setIsStreaming(false)
+    }
   }
 
   return {

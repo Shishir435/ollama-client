@@ -1,9 +1,22 @@
+import { isChromiumBased } from "@/lib/browser-api"
 import type { SendResponseFunction } from "@/types"
 
 export const handleUpdateBaseUrl = async (
   payload: string,
   sendResponse: SendResponseFunction
 ): Promise<void> => {
+  if (!isChromiumBased()) {
+    sendResponse({
+      success: false,
+      error: {
+        status: 0,
+        message:
+          "Firefox requires manual OLLAMA_ORIGINS configuration. See settings for instructions."
+      }
+    })
+    return
+  }
+
   try {
     const origin = new URL(payload).origin
 

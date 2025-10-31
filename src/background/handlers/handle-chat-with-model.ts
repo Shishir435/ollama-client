@@ -1,7 +1,10 @@
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { handleChatStream } from "@/background/handlers/handle-chat-stream"
-import { setAbortController } from "@/background/lib/abort-controller-registry"
+import {
+  clearAbortController,
+  setAbortController
+} from "@/background/lib/abort-controller-registry"
 import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
 import type {
   ChatMessage,
@@ -83,6 +86,6 @@ export const handleChatWithModel = async (
     }
   } finally {
     // Always clear the controller after request completes or fails
-    setAbortController(port.name, null)
+    clearAbortController(port.name)
   }
 }

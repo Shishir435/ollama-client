@@ -4,6 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import browser from "@/lib/browser-api"
 import { Settings } from "@/lib/lucide-icon"
 
 export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
@@ -14,7 +15,7 @@ export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
           variant="link"
           size="sm"
           onClick={() => {
-            chrome.runtime.openOptionsPage()
+            browser.runtime.openOptionsPage()
           }}
           aria-label="Extension Settings">
           <Settings size="16" className="opacity-80" />

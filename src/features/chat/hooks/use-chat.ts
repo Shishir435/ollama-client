@@ -99,9 +99,6 @@ export const useChat = () => {
     await autoRenameSession(sessionId, rawInput)
 
     if (!customInput) setInput("")
-    setIsLoading(true)
-    setIsStreaming(false)
-
     startStream({
       model: customModel || selectedModel,
       messages: newMessages
