@@ -58,7 +58,6 @@ chrome.runtime.onConnect.addListener((port: ChromePort) => {
 
   port.onDisconnect.addListener(() => {
     isPortClosed = true
-    // Clean up any ongoing operations when port is disconnected
     abortAndClearController(port.name)
   })
 

@@ -2,9 +2,13 @@ const controllerMap = new Map<string, AbortController>()
 
 export const setAbortController = (
   key: string,
-  controller: AbortController
+  controller: AbortController | null
 ) => {
-  controllerMap.set(key, controller)
+  if (controller === null) {
+    controllerMap.delete(key)
+  } else {
+    controllerMap.set(key, controller)
+  }
 }
 
 export const getAbortController = (
