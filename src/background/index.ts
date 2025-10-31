@@ -1,3 +1,6 @@
+import "webextension-polyfill"
+
+import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
@@ -12,7 +15,6 @@ import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
-import { isChromiumBased } from "@/background/lib/utils"
 import type {
   ChatWithModelMessage,
   ChromeMessage,
@@ -24,22 +26,25 @@ import type {
 export {}
 
 const openOllamaClient = () => {
-  chrome.windows.create({
-    url: chrome.runtime.getURL("sidepanel.html"),
+  browser.windows.create({
+    url: browser.runtime.getURL("sidepanel.html"),
     type: "popup",
     width: 420,
     height: 640
   })
 }
 
-if (isChromiumBased() && "sidePanel" in chrome) {
-  chrome.sidePanel
+if (isChromiumBased() && "sidePanel" in browser) {
+  ;(browser as any).sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((error) => console.error("SidePanel error:", error))
+    .catch((error: Error) => console.error("SidePanel error:", error))
 } else {
-  chrome.action.onClicked.addListener(() => {
-    openOllamaClient()
-  })
+  const actionAPI = browser.action || (browser as any).browserAction
+  if (actionAPI) {
+    actionAPI.onClicked.addListener(() => {
+      openOllamaClient()
+    })
+  }
 }
 
 if (!isChromiumBased()) {
@@ -47,11 +52,11 @@ if (!isChromiumBased()) {
 }
 
 if (isChromiumBased()) {
-  chrome.runtime.onInstalled.addListener(updateDNRRules)
-  chrome.runtime.onStartup.addListener(updateDNRRules)
+  browser.runtime.onInstalled.addListener(() => updateDNRRules())
+  browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
-chrome.runtime.onConnect.addListener((port: ChromePort) => {
+browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
 
   const getPortStatus: PortStatusFunction = () => isPortClosed
@@ -84,7 +89,7 @@ chrome.runtime.onConnect.addListener((port: ChromePort) => {
 })
 
 // Handle one-time message requests
-chrome.runtime.onMessage.addListener(
+browser.runtime.onMessage.addListener(
   (message: ChromeMessage, sender, sendResponse) => {
     switch (message.type) {
       case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
@@ -100,7 +105,7 @@ chrome.runtime.onMessage.addListener(
       }
 
       case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
-        chrome.tabs.query({}, (tabs) => {
+        browser.tabs.query({}).then((tabs) => {
           console.log(tabs)
           sendResponse({ success: true, tabs })
         })

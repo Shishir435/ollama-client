@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react"
 
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 
 export const useOllamaPull = () => {
   const [progress, setProgress] = useState<string | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
-  const portRef = useRef<chrome.runtime.Port | null>(null)
+  const portRef = useRef<browser.Runtime.Port | null>(null)
 
   const pullModel = (modelName: string) => {
     console.log("modelName: ", modelName)
     setPullingModel(modelName)
     setProgress("Starting...")
 
-    const port = chrome.runtime.connect({
+    const port = browser.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.PULL_MODEL
     })
     portRef.current = port

@@ -1,5 +1,6 @@
 import { useRef } from "react"
 
+import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
 import type { ChatMessage } from "@/types"
 
@@ -19,11 +20,12 @@ export const useOllamaStream = ({
   setIsLoading,
   setIsStreaming
 }: UseOllamaStreamProps) => {
-  const portRef = useRef<chrome.runtime.Port | null>(null)
+  const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
 
   const startStream = ({ model, messages }: StreamOptions) => {
-    const port = chrome.runtime.connect({
+    // Create port synchronously BEFORE any async operations
+    const port = browser.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
     })
     portRef.current = port

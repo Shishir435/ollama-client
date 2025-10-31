@@ -131,6 +131,9 @@ importers:
       tailwindcss-animate:
         specifier: 1.0.7
         version: 1.0.7(tailwindcss@3.4.1)
+      webextension-polyfill:
+        specifier: ^0.12.0
+        version: 0.12.0
       zustand:
         specifier: ^5.0.8
         version: 5.0.8(@types/react@18.2.48)(react@18.2.0)
@@ -2425,8 +2428,8 @@ packages:
     resolution: {integrity: sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==}
     engines: {node: '>=10'}
 
-  caniuse-lite@1.0.30001718:
-    resolution: {integrity: sha512-AflseV1ahcSunK53NfEs9gFWgOEmzr0f+kaMFA4xiLZlr9Hzt7HxcSpIFcnNCUkz6R6dWKa54rUz3HUmI3nVcw==}
+  caniuse-lite@1.0.30001752:
+    resolution: {integrity: sha512-vKUk7beoukxE47P5gcVNKkDRzXdVofotshHwfR9vmpeFKxmI5PBpgOMC18LUJUA/DvJ70Y7RveasIBraqsyO/g==}
 
   canvg@3.0.11:
     resolution: {integrity: sha512-5ON+q7jCTgMp9cjpu4Jo6XbvfYwSB2Ow3kzHKfIyJfaCAOHLbdKPQqGKgfED/R5B+3TFFfe8pegYA+b423SRyA==}
@@ -4176,6 +4179,9 @@ packages:
 
   weak-lru-cache@1.2.2:
     resolution: {integrity: sha512-DEAoo25RfSYMuTGc9vPJzZcZullwIqRDSI9LOy+fkCJPi6hykCnfKaXTuPBDuXAUcqHXyOgFtHNp/kB2FjYHbw==}
+
+  webextension-polyfill@0.12.0:
+    resolution: {integrity: sha512-97TBmpoWJEE+3nFBQ4VocyCdLKfw54rFaJ6EVQYLBCXqCIpLSZkwGgASpv4oPt9gdKCJ80RJlcmNzNn008Ag6Q==}
 
   webidl-conversions@4.0.2:
     resolution: {integrity: sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==}
@@ -6685,7 +6691,7 @@ snapshots:
   autoprefixer@10.4.17(postcss@8.4.33):
     dependencies:
       browserslist: 4.24.5
-      caniuse-lite: 1.0.30001718
+      caniuse-lite: 1.0.30001752
       fraction.js: 4.3.7
       normalize-range: 0.1.2
       picocolors: 1.1.1
@@ -6720,14 +6726,14 @@ snapshots:
 
   browserslist@4.22.1:
     dependencies:
-      caniuse-lite: 1.0.30001718
+      caniuse-lite: 1.0.30001752
       electron-to-chromium: 1.5.155
       node-releases: 2.0.19
       update-browserslist-db: 1.1.3(browserslist@4.22.1)
 
   browserslist@4.24.5:
     dependencies:
-      caniuse-lite: 1.0.30001718
+      caniuse-lite: 1.0.30001752
       electron-to-chromium: 1.5.155
       node-releases: 2.0.19
       update-browserslist-db: 1.1.3(browserslist@4.24.5)
@@ -6774,7 +6780,7 @@ snapshots:
 
   camelcase@6.3.0: {}
 
-  caniuse-lite@1.0.30001718: {}
+  caniuse-lite@1.0.30001752: {}
 
   canvg@3.0.11:
     dependencies:
@@ -8500,6 +8506,8 @@ snapshots:
       '@vue/shared': 3.3.4
 
   weak-lru-cache@1.2.2: {}
+
+  webextension-polyfill@0.12.0: {}
 
   webidl-conversions@4.0.2: {}
 

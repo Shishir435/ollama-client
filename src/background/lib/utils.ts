@@ -2,13 +2,6 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatStreamMessage, ChromePort, PullStreamMessage } from "@/types"
 
-export const isChromiumBased = () => {
-  return (
-    typeof chrome !== "undefined" &&
-    typeof chrome.declarativeNetRequest !== "undefined"
-  )
-}
-
 export const safePostMessage = (
   port: ChromePort,
   message: ChatStreamMessage | PullStreamMessage

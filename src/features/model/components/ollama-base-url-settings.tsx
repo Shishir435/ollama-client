@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -31,7 +32,7 @@ export const BaseUrlSettings = () => {
 
   const handleSave = async () => {
     try {
-      await chrome.runtime.sendMessage({
+      await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL,
         payload: ollamaUrl
       })
