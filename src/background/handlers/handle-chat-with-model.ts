@@ -47,9 +47,22 @@ export const handleChatWithModel = async (
 
   try {
     const limitedMessages = limitMessagesForModel(model, messages)
+
+    let preparedMessages = [...limitedMessages]
+    const hasSystemMessage = preparedMessages.some(
+      (msg) => msg.role === "system"
+    )
+
+    if (modelParams.system && !hasSystemMessage) {
+      preparedMessages = [
+        { role: "system" as const, content: modelParams.system },
+        ...preparedMessages
+      ]
+    }
+
     const requestBody: OllamaChatRequest = {
       model,
-      messages: limitedMessages,
+      messages: preparedMessages,
       stream: true,
       ...modelParams
     }

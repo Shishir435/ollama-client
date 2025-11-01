@@ -30,7 +30,7 @@ export type ModelConfig = {
 
 export type ModelConfigMap = Record<string, ModelConfig>
 
-export type Role = "user" | "assistant"
+export type Role = "user" | "assistant" | "system"
 
 export interface ChatMessage {
   role: Role
@@ -90,6 +90,11 @@ export interface OllamaChatRequest {
   repeat_penalty?: number
   stop?: string[]
   system?: string
+  num_ctx?: number
+  repeat_last_n?: number
+  seed?: number
+  num_predict?: number
+  min_p?: number
 }
 
 export interface OllamaPullRequest {
