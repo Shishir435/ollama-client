@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Privacy-first Ollama Chrome extension to chat with local AI models like LLaMA, Mistral, Gemma — fully offline.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -63,6 +63,9 @@
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "lint:check": "biome check .",
+    "format": "biome format .",
+    "format:fix": "biome format --write .",
+    "format:check": "biome format .",
     "clean": "rm -rf build .plasmo",
     "prepare": "husky"
   },
@@ -124,6 +127,7 @@
     "@types/node": "20.11.5",
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
+    "@types/webextension-polyfill": "^0.12.4",
     "autoprefixer": "10.4.17",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0",
