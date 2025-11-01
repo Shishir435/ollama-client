@@ -1,3 +1,5 @@
+import type browser from "webextension-polyfill"
+
 export type OllamaModel = {
   name: string
   model: string
@@ -19,7 +21,7 @@ export type ModelConfig = {
   top_k: number
   top_p: number
   repeat_penalty: number
-  stop: any[]
+  stop: string[]
   system: string
   num_ctx: number
   repeat_last_n: number
@@ -55,15 +57,15 @@ export interface ChatSession {
   messages: ChatMessage[]
 }
 
-export interface ChromePort extends chrome.runtime.Port {
-  postMessage(message: any): void
-  onMessage: chrome.events.Event<(message: any) => void>
-  onDisconnect: chrome.events.Event<() => void>
+export interface ChromePort extends browser.Runtime.Port {
+  postMessage(message: ChromeMessage): void
+  onMessage: browser.Events.Event<(message: ChromeMessage) => void>
+  onDisconnect: browser.Events.Event<() => void>
 }
 
 export interface ChromeMessage {
   type: string
-  payload?: any
+  payload?: unknown
   query?: string
   name?: string
   cancel?: boolean
@@ -71,12 +73,12 @@ export interface ChromeMessage {
 
 export interface ChromeResponse {
   success: boolean
-  data?: any
+  data?: unknown
   error?: {
     status: number
     message: string
   }
-  tabs?: chrome.tabs.Tab[]
+  tabs?: browser.Tabs.Tab[]
   html?: string
 }
 
@@ -108,7 +110,7 @@ export interface OllamaShowRequest {
   verbose?: boolean
 }
 
-export interface OllamaTagsRequest {}
+export type OllamaTagsRequest = Record<string, never>
 
 export interface OllamaChatResponse {
   model: string
@@ -151,7 +153,7 @@ export interface OllamaShowResponse {
     quantization_level: string
   }
   model_info?: {
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -251,7 +253,7 @@ export interface NetworkError extends Error {
 
 export interface ParseError extends Error {
   line?: string
-  data?: any
+  data?: unknown
 }
 
 export interface ChatSessionState {

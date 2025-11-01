@@ -1,4 +1,4 @@
-import { getBaseUrl } from "@/background/lib/utils"
+import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import type {
   OllamaShowRequest,
   OllamaShowResponse,
@@ -22,7 +22,7 @@ export const handleShowModelDetails = async (
     })
 
     if (!res.ok) {
-      sendResponse({
+      safeSendResponse(sendResponse, {
         success: false,
         error: { status: res.status, message: res.statusText }
       })
@@ -30,10 +30,10 @@ export const handleShowModelDetails = async (
     }
 
     const data: OllamaShowResponse = await res.json()
-    sendResponse({ success: true, data })
+    safeSendResponse(sendResponse, { success: true, data })
   } catch (err) {
     const error = err as Error
-    sendResponse({
+    safeSendResponse(sendResponse, {
       success: false,
       error: { status: 0, message: error.message }
     })

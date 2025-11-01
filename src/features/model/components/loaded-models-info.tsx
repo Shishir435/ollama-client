@@ -1,6 +1,4 @@
-"use client"
-
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   Brain,
@@ -23,6 +22,7 @@ import {
   RefreshCw,
   Trash
 } from "@/lib/lucide-icon"
+import type { ChromeResponse } from "@/types"
 
 interface LoadedModel {
   name: string
@@ -46,7 +46,7 @@ const formatBytes = (bytes: number): string => {
   const k = 1024
   const sizes = ["B", "KB", "MB", "GB"]
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
+  return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`
 }
 
 export const LoadedModelsInfo = () => {
@@ -56,49 +56,58 @@ export const LoadedModelsInfo = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const fetchModels = async (isRefresh = false) => {
+  const fetchModels = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true)
     } else {
       setLoading(true)
     }
 
-    chrome.runtime.sendMessage(
-      { type: MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS },
-      (res) => {
-        if (res?.success && res.data?.models) {
-          setModels(res.data.models)
-        } else {
-          console.error(res?.error)
-          setModels([])
-        }
-        setLoading(false)
-        setRefreshing(false)
+    try {
+      const res = (await browser.runtime.sendMessage({
+        type: MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS
+      })) as ChromeResponse & {
+        data?: { models?: LoadedModel[] }
       }
-    )
-  }
+      if (res?.success && res.data?.models) {
+        setModels(res.data.models)
+      } else {
+        console.error(res?.error)
+        setModels([])
+      }
+    } catch (error) {
+      console.error("Failed to fetch loaded models:", error)
+      setModels([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
-  const unloadModel = (modelName: string) => {
+  const unloadModel = async (modelName: string) => {
     setUnloading(modelName)
-
-    chrome.runtime.sendMessage(
-      { type: MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL, payload: modelName },
-      (res) => {
-        if (res?.success) {
-          setModels((prev) => prev.filter((m) => m.name !== modelName))
-        } else {
-          console.error("Unload error", res?.error)
-        }
-        setUnloading(null)
+    try {
+      const res = (await browser.runtime.sendMessage({
+        type: MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL,
+        payload: modelName
+      })) as ChromeResponse
+      if (res?.success) {
+        setModels((prev) => prev.filter((m) => m.name !== modelName))
+      } else {
+        console.error("Unload error", res?.error)
       }
-    )
+    } catch (error) {
+      console.error("Failed to unload model:", error)
+    } finally {
+      setUnloading(null)
+    }
   }
 
   const handleRefresh = () => {
     fetchModels(true)
   }
 
-  const toggleExpanded = () => {
+  const _toggleExpanded = () => {
     setIsExpanded(!isExpanded)
   }
 
@@ -106,7 +115,7 @@ export const LoadedModelsInfo = () => {
     fetchModels()
     const interval = setInterval(() => fetchModels(), 10000)
     return () => clearInterval(interval)
-  }, [])
+  }, [fetchModels])
 
   const totalSize = models.reduce((acc, model) => acc + model.size, 0)
 

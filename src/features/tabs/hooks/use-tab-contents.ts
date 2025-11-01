@@ -1,25 +1,23 @@
-import { useEffect, useState } from "react"
-
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useStorage } from "@plasmohq/storage/hook"
+import { useCallback, useEffect, useState } from "react"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
+import { browser } from "@/lib/browser-api"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
-import { useStorage } from "@plasmohq/storage/hook"
+import type { ChromeResponse } from "@/types"
 
-const fetchTabContent = (tabId: number) => {
-  return new Promise<string>((resolve, reject) => {
-    chrome.tabs.sendMessage(
-      tabId,
-      { type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          return reject(chrome.runtime.lastError.message)
-        }
-        resolve(response?.html || "")
-      }
-    )
-  })
+const fetchTabContent = async (tabId: number): Promise<string> => {
+  try {
+    const response = (await browser.tabs.sendMessage(tabId, {
+      type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
+    })) as ChromeResponse & { html?: string }
+    return response?.html || ""
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(errorMessage)
+  }
 }
 export const useTabContents = () => {
   const { selectedTabIds, setErrors } = useSelectedTabs()
@@ -37,10 +35,14 @@ export const useTabContents = () => {
 
   const { tabs: openTabs } = useOpenTabs(tabAccess)
 
-  const getTabTitle = (tabId: number) => {
-    const tab = openTabs.find((tab) => tab.id === tabId)?.title
-    return tab || ""
-  }
+  const getTabTitle = useCallback(
+    (tabId: number) => {
+      const tab = openTabs.find((tab) => tab.id === tabId)?.title
+      return tab || ""
+    },
+    [openTabs]
+  )
+
   useEffect(() => {
     if (selectedTabIds.length === 0) return
 
@@ -50,7 +52,7 @@ export const useTabContents = () => {
       const newErrors: Record<number, string> = {}
 
       for (const idStr of selectedTabIds) {
-        const tabId = parseInt(idStr)
+        const tabId = parseInt(idStr, 10)
 
         try {
           const html = await fetchTabContent(tabId)
@@ -68,7 +70,7 @@ export const useTabContents = () => {
     }
 
     fetchAll()
-  }, [selectedTabIds])
+  }, [selectedTabIds, getTabTitle, setErrors])
 
   return { tabContents, loading, errors: useSelectedTabs().errors }
 }

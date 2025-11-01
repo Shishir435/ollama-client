@@ -1,11 +1,11 @@
-import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { handleChatStream } from "@/background/handlers/handle-chat-stream"
 import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
 import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
+import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatMessage,
   ChatWithModelMessage,

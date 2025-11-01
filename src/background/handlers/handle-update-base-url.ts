@@ -1,3 +1,4 @@
+import { safeSendResponse } from "@/background/lib/utils"
 import { isChromiumBased } from "@/lib/browser-api"
 import type { SendResponseFunction } from "@/types"
 
@@ -6,7 +7,7 @@ export const handleUpdateBaseUrl = async (
   sendResponse: SendResponseFunction
 ): Promise<void> => {
   if (!isChromiumBased()) {
-    sendResponse({
+    safeSendResponse(sendResponse, {
       success: false,
       error: {
         status: 0,
@@ -46,10 +47,10 @@ export const handleUpdateBaseUrl = async (
       ]
     })
 
-    sendResponse({ success: true })
+    safeSendResponse(sendResponse, { success: true })
   } catch (err) {
     const error = err as Error
-    sendResponse({
+    safeSendResponse(sendResponse, {
       success: false,
       error: { status: 0, message: error.message }
     })

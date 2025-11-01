@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import type { OllamaModel } from "@/types"
+import type { ChromeResponse, OllamaModel } from "@/types"
 
 export const useOllamaModels = () => {
   const [models, setModels] = useState<OllamaModel[] | null>(null)
@@ -11,66 +12,77 @@ export const useOllamaModels = () => {
   const [version, setVersion] = useState<string | null>(null)
   const [versionError, setVersionError] = useState<string | null>(null)
 
-  const fetchModels = () => {
+  const fetchModels = useCallback(async () => {
     setLoading(true)
-    chrome.runtime.sendMessage(
-      { type: MESSAGE_KEYS.OLLAMA.GET_MODELS },
-      (response) => {
-        if (response?.success) {
-          setModels(response.data.models ?? [])
-          setError(null)
-        } else {
-          setError(
-            "Failed to fetch models. Ensure Ollama is running or check the base URL."
-          )
-          setModels(null)
-        }
-        setLoading(false)
+    try {
+      const response = (await browser.runtime.sendMessage({
+        type: MESSAGE_KEYS.OLLAMA.GET_MODELS
+      })) as ChromeResponse & { data?: { models?: OllamaModel[] } }
+      if (response?.success) {
+        setModels(response.data?.models ?? [])
+        setError(null)
+      } else {
+        setError(
+          "Failed to fetch models. Ensure Ollama is running or check the base URL."
+        )
+        setModels(null)
       }
-    )
-  }
+    } catch (error) {
+      console.error("Failed to fetch models:", error)
+      setError(
+        "Failed to fetch models. Ensure Ollama is running or check the base URL."
+      )
+      setModels(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const deleteModel = (modelName: string) => {
-    chrome.runtime.sendMessage(
-      {
+  const deleteModel = async (modelName: string) => {
+    try {
+      const response = (await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.OLLAMA.DELETE_MODEL,
         payload: modelName
-      },
-      (response) => {
-        if (response?.success) {
-          // Optimistically update local state
-          setModels((prev) =>
-            prev ? prev.filter((model) => model.name !== modelName) : null
-          )
-        } else {
-          console.error(
-            `Failed to delete model "${modelName}":`,
-            response?.error?.message
-          )
-        }
+      })) as ChromeResponse
+      if (response?.success) {
+        // Optimistically update local state
+        setModels((prev) =>
+          prev ? prev.filter((model) => model.name !== modelName) : null
+        )
+      } else {
+        console.error(
+          `Failed to delete model "${modelName}":`,
+          response?.error?.message
+        )
       }
-    )
+    } catch (error) {
+      console.error(`Failed to delete model "${modelName}":`, error)
+    }
   }
 
-  const fetchOllamaVersion = () => {
-    chrome.runtime.sendMessage(
-      { type: MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION },
-      (response) => {
-        if (response?.success) {
-          setVersion(response.data.version)
-          setVersionError(null)
-        } else {
-          setVersionError("Failed to fetch Ollama version.")
-          setVersion(null)
-        }
+  const fetchOllamaVersion = useCallback(async () => {
+    try {
+      const response = (await browser.runtime.sendMessage({
+        type: MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION
+      })) as ChromeResponse & { data?: { version?: string } }
+      if (response?.success) {
+        setVersion(response.data?.version ?? null)
+        setVersionError(null)
+      } else {
+        setVersionError("Failed to fetch Ollama version.")
+        setVersion(null)
       }
-    )
-  }
+    } catch (error) {
+      console.error("Failed to fetch Ollama version:", error)
+      setVersionError("Failed to fetch Ollama version.")
+      setVersion(null)
+    }
+  }, [])
 
   useEffect(() => {
     fetchModels()
     fetchOllamaVersion()
-  }, [])
+  }, [fetchModels, fetchOllamaVersion])
 
   const status: "loading" | "error" | "empty" | "ready" = loading
     ? "loading"

@@ -1,4 +1,4 @@
-import { getBaseUrl } from "@/background/lib/utils"
+import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import type { SendResponseFunction } from "@/types"
 
 export const handleDeleteModel = async (
@@ -18,10 +18,10 @@ export const handleDeleteModel = async (
     })
 
     if (res.ok) {
-      sendResponse({ success: true })
+      safeSendResponse(sendResponse, { success: true })
     } else {
       const errorText = await res.text()
-      sendResponse({
+      safeSendResponse(sendResponse, {
         success: false,
         error: {
           status: res.status,
@@ -31,7 +31,7 @@ export const handleDeleteModel = async (
     }
   } catch (err) {
     const error = err as Error
-    sendResponse({
+    safeSendResponse(sendResponse, {
       success: false,
       error: {
         status: 0,

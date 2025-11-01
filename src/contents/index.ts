@@ -1,5 +1,6 @@
 import { Readability } from "@mozilla/readability"
 
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
@@ -21,7 +22,7 @@ const isExcludedUrl = async (url: string): Promise<boolean> => {
   )
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) {
     ;(async () => {
       try {
@@ -30,14 +31,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         )
 
         if (!tabAccessEnabled) {
-          sendResponse({ html: "❌ Tab access is disabled by the user." })
+          try {
+            sendResponse({ html: "❌ Tab access is disabled by the user." })
+          } catch {
+            // Channel closed - ignore
+          }
           return
         }
 
         const currentUrl = window.location.href
 
         if (await isExcludedUrl(currentUrl)) {
-          sendResponse({ html: "❌ This page is excluded by your settings." })
+          try {
+            sendResponse({
+              html: "❌ This page is excluded by your settings."
+            })
+          } catch {
+            // Channel closed - ignore
+          }
           return
         }
 
@@ -51,10 +62,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const finalContent =
           (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
 
-        sendResponse({ html: finalContent })
+        try {
+          sendResponse({ html: finalContent })
+        } catch {
+          // Channel closed - ignore
+        }
       } catch (err) {
         console.error("Error in content script:", err)
-        sendResponse({ html: "❌ Failed to parse content." })
+        try {
+          sendResponse({ html: "❌ Failed to parse content." })
+        } catch {
+          // Channel closed - ignore
+        }
       }
     })()
 
