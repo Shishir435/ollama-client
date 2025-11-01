@@ -17,9 +17,9 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
+import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
 
 export const SpeechSettings = () => {
   const voices = useVoices()
@@ -193,6 +193,7 @@ export const SpeechSettings = () => {
                 <span className="text-sm font-medium">Quick Preview</span>
               </div>
               <button
+                type="button"
                 className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
                 onClick={() => {
                   if ("speechSynthesis" in window) {

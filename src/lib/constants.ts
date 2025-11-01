@@ -198,10 +198,10 @@ const OLLAMA_ENV_SCRIPT_CONTENT = `#!/bin/bash
 #   - Bash shell (pre-installed on macOS/Linux, Git Bash on Windows)
 #   - For Windows: Use Git Bash, WSL, or PowerShell with bash
 
-MODE=\$1
+MODE=$1
 
 # Detect OS
-OS="\$(uname -s)"
+OS="$(uname -s)"
 case "\${OS}" in
   Linux*)     OS_TYPE="linux" ;;
   Darwin*)    OS_TYPE="macos" ;;
@@ -210,7 +210,7 @@ case "\${OS}" in
 esac
 
 # Kill existing Ollama processes
-if [ "\$OS_TYPE" = "windows" ]; then
+if [ "$OS_TYPE" = "windows" ]; then
   # Windows: Use taskkill if available (Git Bash)
   taskkill //F //IM ollama.exe 2>/dev/null || true
 else
@@ -225,14 +225,14 @@ export OLLAMA_HOST="0.0.0.0"
 
 # Get local IP address (cross-platform)
 get_local_ip() {
-  if [ "\$OS_TYPE" = "macos" ]; then
+  if [ "$OS_TYPE" = "macos" ]; then
     # macOS: Use ipconfig getifaddr
     ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo ""
-  elif [ "\$OS_TYPE" = "linux" ]; then
+  elif [ "$OS_TYPE" = "linux" ]; then
     # Linux: Use hostname or ip command
-    hostname -I 2>/dev/null | awk '{print \$1}' || \\
+    hostname -I 2>/dev/null | awk '{print $1}' || \\
     ip -4 addr show | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}' | head -1 2>/dev/null || echo ""
-  elif [ "\$OS_TYPE" = "windows" ]; then
+  elif [ "$OS_TYPE" = "windows" ]; then
     # Windows (Git Bash): Use ipconfig
     ipconfig 2>/dev/null | grep -i "IPv4" | head -1 | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' | head -1 || echo ""
   else
@@ -241,7 +241,7 @@ get_local_ip() {
 }
 
 # Start Ollama based on mode
-if [ "\$MODE" = "firefox" ]; then
+if [ "$MODE" = "firefox" ]; then
   export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
   nohup ollama serve > ~/.ollama-firefox.log 2>&1 &
   echo "✅ Ollama started with Firefox CORS + LAN access"
@@ -252,22 +252,22 @@ fi
 
 sleep 2
 
-LOCAL_IP=\$(get_local_ip)
+LOCAL_IP=$(get_local_ip)
 
 echo ""
 echo "🌍 Access URLs:"
 echo "   • http://localhost:11434"
-if [ -n "\$LOCAL_IP" ]; then
-  echo "   • http://\$LOCAL_IP:11434"
+if [ -n "$LOCAL_IP" ]; then
+  echo "   • http://$LOCAL_IP:11434"
 fi
 echo ""
 
-if [ "\$OS_TYPE" = "windows" ]; then
+if [ "$OS_TYPE" = "windows" ]; then
   echo "💡 Tip: Ollama is running. To stop it, run:"
   echo "   taskkill //F //IM ollama.exe"
 else
   echo "💡 Tip: Ollama is running in the background. To stop it, run:"
-  echo "   pkill -f \"ollama serve\""
+  echo "   pkill -f "ollama serve""
 fi
 echo ""`
 

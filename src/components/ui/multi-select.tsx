@@ -52,7 +52,7 @@ export const MultiSelect = ({
   onRefresh,
   maxCount = 3,
   placeholder = "Select items",
-  variant = "default",
+  variant: _variant = "default",
   statusForValue
 }: MultiSelectProps) => {
   const [selectedValues, setSelectedValues] = useState<string[]>(defaultValue)

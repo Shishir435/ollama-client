@@ -1,7 +1,6 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 export const useSpeechSettings = () => {
   const [rate, setRate] = useStorage<number>(

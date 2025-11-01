@@ -41,7 +41,7 @@ export const Chat = () => {
               .filter((msg) => msg.role !== "system")
               .map((msg, idx, filteredMessages) => (
                 <div
-                  key={idx}
+                  key={`${msg.role}-${idx}-${msg.content.slice(0, 10)}`}
                   className={getMessageMargin(idx, filteredMessages)}>
                   <ChatMessageBubble
                     msg={msg}

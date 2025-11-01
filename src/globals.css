@@ -71,7 +71,7 @@
 
   /* For inline code, allow wrapping and breaking long words */
   .markdown-container code {
-    white-space: pre-wrap !important;
+    white-space: pre-wrap;
     word-break: break-word;
   }
 

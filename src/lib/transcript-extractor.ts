@@ -55,7 +55,7 @@ const extractCourseraTranscript = (): string | null => {
   ) {
     return null
   }
-  let transcript = Array.from(document.querySelectorAll(".rc-Phrase"))
+  const transcript = Array.from(document.querySelectorAll(".rc-Phrase"))
     .map((phrase) => phrase.textContent)
     .join(" ")
 

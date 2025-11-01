@@ -4,7 +4,7 @@ export const useTabStatusMap = () => {
   const { tabContents, loading, errors } = useTabContents()
 
   return (tabId: string) => {
-    const tabIdNum = parseInt(tabId)
+    const tabIdNum = parseInt(tabId, 10)
 
     return {
       loading,

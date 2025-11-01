@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import {
   Clock,
   Copy,
@@ -22,7 +23,6 @@ import {
   Tag,
   Zap
 } from "@/lib/lucide-icon"
-import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import type { PromptTemplate } from "@/types"
 
 interface PromptSelectorDialogProps {
@@ -56,7 +56,7 @@ export const PromptSelectorDialog = ({
   const filteredTemplates = useMemo(() => {
     if (!templates) return []
 
-    let filtered = templates.filter((template) => {
+    const filtered = templates.filter((template) => {
       const matchesSearch =
         !searchQuery ||
         template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,7 +80,6 @@ export const PromptSelectorDialog = ({
           return (b.usageCount || 0) - (a.usageCount || 0)
         case "alphabetical":
           return a.title.localeCompare(b.title)
-        case "recent":
         default:
           return (
             (new Date(b.createdAt).getTime() || 0) -
@@ -184,9 +183,10 @@ export const PromptSelectorDialog = ({
               <ScrollArea className="flex-1 p-6">
                 <div className="grid gap-3">
                   {filteredTemplates.map((template) => (
-                    <div
+                    <button
                       key={template.id}
-                      className="group cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                      type="button"
+                      className="group w-full cursor-pointer rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
                       onClick={() => handleTemplateSelect(template)}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -262,7 +262,7 @@ export const PromptSelectorDialog = ({
                           </Button>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </ScrollArea>

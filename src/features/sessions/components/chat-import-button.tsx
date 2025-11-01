@@ -1,4 +1,5 @@
-import React, { useRef } from "react"
+import type React from "react"
+import { useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -6,9 +7,9 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useImportChat } from "@/features/sessions/hooks/use-import-chat"
 import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
-import { useImportChat } from "@/features/sessions/hooks/use-import-chat"
 
 export const ChatImportButton = () => {
   const { importChat } = useImportChat()

@@ -25,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import {
   Calendar,
   ChevronDown,
@@ -34,7 +35,6 @@ import {
   RefreshCw,
   Trash2
 } from "@/lib/lucide-icon"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import type { OllamaModel } from "@/types"
 
 const formatFileSize = (bytes: number | string): string => {
@@ -44,7 +44,7 @@ const formatFileSize = (bytes: number | string): string => {
   let size = typeof bytes === "string" ? parseInt(bytes, 10) : bytes
   let unitIndex = 0
 
-  if (isNaN(size)) return "Invalid size"
+  if (Number.isNaN(size)) return "Invalid size"
 
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024
@@ -73,7 +73,7 @@ const formatDate = (dateString: string): string => {
         year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined
       })
     }
-  } catch (error) {
+  } catch (_error) {
     return "Invalid date"
   }
 }
@@ -111,7 +111,10 @@ export const ModelList = (): JSX.Element => {
         </div>
         <div className="space-y-2 p-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 p-2">
+            <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton items don't need unique keys
+              key={`skeleton-${i}`}
+              className="flex items-center gap-3 p-2">
               <Skeleton className="h-8 w-8 rounded" />
               <div className="flex-1 space-y-1">
                 <Skeleton className="h-4 w-1/2" />

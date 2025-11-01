@@ -7,8 +7,8 @@ import {
   Instagram,
   Library,
   Linkedin,
-  Twitter,
-  type LucideIcon
+  type LucideIcon,
+  Twitter
 } from "@/lib/lucide-icon"
 
 export interface SocialLink {

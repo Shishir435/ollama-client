@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import {
   BarChart3,
   Calendar,
@@ -54,7 +55,6 @@ import {
   Trash2,
   Upload
 } from "@/lib/lucide-icon"
-import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import type { PromptTemplate } from "@/types"
 
 export const PromptTemplateManager = () => {
@@ -110,7 +110,6 @@ export const PromptTemplateManager = () => {
             return (b.usageCount || 0) - (a.usageCount || 0)
           case "alphabetical":
             return a.title.localeCompare(b.title)
-          case "recent":
           default:
             return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
         }
@@ -148,8 +147,7 @@ export const PromptTemplateManager = () => {
 
   const handleExport = () => {
     const dataStr = JSON.stringify(exportTemplates(), null, 2)
-    const dataUri =
-      "data:application/json;charset=utf-8," + encodeURIComponent(dataStr)
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`
 
     const exportFileDefaultName = `prompt-templates-${new Date().toISOString().split("T")[0]}.json`
 
@@ -286,7 +284,9 @@ export const PromptTemplateManager = () => {
 
             <Select
               value={sortBy}
-              onValueChange={(value: any) => setSortBy(value)}>
+              onValueChange={(value: "recent" | "popular" | "alphabetical") =>
+                setSortBy(value)
+              }>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>

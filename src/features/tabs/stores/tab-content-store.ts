@@ -25,7 +25,7 @@ export const useTabContent = () => {
   useEffect(() => {
     const built = selectedTabIds
       .map((id, index) => {
-        const tabId = parseInt(id)
+        const tabId = parseInt(id, 10)
         const content = tabContents[tabId]
         const title = content?.title || "Untitled"
         const header = `Context-${index + 1}`

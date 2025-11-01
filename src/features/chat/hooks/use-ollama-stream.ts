@@ -2,7 +2,7 @@ import { useRef } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
-import type { ChatMessage } from "@/types"
+import type { ChatMessage, ChatStreamMessage } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -34,7 +34,7 @@ export const useOllamaStream = ({
     setIsLoading(true)
     setIsStreaming(false)
 
-    let assistantMessage: ChatMessage = {
+    const assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
       model
@@ -46,7 +46,7 @@ export const useOllamaStream = ({
 
     let firstChunk = true
 
-    const listener = (msg: any) => {
+    const listener = (msg: ChatStreamMessage) => {
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false

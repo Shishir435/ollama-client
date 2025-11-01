@@ -11,7 +11,7 @@ export const getAllResetKeys = (): ModuleKeyMap => {
     map[moduleName] = Object.values(keys)
   })
 
-  map["CHAT_SESSIONS"] = ["CHAT_SESSIONS"]
+  map.CHAT_SESSIONS = ["CHAT_SESSIONS"]
 
   return map
 }

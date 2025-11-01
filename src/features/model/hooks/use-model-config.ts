@@ -1,9 +1,7 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useMemo } from "react"
-
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 export const useModelConfig = (modelName: string) => {
   const [modelConfigs, setModelConfigs] = useStorage<

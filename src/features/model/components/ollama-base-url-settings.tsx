@@ -1,5 +1,5 @@
-import { useState } from "react"
-
+import { useStorage } from "@plasmohq/storage/hook"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,27 +11,35 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 export const BaseUrlSettings = () => {
-  const [ollamaUrl, setOllamaUrl] = useStorage<string>(
+  const [storageUrl, setStorageUrl] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"
   )
+  // Local state for input to prevent cursor jumping
+  const [ollamaUrl, setOllamaUrl] = useState(storageUrl)
   const { refresh } = useOllamaModels()
   const [isLoading, setIsLoading] = useState(false)
 
   const [saved, setSaved] = useState(false)
 
+  // Sync local state with storage when it changes externally
+  useEffect(() => {
+    setOllamaUrl(storageUrl)
+  }, [storageUrl])
+
   const handleSave = async () => {
+    setIsLoading(true)
     try {
+      // Update storage first
+      await setStorageUrl(ollamaUrl)
       await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL,
         payload: ollamaUrl
