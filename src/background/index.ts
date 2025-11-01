@@ -68,6 +68,9 @@ if (isChromiumBased()) {
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
+// Note: Content scripts are injected automatically by Plasmo
+// The youtube.ts content script should inject on YouTube pages automatically
+
 browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
 
