@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
-import { ExcludedUrls } from "@/features/model/components/exclude-urls"
+import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
@@ -35,9 +35,9 @@ export const OllamaOptions = () => {
       label: "Models",
       content: <ModelPullPanel />
     },
-    exclusions: {
-      label: "Exclusions",
-      content: <ExcludedUrls />
+    contentExtraction: {
+      label: "Content Extraction",
+      content: <ContentExtractionSettings />
     },
     voices: {
       label: "Voices",

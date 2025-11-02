@@ -16,12 +16,30 @@ import { normalizeWhitespace } from "@/lib/utils"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
 const isExcludedUrl = async (url: string): Promise<boolean> => {
-  const patterns = await plasmoGlobalStorage.get<string[]>(
-    STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
+  // Try to get patterns from new config first
+  const storedConfig = await plasmoGlobalStorage.get<ContentExtractionConfig>(
+    STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
   )
 
+  let patterns: string[] | undefined
+
+  if (storedConfig?.excludedUrlPatterns) {
+    // Use patterns from new config
+    patterns = storedConfig.excludedUrlPatterns
+  } else {
+    // Fallback to old storage key for backward compatibility
+    patterns = await plasmoGlobalStorage.get<string[]>(
+      STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
+    )
+  }
+
+  // If still no patterns, use defaults
+  if (!patterns || patterns.length === 0) {
+    patterns = DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+  }
+
   return (
-    patterns?.some((pattern) => {
+    patterns.some((pattern) => {
       try {
         return new RegExp(pattern).test(url)
       } catch {
@@ -218,13 +236,29 @@ browser.runtime.onMessage.addListener(
             await plasmoGlobalStorage.get<ContentExtractionConfig>(
               STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
             )
+
+          // Migrate excludedUrlPatterns from old storage if not in new config
+          let excludedUrlPatterns = storedConfig?.excludedUrlPatterns
+          if (!excludedUrlPatterns || excludedUrlPatterns.length === 0) {
+            const oldPatterns = await plasmoGlobalStorage.get<string[]>(
+              STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
+            )
+            excludedUrlPatterns =
+              oldPatterns ||
+              DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+          }
+
           const globalConfig: ContentExtractionConfig = storedConfig
             ? {
                 ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
                 ...storedConfig,
+                excludedUrlPatterns,
                 siteOverrides: storedConfig.siteOverrides || {}
               }
-            : DEFAULT_CONTENT_EXTRACTION_CONFIG
+            : {
+                ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+                excludedUrlPatterns
+              }
 
           const effectiveConfig = getEffectiveConfig(
             currentUrl,
@@ -285,6 +319,47 @@ browser.runtime.onMessage.addListener(
 
           let readableText = article?.textContent || ""
           readableText = normalizeWhitespace(readableText)
+
+          // Fallback for GitHub pages when Readability fails
+          if (!readableText || readableText.trim().length < 100) {
+            console.log(
+              "[Content Script] Readability returned minimal content, trying GitHub-specific extraction..."
+            )
+            try {
+              const { extractGitHubContent } = await import(
+                "@/lib/content-extractor"
+              )
+              const githubContent = extractGitHubContent()
+              if (githubContent && githubContent.trim().length > 50) {
+                readableText = normalizeWhitespace(githubContent)
+                console.log(
+                  `[Content Script] GitHub extraction successful: ${readableText.length} chars`
+                )
+              } else {
+                console.warn(
+                  `[Content Script] GitHub extraction returned: ${githubContent ? `only ${githubContent.length} chars` : "null"}`
+                )
+              }
+            } catch (error) {
+              console.error("[Content Script] GitHub extraction error:", error)
+            }
+          }
+
+          // Final fallback: if still no content, try basic text extraction
+          if (!readableText || readableText.trim().length < 50) {
+            console.log(
+              "[Content Script] Trying basic text extraction as final fallback..."
+            )
+            const bodyText = document.body?.textContent || ""
+            const normalizedBody = normalizeWhitespace(bodyText)
+            // Remove very short content (likely navigation/UI noise)
+            if (normalizedBody.length > 200) {
+              readableText = normalizedBody
+              console.log(
+                `[Content Script] Basic extraction successful: ${readableText.length} chars`
+              )
+            }
+          }
 
           // Extract title with fallbacks
           let pageTitle = article?.title || ""
@@ -348,6 +423,16 @@ browser.runtime.onMessage.addListener(
           const finalContent =
             (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
 
+          // Final validation: ensure we have meaningful content
+          if (!finalContent || finalContent.trim().length < 50) {
+            console.error(
+              `[Content Script] Extraction failed: Only ${finalContent?.length || 0} chars extracted`
+            )
+            throw new Error(
+              `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
+            )
+          }
+
           console.log(
             `[Content Script] Sending response with ${finalContent.length} total chars`
           )
@@ -361,9 +446,11 @@ browser.runtime.onMessage.addListener(
           }
         } catch (err) {
           console.error("[Content Script] Error in content script:", err)
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error("[Content Script] Error details:", errorMessage)
           try {
             sendResponse({
-              html: "Failed to parse content.",
+              html: `Failed to parse content. Error: ${errorMessage}`,
               title: document.title || "Untitled"
             })
           } catch {

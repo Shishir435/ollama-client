@@ -320,6 +320,7 @@ export type ScrollStrategy = "none" | "gradual" | "instant" | "smart"
 
 export interface ContentExtractionConfig {
   enabled: boolean
+  excludedUrlPatterns: string[] // URL patterns to exclude from extraction
   scrollStrategy: ScrollStrategy
   scrollDepth: number // 0-1 (percentage of page)
   scrollDelay: number // ms between scroll steps

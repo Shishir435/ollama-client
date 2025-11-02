@@ -10,11 +10,73 @@ import {
   type LucideIcon,
   Twitter
 } from "@/lib/lucide-icon"
+import type { ScrollStrategy } from "@/types"
 
 export interface SocialLink {
   label: string
   href: string
   icon: LucideIcon
+}
+
+// Configuration for timeout input fields (UI only - without icons)
+export const TIMEOUT_FIELDS_CONFIG = [
+  {
+    id: "scroll-delay",
+    name: "scrollDelay" as const,
+    label: "Scroll Delay (ms)",
+    min: 0,
+    max: 2000,
+    step: 50
+  },
+  {
+    id: "mutation-timeout",
+    name: "mutationObserverTimeout" as const,
+    label: "Mutation Observer Timeout (ms)",
+    min: 0,
+    max: 10000,
+    step: 500
+  },
+  {
+    id: "network-timeout",
+    name: "networkIdleTimeout" as const,
+    label: "Network Idle Timeout (ms)",
+    min: 0,
+    max: 5000,
+    step: 100
+  },
+  {
+    id: "max-wait",
+    name: "maxWaitTime" as const,
+    label: "Max Wait Time (ms)",
+    min: 1000,
+    max: 60000,
+    step: 1000
+  }
+] as const
+
+// Scroll strategy options with short labels (for site-specific overrides)
+export const SCROLL_STRATEGY_OPTIONS_SHORT = [
+  { value: "none" as ScrollStrategy, label: "None" },
+  { value: "instant" as ScrollStrategy, label: "Instant" },
+  { value: "gradual" as ScrollStrategy, label: "Gradual" },
+  { value: "smart" as ScrollStrategy, label: "Smart" }
+] as const
+
+// Scroll strategy options with descriptive labels (for global settings)
+export const SCROLL_STRATEGY_OPTIONS = [
+  { value: "none" as ScrollStrategy, label: "None - No scrolling" },
+  { value: "instant" as ScrollStrategy, label: "Instant - Quick scroll" },
+  { value: "gradual" as ScrollStrategy, label: "Gradual - Smooth scrolling" },
+  { value: "smart" as ScrollStrategy, label: "Smart - Intelligent detection" }
+] as const
+
+// Scroll strategy descriptions
+export const SCROLL_STRATEGY_DESCRIPTIONS: Record<ScrollStrategy, string> = {
+  none: "Fastest extraction, no lazy loading support",
+  instant: "Quick scroll, good for simple lazy loading",
+  gradual: "Smooth scrolling with delays, balanced speed/accuracy",
+  smart:
+    "Intelligent scrolling with content detection, best for dynamic content"
 }
 
 export const GUIDES = [
