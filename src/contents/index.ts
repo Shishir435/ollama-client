@@ -1,11 +1,19 @@
 import { Readability } from "@mozilla/readability"
 
 import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_CONTENT_EXTRACTION_CONFIG,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
+import {
+  extractContentWithLoading,
+  getEffectiveConfig
+} from "@/lib/content-extractor"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import { normalizeWhitespace } from "@/lib/utils"
-import type { ChromeMessage } from "@/types"
+import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
 const isExcludedUrl = async (url: string): Promise<boolean> => {
   const patterns = await plasmoGlobalStorage.get<string[]>(
@@ -75,6 +83,8 @@ const initYouTubeFeatures = () => {
     window as unknown as {
       __ollamaContentScript?: boolean
       __testTranscript?: () => Promise<void>
+      __testExtraction?: () => Promise<void>
+      __getExtractionLogs?: () => unknown[]
     }
   ).__testTranscript = async () => {
     console.log("[Manual Test] Starting manual transcript test...")
@@ -96,7 +106,58 @@ const initYouTubeFeatures = () => {
     }
   }
 
-  console.log("[Content Script] Manual test: window.__testTranscript()")
+  // Add test function for content extraction
+  ;(
+    window as unknown as {
+      __ollamaContentScript?: boolean
+      __testTranscript?: () => Promise<void>
+      __testExtraction?: () => Promise<void>
+      __getExtractionLogs?: () => unknown[]
+    }
+  ).__testExtraction = async () => {
+    console.log("[Manual Test] Starting manual extraction test...")
+    try {
+      const { extractContentWithLoading } = await import(
+        "@/lib/content-extractor"
+      )
+      const { DEFAULT_CONTENT_EXTRACTION_CONFIG } = await import(
+        "@/lib/constants"
+      )
+      const result = await extractContentWithLoading(
+        DEFAULT_CONTENT_EXTRACTION_CONFIG
+      )
+      console.log("[Manual Test] Extraction result:", result.metrics)
+      console.log(
+        "[Manual Test] Detected patterns:",
+        result.logEntry.detectedPatterns
+      )
+    } catch (error) {
+      console.error("[Manual Test] Error:", error)
+    }
+  }
+
+  // Add function to get extraction logs for feedback
+  ;(
+    window as unknown as {
+      __ollamaContentScript?: boolean
+      __testTranscript?: () => Promise<void>
+      __testExtraction?: () => Promise<void>
+      __getExtractionLogs?: () => unknown[]
+    }
+  ).__getExtractionLogs = () => {
+    const logs =
+      (window as unknown as { __ollamaExtractionLogs?: unknown[] })
+        .__ollamaExtractionLogs || []
+    console.log("[Content Script] Extraction logs:", logs)
+    return logs
+  }
+
+  console.log("[Content Script] Manual tests:")
+  console.log("  - window.__testTranscript() - Test transcript extraction")
+  console.log("  - window.__testExtraction() - Test content extraction")
+  console.log(
+    "  - window.__getExtractionLogs() - Get extraction logs for feedback"
+  )
 }
 
 // Initialize when DOM is ready
@@ -126,7 +187,10 @@ browser.runtime.onMessage.addListener(
           if (!tabAccessEnabled) {
             console.log("[Content Script] Tab access is disabled")
             try {
-              sendResponse({ html: "Tab access is disabled by the user." })
+              sendResponse({
+                html: "Tab access is disabled by the user.",
+                title: document.title || "Untitled"
+              })
             } catch {
               // Channel closed - ignore
             }
@@ -140,7 +204,8 @@ browser.runtime.onMessage.addListener(
             console.log("[Content Script] URL is excluded")
             try {
               sendResponse({
-                html: "This page is excluded by your settings."
+                html: "This page is excluded by your settings.",
+                title: document.title || "Untitled"
               })
             } catch {
               // Channel closed - ignore
@@ -148,6 +213,71 @@ browser.runtime.onMessage.addListener(
             return
           }
 
+          // Get content extraction configuration
+          const storedConfig =
+            await plasmoGlobalStorage.get<ContentExtractionConfig>(
+              STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
+            )
+          const globalConfig: ContentExtractionConfig = storedConfig
+            ? {
+                ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+                ...storedConfig,
+                siteOverrides: storedConfig.siteOverrides || {}
+              }
+            : DEFAULT_CONTENT_EXTRACTION_CONFIG
+
+          const effectiveConfig = getEffectiveConfig(
+            currentUrl,
+            globalConfig,
+            DEFAULT_CONTENT_EXTRACTION_CONFIG
+          )
+
+          const hasSiteOverride = Object.keys(globalConfig.siteOverrides).some(
+            (pattern) => {
+              try {
+                const regex = new RegExp(pattern)
+                return regex.test(currentUrl)
+              } catch {
+                return currentUrl.includes(pattern)
+              }
+            }
+          )
+
+          console.log("[Content Script] Using config:", {
+            enabled: effectiveConfig.enabled,
+            scrollStrategy: effectiveConfig.scrollStrategy,
+            scrollDepth: `${(effectiveConfig.scrollDepth * 100).toFixed(0)}%`,
+            site: hasSiteOverride ? "Custom site config" : "Global config"
+          })
+
+          // Enhanced content extraction with lazy loading support
+          let extractionResult: Awaited<
+            ReturnType<typeof extractContentWithLoading>
+          > | null = null
+          if (effectiveConfig.enabled) {
+            console.log(
+              "[Content Script] Starting enhanced content extraction..."
+            )
+            try {
+              extractionResult = await Promise.race([
+                extractContentWithLoading(effectiveConfig),
+                new Promise<never>((_, reject) =>
+                  setTimeout(
+                    () => reject(new Error("Extraction timeout")),
+                    effectiveConfig.maxWaitTime
+                  )
+                )
+              ])
+            } catch (error) {
+              console.warn(
+                "[Content Script] Enhanced extraction failed, falling back to basic extraction:",
+                error
+              )
+              extractionResult = null
+            }
+          }
+
+          // Parse with Readability (after content loading)
           console.log("[Content Script] Parsing article with Readability...")
           const article = new Readability(
             document.cloneNode(true) as Document
@@ -155,6 +285,56 @@ browser.runtime.onMessage.addListener(
 
           let readableText = article?.textContent || ""
           readableText = normalizeWhitespace(readableText)
+
+          // Extract title with fallbacks
+          let pageTitle = article?.title || ""
+
+          // Remove "Untitled" or similar generic titles from Readability
+          if (
+            !pageTitle ||
+            pageTitle.toLowerCase().includes("untitled") ||
+            pageTitle.trim().length === 0
+          ) {
+            // Try meta tags first
+            const ogTitle = document
+              .querySelector('meta[property="og:title"]')
+              ?.getAttribute("content")
+            const twitterTitle = document
+              .querySelector('meta[name="twitter:title"]')
+              ?.getAttribute("content")
+            const metaTitle = document
+              .querySelector('meta[name="title"]')
+              ?.getAttribute("content")
+
+            pageTitle =
+              ogTitle || twitterTitle || metaTitle || document.title || ""
+
+            // Clean up title - remove common suffixes
+            pageTitle = pageTitle
+              .replace(/\s*[-|]\s*.*$/, "") // Remove " - Site Name" suffix
+              .replace(/\s*:\s*.*$/, "") // Remove " : Category" suffix
+              .trim()
+          }
+
+          console.log(`[Content Script] Extracted title: "${pageTitle}"`)
+
+          // Log extraction metrics if available
+          if (extractionResult) {
+            const { metrics } = extractionResult
+            console.log("[Content Script] Extraction metrics:", {
+              duration: `${metrics.duration}ms`,
+              scrollSteps: metrics.scrollSteps,
+              mutationsDetected: metrics.mutationsDetected,
+              detectedPatterns: metrics.detectedPatterns,
+              finalContentLength: readableText.length
+            })
+
+            // Log entry is already stored in window.__ollamaExtractionLogs for feedback
+            console.log(
+              "[Content Script] Extraction log available via window.__ollamaExtractionLogs"
+            )
+          }
+
           console.log(
             `[Content Script] Extracted ${readableText.length} chars of readable text`
           )
@@ -172,14 +352,20 @@ browser.runtime.onMessage.addListener(
             `[Content Script] Sending response with ${finalContent.length} total chars`
           )
           try {
-            sendResponse({ html: finalContent })
+            sendResponse({
+              html: finalContent,
+              title: pageTitle || document.title || "Untitled"
+            })
           } catch {
             // Channel closed - ignore
           }
         } catch (err) {
           console.error("[Content Script] Error in content script:", err)
           try {
-            sendResponse({ html: "Failed to parse content." })
+            sendResponse({
+              html: "Failed to parse content.",
+              title: document.title || "Untitled"
+            })
           } catch {
             // Channel closed - ignore
           }

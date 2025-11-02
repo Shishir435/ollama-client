@@ -8,17 +8,6 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import type { ChromeResponse } from "@/types"
 
-const fetchTabContent = async (tabId: number): Promise<string> => {
-  try {
-    const response = (await browser.tabs.sendMessage(tabId, {
-      type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
-    })) as ChromeResponse & { html?: string }
-    return response?.html || ""
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    throw new Error(errorMessage)
-  }
-}
 export const useTabContents = () => {
   const { selectedTabIds, setErrors } = useSelectedTabs()
   const [tabContents, setTabContents] = useState<
@@ -43,6 +32,27 @@ export const useTabContents = () => {
     [openTabs]
   )
 
+  const fetchTabContent = useCallback(
+    async (tabId: number): Promise<{ html: string; title: string }> => {
+      try {
+        const response = (await browser.tabs.sendMessage(tabId, {
+          type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
+        })) as ChromeResponse & { html?: string; title?: string }
+
+        const html = response?.html || ""
+        // Use title from response, fallback to tab title, then "Untitled"
+        const title = response?.title || getTabTitle(tabId) || "Untitled"
+
+        return { html, title }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        throw new Error(errorMessage)
+      }
+    },
+    [getTabTitle]
+  )
+
   useEffect(() => {
     if (selectedTabIds.length === 0) return
 
@@ -55,9 +65,7 @@ export const useTabContents = () => {
         const tabId = parseInt(idStr, 10)
 
         try {
-          const html = await fetchTabContent(tabId)
-          const title = getTabTitle(tabId)
-          // Optional: parse HTML to check it's valid, sanitize if needed
+          const { html, title } = await fetchTabContent(tabId)
           newContents[tabId] = { html, title }
         } catch (err) {
           newErrors[tabId] = typeof err === "string" ? err : "Unknown error"
@@ -70,7 +78,7 @@ export const useTabContents = () => {
     }
 
     fetchAll()
-  }, [selectedTabIds, getTabTitle, setErrors])
+  }, [selectedTabIds, fetchTabContent, setErrors])
 
   return { tabContents, loading, errors: useSelectedTabs().errors }
 }

@@ -1,4 +1,8 @@
-import type { ModelConfig, PromptTemplate } from "@/types"
+import type {
+  ContentExtractionConfig,
+  ModelConfig,
+  PromptTemplate
+} from "@/types"
 
 export const MESSAGE_KEYS = {
   OLLAMA: {
@@ -34,7 +38,8 @@ export const STORAGE_KEYS = {
   },
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
-    EXCLUDE_URL_PATTERNS: "exclude-url-pattern"
+    EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
+    CONTENT_EXTRACTION_CONFIG: "content-extraction-config"
   },
   TTS: {
     RATE: "tts-rate",
@@ -155,6 +160,17 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   seed: 0,
   num_predict: -1,
   min_p: 0.0
+}
+
+export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
+  enabled: true,
+  scrollStrategy: "smart",
+  scrollDepth: 0.8, // 80% of page
+  scrollDelay: 300, // 300ms between scrolls
+  mutationObserverTimeout: 2000, // Wait 2s for mutations
+  networkIdleTimeout: 1000, // Wait 1s for network idle
+  maxWaitTime: 10000, // 10s total timeout
+  siteOverrides: {}
 }
 
 // Shared script content from tools/ollama-env.sh
