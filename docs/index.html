@@ -14,10 +14,10 @@
     <meta name="theme-color" content="#6366f1" />
     <meta
       name="description"
-      content="Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpy-oss and more — directly in your browser. No cloud APIs, fully offline AI chat." />
+      content="Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpy-oss and more — directly in your browser. Features enhanced content extraction with lazy loading, advanced text-to-speech, site-specific overrides, YouTube transcript automation, and more. No cloud APIs, fully offline AI chat." />
     <meta
       name="keywords"
-      content="ollama client, ollama chrome extension, ollama browser extension, ollama web ui alternative, local ai model, offline ai chat, local private llm interface, open-source ai model enthusiasts, frontend interface for ollama, ollama chat ui, ollama local ai, ollama gemma chat, ollama llama3 chat, privacy first ai chat, local ai assistant chrome, ollama mistral chat, local ai without cloud, ollama local models ui" />
+      content="ollama client, ollama chrome extension, ollama browser extension, ollama web ui alternative, local ai model, offline ai chat, local private llm interface, open-source ai model enthusiasts, frontend interface for ollama, ollama chat ui, ollama local ai, ollama gemma chat, ollama llama3 chat, privacy first ai chat, local ai assistant chrome, ollama mistral chat, local ai without cloud, ollama local models ui, text to speech, TTS browser extension, speech synthesis chrome extension, voice selector, ai chat with voice, content extraction, lazy loading, defuddle, youtube transcript extraction, site-specific overrides, github content extraction" />
     <meta name="author" content="Shishir Chaurasiya" />
     <link
       rel="apple-touch-icon"
@@ -44,7 +44,7 @@
       content="Ollama Client - Ollama Chrome Extension for Local AI Chat" />
     <meta
       property="og:description"
-      content="Privacy-first Chrome extension to chat with local AI models like LLaMA, Mistral directly from any tab. No cloud APIs required." />
+      content="Privacy-first Chrome extension to chat with local AI models like LLaMA, Mistral directly from any tab. Features enhanced content extraction with lazy loading, advanced text-to-speech, site-specific overrides, YouTube transcript automation, and more. No cloud APIs required." />
     <meta
       property="og:url"
       content="https://ollama-client.shishirchaurasiya.in/" />
@@ -59,7 +59,7 @@
       content="Ollama Client - Ollama Chrome Extension for Local AI Chat" />
     <meta
       name="twitter:description"
-      content="Privacy-first Ollama Chrome extension to chat with local AI models without sending your data to the cloud." />
+      content="Privacy-first Ollama Chrome extension to chat with local AI models without sending your data to the cloud. Features enhanced content extraction, advanced text-to-speech, site-specific overrides, and YouTube transcript automation." />
     <meta
       name="twitter:image"
       content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
@@ -74,7 +74,7 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Ollama Client",
-        "description": "Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpt-oss and more — directly in your browser. No cloud APIs, fully offline AI chat",
+        "description": "Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpt-oss and more — directly in your browser. Features enhanced content extraction with lazy loading support and site-specific overrides, advanced text-to-speech with searchable voice selection, automated YouTube transcript extraction, GitHub content extraction, and more. No cloud APIs, fully offline AI chat",
         "applicationCategory": "BrowserApplication",
         "operatingSystem": "Chrome",
         "author": {
@@ -878,8 +878,11 @@
           <strong>Ollama UI alternative</strong> that brings any
           <strong>local AI model</strong> directly to your browser tabs. Choose
           from hundreds of models &mdash; LLaMA, Mistral, Gemma, Qwen, GPT-OSS,
-          and more. Enjoy <strong>offline AI chat</strong> with no cloud APIs
-          and zero data sharing
+          and more. Features <strong>enhanced content extraction</strong> with
+          lazy loading, <strong>advanced text-to-speech</strong>, site-specific
+          overrides, YouTube transcript automation, and more. Enjoy
+          <strong>offline AI chat</strong> with no cloud APIs and zero data
+          sharing
         </p>
 
         <div class="cta-buttons">
@@ -996,16 +999,20 @@
 
           <div class="feature-card scroll-animate">
             <div class="feature-icon">🔧</div>
-            <h3 class="feature-title">Smart Content Extraction</h3>
+            <h3 class="feature-title">Enhanced Content Extraction</h3>
             <p class="feature-description">
-              Automatically extract readable content from web pages, including
-              specialized support for popular platforms.
+              Advanced content extraction with lazy loading support, site-specific
+              configuration, and intelligent fallback strategies for modern web
+              pages.
             </p>
             <ul class="feature-list">
-              <li>Mozilla Readability integration</li>
-              <li>YouTube transcript extraction</li>
-              <li>Udemy & Coursera support</li>
-              <li>Custom domain handlers</li>
+              <li>Defuddle integration for better parsing</li>
+              <li>Lazy loading & infinite scroll support</li>
+              <li>Site-specific extraction overrides</li>
+              <li>Automated YouTube transcript extraction</li>
+              <li>GitHub repository & profile support</li>
+              <li>Smart scroll strategies (none, instant, gradual, smart)</li>
+              <li>Network idle detection</li>
             </ul>
           </div>
 
@@ -1021,6 +1028,24 @@
               <li>Explain code</li>
               <li>email-professional</li>
               <li>Custom templates</li>
+            </ul>
+          </div>
+
+          <div class="feature-card scroll-animate">
+            <div class="feature-icon">🔊</div>
+            <h3 class="feature-title">Advanced Text-to-Speech</h3>
+            <p class="feature-description">
+              Built-in speech synthesis with searchable voice selection, customizable
+              rate and pitch controls, and seamless cross-browser compatibility for
+              an accessible AI chat experience.
+            </p>
+            <ul class="feature-list">
+              <li>Searchable voice selector with language grouping</li>
+              <li>Adjustable speech rate (0.5x - 2.0x)</li>
+              <li>Voice pitch control (0.0 - 2.0)</li>
+              <li>Custom text testing & preview</li>
+              <li>Cross-browser voice loading optimization</li>
+              <li>Per-message TTS controls</li>
             </ul>
           </div>
 

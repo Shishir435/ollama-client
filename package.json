@@ -137,7 +137,7 @@
     "typescript": "5.3.3"
   },
   "lint-staged": {
-    "*": "biome check --write"
+    "*.{js,jsx,ts,tsx,json}": "biome check --write"
   },
   "manifest": {
     "host_permissions": [
