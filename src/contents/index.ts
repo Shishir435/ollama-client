@@ -1,4 +1,5 @@
 import { Readability } from "@mozilla/readability"
+import Defuddle from "defuddle"
 
 import { browser } from "@/lib/browser-api"
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/lib/content-extractor"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
-import { normalizeWhitespace } from "@/lib/utils"
+import { normalizeWhitespaceForLLM } from "@/lib/utils"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
 const isExcludedUrl = async (url: string): Promise<boolean> => {
@@ -311,37 +312,70 @@ browser.runtime.onMessage.addListener(
             }
           }
 
-          // Parse with Readability (after content loading)
-          console.log("[Content Script] Parsing article with Readability...")
-          const article = new Readability(
-            document.cloneNode(true) as Document
-          ).parse()
+          // Parse with defuddle first (better GitHub support, more tokens)
+          console.log("[Content Script] Parsing article with defuddle...")
+          let readableText = ""
+          let pageTitle = ""
+          let defuddleResult: ReturnType<Defuddle["parse"]> | null = null
 
-          let readableText = article?.textContent || ""
-          readableText = normalizeWhitespace(readableText)
+          try {
+            const defuddle = new Defuddle(document, {
+              markdown: true,
+              separateMarkdown: false,
+              removeExactSelectors: true // Remove ads and social buttons
+            })
+            defuddleResult = defuddle.parse()
 
-          // Fallback for GitHub pages when Readability fails
+            // Prefer markdown if available, otherwise use HTML content
+            readableText =
+              defuddleResult?.contentMarkdown || defuddleResult?.content || ""
+            readableText = normalizeWhitespaceForLLM(readableText)
+            pageTitle = defuddleResult?.title || ""
+
+            console.log(
+              `[Content Script] defuddle extracted ${readableText.length} chars (${defuddleResult?.contentMarkdown ? "markdown" : "HTML"})`
+            )
+          } catch (error) {
+            console.warn(
+              "[Content Script] defuddle failed, falling back to Readability:",
+              error
+            )
+          }
+
+          // Fallback to Readability if defuddle failed or returned minimal content
           if (!readableText || readableText.trim().length < 100) {
             console.log(
-              "[Content Script] Readability returned minimal content, trying GitHub-specific extraction..."
+              "[Content Script] defuddle returned minimal content, trying Readability..."
             )
             try {
-              const { extractGitHubContent } = await import(
-                "@/lib/content-extractor"
-              )
-              const githubContent = extractGitHubContent()
-              if (githubContent && githubContent.trim().length > 50) {
-                readableText = normalizeWhitespace(githubContent)
+              const article = new Readability(
+                document.cloneNode(true) as Document
+              ).parse()
+
+              const readabilityText = article?.textContent || ""
+              const normalizedReadability =
+                normalizeWhitespaceForLLM(readabilityText)
+
+              // Use Readability result if it's better than defuddle
+              if (
+                normalizedReadability.length > readableText.length ||
+                readableText.trim().length < 50
+              ) {
+                readableText = normalizedReadability
                 console.log(
-                  `[Content Script] GitHub extraction successful: ${readableText.length} chars`
-                )
-              } else {
-                console.warn(
-                  `[Content Script] GitHub extraction returned: ${githubContent ? `only ${githubContent.length} chars` : "null"}`
+                  `[Content Script] Readability extracted ${readableText.length} chars`
                 )
               }
+
+              // Use Readability title if defuddle didn't provide one
+              if (!pageTitle && article?.title) {
+                pageTitle = article.title
+              }
             } catch (error) {
-              console.error("[Content Script] GitHub extraction error:", error)
+              console.error(
+                "[Content Script] Readability fallback failed:",
+                error
+              )
             }
           }
 
@@ -351,7 +385,7 @@ browser.runtime.onMessage.addListener(
               "[Content Script] Trying basic text extraction as final fallback..."
             )
             const bodyText = document.body?.textContent || ""
-            const normalizedBody = normalizeWhitespace(bodyText)
+            const normalizedBody = normalizeWhitespaceForLLM(bodyText)
             // Remove very short content (likely navigation/UI noise)
             if (normalizedBody.length > 200) {
               readableText = normalizedBody
@@ -361,15 +395,8 @@ browser.runtime.onMessage.addListener(
             }
           }
 
-          // Extract title with fallbacks
-          let pageTitle = article?.title || ""
-
-          // Remove "Untitled" or similar generic titles from Readability
-          if (
-            !pageTitle ||
-            pageTitle.toLowerCase().includes("untitled") ||
-            pageTitle.trim().length === 0
-          ) {
+          // Extract title with fallbacks (if not already set from defuddle)
+          if (!pageTitle) {
             // Try meta tags first
             const ogTitle = document
               .querySelector('meta[property="og:title"]')
@@ -383,12 +410,21 @@ browser.runtime.onMessage.addListener(
 
             pageTitle =
               ogTitle || twitterTitle || metaTitle || document.title || ""
+          }
 
-            // Clean up title - remove common suffixes
+          // Clean up title - remove common suffixes and "Untitled" generic titles
+          if (
+            pageTitle &&
+            !pageTitle.toLowerCase().includes("untitled") &&
+            pageTitle.trim().length > 0
+          ) {
             pageTitle = pageTitle
               .replace(/\s*[-|]\s*.*$/, "") // Remove " - Site Name" suffix
               .replace(/\s*:\s*.*$/, "") // Remove " : Category" suffix
               .trim()
+          } else {
+            // Final fallback to document.title
+            pageTitle = document.title || "Untitled"
           }
 
           console.log(`[Content Script] Extracted title: "${pageTitle}"`)

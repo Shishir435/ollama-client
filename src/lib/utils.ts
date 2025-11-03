@@ -10,6 +10,26 @@ export const normalizeWhitespace = (text: string): string => {
     .replace(/\s+\n/g, "\n") // Remove trailing spaces before newlines
     .replace(/\n{3,}/g, "\n\n") // Limit consecutive newlines to 2
     .replace(/[ \t]{2,}/g, " ") // Convert multiple spaces/tabs to one space
+    .replace(/\r\n/g, "\n") // Normalize line endings
+    .replace(/\r/g, "\n") // Handle old Mac line endings
+    .trim()
+}
+
+/**
+ * Enhanced whitespace normalization specifically for LLM context
+ * More aggressive cleaning for better token efficiency
+ */
+export const normalizeWhitespaceForLLM = (text: string): string => {
+  return text
+    .replace(/\r\n/g, "\n") // Normalize line endings first
+    .replace(/\r/g, "\n") // Handle old Mac line endings
+    .replace(/[ \t]+\n/g, "\n") // Remove trailing spaces before newlines
+    .replace(/\n{3,}/g, "\n\n") // Limit consecutive newlines to 2
+    .replace(/[ \t]{2,}/g, " ") // Convert multiple spaces/tabs to one space
+    .replace(/\n /g, "\n") // Remove leading spaces after newlines
+    .replace(/ \n/g, "\n") // Remove trailing spaces before newlines (again)
+    .replace(/\n+$/g, "") // Remove trailing newlines
+    .replace(/^\n+/g, "") // Remove leading newlines
     .trim()
 }
 
