@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,14 +17,32 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { Textarea } from "@/components/ui/textarea"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
+
+const getRateDescription = (rate: number) => {
+  if (rate < 0.8) return "Very slow"
+  if (rate < 1.0) return "Slow"
+  if (rate === 1.0) return "Normal"
+  if (rate < 1.3) return "Fast"
+  return "Very fast"
+}
+
+const getPitchDescription = (pitch: number) => {
+  if (pitch < 0.8) return "Very low"
+  if (pitch < 1.0) return "Low"
+  if (pitch === 1.0) return "Normal"
+  if (pitch < 1.3) return "High"
+  return "Very high"
+}
 
 export const SpeechSettings = () => {
   const voices = useVoices()
   const { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI } =
     useSpeechSettings()
+  const [testText, setTestText] = useState("")
 
   useEffect(() => {
     if (!voiceURI && voices.length > 0) {
@@ -43,22 +61,6 @@ export const SpeechSettings = () => {
       }
     }
   }, [voices, voiceURI, setVoiceURI])
-
-  const getRateDescription = (rate) => {
-    if (rate < 0.8) return "Very slow"
-    if (rate < 1.0) return "Slow"
-    if (rate === 1.0) return "Normal"
-    if (rate < 1.3) return "Fast"
-    return "Very fast"
-  }
-
-  const getPitchDescription = (pitch) => {
-    if (pitch < 0.8) return "Very low"
-    if (pitch < 1.0) return "Low"
-    if (pitch === 1.0) return "Normal"
-    if (pitch < 1.3) return "High"
-    return "Very high"
-  }
 
   const selectedVoice = voices.find((v) => v.voiceURI === voiceURI)
 
@@ -186,37 +188,57 @@ export const SpeechSettings = () => {
             </div>
           </div>
 
-          <div className="border-t pt-2">
-            <div className="flex items-center justify-between">
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Quick Preview</span>
               </div>
-              <button
-                type="button"
-                className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
-                onClick={() => {
-                  if ("speechSynthesis" in window) {
-                    const utterance = new SpeechSynthesisUtterance(
-                      "Hello, this is a test of your speech settings."
-                    )
-                    utterance.rate = rate
-                    utterance.pitch = pitch
-                    if (selectedVoice) {
-                      utterance.voice =
-                        window.speechSynthesis
-                          .getVoices()
-                          .find((v) => v.voiceURI === voiceURI) || null
-                    }
-                    window.speechSynthesis.speak(utterance)
-                  }
-                }}>
-                Test Voice
-              </button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Click "Test Voice" to hear how your current settings sound
-            </p>
+            <div className="space-y-3">
+              <Label htmlFor="test-text" className="text-sm font-medium">
+                Test Text
+              </Label>
+              <Textarea
+                id="test-text"
+                placeholder="Paste or type text here to test your voice settings..."
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {testText.trim()
+                    ? "Click 'Test Voice' to hear your text"
+                    : "Click 'Test Voice' to hear the default sample"}
+                </p>
+                <button
+                  type="button"
+                  className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
+                  onClick={() => {
+                    if ("speechSynthesis" in window) {
+                      const textToSpeak =
+                        testText.trim() ||
+                        "Hello, this is a test of your speech settings."
+                      const utterance = new SpeechSynthesisUtterance(
+                        textToSpeak
+                      )
+                      utterance.rate = rate
+                      utterance.pitch = pitch
+                      if (selectedVoice) {
+                        utterance.voice =
+                          window.speechSynthesis
+                            .getVoices()
+                            .find((v) => v.voiceURI === voiceURI) || null
+                      }
+                      window.speechSynthesis.speak(utterance)
+                    }
+                  }}>
+                  Test Voice
+                </button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
