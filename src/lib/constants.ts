@@ -171,7 +171,18 @@ export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
   mutationObserverTimeout: 2000, // Wait 2s for mutations
   networkIdleTimeout: 1000, // Wait 1s for network idle
   maxWaitTime: 10000, // 10s total timeout
-  siteOverrides: {}
+  siteOverrides: {
+    // YouTube: Disable scrolling since users primarily want transcript extraction
+    // Scrolling on YouTube can trigger autoplay or load unnecessary content
+    "youtube\\.com/watch": {
+      scrollStrategy: "none",
+      scrollDepth: 0, // No scrolling needed
+      scrollDelay: 0, // No scroll delay needed
+      mutationObserverTimeout: 1000, // Shorter timeout since we don't need lazy loading
+      networkIdleTimeout: 500, // Shorter timeout for faster extraction
+      maxWaitTime: 5000 // Faster overall timeout since we're just extracting transcript
+    }
+  }
 }
 
 // Shared script content from tools/ollama-env.sh
