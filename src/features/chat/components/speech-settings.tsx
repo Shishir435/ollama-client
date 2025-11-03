@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -9,15 +9,9 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
+import { VoiceSelector } from "@/features/chat/components/voice-selector"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
@@ -39,30 +33,34 @@ const getPitchDescription = (pitch: number) => {
 }
 
 export const SpeechSettings = () => {
-  const voices = useVoices()
+  const { voices, isLoading: isLoadingVoices } = useVoices()
   const { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI } =
     useSpeechSettings()
   const [testText, setTestText] = useState("")
 
+  const selectedVoice = useMemo(
+    () => voices.find((v) => v.voiceURI === voiceURI),
+    [voices, voiceURI]
+  )
+
   useEffect(() => {
-    if (!voiceURI && voices.length > 0) {
-      const defaultVoice = voices.find((v) => v.default) ?? voices[0]
-      if (defaultVoice) {
-        setVoiceURI(defaultVoice.voiceURI)
-      }
-    } else if (
-      voiceURI &&
-      voices.length > 0 &&
-      !voices.find((v) => v.voiceURI === voiceURI)
-    ) {
-      const defaultVoice = voices.find((v) => v.default) ?? voices[0]
-      if (defaultVoice) {
-        setVoiceURI(defaultVoice.voiceURI)
+    if (!isLoadingVoices && voices.length > 0) {
+      if (!voiceURI) {
+        const defaultVoice = voices.find((v) => v.default) ?? voices[0]
+        if (defaultVoice) {
+          setVoiceURI(defaultVoice.voiceURI)
+        }
+      } else {
+        const voiceExists = voices.some((v) => v.voiceURI === voiceURI)
+        if (!voiceExists) {
+          const defaultVoice = voices.find((v) => v.default) ?? voices[0]
+          if (defaultVoice) {
+            setVoiceURI(defaultVoice.voiceURI)
+          }
+        }
       }
     }
-  }, [voices, voiceURI, setVoiceURI])
-
-  const selectedVoice = voices.find((v) => v.voiceURI === voiceURI)
+  }, [voices, voiceURI, setVoiceURI, isLoadingVoices])
 
   return (
     <div className="mx-auto space-y-4">
@@ -93,33 +91,12 @@ export const SpeechSettings = () => {
                 </Badge>
               )}
             </div>
-            <Select
-              value={voiceURI}
-              onValueChange={setVoiceURI}
-              aria-label="Select speech synthesis voice">
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select a voice" />
-              </SelectTrigger>
-              <SelectContent>
-                {voices.map((voice) => (
-                  <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                    <div className="flex w-full items-center justify-between">
-                      <span>{voice.name}</span>
-                      <div className="ml-3 flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {voice.lang}
-                        </Badge>
-                        {voice.default && (
-                          <Badge variant="outline" className="text-xs">
-                            default
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VoiceSelector
+              voices={voices}
+              selectedVoiceURI={voiceURI || null}
+              onVoiceChange={setVoiceURI}
+              isLoading={isLoadingVoices}
+            />
           </div>
 
           {/* Rate Control */}
@@ -218,6 +195,9 @@ export const SpeechSettings = () => {
                   className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
                   onClick={() => {
                     if ("speechSynthesis" in window) {
+                      // Cancel any ongoing speech
+                      window.speechSynthesis.cancel()
+
                       const textToSpeak =
                         testText.trim() ||
                         "Hello, this is a test of your speech settings."
@@ -226,12 +206,19 @@ export const SpeechSettings = () => {
                       )
                       utterance.rate = rate
                       utterance.pitch = pitch
+
+                      // Use the selected voice if available
                       if (selectedVoice) {
-                        utterance.voice =
-                          window.speechSynthesis
-                            .getVoices()
-                            .find((v) => v.voiceURI === voiceURI) || null
+                        // Get fresh voice reference from speechSynthesis API
+                        // This ensures compatibility across browsers
+                        const freshVoice = window.speechSynthesis
+                          .getVoices()
+                          .find((v) => v.voiceURI === selectedVoice.voiceURI)
+                        if (freshVoice) {
+                          utterance.voice = freshVoice
+                        }
                       }
+
                       window.speechSynthesis.speak(utterance)
                     }
                   }}>

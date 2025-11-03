@@ -5,14 +5,8 @@ import { markdownToSpeechText } from "@/lib/utils"
 
 export const useSpeechSynthesis = () => {
   const [speaking, setSpeaking] = useState(false)
-  const [isLoadingVoices, setIsLoadingVoices] = useState(true)
-  const voices = useVoices()
+  const { voices, isLoading: isLoadingVoices } = useVoices()
   const { rate, pitch, voiceURI } = useSpeechSettings()
-  useEffect(() => {
-    if (voices.length > 0 && isLoadingVoices) {
-      setIsLoadingVoices(false)
-    }
-  }, [voices, isLoadingVoices])
 
   useEffect(() => {
     const handleEnd = () => setSpeaking(false)
