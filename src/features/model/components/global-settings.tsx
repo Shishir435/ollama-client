@@ -19,11 +19,24 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import {
+  CONTENT_SCRAPER_OPTIONS,
   SCROLL_STRATEGY_DESCRIPTIONS,
   SCROLL_STRATEGY_OPTIONS
 } from "@/lib/constants-ui"
-import { Settings, Target, Zap } from "@/lib/lucide-icon"
-import type { ContentExtractionConfig, ScrollStrategy } from "@/types"
+import {
+  BookOpen,
+  Code,
+  FileText,
+  Settings,
+  Sparkles,
+  Target,
+  Zap
+} from "@/lib/lucide-icon"
+import type {
+  ContentExtractionConfig,
+  ContentScraper,
+  ScrollStrategy
+} from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 
 interface GlobalSettingsProps {
@@ -57,6 +70,85 @@ export const GlobalSettings = ({ config, onUpdate }: GlobalSettingsProps) => {
         }}
         className={className || "text-center"}
       />
+    </div>
+  )
+
+  // Get icon for scraper type
+  const getScraperIcon = (scraper: ContentScraper) => {
+    switch (scraper) {
+      case "auto":
+        return Sparkles
+      case "defuddle":
+        return Code
+      case "readability":
+        return BookOpen
+    }
+  }
+
+  // Render content scraper selection
+  const renderContentScraperSelect = (
+    value: ContentScraper,
+    onValueChange: (value: ContentScraper) => void
+  ) => (
+    <div className="space-y-3">
+      <Label className="flex items-center gap-2 text-sm font-medium">
+        <FileText className="h-4 w-4" />
+        Content Scraper
+      </Label>
+      <div className="grid gap-3">
+        {CONTENT_SCRAPER_OPTIONS.map((option) => {
+          const Icon = getScraperIcon(option.value)
+          const isSelected = value === option.value
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onValueChange(option.value)}
+              className={`
+                group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all
+                hover:bg-accent/50 hover:border-accent-foreground/20
+                ${
+                  isSelected
+                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-sm"
+                    : "border-border"
+                }
+              `}>
+              <div
+                className={`
+                  flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors
+                  ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted group-hover:bg-muted/80"}
+                `}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="flex-1 space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm">{option.label}</span>
+                  {option.recommended && (
+                    <Badge
+                      variant="default"
+                      className="text-[10px] h-5 px-1.5 font-medium">
+                      Recommended
+                    </Badge>
+                  )}
+                  {isSelected && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] h-5 px-1.5">
+                      Active
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs font-medium text-foreground/80">
+                  {option.description}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {option.detail}
+                </p>
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 
@@ -159,6 +251,13 @@ export const GlobalSettings = ({ config, onUpdate }: GlobalSettingsProps) => {
             onCheckedChange={(checked) => onUpdate({ enabled: checked })}
           />
         </div>
+
+        <Separator />
+
+        {/* Content Scraper Selection */}
+        {renderContentScraperSelect(config.contentScraper, (value) =>
+          onUpdate({ contentScraper: value })
+        )}
 
         <Separator />
 

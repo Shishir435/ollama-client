@@ -36,7 +36,7 @@ export const OllamaOptions = () => {
       content: <ModelPullPanel />
     },
     contentExtraction: {
-      label: "Content Extraction",
+      label: "Extraction",
       content: <ContentExtractionSettings />
     },
     voices: {

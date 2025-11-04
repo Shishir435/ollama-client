@@ -164,6 +164,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 
 export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
   enabled: true,
+  contentScraper: "auto", // Try defuddle first, then readability
   excludedUrlPatterns: DEFAULT_EXCLUDE_URLS,
   scrollStrategy: "smart",
   scrollDepth: 0.8, // 80% of page

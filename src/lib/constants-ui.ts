@@ -10,7 +10,7 @@ import {
   type LucideIcon,
   Twitter
 } from "@/lib/lucide-icon"
-import type { ScrollStrategy } from "@/types"
+import type { ContentScraper, ScrollStrategy } from "@/types"
 
 export interface SocialLink {
   label: string
@@ -78,6 +78,34 @@ export const SCROLL_STRATEGY_DESCRIPTIONS: Record<ScrollStrategy, string> = {
   smart:
     "Intelligent scrolling with content detection, best for dynamic content"
 }
+
+// Content scraper options
+export const CONTENT_SCRAPER_OPTIONS = [
+  {
+    value: "auto" as ContentScraper,
+    label: "Auto",
+    description: "Smart fallback: Defuddle → Readability",
+    detail:
+      "Best for most websites. Tries Defuddle first for better markdown and code formatting, falls back to Readability if needed.",
+    recommended: true
+  },
+  {
+    value: "defuddle" as ContentScraper,
+    label: "Defuddle",
+    description: "Technical & code-heavy content",
+    detail:
+      "Best for GitHub, documentation, Stack Overflow, and developer blogs. Preserves code blocks and markdown structure.",
+    recommended: false
+  },
+  {
+    value: "readability" as ContentScraper,
+    label: "Readability",
+    description: "Articles & blog posts",
+    detail:
+      "Best for news articles, Medium posts, and traditional blog content. Mozilla's proven algorithm for clean text extraction.",
+    recommended: false
+  }
+]
 
 export const GUIDES = [
   {

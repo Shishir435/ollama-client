@@ -30,6 +30,13 @@ const useContentExtractionConfig = () => {
     [setConfig]
   )
 
+  // Ensure contentScraper is set (for backward compatibility)
+  useEffect(() => {
+    if (!config.contentScraper) {
+      updateConfig({ contentScraper: "auto" })
+    }
+  }, [config.contentScraper, updateConfig])
+
   return [config, updateConfig] as const
 }
 

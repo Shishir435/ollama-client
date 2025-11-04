@@ -317,9 +317,11 @@ export interface ChatInput {
 }
 
 export type ScrollStrategy = "none" | "gradual" | "instant" | "smart"
+export type ContentScraper = "auto" | "defuddle" | "readability"
 
 export interface ContentExtractionConfig {
   enabled: boolean
+  contentScraper: ContentScraper // Which scraper to use: auto (try defuddle then readability), defuddle, or readability
   excludedUrlPatterns: string[] // URL patterns to exclude from extraction
   scrollStrategy: ScrollStrategy
   scrollDepth: number // 0-1 (percentage of page)

@@ -15,6 +15,7 @@ import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down"
 import Circle from "lucide-react/dist/esm/icons/circle"
 import CircleCheck from "lucide-react/dist/esm/icons/circle-check"
 import Clock from "lucide-react/dist/esm/icons/clock"
+import Code from "lucide-react/dist/esm/icons/code"
 import Copy from "lucide-react/dist/esm/icons/copy"
 import CopyCheck from "lucide-react/dist/esm/icons/copy-check"
 import Cpu from "lucide-react/dist/esm/icons/cpu"
@@ -134,6 +135,7 @@ export {
   Sun,
   Copy,
   Check,
+  Code,
   ChevronDown,
   RefreshCcw,
   Circle,

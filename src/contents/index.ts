@@ -312,41 +312,63 @@ browser.runtime.onMessage.addListener(
             }
           }
 
-          // Parse with defuddle first (better GitHub support, more tokens)
-          console.log("[Content Script] Parsing article with defuddle...")
+          // Parse content based on user's scraper preference
+          const scraper = effectiveConfig.contentScraper || "auto"
+          console.log(`[Content Script] Using scraper: ${scraper}`)
+
           let readableText = ""
           let pageTitle = ""
           let defuddleResult: ReturnType<Defuddle["parse"]> | null = null
 
-          try {
-            const defuddle = new Defuddle(document, {
-              markdown: true,
-              separateMarkdown: false,
-              removeExactSelectors: true // Remove ads and social buttons
-            })
-            defuddleResult = defuddle.parse()
+          // Try Defuddle if user selected "auto" or "defuddle"
+          if (scraper === "auto" || scraper === "defuddle") {
+            console.log("[Content Script] Parsing article with Defuddle...")
+            try {
+              const defuddle = new Defuddle(document, {
+                markdown: true,
+                separateMarkdown: false,
+                removeExactSelectors: true // Remove ads and social buttons
+              })
+              defuddleResult = defuddle.parse()
 
-            // Prefer markdown if available, otherwise use HTML content
-            readableText =
-              defuddleResult?.contentMarkdown || defuddleResult?.content || ""
-            readableText = normalizeWhitespaceForLLM(readableText)
-            pageTitle = defuddleResult?.title || ""
+              // Prefer markdown if available, otherwise use HTML content
+              readableText =
+                defuddleResult?.contentMarkdown || defuddleResult?.content || ""
+              readableText = normalizeWhitespaceForLLM(readableText)
+              pageTitle = defuddleResult?.title || ""
 
-            console.log(
-              `[Content Script] defuddle extracted ${readableText.length} chars (${defuddleResult?.contentMarkdown ? "markdown" : "HTML"})`
-            )
-          } catch (error) {
-            console.warn(
-              "[Content Script] defuddle failed, falling back to Readability:",
-              error
-            )
+              console.log(
+                `[Content Script] Defuddle extracted ${readableText.length} chars (${defuddleResult?.contentMarkdown ? "markdown" : "HTML"})`
+              )
+            } catch (error) {
+              console.warn("[Content Script] Defuddle failed:", error)
+              // If user selected "defuddle" only, don't fallback
+              if (scraper === "defuddle") {
+                console.error(
+                  "[Content Script] Defuddle-only mode failed, no fallback available"
+                )
+              }
+            }
           }
 
-          // Fallback to Readability if defuddle failed or returned minimal content
-          if (!readableText || readableText.trim().length < 100) {
-            console.log(
-              "[Content Script] defuddle returned minimal content, trying Readability..."
-            )
+          // Try Readability if:
+          // 1. User selected "readability" only
+          // 2. User selected "auto" and defuddle failed or returned minimal content
+          if (
+            scraper === "readability" ||
+            (scraper === "auto" &&
+              (!readableText || readableText.trim().length < 100))
+          ) {
+            if (scraper === "auto") {
+              console.log(
+                "[Content Script] Defuddle returned minimal content, trying Readability..."
+              )
+            } else {
+              console.log(
+                "[Content Script] Parsing article with Readability..."
+              )
+            }
+
             try {
               const article = new Readability(
                 document.cloneNode(true) as Document
@@ -356,8 +378,11 @@ browser.runtime.onMessage.addListener(
               const normalizedReadability =
                 normalizeWhitespaceForLLM(readabilityText)
 
-              // Use Readability result if it's better than defuddle
+              // Use Readability result if:
+              // - User selected "readability" only, OR
+              // - Auto mode and Readability is better than defuddle
               if (
+                scraper === "readability" ||
                 normalizedReadability.length > readableText.length ||
                 readableText.trim().length < 50
               ) {
@@ -367,15 +392,12 @@ browser.runtime.onMessage.addListener(
                 )
               }
 
-              // Use Readability title if defuddle didn't provide one
+              // Use Readability title if not already set
               if (!pageTitle && article?.title) {
                 pageTitle = article.title
               }
             } catch (error) {
-              console.error(
-                "[Content Script] Readability fallback failed:",
-                error
-              )
+              console.error("[Content Script] Readability failed:", error)
             }
           }
 
