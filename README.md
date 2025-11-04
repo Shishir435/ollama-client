@@ -52,6 +52,7 @@
 
 ### 🤖 Model Management
 - 🔌 **Local Ollama Integration** – Connect to a local Ollama server (no API keys required)
+- 🌐 **LAN/Local Network Support** – Connect to Ollama servers on your local network using IP addresses (e.g., `http://192.168.x.x:11434`)
 - 🔄 **Model Switcher** – Switch between models in real time with a beautiful UI
 - 🔍 **Model Search & Pull** – Search and pull models directly from Ollama.com in the UI (with progress indicator)
 - 🗑️ **Model Deletion** – Clean up unused models with confirmation dialogs
@@ -176,11 +177,13 @@ Other options: `mistral`, `llama3:8b`, `codellama`, etc.
 - Open ⚙️ **Settings**
 - Set your:
 
-  - Local base URL: `http://localhost:11434`
+  - **Base URL**: `http://localhost:11434` (default) or your local network IP (e.g., `http://192.168.1.100:11434`)
   - Default model (e.g. `gemma:2b`)
   - Theme & appearance
   - Model parameters
   - Prompt templates
+
+> 💡 **Tip**: You can use Ollama on a local network server by entering its IP address (e.g., `http://192.168.x.x:11434`) in the Base URL field. Make sure Ollama is configured with `OLLAMA_HOST=0.0.0.0` for LAN access.
 
 > Advanced parameters like system prompts and stop sequences are available per model.
 
