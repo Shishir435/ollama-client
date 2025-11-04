@@ -50,40 +50,76 @@
 
 ## ✨ Features
 
-- 🔌 **Local Ollama Integration** – Connect to a local Ollama server (no API keys)
-- 💬 **In-Browser Chat UI** – Lightweight, minimal, fast
-- ⚙️ **Custom Settings** – Control model parameters, themes, prompt templates
-- 🔄 **Model Switcher** – Switch between models in real time
-- 🔍 **Model Search & Pull** – Pull models directly in the UI (with progress indicator)
-
-- 🗑️ **Model Deletion with Confirmation** – Clean up unused models from the UI
+### 🤖 Model Management
+- 🔌 **Local Ollama Integration** – Connect to a local Ollama server (no API keys required)
+- 🔄 **Model Switcher** – Switch between models in real time with a beautiful UI
+- 🔍 **Model Search & Pull** – Search and pull models directly from Ollama.com in the UI (with progress indicator)
+- 🗑️ **Model Deletion** – Clean up unused models with confirmation dialogs
 - 🧳 **Load/Unload Models** – Manage Ollama memory footprint efficiently
 - 📦 **Model Version Display** – View and compare model versions easily
+- 🎛️ **Advanced Parameter Tuning** – Per-model configuration: temperature, top_k, top_p, repeat penalty, stop sequences, system prompts
 
-- 🎛️ **Tune Parameters** – Temperature, top_k, top_p, repeat penalty, stop sequences
-- 🧠 **Enhanced Content Extraction** – Smart extraction with lazy loading support, site-specific overrides, Defuddle integration, and automated YouTube transcript extraction
-- 📄 **Site-Specific Overrides** – Configure extraction settings per domain (scroll strategies, delays, timeouts)
-- 🔊 **Advanced Text-to-Speech** – Searchable voice selector, adjustable speech rate & pitch, cross-browser compatibility, and voice testing
-- 🗂️ **Multi-Chat Sessions** – Save/load/delete local chats
-- 📤 Export Chat Sessions – Export single or all chat sessions as **PDF** or **JSON**
-- 📥 Import Chat Sessions – Import single or multiple chat sessions from JSON files
-- 🧯 **Declarative Net Request (DNR)** – Automatic CORS handling
-- 🛡️ **100% Local and Private** – All storage and inference happen on your device
+### 💬 Chat & Conversations
+- 💬 **Beautiful Chat UI** – Modern, polished interface built with Shadcn UI
+- 🗂️ **Multi-Chat Sessions** – Create, manage, and switch between multiple chat sessions
+- 📤 **Export Chat Sessions** – Export single or all chat sessions as **PDF** or **JSON**
+- 📥 **Import Chat Sessions** – Import single or multiple chat sessions from JSON files
 - 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
+- ⚡ **Streaming Responses** – Real-time streaming with typing indicators
+
+
+### 🌐 Webpage Integration
+- 🧠 **Enhanced Content Extraction** – Advanced extraction with multiple scroll strategies (none, instant, gradual, smart)
+- 🔄 **Lazy Loading Support** – Automatically waits for dynamic content to load
+- 📄 **Site-Specific Overrides** – Configure extraction settings per domain (scroll strategies, delays, timeouts)
+- 🎯 **Defuddle Integration** – Smart content extraction with Defuddle fallback
+- 📖 **Mozilla Readability** – Fallback extraction using Mozilla Readability
+- 🎬 **YouTube Transcripts** – Automated YouTube transcript extraction
+- 📊 **Extraction Metrics** – View scroll steps, mutations detected, and content length
+
+### ⚙️ Customization & Settings
+- 🎨 **Professional UI** – Modern design system with glassmorphism effects, gradients, and smooth animations
+- 🌓 **Dark Mode** – Beautiful dark theme with smooth transitions
+- 📝 **Prompt Templates** – Create, manage, and use custom prompt templates (Ctrl+/)
+- 🔊 **Advanced Text-to-Speech** – Searchable voice selector with adjustable speech rate & pitch
+- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera, Vivaldi, LibreWolf, and more
+- 🧪 **Voice Testing** – Test voices before using them
+
+### 🔒 Privacy & Performance
+- 🛡️ **100% Local and Private** – All storage and inference happen on your device
+- 🧯 **Declarative Net Request (DNR)** – Automatic CORS handling
+- 💾 **IndexedDB Storage** – Efficient local storage for chat sessions
+- ⚡ **Performance Optimized** – Lazy loading, debounced operations, optimized re-renders
+- 🔄 **State Management** – Clean Zustand-based state management
 
 ---
 
 ## 🧩 Tech Stack
 
-- TypeScript
-- React + Vite
-- Plasmo (for Chrome extension boilerplate)
-- Shadcn UI
-- Biome (formatter & linter)
-- Ollama (local LLM backend)
-- Chrome Extension APIs (`declarativeNetRequest`, `storage`, `sidePanel`)
-- Defuddle (content extraction)
-- Mozilla Readability (content extraction)
+### Frontend
+- **TypeScript** – Type-safe development
+- **React 18** – Modern UI framework
+- **Vite** – Fast build tool
+- **Plasmo** – Chrome extension framework
+- **Shadcn UI** – Professional component library (Radix UI primitives)
+- **Tailwind CSS** – Utility-first styling
+- **Zustand** – Lightweight state management
+- **Dexie** – IndexedDB wrapper for chat storage
+
+### Backend & APIs
+- **Ollama** – Local LLM backend
+- **Chrome Extension APIs** – `declarativeNetRequest`, `storage`, `sidePanel`, `tabs`
+
+### Content Processing
+- **Defuddle** – Advanced content extraction
+- **Mozilla Readability** – Content extraction fallback
+- **highlight.js** – Code syntax highlighting
+- **markdown-it** – Markdown rendering
+
+### Developer Tools
+- **Biome** – Fast formatter & linter
+- **TypeScript** – Strict type checking
+- **Husky** – Git hooks
 
 ---
 
@@ -329,14 +365,23 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 ### Embeddings & Semantic Search
 
-- [ ] Implement **Hybrid Embeddings**:
-  - [ ] Default: transformer.js
-  - [ ] Optional: pull Ollama-hosted(locally) embedding models when toggled
+- [ ] Implement **Ollama Embedding Models**:
+  - [ ] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `all-minilm`)
+  - [ ] Generate embeddings for chat messages and store in IndexedDB
+  - [ ] Semantic search over chat history
+  - [ ] Semantic filtering for chat sessions
 - [ ] Enable **Local RAG** over chats, PDFs, and image text
+- [ ] **Browser Search Feature**:
+  - [ ] Contextual search within webpage content
+  - [ ] Semantic search over extracted content
+  - [ ] Search result highlighting
+  - [ ] Search history
 - [ ] Optional **Web Search Enrichment**:
   - [ ] Offline-first architecture
   - [ ] Opt-in Brave / DuckDuckGo API (user-provided key)
   - [ ] WASM fallback (e.g., tinysearch) when no key
+
+> **Note**: Hybrid embeddings with client-side transformers (`@xenova/transformers`) have been tested and show degraded model response quality compared to direct text prompts. The focus will be on Ollama-hosted embedding models instead.
 
 ### File Upload & Processing
 
