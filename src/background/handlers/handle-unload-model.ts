@@ -1,4 +1,4 @@
-import { getBaseUrl } from "@/background/lib/utils"
+import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import type { SendResponseFunction } from "@/types"
 
 export const handleUnloadModel = async (
@@ -20,7 +20,7 @@ export const handleUnloadModel = async (
     })
 
     if (!res.ok) {
-      sendResponse({
+      safeSendResponse(sendResponse, {
         success: false,
         error: { status: res.status, message: res.statusText }
       })
@@ -30,10 +30,10 @@ export const handleUnloadModel = async (
     const data = await res.json()
     const wasUnloaded = data.done_reason === "unload"
 
-    sendResponse({ success: wasUnloaded, data })
+    safeSendResponse(sendResponse, { success: wasUnloaded, data })
   } catch (err) {
     const error = err as Error
-    sendResponse({
+    safeSendResponse(sendResponse, {
       success: false,
       error: { status: 0, message: error.message }
     })

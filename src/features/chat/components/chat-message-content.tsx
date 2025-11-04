@@ -1,8 +1,8 @@
 import { MarkdownRenderer } from "@/components/markdown-renderer"
-import { cn } from "@/lib/utils"
 import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
 import { ChatMessageMetricsDropdown } from "@/features/chat/components/chat-message-metrics-dropdown"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
 export const ChatMessageContent = ({

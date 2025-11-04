@@ -2,6 +2,8 @@ import { PerformanceWarning } from "@/components/performance-warning"
 import { SettingsButton } from "@/components/settings-button"
 import { SocialHandles } from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,8 +15,6 @@ import {
   Sparkles,
   Zap
 } from "@/lib/lucide-icon"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 
 export const WelcomeScreen = () => {
   const { status, refresh } = useOllamaModels()
@@ -236,7 +236,7 @@ const FeatureCard = ({
   title,
   description
 }: {
-  icon: any
+  icon: React.ComponentType<{ className?: string }>
   color: "green" | "blue" | "purple"
   title: string
   description: string

@@ -4,8 +4,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Circle, SendHorizontal } from "@/lib/lucide-icon"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { Circle, SendHorizontal } from "@/lib/lucide-icon"
 
 export const SendOrStopButton = ({
   onSend,

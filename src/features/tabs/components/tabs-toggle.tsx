@@ -1,3 +1,4 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { Switch } from "@/components/ui/switch"
 import {
   Tooltip,
@@ -6,8 +7,6 @@ import {
 } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 export const TabsToggle = () => {
   const [tabAccess, setTabAccess] = useStorage<boolean>(

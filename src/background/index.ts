@@ -1,7 +1,5 @@
 import "webextension-polyfill"
 
-import { browser, isChromiumBased } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
@@ -15,6 +13,9 @@ import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
+import { safeSendResponse } from "@/background/lib/utils"
+import { browser, isChromiumBased } from "@/lib/browser-api"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import type {
   ChatWithModelMessage,
   ChromeMessage,
@@ -22,8 +23,6 @@ import type {
   ModelPullMessage,
   PortStatusFunction
 } from "@/types"
-
-export {}
 
 const openOllamaClient = () => {
   browser.windows.create({
@@ -35,11 +34,24 @@ const openOllamaClient = () => {
 }
 
 if (isChromiumBased() && "sidePanel" in browser) {
-  ;(browser as any).sidePanel
+  // Type assertion for Chrome-specific sidePanel API
+  ;(
+    browser as unknown as {
+      sidePanel: {
+        setPanelBehavior: (options: {
+          openPanelOnActionClick: boolean
+        }) => Promise<void>
+      }
+    }
+  ).sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error: Error) => console.error("SidePanel error:", error))
 } else {
-  const actionAPI = browser.action || (browser as any).browserAction
+  // Firefox uses browserAction, Chrome uses action (polyfill handles both)
+  const actionAPI =
+    browser.action ||
+    (browser as unknown as { browserAction?: typeof browser.action })
+      .browserAction
   if (actionAPI) {
     actionAPI.onClicked.addListener(() => {
       openOllamaClient()
@@ -55,6 +67,9 @@ if (isChromiumBased()) {
   browser.runtime.onInstalled.addListener(() => updateDNRRules())
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
+
+// Note: Content scripts are injected automatically by Plasmo
+// The youtube.ts content script should inject on YouTube pages automatically
 
 browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
@@ -82,15 +97,15 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
   })
 
   if (port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL) {
-    port.onMessage.addListener(async (msg: ModelPullMessage) => {
-      await handleModelPull(msg, port, getPortStatus)
+    port.onMessage.addListener(async (msg: ChromeMessage) => {
+      await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
     })
   }
 })
 
 // Handle one-time message requests
 browser.runtime.onMessage.addListener(
-  (message: ChromeMessage, sender, sendResponse) => {
+  (message: ChromeMessage, _sender, sendResponse) => {
     switch (message.type) {
       case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
         handleGetModels(sendResponse)
@@ -107,7 +122,7 @@ browser.runtime.onMessage.addListener(
       case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
         browser.tabs.query({}).then((tabs) => {
           console.log(tabs)
-          sendResponse({ success: true, tabs })
+          safeSendResponse(sendResponse, { success: true, tabs })
         })
         return true
       }

@@ -1,17 +1,15 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
-
-import { STORAGE_KEYS } from "@/lib/constants"
-import { db } from "@/lib/db"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { db } from "@/lib/db"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage } from "@/types"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 export const useChat = () => {
   const [selectedModel] = useStorage<string>(
@@ -52,7 +50,7 @@ export const useChat = () => {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [])
 
   const ensureSessionId = async (): Promise<string | null> => {
     if (currentSessionId) return currentSessionId
@@ -72,7 +70,7 @@ export const useChat = () => {
   }
 
   const sendMessage = async (customInput?: string, customModel?: string) => {
-    let sessionId = await ensureSessionId()
+    const sessionId = await ensureSessionId()
     if (!sessionId) return
 
     const rawInput = customInput?.trim() ?? input.trim()

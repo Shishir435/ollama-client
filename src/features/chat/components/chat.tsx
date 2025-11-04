@@ -13,10 +13,13 @@ export const Chat = () => {
   const { isLoading, isStreaming } = useLoadStream()
   const { currentSessionId } = useChatSessions()
 
-  const getMessageMargin = (currentIndex: number): string => {
+  const getMessageMargin = (
+    currentIndex: number,
+    filteredMessages: typeof messages
+  ): string => {
     if (currentIndex === 0) return "mt-3"
-    const prev = messages[currentIndex - 1]
-    const curr = messages[currentIndex]
+    const prev = filteredMessages[currentIndex - 1]
+    const curr = filteredMessages[currentIndex]
     return prev.role !== curr.role ? "mt-6" : "mt-2"
   }
 
@@ -34,29 +37,33 @@ export const Chat = () => {
       {hasSession ? (
         <ScrollArea className="flex-1 px-4 py-2 scrollbar-none">
           <div className="mx-auto max-w-4xl">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={getMessageMargin(idx)}>
-                <ChatMessageBubble
-                  msg={msg}
-                  isLoading={
-                    isLoading &&
-                    msg.role === "assistant" &&
-                    idx === messages.length - 1
-                  }
-                  onRegenerate={
-                    msg.role === "assistant"
-                      ? (model) => {
-                          if (isLoading || isStreaming) return
-                          const prevUser = [...messages.slice(0, idx)]
-                            .reverse()
-                            .find((m) => m.role === "user")
-                          if (prevUser) sendMessage(prevUser.content, model)
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            ))}
+            {messages
+              .filter((msg) => msg.role !== "system")
+              .map((msg, idx, filteredMessages) => (
+                <div
+                  key={`${msg.role}-${idx}-${msg.content.slice(0, 10)}`}
+                  className={getMessageMargin(idx, filteredMessages)}>
+                  <ChatMessageBubble
+                    msg={msg}
+                    isLoading={
+                      isLoading &&
+                      msg.role === "assistant" &&
+                      idx === filteredMessages.length - 1
+                    }
+                    onRegenerate={
+                      msg.role === "assistant"
+                        ? (model) => {
+                            if (isLoading || isStreaming) return
+                            const prevUser = [...filteredMessages.slice(0, idx)]
+                              .reverse()
+                              .find((m) => m.role === "user")
+                            if (prevUser) sendMessage(prevUser.content, model)
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              ))}
             <div ref={scrollRef} className="h-4" />
           </div>
         </ScrollArea>

@@ -14,6 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import {
   ChevronDown,
   Cpu,
@@ -26,7 +27,6 @@ import {
   Settings,
   Zap
 } from "@/lib/lucide-icon"
-import { useModelInfo } from "@/features/model/hooks/use-model-info"
 
 const fileTypeMap: Record<number, string> = {
   1: "F32",
@@ -61,27 +61,27 @@ const formatKey = (key: string) =>
 const formatNumber = (n: number) =>
   typeof n === "number"
     ? n >= 1e9
-      ? (n / 1e9).toFixed(1) + "B"
+      ? `${(n / 1e9).toFixed(1)}B`
       : n >= 1e6
-        ? (n / 1e6).toFixed(1) + "M"
+        ? `${(n / 1e6).toFixed(1)}M`
         : n.toLocaleString()
     : n
 
 const formatCompactNumber = (n: number) =>
   typeof n === "number"
     ? n >= 1e9
-      ? (n / 1e9).toFixed(0) + "B"
+      ? `${(n / 1e9).toFixed(0)}B`
       : n >= 1e6
-        ? (n / 1e6).toFixed(0) + "M"
+        ? `${(n / 1e6).toFixed(0)}M`
         : n >= 1e3
-          ? (n / 1e3).toFixed(0) + "K"
+          ? `${(n / 1e3).toFixed(0)}K`
           : n.toString()
     : n
 
 const flattenObject = (
-  obj: Record<string, any>,
+  obj: Record<string, unknown>,
   prefix = ""
-): Record<string, any> => {
+): Record<string, unknown> => {
   return Object.entries(obj).reduce(
     (acc, [key, value]) => {
       const path = prefix ? `${prefix}.${key}` : key
@@ -90,13 +90,16 @@ const flattenObject = (
         value !== null &&
         !Array.isArray(value)
       ) {
-        Object.assign(acc, flattenObject(value, path))
+        const flattened = flattenObject(value as Record<string, unknown>, path)
+        for (const [k, v] of Object.entries(flattened)) {
+          acc[k] = v
+        }
       } else {
         acc[path] = value
       }
       return acc
     },
-    {} as Record<string, any>
+    {} as Record<string, unknown>
   )
 }
 
@@ -123,7 +126,7 @@ const getCapabilityIcon = (capability: string) => {
   return <Settings className="h-3 w-3" />
 }
 
-const HeaderSpec = ({
+const _HeaderSpec = ({
   label,
   value
 }: {
@@ -167,7 +170,8 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   const flatMeta = modelInfo?.model_info
     ? flattenObject(modelInfo.model_info)
     : {}
-  const capabilities = modelInfo?.capabilities ?? []
+  const capabilities =
+    (modelInfo as { capabilities?: string[] })?.capabilities ?? []
   const details = modelInfo?.details ?? {}
 
   const primaryKeys = [
@@ -242,13 +246,17 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                     <React.Fragment key={key}>
                       <span className="font-mono text-xs">
                         {key.includes("parameter")
-                          ? `${formatCompactNumber(val)} Params`
+                          ? typeof val === "number"
+                            ? `${formatCompactNumber(val)} Params`
+                            : String(val)
                           : key.includes("context")
-                            ? `${formatCompactNumber(val)} Ctx`
+                            ? typeof val === "number"
+                              ? `${formatCompactNumber(val)} Ctx`
+                              : String(val)
                             : key.includes("file_type") &&
                                 typeof val === "number"
-                              ? fileTypeMap[val] ?? val
-                              : val}
+                              ? (fileTypeMap[val] ?? val)
+                              : String(val)}
                       </span>
                       {index < primaryEntries.length - 1 && <span>•</span>}
                     </React.Fragment>
@@ -337,8 +345,10 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                         label={formatKey(key)}
                         value={
                           key.includes("file_type") && typeof val === "number"
-                            ? fileTypeMap[val] ?? `Unknown (${val})`
-                            : formatNumber(val)
+                            ? (fileTypeMap[val] ?? `Unknown (${val})`)
+                            : typeof val === "number"
+                              ? formatNumber(val)
+                              : String(val)
                         }
                       />
                     ))}

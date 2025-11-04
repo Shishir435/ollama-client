@@ -1,20 +1,23 @@
 import { useCallback } from "react"
-
-import { db } from "@/lib/db"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
+import { db } from "@/lib/db"
 import type { ChatSession } from "@/types"
 
-function isValidChatSession(obj: any): obj is ChatSession {
+function isValidChatSession(obj: unknown): obj is ChatSession {
   if (!obj || typeof obj !== "object") return false
+  const candidate = obj as Record<string, unknown>
   return (
-    typeof obj.id === "string" &&
-    typeof obj.title === "string" &&
-    typeof obj.createdAt === "number" &&
-    typeof obj.updatedAt === "number" &&
-    Array.isArray(obj.messages) &&
-    obj.messages.every(
-      (m: any) =>
-        m && typeof m.role === "string" && typeof m.content === "string"
+    typeof candidate.id === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.createdAt === "number" &&
+    typeof candidate.updatedAt === "number" &&
+    Array.isArray(candidate.messages) &&
+    candidate.messages.every(
+      (m: unknown) =>
+        m &&
+        typeof m === "object" &&
+        typeof (m as Record<string, unknown>).role === "string" &&
+        typeof (m as Record<string, unknown>).content === "string"
     )
   )
 }

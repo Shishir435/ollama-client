@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
-import { ChevronDown, RefreshCcw } from "@/lib/lucide-icon"
 import { ModelMenu } from "@/features/model/components/model-menu"
+import { ChevronDown, RefreshCcw } from "@/lib/lucide-icon"
 
 interface RegenerateButtonProps {
   model: string
@@ -8,7 +8,7 @@ interface RegenerateButtonProps {
 }
 
 export const RegenerateButton = ({
-  model,
+  model: _model,
   onSelectModel
 }: RegenerateButtonProps) => {
   return (

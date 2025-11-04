@@ -1,5 +1,5 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
-
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -19,13 +19,11 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-
-import { useStorage } from "@plasmohq/storage/hook"
 
 interface ModelMenuProps {
   trigger?: React.ReactNode
@@ -36,9 +34,9 @@ interface ModelMenuProps {
 
 export const ModelMenu = ({
   trigger,
-  onSelectModel,
+  onSelectModel: _onSelectModel,
   tooltipTextContent,
-  showStatusPopup = true
+  showStatusPopup: _showStatusPopup = true
 }: ModelMenuProps) => {
   const [open, setOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
@@ -55,8 +53,8 @@ export const ModelMenu = ({
   }, [status, models, selectedModel, setSelectedModel])
 
   const handleSelect = (modelName: string) => {
-    if (onSelectModel) {
-      onSelectModel(modelName) // for chat message region
+    if (_onSelectModel) {
+      _onSelectModel(modelName) // for chat message region
     } else {
       setSelectedModel(modelName) // for global selection
     }
@@ -74,6 +72,7 @@ export const ModelMenu = ({
               <div
                 role="combobox"
                 aria-expanded={open}
+                tabIndex={0}
                 className="cursor-pointer justify-between">
                 <div className="flex items-center gap-2 capitalize">
                   {selectedModel

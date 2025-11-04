@@ -61,8 +61,9 @@
 - 📦 **Model Version Display** – View and compare model versions easily
 
 - 🎛️ **Tune Parameters** – Temperature, top_k, top_p, repeat penalty, stop sequences
-- 🧠 **Transcript & Page Summarization** – Works with YouTube, Udemy, Coursera & web articles
-- 🔊 **TTS** – Built-in Text-to-Speech via Web Speech API
+- 🧠 **Enhanced Content Extraction** – Smart extraction with lazy loading support, site-specific overrides, Defuddle integration, and automated YouTube transcript extraction
+- 📄 **Site-Specific Overrides** – Configure extraction settings per domain (scroll strategies, delays, timeouts)
+- 🔊 **Advanced Text-to-Speech** – Searchable voice selector, adjustable speech rate & pitch, cross-browser compatibility, and voice testing
 - 🗂️ **Multi-Chat Sessions** – Save/load/delete local chats
 - 📤 Export Chat Sessions – Export single or all chat sessions as **PDF** or **JSON**
 - 📥 Import Chat Sessions – Import single or multiple chat sessions from JSON files
@@ -78,8 +79,11 @@
 - React + Vite
 - Plasmo (for Chrome extension boilerplate)
 - Shadcn UI
+- Biome (formatter & linter)
 - Ollama (local LLM backend)
 - Chrome Extension APIs (`declarativeNetRequest`, `storage`, `sidePanel`)
+- Defuddle (content extraction)
+- Mozilla Readability (content extraction)
 
 ---
 
@@ -317,7 +321,11 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 - [x] Migrate state management to **Zustand** for cleaner logic and global state control
 - [x] Add **Export / Import Chat History** (JSON, txt or PDF format)
-- [x] Add **Reset App Data** button (“Reset All”) under **Options → Reset** (clears IndexedDB + localStorage)
+- [x] Add **Reset App Data** button ("Reset All") under **Options → Reset** (clears IndexedDB + localStorage)
+- [x] **Enhanced Content Extraction** – Phase 1 implementation with lazy loading support, site-specific overrides, and Defuddle integration
+- [x] **Advanced Text-to-Speech** – Searchable voice selector with rate/pitch controls and cross-browser compatibility
+- [x] **Automated YouTube Transcript Extraction** – Automatic button clicking for transcript access
+- [x] **GitHub Content Extraction** – Special handling for repository and profile pages
 
 ### Embeddings & Semantic Search
 

@@ -4,12 +4,12 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
-import { cn } from "@/lib/utils"
 import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
 import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 export const ChatSessionSelector = () => {
   const {
@@ -74,7 +74,7 @@ export const ChatSessionSelector = () => {
                 sessions.map((session) => {
                   const trimmedTitle =
                     session.title.length > 25
-                      ? session.title.slice(0, 25) + "..."
+                      ? `${session.title.slice(0, 25)}...`
                       : session.title
 
                   const isActive = session.id === currentSessionId

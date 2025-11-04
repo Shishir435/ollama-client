@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -9,58 +9,58 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
+import { Textarea } from "@/components/ui/textarea"
+import { VoiceSelector } from "@/features/chat/components/voice-selector"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
+import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
+
+const getRateDescription = (rate: number) => {
+  if (rate < 0.8) return "Very slow"
+  if (rate < 1.0) return "Slow"
+  if (rate === 1.0) return "Normal"
+  if (rate < 1.3) return "Fast"
+  return "Very fast"
+}
+
+const getPitchDescription = (pitch: number) => {
+  if (pitch < 0.8) return "Very low"
+  if (pitch < 1.0) return "Low"
+  if (pitch === 1.0) return "Normal"
+  if (pitch < 1.3) return "High"
+  return "Very high"
+}
 
 export const SpeechSettings = () => {
-  const voices = useVoices()
+  const { voices, isLoading: isLoadingVoices } = useVoices()
   const { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI } =
     useSpeechSettings()
+  const [testText, setTestText] = useState("")
+
+  const selectedVoice = useMemo(
+    () => voices.find((v) => v.voiceURI === voiceURI),
+    [voices, voiceURI]
+  )
 
   useEffect(() => {
-    if (!voiceURI && voices.length > 0) {
-      const defaultVoice = voices.find((v) => v.default) ?? voices[0]
-      if (defaultVoice) {
-        setVoiceURI(defaultVoice.voiceURI)
-      }
-    } else if (
-      voiceURI &&
-      voices.length > 0 &&
-      !voices.find((v) => v.voiceURI === voiceURI)
-    ) {
-      const defaultVoice = voices.find((v) => v.default) ?? voices[0]
-      if (defaultVoice) {
-        setVoiceURI(defaultVoice.voiceURI)
+    if (!isLoadingVoices && voices.length > 0) {
+      if (!voiceURI) {
+        const defaultVoice = voices.find((v) => v.default) ?? voices[0]
+        if (defaultVoice) {
+          setVoiceURI(defaultVoice.voiceURI)
+        }
+      } else {
+        const voiceExists = voices.some((v) => v.voiceURI === voiceURI)
+        if (!voiceExists) {
+          const defaultVoice = voices.find((v) => v.default) ?? voices[0]
+          if (defaultVoice) {
+            setVoiceURI(defaultVoice.voiceURI)
+          }
+        }
       }
     }
-  }, [voices, voiceURI, setVoiceURI])
-
-  const getRateDescription = (rate) => {
-    if (rate < 0.8) return "Very slow"
-    if (rate < 1.0) return "Slow"
-    if (rate === 1.0) return "Normal"
-    if (rate < 1.3) return "Fast"
-    return "Very fast"
-  }
-
-  const getPitchDescription = (pitch) => {
-    if (pitch < 0.8) return "Very low"
-    if (pitch < 1.0) return "Low"
-    if (pitch === 1.0) return "Normal"
-    if (pitch < 1.3) return "High"
-    return "Very high"
-  }
-
-  const selectedVoice = voices.find((v) => v.voiceURI === voiceURI)
+  }, [voices, voiceURI, setVoiceURI, isLoadingVoices])
 
   return (
     <div className="mx-auto space-y-4">
@@ -91,33 +91,12 @@ export const SpeechSettings = () => {
                 </Badge>
               )}
             </div>
-            <Select
-              value={voiceURI}
-              onValueChange={setVoiceURI}
-              aria-label="Select speech synthesis voice">
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select a voice" />
-              </SelectTrigger>
-              <SelectContent>
-                {voices.map((voice) => (
-                  <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                    <div className="flex w-full items-center justify-between">
-                      <span>{voice.name}</span>
-                      <div className="ml-3 flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {voice.lang}
-                        </Badge>
-                        {voice.default && (
-                          <Badge variant="outline" className="text-xs">
-                            default
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VoiceSelector
+              voices={voices}
+              selectedVoiceURI={voiceURI || null}
+              onVoiceChange={setVoiceURI}
+              isLoading={isLoadingVoices}
+            />
           </div>
 
           {/* Rate Control */}
@@ -186,36 +165,67 @@ export const SpeechSettings = () => {
             </div>
           </div>
 
-          <div className="border-t pt-2">
-            <div className="flex items-center justify-between">
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Quick Preview</span>
               </div>
-              <button
-                className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
-                onClick={() => {
-                  if ("speechSynthesis" in window) {
-                    const utterance = new SpeechSynthesisUtterance(
-                      "Hello, this is a test of your speech settings."
-                    )
-                    utterance.rate = rate
-                    utterance.pitch = pitch
-                    if (selectedVoice) {
-                      utterance.voice =
-                        window.speechSynthesis
-                          .getVoices()
-                          .find((v) => v.voiceURI === voiceURI) || null
-                    }
-                    window.speechSynthesis.speak(utterance)
-                  }
-                }}>
-                Test Voice
-              </button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Click "Test Voice" to hear how your current settings sound
-            </p>
+            <div className="space-y-3">
+              <Label htmlFor="test-text" className="text-sm font-medium">
+                Test Text
+              </Label>
+              <Textarea
+                id="test-text"
+                placeholder="Paste or type text here to test your voice settings..."
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {testText.trim()
+                    ? "Click 'Test Voice' to hear your text"
+                    : "Click 'Test Voice' to hear the default sample"}
+                </p>
+                <button
+                  type="button"
+                  className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
+                  onClick={() => {
+                    if ("speechSynthesis" in window) {
+                      // Cancel any ongoing speech
+                      window.speechSynthesis.cancel()
+
+                      const textToSpeak =
+                        testText.trim() ||
+                        "Hello, this is a test of your speech settings."
+                      const utterance = new SpeechSynthesisUtterance(
+                        textToSpeak
+                      )
+                      utterance.rate = rate
+                      utterance.pitch = pitch
+
+                      // Use the selected voice if available
+                      if (selectedVoice) {
+                        // Get fresh voice reference from speechSynthesis API
+                        // This ensures compatibility across browsers
+                        const freshVoice = window.speechSynthesis
+                          .getVoices()
+                          .find((v) => v.voiceURI === selectedVoice.voiceURI)
+                        if (freshVoice) {
+                          utterance.voice = freshVoice
+                        }
+                      }
+
+                      window.speechSynthesis.speak(utterance)
+                    }
+                  }}>
+                  Test Voice
+                </button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

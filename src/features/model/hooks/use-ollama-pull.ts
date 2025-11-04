@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import type { PullStreamMessage } from "@/types"
 
 export const useOllamaPull = () => {
   const [progress, setProgress] = useState<string | null>(null)
@@ -20,15 +21,20 @@ export const useOllamaPull = () => {
 
     port.postMessage({ payload: modelName })
 
-    port.onMessage.addListener((msg) => {
-      if (msg.status) setProgress(msg.status)
-      if (msg.done) {
+    port.onMessage.addListener((msg: unknown) => {
+      const message = msg as PullStreamMessage
+      if (message.status) setProgress(message.status)
+      if (message.done) {
         setProgress("✅ Success")
         setPullingModel(null)
         port.disconnect()
       }
-      if (msg.error) {
-        setProgress("❌ Failed: " + msg.error)
+      if (message.error) {
+        const errorMessage =
+          typeof message.error === "string"
+            ? message.error
+            : message.error.message
+        setProgress(`❌ Failed: ${errorMessage}`)
         setPullingModel(null)
         port.disconnect()
       }

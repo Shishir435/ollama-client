@@ -92,6 +92,6 @@ export const useChatSessions = () => {
     if (!store.sessions.length && !store.hasSession) {
       store.loadSessions()
     }
-  }, [])
+  }, [store.hasSession, store.loadSessions, store.sessions.length])
   return store
 }

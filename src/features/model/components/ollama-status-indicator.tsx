@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,7 +14,20 @@ import {
   RefreshCw,
   XCircle
 } from "@/lib/lucide-icon"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+
+const iconMap = {
+  loading: <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />,
+  error: <XCircle className="h-4 w-4 text-red-500" />,
+  empty: <AlertTriangle className="h-4 w-4 text-orange-500" />,
+  ready: <CheckCircle className="h-4 w-4 text-green-600" />
+}
+
+const labelMap = {
+  loading: "Checking Ollama status...",
+  error: "Ollama not reachable",
+  empty: "No models found",
+  ready: "Ollama is ready"
+}
 
 export const OllamaStatusIndicator = () => {
   const { status, refresh, error } = useOllamaModels()
@@ -26,20 +40,6 @@ export const OllamaStatusIndicator = () => {
 
     return () => clearInterval(interval)
   }, [refresh])
-
-  const iconMap = {
-    loading: <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />,
-    error: <XCircle className="h-4 w-4 text-red-500" />,
-    empty: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-    ready: <CheckCircle className="h-4 w-4 text-green-600" />
-  }
-
-  const labelMap = {
-    loading: "Checking Ollama status...",
-    error: "Ollama not reachable",
-    empty: "No models found",
-    ready: "Ollama is ready"
-  }
 
   return (
     <Tooltip>

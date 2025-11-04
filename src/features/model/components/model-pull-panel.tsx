@@ -12,6 +12,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { ModelList } from "@/features/model/components/model-list"
+import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"
+import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 import { useDebounce } from "@/hooks/use-debounce"
 import {
   Download,
@@ -23,9 +26,6 @@ import {
   Trash
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
-import { ModelList } from "@/features/model/components/model-list"
-import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"
-import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 
 export const ModelPullPanel = () => {
   const [progressMap, setProgressMap] = useState<Record<string, string>>({})
@@ -43,7 +43,7 @@ export const ModelPullPanel = () => {
 
   useEffect(() => {
     setSearchQuery(debouncedSearchTerm)
-  }, [debouncedSearchTerm])
+  }, [debouncedSearchTerm, setSearchQuery])
 
   const handleLoadVariants = async (modelName: string) => {
     if (loadingVariantsFor) return

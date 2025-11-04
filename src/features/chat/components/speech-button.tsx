@@ -4,8 +4,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Mic, MicOff } from "@/lib/lucide-icon"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
+import { Mic, MicOff } from "@/lib/lucide-icon"
 
 interface SpeakButtonProps {
   text: string

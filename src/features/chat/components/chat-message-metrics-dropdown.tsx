@@ -1,5 +1,5 @@
-import { formatDuration, formatTokensPerSecond } from "@/lib/utils"
 import { MetricCard } from "@/features/chat/components/metric-card"
+import { formatDuration, formatTokensPerSecond } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
 export const ChatMessageMetricsDropdown = ({
@@ -26,7 +26,9 @@ export const ChatMessageMetricsDropdown = ({
             className="h-4 w-4 transition-transform duration-200 group-open:rotate-180"
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24">
+            viewBox="0 0 24 24"
+            aria-label="Toggle metrics">
+            <title>Toggle metrics</title>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

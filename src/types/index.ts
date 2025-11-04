@@ -1,3 +1,5 @@
+import type browser from "webextension-polyfill"
+
 export type OllamaModel = {
   name: string
   model: string
@@ -19,7 +21,7 @@ export type ModelConfig = {
   top_k: number
   top_p: number
   repeat_penalty: number
-  stop: any[]
+  stop: string[]
   system: string
   num_ctx: number
   repeat_last_n: number
@@ -30,7 +32,7 @@ export type ModelConfig = {
 
 export type ModelConfigMap = Record<string, ModelConfig>
 
-export type Role = "user" | "assistant"
+export type Role = "user" | "assistant" | "system"
 
 export interface ChatMessage {
   role: Role
@@ -55,15 +57,15 @@ export interface ChatSession {
   messages: ChatMessage[]
 }
 
-export interface ChromePort extends chrome.runtime.Port {
-  postMessage(message: any): void
-  onMessage: chrome.events.Event<(message: any) => void>
-  onDisconnect: chrome.events.Event<() => void>
+export interface ChromePort extends browser.Runtime.Port {
+  postMessage(message: ChromeMessage): void
+  onMessage: browser.Events.Event<(message: ChromeMessage) => void>
+  onDisconnect: browser.Events.Event<() => void>
 }
 
 export interface ChromeMessage {
   type: string
-  payload?: any
+  payload?: unknown
   query?: string
   name?: string
   cancel?: boolean
@@ -71,13 +73,14 @@ export interface ChromeMessage {
 
 export interface ChromeResponse {
   success: boolean
-  data?: any
+  data?: unknown
   error?: {
     status: number
     message: string
   }
-  tabs?: chrome.tabs.Tab[]
+  tabs?: browser.Tabs.Tab[]
   html?: string
+  title?: string
 }
 
 export interface OllamaChatRequest {
@@ -90,6 +93,11 @@ export interface OllamaChatRequest {
   repeat_penalty?: number
   stop?: string[]
   system?: string
+  num_ctx?: number
+  repeat_last_n?: number
+  seed?: number
+  num_predict?: number
+  min_p?: number
 }
 
 export interface OllamaPullRequest {
@@ -103,7 +111,7 @@ export interface OllamaShowRequest {
   verbose?: boolean
 }
 
-export interface OllamaTagsRequest {}
+export type OllamaTagsRequest = Record<string, never>
 
 export interface OllamaChatResponse {
   model: string
@@ -146,7 +154,7 @@ export interface OllamaShowResponse {
     quantization_level: string
   }
   model_info?: {
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -246,7 +254,7 @@ export interface NetworkError extends Error {
 
 export interface ParseError extends Error {
   line?: string
-  data?: any
+  data?: unknown
 }
 
 export interface ChatSessionState {
@@ -306,4 +314,42 @@ export interface LoadStreamState {
 export interface ChatInput {
   input: string
   setInput: (value: string) => void
+}
+
+export type ScrollStrategy = "none" | "gradual" | "instant" | "smart"
+export type ContentScraper = "auto" | "defuddle" | "readability"
+
+export interface ContentExtractionConfig {
+  enabled: boolean
+  contentScraper: ContentScraper // Which scraper to use: auto (try defuddle then readability), defuddle, or readability
+  excludedUrlPatterns: string[] // URL patterns to exclude from extraction
+  scrollStrategy: ScrollStrategy
+  scrollDepth: number // 0-1 (percentage of page)
+  scrollDelay: number // ms between scroll steps
+  mutationObserverTimeout: number // ms to wait for DOM changes
+  networkIdleTimeout: number // ms to wait for network idle
+  maxWaitTime: number // total timeout in ms
+  siteOverrides: Record<string, Partial<ContentExtractionConfig>>
+}
+
+export interface ExtractionMetrics {
+  startTime: number
+  endTime?: number
+  duration?: number
+  scrollSteps: number
+  mutationsDetected: number
+  contentLength: number
+  config: ContentExtractionConfig
+  site?: string
+  detectedPatterns: string[]
+}
+
+export interface ExtractionLogEntry {
+  timestamp: number
+  url: string
+  site: string
+  metrics: ExtractionMetrics
+  config: ContentExtractionConfig
+  detectedPatterns: string[]
+  errors?: string[]
 }

@@ -2,8 +2,6 @@ import { useRef, useState } from "react"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
-import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { cn } from "@/lib/utils"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -11,6 +9,8 @@ import { ModelMenu } from "@/features/model/components/model-menu"
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
+import { cn } from "@/lib/utils"
 
 export const ChatInputBox = ({
   onSend,
@@ -59,8 +59,8 @@ export const ChatInputBox = ({
 
     const addSpaceIfNeeded = (before: string, after: string) => {
       let result = prompt
-      if (before && !/\s$/.test(before)) result = " " + result
-      if (after && !/^\s/.test(after)) result = result + " "
+      if (before && !/\s$/.test(before)) result = ` ${result}`
+      if (after && !/^\s/.test(after)) result = `${result} `
       return result
     }
 
