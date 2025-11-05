@@ -1,5 +1,6 @@
 import { PerformanceWarning } from "@/components/performance-warning"
 import { SocialHandles } from "@/components/social-handles"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -41,7 +42,14 @@ export const OllamaOptions = () => {
       content: <ContentExtractionSettings />
     },
     embeddings: {
-      label: "Embeddings",
+      label: (
+        <span className="flex items-center gap-2">
+          Embeddings
+          <Badge variant="secondary" className="text-xs">
+            Beta
+          </Badge>
+        </span>
+      ),
       content: <EmbeddingSettings />
     },
     voices: {

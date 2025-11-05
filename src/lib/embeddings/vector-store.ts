@@ -5,12 +5,155 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { cosineSimilarity } from "./ollama-embedder"
+
+/**
+ * Normalizes a vector to unit length (L2 normalization)
+ * Returns the normalized vector and its norm
+ */
+const normalizeVector = (
+  embedding: number[]
+): { normalized: number[]; norm: number } => {
+  const len = embedding.length
+  if (len === 0) {
+    return { normalized: [], norm: 0 }
+  }
+
+  // Calculate L2 norm
+  let norm = 0
+  for (let i = 0; i < len; i++) {
+    norm += embedding[i] * embedding[i]
+  }
+  norm = Math.sqrt(norm)
+
+  if (norm === 0) {
+    return { normalized: new Array(len).fill(0), norm: 0 }
+  }
+
+  // Normalize
+  const normalized = new Array(len)
+  for (let i = 0; i < len; i++) {
+    normalized[i] = embedding[i] / norm
+  }
+
+  return { normalized, norm }
+}
+
+/**
+ * Optimized cosine similarity using Float32Array and pre-normalized vectors
+ * If normalized embeddings are available, uses dot product directly (much faster)
+ */
+const cosineSimilarityOptimized = (
+  queryNormalized: number[],
+  queryNorm: number,
+  docEmbedding: number[],
+  docNorm?: number,
+  docNormalized?: number[]
+): number => {
+  const len = queryNormalized.length
+
+  if (len === 0) return 0
+  if (len !== docEmbedding.length) {
+    throw new Error("Embeddings must have the same dimension")
+  }
+
+  // Convert to Float32Array for better performance
+  const queryArr = new Float32Array(queryNormalized)
+
+  // If document has normalized embedding, use dot product directly (fastest)
+  // Both vectors are normalized, so dot product = cosine similarity
+  if (docNormalized) {
+    const docArr = new Float32Array(docNormalized)
+    let dotProduct = 0
+
+    // Unrolled loop for better performance
+    const unrollFactor = 4
+    const remainder = len % unrollFactor
+    let i = 0
+
+    for (; i < len - remainder; i += unrollFactor) {
+      dotProduct +=
+        queryArr[i] * docArr[i] +
+        queryArr[i + 1] * docArr[i + 1] +
+        queryArr[i + 2] * docArr[i + 2] +
+        queryArr[i + 3] * docArr[i + 3]
+    }
+
+    for (; i < len; i++) {
+      dotProduct += queryArr[i] * docArr[i]
+    }
+
+    // Both vectors are normalized, so dot product equals cosine similarity
+    return dotProduct
+  }
+
+  // Fallback: compute similarity with pre-computed norms (faster than full computation)
+  if (docNorm !== undefined) {
+    const docArr = new Float32Array(docEmbedding)
+    let dotProduct = 0
+
+    const unrollFactor = 4
+    const remainder = len % unrollFactor
+    let i = 0
+
+    for (; i < len - remainder; i += unrollFactor) {
+      dotProduct +=
+        queryArr[i] * docArr[i] +
+        queryArr[i + 1] * docArr[i + 1] +
+        queryArr[i + 2] * docArr[i + 2] +
+        queryArr[i + 3] * docArr[i + 3]
+    }
+
+    for (; i < len; i++) {
+      dotProduct += queryArr[i] * docArr[i]
+    }
+
+    const denominator = queryNorm * docNorm
+    return denominator === 0 ? 0 : dotProduct / denominator
+  }
+
+  // Fallback: compute similarity manually using normalized query
+  // This handles cases where document doesn't have normalized embedding
+  const docArr = new Float32Array(docEmbedding)
+  let dotProduct = 0
+  let docNormSquared = 0
+
+  const unrollFactor = 4
+  const remainder = len % unrollFactor
+  let i = 0
+
+  for (; i < len - remainder; i += unrollFactor) {
+    const q0 = queryArr[i]
+    const q1 = queryArr[i + 1]
+    const q2 = queryArr[i + 2]
+    const q3 = queryArr[i + 3]
+    const d0 = docArr[i]
+    const d1 = docArr[i + 1]
+    const d2 = docArr[i + 2]
+    const d3 = docArr[i + 3]
+
+    dotProduct += q0 * d0 + q1 * d1 + q2 * d2 + q3 * d3
+    docNormSquared += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3
+  }
+
+  for (; i < len; i++) {
+    dotProduct += queryArr[i] * docArr[i]
+    docNormSquared += docArr[i] * docArr[i]
+  }
+
+  const calculatedDocNorm = Math.sqrt(docNormSquared)
+  const denominator = queryNorm * calculatedDocNorm
+  return denominator === 0 ? 0 : dotProduct / denominator
+}
 
 export interface VectorDocument {
   id?: number
   content: string
   embedding: number[]
+  // Normalized embedding (L2 normalized) - stored separately for performance
+  // If not present, will be computed on-the-fly for backwards compatibility
+  normalizedEmbedding?: number[]
+  // Pre-computed L2 norm - speeds up similarity calculation
+  norm?: number
   metadata: {
     type: "chat" | "file" | "webpage"
     sessionId?: string
@@ -43,6 +186,73 @@ class VectorDatabase extends Dexie {
 export const vectorDb = new VectorDatabase()
 
 /**
+ * Search result cache (query hash -> results)
+ * Cache TTL and max size are configurable via EmbeddingConfig
+ */
+interface SearchCacheEntry {
+  results: SearchResult[]
+  timestamp: number
+}
+
+const searchCache = new Map<string, SearchCacheEntry>()
+
+/**
+ * Gets cache configuration from settings
+ */
+const getCacheConfig = async (): Promise<{
+  ttl: number
+  maxSize: number
+}> => {
+  const config = await getEmbeddingConfig()
+  return {
+    ttl: config.searchCacheTTL * 60 * 1000, // Convert minutes to milliseconds
+    maxSize: config.searchCacheMaxSize
+  }
+}
+
+/**
+ * Creates a hash for search query caching
+ */
+const hashSearchQuery = (
+  queryEmbedding: number[],
+  options: {
+    limit?: number
+    minSimilarity?: number
+    type?: VectorDocument["metadata"]["type"]
+    sessionId?: string
+    fileId?: string
+  }
+): string => {
+  // Create a simple hash from query embedding and options
+  const queryHash = queryEmbedding.slice(0, 10).join(",")
+  const optionsStr = JSON.stringify(options)
+  return `${queryHash}:${optionsStr}`
+}
+
+/**
+ * Cleans expired search cache entries
+ */
+const cleanSearchCache = async (): Promise<void> => {
+  const { ttl, maxSize } = await getCacheConfig()
+  const now = Date.now()
+  for (const [key, entry] of searchCache.entries()) {
+    if (now - entry.timestamp > ttl) {
+      searchCache.delete(key)
+    }
+  }
+
+  // If cache is still too large, remove oldest entries
+  if (searchCache.size > maxSize) {
+    const entries = Array.from(searchCache.entries())
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp)
+    const toRemove = entries.slice(0, searchCache.size - maxSize)
+    for (const [key] of toRemove) {
+      searchCache.delete(key)
+    }
+  }
+}
+
+/**
  * Gets embedding configuration
  */
 const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
@@ -60,9 +270,12 @@ const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
  */
 const estimateStorageSize = (doc: VectorDocument): number => {
   const embeddingSize = doc.embedding.length * 4 // 4 bytes per float32
+  const normalizedSize = doc.normalizedEmbedding
+    ? doc.normalizedEmbedding.length * 4
+    : 0
   const contentSize = new Blob([doc.content]).size
   const metadataSize = JSON.stringify(doc.metadata).length
-  return embeddingSize + contentSize + metadataSize + 100 // +100 for overhead
+  return embeddingSize + normalizedSize + contentSize + metadataSize + 100 // +100 for overhead
 }
 
 /**
@@ -188,9 +401,14 @@ export const storeVector = async (
       .delete()
   }
 
+  // Normalize embedding for faster similarity searches
+  const { normalized, norm } = normalizeVector(embedding)
+
   const id = await vectorDb.vectors.add({
     content,
     embedding,
+    normalizedEmbedding: normalized,
+    norm,
     metadata
   })
 
@@ -202,7 +420,12 @@ export const storeVector = async (
 
 /**
  * Searches for similar documents using cosine similarity
- * Optimized with configurable limits, efficient filtering, and non-blocking computation
+ * Optimized with:
+ * - Pre-normalized embeddings and Float32Array
+ * - Early termination for low similarity scores
+ * - Search result caching
+ * - Configurable limits and efficient filtering
+ * - Non-blocking computation
  */
 export const searchSimilarVectors = async (
   queryEmbedding: number[],
@@ -222,6 +445,18 @@ export const searchSimilarVectors = async (
     sessionId,
     fileId
   } = options
+
+  // Check cache first
+  const cacheKey = hashSearchQuery(queryEmbedding, options)
+  const cached = searchCache.get(cacheKey)
+  const { ttl } = await getCacheConfig()
+  if (cached && Date.now() - cached.timestamp < ttl) {
+    return cached.results
+  }
+
+  // Normalize query embedding once
+  const { normalized: queryNormalized, norm: queryNorm } =
+    normalizeVector(queryEmbedding)
 
   let query: Dexie.Collection<VectorDocument, number>
 
@@ -253,13 +488,28 @@ export const searchSimilarVectors = async (
   for (let i = 0; i < documents.length; i += CHUNK_SIZE) {
     const chunk = documents.slice(i, i + CHUNK_SIZE)
 
-    // Calculate similarities for this chunk
-    const chunkResults: SearchResult[] = chunk
-      .map((doc) => ({
-        document: doc,
-        similarity: cosineSimilarity(queryEmbedding, doc.embedding)
-      }))
-      .filter((result) => result.similarity >= minSimilarity)
+    // Calculate similarities for this chunk with optimizations
+    const chunkResults: SearchResult[] = []
+
+    for (const doc of chunk) {
+      // Use optimized similarity calculation
+      const similarity = cosineSimilarityOptimized(
+        queryNormalized,
+        queryNorm,
+        doc.embedding,
+        doc.norm,
+        doc.normalizedEmbedding
+      )
+
+      // Early termination: skip if below threshold
+      // This saves computation time by not storing low-similarity results
+      if (similarity >= minSimilarity) {
+        chunkResults.push({
+          document: doc,
+          similarity
+        })
+      }
+    }
 
     results.push(...chunkResults)
 
@@ -270,7 +520,18 @@ export const searchSimilarVectors = async (
   }
 
   // Sort and limit results
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
+  const sortedResults = results
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit)
+
+  // Cache results
+  await cleanSearchCache()
+  searchCache.set(cacheKey, {
+    results: sortedResults,
+    timestamp: Date.now()
+  })
+
+  return sortedResults
 }
 
 /**

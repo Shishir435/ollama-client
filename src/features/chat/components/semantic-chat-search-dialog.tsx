@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,6 +47,8 @@ export const SemanticChatSearchDialog = ({
   const debouncedQuery = useDebounce(searchQuery, 500)
   const { search, isSearching, error } = useSemanticChatSearch()
   const { sessions, setCurrentSessionId } = useChatSessions()
+  // Track current search to cancel if query changes
+  const currentSearchRef = useRef<Promise<ChatSearchResult[]> | null>(null)
 
   // Group results by session
   const groupedResults = useMemo(() => {
@@ -76,32 +78,61 @@ export const SemanticChatSearchDialog = ({
   }, [results, sessions])
 
   useEffect(() => {
-    if (debouncedQuery.trim()) {
-      search(debouncedQuery.trim(), {
-        sessionId:
-          searchScope === "current" && currentSessionId
-            ? currentSessionId
-            : undefined
-      }).then(setResults)
-    } else {
+    // Clear previous results if query is empty
+    if (!debouncedQuery.trim()) {
       setResults([])
+      currentSearchRef.current = null
+      return
+    }
+
+    // Start new search
+    const searchPromise = search(debouncedQuery.trim(), {
+      sessionId:
+        searchScope === "current" && currentSessionId
+          ? currentSessionId
+          : undefined
+    })
+
+    currentSearchRef.current = searchPromise
+
+    // Handle search completion
+    searchPromise
+      .then((searchResults) => {
+        // Only update if this is still the current search
+        if (currentSearchRef.current === searchPromise) {
+          setResults(searchResults)
+        }
+      })
+      .catch((err) => {
+        // Only log error if this is still the current search
+        if (currentSearchRef.current === searchPromise) {
+          console.error("Search error:", err)
+        }
+      })
+
+    // Cleanup: mark search as cancelled if component unmounts or query changes
+    return () => {
+      currentSearchRef.current = null
     }
   }, [debouncedQuery, search, searchScope, currentSessionId])
 
-  const handleSelectResult = (result: ChatSearchResult) => {
-    // Switch to the session if it's not the current one
-    if (result.sessionId !== currentSessionId) {
-      setCurrentSessionId(result.sessionId)
-    }
+  const handleSelectResult = useCallback(
+    (result: ChatSearchResult) => {
+      // Switch to the session if it's not the current one
+      if (result.sessionId !== currentSessionId) {
+        setCurrentSessionId(result.sessionId)
+      }
 
-    if (onSelectResult) {
-      onSelectResult(result)
-    }
+      if (onSelectResult) {
+        onSelectResult(result)
+      }
 
-    onClose()
-  }
+      onClose()
+    },
+    [currentSessionId, onSelectResult, onClose, setCurrentSessionId]
+  )
 
-  const formatTimestamp = (timestamp: number) => {
+  const formatTimestamp = useCallback((timestamp: number) => {
     try {
       const date = new Date(timestamp)
       const now = Date.now()
@@ -122,18 +153,23 @@ export const SemanticChatSearchDialog = ({
     } catch {
       return "Unknown time"
     }
-  }
+  }, [])
 
-  const truncateText = (text: string, maxLength: number = 150) => {
+  const truncateText = useCallback((text: string, maxLength: number = 150) => {
     if (text.length <= maxLength) return text
-    return text.slice(0, maxLength) + "..."
-  }
+    return `${text.slice(0, maxLength)}...`
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>Semantic Chat Search</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle>Semantic Chat Search</DialogTitle>
+            <Badge variant="secondary" className="text-xs">
+              Beta v0.3.0
+            </Badge>
+          </div>
           <DialogDescription>
             Search your chat history by meaning, not just keywords
           </DialogDescription>

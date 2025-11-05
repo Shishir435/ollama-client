@@ -186,6 +186,9 @@ export const EmbeddingSettings = () => {
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">Vector Embeddings</CardTitle>
+            <Badge variant="secondary" className="text-xs">
+              Beta v0.3.0
+            </Badge>
           </div>
           <CardDescription className="text-sm">
             Embeddings enable semantic search, RAG (Retrieval Augmented
@@ -351,7 +354,7 @@ export const EmbeddingSettings = () => {
                       </>
                     ) : (
                       <>
-                        <Sparkles className="h-3 w-3 mr-2" />
+                        <Sparkles className="h-3 w-3 mr-1" />
                         Test
                       </>
                     )}

@@ -11,13 +11,8 @@
   <img src="https://img.shields.io/badge/Brave-Supported-orange?logo=brave&style=for-the-badge" alt="Brave Supported" />
   <img src="https://img.shields.io/badge/Edge-Supported-blue?logo=microsoftedge&style=for-the-badge" alt="Edge Supported" />
   <img src="https://img.shields.io/badge/Opera-Supported-red?logo=opera&style=for-the-badge" alt="Opera Supported" />
-  <img src="https://img.shields.io/badge/Firefox-Experimental-lightgrey?logo=firefox-browser&style=for-the-badge" alt="Firefox Experimental" />
+  <img src="https://img.shields.io/badge/Firefox-Supported-lightgrey?logo=firefox-browser&style=for-the-badge" alt="Firefox Supported" />
 </div>
-
----
-
-> ✅ Works with any Chromium-based browser: **Chrome**, **Brave**, **Edge**, **Opera**, and **Chromium**  
-> 🦊 **Firefox support** available via [temporary addon installation](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/) (manual permissions setup required).
 
 ---
 
@@ -100,7 +95,6 @@
 ### Frontend
 - **TypeScript** – Type-safe development
 - **React 18** – Modern UI framework
-- **Vite** – Fast build tool
 - **Plasmo** – Chrome extension framework
 - **Shadcn UI** – Professional component library (Radix UI primitives)
 - **Tailwind CSS** – Utility-first styling
@@ -304,13 +298,24 @@ Load as a [temporary extension](https://extensionworkshop.com/documentation/deve
 
 ### 📁 Code Structure
 
-- `src/`: Core logic and components
-- `background.ts`: API bridge + streaming
-- `sidepanel.tsx`: Main chat UI
-- `options.tsx`: Settings page
-- `content.ts`: Summarizer / Readability
-- `lib/`: Utility functions
-- `hooks/`, `features/`, `context/`: Modular structure for maintainability
+```
+src/
+├── background/        # Background service worker & API handlers
+├── sidepanel/         # Main chat UI
+├── options/           # Settings page
+├── features/          # Feature modules
+│   ├── chat/          # Chat components, hooks, semantic search
+│   ├── model/         # Model management & settings
+│   ├── sessions/      # Chat session management
+│   ├── prompt/        # Prompt templates
+│   └── tabs/          # Browser tab integration
+├── lib/               # Shared utilities
+│   └── embeddings/    # Vector embeddings & semantic search
+├── components/        # Shared UI components (Shadcn)
+└── hooks/             # Shared React hooks
+```
+
+**Architecture**: Feature-based organization with separation of concerns (components, hooks, stores). Zustand for global state, React hooks for local state.
 
 ---
 
@@ -334,7 +339,7 @@ Explore: [Ollama Model Library](https://ollama.com/library)
 
 ---
 
-## 🧪 Firefox Support (Experimental)
+## 🧪 Firefox Support
 
 Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 
@@ -368,11 +373,24 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 ### Embeddings & Semantic Search
 
-- [ ] Implement **Ollama Embedding Models**:
-  - [ ] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `all-minilm`)
-  - [ ] Generate embeddings for chat messages and store in IndexedDB
-  - [ ] Semantic search over chat history
-  - [ ] Semantic filtering for chat sessions
+- [x] Implement **Ollama Embedding Models**:
+  - [x] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `all-minilm`)
+  - [x] Generate embeddings for chat messages and store in IndexedDB
+  - [x] Semantic search over chat history (global and per-chat)
+  - [x] Auto-embedding toggle and backfill functionality
+- [x] **Vector Search Optimization** (Phase 1 - Completed):
+  - [x] Brute-force cosine similarity with optimized computation
+  - [x] Pre-normalize embeddings on storage
+  - [x] Use Float32Array for better memory locality
+  - [x] Implement early termination for low similarity scores
+  - [x] Add search result caching (configurable TTL & max size)
+  - [x] Non-blocking computation (async chunking with yields)
+- [ ] **Advanced Vector Search** (Phase 2 - Future):
+  - [ ] WASM-based HNSW indexing via `use-wasm` or `hnswlib-wasm`
+  - [ ] Implement when dataset exceeds 10K vectors
+  - [ ] Expected performance gain: 10-100x faster searches
+  - [ ] Bundle size impact: ~200 KB (gzipped: ~100-200 KB)
+  - [ ] See `VECTOR_SEARCH_LIBRARIES_REPORT.md` for detailed analysis
 - [ ] Enable **Local RAG** over chats, PDFs, and image text
 - [ ] **Browser Search Feature**:
   - [ ] Contextual search within webpage content

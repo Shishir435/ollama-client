@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -564,7 +565,14 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Chat Search Settings */}
       <FormSectionCard
         icon={MessageSquare}
-        title="Chat Search Settings"
+        title={
+          <span className="flex items-center gap-2">
+            Chat Search Settings
+            <Badge variant="secondary" className="text-xs">
+              Beta
+            </Badge>
+          </span>
+        }
         description="Configure semantic search for chat history">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -663,8 +671,55 @@ export const EmbeddingConfigSettings = memo(() => {
               <span>1</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Minimum cosine similarity score (0-1). Higher values return more
-              relevant but fewer results.
+              Minimum cosine similarity score (0-1). For semantic search,
+              0.4-0.6 is recommended. Higher values return more relevant but
+              fewer results.
+            </p>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t">
+            <Label htmlFor="searchCacheTTL">Search Cache TTL (minutes)</Label>
+            <Input
+              id="searchCacheTTL"
+              type="number"
+              value={config.searchCacheTTL}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10)
+                if (!Number.isNaN(val) && val >= 1 && val <= 60) {
+                  updateConfig({
+                    searchCacheTTL: val
+                  })
+                }
+              }}
+              min={1}
+              max={60}
+            />
+            <p className="text-xs text-muted-foreground">
+              How long to cache search results (1-60 minutes). Cached queries
+              return instantly.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="searchCacheMaxSize">Max Cached Queries</Label>
+            <Input
+              id="searchCacheMaxSize"
+              type="number"
+              value={config.searchCacheMaxSize}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10)
+                if (!Number.isNaN(val) && val >= 10 && val <= 200) {
+                  updateConfig({
+                    searchCacheMaxSize: val
+                  })
+                }
+              }}
+              min={10}
+              max={200}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum number of search queries to cache (10-200). Older entries
+              are automatically removed when limit is reached.
             </p>
           </div>
         </div>

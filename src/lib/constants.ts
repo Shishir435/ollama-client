@@ -76,7 +76,11 @@ export interface EmbeddingConfig {
 
   // Search settings
   defaultSearchLimit: number // Default number of results (default: 10)
-  defaultMinSimilarity: number // Minimum similarity threshold (default: 0.7)
+  defaultMinSimilarity: number // Minimum similarity threshold (default: 0.5 for semantic search)
+
+  // Search cache settings
+  searchCacheTTL: number // Cache TTL in minutes (default: 5)
+  searchCacheMaxSize: number // Max cached queries (default: 50)
 
   // Storage settings
   maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
@@ -93,7 +97,9 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   useWebWorker: true, // Offload to worker thread
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,
-  defaultMinSimilarity: 0.7,
+  defaultMinSimilarity: 0.4,
+  searchCacheTTL: 5, // 5 minutes
+  searchCacheMaxSize: 50, // Max 50 cached queries
   maxStorageSize: 100, // 100MB limit
   autoCleanup: false,
   cleanupDaysOld: 30
