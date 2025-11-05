@@ -71,7 +71,7 @@ export const WelcomeScreen = () => {
         </p>
       </div>
 
-      <div className="mb-6 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FeatureCard
           icon={Shield}
           color="green"
@@ -89,6 +89,12 @@ export const WelcomeScreen = () => {
           color="purple"
           title="Local Processing"
           description="Full control"
+        />
+        <FeatureCard
+          icon={Sparkles}
+          color="indigo"
+          title="Vector Embeddings"
+          description="Semantic search ready"
         />
       </div>
 
@@ -237,7 +243,7 @@ const FeatureCard = ({
   description
 }: {
   icon: React.ComponentType<{ className?: string }>
-  color: "green" | "blue" | "purple"
+  color: "green" | "blue" | "purple" | "indigo"
   title: string
   description: string
 }) => {
@@ -262,6 +268,13 @@ const FeatureCard = ({
       iconBg: "bg-purple-500",
       titleText: "text-purple-800 dark:text-purple-300",
       descText: "text-purple-600 dark:text-purple-400"
+    },
+    indigo: {
+      border: "border-indigo-200 dark:border-indigo-800",
+      bg: "bg-indigo-50 dark:bg-indigo-950/30",
+      iconBg: "bg-indigo-500",
+      titleText: "text-indigo-800 dark:text-indigo-300",
+      descText: "text-indigo-600 dark:text-indigo-400"
     }
   }
 

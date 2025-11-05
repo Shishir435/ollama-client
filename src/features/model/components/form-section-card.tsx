@@ -1,3 +1,4 @@
+import type React from "react"
 import {
   Card,
   CardContent,
@@ -8,7 +9,7 @@ import {
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 interface FormSectionCardProps {
-  title: string
+  title: string | React.ReactNode
   description: string
   icon?: LucideIcon
   children: React.ReactNode

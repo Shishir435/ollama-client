@@ -2,6 +2,7 @@ import AlertCircle from "lucide-react/dist/esm/icons/alert-circle"
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle"
 import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3"
 import BookOpen from "lucide-react/dist/esm/icons/book-open"
+import Bot from "lucide-react/dist/esm/icons/bot"
 import Brain from "lucide-react/dist/esm/icons/brain"
 import Bug from "lucide-react/dist/esm/icons/bug"
 import Calendar from "lucide-react/dist/esm/icons/calendar"
@@ -49,6 +50,7 @@ import Plus from "lucide-react/dist/esm/icons/plus"
 import RefreshCcw from "lucide-react/dist/esm/icons/refresh-ccw"
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw"
 import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw"
+import Scissors from "lucide-react/dist/esm/icons/scissors"
 import Search from "lucide-react/dist/esm/icons/search"
 import SendHorizontal from "lucide-react/dist/esm/icons/send-horizontal"
 import Server from "lucide-react/dist/esm/icons/server"
@@ -67,6 +69,7 @@ import Trash2 from "lucide-react/dist/esm/icons/trash-2"
 import TriangleAlert from "lucide-react/dist/esm/icons/triangle-alert"
 import Twitter from "lucide-react/dist/esm/icons/twitter"
 import Upload from "lucide-react/dist/esm/icons/upload"
+import User from "lucide-react/dist/esm/icons/user"
 import Volume2 from "lucide-react/dist/esm/icons/volume-2"
 import X from "lucide-react/dist/esm/icons/x"
 import XCircle from "lucide-react/dist/esm/icons/x-circle"
@@ -107,6 +110,7 @@ export {
   ExternalLink,
   Package,
   Search,
+  Scissors,
   RotateCcw,
   Calendar,
   ChevronUp,
@@ -147,5 +151,7 @@ export {
   Plus,
   Shield,
   Trash2,
-  type LucideIcon
+  type LucideIcon,
+  Bot,
+  User
 }

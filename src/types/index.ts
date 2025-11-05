@@ -316,6 +316,12 @@ export interface ChatInput {
   setInput: (value: string) => void
 }
 
+// Re-export embedding config types from constants
+export type {
+  ChunkingStrategy,
+  EmbeddingConfig
+} from "@/lib/constants"
+
 export type ScrollStrategy = "none" | "gradual" | "instant" | "smart"
 export type ContentScraper = "auto" | "defuddle" | "readability"
 

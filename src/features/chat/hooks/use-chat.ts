@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
+import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -40,9 +41,20 @@ export const useChat = () => {
   const currentSession = sessions.find((s) => s.id === currentSessionId)
   const messages = currentSession?.messages ?? []
 
+  const { embedMessages } = useAutoEmbedMessages()
+
   const { startStream, stopStream } = useOllamaStream({
-    setMessages: (newMessages) => {
-      if (currentSessionId) updateMessages(currentSessionId, newMessages)
+    setMessages: async (newMessages) => {
+      if (currentSessionId) {
+        await updateMessages(currentSessionId, newMessages)
+        // Only embed when streaming is complete (don't embed during streaming)
+        // Auto-embed messages in background (don't await to avoid blocking)
+        embedMessages(newMessages, currentSessionId, isStreaming).catch(
+          (err) => {
+            console.error("Failed to embed messages:", err)
+          }
+        )
+      }
     },
     setIsLoading,
     setIsStreaming
@@ -92,6 +104,11 @@ export const useChat = () => {
 
     // Save updated messages
     await updateMessages(currentSessionId, newMessages)
+
+    // Auto-embed user message (always complete, not streaming)
+    embedMessages(newMessages, currentSessionId, false).catch((err) => {
+      console.error("Failed to embed messages:", err)
+    })
 
     // Rename session title if it's still "New Chat"
     await autoRenameSession(sessionId, rawInput)
