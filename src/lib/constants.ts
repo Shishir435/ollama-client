@@ -50,7 +50,8 @@ export const STORAGE_KEYS = {
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
-    CONFIG: "embeddings-config"
+    CONFIG: "embeddings-config",
+    AUTO_EMBED_CHAT: "embeddings-auto-embed-chat"
   }
 }
 

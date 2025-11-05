@@ -1,6 +1,13 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -12,6 +19,7 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import { FormSectionCard } from "@/features/model/components/form-section-card"
 import {
   type ChunkingStrategy,
@@ -20,8 +28,20 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { getCacheStats } from "@/lib/embeddings/ollama-embedder"
-import { getStorageStats } from "@/lib/embeddings/vector-store"
-import { Database, Scissors, Settings, Zap } from "@/lib/lucide-icon"
+import {
+  clearAllVectors,
+  getStorageStats,
+  removeDuplicateVectors
+} from "@/lib/embeddings/vector-store"
+import {
+  Database,
+  MessageSquare,
+  Scissors,
+  Settings,
+  Sparkles,
+  Trash2,
+  Zap
+} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 const useEmbeddingConfig = () => {
@@ -47,6 +67,26 @@ const useEmbeddingConfig = () => {
   return { config, updateConfig }
 }
 
+const AutoEmbedChatToggle = memo(() => {
+  const [autoEmbedEnabled, setAutoEmbedEnabled] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
+
+  return (
+    <Switch
+      id="autoEmbedChat"
+      checked={autoEmbedEnabled ?? true}
+      onCheckedChange={setAutoEmbedEnabled}
+    />
+  )
+})
+
+AutoEmbedChatToggle.displayName = "AutoEmbedChatToggle"
+
 export const EmbeddingConfigSettings = memo(() => {
   const { config, updateConfig } = useEmbeddingConfig()
   const [storageStats, setStorageStats] = useState<{
@@ -58,6 +98,7 @@ export const EmbeddingConfigSettings = memo(() => {
     size: number
     maxSize: number
   } | null>(null)
+  const [isCleaning, setIsCleaning] = useState(false)
   const isLoadingRef = useRef(false)
 
   // Memoize the load stats function to prevent unnecessary recreations
@@ -100,6 +141,74 @@ export const EmbeddingConfigSettings = memo(() => {
     return () => clearInterval(interval)
   }, [loadStats])
 
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (
+      !confirm(
+        "Remove duplicate embeddings? This will keep only the first occurrence of each unique message."
+      )
+    ) {
+      return
+    }
+
+    setIsCleaning(true)
+    try {
+      const result = await removeDuplicateVectors()
+      alert(
+        `Removed ${result.removed} duplicate(s). Kept ${result.kept} unique embedding(s).`
+      )
+      await loadStats()
+    } catch (error) {
+      console.error("Failed to remove duplicates:", error)
+      alert("Failed to remove duplicates. Check console for details.")
+    } finally {
+      setIsCleaning(false)
+    }
+  }, [loadStats])
+
+  const handleClearChatVectors = useCallback(async () => {
+    if (
+      !confirm(
+        "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later."
+      )
+    ) {
+      return
+    }
+
+    setIsCleaning(true)
+    try {
+      const deleted = await clearAllVectors("chat")
+      alert(`Cleared ${deleted} chat embedding(s).`)
+      await loadStats()
+    } catch (error) {
+      console.error("Failed to clear chat vectors:", error)
+      alert("Failed to clear chat vectors. Check console for details.")
+    } finally {
+      setIsCleaning(false)
+    }
+  }, [loadStats])
+
+  const handleClearAllVectors = useCallback(async () => {
+    if (
+      !confirm(
+        "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone."
+      )
+    ) {
+      return
+    }
+
+    setIsCleaning(true)
+    try {
+      await clearAllVectors()
+      alert("All embeddings cleared.")
+      await loadStats()
+    } catch (error) {
+      console.error("Failed to clear all vectors:", error)
+      alert("Failed to clear all vectors. Check console for details.")
+    } finally {
+      setIsCleaning(false)
+    }
+  }, [loadStats])
+
   return (
     <div className="mx-auto space-y-6">
       {/* Statistics Card */}
@@ -137,6 +246,62 @@ export const EmbeddingConfigSettings = memo(() => {
           </CardContent>
         </Card>
       )}
+
+      {/* Database Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Trash2 className="h-5 w-5" />
+            Database Management
+          </CardTitle>
+          <CardDescription>
+            Clean up and manage your vector embeddings database
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              onClick={handleRemoveDuplicates}
+              disabled={isCleaning || !storageStats?.totalVectors}
+              className="w-full">
+              Remove Duplicates
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Remove duplicate embeddings, keeping only the first occurrence of
+              each unique message
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              onClick={handleClearChatVectors}
+              disabled={isCleaning || !storageStats?.byType?.chat}
+              className="w-full">
+              Clear All Chat Embeddings
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Delete all chat embeddings. You can backfill later to regenerate
+              them
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              variant="destructive"
+              onClick={handleClearAllVectors}
+              disabled={isCleaning || !storageStats?.totalVectors}
+              className="w-full">
+              Clear All Embeddings
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Delete all embeddings (chats, files, webpages). This action cannot
+              be undone
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Chunking Settings */}
       <FormSectionCard
@@ -213,7 +378,8 @@ export const EmbeddingConfigSettings = memo(() => {
               <span>500</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Overlap between chunks to preserve context across boundaries.
+              Overlap between chunks. Helps preserve context across chunk
+              boundaries.
             </p>
           </div>
 
@@ -228,64 +394,43 @@ export const EmbeddingConfigSettings = memo(() => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fixed">
-                  Fixed Size - Split at fixed token boundaries
-                </SelectItem>
-                <SelectItem value="semantic">
-                  Semantic - Split at sentence/paragraph boundaries
-                </SelectItem>
-                <SelectItem value="hybrid">
-                  Hybrid - Try semantic first, fallback to fixed
-                </SelectItem>
+                <SelectItem value="fixed">Fixed Size</SelectItem>
+                <SelectItem value="semantic">Semantic Boundaries</SelectItem>
+                <SelectItem value="hybrid">Hybrid (Recommended)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Strategy for splitting text. Hybrid is recommended for best
-              results.
+              How to split text into chunks. Hybrid provides the best balance of
+              context and focus.
             </p>
           </div>
         </div>
       </FormSectionCard>
 
-      {/* Performance Settings */}
+      {/* Embedding Generation Settings */}
       <FormSectionCard
         icon={Zap}
-        title="Performance Settings"
-        description="Optimize embedding generation for your system">
+        title="Embedding Generation"
+        description="Configure embedding generation performance">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="batchSize">Batch Size</Label>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={[config.batchSize]}
-                onValueChange={([value]) => updateConfig({ batchSize: value })}
-                min={1}
-                max={20}
-                step={1}
-                className="flex-1"
-              />
-              <Input
-                id="batchSize"
-                type="number"
-                value={config.batchSize}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val) && val >= 1 && val <= 20) {
-                    updateConfig({ batchSize: val })
-                  }
-                }}
-                className="w-24"
-                min={1}
-                max={20}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1</span>
-              <span>20</span>
-            </div>
+            <Input
+              id="batchSize"
+              type="number"
+              value={config.batchSize}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10)
+                if (!Number.isNaN(val) && val >= 1 && val <= 20) {
+                  updateConfig({ batchSize: val })
+                }
+              }}
+              min={1}
+              max={20}
+            />
             <p className="text-xs text-muted-foreground">
-              Number of embeddings to generate in parallel. Lower values use
-              less memory but are slower.
+              Number of texts to embed in parallel. Higher values are faster but
+              use more memory.
             </p>
           </div>
 
@@ -415,6 +560,42 @@ export const EmbeddingConfigSettings = memo(() => {
           )}
         </div>
       </FormSectionCard>
+
+      {/* Chat Search Settings */}
+      <FormSectionCard
+        icon={MessageSquare}
+        title="Chat Search Settings"
+        description="Configure semantic search for chat history">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="autoEmbedChat">Auto-embed Chat Messages</Label>
+              <p className="text-xs text-muted-foreground">
+                Automatically embed chat messages for semantic search
+                (recommended)
+              </p>
+            </div>
+            <AutoEmbedChatToggle />
+          </div>
+        </div>
+      </FormSectionCard>
+
+      {/* Backfill Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Backfill Chat History
+          </CardTitle>
+          <CardDescription>
+            Generate embeddings for all existing chat messages to enable
+            semantic search
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChatBackfillPanel />
+        </CardContent>
+      </Card>
 
       {/* Search Settings */}
       <FormSectionCard

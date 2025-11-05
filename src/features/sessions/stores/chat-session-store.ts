@@ -4,6 +4,7 @@ import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 
 import { db } from "@/lib/db"
+import { deleteVectors } from "@/lib/embeddings/vector-store"
 import type { ChatSession, ChatSessionState } from "@/types"
 
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
@@ -46,6 +47,13 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
   deleteSession: async (id: string) => {
     await db.sessions.delete(id)
+    // Delete all embeddings for this session
+    try {
+      await deleteVectors({ sessionId: id, type: "chat" })
+    } catch (error) {
+      console.error("Failed to delete session embeddings:", error)
+      // Don't block session deletion if embedding cleanup fails
+    }
     set((state) => {
       const remaining = state.sessions.filter((s) => s.id !== id)
       return {

@@ -141,6 +141,7 @@ const checkStorageLimit = async (): Promise<void> => {
 /**
  * Stores a document with its embedding in the vector database
  * Optimized with storage limit checking and auto-cleanup
+ * Includes deduplication check to prevent storing duplicate content
  */
 export const storeVector = async (
   content: string,
@@ -148,6 +149,21 @@ export const storeVector = async (
   metadata: VectorDocument["metadata"]
 ): Promise<number> => {
   const config = await getEmbeddingConfig()
+
+  // Check for duplicate content in the same context (sessionId/fileId/url)
+  // This prevents storing the same content multiple times
+  if (metadata.sessionId) {
+    const existing = await vectorDb.vectors
+      .where("metadata.sessionId")
+      .equals(metadata.sessionId)
+      .filter((doc) => doc.content === content)
+      .first()
+
+    if (existing) {
+      // Return existing ID instead of creating duplicate
+      return existing.id || 0
+    }
+  }
 
   // Check file limits
   if (config.maxEmbeddingsPerFile > 0 && metadata.fileId) {
@@ -361,4 +377,82 @@ export const getStorageStats = async (): Promise<{
     totalSizeMB: totalSize / (1024 * 1024),
     byType
   }
+}
+
+/**
+ * Clears all vectors from the database
+ * Optionally filters by type to clear only specific types
+ */
+export const clearAllVectors = async (
+  type?: VectorDocument["metadata"]["type"]
+): Promise<number> => {
+  if (type) {
+    return await deleteVectors({ type })
+  }
+  const count = await vectorDb.vectors.count()
+  await vectorDb.vectors.clear()
+  return count
+}
+
+/**
+ * Removes duplicate vectors keeping only the first occurrence
+ * Duplicates are identified by same content within the same sessionId/fileId/url
+ * Returns the number of duplicates removed
+ */
+export const removeDuplicateVectors = async (): Promise<{
+  removed: number
+  kept: number
+}> => {
+  let removed = 0
+  let kept = 0
+
+  // Process in batches to avoid loading all vectors into memory
+  const batchSize = 500
+  let offset = 0
+  let hasMore = true
+
+  // Track seen content per context
+  const seenContent = new Map<string, number>()
+
+  while (hasMore) {
+    const batch = await vectorDb.vectors
+      .offset(offset)
+      .limit(batchSize)
+      .toArray()
+
+    if (batch.length === 0) {
+      hasMore = false
+      break
+    }
+
+    for (const doc of batch) {
+      if (!doc.id) continue
+
+      // Create a unique key for this content in its context
+      const contextKey = doc.metadata.sessionId
+        ? `${doc.metadata.sessionId}:${doc.content}`
+        : doc.metadata.fileId
+          ? `${doc.metadata.fileId}:${doc.content}`
+          : doc.metadata.url
+            ? `${doc.metadata.url}:${doc.content}`
+            : doc.content
+
+      if (seenContent.has(contextKey)) {
+        // Duplicate found - delete it
+        await vectorDb.vectors.delete(doc.id)
+        removed++
+      } else {
+        // First occurrence - keep it
+        seenContent.set(contextKey, doc.id)
+        kept++
+      }
+    }
+
+    offset += batchSize
+
+    // Yield to main thread every batch
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  return { removed, kept }
 }
