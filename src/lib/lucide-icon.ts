@@ -49,6 +49,7 @@ import Plus from "lucide-react/dist/esm/icons/plus"
 import RefreshCcw from "lucide-react/dist/esm/icons/refresh-ccw"
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw"
 import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw"
+import Scissors from "lucide-react/dist/esm/icons/scissors"
 import Search from "lucide-react/dist/esm/icons/search"
 import SendHorizontal from "lucide-react/dist/esm/icons/send-horizontal"
 import Server from "lucide-react/dist/esm/icons/server"
@@ -107,6 +108,7 @@ export {
   ExternalLink,
   Package,
   Search,
+  Scissors,
   RotateCcw,
   Calendar,
   ChevronUp,

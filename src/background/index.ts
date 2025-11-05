@@ -2,6 +2,10 @@ import "webextension-polyfill"
 
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
+import {
+  checkEmbeddingModelExists,
+  downloadEmbeddingModelSilently
+} from "@/background/handlers/handle-embedding-download"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { handleGetOllamaVersion } from "@/background/handlers/handle-get-ollama-version"
@@ -15,7 +19,12 @@ import { abortAndClearController } from "@/background/lib/abort-controller-regis
 import { updateDNRRules } from "@/background/lib/dnr"
 import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatWithModelMessage,
   ChromeMessage,
@@ -64,7 +73,39 @@ if (!isChromiumBased()) {
 }
 
 if (isChromiumBased()) {
-  browser.runtime.onInstalled.addListener(() => updateDNRRules())
+  browser.runtime.onInstalled.addListener(async (details) => {
+    updateDNRRules()
+
+    // Auto-download embedding model on first install
+    if (details.reason === "install") {
+      console.log("Extension installed - downloading embedding model...")
+
+      // Check if already downloaded
+      const alreadyDownloaded = await plasmoGlobalStorage.get<boolean>(
+        STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED
+      )
+
+      if (!alreadyDownloaded) {
+        // Try to download embedding model in background
+        downloadEmbeddingModelSilently(DEFAULT_EMBEDDING_MODEL)
+          .then((result) => {
+            if (result.success) {
+              console.log(
+                `✅ Successfully downloaded embedding model: ${DEFAULT_EMBEDDING_MODEL}`
+              )
+            } else {
+              console.warn(
+                `⚠️ Failed to auto-download embedding model: ${result.error}`
+              )
+            }
+          })
+          .catch((error) => {
+            console.error("Error during embedding model download:", error)
+          })
+      }
+    }
+  })
+
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
@@ -170,6 +211,30 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION: {
         handleGetOllamaVersion(sendResponse)
+        return true
+      }
+
+      case MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL: {
+        if (typeof message.payload === "string") {
+          // Handle async operation separately to maintain correct return type
+          checkEmbeddingModelExists(message.payload as string)
+            .then((exists) => {
+              safeSendResponse(sendResponse, {
+                success: true,
+                data: { exists }
+              })
+            })
+            .catch((error) => {
+              safeSendResponse(sendResponse, {
+                success: false,
+                error: {
+                  status: 0,
+                  message:
+                    error instanceof Error ? error.message : String(error)
+                }
+              })
+            })
+        }
         return true
       }
     }

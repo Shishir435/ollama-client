@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
+import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
@@ -38,6 +39,10 @@ export const OllamaOptions = () => {
     contentExtraction: {
       label: "Extraction",
       content: <ContentExtractionSettings />
+    },
+    embeddings: {
+      label: "Embeddings",
+      content: <EmbeddingSettings />
     },
     voices: {
       label: "Voices",
