@@ -1,22 +1,28 @@
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { FileUploadArea } from "@/features/file-upload/components/file-upload-area"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
+import type { ProcessedFile } from "@/lib/file-processors/types"
 import { cn } from "@/lib/utils"
 
 export const ChatInputBox = ({
   onSend,
   stopGeneration
 }: {
-  onSend: () => void
+  onSend: (
+    customInput?: string,
+    customModel?: string,
+    files?: ProcessedFile[]
+  ) => void
   stopGeneration: () => void
 }) => {
   const { input, setInput } = useChatInput()
@@ -26,6 +32,7 @@ export const ChatInputBox = ({
   const selectionEndRef = useRef<number | null>(null)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [attachedFiles, setAttachedFiles] = useState<ProcessedFile[]>([])
 
   useAutoResizeTextarea(textareaRef, input)
 
@@ -49,7 +56,12 @@ export const ChatInputBox = ({
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
-      onSend()
+      onSend(
+        undefined,
+        undefined,
+        attachedFiles.length > 0 ? attachedFiles : undefined
+      )
+      setAttachedFiles([])
     }
   }
 
@@ -92,11 +104,24 @@ export const ChatInputBox = ({
     })
   }
 
+  const handleFilesProcessed = useCallback((files: ProcessedFile[]) => {
+    setAttachedFiles(files)
+  }, [])
+
   return (
     <div className="relative">
       <div className="mb-2">
         <TabsSelect />
       </div>
+
+      {attachedFiles.length > 0 && (
+        <div className="mb-2">
+          <FileUploadArea
+            onFilesProcessed={handleFilesProcessed}
+            disabled={isLoading}
+          />
+        </div>
+      )}
 
       {showPromptOverlay && (
         <PromptSelectorDialog
@@ -147,6 +172,13 @@ export const ChatInputBox = ({
             />
             <TabsToggle />
             <SettingsButton showText={false} />
+            {attachedFiles.length === 0 && (
+              <FileUploadArea
+                onFilesProcessed={handleFilesProcessed}
+                disabled={isLoading}
+                compact
+              />
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -163,7 +195,17 @@ export const ChatInputBox = ({
         </div>
 
         <div className="absolute right-3 top-3">
-          <SendOrStopButton onSend={onSend} stopGeneration={stopGeneration} />
+          <SendOrStopButton
+            onSend={() => {
+              onSend(
+                undefined,
+                undefined,
+                attachedFiles.length > 0 ? attachedFiles : undefined
+              )
+              setAttachedFiles([])
+            }}
+            stopGeneration={stopGeneration}
+          />
         </div>
       </div>
     </div>

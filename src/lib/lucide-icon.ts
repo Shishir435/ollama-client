@@ -46,6 +46,7 @@ import Moon from "lucide-react/dist/esm/icons/moon"
 import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal"
 import Notebook from "lucide-react/dist/esm/icons/notebook"
 import Package from "lucide-react/dist/esm/icons/package"
+import Paperclip from "lucide-react/dist/esm/icons/paperclip"
 import Plus from "lucide-react/dist/esm/icons/plus"
 import RefreshCcw from "lucide-react/dist/esm/icons/refresh-ccw"
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw"
@@ -109,6 +110,7 @@ export {
   Download,
   ExternalLink,
   Package,
+  Paperclip,
   Search,
   Scissors,
   RotateCcw,

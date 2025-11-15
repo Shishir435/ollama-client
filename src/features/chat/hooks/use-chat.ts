@@ -9,8 +9,9 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
+import type { ProcessedFile } from "@/lib/file-processors/types"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { ChatMessage } from "@/types"
+import type { ChatMessage, FileAttachment } from "@/types"
 
 export const useChat = () => {
   const [selectedModel] = useStorage<string>(
@@ -81,23 +82,63 @@ export const useChat = () => {
     }
   }
 
-  const sendMessage = async (customInput?: string, customModel?: string) => {
+  const sendMessage = async (
+    customInput?: string,
+    customModel?: string,
+    files?: ProcessedFile[]
+  ) => {
     const sessionId = await ensureSessionId()
     if (!sessionId) return
 
     const rawInput = customInput?.trim() ?? input.trim()
-    if (!rawInput) return
+
+    // Allow sending message with just files (no text input)
+    if (!rawInput && (!files || files.length === 0)) return
 
     const includeContext =
       !customInput && selectedTabIds.length > 0 && contextText?.trim()
 
-    const contentWithContext = includeContext
-      ? `${rawInput}\n\n---\n\n${contextText}`
-      : rawInput
+    // Build content with file attachments
+    let contentWithContext = rawInput || ""
+
+    if (includeContext) {
+      contentWithContext = contentWithContext
+        ? `${contentWithContext}\n\n---\n\n${contextText}`
+        : contextText
+    }
+
+    // Add file content to message
+    if (files && files.length > 0) {
+      const fileContents = files
+        .map(
+          (file) =>
+            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${file.text.length > 10000 ? "\n... (truncated)" : ""}`
+        )
+        .join("\n\n---\n\n")
+
+      contentWithContext = contentWithContext
+        ? `${contentWithContext}\n\n---\n\n${fileContents}`
+        : fileContents
+    }
+
+    // Create file attachments metadata
+    const attachments: FileAttachment[] | undefined =
+      files && files.length > 0
+        ? files.map((file) => ({
+            fileId:
+              file.metadata.fileId || `file-${Date.now()}-${Math.random()}`,
+            fileName: file.metadata.fileName,
+            fileType: file.metadata.fileType,
+            fileSize: file.metadata.fileSize,
+            textPreview: file.text.slice(0, 200),
+            processedAt: file.metadata.processedAt
+          }))
+        : undefined
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: contentWithContext
+      content: contentWithContext,
+      attachments
     }
 
     const newMessages = [...messages, userMessage]
@@ -111,7 +152,8 @@ export const useChat = () => {
     })
 
     // Rename session title if it's still "New Chat"
-    await autoRenameSession(sessionId, rawInput)
+    const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
+    await autoRenameSession(sessionId, titleContent)
 
     if (!customInput) setInput("")
     startStream({

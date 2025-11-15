@@ -34,11 +34,21 @@ export type ModelConfigMap = Record<string, ModelConfig>
 
 export type Role = "user" | "assistant" | "system"
 
+export interface FileAttachment {
+  fileId: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  textPreview?: string
+  processedAt: number
+}
+
 export interface ChatMessage {
   role: Role
   content: string
   done?: boolean
   model?: string
+  attachments?: FileAttachment[]
   metrics?: {
     total_duration?: number
     load_duration?: number
