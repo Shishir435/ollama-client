@@ -369,3 +369,7 @@ export interface ExtractionLogEntry {
   detectedPatterns: string[]
   errors?: string[]
 }
+
+export interface FileUploadConfig {
+  maxFileSize: number
+}

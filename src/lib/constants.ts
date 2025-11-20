@@ -1,5 +1,6 @@
 import type {
   ContentExtractionConfig,
+  FileUploadConfig,
   ModelConfig,
   PromptTemplate
 } from "@/types"
@@ -52,6 +53,9 @@ export const STORAGE_KEYS = {
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
     CONFIG: "embeddings-config",
     AUTO_EMBED_CHAT: "embeddings-auto-embed-chat"
+  },
+  FILE_UPLOAD: {
+    CONFIG: "file-upload-config"
   }
 }
 
@@ -579,4 +583,8 @@ export const FILE_UPLOAD = {
     PDF: "pdf",
     DOCX: "docx"
   }
+}
+
+export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
+  maxFileSize: FILE_UPLOAD.MAX_SIZE
 }

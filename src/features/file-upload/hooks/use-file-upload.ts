@@ -1,11 +1,14 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 
-import { FILE_UPLOAD } from "@/lib/constants"
+import { DEFAULT_FILE_UPLOAD_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { isFileTypeSupported, processFile } from "@/lib/file-processors"
 import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { FileUploadConfig } from "@/types"
 
 export interface UseFileUploadOptions {
   onFileProcessed?: (file: ProcessedFile) => void
@@ -14,11 +17,16 @@ export interface UseFileUploadOptions {
 }
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
-  const {
-    onFileProcessed,
-    onError,
-    maxFileSize = FILE_UPLOAD.MAX_SIZE
-  } = options
+  const [config] = useStorage<FileUploadConfig>(
+    {
+      key: STORAGE_KEYS.FILE_UPLOAD.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_FILE_UPLOAD_CONFIG
+  )
+
+  const { onFileProcessed, onError, maxFileSize = config.maxFileSize } = options
+
   const [processingStates, setProcessingStates] = useState<
     Map<File, FileProcessingState>
   >(new Map())
