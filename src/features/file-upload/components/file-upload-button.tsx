@@ -7,7 +7,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { getSupportedExtensions } from "@/lib/file-processors"
 import { Paperclip } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -39,8 +38,12 @@ export const FileUploadButton = ({
     e.target.value = ""
   }
 
-  const supportedExtensions = getSupportedExtensions()
-  const accept = supportedExtensions.join(",")
+  const accept = [
+    "text/*",
+    "application/pdf,.pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx",
+    "application/javascript,application/json,application/xml,application/yaml"
+  ].join(",")
 
   return (
     <>
@@ -72,9 +75,7 @@ export const FileUploadButton = ({
             <Paperclip className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>
-          Upload file ({supportedExtensions.join(", ")})
-        </TooltipContent>
+        <TooltipContent>Upload file (PDF, DOCX, Text files)</TooltipContent>
       </Tooltip>
     </>
   )

@@ -1,7 +1,13 @@
+import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
+import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
 import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 import type { FileProcessor, ProcessedFile } from "./types"
 
-const processors: FileProcessor[] = [new TextProcessor()]
+const processors: FileProcessor[] = [
+  new TextProcessor(),
+  new PdfProcessor(),
+  new DocxProcessor()
+]
 
 export function getProcessor(file: File): FileProcessor | null {
   return processors.find((processor) => processor.canProcess(file)) || null
@@ -24,18 +30,5 @@ export function isFileTypeSupported(file: File): boolean {
 }
 
 export function getSupportedExtensions(): string[] {
-  return [
-    ".txt",
-    ".md",
-    ".js",
-    ".ts",
-    ".jsx",
-    ".tsx",
-    ".json",
-    ".css",
-    ".html",
-    ".xml",
-    ".yaml",
-    ".yml"
-  ]
+  return ["*", ".pdf", ".docx"]
 }

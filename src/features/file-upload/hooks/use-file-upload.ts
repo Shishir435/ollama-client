@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react"
-import { processFile } from "@/lib/file-processors"
+
+import { FILE_UPLOAD } from "@/lib/constants"
+import { isFileTypeSupported, processFile } from "@/lib/file-processors"
 import type {
   FileProcessingState,
   ProcessedFile
@@ -8,11 +10,15 @@ import type {
 export interface UseFileUploadOptions {
   onFileProcessed?: (file: ProcessedFile) => void
   onError?: (error: Error) => void
-  maxFileSize?: number // in bytes, default 10MB
+  maxFileSize?: number
 }
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
-  const { onFileProcessed, onError, maxFileSize = 10 * 1024 * 1024 } = options
+  const {
+    onFileProcessed,
+    onError,
+    maxFileSize = FILE_UPLOAD.MAX_SIZE
+  } = options
   const [processingStates, setProcessingStates] = useState<
     Map<File, FileProcessingState>
   >(new Map())
@@ -24,6 +30,20 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       // Initialize processing states
       for (const file of fileArray) {
+        // Check if file type is supported
+        if (!isFileTypeSupported(file)) {
+          const error = new Error(
+            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), and DOCX (.docx).`
+          )
+          newStates.set(file, {
+            file,
+            status: "error",
+            error: error.message
+          })
+          if (onError) onError(error)
+          continue
+        }
+
         // Check file size
         if (file.size > maxFileSize) {
           const error = new Error(

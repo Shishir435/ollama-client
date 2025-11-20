@@ -1,67 +1,68 @@
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 
-const TEXT_EXTENSIONS = [
-  ".txt",
-  ".md",
-  ".markdown",
-  ".js",
-  ".ts",
-  ".jsx",
-  ".tsx",
-  ".json",
-  ".css",
-  ".html",
-  ".htm",
-  ".xml",
-  ".yaml",
-  ".yml",
-  ".csv",
-  ".log",
-  ".sh",
-  ".bash",
-  ".zsh",
-  ".fish",
-  ".ps1",
-  ".bat",
-  ".cmd"
+const BINARY_EXTENSIONS = [
+  ".pdf",
+  ".docx",
+  ".doc",
+  ".xlsx",
+  ".xls",
+  ".pptx",
+  ".ppt",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".rar",
+  ".7z",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".bin",
+  ".iso",
+  ".img",
+  ".dmg",
+  ".pkg",
+  ".deb",
+  ".rpm",
+  ".apk",
+  ".ipa"
 ]
 
-const TEXT_MIME_TYPES = [
-  "text/plain",
-  "text/markdown",
-  "text/javascript",
-  "application/javascript",
-  "text/typescript",
-  "application/typescript",
-  "application/json",
-  "text/css",
-  "text/html",
-  "application/xml",
-  "text/xml",
-  "text/yaml",
-  "application/x-yaml",
-  "text/csv"
+const BINARY_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+  "application/x-tar",
+  "application/gzip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "application/x-msdownload",
+  "application/x-sharedlib",
+  "application/octet-stream",
+  "application/x-iso9660-image"
 ]
 
 export class TextProcessor implements FileProcessor {
   canProcess(file: File): boolean {
-    // Check by extension
     const extension = this.getFileExtension(file.name).toLowerCase()
-    if (TEXT_EXTENSIONS.includes(extension)) {
-      return true
+
+    if (BINARY_EXTENSIONS.includes(extension)) {
+      return false
     }
 
-    // Check by MIME type
-    if (file.type && TEXT_MIME_TYPES.includes(file.type)) {
-      return true
+    if (file.type && BINARY_MIME_TYPES.includes(file.type)) {
+      return false
     }
 
-    // Fallback: if no extension and no MIME type, assume text
-    if (!extension && !file.type) {
-      return true
+    if (file.type?.startsWith("image/")) {
+      return false
     }
-
-    return false
+    return true
   }
 
   async process(file: File): Promise<ProcessedFile> {

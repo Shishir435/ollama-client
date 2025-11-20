@@ -572,3 +572,11 @@ Still not working?
 - Visit: [https://ollama.com](https://ollama.com) for troubleshooting
 `
 }
+
+export const FILE_UPLOAD = {
+  MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  EXTENSIONS: {
+    PDF: "pdf",
+    DOCX: "docx"
+  }
+}

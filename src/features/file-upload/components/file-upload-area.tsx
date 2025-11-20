@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { FilePreview } from "@/features/file-upload/components/file-preview"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
@@ -19,17 +19,20 @@ export const FileUploadArea = ({
   compact = false
 }: FileUploadAreaProps) => {
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([])
+  const onFilesProcessedRef = useRef(onFilesProcessed)
 
-  const handleFileProcessed = useCallback(
-    (file: ProcessedFile) => {
-      setProcessedFiles((prev) => {
-        const updated = [...prev, file]
-        onFilesProcessed(updated)
-        return updated
-      })
-    },
-    [onFilesProcessed]
-  )
+  // Keep ref updated
+  useEffect(() => {
+    onFilesProcessedRef.current = onFilesProcessed
+  }, [onFilesProcessed])
+
+  const handleFileProcessed = useCallback((file: ProcessedFile) => {
+    setProcessedFiles((prev) => {
+      const updated = [...prev, file]
+      onFilesProcessedRef.current(updated)
+      return updated
+    })
+  }, [])
 
   const { processFiles, processingStates, clearProcessingState } =
     useFileUpload({
@@ -41,6 +44,7 @@ export const FileUploadArea = ({
 
   const handleFilesSelected = useCallback(
     (files: FileList) => {
+      // Process all files - the hook will validate and show errors for unsupported types
       processFiles(files)
     },
     [processFiles]
@@ -51,11 +55,11 @@ export const FileUploadArea = ({
       clearProcessingState(file)
       setProcessedFiles((prev) => {
         const updated = prev.filter((f) => f.metadata.fileName !== file.name)
-        onFilesProcessed(updated)
+        onFilesProcessedRef.current(updated)
         return updated
       })
     },
-    [clearProcessingState, onFilesProcessed]
+    [clearProcessingState]
   )
 
   // Update processed files when processing states change
@@ -80,9 +84,12 @@ export const FileUploadArea = ({
 
     if (hasChanges) {
       setProcessedFiles(successful)
-      onFilesProcessed(successful)
+      // Schedule callback in next tick to avoid setState during render
+      queueMicrotask(() => {
+        onFilesProcessedRef.current(successful)
+      })
     }
-  }, [processingStates, processedFiles, onFilesProcessed])
+  }, [processingStates, processedFiles])
 
   const hasFiles = processingStates.length > 0
   const successCount = processingStates.filter(
