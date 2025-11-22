@@ -1,22 +1,30 @@
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { FilePreview } from "@/features/file-upload/components/file-preview"
+import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
+import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
+import type { ProcessedFile } from "@/lib/file-processors/types"
 import { cn } from "@/lib/utils"
 
 export const ChatInputBox = ({
   onSend,
   stopGeneration
 }: {
-  onSend: () => void
+  onSend: (
+    customInput?: string,
+    customModel?: string,
+    files?: ProcessedFile[]
+  ) => void
   stopGeneration: () => void
 }) => {
   const { input, setInput } = useChatInput()
@@ -26,6 +34,17 @@ export const ChatInputBox = ({
   const selectionEndRef = useRef<number | null>(null)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+
+  const {
+    processFiles,
+    processingStates,
+    clearProcessingState,
+    clearAllProcessingStates
+  } = useFileUpload({
+    onError: (error) => {
+      console.error("File processing error:", error)
+    }
+  })
 
   useAutoResizeTextarea(textareaRef, input)
 
@@ -49,8 +68,24 @@ export const ChatInputBox = ({
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
-      onSend()
+      handleSend()
     }
+  }
+
+  const handleSend = () => {
+    const successfulFiles = processingStates
+      .filter(
+        (s): s is typeof s & { status: "success"; result: ProcessedFile } =>
+          s.status === "success" && s.result !== undefined
+      )
+      .map((s) => s.result)
+
+    onSend(
+      undefined,
+      undefined,
+      successfulFiles.length > 0 ? successfulFiles : undefined
+    )
+    clearAllProcessingStates()
   }
 
   const handleSelectPrompt = (prompt: string) => {
@@ -92,11 +127,35 @@ export const ChatInputBox = ({
     })
   }
 
+  const handleFilesSelected = useCallback(
+    (files: FileList) => {
+      processFiles(files)
+    },
+    [processFiles]
+  )
+
+  const hasFiles = processingStates.length > 0
+  const successCount = processingStates.filter(
+    (s) => s.status === "success"
+  ).length
+
   return (
     <div className="relative">
       <div className="mb-2">
         <TabsSelect />
       </div>
+
+      {hasFiles && (
+        <div className="mb-2 space-y-1">
+          {processingStates.map((state) => (
+            <FilePreview
+              key={state.file.name}
+              processingState={state}
+              onRemove={() => clearProcessingState(state.file)}
+            />
+          ))}
+        </div>
+      )}
 
       {showPromptOverlay && (
         <PromptSelectorDialog
@@ -147,6 +206,17 @@ export const ChatInputBox = ({
             />
             <TabsToggle />
             <SettingsButton showText={false} />
+            <div className="flex items-center gap-2">
+              <FileUploadButton
+                onFilesSelected={handleFilesSelected}
+                disabled={isLoading}
+              />
+              {hasFiles && successCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {successCount} file{successCount !== 1 ? "s" : ""} ready
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -163,7 +233,10 @@ export const ChatInputBox = ({
         </div>
 
         <div className="absolute right-3 top-3">
-          <SendOrStopButton onSend={onSend} stopGeneration={stopGeneration} />
+          <SendOrStopButton
+            onSend={handleSend}
+            stopGeneration={stopGeneration}
+          />
         </div>
       </div>
     </div>

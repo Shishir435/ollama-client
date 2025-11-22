@@ -4,6 +4,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { SemanticChatSearchButton } from "@/features/chat/components/semantic-chat-search-button"
 import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
 import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
@@ -46,7 +47,7 @@ export const ChatSessionSelector = () => {
             </div>
           </div>
 
-          <div className="p-2">
+          <div className="p-2 space-y-2">
             <Button
               onClick={createSession}
               className="flex h-10 w-full items-center justify-start rounded-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
@@ -54,6 +55,7 @@ export const ChatSessionSelector = () => {
               <SquarePen className="mr-2 h-4 w-4" />
               Start New Chat
             </Button>
+            <SemanticChatSearchButton />
           </div>
 
           <ScrollArea className="flex-1 px-2">

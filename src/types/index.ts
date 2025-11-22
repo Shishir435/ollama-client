@@ -34,11 +34,21 @@ export type ModelConfigMap = Record<string, ModelConfig>
 
 export type Role = "user" | "assistant" | "system"
 
+export interface FileAttachment {
+  fileId: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  textPreview?: string
+  processedAt: number
+}
+
 export interface ChatMessage {
   role: Role
   content: string
   done?: boolean
   model?: string
+  attachments?: FileAttachment[]
   metrics?: {
     total_duration?: number
     load_duration?: number
@@ -58,9 +68,18 @@ export interface ChatSession {
 }
 
 export interface ChromePort extends browser.Runtime.Port {
-  postMessage(message: ChromeMessage): void
-  onMessage: browser.Events.Event<(message: ChromeMessage) => void>
+  postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
+  onMessage: browser.Events.Event<
+    (message: ChromeMessage | EmbeddingStatusMessage) => void
+  >
   onDisconnect: browser.Events.Event<() => void>
+}
+
+export interface EmbeddingStatusMessage {
+  status: string
+  processed?: number
+  total?: number
+  message?: string
 }
 
 export interface ChromeMessage {
@@ -81,6 +100,12 @@ export interface ChromeResponse {
   tabs?: browser.Tabs.Tab[]
   html?: string
   title?: string
+}
+
+export interface ModelCheckResponse extends ChromeResponse {
+  data?: {
+    exists: boolean
+  }
 }
 
 export interface OllamaChatRequest {
@@ -271,6 +296,10 @@ export interface ChatSessionState {
   renameSessionTitle: (id: string, title: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
+  highlightedMessage: { role: Role; content: string } | null
+  setHighlightedMessage: (
+    message: { role: Role; content: string } | null
+  ) => void
 }
 
 export interface SelectedTabsState {
@@ -316,6 +345,12 @@ export interface ChatInput {
   setInput: (value: string) => void
 }
 
+// Re-export embedding config types from constants
+export type {
+  ChunkingStrategy,
+  EmbeddingConfig
+} from "@/lib/constants"
+
 export type ScrollStrategy = "none" | "gradual" | "instant" | "smart"
 export type ContentScraper = "auto" | "defuddle" | "readability"
 
@@ -352,4 +387,11 @@ export interface ExtractionLogEntry {
   config: ContentExtractionConfig
   detectedPatterns: string[]
   errors?: string[]
+}
+
+export interface FileUploadConfig {
+  maxFileSize: number // Maximum file size in bytes
+  autoEmbedFiles: boolean // Auto-generate embeddings for uploaded files
+  showEmbeddingProgress: boolean // Show progress during embedding generation
+  embeddingBatchSize: number // Number of chunks to embed in parallel
 }

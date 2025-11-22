@@ -1,5 +1,6 @@
 import type {
   ContentExtractionConfig,
+  FileUploadConfig,
   ModelConfig,
   PromptTemplate
 } from "@/types"
@@ -18,7 +19,9 @@ export const MESSAGE_KEYS = {
     GET_LOADED_MODELS: "get-loaded-model",
     UNLOAD_MODEL: "unload-model",
     DELETE_MODEL: "delete-model",
-    GET_OLLAMA_VERSION: "get-ollama-version"
+    GET_OLLAMA_VERSION: "get-ollama-version",
+    CHECK_EMBEDDING_MODEL: "check-embedding-model",
+    EMBED_FILE_CHUNKS: "embed-file-chunks"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
@@ -45,7 +48,67 @@ export const STORAGE_KEYS = {
     RATE: "tts-rate",
     PITCH: "tts-pitch",
     VOICE_URI: "tts-voice-uri"
+  },
+  EMBEDDINGS: {
+    SELECTED_MODEL: "embeddings-selected-model",
+    AUTO_DOWNLOADED: "embeddings-auto-downloaded",
+    CONFIG: "embeddings-config",
+    AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
+    USE_RAG: "embeddings-use-rag"
+  },
+  FILE_UPLOAD: {
+    CONFIG: "file-upload-config"
   }
+}
+
+// Default embedding model - use `mxbai-embed-large` for improved semantics
+export const DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
+
+export type ChunkingStrategy = "fixed" | "semantic" | "hybrid"
+
+export interface EmbeddingConfig {
+  // Chunking settings
+  chunkSize: number // Tokens per chunk (default: 500)
+  chunkOverlap: number // Overlap between chunks in tokens (default: 100)
+  chunkingStrategy: ChunkingStrategy // "fixed" | "semantic" | "hybrid"
+
+  // Embedding generation settings
+  batchSize: number // Number of texts to embed in parallel (default: 5)
+  maxEmbeddingsPerFile: number // Limit embeddings per file (default: 1000, 0 = unlimited)
+
+  // Performance settings
+  useWebWorker: boolean // Use Web Worker for embedding generation (default: true)
+  enableCaching: boolean // Cache embeddings for identical content (default: true)
+
+  // Search settings
+  defaultSearchLimit: number // Default number of results (default: 10)
+  defaultMinSimilarity: number // Minimum similarity threshold (default: 0.5 for semantic search)
+
+  // Search cache settings
+  searchCacheTTL: number // Cache TTL in minutes (default: 5)
+  searchCacheMaxSize: number // Max cached queries (default: 50)
+
+  // Storage settings
+  maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
+  autoCleanup: boolean // Auto cleanup old embeddings (default: false)
+  cleanupDaysOld: number // Days old for cleanup (default: 30)
+}
+
+export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
+  chunkSize: 500, // ~500 tokens per chunk
+  chunkOverlap: 100, // 100 token overlap
+  chunkingStrategy: "hybrid", // Best balance
+  batchSize: 5, // Process 5 at a time
+  maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
+  useWebWorker: true, // Offload to worker thread
+  enableCaching: true, // Cache duplicate content
+  defaultSearchLimit: 10,
+  defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
+  searchCacheTTL: 5, // 5 minutes
+  searchCacheMaxSize: 50, // Max 50 cached queries
+  maxStorageSize: 100, // 100MB limit
+  autoCleanup: false,
+  cleanupDaysOld: 30
 }
 
 export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
@@ -514,4 +577,19 @@ Still not working?
 - Try restarting the browser
 - Visit: [https://ollama.com](https://ollama.com) for troubleshooting
 `
+}
+
+export const FILE_UPLOAD = {
+  MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  EXTENSIONS: {
+    PDF: "pdf",
+    DOCX: "docx"
+  }
+}
+
+export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
+  maxFileSize: FILE_UPLOAD.MAX_SIZE,
+  autoEmbedFiles: true, // Enable automatic embedding by default
+  showEmbeddingProgress: true, // Show progress to users
+  embeddingBatchSize: 3 // Process 3 chunks at a time (balanced performance)
 }
