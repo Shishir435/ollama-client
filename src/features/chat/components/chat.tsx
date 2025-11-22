@@ -1,8 +1,10 @@
+import { useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -11,7 +13,44 @@ import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 export const Chat = () => {
   const { messages, sendMessage, stopGeneration, scrollRef } = useChat()
   const { isLoading, isStreaming } = useLoadStream()
-  const { currentSessionId } = useChatSessions()
+  const { currentSessionId, highlightedMessage, setHighlightedMessage } =
+    useChatSessions()
+
+  useEffect(() => {
+    if (highlightedMessage && messages.length > 0) {
+      // Find the message index
+      const index = messages.findIndex(
+        (m) =>
+          m.role === highlightedMessage.role &&
+          m.content === highlightedMessage.content
+      )
+
+      if (index !== -1) {
+        // Wait a bit for the DOM to update
+        setTimeout(() => {
+          const element = document.getElementById(`message-${index}`)
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" })
+            // Add a temporary highlight effect
+            element.classList.add("bg-accent/20")
+            setTimeout(() => {
+              element.classList.remove("bg-accent/20")
+              // Clear the highlighted message
+              setHighlightedMessage(null)
+            }, 2000)
+          }
+        }, 100)
+      }
+    }
+  }, [highlightedMessage, messages, setHighlightedMessage])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages needed for auto-scroll on new messages
+  useEffect(() => {
+    // Only scroll to bottom if we're NOT trying to highlight a message
+    if (!highlightedMessage) {
+      scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages, highlightedMessage, scrollRef])
 
   const getMessageMargin = (
     currentIndex: number,
@@ -30,7 +69,8 @@ export const Chat = () => {
       <div className="fixed left-2 top-2 z-50">
         <ChatSessionSelector />
       </div>
-      <div className="fixed right-2 top-2 z-50">
+      <div className="fixed right-2 top-2 z-50 flex items-center gap-2">
+        <EmbeddingStatusIndicator />
         <OllamaStatusIndicator />
       </div>
 
@@ -41,8 +81,9 @@ export const Chat = () => {
               .filter((msg) => msg.role !== "system")
               .map((msg, idx, filteredMessages) => (
                 <div
+                  id={`message-${idx}`}
                   key={`${msg.role}-${idx}-${msg.content.slice(0, 10)}`}
-                  className={getMessageMargin(idx, filteredMessages)}>
+                  className={`${getMessageMargin(idx, filteredMessages)} transition-colors duration-500 rounded-lg`}>
                   <ChatMessageBubble
                     msg={msg}
                     isLoading={

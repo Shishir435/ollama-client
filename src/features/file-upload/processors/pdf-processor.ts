@@ -1,4 +1,8 @@
 import * as pdfjsLib from "pdfjs-dist"
+import type {
+  PDFDocumentProxy,
+  TextItem
+} from "pdfjs-dist/types/src/display/api"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 
 import "pdfjs-dist/build/pdf.worker.min.mjs"
@@ -17,8 +21,23 @@ export class PdfProcessor implements FileProcessor {
   async process(file: File): Promise<ProcessedFile> {
     try {
       const arrayBuffer = await file.arrayBuffer()
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-      const pdf = await loadingTask.promise
+
+      // Try loading PDF with worker first; if worker fails (CSP/packaging), fallback to disableWorker
+      let pdf: PDFDocumentProxy
+
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+        // Race the loading task against a timeout to avoid hanging indefinitely
+        pdf = await promiseTimeout(loadingTask.promise, 10000)
+      } catch (_firstErr) {
+        // First attempt failed or timed out; retry without worker
+        console.warn(
+          "pdfjs worker load failed or timed out, retrying with disableWorker:"
+        )
+        const loadingTask2 = pdfjsLib.getDocument({ data: arrayBuffer })
+        pdf = await promiseTimeout(loadingTask2.promise, 15000)
+      }
+
       const numPages = pdf.numPages
 
       const textParts: string[] = []
@@ -30,7 +49,7 @@ export class PdfProcessor implements FileProcessor {
         const pageText = textContent.items
           .map((item) => {
             if ("str" in item) {
-              return item.str
+              return (item as TextItem).str
             }
             return ""
           })
@@ -65,4 +84,31 @@ export class PdfProcessor implements FileProcessor {
     const lastDot = fileName.lastIndexOf(".")
     return lastDot !== -1 ? fileName.slice(lastDot) : ""
   }
+}
+
+// Helper: promise with timeout
+function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true
+        reject(new Error(`Operation timed out after ${ms}ms`))
+      }
+    }, ms)
+
+    p.then((v) => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timer)
+        resolve(v)
+      }
+    }).catch((err) => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timer)
+        reject(err)
+      }
+    })
+  })
 }

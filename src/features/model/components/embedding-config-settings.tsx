@@ -1,6 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import {
   Select,
   SelectContent,
@@ -566,11 +566,9 @@ export const EmbeddingConfigSettings = memo(() => {
       <FormSectionCard
         icon={MessageSquare}
         title={
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gapw-2">
             Chat Search Settings
-            <Badge variant="secondary" className="text-xs">
-              Beta
-            </Badge>
+            <MiniBadge text="Beta v0.3.0" />
           </span>
         }
         description="Configure semantic search for chat history">

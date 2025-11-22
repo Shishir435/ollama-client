@@ -3,6 +3,10 @@ import "webextension-polyfill"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import {
+  handleEmbedFileChunks,
+  handleEmbedFileChunksPort
+} from "@/background/handlers/handle-embed-chunks"
+import {
   checkEmbeddingModelExists,
   downloadEmbeddingModelSilently
 } from "@/background/handlers/handle-embedding-download"
@@ -142,6 +146,22 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
       await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
     })
   }
+
+  if (port.name === MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS) {
+    // Use streaming port handler to receive chunk batches and send progress back
+    try {
+      handleEmbedFileChunksPort(port)
+    } catch (err) {
+      console.error("Error attaching embed chunks port handler:", err)
+      try {
+        port.postMessage({
+          status: "error",
+          message: err instanceof Error ? err.message : String(err)
+        } as unknown as ChromeMessage)
+      } catch (_) {}
+      port.disconnect()
+    }
+  }
 })
 
 // Handle one-time message requests
@@ -235,6 +255,19 @@ browser.runtime.onMessage.addListener(
               })
             })
         }
+        return true
+      }
+
+      case MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS: {
+        handleEmbedFileChunks(message, sendResponse).catch((err) => {
+          safeSendResponse(sendResponse, {
+            success: false,
+            error: {
+              status: 0,
+              message: err instanceof Error ? err.message : String(err)
+            }
+          })
+        })
         return true
       }
     }

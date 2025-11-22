@@ -9,6 +9,8 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
+import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, FileAttachment } from "@/types"
@@ -109,16 +111,69 @@ export const useChat = () => {
 
     // Add file content to message
     if (files && files.length > 0) {
-      const fileContents = files
-        .map(
-          (file) =>
-            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${file.text.length > 10000 ? "\n... (truncated)" : ""}`
-        )
-        .join("\n\n---\n\n")
+      // Check if RAG is enabled
+      const useRag =
+        (await plasmoGlobalStorage.get<boolean>(
+          STORAGE_KEYS.EMBEDDINGS.USE_RAG
+        )) ?? true
+
+      let fileContext = ""
+
+      if (useRag) {
+        try {
+          console.log("RAG Enabled: Searching for relevant context...")
+          // Generate embedding for the user query
+          const embeddingResult = await generateEmbedding(rawInput || "summary")
+
+          if ("embedding" in embeddingResult) {
+            // Search for relevant chunks across all attached files
+            const fileIds = files
+              .map((f) => f.metadata.fileId)
+              .filter(Boolean) as string[]
+
+            const searchResults = await searchSimilarVectors(
+              embeddingResult.embedding,
+              {
+                fileId: fileIds,
+                limit: 5, // Top 5 chunks
+                minSimilarity: 0.3 // Lower threshold to ensure we get something
+              }
+            )
+
+            if (searchResults.length > 0) {
+              console.log(
+                `RAG: Found ${searchResults.length} relevant chunks from ${fileIds.length} files`
+              )
+              fileContext = searchResults
+                .map(
+                  (result) =>
+                    `[Context from ${result.document.metadata.title || "file"}]\n${result.document.content}`
+                )
+                .join("\n\n---\n\n")
+            } else {
+              console.log(
+                "RAG: No relevant chunks found, falling back to full text"
+              )
+            }
+          }
+        } catch (e) {
+          console.error("RAG Error:", e)
+        }
+      }
+
+      // Fallback to full text if RAG disabled or no results found
+      if (!fileContext) {
+        fileContext = files
+          .map(
+            (file) =>
+              `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${file.text.length > 10000 ? "\n... (truncated)" : ""}`
+          )
+          .join("\n\n---\n\n")
+      }
 
       contentWithContext = contentWithContext
-        ? `${contentWithContext}\n\n---\n\n${fileContents}`
-        : fileContents
+        ? `${contentWithContext}\n\n---\n\n${fileContext}`
+        : fileContext
     }
 
     // Create file attachments metadata

@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { Search } from "@/lib/lucide-icon"
@@ -18,9 +18,7 @@ export const SemanticChatSearchButton = () => {
         title="Search chat history (semantic search)">
         <Search className="mr-2 h-4 w-4" />
         Search Chats
-        <Badge variant="secondary" className="ml-auto text-xs">
-          Beta
-        </Badge>
+        <MiniBadge text="Beta v0.3.0" />
       </Button>
 
       <SemanticChatSearchDialog

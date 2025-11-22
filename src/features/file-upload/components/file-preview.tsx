@@ -58,6 +58,9 @@ export const FilePreview = ({
   }
 
   const getProcessingMessage = (): string => {
+    if (progress && progress > 0) {
+      return "Generating embeddings..."
+    }
     const extension = file.name.split(".").pop()?.toLowerCase()
     if (extension === FILE_UPLOAD.EXTENSIONS.PDF) {
       return "Extracting text from PDF..."

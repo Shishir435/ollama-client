@@ -220,7 +220,7 @@ const hashSearchQuery = (
     minSimilarity?: number
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
-    fileId?: string
+    fileId?: string | string[]
   }
 ): string => {
   // Create a simple hash from query embedding and options
@@ -434,7 +434,7 @@ export const searchSimilarVectors = async (
     minSimilarity?: number
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
-    fileId?: string
+    fileId?: string | string[]
   } = {}
 ): Promise<SearchResult[]> => {
   const config = await getEmbeddingConfig()
@@ -465,7 +465,7 @@ export const searchSimilarVectors = async (
     query = vectorDb.vectors.where("metadata.type").equals(type)
   } else if (sessionId) {
     query = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-  } else if (fileId) {
+  } else if (fileId && !Array.isArray(fileId)) {
     query = vectorDb.vectors.where("metadata.fileId").equals(fileId)
   } else {
     query = vectorDb.vectors.toCollection()
@@ -475,8 +475,14 @@ export const searchSimilarVectors = async (
   if (type && sessionId) {
     query = query.filter((v) => v.metadata.sessionId === sessionId)
   }
-  if (fileId && type) {
-    query = query.filter((v) => v.metadata.fileId === fileId)
+  if (fileId) {
+    if (Array.isArray(fileId)) {
+      query = query.filter(
+        (v) => v.metadata.fileId && fileId.includes(v.metadata.fileId)
+      )
+    } else {
+      query = query.filter((v) => v.metadata.fileId === fileId)
+    }
   }
 
   const documents = await query.toArray()

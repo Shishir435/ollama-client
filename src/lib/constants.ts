@@ -20,7 +20,8 @@ export const MESSAGE_KEYS = {
     UNLOAD_MODEL: "unload-model",
     DELETE_MODEL: "delete-model",
     GET_OLLAMA_VERSION: "get-ollama-version",
-    CHECK_EMBEDDING_MODEL: "check-embedding-model"
+    CHECK_EMBEDDING_MODEL: "check-embedding-model",
+    EMBED_FILE_CHUNKS: "embed-file-chunks"
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
@@ -52,15 +53,16 @@ export const STORAGE_KEYS = {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
     CONFIG: "embeddings-config",
-    AUTO_EMBED_CHAT: "embeddings-auto-embed-chat"
+    AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
+    USE_RAG: "embeddings-use-rag"
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"
   }
 }
 
-// Default embedding model - nomic-embed-text is a high-performing open embedding model
-export const DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
+// Default embedding model - use `mxbai-embed-large` for improved semantics
+export const DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
 
 export type ChunkingStrategy = "fixed" | "semantic" | "hybrid"
 
@@ -101,7 +103,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   useWebWorker: true, // Offload to worker thread
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,
-  defaultMinSimilarity: 0.4,
+  defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
   searchCacheTTL: 5, // 5 minutes
   searchCacheMaxSize: 50, // Max 50 cached queries
   maxStorageSize: 100, // 100MB limit
@@ -586,5 +588,8 @@ export const FILE_UPLOAD = {
 }
 
 export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
-  maxFileSize: FILE_UPLOAD.MAX_SIZE
+  maxFileSize: FILE_UPLOAD.MAX_SIZE,
+  autoEmbedFiles: true, // Enable automatic embedding by default
+  showEmbeddingProgress: true, // Show progress to users
+  embeddingBatchSize: 3 // Process 3 chunks at a time (balanced performance)
 }

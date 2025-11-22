@@ -9,6 +9,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -46,7 +47,8 @@ export const SemanticChatSearchDialog = ({
   const [searchScope, setSearchScope] = useState<"all" | "current">("all")
   const debouncedQuery = useDebounce(searchQuery, 500)
   const { search, isSearching, error } = useSemanticChatSearch()
-  const { sessions, setCurrentSessionId } = useChatSessions()
+  const { sessions, setCurrentSessionId, setHighlightedMessage } =
+    useChatSessions()
   // Track current search to cancel if query changes
   const currentSearchRef = useRef<Promise<ChatSearchResult[]> | null>(null)
 
@@ -123,13 +125,25 @@ export const SemanticChatSearchDialog = ({
         setCurrentSessionId(result.sessionId)
       }
 
+      // Set the highlighted message to trigger scrolling
+      setHighlightedMessage({
+        role: result.role,
+        content: result.messageContent
+      })
+
       if (onSelectResult) {
         onSelectResult(result)
       }
 
       onClose()
     },
-    [currentSessionId, onSelectResult, onClose, setCurrentSessionId]
+    [
+      currentSessionId,
+      onSelectResult,
+      onClose,
+      setCurrentSessionId,
+      setHighlightedMessage
+    ]
   )
 
   const formatTimestamp = useCallback((timestamp: number) => {
@@ -166,9 +180,7 @@ export const SemanticChatSearchDialog = ({
         <DialogHeader className="px-6 pt-6 pb-4">
           <div className="flex items-center gap-2">
             <DialogTitle>Semantic Chat Search</DialogTitle>
-            <Badge variant="secondary" className="text-xs">
-              Beta v0.3.0
-            </Badge>
+            <MiniBadge text="Beta v0.3.0" />
           </div>
           <DialogDescription>
             Search your chat history by meaning, not just keywords
@@ -211,99 +223,114 @@ export const SemanticChatSearchDialog = ({
         </div>
 
         <ScrollArea className="flex-1 px-6 pb-6">
-          {debouncedQuery.trim() && !isSearching && results.length === 0 && (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              No results found. Try a different search query.
+          {isSearching ? (
+            <div className="flex h-full flex-col items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin mb-2" />
+              <p className="text-sm">Searching chat history...</p>
             </div>
-          )}
-
-          {!debouncedQuery.trim() && (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Start typing to search your chat history semantically...
-            </div>
-          )}
-
-          {groupedResults.length > 0 && (
-            <div className="space-y-4">
-              {groupedResults.map(
-                ({ sessionId, sessionTitle, results: sessionResults }) => (
-                  <div key={sessionId} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {sessionTitle}
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {sessionResults.length}{" "}
-                        {sessionResults.length === 1 ? "result" : "results"}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2 pl-6">
-                      {sessionResults.map((result) => (
-                        <button
-                          key={`${result.sessionId}-${result.timestamp}-${result.result.document.id}`}
-                          type="button"
-                          className={cn(
-                            "group relative w-full rounded-lg border border-border bg-card p-3 text-left",
-                            "hover:bg-accent hover:border-accent-foreground/20",
-                            "transition-colors cursor-pointer"
-                          )}
-                          onClick={() => handleSelectResult(result)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault()
-                              handleSelectResult(result)
-                            }
-                          }}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                {result.role === "user" ? (
-                                  <User className="h-3 w-3 text-muted-foreground" />
-                                ) : (
-                                  <Bot className="h-3 w-3 text-muted-foreground" />
-                                )}
-                                <Badge
-                                  variant={
-                                    result.role === "user"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                  className="text-xs">
-                                  {result.role === "user" ? "You" : "Assistant"}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {Math.round(result.result.similarity * 100)}%
-                                  match
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-foreground line-clamp-3">
-                                {truncateText(result.messageContent)}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {formatTimestamp(result.timestamp)}
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleSelectResult(result)
-                              }}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
+          ) : (
+            <>
+              {debouncedQuery.trim() && results.length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No results found. Try a different search query.
+                </div>
               )}
-            </div>
+
+              {!debouncedQuery.trim() && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  Start typing to search your chat history semantically...
+                </div>
+              )}
+
+              {groupedResults.length > 0 && (
+                <div className="space-y-4">
+                  {groupedResults.map(
+                    ({ sessionId, sessionTitle, results: sessionResults }) => (
+                      <div key={sessionId} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">
+                            {sessionTitle}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {sessionResults.length}{" "}
+                            {sessionResults.length === 1 ? "result" : "results"}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 pl-6">
+                          {sessionResults.map((result) => (
+                            <button
+                              key={`${result.sessionId}-${result.timestamp}-${result.result.document.id}`}
+                              type="button"
+                              className={cn(
+                                "group relative w-full rounded-lg border border-border bg-card p-3 text-left",
+                                "hover:bg-accent hover:border-accent-foreground/20",
+                                "transition-colors cursor-pointer"
+                              )}
+                              onClick={() => handleSelectResult(result)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault()
+                                  handleSelectResult(result)
+                                }
+                              }}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {result.role === "user" ? (
+                                      <User className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <Bot className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <Badge
+                                      variant={
+                                        result.role === "user"
+                                          ? "default"
+                                          : "secondary"
+                                      }
+                                      className="text-xs">
+                                      {result.role === "user"
+                                        ? "You"
+                                        : "Assistant"}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs">
+                                      {Math.round(
+                                        result.result.similarity * 100
+                                      )}
+                                      % match
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-foreground line-clamp-3">
+                                    {truncateText(result.messageContent)}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    {formatTimestamp(result.timestamp)}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleSelectResult(result)
+                                  }}>
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </>
           )}
         </ScrollArea>
       </DialogContent>

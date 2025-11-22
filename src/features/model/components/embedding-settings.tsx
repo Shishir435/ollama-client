@@ -9,7 +9,19 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { MiniBadge } from "@/components/ui/mini-badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
+import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
 import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 import { browser } from "@/lib/browser-api"
 import {
@@ -18,12 +30,18 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
-import { getStorageStats, storeVector } from "@/lib/embeddings/vector-store"
+import {
+  getStorageStats,
+  type SearchResult,
+  searchSimilarVectors,
+  storeVector
+} from "@/lib/embeddings/vector-store"
 import {
   AlertCircle,
   CheckCircle,
   Download,
   Loader2,
+  Search,
   Sparkles
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -31,12 +49,20 @@ import type { ChromeResponse } from "@/types"
 import { EmbeddingConfigSettings } from "./embedding-config-settings"
 
 export const EmbeddingSettings = () => {
-  const [selectedModel] = useStorage<string>(
+  const [selectedModel, setSelectedModel] = useStorage<string>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
       instance: plasmoGlobalStorage
     },
     DEFAULT_EMBEDDING_MODEL
+  )
+
+  const [useRag, setUseRag] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
+      instance: plasmoGlobalStorage
+    },
+    true
   )
 
   const [autoDownloaded] = useStorage<boolean>(
@@ -179,6 +205,42 @@ export const EmbeddingSettings = () => {
     }
   }
 
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(
+    null
+  )
+
+  const handleTestSearch = async () => {
+    if (!searchQuery.trim()) return
+    setIsSearching(true)
+    setSearchResults(null)
+    try {
+      console.log(`[Search Test] Searching for: "${searchQuery}"`)
+
+      // Generate embedding for query
+      const embeddingResult = await generateEmbedding(searchQuery)
+
+      if ("error" in embeddingResult) {
+        console.error("[Search Test] Embedding error:", embeddingResult.error)
+        return
+      }
+
+      // Search
+      const results = await searchSimilarVectors(embeddingResult.embedding, {
+        limit: 5,
+        minSimilarity: 0.3
+      })
+
+      console.log(`[Search Test] Found ${results.length} results`)
+      setSearchResults(results)
+    } catch (error) {
+      console.error("[Search Test] Error:", error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -186,9 +248,7 @@ export const EmbeddingSettings = () => {
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">Vector Embeddings</CardTitle>
-            <Badge variant="secondary" className="text-xs">
-              Beta v0.3.0
-            </Badge>
+            <MiniBadge text="Beta v0.3.0" />
           </div>
           <CardDescription className="text-sm">
             Embeddings enable semantic search, RAG (Retrieval Augmented
@@ -376,6 +436,76 @@ export const EmbeddingSettings = () => {
                 )}
               </div>
             )}
+
+            {/* Test Semantic Search */}
+            {modelExists === true && (
+              <div className="rounded-lg border border-muted bg-muted/30 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">Test Semantic Search</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Verify that your uploaded files can be found. Enter a query to
+                  see matching chunks.
+                </p>
+
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    placeholder="Enter a search query..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs"
+                    onKeyDown={(e) => e.key === "Enter" && handleTestSearch()}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTestSearch}
+                    disabled={isSearching || !searchQuery.trim()}>
+                    {isSearching ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Search className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+
+                {searchResults && (
+                  <div className="space-y-2 mt-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Found {searchResults.length} results:
+                    </p>
+                    {searchResults.length === 0 ? (
+                      <div className="text-xs text-muted-foreground italic p-2 border rounded bg-background/50">
+                        No matches found. Try a different query or upload more
+                        files.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+                        {searchResults.map((result) => (
+                          <div
+                            key={result.document.id}
+                            className="text-xs p-2 rounded border bg-background/50 space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium truncate max-w-[180px]">
+                                {result.document.metadata.title || "Untitled"}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] h-4 px-1">
+                                {(result.similarity * 100).toFixed(1)}%
+                              </Badge>
+                            </div>
+                            <p className="text-muted-foreground line-clamp-2 text-[10px]">
+                              {result.document.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border border-muted bg-muted/30 p-4">
@@ -399,15 +529,54 @@ export const EmbeddingSettings = () => {
             </ul>
           </div>
 
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
-            <h4 className="text-sm font-medium mb-2 text-blue-600 dark:text-blue-400">
-              Coming Soon
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              File upload with automatic embedding generation and semantic
-              search will be available in a future update. The embedding model
-              is already set up and ready to use!
-            </p>
+          <div className="rounded-lg border p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="rag-mode">Smart Context (RAG)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Use semantic search to find relevant context from your files
+                  instead of sending the full text.
+                </p>
+              </div>
+              <Switch
+                id="rag-mode"
+                checked={useRag}
+                onCheckedChange={setUseRag}
+              />
+            </div>
+
+            <Separator />
+
+            <FileUploadSettings />
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label>Embedding Model</Label>
+              <Select
+                value={selectedModel}
+                onValueChange={(value) => setSelectedModel(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mxbai-embed-large">
+                    mxbai-embed-large (Recommended)
+                  </SelectItem>
+                  <SelectItem value="nomic-embed-text">
+                    nomic-embed-text
+                  </SelectItem>
+                  <SelectItem value="all-minilm">all-minilm</SelectItem>
+                  <SelectItem value="snowflake-arctic-embed">
+                    snowflake-arctic-embed
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select the model used for generating embeddings. You may need to
+                download it first.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -12,9 +12,12 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   currentSessionId: null,
   hasSession: false,
   hydrated: false,
+  highlightedMessage: null,
 
   setCurrentSessionId: (id) =>
     set({ currentSessionId: id, hasSession: id !== null }),
+
+  setHighlightedMessage: (message) => set({ highlightedMessage: message }),
 
   loadSessions: async () => {
     if (get().sessions.length > 0 || get().hydrated) return
@@ -93,7 +96,9 @@ export const useChatSessions = () => {
       updateMessages: s.updateMessages,
       renameSessionTitle: s.renameSessionTitle,
       setCurrentSessionId: s.setCurrentSessionId,
-      loadSessions: s.loadSessions
+      loadSessions: s.loadSessions,
+      highlightedMessage: s.highlightedMessage,
+      setHighlightedMessage: s.setHighlightedMessage
     }))
   )
   useEffect(() => {

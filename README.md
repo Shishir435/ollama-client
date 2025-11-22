@@ -63,6 +63,22 @@
 - 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
 - ⚡ **Streaming Responses** – Real-time streaming with typing indicators
 
+### 🧠 Embeddings & Semantic Search (Beta v0.3.0)
+- 🔍 **Semantic Chat Search** – Search chat history by meaning, not just keywords
+- 📊 **Vector Database** – IndexedDB-based vector storage with optimized cosine similarity
+- 🎯 **Smart Chunking** – 3 strategies: fixed, semantic, hybrid (configurable)
+- 🚀 **Optimized Search** – Pre-normalized vectors, caching, early termination
+- 🔧 **Configurable** – Chunk size, overlap, similarity threshold, search limits
+- 📁 **Context-Aware** – Search across all chats or within current session
+
+### 📎 File Upload & Processing (Beta v0.3.0)
+- 📄 **Text Files** – Support for .txt, .md and text based files
+- 📕 **PDF Support** – Full text extraction from PDF documents
+- 📘 **DOCX Support** – Extract text from Word documents
+- ⚙️ **Auto-Embedding** – Automatic embedding generation for uploaded files
+- 📊 **Progress Tracking** – Real-time progress indicators during processing
+- 🎛️ **Configurable Limits** – User-defined max file size in settings
+
 
 ### 🌐 Webpage Integration
 - 🧠 **Enhanced Content Extraction** – Advanced extraction with multiple scroll strategies (none, instant, gradual, smart)
@@ -78,7 +94,7 @@
 - 🌓 **Dark Mode** – Beautiful dark theme with smooth transitions
 - 📝 **Prompt Templates** – Create, manage, and use custom prompt templates (Ctrl+/)
 - 🔊 **Advanced Text-to-Speech** – Searchable voice selector with adjustable speech rate & pitch
-- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera, Vivaldi, LibreWolf, and more
+- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera
 - 🧪 **Voice Testing** – Test voices before using them
 
 ### 🔒 Privacy & Performance
@@ -93,28 +109,36 @@
 ## 🧩 Tech Stack
 
 ### Frontend
-- **TypeScript** – Type-safe development
-- **React 18** – Modern UI framework
-- **Plasmo** – Chrome extension framework
-- **Shadcn UI** – Professional component library (Radix UI primitives)
-- **Tailwind CSS** – Utility-first styling
-- **Zustand** – Lightweight state management
-- **Dexie** – IndexedDB wrapper for chat storage
+- **[TypeScript](https://www.typescriptlang.org/)** – Type‑safe development
+- **[React 18](https://reactjs.org/)** – Modern UI framework
+- **[Plasmo](https://docs.plasmo.com/)** – Chrome‑extension framework
+- **[Shadcn UI](https://ui.shadcn.com/)** – Professional component library (Radix UI primitives)
+- **[Radix UI](https://www.radix-ui.com/)** – Accessible UI primitives 
+- **[Tailwind CSS](https://tailwindcss.com/)** – Utility‑first styling
+- **[Lucide React](https://lucide.dev/)** – Icon library
+- **[Zustand](https://github.com/pmndrs/zustand)** – Lightweight state management
+- **[Dexie](https://dexie.org/)** – IndexedDB wrapper for chat storage
 
-### Backend & APIs
-- **Ollama** – Local LLM backend
-- **Chrome Extension APIs** – `declarativeNetRequest`, `storage`, `sidePanel`, `tabs`
+- **[webextension‑polyfill](https://github.com/mozilla/webextension-polyfill)** – Promise‑based browser extension API wrapper
+
+### Backend & APIs
+- **[Ollama](https://ollama.com/)** – Local LLM backend
+- **[Chrome Extension APIs](https://developer.chrome.com/docs/extensions/)** – `declarativeNetRequest`, `storage`, `sidePanel`, `tabs`
 
 ### Content Processing
-- **Defuddle** – Advanced content extraction
-- **Mozilla Readability** – Content extraction fallback
-- **highlight.js** – Code syntax highlighting
-- **markdown-it** – Markdown rendering
+- **[Defuddle](https://github.com/kepano/defuddle)** – Advanced content extraction
+- **[Mozilla Readability](https://github.com/mozilla/readability)** – Content extraction fallback
+- **[highlight.js](https://highlightjs.org/)** – Code syntax highlighting
+- **[markdown-it](https://github.com/markdown-it/markdown-it)** – Markdown rendering
+- **[pdfjs‑dist](https://github.com/mozilla/pdfjs-dist)** – PDF parsing and rendering
+- **[dompurify](https://github.com/cure53/DOMPurify)** – HTML sanitization
+- **[html2pdf.js](https://github.com/eKoopmans/html2pdf.js)** – Convert HTML to PDF
+- **[mammoth](https://github.com/mwilliamson/mammoth.js)** – DOCX to HTML conversion
 
 ### Developer Tools
-- **Biome** – Fast formatter & linter
-- **TypeScript** – Strict type checking
-- **Husky** – Git hooks
+- **[Biome](https://biomejs.dev/)** – Fast formatter & linter
+- **[TypeScript](https://www.typescriptlang.org/)** – Strict type checking
+- **[Husky](https://typicode.github.io/husky/)** – Git hooks
 
 ---
 
@@ -374,7 +398,7 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 ### Embeddings & Semantic Search
 
 - [x] Implement **Ollama Embedding Models**:
-  - [x] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `all-minilm`)
+  - [x] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `mxbai-embed-large`)
   - [x] Generate embeddings for chat messages and store in IndexedDB
   - [x] Semantic search over chat history (global and per-chat)
   - [x] Auto-embedding toggle and backfill functionality
@@ -385,13 +409,20 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
   - [x] Implement early termination for low similarity scores
   - [x] Add search result caching (configurable TTL & max size)
   - [x] Non-blocking computation (async chunking with yields)
+- [x] **Semantic Chat Search UI** (Beta v0.3.0 - Completed):
+  - [x] Search dialog with debounced input
+  - [x] Search scope toggle (all chats / current chat)
+  - [x] Grouped results by session
+  - [x] Similarity scores with % match display
+  - [x] Click to navigate and highlight message
+  - [x] Real-time loading indicators
 - [ ] **Advanced Vector Search** (Phase 2 - Future):
-  - [ ] WASM-based HNSW indexing via `use-wasm` or `hnswlib-wasm`
+  - [ ] WASM-based HNSW indexing via `hnswlib-wasm`
   - [ ] Implement when dataset exceeds 10K vectors
   - [ ] Expected performance gain: 10-100x faster searches
   - [ ] Bundle size impact: ~200 KB (gzipped: ~100-200 KB)
   - [ ] See `VECTOR_SEARCH_LIBRARIES_REPORT.md` for detailed analysis
-- [ ] Enable **Local RAG** over chats, PDFs, and image text
+- [ ] Enable **Local RAG** over chats, PDFs, and uploaded files
 - [ ] **Browser Search Feature**:
   - [ ] Contextual search within webpage content
   - [ ] Semantic search over extracted content
@@ -406,15 +437,30 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 ### File Upload & Processing
 
-- [ ] Plain text-based formats: `.txt`, `.md`, `.js`, `.ts` (direct read)
-- [ ] Support `.pdf` uploads via **pdf.js**
-- [ ] Image OCR via **Tesseract.js** (lazy-loaded)
-- [ ] Optional future support: `.docx` (via `mammoth.js`) etc.
+- [x] **Text File Support** (Beta v0.3.0 - Completed):
+  - [x] Plain text-based formats: `.txt`, `.md` and more.
+  - [x] Direct UTF-8 reading
+- [x] **PDF Support** (Beta v0.3.0 - Completed):
+  - [x] Full text extraction via **pdf.js**
+  - [x] Multi-page document support
+- [x] **DOCX Support** (Beta v0.3.0 - Completed):
+  - [x] Extract text from Word documents via **mammoth.js**
+  - [x] Handle formatting and structure
+- [x] **Auto-Embedding** (Beta v0.3.0 - Completed):
+  - [x] Automatic chunking with configurable strategies
+  - [x] Background embedding generation via port messaging
+  - [x] Progress tracking with real-time updates
+  - [x] Batch processing for performance
+- [x] **File Upload Settings** (Beta v0.3.0 - Completed):
+  - [x] Configurable max file size
+  - [x] Auto-embed toggle
+  - [x] Embedding batch size configuration
+- [ ] Image OCR via **Tesseract.js** (Deferred - CSP issues in Manifest V3)
 
 ### UX & Metrics Enhancements
 
 - [ ] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
-- [ ] Enable **Semantic Chat Search / Filter** once embeddings are in place
+- [x] Enable **Semantic Chat Search / Filter** once embeddings are in place
 - [x] Add **Export/Import UI Buttons** in chat selector ui
 
 ---
