@@ -180,7 +180,7 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
         return
       }
 
-      if (message.type === "done") {
+      if (msg.type === "done") {
         try {
           port.postMessage({ status: "done", processed, total: totalChunks })
         } catch (_) {
