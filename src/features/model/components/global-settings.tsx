@@ -18,6 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { SelectionButtonToggle } from "@/features/model/components/selection-button-toggle"
 import {
   CONTENT_SCRAPER_OPTIONS,
   SCROLL_STRATEGY_DESCRIPTIONS,
@@ -250,6 +251,21 @@ export const GlobalSettings = ({ config, onUpdate }: GlobalSettingsProps) => {
             checked={config.enabled}
             onCheckedChange={(checked) => onUpdate({ enabled: checked })}
           />
+        </div>
+
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between space-x-2">
+            <Label
+              htmlFor="show-selection-button"
+              className="flex flex-col space-y-1">
+              <span>Show "Ask ollama client" button on selection</span>
+              <span className="font-normal text-muted-foreground text-xs">
+                Show a floating button when selecting text to quickly add it to
+                chat
+              </span>
+            </Label>
+            <SelectionButtonToggle />
+          </div>
         </div>
 
         <Separator />

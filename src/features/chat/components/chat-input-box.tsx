@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,8 +13,10 @@ import { PromptSelectorDialog } from "@/features/prompt/components/prompt-select
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { cn } from "@/lib/utils"
+import type { ChromeMessage } from "@/types"
 
 export const ChatInputBox = ({
   onSend,
@@ -27,7 +29,7 @@ export const ChatInputBox = ({
   ) => void
   stopGeneration: () => void
 }) => {
-  const { input, setInput } = useChatInput()
+  const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionStartRef = useRef<number | null>(null)
@@ -133,6 +135,24 @@ export const ChatInputBox = ({
     },
     [processFiles]
   )
+
+  useEffect(() => {
+    const handleMessage = (message: unknown) => {
+      const msg = message as ChromeMessage
+      if (
+        msg.type === MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT &&
+        msg.payload &&
+        msg.fromBackground
+      ) {
+        const selectionText = `> ${(msg.payload as string).split("\n").join("\n> ")}\n`
+        appendInput(selectionText)
+        textareaRef.current?.focus()
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [appendInput])
 
   const hasFiles = processingStates.length > 0
   const successCount = processingStates.filter(

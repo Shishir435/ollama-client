@@ -5,14 +5,16 @@ import type { ChatInput } from "@/types"
 
 export const chatInputStore = create<ChatInput>((set) => ({
   input: "",
-  setInput: (text) => set({ input: text })
+  setInput: (text) => set({ input: text }),
+  appendInput: (text) => set((state) => ({ input: state.input + text }))
 }))
 
 export const useChatInput = () => {
   return chatInputStore(
     useShallow((s) => ({
       input: s.input,
-      setInput: s.setInput
+      setInput: s.setInput,
+      appendInput: s.appendInput
     }))
   )
 }

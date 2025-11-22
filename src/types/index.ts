@@ -88,6 +88,14 @@ export interface ChromeMessage {
   query?: string
   name?: string
   cancel?: boolean
+  fromBackground?: boolean
+}
+
+export interface ChromeSidePanel {
+  open: (options: { windowId: number; tabId?: number }) => Promise<void>
+  setPanelBehavior: (options: {
+    openPanelOnActionClick: boolean
+  }) => Promise<void>
 }
 
 export interface ChromeResponse {
@@ -342,7 +350,8 @@ export interface LoadStreamState {
 
 export interface ChatInput {
   input: string
-  setInput: (value: string) => void
+  setInput: (text: string) => void
+  appendInput: (text: string) => void
 }
 
 // Re-export embedding config types from constants

@@ -1,6 +1,7 @@
 import "webextension-polyfill"
 
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import {
   handleEmbedFileChunks,
@@ -33,6 +34,7 @@ import type {
   ChatWithModelMessage,
   ChromeMessage,
   ChromePort,
+  ChromeSidePanel,
   ModelPullMessage,
   PortStatusFunction
 } from "@/types"
@@ -79,6 +81,7 @@ if (!isChromiumBased()) {
 if (isChromiumBased()) {
   browser.runtime.onInstalled.addListener(async (details) => {
     updateDNRRules()
+    initializeContextMenu()
 
     // Auto-download embedding model on first install
     if (details.reason === "install") {
@@ -268,6 +271,42 @@ browser.runtime.onMessage.addListener(
             }
           })
         })
+        return true
+      }
+
+      case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
+        // Open sidepanel if possible (Chrome specific)
+        if (isChromiumBased() && "sidePanel" in browser) {
+          const sidePanel = (
+            browser as unknown as { sidePanel: ChromeSidePanel }
+          ).sidePanel
+          const windowId = _sender.tab?.windowId
+          if (windowId && sidePanel.open) {
+            sidePanel.open({ windowId }).catch((err: unknown) => {
+              console.error(
+                "Failed to open sidepanel:",
+                err instanceof Error ? err.message : String(err)
+              )
+            })
+          }
+        }
+
+        setTimeout(() => {
+          if ((message as ChromeMessage).fromBackground) return
+
+          browser.runtime
+            .sendMessage({
+              ...message,
+              fromBackground: true
+            })
+            .catch((err) => {
+              console.log(
+                "Could not forward selection to chat (sidepanel might be closed):",
+                err
+              )
+            })
+        }, 500)
+
         return true
       }
     }

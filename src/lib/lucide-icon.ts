@@ -48,6 +48,7 @@ import Notebook from "lucide-react/dist/esm/icons/notebook"
 import Package from "lucide-react/dist/esm/icons/package"
 import Paperclip from "lucide-react/dist/esm/icons/paperclip"
 import Plus from "lucide-react/dist/esm/icons/plus"
+import Quote from "lucide-react/dist/esm/icons/quote"
 import RefreshCcw from "lucide-react/dist/esm/icons/refresh-ccw"
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw"
 import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw"
@@ -155,5 +156,6 @@ export {
   Trash2,
   type LucideIcon,
   Bot,
-  User
+  User,
+  Quote
 }
