@@ -25,7 +25,8 @@ export const MESSAGE_KEYS = {
   },
   BROWSER: {
     OPEN_TAB: "open-tab",
-    GET_PAGE_CONTENT: "get-page-content"
+    GET_PAGE_CONTENT: "get-page-content",
+    ADD_SELECTION_TO_CHAT: "add-selection-to-chat"
   }
 }
 
@@ -42,7 +43,8 @@ export const STORAGE_KEYS = {
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
-    CONTENT_EXTRACTION_CONFIG: "content-extraction-config"
+    CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
+    SHOW_SELECTION_BUTTON: "show-selection-button"
   },
   TTS: {
     RATE: "tts-rate",
@@ -63,6 +65,8 @@ export const STORAGE_KEYS = {
 
 // Default embedding model - use `mxbai-embed-large` for improved semantics
 export const DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
+
+export const DEFAULT_CONTEXT_MENU_ID = "add-to-ollama-client"
 
 export type ChunkingStrategy = "fixed" | "semantic" | "hybrid"
 
