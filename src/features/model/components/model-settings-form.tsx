@@ -380,7 +380,7 @@ export const ModelSettingsForm = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ModelMenu tooltipTextContent={t("settings.model.choose_model")} />
+            <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
             <BaseUrlSettings />
           </CardContent>
         </Card>
