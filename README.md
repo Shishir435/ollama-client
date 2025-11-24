@@ -94,7 +94,8 @@
 - 🌓 **Dark Mode** – Beautiful dark theme with smooth transitions
 - 📝 **Prompt Templates** – Create, manage, and use custom prompt templates (Ctrl+/)
 - 🔊 **Advanced Text-to-Speech** – Searchable voice selector with adjustable speech rate & pitch
-- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera
+- 🌍 **Internationalization (i18n)** – Full multi-language support with 9 languages: English, Hindi, Spanish, French, German, Italian, Chinese (Simplified), Japanese, Russian
+- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera, Firefox
 - 🧪 **Voice Testing** – Test voices before using them
 
 ### 🔒 Privacy & Performance
