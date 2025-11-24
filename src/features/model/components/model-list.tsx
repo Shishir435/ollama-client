@@ -14,11 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -188,45 +184,44 @@ export const ModelList = (): JSX.Element => {
   return (
     <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-sm">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-auto w-full justify-between p-2 hover:bg-muted/50">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">
-                {t("settings.model_list.title_count", { count: models.length })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRefresh()
-                    }}
-                    disabled={refreshing}
-                    className="h-8 w-8 p-0">
-                    <RefreshCw
-                      className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t("settings.model_list.refresh_tooltip")}</p>
-                </TooltipContent>
-              </Tooltip>
-              {isOpen ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </div>
-          </Button>
-        </CollapsibleTrigger>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between p-2 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => setIsOpen(!isOpen)}>
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              {t("settings.model_list.title_count", { count: models.length })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRefresh()
+                  }}
+                  disabled={refreshing}
+                  className="h-8 w-8 p-0">
+                  <RefreshCw
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t("settings.model_list.refresh_tooltip")}</p>
+              </TooltipContent>
+            </Tooltip>
+            {isOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </div>
+        </button>
 
         <CollapsibleContent>
           <div className="border-t">
