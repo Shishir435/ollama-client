@@ -1,0 +1,816 @@
+{
+  "common": {
+    "theme": {
+      "toggle": "Basculer le Thème",
+      "toggle_aria_label": "Basculer le thème",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système"
+    },
+    "bug_report": {
+      "label": "Bogue",
+      "aria_label": "Signaler un bogue ou demander une fonctionnalité",
+      "tooltip": "Signaler un bogue ou demander une fonctionnalité"
+    },
+    "settings": {
+      "label": "Paramètre",
+      "aria_label": "Paramètres de l'Extension",
+      "tooltip": "Paramètres de l'Extension"
+    },
+    "actions": {
+      "retry": "Réessayer",
+      "refresh": "Actualiser"
+    },
+    "social": {
+      "title": "Connectez-vous avec Moi",
+      "visit_profile": "Visiter mon profil {{platform}}"
+    },
+    "language": {
+      "label": "Langue",
+      "select_label": "Langue de l'Interface",
+      "beta_badge": "Bêta",
+      "description": "Sélectionnez votre langue préférée pour l'interface.",
+      "help_text": "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
+    }
+  },
+  "selection_button": {
+    "label": "Demander au client Ollama",
+    "tooltip": "Ajouter à Ollama Client"
+  },
+  "welcome": {
+    "title": "Bienvenue sur Ollama Chat",
+    "subtitle": "Conversations IA locales simplifiées",
+    "start_chatting": "Commencer à Chatter",
+    "status": {
+      "connecting": {
+        "title": "Connexion...",
+        "message": "Établissement de la connexion au serveur Ollama"
+      },
+      "connection_failed": {
+        "title": "Échec de la Connexion",
+        "message": "Échec de la connexion à Ollama. Le serveur est-il en cours d'exécution ?"
+      },
+      "no_models": {
+        "title": "Aucun Modèle Trouvé",
+        "message": "Veuillez télécharger un modèle pour commencer"
+      },
+      "ready": {
+        "title": "Prêt à Chatter",
+        "message": "Ollama est connecté et prêt à être utilisé"
+      }
+    },
+    "setup_guide": {
+      "intro": "Avant de commencer, suivez ces étapes rapides :",
+      "step1": "Installez <code>ollama</code> sur votre système",
+      "step2": "Exécutez <code>ollama run llama3</code> ou tout autre modèle",
+      "step3": "Revenez ici et cliquez sur <b>Actualiser</b>",
+      "full_guide_link": "Guide de Configuration Complet"
+    },
+    "features": {
+      "private": {
+        "title": "100 % Privé",
+        "description": "Vos données restent locales"
+      },
+      "offline": {
+        "title": "Fonctionne Hors Ligne",
+        "description": "Pas besoin d'Internet"
+      },
+      "local_processing": {
+        "title": "Traitement Local",
+        "description": "Contrôle total"
+      },
+      "embeddings": {
+        "title": "Incrustations Vectorielles",
+        "description": "Prêt pour la recherche sémantique"
+      }
+    },
+    "performance_notice": {
+      "title": "⚠️ Avis de Performance",
+      "message": "Cette extension est une interface utilisateur pour votre serveur Ollama local. Le temps de réponse et la qualité de sortie du modèle dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle spécifique que vous utilisez. Aucun traitement n'est effectué par l'extension elle-même."
+    }
+  },
+  "chat": {
+    "input": {
+      "placeholder": "Écrivez un message...",
+      "switch_model": "Changer de modèle",
+      "files_ready": "Il y a {{count}} fichiers prêts.",
+      "chars": "Caractères",
+      "enter_to_send": "Envoyer",
+      "enter_key": "Entrée"
+    },
+    "actions": {
+      "copy": "Copier",
+      "copied": "Copié",
+      "regenerate": "Régénérer",
+      "switch_model_tooltip": "Changer de modèle"
+    },
+    "metrics": {
+      "title": "Métriques de Performance",
+      "toggle_aria_label": "Basculer les métriques",
+      "toggle_title": "Basculer les métriques",
+      "total_time": "Temps Total",
+      "generation_speed": "Vitesse de Génération",
+      "prompt_tokens": "Tokens de Prompt",
+      "generated_tokens": "Tokens Générés",
+      "load_time": "Temps de Chargement",
+      "prompt_eval_time": "Temps d'Évaluation du Prompt"
+    },
+    "search": {
+      "button_title": "Rechercher l'historique de chat (recherche sémantique)",
+      "button_label": "Rechercher des Chats",
+      "dialog_title": "Recherche Sémantique de Chat",
+      "dialog_description": "Recherchez votre historique de chat par signification, pas seulement par mots-clés",
+      "beta_badge": "Bêta v0.3.0",
+      "placeholder": "Rechercher des conversations par signification...",
+      "scope_all": "Tous les Chats",
+      "scope_current": "Chat Actuel",
+      "searching": "Recherche de l'historique de chat...",
+      "no_results": "Aucun résultat trouvé. Essayez une requête de recherche différente.",
+      "start_typing": "Commencez à taper pour rechercher sémantiquement dans votre historique de chat...",
+      "result_badge": "résultat",
+      "results_badge": "résultats",
+      "match_percentage": "% de correspondance",
+      "role_you": "Vous",
+      "role_assistant": "Assistant",
+      "unknown_session": "Session Inconnue",
+      "time_just_now": "À l'instant",
+      "time_minute": "minute",
+      "time_minutes": "minutes",
+      "time_hour": "heure",
+      "time_hours": "heures",
+      "time_day": "jour",
+      "time_days": "jours",
+      "time_ago": "il y a",
+      "time_unknown": "Heure inconnue"
+    },
+    "backfill": {
+      "title": "Remplir l'Historique de Chat",
+      "description": "Générer des incrustations pour tous les messages de chat existants afin d'activer la recherche sémantique",
+      "error_label": "Erreur",
+      "completed_label": "Terminé !",
+      "completed_message": "{{current}} messages intégrés avec succès sur {{count}} sessions.",
+      "processing_label": "Traitement de {{current}} sur {{total}} messages",
+      "info_sessions": "• Ceci traitera tous les messages de {{count}} {{sessions}}",
+      "session_singular": "session",
+      "session_plural": "sessions",
+      "info_min_chars": "• Seuls les messages d'au moins 10 caractères seront intégrés",
+      "info_time_warning": "• Cela peut prendre un certain temps en fonction du nombre de messages",
+      "button_processing": "Traitement...",
+      "button_start": "Démarrer le Remplissage",
+      "button_completed": "Remplissage Terminé"
+    },
+    "send": {
+      "send_message": "Envoyer le message",
+      "stop_generation": "Arrêter la génération"
+    },
+    "speech": {
+      "loading_voices": "Chargement des voix...",
+      "stop_speaking": "Arrêter de parler",
+      "speak_message": "Parler le message"
+    },
+    "voice_selector": {
+      "select_voice": "Sélectionner la voix",
+      "select_placeholder": "Sélectionner une voix...",
+      "search_placeholder": "Rechercher par nom, langue ou URI...",
+      "no_voices_found": "Aucune voix trouvée",
+      "no_voices_available": "Aucune voix disponible sur cet appareil",
+      "try_different_search": "Essayez un terme de recherche différent",
+      "network_voice": "Voix réseau",
+      "default_badge": "par défaut",
+      "unknown_language": "Inconnu"
+    },
+    "message": {
+      "loading": "Chargement..."
+    }
+  },
+  "file_upload": {
+    "button": {
+      "aria_label": "Téléverser un fichier",
+      "tooltip": "Téléverser un fichier (PDF, DOCX, fichiers texte)"
+    },
+    "preview": {
+      "remove_aria_label": "Retirer le fichier",
+      "generating_embeddings": "Génération des incrustations...",
+      "extracting_pdf": "Extraction du texte du PDF...",
+      "processing_docx": "Traitement du document DOCX...",
+      "processing_file": "Traitement du fichier..."
+    },
+    "area": {
+      "files_ready": "{{count}} fichier prêt",
+      "files_ready_plural": "{{count}} fichiers prêts"
+    },
+    "settings": {
+      "max_file_size_label": "Taille Maximale de Fichier (Mo)",
+      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités."
+    }
+  },
+  "model": {
+    "ollama_status": {
+      "checking": "Vérification du statut d'Ollama...",
+      "error": "Ollama n'est pas accessible",
+      "empty": "Aucun modèle trouvé",
+      "ready": "Ollama est prêt"
+    },
+    "embedding_status": {
+      "checking": "Vérification du statut...",
+      "downloading": "Téléchargement de {{model}}... {{progress}}",
+      "ready": "Modèle d'incrustation prêt : {{model}}",
+      "missing": "Modèle manquant : {{model}}",
+      "checking_model": "Vérification du modèle d'incrustation...",
+      "required_for_rag": "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
+      "download_button": "Télécharger le Modèle"
+    },
+    "menu": {
+      "select_placeholder": "Sélectionner un modèle...",
+      "models_label": "Modèles",
+      "refresh_aria_label": "Actualiser les modèles",
+      "refresh_tooltip": "Actualiser les modèles",
+      "search_placeholder": "Rechercher un modèle...",
+      "no_model_found": "Aucun modèle trouvé."
+    },
+    "version": {
+      "tooltip": "Version d'Ollama : {{version}}"
+    },
+    "site_overrides": {
+      "title": "Priorités Spécifiques au Site",
+      "description": "Configurez des paramètres d'extraction personnalisés pour des sites spécifiques à l'aide de motifs regex",
+      "add_pattern_label": "Ajouter un Motif de Site",
+      "pattern_placeholder": "medium.com ou ^https://twitter\\.com/.*",
+      "pattern_empty_error": "Le motif de site ne peut pas être vide",
+      "pattern_exists_error": "La priorité de site existe déjà",
+      "pattern_invalid_error": "Motif d'expression régulière non valide",
+      "examples": "Exemples : <0>medium.com</0> ou <0>^https://twitter\\.com/.*</0>",
+      "active_overrides": "Priorités Actives",
+      "site_count": "{{count}} site",
+      "site_count_plural": "{{count}} sites",
+      "select_site_label": "Sélectionner le Site à Configurer",
+      "select_placeholder": "Sélectionner un site...",
+      "search_placeholder": "Rechercher des sites...",
+      "no_sites_found": "Aucun site trouvé.",
+      "no_overrides": "Aucune priorité spécifique au site configurée",
+      "no_overrides_hint": "Ajoutez des motifs pour personnaliser les paramètres d'extraction pour des sites spécifiques",
+      "scroll_strategy_label": "Stratégie de Défilement",
+      "scroll_depth_label": "Profondeur de Défilement",
+      "add_button": "Ajouter"
+    },
+    "exclude_urls": {
+      "title": "URL Exclues",
+      "description": "Bloquer l'accès à l'extension depuis des pages sensibles à l'aide de motifs regex",
+      "add_pattern_label": "Ajouter un Motif d'URL",
+      "pattern_placeholder": "^https://example\\.com/private.*",
+      "pattern_empty_error": "Le motif ne peut pas être vide",
+      "pattern_exists_error": "Le motif existe déjà",
+      "pattern_invalid_error": "Motif d'expression régulière non valide",
+      "examples": "Utilisez des expressions régulières pour faire correspondre les URLs. Exemples : <0>^https://bank\\.</0> ou <0>.*\\.private\\..*</0>",
+      "active_patterns": "Motifs Actifs",
+      "pattern_count": "{{count}} motif",
+      "pattern_count_plural": "{{count}} motifs",
+      "no_patterns": "Aucun motif d'URL configuré",
+      "default_badge": "par défaut",
+      "add_button": "Ajouter"
+    },
+    "embedding_config": {
+      "storage_stats_title": "Statistiques de Stockage",
+      "total_vectors": "Vecteurs Totaux",
+      "storage_used": "Stockage Utilisé",
+      "cache": "Cache",
+      "cache_entries": "{{size}} / {{maxSize}} entrées",
+      "database_management_title": "Gestion de la Base de Données",
+      "database_management_description": "Nettoyez et gérez votre base de données d'incrustations vectorielles",
+      "remove_duplicates_button": "Supprimer les Doublons",
+      "remove_duplicates_description": "Supprime les incrustations en double, en ne conservant que la première occurrence de chaque message unique",
+      "clear_chat_button": "Effacer Toutes les Incrustations de Chat",
+      "clear_chat_description": "Supprime toutes les incrustations de chat. Vous pouvez les remplir (backfill) plus tard pour les régénérer",
+      "clear_all_button": "Effacer Toutes les Incrustations",
+      "clear_all_description": "Supprime toutes les incrustations (chats, fichiers, pages web). Cette action est irréversible",
+      "chunking_title": "Paramètres de Fragmentation",
+      "chunking_description": "Configure la manière dont le texte est divisé en fragments pour l'incrustation",
+      "chunk_size_label": "Taille du Fragment (tokens)",
+      "chunk_size_description": "Nombre de tokens par fragment. Les fragments plus grands conservent plus de contexte, mais peuvent être moins ciblés.",
+      "chunk_overlap_label": "Chevauchement de Fragments (tokens)",
+      "chunk_overlap_description": "Chevauchement entre les fragments. Aide à préserver le contexte aux limites des fragments.",
+      "chunking_strategy_label": "Stratégie de Fragmentation",
+      "chunking_strategy_description": "Comment diviser le texte en fragments. L'hybride offre le meilleur équilibre entre contexte et ciblage.",
+      "strategy_fixed": "Taille Fixe",
+      "strategy_semantic": "Limites Sémantiques",
+      "strategy_hybrid": "Hybride (Recommandé)",
+      "embedding_gen_title": "Génération d'Incrustation",
+      "embedding_gen_description": "Configure les performances de la génération d'incrustation",
+      "batch_size_label": "Taille du Lot",
+      "batch_size_description": "Nombre de textes à intégrer en parallèle. Les valeurs plus élevées sont plus rapides mais utilisent plus de mémoire.",
+      "enable_caching_label": "Activer la Mise en Cache",
+      "enable_caching_description": "Mettre en cache les incrustations pour un contenu identique afin d'éviter la régénération",
+      "use_webworker_label": "Utiliser un Web Worker",
+      "use_webworker_description": "Décharger la génération d'incrustation vers un thread d'arrière-plan (recommandé)",
+      "limits_title": "Limites et Stockage",
+      "limits_description": "Configure les limites de stockage et les politiques de nettoyage",
+      "max_embeddings_label": "Max Incrustations par Fichier",
+      "max_embeddings_description": "Maximum d'incrustations par fichier (0 = illimité). Aide à prévenir les problèmes de mémoire avec de très gros fichiers.",
+      "max_storage_label": "Taille Max. de Stockage (Mo)",
+      "max_storage_description": "Taille maximale de stockage en Mo (0 = illimité). Les vecteurs les plus anciens seront supprimés lorsque la limite est atteinte.",
+      "auto_cleanup_label": "Nettoyage Automatique",
+      "auto_cleanup_description": "Supprimer automatiquement les incrustations anciennes",
+      "cleanup_age_label": "Ancienneté de Nettoyage (jours)",
+      "cleanup_age_description": "Supprimer les incrustations plus anciennes que ce nombre de jours",
+      "chat_search_title": "Paramètres de Recherche de Chat",
+      "chat_search_description": "Configure la recherche sémantique pour l'historique de chat",
+      "auto_embed_label": "Incruster les Messages de Chat Automatiquement",
+      "auto_embed_description": "Incruster automatiquement les messages de chat pour la recherche sémantique (recommandé)",
+      "backfill_title": "Remplir l'Historique de Chat",
+      "backfill_description": "Générer des incrustations pour tous les messages de chat existants afin d'activer la recherche sémantique",
+      "search_settings_title": "Paramètres de Recherche",
+      "search_settings_description": "Paramètres par défaut pour la recherche sémantique",
+      "search_limit_label": "Limite de Recherche par Défaut",
+      "search_limit_description": "Nombre par défaut de résultats à renvoyer par la recherche sémantique",
+      "min_similarity_label": "Seuil Minimal de Similitude",
+      "min_similarity_description": "Score minimal de similarité cosinus (0-1). Pour la recherche sémantique, 0.4-0.6 est recommandé. Les valeurs plus élevées renvoient des résultats plus pertinents mais moins nombreux.",
+      "cache_ttl_label": "TTL de Cache de Recherche (minutes)",
+      "cache_ttl_description": "Durée de mise en cache des résultats de recherche (1-60 minutes). Les requêtes mises en cache sont renvoyées instantanément.",
+      "cache_max_size_label": "Max Requêtes Mises en Cache",
+      "cache_max_size_description": "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte."
+    }
+  },
+  "prompts": {
+    "selector": {
+      "title": "Modèles de Prompt",
+      "description": "Choisissez parmi {{count}} modèles pour démarrer votre conversation",
+      "search_placeholder": "Rechercher des modèles, des étiquettes ou des descriptions...",
+      "sort_recent": "Récents",
+      "sort_popular": "Populaires",
+      "sort_alphabetical": "A-Z",
+      "all_categories": "Toutes les Catégories",
+      "no_templates_title": "Aucun modèle trouvé",
+      "no_templates_search": "Essayez d'ajuster votre recherche ou vos critères de filtre",
+      "no_templates_empty": "Aucun modèle de prompt n'est disponible. Créez votre premier modèle dans les paramètres.",
+      "clear_filters": "Effacer les filtres",
+      "preview_system_prompt": "Prompt Système",
+      "preview_user_prompt": "Prompt Utilisateur",
+      "preview_tags": "Étiquettes",
+      "use_template": "Utiliser le Modèle",
+      "copy": "Copier"
+    }
+  },
+  "sessions": {
+    "selector": {
+      "title": "Sessions de Chat",
+      "create_new": "Créer un Nouveau Chat",
+      "create_new_aria": "Créer un Nouveau Chat",
+      "start_new": "Démarrer un Nouveau Chat",
+      "no_sessions": "Aucune session de chat pour l'instant",
+      "no_sessions_hint": "Créez votre premier chat pour commencer",
+      "session_count": "{{count}} session",
+      "session_count_plural": "{{count}} sessions"
+    },
+    "delete": {
+      "aria_label": "Supprimer la session de chat : {{title}}",
+      "tooltip": "Supprimer le chat"
+    },
+    "export": {
+      "tooltip": "Exporter le chat",
+      "tooltip_all": "Exporter toutes les sessions de chat",
+      "aria_label": "Exporter le chat",
+      "aria_label_all": "Exporter toutes les sessions de chat",
+      "format_json": "JSON",
+      "format_pdf": "PDF"
+    },
+    "import": {
+      "tooltip": "Importer des sessions de chat",
+      "aria_label": "Importer des sessions de chat"
+    }
+  },
+  "tabs": {
+    "select": {
+      "placeholder": "Sélectionner les onglets ouverts"
+    },
+    "toggle": {
+      "label_off": "Onglets",
+      "label_on": "Onglet+",
+      "tooltip": "Interagir avec les onglets ouverts"
+    }
+  },
+  "settings": {
+    "content_extraction": {
+      "title": "Extraction de Contenu",
+      "description": "Configure le comportement d'extraction de contenu par défaut pour tous les sites web.",
+      "enable": {
+        "label": "Autoriser l'extraction de contenu",
+        "description": "Activer l'extraction de contenu améliorée avec prise en charge du chargement différé (lazy loading)"
+      },
+      "selection_button": {
+        "label": "Afficher le bouton \"Demander au client Ollama\" après la sélection",
+        "description": "Afficher un bouton d'action flottant lors de la sélection de texte pour accélérer son ajout au chat"
+      },
+      "scraper": {
+        "label": "Scraper de Contenu",
+        "auto": {
+          "label": "Auto",
+          "description": "Fallback intelligent : Defuddle puis Readability",
+          "detail": "Bon pour la plupart des sites. Utilise Defuddle d'abord pour un formatage Markdown et de code amélioré, passe à Readability si nécessaire."
+        },
+        "defuddle": {
+          "label": "Defuddle",
+          "description": "Contenu technique et hautement codé",
+          "detail": "Idéal pour GitHub, la documentation, Stack Overflow et les blogs de développeurs. Préserve les blocs de code et la structure Markdown."
+        },
+        "readability": {
+          "label": "Readability",
+          "description": "Articles et billets de blog",
+          "detail": "Convient aux articles de presse, aux publications Medium et au contenu de blog traditionnel."
+        }
+      },
+      "scroll_strategy": {
+        "label": "Stratégie de Défilement",
+        "none": "Extraction la plus rapide, chargement différé non pris en charge",
+        "instant": "Le défilement rapide fonctionne bien pour le chargement différé simple",
+        "gradual": "Défilement fluide équilibré avec des pauses délibérées et un mélange de vitesse et de précision",
+        "smart": "Défilement intelligent dynamique et conscient du contenu",
+        "options": {
+          "none": "Pas de défilement",
+          "instant": "Défilement rapide",
+          "gradual": "Défilement progressif",
+          "smart": "Détection intelligente"
+        },
+        "options_short": {
+          "none": "Aucun",
+          "instant": "Instantané",
+          "gradual": "Progressif",
+          "smart": "Intelligent"
+        }
+      },
+      "scroll_depth": {
+        "label": "Profondeur de Défilement",
+        "description": "Pourcentage de page à faire défiler (plus élevé = plus de contenu, plus lent)"
+      },
+      "timeout": {
+        "scroll_delay": "Délai de défilement en millisecondes",
+        "mutation_timeout": "Délai d'attente de Mutation Observer en millisecondes",
+        "network_timeout": "Délai d'inactivité du réseau en millisecondes",
+        "max_wait": "Temps d'attente maximum (millisecondes)"
+      },
+      "badges": {
+        "recommended": "Recommandé",
+        "active": "Actif"
+      }
+    },
+    "model": {
+      "title": "Paramètres du Modèle",
+      "switch_model": "Changer de modèle",
+      "description": "Configure les paramètres pour une performance optimale.",
+      "configuration_title": "Configuration du Modèle",
+      "configuration_description": "Configure les paramètres de ton modèle d'IA.",
+      "system": {
+        "title": "Configuration Système",
+        "description": "Configure les prompts système et les séquences d'arrêt pour contrôler le comportement du modèle.",
+        "prompt_label": "Prompt Système",
+        "prompt_placeholder": "Entrez un prompt système personnalisé pour guider le comportement du modèle...",
+        "stop_sequences_label": "Séquences d'Arrêt",
+        "stop_sequence_placeholder": "Entrez la séquence d'arrêt...",
+        "add_button": "Ajouter"
+      },
+      "sampling": {
+        "title": "Paramètres d'Échantillonnage",
+        "description": "Contrôler l'aléatoire et la sélection des tokens."
+      },
+      "context": {
+        "title": "Context et Génération",
+        "description": "Paramètres de Mémoire et de Contrôle de Sortie"
+      },
+      "parameters": {
+        "temperature": {
+          "label": "Température",
+          "conservative": "Conservateur",
+          "creative": "Créatif"
+        },
+        "top_p": {
+          "label": "Top-p (noyau)",
+          "focused": "Ciblé",
+          "diverse": "Diversifié"
+        },
+        "top_k": {
+          "label": "Top-k",
+          "validation_min": "Doit être au moins {{min}}"
+        },
+        "min_p": {
+          "label": "Min-p",
+          "validation_min": "Doit être au moins {{min}}.",
+          "validation_max": "Doit être au plus {{max}}."
+        },
+        "seed": {
+          "label": "Graine",
+          "validation_min": "Doit être au moins {{min}}"
+        },
+        "num_ctx": {
+          "label": "Taille du Contexte",
+          "validation_min": "Doit être au moins {{min}}"
+        },
+        "num_predict": {
+          "label": "Tokens Maximum",
+          "validation_min": "Doit être au moins {{min}}."
+        },
+        "repeat_penalty": {
+          "label": "Pénalité de Répétition",
+          "validation_min": "Doit être supérieur à {{min}}."
+        },
+        "repeat_last_n": {
+          "label": "Répéter les Derniers N",
+          "validation_min": "Doit être au moins {{min}}."
+        }
+      }
+    },
+    "base_url": {
+      "title": "URL de Base d'Ollama",
+      "description": "Configure le point de terminaison du serveur pour votre installation Ollama.",
+      "label": "Point de Terminaison du Serveur API Ollama",
+      "error_invalid_url": "Veuillez entrer une URL valide.",
+      "status_local": "Connexion au serveur local",
+      "status_remote": "Connexion au serveur distant",
+      "badges": {
+        "default": "Par défaut",
+        "remote": "Distant"
+      },
+      "button": {
+        "save": "Sauvegarder",
+        "saving": "Sauvegarde",
+        "saved": "Sauvegardé"
+      }
+    },
+    "model_pull": {
+      "title": "Bibliothèque de Modèles",
+      "description": "Parcourez et téléchargez des modèles d'IA pour vos projets.",
+      "search_placeholder": "Rechercher des modèles par nom ou description...",
+      "status": {
+        "cancelled": "Annulé",
+        "downloading": "Téléchargement du modèle",
+        "loading_models": "Chargement des modèles...",
+        "no_models": "Aucun modèle trouvé",
+        "adjust_search": "Ajustez vos termes de recherche."
+      },
+      "button": {
+        "variants": "Variantes",
+        "loading": "Chargement",
+        "pulling": "Téléchargement en cours"
+      },
+      "variants_label": "Variantes Disponibles"
+    },
+    "model_list": {
+      "unknown_size": "Taille inconnue",
+      "invalid_size": "Taille non valide",
+      "unknown_date": "Date inconnue",
+      "invalid_date": "Date non valide",
+      "time_ago_hours": "il y a {{count}} heures",
+      "time_ago_days": "il y a {{count}} jours",
+      "title": "Modèles",
+      "title_count": "{{count}} Modèles",
+      "retry": "Réessayer",
+      "refresh": "Actualiser",
+      "no_models": "Aucun modèle trouvé",
+      "refresh_tooltip": "Actualiser les modèles",
+      "delete_dialog": {
+        "title": "Supprimer ce modèle ?",
+        "description": "Cette action est irréversible. Le modèle sera définitivement supprimé de votre système local.",
+        "cancel": "Annuler",
+        "confirm": "Supprimer"
+      }
+    },
+    "model_info": {
+      "title": "Informations sur le Modèle",
+      "no_data": "Aucune donnée disponible pour ce modèle.",
+      "no_data_available": "Aucune donnée de modèle disponible",
+      "error_fetching": "Erreur lors de la récupération des données du modèle.",
+      "error_details": "Impossible de récupérer les détails du modèle.",
+      "refresh_tooltip": "Actualiser les détails du modèle",
+      "capabilities": "Capacités",
+      "technical_details": "Détails Techniques",
+      "unknown_file_type": "Inconnu"
+    },
+    "loaded_models": {
+      "title": "Modèles Chargés",
+      "count_one": "{{count}} modèle",
+      "count_other": "{{count}} modèles",
+      "refresh_tooltip": "Actualiser les modèles chargés",
+      "no_models_title": "Aucun modèle actuellement chargé en mémoire",
+      "no_models_description": "Les modèles apparaîtront ici une fois chargés.",
+      "unload_tooltip": "Décharger le modèle"
+    },
+    "tabs": {
+      "general": "Général",
+      "prompts": "Prompts",
+      "models": "Modèles",
+      "extraction": "Extraction",
+      "embeddings": "Incrustations",
+      "voices": "Voix",
+      "reset": "Réinitialiser",
+      "guides": "Guides"
+    },
+    "page": {
+      "title": "Paramètres d'Ollama Client",
+      "description": "Gérez tous les aspects de votre configuration Ollama en un seul endroit. Pour des conseils et un guide de configuration, visitez l'onglet Guides."
+    },
+    "speech": {
+      "title": "Paramètres de Parole",
+      "description": "Configurez les paramètres de voix, de vitesse et de tonalité de la synthèse vocale (text-to-speech).",
+      "voice_label": "Voix",
+      "rate_label": "Vitesse de la Parole",
+      "pitch_label": "Tonalité de la Voix",
+      "preview_title": "Aperçu",
+      "test_text_label": "Texte de Test",
+      "test_text_placeholder": "Testez vos paramètres vocaux en tapant ici...",
+      "test_hint_text": "Cliquez sur « Tester la Voix » pour entendre votre texte.",
+      "test_hint_default": "Cliquez sur « Tester la Voix » pour entendre l'échantillon par défaut.",
+      "test_button": "Tester la Voix",
+      "test_fallback": "Bonjour, ceci est un test de vos paramètres de parole.",
+      "rate": {
+        "very_slow": "Très Lent",
+        "slow": "Lent",
+        "normal": "Normal",
+        "fast": "Rapide",
+        "very_fast": "Très Rapide"
+      },
+      "pitch": {
+        "very_low": "Très Basse",
+        "low": "Basse",
+        "normal": "Normale",
+        "high": "Haute",
+        "very_high": "Très Haute"
+      }
+    },
+    "embeddings": {
+      "title": "Incrustations Vectorielles",
+      "beta_badge": "Bêta",
+      "description": "Les incrustations permettent la recherche sémantique, la génération augmentée par récupération (RAG) et des fonctionnalités sensibles au contexte pour le téléversement de fichiers et l'historique de chat.",
+      "model_label": "Modèle d'Incrustation",
+      "status": {
+        "installed": "Installé",
+        "not_found": "Non trouvé",
+        "checking": "Vérification...",
+        "check_button": "Vérifier le Statut"
+      },
+      "not_loaded": {
+        "title": "Modèle d'incrustation non chargé",
+        "description": "Le modèle d'incrustation est requis pour la recherche sémantique, RAG (Génération Augmentée par Récupération) et les fonctionnalités sensibles au contexte. Téléchargez-le maintenant pour améliorer votre expérience de chat avec une meilleure compréhension du contexte et des capacités de recherche de fichiers.",
+        "download_button": "Télécharger le Modèle"
+      },
+      "downloading": {
+        "title": "Téléchargement du modèle..."
+      },
+      "success": {
+        "title": "Téléchargement réussi",
+        "description": "Le modèle d'incrustation est maintenant prêt à l'emploi. Vous pouvez désormais profiter d'expériences de chat améliorées avec la recherche sémantique et des fonctionnalités sensibles au contexte."
+      },
+      "auto_downloaded": {
+        "title": "Auto-installé",
+        "description": "Le modèle d'incrustation a été téléchargé automatiquement lors de l'installation de l'extension."
+      },
+      "test_generation": {
+        "title": "Tester la Génération d'Incrustation",
+        "description": "Générez une incrustation de test pour vérifier que le modèle d'incrustation fonctionne correctement.",
+        "button": "Tester",
+        "button_testing": "Test en cours..."
+      },
+      "test_search": {
+        "title": "Recherche Sémantique",
+        "description": "Vérifiez que vos fichiers téléversés sont accessibles et consultables. Entrez une requête de recherche pour trouver le contenu correspondant.",
+        "placeholder": "Rechercher...",
+        "results_found": "{{count}} résultats trouvés",
+        "no_results": "Aucun résultat trouvé. Essayez une recherche différente ou téléversez plus de contenu."
+      },
+      "what_are_embeddings": {
+        "title": "Que sont les Incrustations ?",
+        "point_1": "Convertissent le texte en vecteurs numériques qui capturent le sens sémantique",
+        "point_2": "Permettent la recherche sémantique dans votre historique de chat et vos fichiers téléversés",
+        "point_3": "Alimentent RAG pour des réponses sensibles au contexte",
+        "point_4": "Fournissent un contexte pertinent à partir de vos fichiers pour améliorer les réponses de l'IA"
+      },
+      "rag_mode": {
+        "label": "Contexte Intelligent (RAG)",
+        "description": "Utilise la recherche sémantique pour trouver un contexte pertinent à partir de vos fichiers au lieu d'envoyer tout le contenu du fichier."
+      },
+      "model_select": {
+        "label": "Modèle d'Incrustation",
+        "placeholder": "Sélectionner un modèle",
+        "description": "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord."
+      }
+    },
+    "prompts": {
+      "title": "Modèles de Prompt",
+      "description": "Gérez votre collection de {{count}} modèles de prompt.",
+      "export": "Exporter les Modèles",
+      "import": "Importer les Modèles",
+      "reset": "Réinitialiser aux Valeurs par Défaut",
+      "reset_dialog": {
+        "title": "Réinitialiser les modèles aux valeurs par défaut ?",
+        "description": "Ceci remplacera tous vos modèles actuels par ceux par défaut. Cette action est irréversible.",
+        "cancel": "Annuler",
+        "confirm": "Réinitialiser les Modèles"
+      },
+      "search_placeholder": "Rechercher des modèles...",
+      "category_placeholder": "Catégorie",
+      "all_categories": "Toutes les Catégories",
+      "sort": {
+        "recent": "Récents",
+        "popular": "Populaires",
+        "alphabetical": "A-Z"
+      },
+      "new_template": "Nouveau Modèle",
+      "form": {
+        "title": "Titre",
+        "title_placeholder": "Titre du modèle",
+        "category": "Catégorie",
+        "category_placeholder": "ex., Développement, Écriture",
+        "description": "Description",
+        "description_placeholder": "Une brève description de l'objectif et de la fonctionnalité du modèle.",
+        "tags": "Étiquettes",
+        "tags_placeholder": "étiquette1, étiquette2, étiquette3",
+        "user_prompt": "Prompt Utilisateur",
+        "user_prompt_placeholder": "Modèle de prompt principal",
+        "system_prompt": "Prompt Système",
+        "create_button": "Créer un Modèle"
+      },
+      "delete_dialog": {
+        "title": "Supprimer le modèle",
+        "description": "Êtes-vous sûr de vouloir supprimer « {{title}} » ? Cette action est irréversible.",
+        "cancel": "Annuler",
+        "confirm": "Supprimer"
+      },
+      "created_at": "Créé le {{date}}",
+      "used_times": "Utilisé {{count}} fois"
+    },
+    "reset": {
+      "title": "Réinitialiser les Paramètres",
+      "description": "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
+      "danger_zone": {
+        "title": "Zone de Danger",
+        "description": "Ceci effacera toutes les données et ne peut être annulé",
+        "button": "Tout Réinitialiser"
+      },
+      "dialog": {
+        "title": "Confirmer la Réinitialisation",
+        "description": "Ceci effacera toutes les données et ne peut être annulé.",
+        "confirm": "Oui, Tout Réinitialiser",
+        "cancel": "Annuler"
+      },
+      "modules": {
+        "ollama": {
+          "description": "Paramètres et configurations du modèle"
+        },
+        "theme": {
+          "description": "Préférences d'apparence de l'interface utilisateur"
+        },
+        "browser": {
+          "description": "Accès aux onglets et motifs d'URL"
+        },
+        "tts": {
+          "description": "Paramètres de synthèse vocale (text-to-speech)"
+        },
+        "chat_sessions": {
+          "description": "Historique des conversations"
+        },
+        "default": {
+          "description": "Paramètres du module"
+        }
+      },
+      "item_count": "{{count}} élément",
+      "item_count_plural": "{{count}} éléments",
+      "reset_button": "Réinitialiser"
+    }
+  },
+  "guides": {
+    "title": "Guides et Documentation Utiles",
+    "description": "Besoin d'aide pour configurer Ollama Client ou explorer les fonctionnalités ? Consultez ces ressources utiles",
+    "support": {
+      "title": "Soutenir le Projet",
+      "description": "Aidez-nous à grandir en présentant Ollama Client sur Product Hunt",
+      "image_alt": "Ollama Client - Chatez avec des LLM locaux — directement dans votre navigateur | Product Hunt"
+    },
+    "items": {
+      "setup": {
+        "label": "Guide de Configuration d'Ollama Client",
+        "description": "Guide complet d'installation et de configuration",
+        "badge": "Guide"
+      },
+      "library": {
+        "label": "Bibliothèque Officielle de Modèles Ollama",
+        "description": "Parcourir les modèles d'IA disponibles et la documentation",
+        "badge": "Bibliothèque"
+      },
+      "github": {
+        "label": "Dépôt GitHub",
+        "description": "Code source, versions et directives de contribution",
+        "badge": "Code"
+      },
+      "faq": {
+        "label": "Dépannage et FAQ",
+        "description": "Problèmes courants et support communautaire",
+        "badge": "Aide"
+      }
+    }
+  },
+  "social": {
+    "github": "Page GitHub",
+    "portfolio": "Portfolio",
+    "linkedin": "LinkedIn",
+    "twitter": "Twitter",
+    "instagram": "Instagram",
+    "bug_report": "Signaler un Bogue / une Fonctionnalité"
+  }
+}

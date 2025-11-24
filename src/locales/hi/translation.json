@@ -454,6 +454,7 @@
     },
     "model": {
       "title": "मॉडल सेटिंग्स",
+      "switch_model": "मॉडल बदलें",
       "description": "इष्टतम प्रदर्शन के लिए पैरामीटर कॉन्फ़िगर करें।",
       "configuration_title": "मॉडल कॉन्फ़िगरेशन",
       "configuration_description": "अपने AI मॉडल पैरामीटर कॉन्फ़िगर करें।",

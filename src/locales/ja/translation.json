@@ -1,0 +1,816 @@
+{
+  "common": {
+    "theme": {
+      "toggle": "テーマを切り替え",
+      "toggle_aria_label": "テーマを切り替える",
+      "light": "ライト",
+      "dark": "ダーク",
+      "system": "システム"
+    },
+    "bug_report": {
+      "label": "バグ",
+      "aria_label": "バグ報告または機能リクエスト",
+      "tooltip": "バグ報告または機能リクエスト"
+    },
+    "settings": {
+      "label": "設定",
+      "aria_label": "拡張機能の設定",
+      "tooltip": "拡張機能の設定"
+    },
+    "actions": {
+      "retry": "再試行",
+      "refresh": "更新"
+    },
+    "social": {
+      "title": "私とつながる",
+      "visit_profile": "私の {{platform}} プロフィールを見る"
+    },
+    "language": {
+      "label": "言語",
+      "select_label": "インターフェース言語",
+      "beta_badge": "ベータ",
+      "description": "インターフェースの優先言語を選択してください。",
+      "help_text": "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
+    }
+  },
+  "selection_button": {
+    "label": "Ollama Clientに尋ねる",
+    "tooltip": "Ollama Clientに追加"
+  },
+  "welcome": {
+    "title": "Ollama Chatへようこそ",
+    "subtitle": "ローカルAIとの会話をシンプルに",
+    "start_chatting": "チャットを開始",
+    "status": {
+      "connecting": {
+        "title": "接続中...",
+        "message": "Ollamaサーバーへの接続を確立しています"
+      },
+      "connection_failed": {
+        "title": "接続失敗",
+        "message": "Ollamaへの接続に失敗しました。サーバーは実行中ですか？"
+      },
+      "no_models": {
+        "title": "モデルが見つかりません",
+        "message": "開始するにはモデルをpull（取得）してください"
+      },
+      "ready": {
+        "title": "チャット準備完了",
+        "message": "Ollamaが接続され、使用準備が整いました"
+      }
+    },
+    "setup_guide": {
+      "intro": "開始する前に、以下の簡単な手順に従ってください：",
+      "step1": "システムに <code>ollama</code> をインストールする",
+      "step2": "<code>ollama run llama3</code> または任意のモデルを実行する",
+      "step3": "ここに戻って <b>更新</b> をクリックする",
+      "full_guide_link": "完全なセットアップガイド"
+    },
+    "features": {
+      "private": {
+        "title": "100% プライベート",
+        "description": "データはローカルに保持されます"
+      },
+      "offline": {
+        "title": "オフライン動作",
+        "description": "インターネット接続は不要です"
+      },
+      "local_processing": {
+        "title": "ローカル処理",
+        "description": "完全なコントロール"
+      },
+      "embeddings": {
+        "title": "ベクトルエンベディング",
+        "description": "セマンティック検索対応"
+      }
+    },
+    "performance_notice": {
+      "title": "⚠️ パフォーマンスに関する注意",
+      "message": "この拡張機能は、ローカルOllamaサーバーのユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用している特定のモデルに完全に依存します。拡張機能自体による処理は行われません。"
+    }
+  },
+  "chat": {
+    "input": {
+      "placeholder": "メッセージを入力...",
+      "switch_model": "モデルを変更",
+      "files_ready": "{{count}} 個のファイルが準備完了。",
+      "chars": "文字",
+      "enter_to_send": "送信",
+      "enter_key": "Enter"
+    },
+    "actions": {
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "regenerate": "再生成",
+      "switch_model_tooltip": "モデルを切り替え"
+    },
+    "metrics": {
+      "title": "パフォーマンス指標",
+      "toggle_aria_label": "指標の切り替え",
+      "toggle_title": "指標の切り替え",
+      "total_time": "合計時間",
+      "generation_speed": "生成速度",
+      "prompt_tokens": "プロンプトトークン",
+      "generated_tokens": "生成トークン",
+      "load_time": "ロード時間",
+      "prompt_eval_time": "プロンプト評価時間"
+    },
+    "search": {
+      "button_title": "チャット履歴を検索 (セマンティック検索)",
+      "button_label": "チャット検索",
+      "dialog_title": "セマンティックチャット検索",
+      "dialog_description": "キーワードだけでなく、意味でチャット履歴を検索します",
+      "beta_badge": "ベータ v0.3.0",
+      "placeholder": "意味で会話を検索...",
+      "scope_all": "全チャット",
+      "scope_current": "現在のチャット",
+      "searching": "チャット履歴を検索中...",
+      "no_results": "結果が見つかりません。別の検索クエリを試してください。",
+      "start_typing": "入力を開始してチャット履歴をセマンティック検索...",
+      "result_badge": "件",
+      "results_badge": "件",
+      "match_percentage": "% 一致",
+      "role_you": "あなた",
+      "role_assistant": "アシスタント",
+      "unknown_session": "不明なセッション",
+      "time_just_now": "たった今",
+      "time_minute": "分",
+      "time_minutes": "分",
+      "time_hour": "時間",
+      "time_hours": "時間",
+      "time_day": "日",
+      "time_days": "日",
+      "time_ago": "前",
+      "time_unknown": "不明な時間"
+    },
+    "backfill": {
+      "title": "チャット履歴のバックフィル",
+      "description": "既存のすべてのチャットメッセージに対してエンベディングを生成し、セマンティック検索を有効にします",
+      "error_label": "エラー",
+      "completed_label": "完了！",
+      "completed_message": "{{count}} セッションにわたる {{current}} メッセージの埋め込みに成功しました。",
+      "processing_label": "{{total}} メッセージ中 {{current}} を処理中",
+      "info_sessions": "• {{count}} {{sessions}} からのすべてのメッセージを処理します",
+      "session_singular": "セッション",
+      "session_plural": "セッション",
+      "info_min_chars": "• 10文字以上のメッセージのみが埋め込まれます",
+      "info_time_warning": "• メッセージ数によっては時間がかかる場合があります",
+      "button_processing": "処理中...",
+      "button_start": "バックフィル開始",
+      "button_completed": "バックフィル完了"
+    },
+    "send": {
+      "send_message": "メッセージを送信",
+      "stop_generation": "生成を停止"
+    },
+    "speech": {
+      "loading_voices": "音声を読み込み中...",
+      "stop_speaking": "読み上げ停止",
+      "speak_message": "メッセージを読み上げ"
+    },
+    "voice_selector": {
+      "select_voice": "音声を選択",
+      "select_placeholder": "音声を選択...",
+      "search_placeholder": "名前、言語、またはURIで検索...",
+      "no_voices_found": "音声が見つかりません",
+      "no_voices_available": "このデバイスで利用可能な音声がありません",
+      "try_different_search": "別の検索語句を試してください",
+      "network_voice": "ネットワーク音声",
+      "default_badge": "デフォルト",
+      "unknown_language": "不明"
+    },
+    "message": {
+      "loading": "読み込み中..."
+    }
+  },
+  "file_upload": {
+    "button": {
+      "aria_label": "ファイルをアップロード",
+      "tooltip": "ファイルをアップロード (PDF, DOCX, テキストファイル)"
+    },
+    "preview": {
+      "remove_aria_label": "ファイルを削除",
+      "generating_embeddings": "エンベディングを生成中...",
+      "extracting_pdf": "PDFからテキストを抽出中...",
+      "processing_docx": "DOCXドキュメントを処理中...",
+      "processing_file": "ファイルを処理中..."
+    },
+    "area": {
+      "files_ready": "{{count}} ファイル準備完了",
+      "files_ready_plural": "{{count}} ファイル準備完了"
+    },
+    "settings": {
+      "max_file_size_label": "最大ファイルサイズ (MB)",
+      "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。"
+    }
+  },
+  "model": {
+    "ollama_status": {
+      "checking": "Ollamaの状態を確認中...",
+      "error": "Ollamaに接続できません",
+      "empty": "モデルが見つかりません",
+      "ready": "Ollamaは準備完了です"
+    },
+    "embedding_status": {
+      "checking": "状態を確認中...",
+      "downloading": "{{model}} をダウンロード中... {{progress}}",
+      "ready": "エンベディングモデル準備完了: {{model}}",
+      "missing": "モデル欠落: {{model}}",
+      "checking_model": "エンベディングモデルを確認中...",
+      "required_for_rag": "エンベディングモデルはRAG機能に必要です。",
+      "download_button": "モデルをダウンロード"
+    },
+    "menu": {
+      "select_placeholder": "モデルを選択...",
+      "models_label": "モデル",
+      "refresh_aria_label": "モデルを更新",
+      "refresh_tooltip": "モデルを更新",
+      "search_placeholder": "モデルを検索...",
+      "no_model_found": "モデルが見つかりません。"
+    },
+    "version": {
+      "tooltip": "Ollamaバージョン: {{version}}"
+    },
+    "site_overrides": {
+      "title": "サイト固有の上書き設定",
+      "description": "正規表現パターンを使用して、特定のサイトのカスタム抽出設定を構成します",
+      "add_pattern_label": "サイトパターンを追加",
+      "pattern_placeholder": "medium.com または ^https://twitter\\.com/.*",
+      "pattern_empty_error": "サイトパターンを空にすることはできません",
+      "pattern_exists_error": "サイトの上書き設定は既に存在します",
+      "pattern_invalid_error": "無効な正規表現パターンです",
+      "examples": "例: <0>medium.com</0> または <0>^https://twitter\\.com/.*</0>",
+      "active_overrides": "アクティブな上書き",
+      "site_count": "{{count}} サイト",
+      "site_count_plural": "{{count}} サイト",
+      "select_site_label": "設定するサイトを選択",
+      "select_placeholder": "サイトを選択...",
+      "search_placeholder": "サイトを検索...",
+      "no_sites_found": "サイトが見つかりません。",
+      "no_overrides": "サイト固有の上書き設定が構成されていません",
+      "no_overrides_hint": "パターンを追加して、特定のサイトの抽出設定をカスタマイズします",
+      "scroll_strategy_label": "スクロール戦略",
+      "scroll_depth_label": "スクロール深度",
+      "add_button": "追加"
+    },
+    "exclude_urls": {
+      "title": "除外URL",
+      "description": "正規表現パターンを使用して、機密ページからの拡張機能アクセスをブロックします",
+      "add_pattern_label": "URLパターンを追加",
+      "pattern_placeholder": "^https://example\\.com/private.*",
+      "pattern_empty_error": "パターンを空にすることはできません",
+      "pattern_exists_error": "パターンは既に存在します",
+      "pattern_invalid_error": "無効な正規表現パターンです",
+      "examples": "正規表現を使用してURLを一致させます。例: <0>^https://bank\\.</0> または <0>.*\\.private\\..*</0>",
+      "active_patterns": "アクティブなパターン",
+      "pattern_count": "{{count}} パターン",
+      "pattern_count_plural": "{{count}} パターン",
+      "no_patterns": "URLパターンが構成されていません",
+      "default_badge": "デフォルト",
+      "add_button": "追加"
+    },
+    "embedding_config": {
+      "storage_stats_title": "ストレージ統計",
+      "total_vectors": "総ベクトル数",
+      "storage_used": "使用ストレージ",
+      "cache": "キャッシュ",
+      "cache_entries": "{{size}} / {{maxSize}} エントリ",
+      "database_management_title": "データベース管理",
+      "database_management_description": "ベクトルエンベディングデータベースのクリーンアップと管理",
+      "remove_duplicates_button": "重複を削除",
+      "remove_duplicates_description": "重複するエンベディングを削除し、各ユニークメッセージの最初の出現のみを保持します",
+      "clear_chat_button": "全チャットエンベディングをクリア",
+      "clear_chat_description": "すべてのチャットエンベディングを削除します。後でバックフィルして再生成できます",
+      "clear_all_button": "全エンベディングをクリア",
+      "clear_all_description": "すべてのエンベディング（チャット、ファイル、Webページ）を削除します。この操作は取り消せません",
+      "chunking_title": "チャンク設定",
+      "chunking_description": "テキストをエンベディング用にチャンク分割する方法を設定します",
+      "chunk_size_label": "チャンクサイズ (トークン)",
+      "chunk_size_description": "チャンクごとのトークン数。大きなチャンクはより多くの文脈を保持しますが、焦点が絞られにくくなる場合があります。",
+      "chunk_overlap_label": "チャンクオーバーラップ (トークン)",
+      "chunk_overlap_description": "チャンク間の重複。チャンクの境界を越えて文脈を保持するのに役立ちます。",
+      "chunking_strategy_label": "チャンク戦略",
+      "chunking_strategy_description": "テキストをチャンクに分割する方法。ハイブリッドは文脈と焦点のバランスが最適です。",
+      "strategy_fixed": "固定サイズ",
+      "strategy_semantic": "セマンティック境界",
+      "strategy_hybrid": "ハイブリッド (推奨)",
+      "embedding_gen_title": "エンベディング生成",
+      "embedding_gen_description": "エンベディング生成のパフォーマンスを設定します",
+      "batch_size_label": "バッチサイズ",
+      "batch_size_description": "並行して埋め込むテキストの数。値が高いほど高速ですが、より多くのメモリを使用します。",
+      "enable_caching_label": "キャッシュを有効化",
+      "enable_caching_description": "再生成を避けるため、同一コンテンツのエンベディングをキャッシュします",
+      "use_webworker_label": "Web Workerを使用",
+      "use_webworker_description": "エンベディング生成をバックグラウンドスレッドにオフロードします（推奨）",
+      "limits_title": "制限とストレージ",
+      "limits_description": "ストレージ制限とクリーンアップポリシーを設定します",
+      "max_embeddings_label": "ファイルごとの最大エンベディング",
+      "max_embeddings_description": "ファイルごとの最大エンベディング数（0 = 無制限）。非常に大きなファイルでのメモリ問題を防ぐのに役立ちます。",
+      "max_storage_label": "最大ストレージサイズ (MB)",
+      "max_storage_description": "MB単位の最大ストレージサイズ（0 = 無制限）。制限に達すると、最も古いベクトルが削除されます。",
+      "auto_cleanup_label": "自動クリーンアップ",
+      "auto_cleanup_description": "古いエンベディングを自動的に削除します",
+      "cleanup_age_label": "クリーンアップ期間 (日)",
+      "cleanup_age_description": "指定した日数より古いエンベディングを削除します",
+      "chat_search_title": "チャット検索設定",
+      "chat_search_description": "チャット履歴のセマンティック検索を設定します",
+      "auto_embed_label": "チャットメッセージの自動埋め込み",
+      "auto_embed_description": "セマンティック検索用にチャットメッセージを自動的に埋め込みます（推奨）",
+      "backfill_title": "チャット履歴のバックフィル",
+      "backfill_description": "セマンティック検索を有効にするため、既存のすべてのチャットメッセージに対してエンベディングを生成します",
+      "search_settings_title": "検索設定",
+      "search_settings_description": "セマンティック検索のデフォルトパラメータ",
+      "search_limit_label": "デフォルト検索件数",
+      "search_limit_description": "セマンティック検索から返す結果のデフォルト数",
+      "min_similarity_label": "最小類似度しきい値",
+      "min_similarity_description": "最小コサイン類似度スコア (0-1)。セマンティック検索の場合、0.4-0.6が推奨されます。値が高いほど関連性は高くなりますが、結果は少なくなります。",
+      "cache_ttl_label": "検索キャッシュTTL (分)",
+      "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
+      "cache_max_size_label": "最大キャッシュクエリ数",
+      "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。"
+    }
+  },
+  "prompts": {
+    "selector": {
+      "title": "プロンプトテンプレート",
+      "description": "{{count}} 個のテンプレートから選んで会話を始めましょう",
+      "search_placeholder": "テンプレート、タグ、または説明を検索...",
+      "sort_recent": "最近",
+      "sort_popular": "人気",
+      "sort_alphabetical": "A-Z",
+      "all_categories": "全カテゴリー",
+      "no_templates_title": "テンプレートが見つかりません",
+      "no_templates_search": "検索またはフィルタ条件を調整してみてください",
+      "no_templates_empty": "利用可能なプロンプトテンプレートがありません。設定で最初のテンプレートを作成してください。",
+      "clear_filters": "フィルタをクリア",
+      "preview_system_prompt": "システムプロンプト",
+      "preview_user_prompt": "ユーザープロンプト",
+      "preview_tags": "タグ",
+      "use_template": "テンプレートを使用",
+      "copy": "コピー"
+    }
+  },
+  "sessions": {
+    "selector": {
+      "title": "チャットセッション",
+      "create_new": "新しいチャットを作成",
+      "create_new_aria": "新しいチャットを作成",
+      "start_new": "新しいチャットを開始",
+      "no_sessions": "チャットセッションはまだありません",
+      "no_sessions_hint": "最初のチャットを作成して始めましょう",
+      "session_count": "{{count}} セッション",
+      "session_count_plural": "{{count}} セッション"
+    },
+    "delete": {
+      "aria_label": "チャットセッションを削除: {{title}}",
+      "tooltip": "チャットを削除"
+    },
+    "export": {
+      "tooltip": "チャットをエクスポート",
+      "tooltip_all": "すべてのチャットセッションをエクスポート",
+      "aria_label": "チャットをエクスポート",
+      "aria_label_all": "すべてのチャットセッションをエクスポート",
+      "format_json": "JSON",
+      "format_pdf": "PDF"
+    },
+    "import": {
+      "tooltip": "チャットセッションをインポート",
+      "aria_label": "チャットセッションをインポート"
+    }
+  },
+  "tabs": {
+    "select": {
+      "placeholder": "開いているタブを選択"
+    },
+    "toggle": {
+      "label_off": "タブ",
+      "label_on": "タブ+",
+      "tooltip": "開いているタブと対話する"
+    }
+  },
+  "settings": {
+    "content_extraction": {
+      "title": "コンテンツ抽出",
+      "description": "すべてのWebサイトのデフォルトのコンテンツ抽出動作を設定します。",
+      "enable": {
+        "label": "コンテンツ抽出を許可",
+        "description": "遅延読み込みをサポートする拡張コンテンツ抽出を有効にする"
+      },
+      "selection_button": {
+        "label": "選択後に「Ollama Clientに尋ねる」ボタンを表示",
+        "description": "テキスト選択時にフローティングアクションボタンを表示し、チャットへの追加を迅速化します"
+      },
+      "scraper": {
+        "label": "コンテンツスクレイパー",
+        "auto": {
+          "label": "自動",
+          "description": "スマートフォールバック: Defuddle、次にReadability",
+          "detail": "ほとんどのサイトに適しています。最初にDefuddleを使用してMarkdownとコードのフォーマットを改善し、必要に応じてReadabilityにフォールバックします。"
+        },
+        "defuddle": {
+          "label": "Defuddle",
+          "description": "技術的で高度にコード化されたコンテンツ",
+          "detail": "GitHub、ドキュメント、Stack Overflow、開発者ブログに最適です。コードブロックとMarkdown構造を保持します。"
+        },
+        "readability": {
+          "label": "Readability",
+          "description": "記事とブログ投稿",
+          "detail": "ニュース記事、Mediumの投稿、従来のブログコンテンツに適しています。"
+        }
+      },
+      "scroll_strategy": {
+        "label": "スクロール戦略",
+        "none": "抽出が最速ですが、遅延読み込みはサポートされません",
+        "instant": "高速スクロールは単純な遅延読み込みに適しています",
+        "gradual": "速度と精度のバランスが取れた、意図的な一時停止を伴うスムーズなスクロール",
+        "smart": "動的なコンテンツ認識スマートスクロール",
+        "options": {
+          "none": "スクロールなし",
+          "instant": "高速スクロール",
+          "gradual": "段階的スクロール",
+          "smart": "スマート検出"
+        },
+        "options_short": {
+          "none": "なし",
+          "instant": "即時",
+          "gradual": "段階的",
+          "smart": "スマート"
+        }
+      },
+      "scroll_depth": {
+        "label": "スクロール深度",
+        "description": "スクロールするページの割合（高い＝より多くのコンテンツ、低速）"
+      },
+      "timeout": {
+        "scroll_delay": "スクロール遅延（ミリ秒）",
+        "mutation_timeout": "Mutation Observerタイムアウト（ミリ秒）",
+        "network_timeout": "ネットワークアイドルタイムアウト（ミリ秒）",
+        "max_wait": "最大待機時間（ミリ秒）"
+      },
+      "badges": {
+        "recommended": "推奨",
+        "active": "アクティブ"
+      }
+    },
+    "model": {
+      "title": "モデル設定",
+      "switch_model": "モデルを切り替える",
+      "description": "最適なパフォーマンスのためのパラメータを設定します。",
+      "configuration_title": "モデル構成",
+      "configuration_description": "AIモデルのパラメータを設定します。",
+      "system": {
+        "title": "システム構成",
+        "description": "システムプロンプトと停止シーケンスを設定して、モデルの動作を制御します。",
+        "prompt_label": "システムプロンプト",
+        "prompt_placeholder": "カスタムシステムプロンプトを入力して、モデルの動作をガイドします...",
+        "stop_sequences_label": "停止シーケンス",
+        "stop_sequence_placeholder": "停止シーケンスを入力...",
+        "add_button": "追加"
+      },
+      "sampling": {
+        "title": "サンプリングパラメータ",
+        "description": "ランダム性とトークン選択を制御します。"
+      },
+      "context": {
+        "title": "コンテキストと生成",
+        "description": "メモリと出力制御の設定"
+      },
+      "parameters": {
+        "temperature": {
+          "label": "温度 (Temperature)",
+          "conservative": "保守的",
+          "creative": "独創的"
+        },
+        "top_p": {
+          "label": "Top-p (nucleus)",
+          "focused": "集中的",
+          "diverse": "多角的"
+        },
+        "top_k": {
+          "label": "Top-k",
+          "validation_min": "少なくとも {{min}} である必要があります"
+        },
+        "min_p": {
+          "label": "Min-p",
+          "validation_min": "少なくとも {{min}} である必要があります。",
+          "validation_max": "最大で {{max}} である必要があります。"
+        },
+        "seed": {
+          "label": "シード",
+          "validation_min": "少なくとも {{min}} である必要があります"
+        },
+        "num_ctx": {
+          "label": "コンテキストサイズ",
+          "validation_min": "少なくとも {{min}} である必要があります"
+        },
+        "num_predict": {
+          "label": "最大トークン数",
+          "validation_min": "少なくとも {{min}} である必要があります。"
+        },
+        "repeat_penalty": {
+          "label": "繰り返しペナルティ",
+          "validation_min": "{{min}} より大きい必要があります。"
+        },
+        "repeat_last_n": {
+          "label": "Repeat Last N",
+          "validation_min": "少なくとも {{min}} である必要があります。"
+        }
+      }
+    },
+    "base_url": {
+      "title": "OllamaベースURL",
+      "description": "Ollamaインストールのサーバーエンドポイントを設定します。",
+      "label": "Ollama API サーバーエンドポイント",
+      "error_invalid_url": "有効なURLを入力してください。",
+      "status_local": "ローカルサーバー接続",
+      "status_remote": "リモートサーバー接続",
+      "badges": {
+        "default": "デフォルト",
+        "remote": "リモート"
+      },
+      "button": {
+        "save": "保存",
+        "saving": "保存中",
+        "saved": "保存済み"
+      }
+    },
+    "model_pull": {
+      "title": "モデルライブラリ",
+      "description": "プロジェクト用のAIモデルを閲覧してダウンロードします。",
+      "search_placeholder": "名前または説明でモデルを検索...",
+      "status": {
+        "cancelled": "キャンセル済み",
+        "downloading": "モデルをダウンロード中",
+        "loading_models": "モデルを読み込み中...",
+        "no_models": "モデルが見つかりません",
+        "adjust_search": "検索語句を調整してください。"
+      },
+      "button": {
+        "variants": "バリアント",
+        "loading": "読み込み中",
+        "pulling": "Pull中"
+      },
+      "variants_label": "利用可能なバリアント"
+    },
+    "model_list": {
+      "unknown_size": "不明なサイズ",
+      "invalid_size": "無効なサイズ",
+      "unknown_date": "不明な日付",
+      "invalid_date": "無効な日付",
+      "time_ago_hours": "{{count}} 時間前",
+      "time_ago_days": "{{count}} 日前",
+      "title": "モデル",
+      "title_count": "{{count}} モデル",
+      "retry": "再試行",
+      "refresh": "更新",
+      "no_models": "モデルが見つかりません",
+      "refresh_tooltip": "モデルを更新",
+      "delete_dialog": {
+        "title": "このモデルを削除しますか？",
+        "description": "この操作は取り消せません。モデルはローカルシステムから完全に削除されます。",
+        "cancel": "キャンセル",
+        "confirm": "削除"
+      }
+    },
+    "model_info": {
+      "title": "モデル情報",
+      "no_data": "このモデルのデータはありません。",
+      "no_data_available": "モデルデータが利用できません",
+      "error_fetching": "モデルデータの取得中にエラーが発生しました。",
+      "error_details": "モデルの詳細を取得できませんでした。",
+      "refresh_tooltip": "モデル詳細を更新",
+      "capabilities": "機能",
+      "technical_details": "技術詳細",
+      "unknown_file_type": "不明"
+    },
+    "loaded_models": {
+      "title": "ロードされたモデル",
+      "count_one": "{{count}} モデル",
+      "count_other": "{{count}} モデル",
+      "refresh_tooltip": "ロードされたモデルを更新",
+      "no_models_title": "現在メモリにロードされているモデルはありません",
+      "no_models_description": "モデルがロードされるとここに表示されます。",
+      "unload_tooltip": "モデルをアンロード"
+    },
+    "tabs": {
+      "general": "一般",
+      "prompts": "プロンプト",
+      "models": "モデル",
+      "extraction": "抽出",
+      "embeddings": "エンベディング",
+      "voices": "音声",
+      "reset": "リセット",
+      "guides": "ガイド"
+    },
+    "page": {
+      "title": "Ollama Client設定",
+      "description": "Ollamaセットアップのあらゆる側面を1か所で管理します。ヒントやセットアップのガイダンスについては、ガイドタブをご覧ください。"
+    },
+    "speech": {
+      "title": "音声設定",
+      "description": "テキスト読み上げの音声、速度、ピッチの設定を構成します。",
+      "voice_label": "音声",
+      "rate_label": "読み上げ速度",
+      "pitch_label": "声の高さ（ピッチ）",
+      "preview_title": "プレビュー",
+      "test_text_label": "テストテキスト",
+      "test_text_placeholder": "ここに入力して音声設定をテストします...",
+      "test_hint_text": "「音声をテスト」をクリックしてテキストを聞きます。",
+      "test_hint_default": "「音声をテスト」をクリックしてデフォルトのサンプルを聞きます。",
+      "test_button": "音声をテスト",
+      "test_fallback": "こんにちは、これは音声設定のテストです。",
+      "rate": {
+        "very_slow": "非常に遅い",
+        "slow": "遅い",
+        "normal": "標準",
+        "fast": "速い",
+        "very_fast": "非常に速い"
+      },
+      "pitch": {
+        "very_low": "非常に低い",
+        "low": "低い",
+        "normal": "標準",
+        "high": "高い",
+        "very_high": "非常に高い"
+      }
+    },
+    "embeddings": {
+      "title": "ベクトルエンベディング",
+      "beta_badge": "ベータ",
+      "description": "エンベディングにより、セマンティック検索、RAG（検索拡張生成）、およびファイルアップロードやチャット履歴のコンテキスト認識機能が可能になります。",
+      "model_label": "エンベディングモデル",
+      "status": {
+        "installed": "インストール済み",
+        "not_found": "見つかりません",
+        "checking": "確認中...",
+        "check_button": "状態を確認"
+      },
+      "not_loaded": {
+        "title": "エンベディングモデルがロードされていません",
+        "description": "エンベディングモデルは、セマンティック検索、RAG（検索拡張生成）、およびコンテキスト認識機能に必要です。今すぐダウンロードして、より良いコンテキスト理解とファイル検索機能でチャット体験を向上させましょう。",
+        "download_button": "モデルをダウンロード"
+      },
+      "downloading": {
+        "title": "モデルをダウンロード中..."
+      },
+      "success": {
+        "title": "ダウンロード成功",
+        "description": "エンベディングモデルを使用する準備が整いました。セマンティック検索とコンテキスト認識機能を備えた強化されたチャット体験をお楽しみいただけます。"
+      },
+      "auto_downloaded": {
+        "title": "自動インストール済み",
+        "description": "拡張機能のインストール時にエンベディングモデルが自動的にダウンロードされました。"
+      },
+      "test_generation": {
+        "title": "エンベディング生成をテスト",
+        "description": "テストエンベディングを生成して、エンベディングモデルが正しく動作していることを確認します。",
+        "button": "テスト",
+        "button_testing": "テスト中..."
+      },
+      "test_search": {
+        "title": "セマンティック検索",
+        "description": "アップロードされたファイルがアクセス可能で検索可能であることを確認します。検索クエリを入力して一致するコンテンツを見つけます。",
+        "placeholder": "検索...",
+        "results_found": "{{count}} 件の結果が見つかりました",
+        "no_results": "結果が見つかりません。別の検索を試すか、さらにコンテンツをアップロードしてください。"
+      },
+      "what_are_embeddings": {
+        "title": "エンベディングとは何ですか？",
+        "point_1": "テキストを意味的な意味を捉えた数値ベクトルに変換します",
+        "point_2": "チャット履歴やアップロードされたファイル全体でセマンティック検索を有効にします",
+        "point_3": "コンテキスト認識応答のためのRAGを強化します",
+        "point_4": "AIの応答を改善するために、ファイルから関連するコンテキストを提供します"
+      },
+      "rag_mode": {
+        "label": "スマートコンテキスト (RAG)",
+        "description": "ファイルの内容全体を送信する代わりに、セマンティック検索を使用してファイルから関連するコンテキストを見つけます。"
+      },
+      "model_select": {
+        "label": "エンベディングモデル",
+        "placeholder": "モデルを選択",
+        "description": "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。"
+      }
+    },
+    "prompts": {
+      "title": "プロンプトテンプレート",
+      "description": "{{count}} 個のプロンプトテンプレートのコレクションを管理します。",
+      "export": "テンプレートをエクスポート",
+      "import": "テンプレートをインポート",
+      "reset": "デフォルトにリセット",
+      "reset_dialog": {
+        "title": "テンプレートをデフォルトにリセットしますか？",
+        "description": "これにより、現在のすべてのテンプレートがデフォルトのものに置き換わります。この操作は取り消せません。",
+        "cancel": "キャンセル",
+        "confirm": "テンプレートをリセット"
+      },
+      "search_placeholder": "テンプレートを検索...",
+      "category_placeholder": "カテゴリー",
+      "all_categories": "全カテゴリー",
+      "sort": {
+        "recent": "最近",
+        "popular": "人気",
+        "alphabetical": "A-Z"
+      },
+      "new_template": "新規テンプレート",
+      "form": {
+        "title": "タイトル",
+        "title_placeholder": "テンプレートのタイトル",
+        "category": "カテゴリー",
+        "category_placeholder": "例: 開発、執筆",
+        "description": "説明",
+        "description_placeholder": "テンプレートの目的と機能の簡単な説明。",
+        "tags": "タグ",
+        "tags_placeholder": "タグ1, タグ2, タグ3",
+        "user_prompt": "ユーザープロンプト",
+        "user_prompt_placeholder": "メインプロンプトテンプレート",
+        "system_prompt": "システムプロンプト",
+        "create_button": "テンプレートを作成"
+      },
+      "delete_dialog": {
+        "title": "テンプレートを削除",
+        "description": "本当に「{{title}}」を削除しますか？この操作は取り消せません。",
+        "cancel": "キャンセル",
+        "confirm": "削除"
+      },
+      "created_at": "作成日 {{date}}",
+      "used_times": "{{count}} 回使用"
+    },
+    "reset": {
+      "title": "設定をリセット",
+      "description": "モジュールごとに保存されたデータをクリアするか、すべてをデフォルトにリセットします",
+      "danger_zone": {
+        "title": "危険ゾーン",
+        "description": "これによりすべてのデータがクリアされ、元に戻すことはできません",
+        "button": "すべてリセット"
+      },
+      "dialog": {
+        "title": "リセットの確認",
+        "description": "これによりすべてのデータがクリアされ、元に戻すことはできません。",
+        "confirm": "はい、すべてリセットします",
+        "cancel": "キャンセル"
+      },
+      "modules": {
+        "ollama": {
+          "description": "モデル設定と構成"
+        },
+        "theme": {
+          "description": "UIの外観設定"
+        },
+        "browser": {
+          "description": "タブアクセスとURLパターン"
+        },
+        "tts": {
+          "description": "テキスト読み上げ設定"
+        },
+        "chat_sessions": {
+          "description": "会話履歴"
+        },
+        "default": {
+          "description": "モジュール設定"
+        }
+      },
+      "item_count": "{{count}} 項目",
+      "item_count_plural": "{{count}} 項目",
+      "reset_button": "リセット"
+    }
+  },
+  "guides": {
+    "title": "役立つガイドとドキュメント",
+    "description": "Ollama Clientのセットアップや機能の探索で助けが必要ですか？これらの役立つリソースを確認してください",
+    "support": {
+      "title": "プロジェクトを支援",
+      "description": "Product HuntでOllama Clientを取り上げて、成長を支援してください",
+      "image_alt": "Ollama Client - ローカルLLMとチャット — ブラウザ内で完結 | Product Hunt"
+    },
+    "items": {
+      "setup": {
+        "label": "Ollama Clientセットアップガイド",
+        "description": "完全なインストールと構成ガイド",
+        "badge": "ガイド"
+      },
+      "library": {
+        "label": "公式Ollamaモデルライブラリ",
+        "description": "利用可能なAIモデルとドキュメントを閲覧",
+        "badge": "ライブラリ"
+      },
+      "github": {
+        "label": "GitHubリポジトリ",
+        "description": "ソースコード、リリース、貢献ガイドライン",
+        "badge": "コード"
+      },
+      "faq": {
+        "label": "トラブルシューティングとFAQ",
+        "description": "一般的な問題とコミュニティサポート",
+        "badge": "ヘルプ"
+      }
+    }
+  },
+  "social": {
+    "github": "GitHubページ",
+    "portfolio": "ポートフォリオ",
+    "linkedin": "LinkedIn",
+    "twitter": "Twitter",
+    "instagram": "Instagram",
+    "bug_report": "バグ報告 / 機能リクエスト"
+  }
+}

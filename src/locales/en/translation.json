@@ -454,6 +454,7 @@
     },
     "model": {
       "title": "Model Settings",
+      "switch_model": "Switch model",
       "description": "Configure parameters for optimal performance.",
       "configuration_title": "Model Configuration",
       "configuration_description": "Configure your AI model parameters.",

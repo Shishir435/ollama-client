@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { LANGUAGES } from "@/i18n/languages"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { LANGUAGES } from "@/lib/constants-ui"
 import { Globe } from "@/lib/lucide-icon"
 
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"

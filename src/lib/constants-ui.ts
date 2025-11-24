@@ -12,61 +12,6 @@ import {
 } from "@/lib/lucide-icon"
 import type { ContentScraper, ScrollStrategy } from "@/types"
 
-export const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "hi", label: "Hindi" }
-  // { value: "es", label: "Spanish" },
-  // { value: "fr", label: "French" },
-  // { value: "de", label: "German" },
-  // { value: "it", label: "Italian" },
-  // { value: "pt", label: "Portuguese" },
-  // { value: "zh", label: "Chinese (Simplified)" },
-  // { value: "ja", label: "Japanese" },
-  // { value: "ko", label: "Korean" },
-  // { value: "ru", label: "Russian" },
-  // { value: "ar", label: "Arabic" },
-  // { value: "tr", label: "Turkish" },
-  // { value: "nl", label: "Dutch" },
-  // { value: "pl", label: "Polish" },
-  // { value: "sv", label: "Swedish" },
-  // { value: "vi", label: "Vietnamese" },
-  // { value: "th", label: "Thai" },
-  // { value: "id", label: "Indonesian" },
-  // { value: "cs", label: "Czech" },
-  // { value: "ro", label: "Romanian" },
-  // { value: "hu", label: "Hungarian" },
-  // { value: "el", label: "Greek" },
-  // { value: "da", label: "Danish" },
-  // { value: "fi", label: "Finnish" },
-  // { value: "no", label: "Norwegian" },
-  // { value: "he", label: "Hebrew" },
-  // { value: "uk", label: "Ukrainian" },
-  // { value: "ms", label: "Malay" },
-  // { value: "fa", label: "Persian" },
-  // { value: "bg", label: "Bulgarian" },
-  // { value: "sk", label: "Slovak" },
-  // { value: "sr", label: "Serbian" },
-  // { value: "hr", label: "Croatian" },
-  // { value: "lt", label: "Lithuanian" },
-  // { value: "lv", label: "Latvian" },
-  // { value: "et", label: "Estonian" },
-  // { value: "sl", label: "Slovenian" },
-  // { value: "bn", label: "Bengali" },
-  // { value: "ur", label: "Urdu" },
-  // { value: "sw", label: "Swahili" },
-  // { value: "ca", label: "Catalan" },
-  // { value: "eu", label: "Basque" },
-  // { value: "gl", label: "Galician" },
-  // { value: "is", label: "Icelandic" },
-  // { value: "ka", label: "Georgian" },
-  // { value: "hy", label: "Armenian" },
-  // { value: "az", label: "Azerbaijani" },
-  // { value: "kk", label: "Kazakh" },
-  // { value: "ta", label: "Tamil" },
-  // { value: "te", label: "Telugu" },
-  // { value: "mr", label: "Marathi" }
-] as const
-
 export interface SocialLink {
   id: string
   labelKey: string

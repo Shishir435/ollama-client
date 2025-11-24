@@ -1,6 +1,7 @@
 import i18n from "i18next"
 import LanguageDetector from "i18next-browser-languagedetector"
 import { initReactI18next } from "react-i18next"
+import { LANGUAGES } from "./languages"
 import { resources } from "./resources"
 
 i18n
@@ -11,7 +12,7 @@ i18n
     fallbackLng: "en",
     // Only list languages we have translations for
     // Add more language codes here as translations become available
-    supportedLngs: Object.keys(resources),
+    supportedLngs: LANGUAGES.map((l) => l.value),
     debug: process.env.NODE_ENV === "development",
     interpolation: {
       escapeValue: false // not needed for react as it escapes by default
