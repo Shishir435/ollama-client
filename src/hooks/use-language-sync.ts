@@ -13,9 +13,10 @@ export const useLanguageSync = () => {
     instance: plasmoGlobalStorage
   })
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: i18n.changeLanguage is a stable function reference
   useEffect(() => {
     if (storedLanguage && i18n.language !== storedLanguage) {
       i18n.changeLanguage(storedLanguage)
     }
-  }, [storedLanguage, i18n])
+  }, [storedLanguage])
 }
