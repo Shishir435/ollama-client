@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import type { ChangeEvent } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +9,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { FileUploadConfig } from "@/types"
 
 export const FileUploadSettings = () => {
+  const { t } = useTranslation()
   const [config, setConfig] = useStorage<FileUploadConfig>(
     {
       key: STORAGE_KEYS.FILE_UPLOAD.CONFIG,
@@ -33,7 +35,9 @@ export const FileUploadSettings = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Label htmlFor="max-file-size">Maximum File Size (MB)</Label>
+        <Label htmlFor="max-file-size">
+          {t("file_upload.settings.max_file_size_label")}
+        </Label>
         <Input
           id="max-file-size"
           type="number"
@@ -44,8 +48,7 @@ export const FileUploadSettings = () => {
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        Maximum allowed size for individual files. Larger files may take longer
-        to process.
+        {t("file_upload.settings.max_file_size_description")}
       </p>
     </div>
   )

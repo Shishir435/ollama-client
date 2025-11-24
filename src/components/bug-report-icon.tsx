@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -10,9 +11,8 @@ import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
-  const bugLink = SOCIAL_LINKS.find((link) =>
-    link.label.toLowerCase().includes("bug")
-  )
+  const { t } = useTranslation()
+  const bugLink = SOCIAL_LINKS.find((link) => link.id === "bug_report")
 
   if (!bugLink) return null
 
@@ -30,12 +30,12 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
               "hover:text-red-500",
               buttonVariants({ variant: "link" })
             )}
-            aria-label="Report a bug or request a feature">
+            aria-label={t("common.bug_report.aria_label")}>
             <Icon size="16" />
-            {showText && <span>Bug</span>}
+            {showText && <span>{t("common.bug_report.label")}</span>}
           </a>
         </TooltipTrigger>
-        <TooltipContent>Report a bug or request a feature</TooltipContent>
+        <TooltipContent>{t("common.bug_report.tooltip")}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

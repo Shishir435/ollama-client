@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ChevronDown, RefreshCcw } from "@/lib/lucide-icon"
@@ -11,6 +13,8 @@ export const RegenerateButton = ({
   model: _model,
   onSelectModel
 }: RegenerateButtonProps) => {
+  const { t } = useTranslation()
+
   return (
     <ModelMenu
       trigger={
@@ -27,7 +31,7 @@ export const RegenerateButton = ({
         </Button>
       }
       onSelectModel={onSelectModel}
-      tooltipTextContent="Switch model"
+      tooltipTextContent={t("chat.actions.switch_model_tooltip")}
     />
   )
 }

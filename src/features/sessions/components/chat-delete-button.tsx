@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -18,6 +20,7 @@ export const ChatDeleteButton = ({
   sessionTitle,
   onDelete
 }: ChatDeleteButtonProps) => {
+  const { t } = useTranslation()
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -30,7 +33,7 @@ export const ChatDeleteButton = ({
             "hover:bg-destructive/10 hover:text-destructive",
             "focus:bg-destructive/10 focus:text-destructive focus:opacity-100"
           )}
-          aria-label={`Delete chat session: ${sessionTitle}`}
+          aria-label={t("sessions.delete.aria_label", { title: sessionTitle })}
           onClick={(e) => {
             e.stopPropagation()
             onDelete(sessionId)
@@ -38,7 +41,7 @@ export const ChatDeleteButton = ({
           <Trash2 className="h-4 w-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Delete chat</TooltipContent>
+      <TooltipContent>{t("sessions.delete.tooltip")}</TooltipContent>
     </Tooltip>
   )
 }

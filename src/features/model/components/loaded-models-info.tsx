@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -50,6 +51,7 @@ const formatBytes = (bytes: number): string => {
 }
 
 export const LoadedModelsInfo = () => {
+  const { t } = useTranslation()
   const [models, setModels] = useState<LoadedModel[]>([])
   const [loading, setLoading] = useState(false)
   const [unloading, setUnloading] = useState<string | null>(null)
@@ -126,7 +128,9 @@ export const LoadedModelsInfo = () => {
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Models Loaded in Memory</h3>
+              <h3 className="text-lg font-semibold">
+                {t("settings.loaded_models.title")}
+              </h3>
               {loading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               )}
@@ -136,7 +140,13 @@ export const LoadedModelsInfo = () => {
               {models.length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>
-                    {models.length} model{models.length !== 1 ? "s" : ""}
+                    {models.length === 1
+                      ? t("settings.loaded_models.count_one", {
+                          count: models.length
+                        })
+                      : t("settings.loaded_models.count_other", {
+                          count: models.length
+                        })}
                   </span>
                   <span>•</span>
                   <span>{formatBytes(totalSize)}</span>
@@ -161,7 +171,7 @@ export const LoadedModelsInfo = () => {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Refresh models</p>
+                    <p>{t("settings.loaded_models.refresh_tooltip")}</p>
                   </TooltipContent>
                 </Tooltip>
 
@@ -181,10 +191,10 @@ export const LoadedModelsInfo = () => {
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Brain className="mb-2 h-8 w-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  No models currently loaded in memory
+                  {t("settings.loaded_models.no_models_title")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  Models will appear here when loaded
+                  {t("settings.loaded_models.no_models_description")}
                 </p>
               </div>
             ) : (
@@ -236,7 +246,11 @@ export const LoadedModelsInfo = () => {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Unload {model.name}</p>
+                        <p>
+                          {t("settings.loaded_models.unload_tooltip", {
+                            name: model.name
+                          })}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

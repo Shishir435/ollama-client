@@ -1,5 +1,6 @@
 import type React from "react"
 import { useRef } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,6 +13,7 @@ import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ChatImportButton = () => {
+  const { t } = useTranslation()
   const { importChat } = useImportChat()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -45,11 +47,11 @@ export const ChatImportButton = () => {
               "focus:bg-muted focus:text-foreground focus:opacity-100"
             )}
             onClick={handleClick}
-            aria-label="Import chat sessions">
+            aria-label={t("sessions.import.aria_label")}>
             <Upload className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Import chat sessions</TooltipContent>
+        <TooltipContent>{t("sessions.import.tooltip")}</TooltipContent>
       </Tooltip>
     </>
   )

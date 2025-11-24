@@ -1,4 +1,6 @@
 import { useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,13 +26,14 @@ export const ExcludedUrls = ({
   onAdd,
   onRemove
 }: ExcludedUrlsProps) => {
+  const { t } = useTranslation()
   const [input, setInput] = useState("")
   const [error, setError] = useState("")
 
   const handleAdd = () => {
     const trimmed = input.trim()
     if (!trimmed) {
-      setError("Pattern cannot be empty")
+      setError(t("model.exclude_urls.pattern_empty_error"))
       return
     }
     try {
@@ -40,10 +43,10 @@ export const ExcludedUrls = ({
         setInput("")
         setError("")
       } else {
-        setError("Pattern already exists")
+        setError(t("model.exclude_urls.pattern_exists_error"))
       }
     } catch {
-      setError("Invalid regular expression pattern")
+      setError(t("model.exclude_urls.pattern_invalid_error"))
     }
   }
 
@@ -65,10 +68,12 @@ export const ExcludedUrls = ({
       <CardHeader className="pb-4">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Excluded URLs</CardTitle>
+          <CardTitle className="text-lg">
+            {t("model.exclude_urls.title")}
+          </CardTitle>
         </div>
         <CardDescription className="text-sm">
-          Block extension access from sensitive pages using regex patterns
+          {t("model.exclude_urls.description")}
         </CardDescription>
       </CardHeader>
 
@@ -77,7 +82,7 @@ export const ExcludedUrls = ({
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="exclude-url" className="text-sm font-medium">
-              Add URL Pattern
+              {t("model.exclude_urls.add_pattern_label")}
             </Label>
           </div>
 
@@ -88,7 +93,7 @@ export const ExcludedUrls = ({
                   id="exclude-url"
                   value={input}
                   onChange={handleInputChange}
-                  placeholder="^https://example\\.com/private.*"
+                  placeholder={t("model.exclude_urls.pattern_placeholder")}
                   className={`h-9 font-mono text-sm ${error ? "border-destructive" : ""}`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -110,24 +115,35 @@ export const ExcludedUrls = ({
                 className="h-9 whitespace-nowrap px-3"
                 disabled={!input.trim()}>
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                {t("model.exclude_urls.add_button")}
               </Button>
             </div>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Use regular expressions to match URLs. Examples:{" "}
-            <code className="rounded bg-muted px-1">^https://bank\\..*</code> or{" "}
-            <code className="rounded bg-muted px-1">.*\\.private\\..*</code>
+            <Trans
+              i18nKey="model.exclude_urls.examples"
+              components={[
+                <code key="code" className="rounded bg-muted px-1" />
+              ]}
+            />
           </div>
         </div>
 
         {patterns.length > 0 ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">Active Patterns</h4>
+              <h4 className="text-sm font-medium">
+                {t("model.exclude_urls.active_patterns")}
+              </h4>
               <Badge variant="secondary" className="text-xs">
-                {patterns.length} pattern{patterns.length !== 1 ? "s" : ""}
+                {patterns.length === 1
+                  ? t("model.exclude_urls.pattern_count", {
+                      count: patterns.length
+                    })
+                  : t("model.exclude_urls.pattern_count_plural", {
+                      count: patterns.length
+                    })}
               </Badge>
             </div>
 
@@ -143,7 +159,7 @@ export const ExcludedUrls = ({
                       </code>
                       {isDefaultPattern(pattern) && (
                         <Badge variant="outline" className="text-xs">
-                          default
+                          {t("model.exclude_urls.default_badge")}
                         </Badge>
                       )}
                     </div>
@@ -165,7 +181,7 @@ export const ExcludedUrls = ({
         ) : (
           <div className="py-6 text-center text-muted-foreground">
             <Shield className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p className="text-sm">No URL patterns configured</p>
+            <p className="text-sm">{t("model.exclude_urls.no_patterns")}</p>
           </div>
         )}
       </CardContent>

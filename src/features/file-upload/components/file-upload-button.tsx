@@ -1,5 +1,6 @@
 import type React from "react"
 import { useRef } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +22,7 @@ export const FileUploadButton = ({
   disabled = false,
   className
 }: FileUploadButtonProps) => {
+  const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleClick = () => {
@@ -71,11 +73,11 @@ export const FileUploadButton = ({
             )}
             onClick={handleClick}
             disabled={disabled}
-            aria-label="Upload file">
+            aria-label={t("file_upload.button.aria_label")}>
             <Paperclip className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Upload file (PDF, DOCX, Text files)</TooltipContent>
+        <TooltipContent>{t("file_upload.button.tooltip")}</TooltipContent>
       </Tooltip>
     </>
   )

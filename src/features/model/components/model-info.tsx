@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -158,6 +159,7 @@ const DetailRow = ({
 )
 
 export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
+  const { t } = useTranslation()
   const { error, loading, modelInfo, refresh } = useModelInfo(selectedModel)
   const [isExpanded, setIsExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -220,7 +222,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center justify-center text-xs text-muted-foreground">
           <Database className="mr-2 h-4 w-4 text-muted-foreground" />
-          No model data
+          {t("settings.model_info.no_data")}
         </div>
       </div>
     )
@@ -233,7 +235,9 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-2">
               <Cpu className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Model Information</h3>
+              <h3 className="text-lg font-semibold">
+                {t("settings.model_info.title")}
+              </h3>
               {loading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               )}
@@ -282,7 +286,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Refresh model info</p>
+                    <p>{t("settings.model_info.refresh_tooltip")}</p>
                   </TooltipContent>
                 </Tooltip>
 
@@ -303,11 +307,11 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                 <Cpu className="mb-2 h-8 w-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
                   {error
-                    ? "Error fetching model data"
-                    : "No model data available"}
+                    ? t("settings.model_info.error_fetching")
+                    : t("settings.model_info.no_data_available")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  {error ? error : "Could not retrieve model details."}
+                  {error ? error : t("settings.model_info.error_details")}
                 </p>
               </div>
             ) : (
@@ -316,7 +320,9 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                   <div className="rounded-md border bg-muted/30 p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <Zap className="h-4 w-4 text-primary" />
-                      <h4 className="font-semibold">Capabilities</h4>
+                      <h4 className="font-semibold">
+                        {t("settings.model_info.capabilities")}
+                      </h4>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {capabilities.map((cap) => (
@@ -335,7 +341,9 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                 <div>
                   <div className="mb-2 flex items-center gap-2">
                     <Settings className="h-4 w-4 text-muted-foreground" />
-                    <h4 className="font-semibold">Technical Details</h4>
+                    <h4 className="font-semibold">
+                      {t("settings.model_info.technical_details")}
+                    </h4>
                   </div>
                   <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
                     {allEntries.map(([key, val]) => (
@@ -345,7 +353,10 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                         label={formatKey(key)}
                         value={
                           key.includes("file_type") && typeof val === "number"
-                            ? (fileTypeMap[val] ?? `Unknown (${val})`)
+                            ? (fileTypeMap[val] ??
+                              t("settings.model_info.unknown_file_type", {
+                                val
+                              }))
                             : typeof val === "number"
                               ? formatNumber(val)
                               : String(val)

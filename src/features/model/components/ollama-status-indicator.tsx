@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,15 +23,16 @@ const iconMap = {
   ready: <CheckCircle className="h-4 w-4 text-green-600" />
 }
 
-const labelMap = {
-  loading: "Checking Ollama status...",
-  error: "Ollama not reachable",
-  empty: "No models found",
-  ready: "Ollama is ready"
-}
-
 export const OllamaStatusIndicator = () => {
+  const { t } = useTranslation()
   const { status, refresh, error } = useOllamaModels()
+
+  const getLabelMap = () => ({
+    loading: t("model.ollama_status.checking"),
+    error: t("model.ollama_status.error"),
+    empty: t("model.ollama_status.empty"),
+    ready: t("model.ollama_status.ready")
+  })
 
   useEffect(() => {
     // Auto-refresh every 10 seconds
@@ -54,7 +56,7 @@ export const OllamaStatusIndicator = () => {
       </TooltipTrigger>
       <TooltipContent side="left">
         <div className="flex items-center gap-2 text-sm">
-          <span>{labelMap[status]}</span>
+          <span>{getLabelMap()[status]}</span>
           {status !== "loading" && (
             <RefreshCw
               className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground"

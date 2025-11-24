@@ -1,0 +1,815 @@
+{
+  "common": {
+    "theme": {
+      "toggle": "थीम बदलें",
+      "toggle_aria_label": "थीम टॉगल करें",
+      "light": "लाइट",
+      "dark": "डार्क",
+      "system": "सिस्टम"
+    },
+    "bug_report": {
+      "label": "बग",
+      "aria_label": "बग रिपोर्ट करें या सुविधा का अनुरोध करें",
+      "tooltip": "बग रिपोर्ट करें या सुविधा का अनुरोध करें"
+    },
+    "settings": {
+      "label": "सेटिंग",
+      "aria_label": "एक्सटेंशन सेटिंग्स",
+      "tooltip": "एक्सटेंशन सेटिंग्स"
+    },
+    "actions": {
+      "retry": "पुनः प्रयास करें",
+      "refresh": "रिफ्रेश करें"
+    },
+    "social": {
+      "title": "मुझसे जुड़ें",
+      "visit_profile": "मेरी {{platform}} प्रोफाइल देखें"
+    },
+    "language": {
+      "label": "भाषा",
+      "select_label": "इंटरफ़ेस भाषा",
+      "beta_badge": "बीटा",
+      "description": "इंटरफ़ेस के लिए अपनी पसंदीदा भाषा चुनें।",
+      "help_text": "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
+    }
+  },
+  "selection_button": {
+    "label": "Ollama क्लाइंट से पूछें",
+    "tooltip": "Ollama क्लाइंट में जोड़ें"
+  },
+  "welcome": {
+    "title": "Ollama चैट में आपका स्वागत है",
+    "subtitle": "स्थानीय AI बातचीत हुई आसान",
+    "start_chatting": "बातचीत शुरू करें",
+    "status": {
+      "connecting": {
+        "title": "कनेक्ट हो रहा है...",
+        "message": "Ollama सर्वर से कनेक्शन स्थापित कर रहा है"
+      },
+      "connection_failed": {
+        "title": "कनेक्शन विफल",
+        "message": "Ollama से कनेक्ट होने में विफल। क्या सर्वर चल रहा है?"
+      },
+      "no_models": {
+        "title": "कोई मॉडल नहीं मिला",
+        "message": "शुरू करने के लिए कृपया एक मॉडल पुल करें"
+      },
+      "ready": {
+        "title": "चैट के लिए तैयार",
+        "message": "Ollama कनेक्टेड है और उपयोग के लिए तैयार है"
+      }
+    },
+    "setup_guide": {
+      "intro": "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
+      "step1": "अपने सिस्टम पर <code>ollama</code> इंस्टॉल करें",
+      "step2": "<code>ollama run llama3</code> या कोई भी मॉडल चलाएँ",
+      "step3": "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
+      "full_guide_link": "संपूर्ण सेटअप गाइड"
+    },
+    "features": {
+      "private": {
+        "title": "100% प्राइवेट",
+        "description": "आपका डेटा स्थानीय रहता है"
+      },
+      "offline": {
+        "title": "ऑफ़लाइन काम करता है",
+        "description": "इंटरनेट की आवश्यकता नहीं है"
+      },
+      "local_processing": {
+        "title": "स्थानीय प्रोसेसिंग",
+        "description": "पूर्ण नियंत्रण"
+      },
+      "embeddings": {
+        "title": "वेक्टर एम्बेडिंग",
+        "description": "सिमेंटिक खोज के लिए तैयार"
+      }
+    },
+    "performance_notice": {
+      "title": "⚠️ परफॉर्मेंस नोटिस",
+      "message": "यह एक्सटेंशन आपके स्थानीय Ollama सर्वर के लिए एक यूज़र इंटरफ़ेस है। प्रतिक्रिया समय और मॉडल आउटपुट गुणवत्ता पूरी तरह से आपके डिवाइस के हार्डवेयर (CPU, RAM, GPU) और आपके द्वारा उपयोग किए जा रहे विशिष्ट मॉडल पर निर्भर करती है। एक्सटेंशन द्वारा स्वयं कोई प्रोसेसिंग नहीं की जाती है।"
+    }
+  },
+  "chat": {
+    "input": {
+      "placeholder": "एक संदेश टाइप करें...",
+      "switch_model": "मॉडल बदलें",
+      "files_ready": "{{count}} फ़ाइलें तैयार हैं।",
+      "chars": "अक्षर",
+      "enter_to_send": "भेजें",
+      "enter_key": "एंटर"
+    },
+    "actions": {
+      "copy": "कॉपी करें",
+      "copied": "कॉपी किया गया",
+      "regenerate": "पुनः जेनरेट करें",
+      "switch_model_tooltip": "मॉडल बदलें"
+    },
+    "metrics": {
+      "title": "परफॉर्मेंस मेट्रिक्स",
+      "toggle_aria_label": "मेट्रिक्स टॉगल करें",
+      "toggle_title": "मेट्रिक्स टॉगल करें",
+      "total_time": "कुल समय",
+      "generation_speed": "जनरेशन गति",
+      "prompt_tokens": "प्रॉम्प्ट टोकन",
+      "generated_tokens": "जनरेट किए गए टोकन",
+      "load_time": "लोड समय",
+      "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
+    },
+    "search": {
+      "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
+      "button_label": "चैट खोजें",
+      "dialog_title": "सिमेंटिक चैट खोज",
+      "dialog_description": "केवल कीवर्ड द्वारा नहीं, बल्कि अर्थ द्वारा अपना चैट इतिहास खोजें",
+      "beta_badge": "बीटा v0.3.0",
+      "placeholder": "अर्थ के अनुसार बातचीत खोजें...",
+      "scope_all": "सभी चैट",
+      "scope_current": "वर्तमान चैट",
+      "searching": "चैट इतिहास खोजा जा रहा है...",
+      "no_results": "कोई परिणाम नहीं मिला। कोई भिन्न खोज क्वेरी आज़माएँ।",
+      "start_typing": "सिमेंटिक रूप से अपना चैट इतिहास खोजने के लिए टाइप करना शुरू करें...",
+      "result_badge": "परिणाम",
+      "results_badge": "परिणाम",
+      "match_percentage": "% मिलान",
+      "role_you": "आप",
+      "role_assistant": "सहायक",
+      "unknown_session": "अज्ञात सेशन",
+      "time_just_now": "अभी-अभी",
+      "time_minute": "मिनट",
+      "time_minutes": "मिनट",
+      "time_hour": "घंटा",
+      "time_hours": "घंटे",
+      "time_day": "दिन",
+      "time_days": "दिन",
+      "time_ago": "पहले",
+      "time_unknown": "अज्ञात समय"
+    },
+    "backfill": {
+      "title": "चैट इतिहास बैकफ़िल करें",
+      "description": "सिमेंटिक खोज को सक्षम करने के लिए सभी मौजूदा चैट संदेशों के लिए एम्बेडिंग जेनरेट करें",
+      "error_label": "त्रुटि",
+      "completed_label": "पूरा हुआ!",
+      "completed_message": "सफलतापूर्वक {{count}} सेशन में {{current}} संदेशों को एम्बेड किया गया।",
+      "processing_label": "{{total}} संदेशों में से {{current}} को प्रोसेस किया जा रहा है",
+      "info_sessions": "• यह {{count}} {{sessions}} के सभी संदेशों को प्रोसेस करेगा",
+      "session_singular": "सेशन",
+      "session_plural": "सेशन",
+      "info_min_chars": "• केवल 10 से अधिक अक्षरों वाले संदेशों को ही एम्बेड किया जाएगा",
+      "info_time_warning": "• संदेशों की संख्या के आधार पर इसमें कुछ समय लग सकता है",
+      "button_processing": "प्रोसेस किया जा रहा है...",
+      "button_start": "बैकफ़िल शुरू करें",
+      "button_completed": "बैकफ़िल पूरा हुआ"
+    },
+    "send": {
+      "send_message": "संदेश भेजें",
+      "stop_generation": "जनरेशन रोकें"
+    },
+    "speech": {
+      "loading_voices": "वॉयस लोड हो रही हैं...",
+      "stop_speaking": "बोलना बंद करें",
+      "speak_message": "संदेश बोलें"
+    },
+    "voice_selector": {
+      "select_voice": "वॉयस चुनें",
+      "select_placeholder": "एक वॉयस चुनें...",
+      "search_placeholder": "नाम, भाषा, या URI द्वारा खोजें...",
+      "no_voices_found": "कोई वॉयस नहीं मिली",
+      "no_voices_available": "इस डिवाइस पर कोई वॉयस उपलब्ध नहीं है",
+      "try_different_search": "कोई भिन्न खोज शब्द आज़माएँ",
+      "network_voice": "नेटवर्क वॉयस",
+      "default_badge": "डिफ़ॉल्ट",
+      "unknown_language": "अज्ञात"
+    },
+    "message": {
+      "loading": "लोड हो रहा है..."
+    }
+  },
+  "file_upload": {
+    "button": {
+      "aria_label": "फ़ाइल अपलोड करें",
+      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, टेक्स्ट फ़ाइलें)"
+    },
+    "preview": {
+      "remove_aria_label": "फ़ाइल हटाएँ",
+      "generating_embeddings": "एम्बेडिंग जेनरेट हो रही है...",
+      "extracting_pdf": "PDF से टेक्स्ट निकाला जा रहा है...",
+      "processing_docx": "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
+      "processing_file": "फ़ाइल प्रोसेस की जा रही है..."
+    },
+    "area": {
+      "files_ready": "{{count}} फ़ाइल तैयार",
+      "files_ready_plural": "{{count}} फ़ाइलें तैयार"
+    },
+    "settings": {
+      "max_file_size_label": "अधिकतम फ़ाइल साइज़ (MB)",
+      "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।"
+    }
+  },
+  "model": {
+    "ollama_status": {
+      "checking": "Ollama स्थिति जाँच रहा है...",
+      "error": "Ollama पहुंच योग्य नहीं है",
+      "empty": "कोई मॉडल नहीं मिला",
+      "ready": "Ollama तैयार है"
+    },
+    "embedding_status": {
+      "checking": "स्थिति जाँच रहा है...",
+      "downloading": "{{model}} डाउनलोड हो रहा है... {{progress}}",
+      "ready": "एम्बेडिंग मॉडल तैयार: {{model}}",
+      "missing": "मॉडल गुम है: {{model}}",
+      "checking_model": "एम्बेडिंग मॉडल जाँच रहा है...",
+      "required_for_rag": "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
+      "download_button": "मॉडल डाउनलोड करें"
+    },
+    "menu": {
+      "select_placeholder": "मॉडल चुनें...",
+      "models_label": "मॉडल",
+      "refresh_aria_label": "मॉडल रिफ्रेश करें",
+      "refresh_tooltip": "मॉडल रिफ्रेश करें",
+      "search_placeholder": "मॉडल खोजें...",
+      "no_model_found": "कोई मॉडल नहीं मिला।"
+    },
+    "version": {
+      "tooltip": "Ollama संस्करण: {{version}}"
+    },
+    "site_overrides": {
+      "title": "साइट-विशिष्ट ओवरराइड",
+      "description": "रेगेक्स पैटर्न का उपयोग करके विशिष्ट साइटों के लिए कस्टम निष्कर्षण सेटिंग्स कॉन्फ़िगर करें",
+      "add_pattern_label": "साइट पैटर्न जोड़ें",
+      "pattern_placeholder": "medium.com या ^https://twitter\\.com/.*",
+      "pattern_empty_error": "साइट पैटर्न खाली नहीं हो सकता",
+      "pattern_exists_error": "साइट ओवरराइड पहले से मौजूद है",
+      "pattern_invalid_error": "अवैध नियमित अभिव्यक्ति पैटर्न",
+      "examples": "उदाहरण: {{example1}} या {{example2}}",
+      "active_overrides": "सक्रिय ओवरराइड",
+      "site_count": "{{count}} साइट",
+      "site_count_plural": "{{count}} साइटें",
+      "select_site_label": "कॉन्फ़िगर करने के लिए साइट चुनें",
+      "select_placeholder": "एक साइट चुनें...",
+      "search_placeholder": "साइट खोजें...",
+      "no_sites_found": "कोई साइट नहीं मिली।",
+      "no_overrides": "कोई साइट-विशिष्ट ओवरराइड कॉन्फ़िगर नहीं किया गया है",
+      "no_overrides_hint": "विशिष्ट साइटों के लिए निष्कर्षण सेटिंग्स को अनुकूलित करने के लिए पैटर्न जोड़ें",
+      "scroll_strategy_label": "स्क्रॉल रणनीति",
+      "scroll_depth_label": "स्क्रॉल गहराई",
+      "add_button": "जोड़ें"
+    },
+    "exclude_urls": {
+      "title": "अपवर्जित URL",
+      "description": "रेगेक्स पैटर्न का उपयोग करके संवेदनशील पृष्ठों से एक्सटेंशन एक्सेस को ब्लॉक करें",
+      "add_pattern_label": "URL पैटर्न जोड़ें",
+      "pattern_placeholder": "^https://example\\.com/private.*",
+      "pattern_empty_error": "पैटर्न खाली नहीं हो सकता",
+      "pattern_exists_error": "पैटर्न पहले से मौजूद है",
+      "pattern_invalid_error": "अवैध नियमित अभिव्यक्ति पैटर्न",
+      "examples": "URL से मिलान करने के लिए नियमित अभिव्यक्तियों का उपयोग करें। उदाहरण: {{example1}} या {{example2}}",
+      "active_patterns": "सक्रिय पैटर्न",
+      "pattern_count": "{{count}} पैटर्न",
+      "pattern_count_plural": "{{count}} पैटर्न",
+      "no_patterns": "कोई URL पैटर्न कॉन्फ़िगर नहीं किया गया है",
+      "default_badge": "डिफ़ॉल्ट",
+      "add_button": "जोड़ें"
+    },
+    "embedding_config": {
+      "storage_stats_title": "भंडारण आँकड़े",
+      "total_vectors": "कुल वेक्टर",
+      "storage_used": "उपयोग किया गया भंडारण",
+      "cache": "कैश",
+      "cache_entries": "{{size}} / {{maxSize}} एंट्री",
+      "database_management_title": "डेटाबेस प्रबंधन",
+      "database_management_description": "अपने वेक्टर एम्बेडिंग डेटाबेस को साफ करें और प्रबंधित करें",
+      "remove_duplicates_button": "डुप्लीकेट हटाएँ",
+      "remove_duplicates_description": "डुप्लीकेट एम्बेडिंग हटाएँ, प्रत्येक अद्वितीय संदेश की केवल पहली घटना रखें",
+      "clear_chat_button": "सभी चैट एम्बेडिंग साफ़ करें",
+      "clear_chat_description": "सभी चैट एम्बेडिंग हटाएँ। आप उन्हें बाद में पुनः जेनरेट करने के लिए बैकफ़िल कर सकते हैं",
+      "clear_all_button": "सभी एम्बेडिंग साफ़ करें",
+      "clear_all_description": "सभी एम्बेडिंग (चैट, फ़ाइलें, वेबपृष्ठ) हटाएँ। यह कार्रवाई पूर्ववत नहीं की जा सकती",
+      "chunking_title": "चंकिंग सेटिंग्स",
+      "chunking_description": "एम्बेडिंग के लिए टेक्स्ट को चंक्स में कैसे विभाजित किया जाता है, इसे कॉन्फ़िगर करें",
+      "chunk_size_label": "चंक्स साइज़ (टोकन)",
+      "chunk_size_description": "प्रति चंक टोकन की संख्या। बड़े चंक अधिक संदर्भ संरक्षित करते हैं लेकिन कम केंद्रित हो सकते हैं।",
+      "chunk_overlap_label": "चंक्स ओवरलैप (टोकन)",
+      "chunk_overlap_description": "चंक्स के बीच ओवरलैप। चंक सीमाओं के पार संदर्भ को संरक्षित करने में मदद करता है।",
+      "chunking_strategy_label": "चंकिंग रणनीति",
+      "chunking_strategy_description": "टेक्स्ट को चंक्स में कैसे विभाजित किया जाए। हाइब्रिड संदर्भ और फोकस का सबसे अच्छा संतुलन प्रदान करता है।",
+      "strategy_fixed": "निश्चित साइज़",
+      "strategy_semantic": "सिमेंटिक सीमाएँ",
+      "strategy_hybrid": "हाइब्रिड (अनुशंसित)",
+      "embedding_gen_title": "एम्बेडिंग जनरेशन",
+      "embedding_gen_description": "एम्बेडिंग जनरेशन परफॉर्मेंस कॉन्फ़िगर करें",
+      "batch_size_label": "बैच साइज़",
+      "batch_size_description": "समानांतर में एम्बेड करने के लिए टेक्स्ट की संख्या। उच्च मान तेज होते हैं लेकिन अधिक मेमोरी का उपयोग करते हैं।",
+      "enable_caching_label": "कैशिंग सक्षम करें",
+      "enable_caching_description": "पुनः जेनरेट करने से बचने के लिए समान सामग्री के लिए एम्बेडिंग कैश करें",
+      "use_webworker_label": "वेब वर्कर का उपयोग करें",
+      "use_webworker_description": "एम्बेडिंग जनरेशन को बैकग्राउंड थ्रेड पर ऑफ़लोड करें (अनुशंसित)",
+      "limits_title": "सीमाएँ और भंडारण",
+      "limits_description": "भंडारण सीमाएँ और सफाई नीतियां कॉन्फ़िगर करें",
+      "max_embeddings_label": "प्रति फ़ाइल अधिकतम एम्बेडिंग",
+      "max_embeddings_description": "प्रति फ़ाइल अधिकतम एम्बेडिंग (0 = असीमित)। बहुत बड़ी फ़ाइलों के साथ मेमोरी समस्याओं को रोकने में मदद करता है।",
+      "max_storage_label": "अधिकतम भंडारण साइज़ (MB)",
+      "max_storage_description": "MB में अधिकतम भंडारण साइज़ (0 = असीमित)। सीमा पूरी होने पर सबसे पुराने वेक्टर हटा दिए जाएंगे।",
+      "auto_cleanup_label": "स्वतः सफाई",
+      "auto_cleanup_description": "पुराने एम्बेडिंग को स्वचालित रूप से हटाएँ",
+      "cleanup_age_label": "सफाई अवधि (दिन)",
+      "cleanup_age_description": "इतने दिनों से पुराने एम्बेडिंग हटाएँ",
+      "chat_search_title": "चैट खोज सेटिंग्स",
+      "chat_search_description": "चैट इतिहास के लिए सिमेंटिक खोज कॉन्फ़िगर करें",
+      "auto_embed_label": "चैट संदेशों को स्वतः-एम्बेड करें",
+      "auto_embed_description": "सिमेंटिक खोज के लिए चैट संदेशों को स्वचालित रूप से एम्बेड करें (अनुशंसित)",
+      "backfill_title": "चैट इतिहास बैकफ़िल करें",
+      "backfill_description": "सिमेंटिक खोज को सक्षम करने के लिए सभी मौजूदा चैट संदेशों के लिए एम्बेडिंग जेनरेट करें",
+      "search_settings_title": "खोज सेटिंग्स",
+      "search_settings_description": "सिमेंटिक खोज के लिए डिफ़ॉल्ट पैरामीटर",
+      "search_limit_label": "डिफ़ॉल्ट खोज सीमा",
+      "search_limit_description": "सिमेंटिक खोज से लौटाए जाने वाले परिणामों की डिफ़ॉल्ट संख्या",
+      "min_similarity_label": "न्यूनतम समानता थ्रेशोल्ड",
+      "min_similarity_description": "न्यूनतम कोसाइन समानता स्कोर (0-1)। सिमेंटिक खोज के लिए, 0.4-0.6 अनुशंसित है। उच्च मान अधिक प्रासंगिक लेकिन कम परिणाम लौटाते हैं।",
+      "cache_ttl_label": "खोज कैश TTL (मिनट)",
+      "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
+      "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
+      "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।"
+    }
+  },
+  "prompts": {
+    "selector": {
+      "title": "प्रॉम्प्ट टेम्पलेट",
+      "description": "अपनी बातचीत को तुरंत शुरू करने के लिए {{count}} टेम्पलेट में से चुनें",
+      "search_placeholder": "टेम्पलेट, टैग, या विवरण खोजें...",
+      "sort_recent": "हाल का",
+      "sort_popular": "लोकप्रिय",
+      "sort_alphabetical": "A-Z",
+      "all_categories": "सभी श्रेणियां",
+      "no_templates_title": "कोई टेम्पलेट नहीं मिला",
+      "no_templates_search": "अपनी खोज या फ़िल्टर मानदंड समायोजित करने का प्रयास करें",
+      "no_templates_empty": "कोई प्रॉम्प्ट टेम्पलेट उपलब्ध नहीं है। सेटिंग्स में अपना पहला टेम्पलेट बनाएँ।",
+      "clear_filters": "फ़िल्टर साफ़ करें",
+      "preview_system_prompt": "सिस्टम प्रॉम्प्ट",
+      "preview_user_prompt": "उपयोगकर्ता प्रॉम्प्ट",
+      "preview_tags": "टैग",
+      "use_template": "टेम्पलेट का उपयोग करें",
+      "copy": "कॉपी करें"
+    }
+  },
+  "sessions": {
+    "selector": {
+      "title": "चैट सेशन",
+      "create_new": "नई चैट बनाएँ",
+      "create_new_aria": "नई चैट बनाएँ",
+      "start_new": "नई चैट शुरू करें",
+      "no_sessions": "अभी तक कोई चैट सेशन नहीं है",
+      "no_sessions_hint": "शुरू करने के लिए अपनी पहली चैट बनाएँ",
+      "session_count": "{{count}} सेशन",
+      "session_count_plural": "{{count}} सेशन"
+    },
+    "delete": {
+      "aria_label": "चैट सेशन हटाएँ: {{title}}",
+      "tooltip": "चैट हटाएँ"
+    },
+    "export": {
+      "tooltip": "चैट निर्यात करें",
+      "tooltip_all": "सभी चैट सेशन निर्यात करें",
+      "aria_label": "चैट निर्यात करें",
+      "aria_label_all": "सभी चैट सेशन निर्यात करें",
+      "format_json": "JSON",
+      "format_pdf": "PDF"
+    },
+    "import": {
+      "tooltip": "चैट सेशन आयात करें",
+      "aria_label": "चैट सेशन आयात करें"
+    }
+  },
+  "tabs": {
+    "select": {
+      "placeholder": "खुले टैब चुनें"
+    },
+    "toggle": {
+      "label_off": "टैब",
+      "label_on": "टैब+",
+      "tooltip": "खुले टैब के साथ इंटरैक्ट करें"
+    }
+  },
+  "settings": {
+    "content_extraction": {
+      "title": "सामग्री निष्कर्षण",
+      "description": "सभी वेबसाइटों के लिए डिफ़ॉल्ट सामग्री निष्कर्षण व्यवहार कॉन्फ़िगर करें।",
+      "enable": {
+        "label": "सामग्री निष्कर्षण की अनुमति दें",
+        "description": "लेज़ी लोडिंग समर्थन के साथ उन्नत सामग्री निष्कर्षण सक्षम करें"
+      },
+      "selection_button": {
+        "label": "चयन के बाद \"Ollama क्लाइंट से पूछें\" बटन दिखाएँ",
+        "description": "चैट में टेक्स्ट को तेज़ी से जोड़ने के लिए टेक्स्ट का चयन करते समय एक फ़्लोटिंग एक्शन बटन दिखाएँ"
+      },
+      "scraper": {
+        "label": "सामग्री स्क्रैपर",
+        "auto": {
+          "label": "स्वतः",
+          "description": "स्मार्ट फ़ॉलबैक: Defuddle अधिक पठनीय हो जाता है",
+          "detail": "अधिकांश साइटों के लिए अच्छा है। बेहतर मार्कडाउन और कोड फ़ॉर्मेटिंग के लिए पहले Defuddle का उपयोग करता है, यदि आवश्यक हो तो Readability पर फ़ॉलबैक करता है।"
+        },
+        "defuddle": {
+          "label": "Defuddle",
+          "description": "तकनीकी और अत्यधिक कोडित सामग्री",
+          "detail": "GitHub, दस्तावेज़ीकरण, Stack Overflow, और डेवलपर ब्लॉग के लिए सबसे अच्छा। कोड ब्लॉक और मार्कडाउन संरचना को संरक्षित करता है।"
+        },
+        "readability": {
+          "label": "Readability",
+          "description": "लेख और ब्लॉग पोस्ट",
+          "detail": "समाचार लेख, Medium पोस्ट, और पारंपरिक ब्लॉग सामग्री के लिए उपयुक्त।"
+        }
+      },
+      "scroll_strategy": {
+        "label": "स्क्रॉल रणनीति",
+        "none": "सबसे तेज़ निष्कर्षण, लेज़ी लोडिंग समर्थित नहीं है",
+        "instant": "तेज स्क्रॉलिंग साधारण लेज़ी लोडिंग के लिए अच्छी तरह से काम करती है",
+        "gradual": "जानबूझकर रुकने और गति और सटीकता के मिश्रण के साथ संतुलित सहज स्क्रॉलिंग",
+        "smart": "गतिशील सामग्री-जागरूक स्मार्ट स्क्रॉलिंग",
+        "options": {
+          "none": "कोई स्क्रॉलिंग नहीं",
+          "instant": "तेज स्क्रॉलिंग",
+          "gradual": "क्रमिक स्क्रॉलिंग",
+          "smart": "स्मार्ट डिटेक्शन"
+        },
+        "options_short": {
+          "none": "कोई नहीं",
+          "instant": "तेज",
+          "gradual": "क्रमिक",
+          "smart": "स्मार्ट"
+        }
+      },
+      "scroll_depth": {
+        "label": "स्क्रॉल गहराई",
+        "description": "स्क्रॉल करने के लिए पृष्ठ का प्रतिशत (उच्च = अधिक सामग्री, धीमी)"
+      },
+      "timeout": {
+        "scroll_delay": "मिलीसेकंड में स्क्रॉल विलंब",
+        "mutation_timeout": "मिलीसेकंड में म्यूटेशन ऑब्जर्वर टाइमआउट",
+        "network_timeout": "मिलीसेकंड में नेटवर्क निष्क्रिय टाइमआउट",
+        "max_wait": "अधिकतम प्रतीक्षा समय (मिलीसेकंड)"
+      },
+      "badges": {
+        "recommended": "अनुशंसित",
+        "active": "सक्रिय"
+      }
+    },
+    "model": {
+      "title": "मॉडल सेटिंग्स",
+      "description": "इष्टतम प्रदर्शन के लिए पैरामीटर कॉन्फ़िगर करें।",
+      "configuration_title": "मॉडल कॉन्फ़िगरेशन",
+      "configuration_description": "अपने AI मॉडल पैरामीटर कॉन्फ़िगर करें।",
+      "system": {
+        "title": "सिस्टम कॉन्फ़िगरेशन",
+        "description": "मॉडल व्यवहार को नियंत्रित करने के लिए सिस्टम प्रॉम्प्ट और स्टॉप अनुक्रम कॉन्फ़िगर करें।",
+        "prompt_label": "सिस्टम प्रॉम्प्ट",
+        "prompt_placeholder": "मॉडल के व्यवहार को निर्देशित करने के लिए एक कस्टम सिस्टम प्रॉम्प्ट दर्ज करें...",
+        "stop_sequences_label": "स्टॉप अनुक्रम",
+        "stop_sequence_placeholder": "स्टॉप अनुक्रम दर्ज करें...",
+        "add_button": "जोड़ें"
+      },
+      "sampling": {
+        "title": "सैंपलिंग पैरामीटर",
+        "description": "रैंडमनेस और टोकन चयन को नियंत्रित करें।"
+      },
+      "context": {
+        "title": "संदर्भ और जनरेशन",
+        "description": "मेमोरी और आउटपुट नियंत्रण सेटिंग्स"
+      },
+      "parameters": {
+        "temperature": {
+          "label": "तापमान",
+          "conservative": "रूढ़िवादी",
+          "creative": "रचनात्मक"
+        },
+        "top_p": {
+          "label": "Top-p (न्यूक्लियस)",
+          "focused": "केंद्रित",
+          "diverse": "विविध"
+        },
+        "top_k": {
+          "label": "Top-k",
+          "validation_min": "कम से कम {{min}} होना चाहिए"
+        },
+        "min_p": {
+          "label": "Min-p",
+          "validation_min": "कम से कम {{min}} होना चाहिए।",
+          "validation_max": "अधिकतम {{max}} होना चाहिए।"
+        },
+        "seed": {
+          "label": "सीड",
+          "validation_min": "कम से कम {{min}} होना चाहिए"
+        },
+        "num_ctx": {
+          "label": "संदर्भ साइज़",
+          "validation_min": "कम से कम {{min}} होना चाहिए"
+        },
+        "num_predict": {
+          "label": "अधिकतम टोकन",
+          "validation_min": "कम से कम {{min}} होना चाहिए।"
+        },
+        "repeat_penalty": {
+          "label": "दोहराव दंड",
+          "validation_min": "{{min}} से अधिक होना चाहिए।"
+        },
+        "repeat_last_n": {
+          "label": "पिछले N दोहराएँ",
+          "validation_min": "कम से कम {{min}} होना चाहिए।"
+        }
+      }
+    },
+    "base_url": {
+      "title": "Ollama बेस URL",
+      "description": "अपने Ollama इंस्टॉलेशन के लिए सर्वर एंडपॉइंट कॉन्फ़िगर करें।",
+      "label": "Ollama API सर्वर एंडपॉइंट",
+      "error_invalid_url": "कृपया एक वैध URL दर्ज करें।",
+      "status_local": "स्थानीय सर्वर कनेक्शन",
+      "status_remote": "रिमोट सर्वर कनेक्शन",
+      "badges": {
+        "default": "डिफ़ॉल्ट",
+        "remote": "रिमोट"
+      },
+      "button": {
+        "save": "सेव करें",
+        "saving": "सेव कर रहा है",
+        "saved": "सेव किया गया"
+      }
+    },
+    "model_pull": {
+      "title": "मॉडल लाइब्रेरी",
+      "description": "अपनी परियोजनाओं के लिए AI मॉडल ब्राउज़ करें और डाउनलोड करें।",
+      "search_placeholder": "नाम या विवरण द्वारा मॉडल खोजें...",
+      "status": {
+        "cancelled": "रद्द किया गया",
+        "downloading": "मॉडल डाउनलोड हो रहा है",
+        "loading_models": "मॉडल लोड हो रहे हैं...",
+        "no_models": "कोई मॉडल नहीं मिला",
+        "adjust_search": "अपने खोज शब्दों को समायोजित करें।"
+      },
+      "button": {
+        "variants": "वेरिएंट",
+        "loading": "लोड हो रहा है",
+        "pulling": "पुल कर रहा है"
+      },
+      "variants_label": "उपलब्ध वेरिएंट"
+    },
+    "model_list": {
+      "unknown_size": "अज्ञात साइज़",
+      "invalid_size": "अवैध साइज़",
+      "unknown_date": "अज्ञात तिथि",
+      "invalid_date": "अवैध तिथि",
+      "time_ago_hours": "{{count}} घंटे पहले",
+      "time_ago_days": "{{count}} दिन पहले",
+      "title": "मॉडल",
+      "title_count": "{{count}} मॉडल",
+      "retry": "पुनः प्रयास करें",
+      "refresh": "रिफ्रेश करें",
+      "no_models": "कोई मॉडल नहीं मिला",
+      "refresh_tooltip": "मॉडल रिफ्रेश करें",
+      "delete_dialog": {
+        "title": "इस मॉडल को हटाएँ?",
+        "description": "यह कार्रवाई पूर्ववत नहीं की जा सकती। मॉडल को आपके स्थानीय सिस्टम से स्थायी रूप से हटा दिया जाएगा।",
+        "cancel": "रद्द करें",
+        "confirm": "हटाएँ"
+      }
+    },
+    "model_info": {
+      "title": "मॉडल जानकारी",
+      "no_data": "इस मॉडल के लिए कोई डेटा उपलब्ध नहीं है।",
+      "no_data_available": "कोई मॉडल डेटा उपलब्ध नहीं है",
+      "error_fetching": "मॉडल डेटा लाने में त्रुटि।",
+      "error_details": "मॉडल विवरण प्राप्त नहीं कर सका।",
+      "refresh_tooltip": "मॉडल विवरण रिफ्रेश करें",
+      "capabilities": "क्षमताएँ",
+      "technical_details": "तकनीकी विवरण",
+      "unknown_file_type": "अज्ञात"
+    },
+    "loaded_models": {
+      "title": "लोड किए गए मॉडल",
+      "count_one": "{{count}} मॉडल",
+      "count_other": "{{count}} मॉडल",
+      "refresh_tooltip": "लोड किए गए मॉडल रिफ्रेश करें",
+      "no_models_title": "मेमोरी में वर्तमान में कोई मॉडल लोड नहीं है",
+      "no_models_description": "लोड होने पर मॉडल यहां दिखाई देंगे।",
+      "unload_tooltip": "मॉडल अनलोड करें"
+    },
+    "tabs": {
+      "general": "सामान्य",
+      "prompts": "प्रॉम्प्ट",
+      "models": "मॉडल",
+      "extraction": "निष्कर्षण",
+      "embeddings": "एम्बेडिंग",
+      "voices": "वॉयस",
+      "reset": "रीसेट करें",
+      "guides": "गाइड"
+    },
+    "page": {
+      "title": "Ollama क्लाइंट सेटिंग्स",
+      "description": "अपने Ollama सेटअप के सभी पहलुओं को एक ही स्थान पर प्रबंधित करें। युक्तियों और सेटअप मार्गदर्शन के लिए, गाइड टैब पर जाएँ।"
+    },
+    "speech": {
+      "title": "स्पीच सेटिंग्स",
+      "description": "अपने टेक्स्ट-टू-स्पीच वॉयस, गति, और टोन सेटिंग्स कॉन्फ़िगर करें।",
+      "voice_label": "वॉयस",
+      "rate_label": "स्पीच गति",
+      "pitch_label": "वॉयस पिच",
+      "preview_title": "पूर्वावलोकन",
+      "test_text_label": "परीक्षण टेक्स्ट",
+      "test_text_placeholder": "यहां टाइप करके अपनी वॉयस सेटिंग्स का परीक्षण करें...",
+      "test_hint_text": "अपना टेक्स्ट सुनने के लिए \"वॉयस का परीक्षण करें\" पर क्लिक करें।",
+      "test_hint_default": "डिफ़ॉल्ट सैंपल सुनने के लिए \"वॉयस का परीक्षण करें\" पर क्लिक करें।",
+      "test_button": "वॉयस का परीक्षण करें",
+      "test_fallback": "नमस्ते, यह आपकी स्पीच सेटिंग्स का एक परीक्षण है।",
+      "rate": {
+        "very_slow": "बहुत धीमी",
+        "slow": "धीमी",
+        "normal": "सामान्य",
+        "fast": "तेज",
+        "very_fast": "बहुत तेज"
+      },
+      "pitch": {
+        "very_low": "बहुत कम",
+        "low": "कम",
+        "normal": "सामान्य",
+        "high": "उच्च",
+        "very_high": "बहुत उच्च"
+      }
+    },
+    "embeddings": {
+      "title": "वेक्टर एम्बेडिंग",
+      "beta_badge": "बीटा",
+      "description": "एम्बेडिंग फ़ाइल अपलोड और चैट इतिहास के लिए सिमेंटिक खोज, पुनर्प्राप्ति संवर्धित जनरेशन, और संदर्भ-जागरूक सुविधाओं को सक्षम करती है।",
+      "model_label": "एम्बेडिंग मॉडल",
+      "status": {
+        "installed": "स्थापित",
+        "not_found": "नहीं मिला",
+        "checking": "जाँच रहा है...",
+        "check_button": "स्थिति जाँचें"
+      },
+      "not_loaded": {
+        "title": "एम्बेडिंग मॉडल लोड नहीं हुआ",
+        "description": "सिमेंटिक खोज, RAG (पुनर्प्राप्ति संवर्धित जनरेशन), और संदर्भ-जागरूक सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है। बेहतर संदर्भ समझ और फ़ाइल खोज क्षमताओं के साथ अपने चैट अनुभव को बढ़ाने के लिए इसे अभी डाउनलोड करें।",
+        "download_button": "मॉडल डाउनलोड करें"
+      },
+      "downloading": {
+        "title": "मॉडल डाउनलोड हो रहा है..."
+      },
+      "success": {
+        "title": "डाउनलोड सफल",
+        "description": "एम्बेडिंग मॉडल अब उपयोग के लिए तैयार है। अब आप सिमेंटिक खोज और संदर्भ-जागरूक सुविधाओं के साथ उन्नत चैट अनुभवों का आनंद ले सकते हैं।"
+      },
+      "auto_downloaded": {
+        "title": "स्वतः-स्थापित",
+        "description": "एक्सटेंशन इंस्टॉल करने पर एम्बेडिंग मॉडल स्वचालित रूप से डाउनलोड हो गया था।"
+      },
+      "test_generation": {
+        "title": "एम्बेडिंग जनरेशन का परीक्षण करें",
+        "description": "यह सत्यापित करने के लिए कि एम्बेडिंग मॉडल सही ढंग से काम कर रहा है, एक परीक्षण एम्बेडिंग जेनरेट करें।",
+        "button": "परीक्षण करें",
+        "button_testing": "परीक्षण कर रहा है..."
+      },
+      "test_search": {
+        "title": "सिमेंटिक खोज",
+        "description": "सत्यापित करें कि आपकी अपलोड की गई फ़ाइलें सुलभ और खोज योग्य हैं। मिलान वाली सामग्री खोजने के लिए एक खोज क्वेरी दर्ज करें।",
+        "placeholder": "खोज...",
+        "results_found": "{{count}} परिणाम मिले",
+        "no_results": "कोई परिणाम नहीं मिला। कोई भिन्न खोज आज़माएँ या अधिक सामग्री अपलोड करें।"
+      },
+      "what_are_embeddings": {
+        "title": "एम्बेडिंग क्या हैं?",
+        "point_1": "सिमेंटिक अर्थ को कैप्चर करने वाले संख्यात्मक वैक्टर में टेक्स्ट को रूपांतरित करें",
+        "point_2": "आपके चैट इतिहास और अपलोड की गई फ़ाइलों में सिमेंटिक खोज सक्षम करें",
+        "point_3": "संदर्भ-जागरूक प्रतिक्रियाओं के लिए RAG को शक्ति प्रदान करें",
+        "point_4": "AI प्रतिक्रियाओं को बेहतर बनाने के लिए आपकी फ़ाइलों से प्रासंगिक संदर्भ प्रदान करें"
+      },
+      "rag_mode": {
+        "label": "स्मार्ट संदर्भ (RAG)",
+        "description": "संपूर्ण फ़ाइल सामग्री भेजने के बजाय अपनी फ़ाइलों से प्रासंगिक संदर्भ खोजने के लिए सिमेंटिक खोज का उपयोग करें।"
+      },
+      "model_select": {
+        "label": "एम्बेडिंग मॉडल",
+        "placeholder": "एक मॉडल चुनें",
+        "description": "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।"
+      }
+    },
+    "prompts": {
+      "title": "प्रॉम्प्ट टेम्पलेट",
+      "description": "अपने {{count}} प्रॉम्प्ट टेम्पलेट के संग्रह को प्रबंधित करें।",
+      "export": "टेम्पलेट निर्यात करें",
+      "import": "टेम्पलेट आयात करें",
+      "reset": "डिफ़ॉल्ट पर रीसेट करें",
+      "reset_dialog": {
+        "title": "टेम्पलेट को डिफ़ॉल्ट पर रीसेट करें?",
+        "description": "यह आपके सभी वर्तमान टेम्पलेट को डिफ़ॉल्ट वाले से बदल देगा। यह कार्रवाई पूर्ववत नहीं की जा सकती।",
+        "cancel": "रद्द करें",
+        "confirm": "टेम्पलेट रीसेट करें"
+      },
+      "search_placeholder": "टेम्पलेट खोजें...",
+      "category_placeholder": "श्रेणी",
+      "all_categories": "सभी श्रेणियां",
+      "sort": {
+        "recent": "हाल का",
+        "popular": "लोकप्रिय",
+        "alphabetical": "A-Z"
+      },
+      "new_template": "नया टेम्पलेट",
+      "form": {
+        "title": "शीर्षक",
+        "title_placeholder": "टेम्पलेट शीर्षक",
+        "category": "श्रेणी",
+        "category_placeholder": "उदाहरण के लिए, डेवलपमेंट, लेखन",
+        "description": "विवरण",
+        "description_placeholder": "टेम्पलेट के उद्देश्य और कार्यक्षमता का संक्षिप्त विवरण।",
+        "tags": "टैग",
+        "tags_placeholder": "टैग1, टैग2, टैग3",
+        "user_prompt": "उपयोगकर्ता प्रॉम्प्ट",
+        "user_prompt_placeholder": "मुख्य प्रॉम्प्ट टेम्पलेट",
+        "system_prompt": "सिस्टम प्रॉम्प्ट",
+        "create_button": "टेम्पलेट बनाएँ"
+      },
+      "delete_dialog": {
+        "title": "टेम्पलेट हटाएँ",
+        "description": "क्या आप \"{{title}}\" हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।",
+        "cancel": "रद्द करें",
+        "confirm": "हटाएँ"
+      },
+      "created_at": "बनाया गया {{date}}",
+      "used_times": "{{count}} बार उपयोग किया गया"
+    },
+    "reset": {
+      "title": "सेटिंग रीसेट करें",
+      "description": "मॉड्यूल द्वारा संग्रहीत डेटा साफ़ करें या सब कुछ डिफ़ॉल्ट पर रीसेट करें",
+      "danger_zone": {
+        "title": "डेंजर ज़ोन",
+        "description": "यह सभी डेटा साफ़ कर देगा और पूर्ववत नहीं किया जा सकता",
+        "button": "सभी रीसेट करें"
+      },
+      "dialog": {
+        "title": "रीसेट की पुष्टि करें",
+        "description": "यह सभी डेटा साफ़ कर देगा और पूर्ववत नहीं किया जा सकता।",
+        "confirm": "हाँ, सभी रीसेट करें",
+        "cancel": "रद्द करें"
+      },
+      "modules": {
+        "ollama": {
+          "description": "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
+        },
+        "theme": {
+          "description": "UI स्वरूपण प्राथमिकताएँ"
+        },
+        "browser": {
+          "description": "टैब एक्सेस और URL पैटर्न"
+        },
+        "tts": {
+          "description": "टेक्स्ट-टू-स्पीच सेटिंग्स"
+        },
+        "chat_sessions": {
+          "description": "बातचीत का इतिहास"
+        },
+        "default": {
+          "description": "मॉड्यूल सेटिंग्स"
+        }
+      },
+      "item_count": "{{count}} आइटम",
+      "item_count_plural": "{{count}} आइटम",
+      "reset_button": "रीसेट करें"
+    }
+  },
+  "guides": {
+    "title": "सहायक गाइड और दस्तावेज़ीकरण",
+    "description": "Ollama क्लाइंट सेट अप करने या सुविधाओं को खोजने में सहायता चाहिए? इन उपयोगी संसाधनों को देखें",
+    "support": {
+      "title": "परियोजना का समर्थन करें",
+      "description": "Product Hunt पर Ollama क्लाइंट को प्रदर्शित करके हमें विकसित होने में मदद करें",
+      "image_alt": "Ollama क्लाइंट - स्थानीय LLM के साथ चैट करें — ठीक अपने ब्राउज़र के अंदर | Product Hunt"
+    },
+    "items": {
+      "setup": {
+        "label": "Ollama क्लाइंट सेटअप गाइड",
+        "description": "पूर्ण इंस्टॉलेशन और कॉन्फ़िगरेशन गाइड",
+        "badge": "गाइड"
+      },
+      "library": {
+        "label": "आधिकारिक Ollama मॉडल लाइब्रेरी",
+        "description": "उपलब्ध AI मॉडल और दस्तावेज़ीकरण ब्राउज़ करें",
+        "badge": "लाइब्रेरी"
+      },
+      "github": {
+        "label": "GitHub रेपो",
+        "description": "स्रोत कोड, रिलीज़, और योगदान दिशानिर्देश",
+        "badge": "कोड"
+      },
+      "faq": {
+        "label": "समस्या निवारण और FAQ",
+        "description": "सामान्य समस्याएँ और सामुदायिक समर्थन",
+        "badge": "सहायता"
+      }
+    }
+  },
+  "social": {
+    "github": "GitHub पेज",
+    "portfolio": "पोर्टफोलियो",
+    "linkedin": "LinkedIn",
+    "twitter": "Twitter",
+    "instagram": "Instagram",
+    "bug_report": "बग / सुविधा रिपोर्ट करें"
+  }
+}

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -42,6 +44,7 @@ export const SemanticChatSearchDialog = ({
   onSelectResult,
   currentSessionId
 }: SemanticChatSearchDialogProps) => {
+  const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState("")
   const [results, setResults] = useState<ChatSearchResult[]>([])
   const [searchScope, setSearchScope] = useState<"all" | "current">("all")
@@ -71,13 +74,13 @@ export const SemanticChatSearchDialog = ({
       const session = sessions.find((s) => s.id === sessionId)
       return {
         sessionId,
-        sessionTitle: session?.title || "Unknown Session",
+        sessionTitle: session?.title || t("chat.search.unknown_session"),
         results: sessionResults.sort(
           (a, b) => b.result.similarity - a.result.similarity
         )
       }
     })
-  }, [results, sessions])
+  }, [results, sessions, t])
 
   useEffect(() => {
     // Clear previous results if query is empty
@@ -146,28 +149,31 @@ export const SemanticChatSearchDialog = ({
     ]
   )
 
-  const formatTimestamp = useCallback((timestamp: number) => {
-    try {
-      const date = new Date(timestamp)
-      const now = Date.now()
-      const diffMs = now - timestamp
-      const diffMins = Math.floor(diffMs / 60000)
-      const diffHours = Math.floor(diffMs / 3600000)
-      const diffDays = Math.floor(diffMs / 86400000)
+  const formatTimestamp = useCallback(
+    (timestamp: number) => {
+      try {
+        const date = new Date(timestamp)
+        const now = Date.now()
+        const diffMs = now - timestamp
+        const diffMins = Math.floor(diffMs / 60000)
+        const diffHours = Math.floor(diffMs / 3600000)
+        const diffDays = Math.floor(diffMs / 86400000)
 
-      if (diffMins < 1) return "Just now"
-      if (diffMins < 60)
-        return `${diffMins} ${diffMins === 1 ? "minute" : "minutes"} ago`
-      if (diffHours < 24)
-        return `${diffHours} ${diffHours === 1 ? "hour" : "hours"} ago`
-      if (diffDays < 7)
-        return `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`
+        if (diffMins < 1) return t("chat.search.time_just_now")
+        if (diffMins < 60)
+          return `${diffMins} ${diffMins === 1 ? t("chat.search.time_minute") : t("chat.search.time_minutes")} ${t("chat.search.time_ago")}`
+        if (diffHours < 24)
+          return `${diffHours} ${diffHours === 1 ? t("chat.search.time_hour") : t("chat.search.time_hours")} ${t("chat.search.time_ago")}`
+        if (diffDays < 7)
+          return `${diffDays} ${diffDays === 1 ? t("chat.search.time_day") : t("chat.search.time_days")} ${t("chat.search.time_ago")}`
 
-      return date.toLocaleDateString()
-    } catch {
-      return "Unknown time"
-    }
-  }, [])
+        return date.toLocaleDateString()
+      } catch {
+        return t("chat.search.time_unknown")
+      }
+    },
+    [t]
+  )
 
   const truncateText = useCallback((text: string, maxLength: number = 150) => {
     if (text.length <= maxLength) return text
@@ -179,11 +185,11 @@ export const SemanticChatSearchDialog = ({
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <div className="flex items-center gap-2">
-            <DialogTitle>Semantic Chat Search</DialogTitle>
-            <MiniBadge text="Beta v0.3.0" />
+            <DialogTitle>{t("chat.search.dialog_title")}</DialogTitle>
+            <MiniBadge text={t("chat.search.beta_badge")} />
           </div>
           <DialogDescription>
-            Search your chat history by meaning, not just keywords
+            {t("chat.search.dialog_description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -196,15 +202,19 @@ export const SemanticChatSearchDialog = ({
               }
               className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="all">All Chats</TabsTrigger>
-                <TabsTrigger value="current">Current Chat</TabsTrigger>
+                <TabsTrigger value="all">
+                  {t("chat.search.scope_all")}
+                </TabsTrigger>
+                <TabsTrigger value="current">
+                  {t("chat.search.scope_current")}
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search conversations by meaning..."
+              placeholder={t("chat.search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -226,19 +236,19 @@ export const SemanticChatSearchDialog = ({
           {isSearching ? (
             <div className="flex h-full flex-col items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin mb-2" />
-              <p className="text-sm">Searching chat history...</p>
+              <p className="text-sm">{t("chat.search.searching")}</p>
             </div>
           ) : (
             <>
               {debouncedQuery.trim() && results.length === 0 && (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  No results found. Try a different search query.
+                  {t("chat.search.no_results")}
                 </div>
               )}
 
               {!debouncedQuery.trim() && (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  Start typing to search your chat history semantically...
+                  {t("chat.search.start_typing")}
                 </div>
               )}
 
@@ -254,7 +264,9 @@ export const SemanticChatSearchDialog = ({
                           </span>
                           <Badge variant="secondary" className="text-xs">
                             {sessionResults.length}{" "}
-                            {sessionResults.length === 1 ? "result" : "results"}
+                            {sessionResults.length === 1
+                              ? t("chat.search.result_badge")
+                              : t("chat.search.results_badge")}
                           </Badge>
                         </div>
 
@@ -291,8 +303,8 @@ export const SemanticChatSearchDialog = ({
                                       }
                                       className="text-xs">
                                       {result.role === "user"
-                                        ? "You"
-                                        : "Assistant"}
+                                        ? t("chat.search.role_you")
+                                        : t("chat.search.role_assistant")}
                                     </Badge>
                                     <Badge
                                       variant="outline"
@@ -300,7 +312,7 @@ export const SemanticChatSearchDialog = ({
                                       {Math.round(
                                         result.result.similarity * 100
                                       )}
-                                      % match
+                                      {t("chat.search.match_percentage")}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-foreground line-clamp-3">

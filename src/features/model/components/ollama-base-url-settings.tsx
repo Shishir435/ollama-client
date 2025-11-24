@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,6 +20,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 
 export const BaseUrlSettings = () => {
+  const { t } = useTranslation()
   const [storageUrl, setStorageUrl] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"
@@ -82,22 +84,24 @@ export const BaseUrlSettings = () => {
           <div className="flex items-center justify-between">
             <div className="mb-2 flex items-center gap-2">
               <Server className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-xl">Ollama Base URL</CardTitle>
+              <CardTitle className="text-xl">
+                {t("settings.base_url.title")}
+              </CardTitle>
             </div>
             {isDefault && (
               <Badge variant="secondary" className="ml-auto text-xs">
-                Default
+                {t("settings.base_url.badges.default")}
               </Badge>
             )}
             {!isLocalhost && urlIsValid && (
               <Badge variant="outline" className="ml-auto text-xs">
                 <ExternalLink className="mr-1 h-3 w-3" />
-                Remote
+                {t("settings.base_url.badges.remote")}
               </Badge>
             )}
           </div>
           <CardDescription>
-            Configure the server endpoint for your Ollama installation
+            {t("settings.base_url.description")}
           </CardDescription>
         </CardHeader>
 
@@ -106,19 +110,19 @@ export const BaseUrlSettings = () => {
             <Label
               htmlFor="ollama-url"
               className="flex items-center justify-between text-sm text-muted-foreground">
-              <div className="text-sm">Server endpoint for Ollama API</div>
+              <div className="text-sm">{t("settings.base_url.label")}</div>
               {!urlIsValid && ollamaUrl && (
                 <p className="flex items-center gap-1 text-xs text-destructive">
                   <span className="inline-block h-1 w-1 rounded-full bg-destructive" />
-                  Please enter a valid URL format
+                  {t("settings.base_url.error_invalid_url")}
                 </p>
               )}
               {urlIsValid && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <p className="h-1 w-1 rounded-full bg-green-500" />
                   {isLocalhost
-                    ? "Local server connection"
-                    : "Remote server connection"}
+                    ? t("settings.base_url.status_local")
+                    : t("settings.base_url.status_remote")}
                 </div>
               )}
             </Label>
@@ -159,15 +163,15 @@ export const BaseUrlSettings = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    Saving
+                    {t("settings.base_url.button.saving")}
                   </>
                 ) : saved ? (
                   <>
                     <Check className="mr-1 h-4 w-4" />
-                    Saved
+                    {t("settings.base_url.button.saved")}
                   </>
                 ) : (
-                  "Save"
+                  t("settings.base_url.button.save")
                 )}
               </Button>
             </div>

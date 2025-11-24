@@ -1,9 +1,13 @@
 import cssText from "data-text:~globals.css"
+import "@/i18n/config"
+
 import { useStorage } from "@plasmohq/storage/hook"
 import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import { useLanguageSync } from "@/hooks/use-language-sync"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { Quote } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -23,6 +27,8 @@ export const getStyle: PlasmoGetStyle = () => {
 }
 
 const SelectionButton = () => {
+  useLanguageSync()
+  const { t } = useTranslation()
   const [showButton, setShowButton] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const [selectionText, setSelectionText] = useState("")
@@ -99,9 +105,11 @@ const SelectionButton = () => {
         onClick={handleClick}
         variant="secondary"
         className="h-8 gap-2 rounded-lg px-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
-        title="Add to Ollama Client">
+        title={t("selection_button.tooltip")}>
         <Quote className="size-3.5" />
-        <span className="text-xs font-medium">Ask Ollama client</span>
+        <span className="text-xs font-medium">
+          {t("selection_button.label")}
+        </span>
       </Button>
     </div>
   )

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -12,9 +14,16 @@ interface SpeakButtonProps {
 }
 
 export const SpeechButton = ({ text }: SpeakButtonProps) => {
+  const { t } = useTranslation()
   const { speaking, toggle, isLoadingVoices } = useSpeechSynthesis()
 
   if (!text.trim()) return null
+
+  const getLabel = () => {
+    if (isLoadingVoices) return t("chat.speech.loading_voices")
+    if (speaking) return t("chat.speech.stop_speaking")
+    return t("chat.speech.speak_message")
+  }
 
   return (
     <Tooltip>
@@ -23,20 +32,8 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
           size="sm"
           variant="link"
           className="h-6 px-2"
-          aria-label={
-            isLoadingVoices
-              ? "Loading voices..."
-              : speaking
-                ? "Stop speaking"
-                : "Speak message"
-          }
-          title={
-            isLoadingVoices
-              ? "Loading voices..."
-              : speaking
-                ? "Stop speaking"
-                : "Speak message"
-          }
+          aria-label={getLabel()}
+          title={getLabel()}
           onClick={() => !isLoadingVoices && toggle(text)}
           disabled={isLoadingVoices}
           type="button">
@@ -47,13 +44,7 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
-        {isLoadingVoices
-          ? "Loading voices..."
-          : speaking
-            ? "Stop speaking"
-            : "Speak message"}
-      </TooltipContent>
+      <TooltipContent>{getLabel()}</TooltipContent>
     </Tooltip>
   )
 }

@@ -40,6 +40,7 @@ export const STORAGE_KEYS = {
   THEME: {
     PREFERENCE: "light-dark-theme"
   },
+  LANGUAGE: "app-language",
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",

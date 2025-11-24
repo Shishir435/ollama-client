@@ -12,8 +12,64 @@ import {
 } from "@/lib/lucide-icon"
 import type { ContentScraper, ScrollStrategy } from "@/types"
 
+export const LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "hi", label: "Hindi" }
+  // { value: "es", label: "Spanish" },
+  // { value: "fr", label: "French" },
+  // { value: "de", label: "German" },
+  // { value: "it", label: "Italian" },
+  // { value: "pt", label: "Portuguese" },
+  // { value: "zh", label: "Chinese (Simplified)" },
+  // { value: "ja", label: "Japanese" },
+  // { value: "ko", label: "Korean" },
+  // { value: "ru", label: "Russian" },
+  // { value: "ar", label: "Arabic" },
+  // { value: "tr", label: "Turkish" },
+  // { value: "nl", label: "Dutch" },
+  // { value: "pl", label: "Polish" },
+  // { value: "sv", label: "Swedish" },
+  // { value: "vi", label: "Vietnamese" },
+  // { value: "th", label: "Thai" },
+  // { value: "id", label: "Indonesian" },
+  // { value: "cs", label: "Czech" },
+  // { value: "ro", label: "Romanian" },
+  // { value: "hu", label: "Hungarian" },
+  // { value: "el", label: "Greek" },
+  // { value: "da", label: "Danish" },
+  // { value: "fi", label: "Finnish" },
+  // { value: "no", label: "Norwegian" },
+  // { value: "he", label: "Hebrew" },
+  // { value: "uk", label: "Ukrainian" },
+  // { value: "ms", label: "Malay" },
+  // { value: "fa", label: "Persian" },
+  // { value: "bg", label: "Bulgarian" },
+  // { value: "sk", label: "Slovak" },
+  // { value: "sr", label: "Serbian" },
+  // { value: "hr", label: "Croatian" },
+  // { value: "lt", label: "Lithuanian" },
+  // { value: "lv", label: "Latvian" },
+  // { value: "et", label: "Estonian" },
+  // { value: "sl", label: "Slovenian" },
+  // { value: "bn", label: "Bengali" },
+  // { value: "ur", label: "Urdu" },
+  // { value: "sw", label: "Swahili" },
+  // { value: "ca", label: "Catalan" },
+  // { value: "eu", label: "Basque" },
+  // { value: "gl", label: "Galician" },
+  // { value: "is", label: "Icelandic" },
+  // { value: "ka", label: "Georgian" },
+  // { value: "hy", label: "Armenian" },
+  // { value: "az", label: "Azerbaijani" },
+  // { value: "kk", label: "Kazakh" },
+  // { value: "ta", label: "Tamil" },
+  // { value: "te", label: "Telugu" },
+  // { value: "mr", label: "Marathi" }
+] as const
+
 export interface SocialLink {
-  label: string
+  id: string
+  labelKey: string
   href: string
   icon: LucideIcon
 }
@@ -70,15 +126,6 @@ export const SCROLL_STRATEGY_OPTIONS = [
   { value: "smart" as ScrollStrategy, label: "Smart - Intelligent detection" }
 ] as const
 
-// Scroll strategy descriptions
-export const SCROLL_STRATEGY_DESCRIPTIONS: Record<ScrollStrategy, string> = {
-  none: "Fastest extraction, no lazy loading support",
-  instant: "Quick scroll, good for simple lazy loading",
-  gradual: "Smooth scrolling with delays, balanced speed/accuracy",
-  smart:
-    "Intelligent scrolling with content detection, best for dynamic content"
-}
-
 // Content scraper options
 export const CONTENT_SCRAPER_OPTIONS = [
   {
@@ -109,63 +156,69 @@ export const CONTENT_SCRAPER_OPTIONS = [
 
 export const GUIDES = [
   {
-    label: "Ollama Client Setup Guide",
+    labelKey: "guides.items.setup.label",
     href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
     icon: BookOpen,
-    description: "Complete installation and configuration guide",
-    badge: "Guide"
+    descriptionKey: "guides.items.setup.description",
+    badgeKey: "guides.items.setup.badge"
   },
   {
-    label: "Official Ollama Model Library",
+    labelKey: "guides.items.library.label",
     href: "https://ollama.com/library",
     icon: Library,
-    description: "Browse available AI models and documentation",
-    badge: "Library"
+    descriptionKey: "guides.items.library.description",
+    badgeKey: "guides.items.library.badge"
   },
   {
-    label: "GitHub Repo",
+    labelKey: "guides.items.github.label",
     href: "https://github.com/Shishir435/ollama-client",
     icon: Github,
-    description: "Source code, releases, and contribution guidelines",
-    badge: "Code"
+    descriptionKey: "guides.items.github.description",
+    badgeKey: "guides.items.github.badge"
   },
   {
-    label: "Troubleshooting & FAQ",
+    labelKey: "guides.items.faq.label",
     href: "https://github.com/Shishir435/ollama-client/issues",
     icon: HelpCircle,
-    description: "Common issues and community support",
-    badge: "Help"
+    descriptionKey: "guides.items.faq.description",
+    badgeKey: "guides.items.faq.badge"
   }
 ]
 
-export const SOCIAL_LINKS: SocialLink[] = [
+export const SOCIAL_LINKS = [
   {
-    label: "GitHub Page",
+    id: "github",
+    labelKey: "social.github",
     href: "https://github.com/Shishir435/ollama-client",
     icon: Github
   },
   {
-    label: "Portfolio",
+    id: "portfolio",
+    labelKey: "social.portfolio",
     href: "https://www.shishirchaurasiya.in/",
     icon: Globe
   },
   {
-    label: "LinkedIn",
+    id: "linkedin",
+    labelKey: "social.linkedin",
     href: "https://www.linkedin.com/in/shishir-chaurasiya/",
     icon: Linkedin
   },
   {
-    label: "Twitter",
+    id: "twitter",
+    labelKey: "social.twitter",
     href: "https://twitter.com/_shishir435",
     icon: Twitter
   },
   {
-    label: "Instagram",
+    id: "instagram",
+    labelKey: "social.instagram",
     href: "https://www.instagram.com/_shishir435/",
     icon: Instagram
   },
   {
-    label: "Report Bug / Feature",
+    id: "bug_report",
+    labelKey: "social.bug_report",
     href: "https://github.com/Shishir435/ollama-client/issues",
     icon: Bug
   }

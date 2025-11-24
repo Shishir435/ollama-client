@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { FilePreview } from "@/features/file-upload/components/file-preview"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
@@ -18,6 +20,7 @@ export const FileUploadArea = ({
   disabled = false,
   compact = false
 }: FileUploadAreaProps) => {
+  const { t } = useTranslation()
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([])
   const onFilesProcessedRef = useRef(onFilesProcessed)
 
@@ -125,7 +128,11 @@ export const FileUploadArea = ({
         />
         {hasFiles && successCount > 0 && (
           <span className="text-xs text-muted-foreground">
-            {successCount} file{successCount !== 1 ? "s" : ""} ready
+            {successCount === 1
+              ? t("file_upload.area.files_ready", { count: successCount })
+              : t("file_upload.area.files_ready_plural", {
+                  count: successCount
+                })}
           </span>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +24,7 @@ export const ChatExportButton = ({
   showAllSessions?: boolean
   sessionId?: string
 }) => {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const { sessions, currentSessionId } = useChatSessions()
   const {
@@ -37,12 +39,12 @@ export const ChatExportButton = ({
   const options = showAllSessions
     ? [
         {
-          label: "JSON",
+          label: t("sessions.export.format_json"),
           icon: FileDown,
           action: () => exportAllSessionsAsJson(sessions)
         },
         {
-          label: "PDF",
+          label: t("sessions.export.format_pdf"),
           icon: FileText,
           action: () => exportAllSessionsAsPdf(sessions)
         }
@@ -50,12 +52,12 @@ export const ChatExportButton = ({
     : current
       ? [
           {
-            label: "JSON",
+            label: t("sessions.export.format_json"),
             icon: FileDown,
             action: () => exportSessionAsJson(current)
           },
           {
-            label: "PDF",
+            label: t("sessions.export.format_pdf"),
             icon: FileText,
             action: () => exportSessionAsPdf(current)
           }
@@ -77,14 +79,18 @@ export const ChatExportButton = ({
                 "focus:bg-muted focus:text-foreground focus:opacity-100"
               )}
               aria-label={
-                showAllSessions ? "Export all chat sessions" : "Export chat"
+                showAllSessions
+                  ? t("sessions.export.aria_label_all")
+                  : t("sessions.export.aria_label")
               }>
               <Download className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="top">
-          {showAllSessions ? "Export all chat sessions" : "Export chat"}
+          {showAllSessions
+            ? t("sessions.export.tooltip_all")
+            : t("sessions.export.tooltip")}
         </TooltipContent>
       </Tooltip>
 

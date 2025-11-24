@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   AlertDialog,
@@ -37,14 +38,17 @@ import {
 } from "@/lib/lucide-icon"
 import type { OllamaModel } from "@/types"
 
-const formatFileSize = (bytes: number | string): string => {
-  if (!bytes) return "Unknown size"
+const formatFileSize = (
+  bytes: number | string,
+  t: (key: string) => string
+): string => {
+  if (!bytes) return t("settings.model_list.unknown_size")
 
   const units = ["B", "KB", "MB", "GB", "TB"]
   let size = typeof bytes === "string" ? parseInt(bytes, 10) : bytes
   let unitIndex = 0
 
-  if (Number.isNaN(size)) return "Invalid size"
+  if (Number.isNaN(size)) return t("settings.model_list.invalid_size")
 
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024
@@ -54,8 +58,11 @@ const formatFileSize = (bytes: number | string): string => {
   return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`
 }
 
-const formatDate = (dateString: string): string => {
-  if (!dateString) return "Unknown date"
+const formatDate = (
+  dateString: string,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string => {
+  if (!dateString) return t("settings.model_list.unknown_date")
 
   try {
     const date = new Date(dateString)
@@ -63,9 +70,13 @@ const formatDate = (dateString: string): string => {
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
 
     if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`
+      return t("settings.model_list.time_ago_hours", {
+        count: Math.floor(diffInHours)
+      })
     } else if (diffInHours < 24 * 7) {
-      return `${Math.floor(diffInHours / 24)}d ago`
+      return t("settings.model_list.time_ago_days", {
+        count: Math.floor(diffInHours / 24)
+      })
     } else {
       return date.toLocaleDateString("en-US", {
         month: "short",
@@ -74,7 +85,7 @@ const formatDate = (dateString: string): string => {
       })
     }
   } catch (_error) {
-    return "Invalid date"
+    return t("settings.model_list.invalid_date")
   }
 }
 
@@ -89,6 +100,7 @@ const getModelIcon = (modelName: string): string => {
 }
 
 export const ModelList = (): JSX.Element => {
+  const { t } = useTranslation()
   const { models, loading, error, deleteModel, refresh } = useOllamaModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -133,14 +145,16 @@ export const ModelList = (): JSX.Element => {
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Models</span>
+            <span className="text-sm font-medium">
+              {t("settings.model_list.title")}
+            </span>
           </div>
         </div>
         <div className="p-3">
           <div className="mb-2 text-sm text-destructive">{error}</div>
           <Button variant="outline" size="sm" onClick={refresh} className="h-8">
             <RefreshCw className="mr-1 h-3 w-3" />
-            Retry
+            {t("settings.model_list.retry")}
           </Button>
         </div>
       </div>
@@ -153,16 +167,18 @@ export const ModelList = (): JSX.Element => {
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Models</span>
+            <span className="text-sm font-medium">
+              {t("settings.model_list.title")}
+            </span>
           </div>
         </div>
         <div className="p-3">
           <div className="mb-2 text-sm text-muted-foreground">
-            No models found
+            {t("settings.model_list.no_models")}
           </div>
           <Button variant="outline" size="sm" onClick={refresh} className="h-8">
             <RefreshCw className="mr-1 h-3 w-3" />
-            Refresh
+            {t("settings.model_list.refresh")}
           </Button>
         </div>
       </div>
@@ -179,7 +195,7 @@ export const ModelList = (): JSX.Element => {
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">
-                Models ({models.length})
+                {t("settings.model_list.title_count", { count: models.length })}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -200,7 +216,7 @@ export const ModelList = (): JSX.Element => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Refresh model</p>
+                  <p>{t("settings.model_list.refresh_tooltip")}</p>
                 </TooltipContent>
               </Tooltip>
               {isOpen ? (
@@ -234,12 +250,12 @@ export const ModelList = (): JSX.Element => {
                           <div className="mt-1 flex items-center gap-3">
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <HardDrive className="h-3 w-3" />
-                              <span>{formatFileSize(model.size)}</span>
+                              <span>{formatFileSize(model.size, t)}</span>
                             </div>
 
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3" />
-                              <span>{formatDate(model.modified_at)}</span>
+                              <span>{formatDate(model.modified_at, t)}</span>
                             </div>
                           </div>
                         </div>
@@ -256,19 +272,24 @@ export const ModelList = (): JSX.Element => {
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>
-                                Delete model "{model.name}"?
+                                {t("settings.model_list.delete_dialog.title", {
+                                  name: model.name
+                                })}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. The model will be
-                                permanently removed from your local system.
+                                {t(
+                                  "settings.model_list.delete_dialog.description"
+                                )}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogCancel>
+                                {t("settings.model_list.delete_dialog.cancel")}
+                              </AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => deleteModel(model.name)}
                                 className="bg-destructive hover:bg-destructive/90">
-                                Delete
+                                {t("settings.model_list.delete_dialog.confirm")}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

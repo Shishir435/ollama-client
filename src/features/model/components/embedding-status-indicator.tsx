@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -19,6 +20,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ModelCheckResponse } from "@/types"
 
 export const EmbeddingStatusIndicator = () => {
+  const { t } = useTranslation()
   const [selectedModel] = useStorage<string>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
@@ -119,23 +121,26 @@ export const EmbeddingStatusIndicator = () => {
       icon: <Loader2 className="size-4 animate-spin text-yellow-500" />,
       color: "text-yellow-500",
       text: isDownloading
-        ? `Downloading ${modelName}... ${progress || ""}`
-        : "Checking status..."
+        ? t("model.embedding_status.downloading", {
+            model: modelName,
+            progress: progress || ""
+          })
+        : t("model.embedding_status.checking")
     },
     ready: {
       icon: <Database className="size-4 text-green-600" />,
       color: "text-600",
-      text: `Embedding model ready: ${modelName}`
+      text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
       icon: <Database className="size-4 text-red-500" />,
       color: "text-red-500",
-      text: `Model missing: ${modelName}`
+      text: t("model.embedding_status.missing", { model: modelName })
     },
     default: {
       icon: <Database className="size-4 text-muted-foreground" />,
       color: "text-muted-foreground",
-      text: "Checking embedding model..."
+      text: t("model.embedding_status.checking_model")
     }
   }
 
@@ -167,7 +172,7 @@ export const EmbeddingStatusIndicator = () => {
           {modelExists === false && !isDownloading && !isChecking && (
             <div className="flex flex-col gap-2">
               <p className="text-xs text-muted-foreground">
-                The embedding model is required for RAG features.
+                {t("model.embedding_status.required_for_rag")}
               </p>
               <Button
                 size="sm"
@@ -175,7 +180,7 @@ export const EmbeddingStatusIndicator = () => {
                 className="h-7 text-xs w-full"
                 onClick={handleDownload}>
                 <Download className="mr-2 h-3 w-3" />
-                Download Model
+                {t("model.embedding_status.download_button")}
               </Button>
             </div>
           )}

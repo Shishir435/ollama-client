@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -9,6 +10,7 @@ import {
 import { Check, Copy } from "@/lib/lucide-icon"
 
 export const CopyButton = ({ text }: { text: string }) => {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
@@ -32,7 +34,9 @@ export const CopyButton = ({ text }: { text: string }) => {
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Copy</TooltipContent>
+      <TooltipContent>
+        {copied ? t("chat.actions.copied") : t("chat.actions.copy")}
+      </TooltipContent>
     </Tooltip>
   )
 }

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -14,7 +16,9 @@ export const SendOrStopButton = ({
   onSend: () => void
   stopGeneration: () => void
 }) => {
+  const { t } = useTranslation()
   const { isLoading, isStreaming } = useLoadStream()
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -24,7 +28,9 @@ export const SendOrStopButton = ({
           size="icon"
           className="rounded-full"
           aria-label={
-            isStreaming || isLoading ? "Stop generation" : "Send message"
+            isStreaming || isLoading
+              ? t("chat.send.stop_generation")
+              : t("chat.send.send_message")
           }>
           {isStreaming || isLoading ? (
             <Circle size={16} className="animate-pulse text-red-500" />
@@ -34,7 +40,9 @@ export const SendOrStopButton = ({
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isStreaming || isLoading ? "Stop generation" : "Send message"}
+        {isStreaming || isLoading
+          ? t("chat.send.stop_generation")
+          : t("chat.send.send_message")}
       </TooltipContent>
     </Tooltip>
   )

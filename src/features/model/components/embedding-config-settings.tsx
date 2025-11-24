@@ -1,5 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,7 +12,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import {
   Select,
   SelectContent,
@@ -89,6 +90,7 @@ const AutoEmbedChatToggle = memo(() => {
 AutoEmbedChatToggle.displayName = "AutoEmbedChatToggle"
 
 export const EmbeddingConfigSettings = memo(() => {
+  const { t } = useTranslation()
   const { config, updateConfig } = useEmbeddingConfig()
   const [storageStats, setStorageStats] = useState<{
     totalVectors: number
@@ -218,19 +220,23 @@ export const EmbeddingConfigSettings = memo(() => {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Database className="h-5 w-5" />
-              Storage Statistics
+              {t("model.embedding_config.storage_stats_title")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Total Vectors</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("model.embedding_config.total_vectors")}
+                </p>
                 <p className="text-2xl font-bold">
                   {storageStats.totalVectors}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Storage Used</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("model.embedding_config.storage_used")}
+                </p>
                 <p className="text-2xl font-bold">
                   {storageStats.totalSizeMB.toFixed(2)} MB
                 </p>
@@ -238,9 +244,14 @@ export const EmbeddingConfigSettings = memo(() => {
             </div>
             {cacheStats && (
               <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-muted-foreground">Cache</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("model.embedding_config.cache")}
+                </p>
                 <p className="text-sm">
-                  {cacheStats.size} / {cacheStats.maxSize} entries
+                  {t("model.embedding_config.cache_entries", {
+                    size: cacheStats.size,
+                    maxSize: cacheStats.maxSize
+                  })}
                 </p>
               </div>
             )}
@@ -253,10 +264,10 @@ export const EmbeddingConfigSettings = memo(() => {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Trash2 className="h-5 w-5" />
-            Database Management
+            {t("model.embedding_config.database_management_title")}
           </CardTitle>
           <CardDescription>
-            Clean up and manage your vector embeddings database
+            {t("model.embedding_config.database_management_description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -266,11 +277,10 @@ export const EmbeddingConfigSettings = memo(() => {
               onClick={handleRemoveDuplicates}
               disabled={isCleaning || !storageStats?.totalVectors}
               className="w-full">
-              Remove Duplicates
+              {t("model.embedding_config.remove_duplicates_button")}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Remove duplicate embeddings, keeping only the first occurrence of
-              each unique message
+              {t("model.embedding_config.remove_duplicates_description")}
             </p>
           </div>
 
@@ -280,11 +290,10 @@ export const EmbeddingConfigSettings = memo(() => {
               onClick={handleClearChatVectors}
               disabled={isCleaning || !storageStats?.byType?.chat}
               className="w-full">
-              Clear All Chat Embeddings
+              {t("model.embedding_config.clear_chat_button")}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Delete all chat embeddings. You can backfill later to regenerate
-              them
+              {t("model.embedding_config.clear_chat_description")}
             </p>
           </div>
 
@@ -294,11 +303,10 @@ export const EmbeddingConfigSettings = memo(() => {
               onClick={handleClearAllVectors}
               disabled={isCleaning || !storageStats?.totalVectors}
               className="w-full">
-              Clear All Embeddings
+              {t("model.embedding_config.clear_all_button")}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Delete all embeddings (chats, files, webpages). This action cannot
-              be undone
+              {t("model.embedding_config.clear_all_description")}
             </p>
           </div>
         </CardContent>
@@ -307,11 +315,13 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Chunking Settings */}
       <FormSectionCard
         icon={Scissors}
-        title="Chunking Settings"
-        description="Configure how text is split into chunks for embedding">
+        title={t("model.embedding_config.chunking_title")}
+        description={t("model.embedding_config.chunking_description")}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="chunkSize">Chunk Size (tokens)</Label>
+            <Label htmlFor="chunkSize">
+              {t("model.embedding_config.chunk_size_label")}
+            </Label>
             <div className="flex items-center gap-4">
               <Slider
                 value={[config.chunkSize]}
@@ -341,13 +351,14 @@ export const EmbeddingConfigSettings = memo(() => {
               <span>2000</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Number of tokens per chunk. Larger chunks preserve more context
-              but may be less focused.
+              {t("model.embedding_config.chunk_size_description")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="chunkOverlap">Chunk Overlap (tokens)</Label>
+            <Label htmlFor="chunkOverlap">
+              {t("model.embedding_config.chunk_overlap_label")}
+            </Label>
             <div className="flex items-center gap-4">
               <Slider
                 value={[config.chunkOverlap]}
@@ -379,13 +390,14 @@ export const EmbeddingConfigSettings = memo(() => {
               <span>500</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Overlap between chunks. Helps preserve context across chunk
-              boundaries.
+              {t("model.embedding_config.chunk_overlap_description")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="chunkingStrategy">Chunking Strategy</Label>
+            <Label htmlFor="chunkingStrategy">
+              {t("model.embedding_config.chunking_strategy_label")}
+            </Label>
             <Select
               value={config.chunkingStrategy}
               onValueChange={(value: ChunkingStrategy) =>
@@ -395,14 +407,19 @@ export const EmbeddingConfigSettings = memo(() => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fixed">Fixed Size</SelectItem>
-                <SelectItem value="semantic">Semantic Boundaries</SelectItem>
-                <SelectItem value="hybrid">Hybrid (Recommended)</SelectItem>
+                <SelectItem value="fixed">
+                  {t("model.embedding_config.strategy_fixed")}
+                </SelectItem>
+                <SelectItem value="semantic">
+                  {t("model.embedding_config.strategy_semantic")}
+                </SelectItem>
+                <SelectItem value="hybrid">
+                  {t("model.embedding_config.strategy_hybrid")}
+                </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              How to split text into chunks. Hybrid provides the best balance of
-              context and focus.
+              {t("model.embedding_config.chunking_strategy_description")}
             </p>
           </div>
         </div>
@@ -411,11 +428,13 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Embedding Generation Settings */}
       <FormSectionCard
         icon={Zap}
-        title="Embedding Generation"
-        description="Configure embedding generation performance">
+        title={t("model.embedding_config.embedding_gen_title")}
+        description={t("model.embedding_config.embedding_gen_description")}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="batchSize">Batch Size</Label>
+            <Label htmlFor="batchSize">
+              {t("model.embedding_config.batch_size_label")}
+            </Label>
             <Input
               id="batchSize"
               type="number"
@@ -430,16 +449,17 @@ export const EmbeddingConfigSettings = memo(() => {
               max={20}
             />
             <p className="text-xs text-muted-foreground">
-              Number of texts to embed in parallel. Higher values are faster but
-              use more memory.
+              {t("model.embedding_config.batch_size_description")}
             </p>
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="enableCaching">Enable Caching</Label>
+              <Label htmlFor="enableCaching">
+                {t("model.embedding_config.enable_caching_label")}
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Cache embeddings for identical content to avoid regenerating
+                {t("model.embedding_config.enable_caching_description")}
               </p>
             </div>
             <Switch
@@ -453,9 +473,11 @@ export const EmbeddingConfigSettings = memo(() => {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="useWebWorker">Use Web Worker</Label>
+              <Label htmlFor="useWebWorker">
+                {t("model.embedding_config.use_webworker_label")}
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Offload embedding generation to background thread (recommended)
+                {t("model.embedding_config.use_webworker_description")}
               </p>
             </div>
             <Switch
@@ -472,12 +494,12 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Limits Settings */}
       <FormSectionCard
         icon={Settings}
-        title="Limits & Storage"
-        description="Configure storage limits and cleanup policies">
+        title={t("model.embedding_config.limits_title")}
+        description={t("model.embedding_config.limits_description")}>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="maxEmbeddingsPerFile">
-              Max Embeddings Per File
+              {t("model.embedding_config.max_embeddings_label")}
             </Label>
             <Input
               id="maxEmbeddingsPerFile"
@@ -494,13 +516,14 @@ export const EmbeddingConfigSettings = memo(() => {
               min={0}
             />
             <p className="text-xs text-muted-foreground">
-              Maximum embeddings per file (0 = unlimited). Helps prevent memory
-              issues with very large files.
+              {t("model.embedding_config.max_embeddings_description")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="maxStorageSize">Max Storage Size (MB)</Label>
+            <Label htmlFor="maxStorageSize">
+              {t("model.embedding_config.max_storage_label")}
+            </Label>
             <Input
               id="maxStorageSize"
               type="number"
@@ -516,16 +539,17 @@ export const EmbeddingConfigSettings = memo(() => {
               min={0}
             />
             <p className="text-xs text-muted-foreground">
-              Maximum storage size in MB (0 = unlimited). Oldest vectors will be
-              deleted when limit is reached.
+              {t("model.embedding_config.max_storage_description")}
             </p>
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="autoCleanup">Auto Cleanup</Label>
+              <Label htmlFor="autoCleanup">
+                {t("model.embedding_config.auto_cleanup_label")}
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Automatically delete old embeddings
+                {t("model.embedding_config.auto_cleanup_description")}
               </p>
             </div>
             <Switch
@@ -539,7 +563,9 @@ export const EmbeddingConfigSettings = memo(() => {
 
           {config.autoCleanup && (
             <div className="space-y-2">
-              <Label htmlFor="cleanupDaysOld">Cleanup Age (days)</Label>
+              <Label htmlFor="cleanupDaysOld">
+                {t("model.embedding_config.cleanup_age_label")}
+              </Label>
               <Input
                 id="cleanupDaysOld"
                 type="number"
@@ -555,7 +581,7 @@ export const EmbeddingConfigSettings = memo(() => {
                 min={1}
               />
               <p className="text-xs text-muted-foreground">
-                Delete embeddings older than this many days
+                {t("model.embedding_config.cleanup_age_description")}
               </p>
             </div>
           )}
@@ -565,20 +591,16 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Chat Search Settings */}
       <FormSectionCard
         icon={MessageSquare}
-        title={
-          <span className="flex items-center gapw-2">
-            Chat Search Settings
-            <MiniBadge text="Beta v0.3.0" />
-          </span>
-        }
-        description="Configure semantic search for chat history">
+        title={t("model.embedding_config.chat_search_title")}
+        description={t("model.embedding_config.chat_search_description")}>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="autoEmbedChat">Auto-embed Chat Messages</Label>
+              <Label htmlFor="autoEmbedChat">
+                {t("model.embedding_config.auto_embed_label")}
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Automatically embed chat messages for semantic search
-                (recommended)
+                {t("model.embedding_config.auto_embed_description")}
               </p>
             </div>
             <AutoEmbedChatToggle />
@@ -591,11 +613,10 @@ export const EmbeddingConfigSettings = memo(() => {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Backfill Chat History
+            {t("model.embedding_config.backfill_title")}
           </CardTitle>
           <CardDescription>
-            Generate embeddings for all existing chat messages to enable
-            semantic search
+            {t("model.embedding_config.backfill_description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -606,11 +627,13 @@ export const EmbeddingConfigSettings = memo(() => {
       {/* Search Settings */}
       <FormSectionCard
         icon={Settings}
-        title="Search Settings"
-        description="Default parameters for semantic search">
+        title={t("model.embedding_config.search_settings_title")}
+        description={t("model.embedding_config.search_settings_description")}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="defaultSearchLimit">Default Search Limit</Label>
+            <Label htmlFor="defaultSearchLimit">
+              {t("model.embedding_config.search_limit_label")}
+            </Label>
             <Input
               id="defaultSearchLimit"
               type="number"
@@ -627,13 +650,13 @@ export const EmbeddingConfigSettings = memo(() => {
               max={100}
             />
             <p className="text-xs text-muted-foreground">
-              Default number of results to return from semantic search
+              {t("model.embedding_config.search_limit_description")}
             </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="defaultMinSimilarity">
-              Minimum Similarity Threshold
+              {t("model.embedding_config.min_similarity_label")}
             </Label>
             <div className="flex items-center gap-4">
               <Slider
@@ -669,14 +692,14 @@ export const EmbeddingConfigSettings = memo(() => {
               <span>1</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Minimum cosine similarity score (0-1). For semantic search,
-              0.4-0.6 is recommended. Higher values return more relevant but
-              fewer results.
+              {t("model.embedding_config.min_similarity_description")}
             </p>
           </div>
 
           <div className="space-y-2 pt-2 border-t">
-            <Label htmlFor="searchCacheTTL">Search Cache TTL (minutes)</Label>
+            <Label htmlFor="searchCacheTTL">
+              {t("model.embedding_config.cache_ttl_label")}
+            </Label>
             <Input
               id="searchCacheTTL"
               type="number"
@@ -693,13 +716,14 @@ export const EmbeddingConfigSettings = memo(() => {
               max={60}
             />
             <p className="text-xs text-muted-foreground">
-              How long to cache search results (1-60 minutes). Cached queries
-              return instantly.
+              {t("model.embedding_config.cache_ttl_description")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="searchCacheMaxSize">Max Cached Queries</Label>
+            <Label htmlFor="searchCacheMaxSize">
+              {t("model.embedding_config.cache_max_size_label")}
+            </Label>
             <Input
               id="searchCacheMaxSize"
               type="number"
@@ -716,8 +740,7 @@ export const EmbeddingConfigSettings = memo(() => {
               max={200}
             />
             <p className="text-xs text-muted-foreground">
-              Maximum number of search queries to cache (10-200). Older entries
-              are automatically removed when limit is reached.
+              {t("model.embedding_config.cache_max_size_description")}
             </p>
           </div>
         </div>
