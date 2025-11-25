@@ -233,11 +233,6 @@ export const ChatInputBox = ({
                 onFilesSelected={handleFilesSelected}
                 disabled={isLoading}
               />
-              {hasFiles && successCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {t("chat.input.files_ready", { count: successCount })}
-                </span>
-              )}
             </div>
           </div>
 

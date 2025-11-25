@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "एक संदेश टाइप करें...",
       "switch_model": "मॉडल बदलें",
-      "files_ready": "{{count}} फ़ाइलें तैयार हैं।",
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
       "enter_key": "एंटर"

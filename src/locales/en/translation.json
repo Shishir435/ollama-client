@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "Type a message...",
       "switch_model": "Change model",
-      "files_ready": "There are {{count}} files ready.",
       "chars": "Characters",
       "enter_to_send": "Send",
       "enter_key": "Enter"

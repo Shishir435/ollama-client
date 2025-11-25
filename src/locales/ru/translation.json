@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "Введите сообщение...",
       "switch_model": "Сменить модель",
-      "files_ready": "Готово файлов: {{count}}.",
       "chars": "Символов",
       "enter_to_send": "Отправить",
       "enter_key": "Enter"

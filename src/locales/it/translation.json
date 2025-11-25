@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "Digita un messaggio...",
       "switch_model": "Cambia modello",
-      "files_ready": "Ci sono {{count}} file pronti.",
       "chars": "Caratteri",
       "enter_to_send": "Invia",
       "enter_key": "Invio"

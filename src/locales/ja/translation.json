@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "メッセージを入力...",
       "switch_model": "モデルを変更",
-      "files_ready": "{{count}} 個のファイルが準備完了。",
       "chars": "文字",
       "enter_to_send": "送信",
       "enter_key": "Enter"

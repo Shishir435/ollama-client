@@ -93,7 +93,6 @@
     "input": {
       "placeholder": "输入消息...",
       "switch_model": "切换模型",
-      "files_ready": "有 {{count}} 个文件已准备就绪。",
       "chars": "字符",
       "enter_to_send": "发送",
       "enter_key": "回车"
