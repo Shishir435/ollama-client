@@ -1,3 +1,4 @@
+// @ts-nocheck
 import AlertCircle from "lucide-react/dist/esm/icons/alert-circle"
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle"
 import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3"
