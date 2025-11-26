@@ -1,0 +1,1 @@
+some text to test the text extraction feature

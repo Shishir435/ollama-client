@@ -15,6 +15,7 @@ export const handlePullStream = async (
   isPortClosed: PortStatusFunction,
   modelName: string
 ): Promise<void> => {
+  console.log("handlePullStream called for", modelName)
   if (!res.body) return
 
   const reader = res.body.getReader()

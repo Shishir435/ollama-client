@@ -133,6 +133,62 @@ describe("Vector Store - Baseline Tests", () => {
 
       expect(results.length).toBeLessThanOrEqual(1)
     })
+
+    it("should filter by type", async () => {
+      const queryEmbedding = [0.5, 0.5, 0.5]
+      const results = await searchSimilarVectors(queryEmbedding, {
+        type: "chat",
+        limit: 10
+      })
+
+      expect(results.length).toBeGreaterThan(0)
+      results.forEach((r) => {
+        expect(r.document.metadata.type).toBe("chat")
+      })
+    })
+
+    it("should filter by fileId array", async () => {
+      await clearAllVectors()
+      
+      await storeVector("File A content", [1, 0, 0], {
+        type: "file",
+        fileId: "file-A",
+        timestamp: Date.now()
+      })
+      await storeVector("File B content", [0, 1, 0], {
+        type: "file",
+        fileId: "file-B",
+        timestamp: Date.now()
+      })
+      await storeVector("File C content", [0, 0, 1], {
+        type: "file",
+        fileId: "file-C",
+        timestamp: Date.now()
+      })
+
+      const queryEmbedding = [0.5, 0.5, 0]
+      const results = await searchSimilarVectors(queryEmbedding, {
+        fileId: ["file-A", "file-B"],
+        limit: 10
+      })
+
+      expect(results.length).toBe(2)
+      results.forEach((r) => {
+        expect(["file-A", "file-B"]).toContain(r.document.metadata.fileId)
+      })
+    })
+
+    it("should use search cache on repeated queries", async () => {
+      const queryEmbedding = [1, 0, 0]
+      
+      // First query
+      const results1 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
+      
+      // Second query (should use cache)
+      const results2 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
+
+      expect(results1).toEqual(results2)
+    })
   })
 
   describe("deleteVectors", () => {
@@ -168,6 +224,56 @@ describe("Vector Store - Baseline Tests", () => {
       const deleted = await deleteVectors({ fileId: "file-123" })
       expect(deleted).toBe(1)
     })
+
+    it("should delete vectors by type", async () => {
+      await storeVector("Chat message", [1, 0, 0], {
+        type: "chat",
+        sessionId: "test",
+        timestamp: Date.now()
+      })
+      await storeVector("File content", [0, 1, 0], {
+        type: "file",
+        fileId: "test-file",
+        timestamp: Date.now()
+      })
+
+      const deleted = await deleteVectors({ type: "chat" })
+      expect(deleted).toBe(1)
+
+      const remaining = await vectorDb.vectors.count()
+      expect(remaining).toBe(1)
+    })
+
+    it("should delete vectors by URL", async () => {
+      await storeVector("Webpage content", [1, 0, 0], {
+        type: "webpage",
+        url: "https://example.com",
+        timestamp: Date.now()
+      })
+
+      const deleted = await deleteVectors({ url: "https://example.com" })
+      expect(deleted).toBe(1)
+    })
+
+    it("should combine multiple filters", async () => {
+      await storeVector("Chat in session", [1, 0, 0], {
+        type: "chat",
+        sessionId: "test",
+        timestamp: Date.now()
+      })
+      await storeVector("File in session", [0, 1, 0], {
+        type: "file",
+        sessionId: "test",
+        fileId: "test-file",
+        timestamp: Date.now()
+      })
+
+      const deleted = await deleteVectors({ type: "chat", sessionId: "test" })
+      expect(deleted).toBe(1)
+
+      const remaining = await vectorDb.vectors.count()
+      expect(remaining).toBe(1)
+    })
   })
 
   describe("getStorageStats", () => {
@@ -189,6 +295,37 @@ describe("Vector Store - Baseline Tests", () => {
       expect(stats.totalSizeMB).toBeGreaterThan(0)
       expect(stats.byType.chat).toBe(1)
       expect(stats.byType.file).toBe(1)
+    })
+
+    it("should handle empty database", async () => {
+      const stats = await getStorageStats()
+
+      expect(stats.totalVectors).toBe(0)
+      expect(stats.totalSizeMB).toBe(0)
+      expect(Object.keys(stats.byType).length).toBe(0)
+    })
+
+    it("should correctly count multiple types", async () => {
+      for (let i = 0; i < 5; i++) {
+        await storeVector(`Chat ${i}`, [i, 0, 0], {
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        })
+      }
+      for (let i = 0; i < 3; i++) {
+        await storeVector(`File ${i}`, [0, i, 0], {
+          type: "file",
+          fileId: `file-${i}`,
+          timestamp: Date.now()
+        })
+      }
+
+      const stats = await getStorageStats()
+
+      expect(stats.totalVectors).toBe(8)
+      expect(stats.byType.chat).toBe(5)
+      expect(stats.byType.file).toBe(3)
     })
   })
 
@@ -213,5 +350,96 @@ describe("Vector Store - Baseline Tests", () => {
         expect(v.metadata.sessionId).toBe(sessionId)
       })
     })
+
+    it("should retrieve vectors by file ID", async () => {
+      const fileId = "test-file"
+      await storeVector("Chunk 1", [1, 0, 0], {
+        type: "file",
+        fileId,
+        timestamp: Date.now(),
+        chunkIndex: 0
+      })
+      await storeVector("Chunk 2", [0, 1, 0], {
+        type: "file",
+        fileId,
+        timestamp: Date.now(),
+        chunkIndex: 1
+      })
+
+      const vectors = await getVectorsByContext({ fileId })
+
+      expect(vectors.length).toBe(2)
+      expect(vectors[0].metadata.chunkIndex).toBe(0)
+      expect(vectors[1].metadata.chunkIndex).toBe(1)
+    })
+
+    it("should retrieve vectors by type", async () => {
+      await storeVector("Chat", [1, 0, 0], {
+        type: "chat",
+        sessionId: "test",
+        timestamp: Date.now()
+      })
+      await storeVector("File", [0, 1, 0], {
+        type: "file",
+        fileId: "test",
+        timestamp: Date.now()
+      })
+
+      const chatVectors = await getVectorsByContext({ type: "chat" })
+      const fileVectors = await getVectorsByContext({ type: "file" })
+
+      expect(chatVectors.length).toBe(1)
+      expect(fileVectors.length).toBe(1)
+    })
+
+    it("should return empty array for non-existent context", async () => {
+      const vectors = await getVectorsByContext({ sessionId: "non-existent" })
+
+      expect(vectors).toEqual([])
+    })
+  })
+
+  describe("clearAllVectors", () => {
+    it("should clear all vectors", async () => {
+      await storeVector("Test 1", [1, 0, 0], {
+        type: "chat",
+        sessionId: "test",
+        timestamp: Date.now()
+      })
+      await storeVector("Test 2", [0, 1, 0], {
+        type: "file",
+        fileId: "test",
+        timestamp: Date.now()
+      })
+
+      const count = await clearAllVectors()
+      expect(count).toBe(2)
+
+      const remaining = await vectorDb.vectors.count()
+      expect(remaining).toBe(0)
+    })
+
+    it("should clear vectors by type", async () => {
+      await storeVector("Chat", [1, 0, 0], {
+        type: "chat",
+        sessionId: "test",
+        timestamp: Date.now()
+      })
+      await storeVector("File", [0, 1, 0], {
+        type: "file",
+        fileId: "test",
+        timestamp: Date.now()
+      })
+
+      const count = await clearAllVectors("chat")
+      expect(count).toBe(1)
+
+      const chatCount = await vectorDb.vectors.where("metadata.type").equals("chat").count()
+      expect(chatCount).toBe(0)
+
+      const fileCount = await vectorDb.vectors.where("metadata.type").equals("file").count()
+      expect(fileCount).toBe(1)
+    })
   })
 })
+

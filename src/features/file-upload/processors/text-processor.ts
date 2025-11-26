@@ -59,7 +59,11 @@ export class TextProcessor implements FileProcessor {
       return false
     }
 
-    if (file.type?.startsWith("image/")) {
+    if (
+      file.type?.startsWith("image/") ||
+      file.type?.startsWith("video/") ||
+      file.type?.startsWith("audio/")
+    ) {
       return false
     }
     return true
