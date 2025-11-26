@@ -15,6 +15,7 @@ export const SemanticChatSearchButton = () => {
   return (
     <>
       <Button
+        type="button"
         variant="outline"
         onClick={() => setIsSearchOpen(true)}
         className="flex h-10 w-full items-center justify-start rounded-lg border-border/50 bg-background/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent/50"

@@ -91,8 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "Escribe un mensaje...",
-      "switch_model": "Cambiar modelo",
+      "placeholder": "Escribe un mensaje o ctrl + /",
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
       "enter_key": "Intro"
@@ -665,6 +664,16 @@
         "description": "Genera una incrustación de prueba para verificar que el modelo de incrustación está funcionando correctamente.",
         "button": "Probar",
         "button_testing": "Probando..."
+      },
+      "rebuild_index": {
+        "title": "Reconstruir índice",
+        "description": "Forzar la reconstrucción del índice de búsqueda de palabras clave a partir de vectores existentes. Use esto si faltan resultados de búsqueda o son inconsistentes.",
+        "button": "Reconstruir índice",
+        "button_rebuilding": "Reconstruyendo...",
+        "status_starting": "Iniciando reconstrucción...",
+        "status_processing": "Procesando {{current}} de {{total}} elementos...",
+        "success": "¡Reconstrucción del índice completada con éxito!",
+        "error": "Error al reconstruir el índice. Inténtelo de nuevo."
       },
       "test_search": {
         "title": "Búsqueda Semántica",

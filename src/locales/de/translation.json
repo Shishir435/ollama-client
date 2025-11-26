@@ -91,7 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "Geben Sie eine Nachricht ein...",
+      "placeholder": "Nachricht eingeben oder ctrl + /",
       "switch_model": "Modell wechseln",
       "chars": "Zeichen",
       "enter_to_send": "Senden",
@@ -665,6 +665,16 @@
         "description": "Generieren Sie ein Test-Embedding, um zu überprüfen, ob das Embedding-Modell ordnungsgemäß funktioniert.",
         "button": "Testen",
         "button_testing": "Wird getestet..."
+      },
+      "rebuild_index": {
+        "title": "Index neu erstellen",
+        "description": "Erzwingen Sie eine Neuerstellung des Stichwortsuchindex aus vorhandenen Vektoren. Verwenden Sie dies, wenn Suchergebnisse fehlen oder inkonsistent sind.",
+        "button": "Index neu erstellen",
+        "button_rebuilding": "Wird neu erstellt...",
+        "status_starting": "Neuerstellung wird gestartet...",
+        "status_processing": "Verarbeite {{current}} von {{total}} Elementen...",
+        "success": "Index-Neuerstellung erfolgreich abgeschlossen!",
+        "error": "Index-Neuerstellung fehlgeschlagen. Bitte versuchen Sie es erneut."
       },
       "test_search": {
         "title": "Semantische Suche",

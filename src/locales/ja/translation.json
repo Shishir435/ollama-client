@@ -91,7 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "メッセージを入力...",
+      "placeholder": "メッセージを入力 または ctrl + /",
       "switch_model": "モデルを変更",
       "chars": "文字",
       "enter_to_send": "送信",
@@ -665,6 +665,16 @@
         "description": "テストエンベディングを生成して、エンベディングモデルが正しく動作していることを確認します。",
         "button": "テスト",
         "button_testing": "テスト中..."
+      },
+      "rebuild_index": {
+        "title": "インデックスを再構築",
+        "description": "既存のベクトルからキーワード検索インデックスを強制的に再構築します。検索結果が欠落しているか、一貫性がない場合に使用してください。",
+        "button": "インデックスを再構築",
+        "button_rebuilding": "再構築中...",
+        "status_starting": "再構築を開始しています...",
+        "status_processing": "{{total}} 件中 {{current}} 件を処理中...",
+        "success": "インデックスの再構築が正常に完了しました！",
+        "error": "インデックスの再構築に失敗しました。もう一度お試しください。"
       },
       "test_search": {
         "title": "セマンティック検索",

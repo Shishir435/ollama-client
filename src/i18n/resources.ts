@@ -101,9 +101,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Geben Sie eine Nachricht ein...",
+          placeholder: "Nachricht eingeben oder ctrl + /",
           switch_model: "Modell wechseln",
-          files_ready: "Es sind {{count}} Dateien bereit.",
           chars: "Zeichen",
           enter_to_send: "Senden",
           enter_key: "Eingabe"
@@ -747,6 +746,19 @@ export const resources = {
             button: "Testen",
             button_testing: "Wird getestet..."
           },
+          rebuild_index: {
+            title: "Index neu erstellen",
+            description:
+              "Erzwingen Sie eine Neuerstellung des Stichwortsuchindex aus vorhandenen Vektoren. Verwenden Sie dies, wenn Suchergebnisse fehlen oder inkonsistent sind.",
+            button: "Index neu erstellen",
+            button_rebuilding: "Wird neu erstellt...",
+            status_starting: "Neuerstellung wird gestartet...",
+            status_processing:
+              "Verarbeite {{current}} von {{total}} Elementen...",
+            success: "Index-Neuerstellung erfolgreich abgeschlossen!",
+            error:
+              "Index-Neuerstellung fehlgeschlagen. Bitte versuchen Sie es erneut."
+          },
           test_search: {
             title: "Semantische Suche",
             description:
@@ -1010,9 +1022,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Type a message...",
+          placeholder: "Type a message or ctrl + /",
           switch_model: "Change model",
-          files_ready: "There are {{count}} files ready.",
           chars: "Characters",
           enter_to_send: "Send",
           enter_key: "Enter"
@@ -1641,6 +1652,17 @@ export const resources = {
             button: "Test",
             button_testing: "Testing..."
           },
+          rebuild_index: {
+            title: "Rebuild Keyword Index",
+            description:
+              "Force a rebuild of the keyword search index from existing vectors. Use this if search results are missing or inconsistent.",
+            button: "Rebuild Index",
+            button_rebuilding: "Rebuilding...",
+            status_starting: "Starting rebuild...",
+            status_processing: "Processing {{current}} of {{total}} items...",
+            success: "Index rebuild completed successfully!",
+            error: "Failed to rebuild index. Please try again."
+          },
           test_search: {
             title: "Semantic Search",
             description:
@@ -1900,9 +1922,7 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Escribe un mensaje...",
-          switch_model: "Cambiar modelo",
-          files_ready: "Hay {{count}} archivos listos.",
+          placeholder: "Escribe un mensaje o ctrl + /",
           chars: "Caracteres",
           enter_to_send: "Enviar",
           enter_key: "Intro"
@@ -2546,6 +2566,18 @@ export const resources = {
             button: "Probar",
             button_testing: "Probando..."
           },
+          rebuild_index: {
+            title: "Reconstruir índice",
+            description:
+              "Forzar la reconstrucción del índice de búsqueda de palabras clave a partir de vectores existentes. Use esto si faltan resultados de búsqueda o son inconsistentes.",
+            button: "Reconstruir índice",
+            button_rebuilding: "Reconstruyendo...",
+            status_starting: "Iniciando reconstrucción...",
+            status_processing:
+              "Procesando {{current}} de {{total}} elementos...",
+            success: "¡Reconstrucción del índice completada con éxito!",
+            error: "Error al reconstruir el índice. Inténtelo de nuevo."
+          },
           test_search: {
             title: "Búsqueda Semántica",
             description:
@@ -2809,9 +2841,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Écrivez un message...",
+          placeholder: "Écrivez un message ou ctrl + /",
           switch_model: "Changer de modèle",
-          files_ready: "Il y a {{count}} fichiers prêts.",
           chars: "Caractères",
           enter_to_send: "Envoyer",
           enter_key: "Entrée"
@@ -3460,7 +3491,19 @@ export const resources = {
             description:
               "Générez une incrustation de test pour vérifier que le modèle d'incrustation fonctionne correctement.",
             button: "Tester",
-            button_testing: "Test en cours..."
+            button_testing: "Test..."
+          },
+          rebuild_index: {
+            title: "Reconstruire l'index",
+            description:
+              "Forcer la reconstruction de l'index de recherche par mots-clés à partir des vecteurs existants. Utilisez ceci si les résultats de recherche sont manquants ou incohérents.",
+            button: "Reconstruire l'index",
+            button_rebuilding: "Reconstruction...",
+            status_starting: "Démarrage de la reconstruction...",
+            status_processing:
+              "Traitement de {{current}} sur {{total}} éléments...",
+            success: "Reconstruction de l'index terminée avec succès !",
+            error: "Échec de la reconstruction de l'index. Veuillez réessayer."
           },
           test_search: {
             title: "Recherche Sémantique",
@@ -3723,9 +3766,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "एक संदेश टाइप करें...",
+          placeholder: "एक संदेश टाइप करें... (ctrl + /)",
           switch_model: "मॉडल बदलें",
-          files_ready: "{{count}} फ़ाइलें तैयार हैं।",
           chars: "अक्षर",
           enter_to_send: "भेजें",
           enter_key: "एंटर"
@@ -4348,6 +4390,18 @@ export const resources = {
             button: "परीक्षण करें",
             button_testing: "परीक्षण कर रहा है..."
           },
+          rebuild_index: {
+            title: "इंडेक्स फिर से बनाएं",
+            description:
+              "मौजूदा वैक्टर से कीवर्ड खोज इंडेक्स को फिर से बनाने के लिए बाध्य करें। यदि खोज परिणाम गायब हैं या असंगत हैं तो इसका उपयोग करें।",
+            button: "इंडेक्स फिर से बनाएं",
+            button_rebuilding: "फिर से बना रहा है...",
+            status_starting: "पुनर्निर्माण शुरू हो रहा है...",
+            status_processing:
+              "{{total}} में से {{current}} आइटम संसाधित हो रहे हैं...",
+            success: "इंडेक्स पुनर्निर्माण सफलतापूर्वक पूरा हुआ!",
+            error: "इंडेक्स फिर से बनाने में विफल। कृपया पुन: प्रयास करें।"
+          },
           test_search: {
             title: "सिमेंटिक खोज",
             description:
@@ -4607,9 +4661,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Digita un messaggio...",
+          placeholder: "Digita un messaggio o ctrl + /",
           switch_model: "Cambia modello",
-          files_ready: "Ci sono {{count}} file pronti.",
           chars: "Caratteri",
           enter_to_send: "Invia",
           enter_key: "Invio"
@@ -5253,6 +5306,18 @@ export const resources = {
             button: "Test",
             button_testing: "Testing in corso..."
           },
+          rebuild_index: {
+            title: "Ricostruisci indice",
+            description:
+              "Forza la ricostruzione dell'indice di ricerca per parole chiave dai vettori esistenti. Usa questo se i risultati della ricerca mancano o sono incoerenti.",
+            button: "Ricostruisci indice",
+            button_rebuilding: "Ricostruzione...",
+            status_starting: "Avvio ricostruzione...",
+            status_processing:
+              "Elaborazione di {{current}} di {{total}} elementi...",
+            success: "Ricostruzione dell'indice completata con successo!",
+            error: "Impossibile ricostruire l'indice. Riprova."
+          },
           test_search: {
             title: "Ricerca Semantica",
             description:
@@ -5516,9 +5581,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "メッセージを入力...",
+          placeholder: "メッセージを入力 または ctrl + /",
           switch_model: "モデルを変更",
-          files_ready: "{{count}} 個のファイルが準備完了。",
           chars: "文字",
           enter_to_send: "送信",
           enter_key: "Enter"
@@ -6148,6 +6212,18 @@ export const resources = {
             button: "テスト",
             button_testing: "テスト中..."
           },
+          rebuild_index: {
+            title: "インデックスを再構築",
+            description:
+              "既存のベクトルからキーワード検索インデックスを強制的に再構築します。検索結果が欠落しているか、一貫性がない場合に使用してください。",
+            button: "インデックスを再構築",
+            button_rebuilding: "再構築中...",
+            status_starting: "再構築を開始しています...",
+            status_processing: "{{total}} 件中 {{current}} 件を処理中...",
+            success: "インデックスの再構築が正常に完了しました！",
+            error:
+              "インデックスの再構築に失敗しました。もう一度お試しください。"
+          },
           test_search: {
             title: "セマンティック検索",
             description:
@@ -6408,9 +6484,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "Введите сообщение...",
+          placeholder: "Введите сообщение или ctrl + /",
           switch_model: "Сменить модель",
-          files_ready: "Готово файлов: {{count}}.",
           chars: "Символов",
           enter_to_send: "Отправить",
           enter_key: "Enter"
@@ -7045,6 +7120,19 @@ export const resources = {
             button: "Тест",
             button_testing: "Тестирование..."
           },
+          rebuild_index: {
+            title: "Перестроить индекс",
+            description:
+              "Принудительно перестроить индекс поиска по ключевым словам из существующих векторов. Используйте это, если результаты поиска отсутствуют или несогласованны.",
+            button: "Перестроить индекс",
+            button_rebuilding: "Перестроение...",
+            status_starting: "Запуск перестроения...",
+            status_processing:
+              "Обработка {{current}} из {{total}} элементов...",
+            success: "Перестроение индекса успешно завершено!",
+            error:
+              "Не удалось перестроить индекс. Пожалуйста, попробуйте снова."
+          },
           test_search: {
             title: "Семантический поиск",
             description:
@@ -7302,9 +7390,8 @@ export const resources = {
       },
       chat: {
         input: {
-          placeholder: "输入消息...",
+          placeholder: "输入消息 或 ctrl + /",
           switch_model: "切换模型",
-          files_ready: "有 {{count}} 个文件已准备就绪。",
           chars: "字符",
           enter_to_send: "发送",
           enter_key: "回车"
@@ -7900,7 +7987,18 @@ export const resources = {
             title: "测试嵌入生成",
             description: "生成一个测试嵌入以验证嵌入模型是否正常工作。",
             button: "测试",
-            button_testing: "正在测试..."
+            button_testing: "测试中..."
+          },
+          rebuild_index: {
+            title: "重建索引",
+            description:
+              "强制从现有向量重建关键字搜索索引。如果搜索结果丢失或不一致，请使用此选项。",
+            button: "重建索引",
+            button_rebuilding: "正在重建...",
+            status_starting: "开始重建...",
+            status_processing: "正在处理 {{total}} 项中的 {{current}} 项...",
+            success: "索引重建成功完成！",
+            error: "重建索引失败。请重试。"
           },
           test_search: {
             title: "语义搜索",

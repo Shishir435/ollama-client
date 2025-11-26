@@ -91,7 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "Digita un messaggio...",
+      "placeholder": "Digita un messaggio o ctrl + /",
       "switch_model": "Cambia modello",
       "chars": "Caratteri",
       "enter_to_send": "Invia",
@@ -665,6 +665,16 @@
         "description": "Genera un embedding di prova per verificare che il modello di embedding funzioni correttamente.",
         "button": "Test",
         "button_testing": "Testing in corso..."
+      },
+      "rebuild_index": {
+        "title": "Ricostruisci indice",
+        "description": "Forza la ricostruzione dell'indice di ricerca per parole chiave dai vettori esistenti. Usa questo se i risultati della ricerca mancano o sono incoerenti.",
+        "button": "Ricostruisci indice",
+        "button_rebuilding": "Ricostruzione...",
+        "status_starting": "Avvio ricostruzione...",
+        "status_processing": "Elaborazione di {{current}} di {{total}} elementi...",
+        "success": "Ricostruzione dell'indice completata con successo!",
+        "error": "Impossibile ricostruire l'indice. Riprova."
       },
       "test_search": {
         "title": "Ricerca Semantica",

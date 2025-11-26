@@ -12,7 +12,6 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import {
   Clock,
@@ -109,8 +108,8 @@ export const PromptSelectorDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="h-[80vh] max-w-4xl p-0">
-          <DialogHeader className="border-b px-6 py-4">
+        <DialogContent className="h-[85vh] max-w-[95vw] w-full sm:max-w-4xl p-0 flex flex-col overflow-hidden gap-0">
+          <DialogHeader className="border-b px-6 py-4 shrink-0">
             <DialogTitle className="mr-6 flex items-center justify-between text-sm font-medium">
               {t("prompts.selector.title")}{" "}
               <div className="-translate-y-2.5">
@@ -183,8 +182,8 @@ export const PromptSelectorDialog = ({
           </DialogHeader>
 
           {filteredTemplates.length > 0 ? (
-            <div className="flex h-full min-h-0">
-              <ScrollArea className="flex-1 p-6">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-6">
                 <div className="grid gap-3">
                   {filteredTemplates.map((template) => (
                     <button
@@ -269,7 +268,7 @@ export const PromptSelectorDialog = ({
                     </button>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-12 text-center">

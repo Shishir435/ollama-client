@@ -91,7 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "Type a message...",
+      "placeholder": "Type a message or ctrl + /",
       "switch_model": "Change model",
       "chars": "Characters",
       "enter_to_send": "Send",
@@ -665,6 +665,16 @@
         "description": "Generate a test embedding to verify the embedding model is working correctly.",
         "button": "Test",
         "button_testing": "Testing..."
+      },
+      "rebuild_index": {
+        "title": "Rebuild Keyword Index",
+        "description": "Force a rebuild of the keyword search index from existing vectors. Use this if search results are missing or inconsistent.",
+        "button": "Rebuild Index",
+        "button_rebuilding": "Rebuilding...",
+        "status_starting": "Starting rebuild...",
+        "status_processing": "Processing {{current}} of {{total}} items...",
+        "success": "Index rebuild completed successfully!",
+        "error": "Failed to rebuild index. Please try again."
       },
       "test_search": {
         "title": "Semantic Search",

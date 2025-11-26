@@ -56,6 +56,8 @@ export const STORAGE_KEYS = {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
     CONFIG: "embeddings-config",
+    GLOBAL_AUTO_EMBED: "global-auto-embed-enabled",
+    KEYWORD_INDEX_BUILT: "keyword-index-built", // Track if keyword index is built
     AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
     USE_RAG: "embeddings-use-rag"
   },
@@ -97,6 +99,14 @@ export interface EmbeddingConfig {
   maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
   autoCleanup: boolean // Auto cleanup old embeddings (default: false)
   cleanupDaysOld: number // Days old for cleanup (default: 30)
+
+  // HNSW Settings (Phase 2)
+  useHNSW: boolean // Enable HNSW indexing (default: true)
+  hnswM: number // Links per node, higher = better accuracy (default: 16, range: 8-64)
+  hnswEfConstruction: number // Construction quality, higher = better (default: 200, range: 100-500)
+  hnswEfSearch: number // Search quality, higher = better accuracy (default: 100, range: 50-500)
+  hnswMinVectors: number // Min vectors before HNSW activates (default: 0 = always use)
+  hnswAutoRebuild: boolean // Auto rebuild on schema changes (default: true)
 }
 
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
@@ -113,7 +123,14 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   searchCacheMaxSize: 50, // Max 50 cached queries
   maxStorageSize: 100, // 100MB limit
   autoCleanup: false,
-  cleanupDaysOld: 30
+  cleanupDaysOld: 30,
+  // HNSW Phase 2 defaults
+  useHNSW: true, // Always use HNSW for best quality
+  hnswM: 16, // Good balance of accuracy and speed
+  hnswEfConstruction: 200, // High quality index construction
+  hnswEfSearch: 100, // High quality search results
+  hnswMinVectors: 0, // Always use HNSW (no threshold)
+  hnswAutoRebuild: true // Auto rebuild for consistency
 }
 
 export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [

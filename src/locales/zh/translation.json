@@ -91,7 +91,7 @@
   },
   "chat": {
     "input": {
-      "placeholder": "输入消息...",
+      "placeholder": "输入消息 或 ctrl + /",
       "switch_model": "切换模型",
       "chars": "字符",
       "enter_to_send": "发送",
@@ -664,7 +664,17 @@
         "title": "测试嵌入生成",
         "description": "生成一个测试嵌入以验证嵌入模型是否正常工作。",
         "button": "测试",
-        "button_testing": "正在测试..."
+        "button_testing": "测试中..."
+      },
+      "rebuild_index": {
+        "title": "重建索引",
+        "description": "强制从现有向量重建关键字搜索索引。如果搜索结果丢失或不一致，请使用此选项。",
+        "button": "重建索引",
+        "button_rebuilding": "正在重建...",
+        "status_starting": "开始重建...",
+        "status_processing": "正在处理 {{total}} 项中的 {{current}} 项...",
+        "success": "索引重建成功完成！",
+        "error": "重建索引失败。请重试。"
       },
       "test_search": {
         "title": "语义搜索",

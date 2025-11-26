@@ -157,7 +157,7 @@ export const ChatInputBox = ({
   }, [appendInput])
 
   const hasFiles = processingStates.length > 0
-  const successCount = processingStates.filter(
+  const _successCount = processingStates.filter(
     (s) => s.status === "success"
   ).length
 
