@@ -188,7 +188,7 @@ export const SemanticChatSearchDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0">
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 rounded-md">
         <DialogHeader className="px-4 py-3 border-b shrink-0">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-base">

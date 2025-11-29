@@ -108,7 +108,7 @@ export const PromptSelectorDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="h-[85vh] max-w-[95vw] w-full sm:max-w-4xl p-0 flex flex-col overflow-hidden gap-0">
+        <DialogContent className="h-[85vh] max-w-[95vw] w-full sm:max-w-4xl p-0 flex flex-col overflow-hidden gap-0 rounded-md">
           <DialogHeader className="border-b px-6 py-4 shrink-0">
             <DialogTitle className="mr-6 flex items-center justify-between text-sm font-medium">
               {t("prompts.selector.title")}{" "}
