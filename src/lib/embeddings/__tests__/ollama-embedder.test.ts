@@ -4,7 +4,8 @@ import {
   generateEmbeddingsBatch,
   clearEmbeddingCache,
   getCacheStats,
-  getCacheSize
+  getCacheSize,
+  cosineSimilarity
 } from "../ollama-embedder"
 
 // Mock plasmo storage
@@ -204,6 +205,47 @@ describe("Ollama Embedder", () => {
 
       expect(size1).toBe(1)
       expect(size2).toBe(2)
+    })
+  })
+
+  describe("cosineSimilarity", () => {
+    it("should calculate similarity correctly", () => {
+      const v1 = [1, 0, 0]
+      const v2 = [0, 1, 0]
+      const v3 = [1, 0, 0]
+      
+      expect(cosineSimilarity(v1, v2)).toBe(0)
+      expect(cosineSimilarity(v1, v3)).toBe(1)
+    })
+
+    it("should handle zero vectors", () => {
+      const v1 = [0, 0, 0]
+      const v2 = [1, 0, 0]
+      expect(cosineSimilarity(v1, v2)).toBe(0)
+    })
+
+    it("should throw on dimension mismatch", () => {
+      expect(() => cosineSimilarity([1], [1, 2])).toThrow()
+    })
+  })
+
+  describe("Advanced Caching", () => {
+    beforeEach(() => {
+      // Ensure cache is clean before each test
+      clearEmbeddingCache()
+    })
+
+    it("should handle long string hashing", async () => {
+      const longText = "a".repeat(2000)
+      await generateEmbedding(longText)
+      
+      // Should be cached
+      const size = getCacheSize()
+      expect(size).toBe(1)
+      
+      // Second call should hit cache
+      await generateEmbedding(longText)
+      expect(fetch).toHaveBeenCalledTimes(1)
     })
   })
 })

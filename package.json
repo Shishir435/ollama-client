@@ -158,7 +158,7 @@
     "vitest": "^4.0.14"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json}": "biome check --write"
+    "*.{js,jsx,ts,tsx,json}": "biome check --write ."
   },
   "manifest": {
     "host_permissions": [

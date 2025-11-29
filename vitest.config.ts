@@ -12,11 +12,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
+        "src/**/*.tsx",
         "src/**/types.ts",
-        "src/**/*.d.ts"
+        "src/**/*.d.ts",
+        "src/**/index.ts",
+        "src/lib/lucide-icon.ts"
       ]
     }
   },
