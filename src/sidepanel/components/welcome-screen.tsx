@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from "react-i18next"
 import { PerformanceWarning } from "@/components/performance-warning"
 import { SettingsButton } from "@/components/settings-button"
 import { SocialHandles } from "@/components/social-handles"
@@ -19,6 +20,7 @@ import {
 export const WelcomeScreen = () => {
   const { status, refresh } = useOllamaModels()
   const { createSession } = useChatSessions()
+  const { t } = useTranslation()
 
   const getStatusConfig = () => {
     switch (status) {
@@ -26,29 +28,29 @@ export const WelcomeScreen = () => {
         return {
           icon: RefreshCw,
           iconClass: "animate-spin",
-          title: "Connecting...",
-          message: "Establishing connection to Ollama server"
+          title: t("welcome.status.connecting.title"),
+          message: t("welcome.status.connecting.message")
         }
       case "error":
         return {
           icon: AlertTriangle,
           iconClass: "",
-          title: "Connection Failed",
-          message: "Failed to connect to Ollama. Is the server running?"
+          title: t("welcome.status.connection_failed.title"),
+          message: t("welcome.status.connection_failed.message")
         }
       case "empty":
         return {
           icon: AlertTriangle,
           iconClass: "",
-          title: "No Models Found",
-          message: "Please pull a model to get started"
+          title: t("welcome.status.no_models.title"),
+          message: t("welcome.status.no_models.message")
         }
       case "ready":
         return {
           icon: CheckCircle,
           iconClass: "",
-          title: "Ready to Chat",
-          message: "Ollama is connected and ready to use"
+          title: t("welcome.status.ready.title"),
+          message: t("welcome.status.ready.message")
         }
       default:
         return null
@@ -64,10 +66,10 @@ export const WelcomeScreen = () => {
           <Sparkles className="h-8 w-8 animate-pulse text-white" />
         </div>
         <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-3xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400">
-          Welcome to Ollama Chat
+          {t("welcome.title")}
         </h1>
         <p className="text-base font-medium text-slate-600 dark:text-slate-300">
-          Local AI conversations made simple
+          {t("welcome.subtitle")}
         </p>
       </div>
 
@@ -75,26 +77,26 @@ export const WelcomeScreen = () => {
         <FeatureCard
           icon={Shield}
           color="green"
-          title="100% Private"
-          description="Your data stays local"
+          title={t("welcome.features.private.title")}
+          description={t("welcome.features.private.description")}
         />
         <FeatureCard
           icon={Globe}
           color="blue"
-          title="Works Offline"
-          description="No internet needed"
+          title={t("welcome.features.offline.title")}
+          description={t("welcome.features.offline.description")}
         />
         <FeatureCard
           icon={Cpu}
           color="purple"
-          title="Local Processing"
-          description="Full control"
+          title={t("welcome.features.local_processing.title")}
+          description={t("welcome.features.local_processing.description")}
         />
         <FeatureCard
           icon={Sparkles}
           color="indigo"
-          title="Vector Embeddings"
-          description="Semantic search ready"
+          title={t("welcome.features.embeddings.title")}
+          description={t("welcome.features.embeddings.description")}
         />
       </div>
 
@@ -157,26 +159,32 @@ export const WelcomeScreen = () => {
                   onClick={refresh}
                   className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/30">
                   <RefreshCw className="mr-1 h-3 w-3" />
-                  Retry
+                  {t("common.actions.retry")}
                 </Button>
               )}
 
               {status === "empty" && (
                 <div className="flex flex-col gap-3 text-left text-sm text-yellow-700 dark:text-yellow-400">
                   <p className="font-medium">
-                    Before you start, follow these quick steps:
+                    {t("welcome.setup_guide.intro")}
                   </p>
                   <ol className="list-inside list-decimal space-y-1">
                     <li>
-                      Install <code className="font-mono">ollama</code> on your
-                      system
+                      <Trans i18nKey="welcome.setup_guide.step1">
+                        Install <code className="font-mono">ollama</code> on
+                        your system
+                      </Trans>
                     </li>
                     <li>
-                      Run <code className="font-mono">ollama run llama3</code>{" "}
-                      or any model
+                      <Trans i18nKey="welcome.setup_guide.step2">
+                        Run <code className="font-mono">ollama run llama3</code>{" "}
+                        or any model
+                      </Trans>
                     </li>
                     <li>
-                      Return here and click <b>Refresh</b>
+                      <Trans i18nKey="welcome.setup_guide.step3">
+                        Return here and click <b>Refresh</b>
+                      </Trans>
                     </li>
                   </ol>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -186,7 +194,7 @@ export const WelcomeScreen = () => {
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-blue-700">
                       <ExternalLink className="h-3 w-3" />
-                      Full Setup Guide
+                      {t("welcome.setup_guide.full_guide_link")}
                     </a>
                     <Button
                       size="sm"
@@ -194,7 +202,7 @@ export const WelcomeScreen = () => {
                       onClick={refresh}
                       className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/30">
                       <RefreshCw className="mr-1 h-3 w-3" />
-                      Refresh
+                      {t("common.actions.refresh")}
                     </Button>
                   </div>
                 </div>
@@ -221,7 +229,7 @@ export const WelcomeScreen = () => {
           <Zap
             className={`h-5 w-5 transition-transform ${status !== "error" && status !== "empty" ? "group-hover:rotate-12" : ""}`}
           />
-          Start Chatting
+          {t("welcome.start_chatting")}
         </Button>
         <SettingsButton />
       </div>

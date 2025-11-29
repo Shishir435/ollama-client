@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FILE_UPLOAD } from "@/lib/constants"
@@ -14,6 +16,7 @@ export const FilePreview = ({
   processingState,
   onRemove
 }: FilePreviewProps) => {
+  const { t } = useTranslation()
   const { file, status, error, progress } = processingState
 
   const formatFileSize = (bytes: number): string => {
@@ -59,16 +62,16 @@ export const FilePreview = ({
 
   const getProcessingMessage = (): string => {
     if (progress && progress > 0) {
-      return "Generating embeddings..."
+      return t("file_upload.preview.generating_embeddings")
     }
     const extension = file.name.split(".").pop()?.toLowerCase()
     if (extension === FILE_UPLOAD.EXTENSIONS.PDF) {
-      return "Extracting text from PDF..."
+      return t("file_upload.preview.extracting_pdf")
     }
     if (extension === FILE_UPLOAD.EXTENSIONS.DOCX) {
-      return "Processing DOCX document..."
+      return t("file_upload.preview.processing_docx")
     }
-    return "Processing file..."
+    return t("file_upload.preview.processing_file")
   }
 
   return (
@@ -103,7 +106,7 @@ export const FilePreview = ({
         size="icon"
         className="h-6 w-6 shrink-0 opacity-70 transition-opacity hover:opacity-100"
         onClick={onRemove}
-        aria-label="Remove file">
+        aria-label={t("file_upload.preview.remove_aria_label")}>
         <X className="h-3 w-3" />
       </Button>
     </div>

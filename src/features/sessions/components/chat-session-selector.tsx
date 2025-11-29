@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -13,6 +15,7 @@ import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ChatSessionSelector = () => {
+  const { t } = useTranslation()
   const {
     sessions,
     currentSessionId,
@@ -42,7 +45,7 @@ export const ChatSessionSelector = () => {
                 <MessageSquare className="h-4 w-4 text-primary" />
               </div>
               <h2 className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
-                Chat Sessions
+                {t("sessions.selector.title")}
               </h2>
             </div>
           </div>
@@ -51,9 +54,9 @@ export const ChatSessionSelector = () => {
             <Button
               onClick={createSession}
               className="flex h-10 w-full items-center justify-start rounded-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
-              aria-label="Create New Chat">
+              aria-label={t("sessions.selector.create_new_aria")}>
               <SquarePen className="mr-2 h-4 w-4" />
-              Start New Chat
+              {t("sessions.selector.start_new")}
             </Button>
             <SemanticChatSearchButton />
           </div>
@@ -66,10 +69,10 @@ export const ChatSessionSelector = () => {
                     <MessageSquare className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    No chat sessions yet
+                    {t("sessions.selector.no_sessions")}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground/70">
-                    Create your first chat to get started
+                    {t("sessions.selector.no_sessions_hint")}
                   </p>
                 </div>
               ) : (
@@ -158,7 +161,13 @@ export const ChatSessionSelector = () => {
 
           <div className="border-t border-border/50 bg-muted/20 p-3 pt-2">
             <div className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-              {sessions.length} {sessions.length === 1 ? "session" : "sessions"}{" "}
+              {sessions.length === 1
+                ? t("sessions.selector.session_count", {
+                    count: sessions.length
+                  })
+                : t("sessions.selector.session_count_plural", {
+                    count: sessions.length
+                  })}{" "}
               <ChatExportButton showAllSessions />
               <ChatImportButton />
             </div>

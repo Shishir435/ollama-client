@@ -1,5 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -38,6 +40,7 @@ export const ModelMenu = ({
   tooltipTextContent,
   showStatusPopup: _showStatusPopup = true
 }: ModelMenuProps) => {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
@@ -77,7 +80,7 @@ export const ModelMenu = ({
                 <div className="flex items-center gap-2 capitalize">
                   {selectedModel
                     ? models.find((m) => m.name === selectedModel)?.name
-                    : "Select model..."}
+                    : t("model.menu.select_placeholder")}
                   <ChevronDown className="opacity-50" size="16" />
                 </div>
               </div>
@@ -89,14 +92,14 @@ export const ModelMenu = ({
 
       <PopoverContent className="w-[200px] p-0">
         <div className="flex items-center justify-between border-b px-2 py-1 text-sm text-muted-foreground">
-          <span>Models</span>
+          <span>{t("model.menu.models_label")}</span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={refresh}
                 variant="link"
                 size="sm"
-                aria-label="Refresh models">
+                aria-label={t("model.menu.refresh_aria_label")}>
                 <RotateCcw
                   className={cn(
                     "transition-transform",
@@ -106,18 +109,18 @@ export const ModelMenu = ({
                 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Refresh models</TooltipContent>
+            <TooltipContent>{t("model.menu.refresh_tooltip")}</TooltipContent>
           </Tooltip>
         </div>
 
         <Command>
           <CommandInput
-            placeholder="Search model..."
+            placeholder={t("model.menu.search_placeholder")}
             className="h-9"
             autoFocus
           />
           <CommandList>
-            <CommandEmpty>No model found.</CommandEmpty>
+            <CommandEmpty>{t("model.menu.no_model_found")}</CommandEmpty>
             <CommandGroup>
               {models.map((model) => (
                 <CommandItem

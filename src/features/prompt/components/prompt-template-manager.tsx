@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   AlertDialog,
@@ -58,6 +59,7 @@ import {
 import type { PromptTemplate } from "@/types"
 
 export const PromptTemplateManager = () => {
+  const { t } = useTranslation()
   const {
     templates,
     addTemplate,
@@ -198,11 +200,14 @@ export const PromptTemplateManager = () => {
             <div>
               <div className="mb-2 flex items-center gap-2">
                 <FileText className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-xl">Prompt Templates</CardTitle>
+                <CardTitle className="text-xl">
+                  {t("settings.prompts.title")}
+                </CardTitle>
               </div>
               <CardDescription>
-                Manage your collection of {templates?.length || 0} prompt
-                templates
+                {t("settings.prompts.description", {
+                  count: templates?.length || 0
+                })}
               </CardDescription>
             </div>
 
@@ -216,35 +221,36 @@ export const PromptTemplateManager = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExport}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export Templates
+                    {t("settings.prompts.export")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" />
-                    Import Templates
+                    {t("settings.prompts.import")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Reset to Defaults
+                        {t("settings.prompts.reset")}
                       </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
-                          Reset to Default Templates?
+                          {t("settings.prompts.reset_dialog.title")}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will replace all your current templates with the
-                          default ones. This action cannot be undone.
+                          {t("settings.prompts.reset_dialog.description")}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>
+                          {t("settings.prompts.reset_dialog.cancel")}
+                        </AlertDialogCancel>
                         <AlertDialogAction onClick={resetToDefaults}>
-                          Reset Templates
+                          {t("settings.prompts.reset_dialog.confirm")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -259,7 +265,7 @@ export const PromptTemplateManager = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
-                placeholder="Search templates..."
+                placeholder={t("settings.prompts.search_placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -270,10 +276,14 @@ export const PromptTemplateManager = () => {
               value={selectedCategory}
               onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="Category" />
+                <SelectValue
+                  placeholder={t("settings.prompts.category_placeholder")}
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">
+                  {t("settings.prompts.all_categories")}
+                </SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -291,9 +301,15 @@ export const PromptTemplateManager = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="recent">Recent</SelectItem>
-                <SelectItem value="popular">Popular</SelectItem>
-                <SelectItem value="alphabetical">A-Z</SelectItem>
+                <SelectItem value="recent">
+                  {t("settings.prompts.sort.recent")}
+                </SelectItem>
+                <SelectItem value="popular">
+                  {t("settings.prompts.sort.popular")}
+                </SelectItem>
+                <SelectItem value="alphabetical">
+                  {t("settings.prompts.sort.alphabetical")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -308,7 +324,7 @@ export const PromptTemplateManager = () => {
                   value="new"
                   className="flex items-center gap-2 text-xs sm:text-sm">
                   <Plus className="h-4 w-4" />
-                  New Template
+                  {t("settings.prompts.new_template")}
                 </TabsTrigger>
                 {filteredTemplates.map((template) => (
                   <TabsTrigger
@@ -332,10 +348,12 @@ export const PromptTemplateManager = () => {
               <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Title *</Label>
+                    <Label htmlFor="title">
+                      {t("settings.prompts.form.title")}
+                    </Label>
                     <Input
                       id="title"
-                      placeholder="Template title"
+                      placeholder={t("settings.prompts.form.title_placeholder")}
                       value={newTemplate.title}
                       onChange={(e) =>
                         setNewTemplate((prev) => ({
@@ -346,10 +364,14 @@ export const PromptTemplateManager = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category">
+                      {t("settings.prompts.form.category")}
+                    </Label>
                     <Input
                       id="category"
-                      placeholder="e.g., Development, Writing"
+                      placeholder={t(
+                        "settings.prompts.form.category_placeholder"
+                      )}
                       value={newTemplate.category}
                       onChange={(e) =>
                         setNewTemplate((prev) => ({
@@ -362,10 +384,14 @@ export const PromptTemplateManager = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">
+                    {t("settings.prompts.form.description")}
+                  </Label>
                   <Input
                     id="description"
-                    placeholder="Brief description of what this template does"
+                    placeholder={t(
+                      "settings.prompts.form.description_placeholder"
+                    )}
                     value={newTemplate.description}
                     onChange={(e) =>
                       setNewTemplate((prev) => ({
@@ -377,10 +403,12 @@ export const PromptTemplateManager = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="tags">Tags</Label>
+                  <Label htmlFor="tags">
+                    {t("settings.prompts.form.tags")}
+                  </Label>
                   <Input
                     id="tags"
-                    placeholder="tag1, tag2, tag3"
+                    placeholder={t("settings.prompts.form.tags_placeholder")}
                     value={newTemplate.tags}
                     onChange={(e) =>
                       setNewTemplate((prev) => ({
@@ -392,10 +420,14 @@ export const PromptTemplateManager = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="user-prompt">User Prompt *</Label>
+                  <Label htmlFor="user-prompt">
+                    {t("settings.prompts.form.user_prompt")}
+                  </Label>
                   <Textarea
                     id="user-prompt"
-                    placeholder="The main prompt template"
+                    placeholder={t(
+                      "settings.prompts.form.user_prompt_placeholder"
+                    )}
                     rows={4}
                     value={newTemplate.userPrompt}
                     onChange={(e) =>
@@ -414,7 +446,7 @@ export const PromptTemplateManager = () => {
                   }
                   className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Template
+                  {t("settings.prompts.form.create_button")}
                 </Button>
               </div>
             </TabsContent>
@@ -459,17 +491,22 @@ export const PromptTemplateManager = () => {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                          <AlertDialogTitle>
+                            {t("settings.prompts.delete_dialog.title")}
+                          </AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete "{template.title}"?
-                            This action cannot be undone.
+                            {t("settings.prompts.delete_dialog.description", {
+                              title: template.title
+                            })}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>
+                            {t("settings.prompts.delete_dialog.cancel")}
+                          </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => deleteTemplate(template.id)}>
-                            Delete
+                            {t("settings.prompts.delete_dialog.confirm")}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -480,7 +517,7 @@ export const PromptTemplateManager = () => {
                 <div className="grid gap-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Title</Label>
+                      <Label>{t("settings.prompts.form.title")}</Label>
                       <Input
                         value={template.title}
                         onChange={(e) =>
@@ -489,10 +526,12 @@ export const PromptTemplateManager = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Category</Label>
+                      <Label>{t("settings.prompts.form.category")}</Label>
                       <Input
                         value={template.category || ""}
-                        placeholder="e.g., Development, Writing"
+                        placeholder={t(
+                          "settings.prompts.form.category_placeholder"
+                        )}
                         onChange={(e) =>
                           updateTemplate(template.id, {
                             category: e.target.value || undefined
@@ -503,10 +542,12 @@ export const PromptTemplateManager = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Description</Label>
+                    <Label>{t("settings.prompts.form.description")}</Label>
                     <Input
                       value={template.description || ""}
-                      placeholder="Brief description"
+                      placeholder={t(
+                        "settings.prompts.form.description_placeholder"
+                      )}
                       onChange={(e) =>
                         updateTemplate(template.id, {
                           description: e.target.value || undefined
@@ -516,10 +557,10 @@ export const PromptTemplateManager = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Tags</Label>
+                    <Label>{t("settings.prompts.form.tags")}</Label>
                     <Input
                       value={template.tags?.join(", ") || ""}
-                      placeholder="tag1, tag2, tag3"
+                      placeholder={t("settings.prompts.form.tags_placeholder")}
                       onChange={(e) =>
                         updateTemplate(template.id, {
                           tags: e.target.value
@@ -535,7 +576,7 @@ export const PromptTemplateManager = () => {
 
                   {template.systemPrompt !== undefined && (
                     <div className="space-y-2">
-                      <Label>System Prompt</Label>
+                      <Label>{t("settings.prompts.form.system_prompt")}</Label>
                       <Textarea
                         value={template.systemPrompt || ""}
                         rows={3}
@@ -549,7 +590,7 @@ export const PromptTemplateManager = () => {
                   )}
 
                   <div className="space-y-2">
-                    <Label>User Prompt</Label>
+                    <Label>{t("settings.prompts.form.user_prompt")}</Label>
                     <Textarea
                       value={template.userPrompt}
                       rows={4}
@@ -566,13 +607,17 @@ export const PromptTemplateManager = () => {
                       {template.createdAt && (
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Created {template.createdAt.toLocaleDateString()}
+                          {t("settings.prompts.created_at", {
+                            date: template.createdAt.toLocaleDateString()
+                          })}
                         </div>
                       )}
                       {(template.usageCount || 0) > 0 && (
                         <div className="flex items-center gap-1">
                           <Star className="h-3 w-3" />
-                          Used {template.usageCount} times
+                          {t("settings.prompts.used_times", {
+                            count: template.usageCount
+                          })}
                         </div>
                       )}
                     </div>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -64,6 +66,7 @@ export const SiteSpecificOverrides = ({
   onRemoveSiteOverride,
   onUpdateSiteOverride
 }: SiteSpecificOverridesProps) => {
+  const { t } = useTranslation()
   const [newSitePattern, setNewSitePattern] = useState("")
   const [sitePatternError, setSitePatternError] = useState("")
   const [selectedSiteOverride, setSelectedSiteOverride] = useState<
@@ -74,7 +77,7 @@ export const SiteSpecificOverrides = ({
   const handleAddSiteOverride = () => {
     const trimmed = newSitePattern.trim()
     if (!trimmed) {
-      setSitePatternError("Site pattern cannot be empty")
+      setSitePatternError(t("model.site_overrides.pattern_empty_error"))
       return
     }
     try {
@@ -87,10 +90,10 @@ export const SiteSpecificOverrides = ({
         setSelectedSiteOverride(trimmed)
         setSiteOverrideOpen(false)
       } else {
-        setSitePatternError("Site override already exists")
+        setSitePatternError(t("model.site_overrides.pattern_exists_error"))
       }
     } catch {
-      setSitePatternError("Invalid regular expression pattern")
+      setSitePatternError(t("model.site_overrides.pattern_invalid_error"))
     }
   }
 
@@ -139,7 +142,9 @@ export const SiteSpecificOverrides = ({
     className?: string
   ) => (
     <div className="space-y-2">
-      <Label className="text-xs">Scroll Strategy</Label>
+      <Label className="text-xs">
+        {t("model.site_overrides.scroll_strategy_label")}
+      </Label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className={className || "h-9"}>
           <SelectValue />
@@ -147,7 +152,9 @@ export const SiteSpecificOverrides = ({
         <SelectContent>
           {SCROLL_STRATEGY_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {t(
+                `settings.content_extraction.scroll_strategy.options_short.${option.value}`
+              )}
             </SelectItem>
           ))}
         </SelectContent>
@@ -164,7 +171,9 @@ export const SiteSpecificOverrides = ({
     const depthPercent = Math.round(depth * 100)
     return (
       <div className="space-y-2">
-        <Label className="text-xs">Scroll Depth</Label>
+        <Label className="text-xs">
+          {t("model.site_overrides.scroll_depth_label")}
+        </Label>
         <div className="space-y-2">
           <Slider
             min={0}
@@ -190,11 +199,12 @@ export const SiteSpecificOverrides = ({
       <CardHeader className="pb-4">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Site-Specific Overrides</CardTitle>
+          <CardTitle className="text-lg">
+            {t("model.site_overrides.title")}
+          </CardTitle>
         </div>
         <CardDescription className="text-sm">
-          Configure custom extraction settings for specific sites using regex
-          patterns
+          {t("model.site_overrides.description")}
         </CardDescription>
       </CardHeader>
 
@@ -203,7 +213,7 @@ export const SiteSpecificOverrides = ({
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="site-pattern" className="text-sm font-medium">
-              Add Site Pattern
+              {t("model.site_overrides.add_pattern_label")}
             </Label>
           </div>
 
@@ -217,7 +227,7 @@ export const SiteSpecificOverrides = ({
                     setNewSitePattern(e.target.value)
                     if (sitePatternError) setSitePatternError("")
                   }}
-                  placeholder="medium.com or ^https://twitter\\.com/.*"
+                  placeholder={t("model.site_overrides.pattern_placeholder")}
                   className={`h-9 font-mono text-sm ${sitePatternError ? "border-destructive" : ""}`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -239,34 +249,42 @@ export const SiteSpecificOverrides = ({
                 className="h-9 whitespace-nowrap px-3"
                 disabled={!newSitePattern.trim()}>
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                {t("model.site_overrides.add_button")}
               </Button>
             </div>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Examples: <code className="rounded bg-muted px-1">medium.com</code>{" "}
-            or{" "}
-            <code className="rounded bg-muted px-1">
-              ^https://twitter\\.com/.*
-            </code>
+            <Trans
+              i18nKey="model.site_overrides.examples"
+              components={[
+                <code key="code" className="rounded bg-muted px-1" />
+              ]}
+            />
           </div>
         </div>
 
         {Object.keys(config.siteOverrides).length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">Active Overrides</h4>
+              <h4 className="text-sm font-medium">
+                {t("model.site_overrides.active_overrides")}
+              </h4>
               <Badge variant="secondary" className="text-xs">
-                {Object.keys(config.siteOverrides).length} site
-                {Object.keys(config.siteOverrides).length !== 1 ? "s" : ""}
+                {Object.keys(config.siteOverrides).length === 1
+                  ? t("model.site_overrides.site_count", {
+                      count: Object.keys(config.siteOverrides).length
+                    })
+                  : t("model.site_overrides.site_count_plural", {
+                      count: Object.keys(config.siteOverrides).length
+                    })}
               </Badge>
             </div>
 
             {/* Site Selector Dropdown */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                Select Site to Configure
+                {t("model.site_overrides.select_site_label")}
               </Label>
               <Popover
                 open={siteOverrideOpen}
@@ -277,7 +295,8 @@ export const SiteSpecificOverrides = ({
                     role="combobox"
                     className="w-full justify-between">
                     <span className="truncate font-mono text-sm">
-                      {selectedSiteOverride || "Select a site..."}
+                      {selectedSiteOverride ||
+                        t("model.site_overrides.select_placeholder")}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -287,11 +306,13 @@ export const SiteSpecificOverrides = ({
                   align="start">
                   <Command>
                     <CommandInput
-                      placeholder="Search sites..."
+                      placeholder={t("model.site_overrides.search_placeholder")}
                       className="h-9"
                     />
                     <CommandList>
-                      <CommandEmpty>No sites found.</CommandEmpty>
+                      <CommandEmpty>
+                        {t("model.site_overrides.no_sites_found")}
+                      </CommandEmpty>
                       <CommandGroup>
                         {Object.keys(config.siteOverrides).map((pattern) => (
                           <CommandItem
@@ -397,9 +418,9 @@ export const SiteSpecificOverrides = ({
         ) : (
           <div className="py-6 text-center text-muted-foreground">
             <Target className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p className="text-sm">No site-specific overrides configured</p>
+            <p className="text-sm">{t("model.site_overrides.no_overrides")}</p>
             <p className="text-xs">
-              Add patterns to customize extraction settings for specific sites
+              {t("model.site_overrides.no_overrides_hint")}
             </p>
           </div>
         )}

@@ -94,7 +94,8 @@
 - 🌓 **Dark Mode** – Beautiful dark theme with smooth transitions
 - 📝 **Prompt Templates** – Create, manage, and use custom prompt templates (Ctrl+/)
 - 🔊 **Advanced Text-to-Speech** – Searchable voice selector with adjustable speech rate & pitch
-- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera
+- 🌍 **Internationalization (i18n)** – Full multi-language support with 9 languages: English, Hindi, Spanish, French, German, Italian, Chinese (Simplified), Japanese, Russian
+- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera, Firefox
 - 🧪 **Voice Testing** – Test voices before using them
 
 ### 🔒 Privacy & Performance
@@ -416,12 +417,13 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
   - [x] Similarity scores with % match display
   - [x] Click to navigate and highlight message
   - [x] Real-time loading indicators
-- [ ] **Advanced Vector Search** (Phase 2 - Future):
-  - [ ] WASM-based HNSW indexing via `hnswlib-wasm`
-  - [ ] Implement when dataset exceeds 10K vectors
-  - [ ] Expected performance gain: 10-100x faster searches
-  - [ ] Bundle size impact: ~200 KB (gzipped: ~100-200 KB)
-  - [ ] See `VECTOR_SEARCH_LIBRARIES_REPORT.md` for detailed analysis
+- [x] **Advanced Vector Search** (Phase 2 - Completed):
+  - [x] Optimized vector indexing for faster searches
+  - [x] Service Worker-compatible implementation
+  - [x] Hybrid search strategy (indexed + brute-force fallback)
+  - [x] Incremental index updates
+  - [x] Expected performance: 5-10x faster than Phase 1 for datasets >1000 vectors
+  - [x] WASM upgrade path documented in `docs/HNSW_WASM_UPGRADE.md` (optional for >50K vectors)
 - [ ] Enable **Local RAG** over chats, PDFs, and uploaded files
 - [ ] **Browser Search Feature**:
   - [ ] Contextual search within webpage content

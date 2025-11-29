@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,23 +17,24 @@ import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
 
-const getRateDescription = (rate: number) => {
-  if (rate < 0.8) return "Very slow"
-  if (rate < 1.0) return "Slow"
-  if (rate === 1.0) return "Normal"
-  if (rate < 1.3) return "Fast"
-  return "Very fast"
+const getRateDescription = (rate: number, t: (key: string) => string) => {
+  if (rate < 0.8) return t("settings.speech.rate.very_slow")
+  if (rate < 1.0) return t("settings.speech.rate.slow")
+  if (rate === 1.0) return t("settings.speech.rate.normal")
+  if (rate < 1.3) return t("settings.speech.rate.fast")
+  return t("settings.speech.rate.very_fast")
 }
 
-const getPitchDescription = (pitch: number) => {
-  if (pitch < 0.8) return "Very low"
-  if (pitch < 1.0) return "Low"
-  if (pitch === 1.0) return "Normal"
-  if (pitch < 1.3) return "High"
-  return "Very high"
+const getPitchDescription = (pitch: number, t: (key: string) => string) => {
+  if (pitch < 0.8) return t("settings.speech.pitch.very_low")
+  if (pitch < 1.0) return t("settings.speech.pitch.low")
+  if (pitch === 1.0) return t("settings.speech.pitch.normal")
+  if (pitch < 1.3) return t("settings.speech.pitch.high")
+  return t("settings.speech.pitch.very_high")
 }
 
 export const SpeechSettings = () => {
+  const { t } = useTranslation()
   const { voices, isLoading: isLoadingVoices } = useVoices()
   const { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI } =
     useSpeechSettings()
@@ -68,10 +70,12 @@ export const SpeechSettings = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">Speech Settings</CardTitle>
+            <CardTitle className="text-lg">
+              {t("settings.speech.title")}
+            </CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Configure text-to-speech voice, speed, and tone preferences
+            {t("settings.speech.description")}
           </CardDescription>
         </CardHeader>
 
@@ -82,7 +86,7 @@ export const SpeechSettings = () => {
               <div className="flex items-center gap-2">
                 <Mic className="h-4 w-4 text-muted-foreground" />
                 <Label htmlFor="voice-select" className="text-sm font-medium">
-                  Voice
+                  {t("settings.speech.voice_label")}
                 </Label>
               </div>
               {selectedVoice && (
@@ -103,14 +107,14 @@ export const SpeechSettings = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label htmlFor="rate-slider" className="text-sm font-medium">
-                Speech Rate
+                {t("settings.speech.rate_label")}
               </Label>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="font-mono text-xs">
                   {rate.toFixed(1)}x
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {getRateDescription(rate)}
+                  {getRateDescription(rate, t)}
                 </span>
               </div>
             </div>
@@ -136,14 +140,14 @@ export const SpeechSettings = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label htmlFor="pitch-slider" className="text-sm font-medium">
-                Voice Pitch
+                {t("settings.speech.pitch_label")}
               </Label>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="font-mono text-xs">
                   {pitch.toFixed(1)}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {getPitchDescription(pitch)}
+                  {getPitchDescription(pitch, t)}
                 </span>
               </div>
             </div>
@@ -169,16 +173,18 @@ export const SpeechSettings = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Quick Preview</span>
+                <span className="text-sm font-medium">
+                  {t("settings.speech.preview_title")}
+                </span>
               </div>
             </div>
             <div className="space-y-3">
               <Label htmlFor="test-text" className="text-sm font-medium">
-                Test Text
+                {t("settings.speech.test_text_label")}
               </Label>
               <Textarea
                 id="test-text"
-                placeholder="Paste or type text here to test your voice settings..."
+                placeholder={t("settings.speech.test_text_placeholder")}
                 value={testText}
                 onChange={(e) => setTestText(e.target.value)}
                 rows={3}
@@ -187,8 +193,8 @@ export const SpeechSettings = () => {
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
                   {testText.trim()
-                    ? "Click 'Test Voice' to hear your text"
-                    : "Click 'Test Voice' to hear the default sample"}
+                    ? t("settings.speech.test_hint_text")
+                    : t("settings.speech.test_hint_default")}
                 </p>
                 <button
                   type="button"
@@ -199,8 +205,7 @@ export const SpeechSettings = () => {
                       window.speechSynthesis.cancel()
 
                       const textToSpeak =
-                        testText.trim() ||
-                        "Hello, this is a test of your speech settings."
+                        testText.trim() || t("settings.speech.test_fallback")
                       const utterance = new SpeechSynthesisUtterance(
                         textToSpeak
                       )
@@ -222,7 +227,7 @@ export const SpeechSettings = () => {
                       window.speechSynthesis.speak(utterance)
                     }
                   }}>
-                  Test Voice
+                  {t("settings.speech.test_button")}
                 </button>
               </div>
             </div>

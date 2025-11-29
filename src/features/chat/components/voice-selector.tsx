@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +32,7 @@ export const VoiceSelector = ({
   onVoiceChange,
   isLoading = false
 }: VoiceSelectorProps) => {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -42,7 +45,7 @@ export const VoiceSelector = ({
   const groupedVoices = useMemo(() => {
     const grouped = voices.reduce(
       (acc, voice) => {
-        const lang = voice.lang || "Unknown"
+        const lang = voice.lang || t("chat.voice_selector.unknown_language")
         if (!acc[lang]) {
           acc[lang] = []
         }
@@ -59,7 +62,7 @@ export const VoiceSelector = ({
         lang,
         voices: grouped[lang].sort((a, b) => a.name.localeCompare(b.name))
       }))
-  }, [voices])
+  }, [voices, t])
 
   // Filter voices based on search query
   const filteredGroups = useMemo(() => {
@@ -88,7 +91,7 @@ export const VoiceSelector = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          aria-label="Select voice"
+          aria-label={t("chat.voice_selector.select_voice")}
           className={cn(
             "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-sm transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
@@ -102,7 +105,7 @@ export const VoiceSelector = ({
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                 <span className="text-muted-foreground text-sm truncate">
-                  Loading voices...
+                  {t("chat.speech.loading_voices")}
                 </span>
               </>
             ) : selectedVoice ? (
@@ -118,7 +121,7 @@ export const VoiceSelector = ({
               </>
             ) : (
               <span className="text-muted-foreground text-sm truncate">
-                Select a voice...
+                {t("chat.voice_selector.select_placeholder")}
               </span>
             )}
           </div>
@@ -132,7 +135,7 @@ export const VoiceSelector = ({
         <Command className="rounded-lg border-0" shouldFilter={false}>
           <div className="flex items-center border-b px-3">
             <CommandInput
-              placeholder="Search by name, language, or URI..."
+              placeholder={t("chat.voice_selector.search_placeholder")}
               value={searchQuery}
               onValueChange={setSearchQuery}
               className="h-11 border-0 focus:outline-none focus:ring-0"
@@ -145,11 +148,13 @@ export const VoiceSelector = ({
                   <Mic className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">No voices found</p>
+                  <p className="text-sm font-medium">
+                    {t("chat.voice_selector.no_voices_found")}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {searchQuery
-                      ? "Try a different search term"
-                      : "No voices available on this device"}
+                      ? t("chat.voice_selector.try_different_search")
+                      : t("chat.voice_selector.no_voices_available")}
                   </p>
                 </div>
               </div>
@@ -198,7 +203,7 @@ export const VoiceSelector = ({
                             </span>
                             {voice.localService === false && (
                               <span className="text-[10px] text-muted-foreground mt-0.5">
-                                Network voice
+                                {t("chat.voice_selector.network_voice")}
                               </span>
                             )}
                           </div>
@@ -207,7 +212,7 @@ export const VoiceSelector = ({
                               <Badge
                                 variant="outline"
                                 className="text-[10px] h-4 px-1.5 font-normal border-muted-foreground/30">
-                                default
+                                {t("chat.voice_selector.default_badge")}
                               </Badge>
                             )}
                             {isSelected && (

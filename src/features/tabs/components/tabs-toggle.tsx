@@ -1,4 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { useTranslation } from "react-i18next"
+
 import { Switch } from "@/components/ui/switch"
 import {
   Tooltip,
@@ -9,6 +11,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const TabsToggle = () => {
+  const { t } = useTranslation()
   const [tabAccess, setTabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
@@ -27,16 +30,16 @@ export const TabsToggle = () => {
             onCheckedChange={setTabAccess}
           />
           {tabAccess ? (
-            <span>Tab+</span>
+            <span>{t("tabs.toggle.label_on")}</span>
           ) : (
             <label htmlFor="tabs-switch" className="text-sm">
-              Tabs
+              {t("tabs.toggle.label_off")}
             </label>
           )}
         </div>
       </TooltipTrigger>
       <TooltipContent side="top">
-        <p>Interact with open tabs</p>
+        <p>{t("tabs.toggle.tooltip")}</p>
       </TooltipContent>
     </Tooltip>
   )

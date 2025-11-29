@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +12,6 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import {
   Clock,
@@ -36,6 +36,7 @@ export const PromptSelectorDialog = ({
   onSelect,
   onClose
 }: PromptSelectorDialogProps) => {
+  const { t } = useTranslation()
   const { templates, incrementUsageCount } = usePromptTemplates()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -107,24 +108,25 @@ export const PromptSelectorDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="h-[80vh] max-w-4xl p-0">
-          <DialogHeader className="border-b px-6 py-4">
+        <DialogContent className="h-[85vh] max-w-[95vw] w-full sm:max-w-4xl p-0 flex flex-col overflow-hidden gap-0 rounded-md">
+          <DialogHeader className="border-b px-6 py-4 shrink-0">
             <DialogTitle className="mr-6 flex items-center justify-between text-sm font-medium">
-              Prompt Templates{" "}
+              {t("prompts.selector.title")}{" "}
               <div className="-translate-y-2.5">
                 <SettingsButton showText={false} />
               </div>
             </DialogTitle>
             <DialogDescription className="mt-1">
-              Choose from {filteredTemplates.length} templates to jump start
-              your conversation
+              {t("prompts.selector.description", {
+                count: filteredTemplates.length
+              })}
             </DialogDescription>
 
             <div className="mt-4 flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
-                  placeholder="Search templates, tags, or descriptions..."
+                  placeholder={t("prompts.selector.search_placeholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -148,9 +150,10 @@ export const PromptSelectorDialog = ({
                   {sortBy === "recent" && <Clock className="h-4 w-4" />}
                   {sortBy === "popular" && <Star className="h-4 w-4" />}
                   {sortBy === "alphabetical" && <Filter className="h-4 w-4" />}
-                  {sortBy === "recent" && "Recent"}
-                  {sortBy === "popular" && "Popular"}
-                  {sortBy === "alphabetical" && "A-Z"}
+                  {sortBy === "recent" && t("prompts.selector.sort_recent")}
+                  {sortBy === "popular" && t("prompts.selector.sort_popular")}
+                  {sortBy === "alphabetical" &&
+                    t("prompts.selector.sort_alphabetical")}
                 </Button>
               </div>
             </div>
@@ -161,7 +164,7 @@ export const PromptSelectorDialog = ({
                   variant={selectedCategory === null ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedCategory(null)}>
-                  All Categories
+                  {t("prompts.selector.all_categories")}
                 </Button>
                 {categories.map((category) => (
                   <Button
@@ -179,8 +182,8 @@ export const PromptSelectorDialog = ({
           </DialogHeader>
 
           {filteredTemplates.length > 0 ? (
-            <div className="flex h-full min-h-0">
-              <ScrollArea className="flex-1 p-6">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-6">
                 <div className="grid gap-3">
                   {filteredTemplates.map((template) => (
                     <button
@@ -265,16 +268,18 @@ export const PromptSelectorDialog = ({
                     </button>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mb-2 text-lg font-semibold">No templates found</h3>
+              <h3 className="mb-2 text-lg font-semibold">
+                {t("prompts.selector.no_templates_title")}
+              </h3>
               <p className="max-w-sm text-sm text-muted-foreground">
                 {searchQuery || selectedCategory
-                  ? "Try adjusting your search or filter criteria"
-                  : "No prompt templates are available. Create your first template in settings."}
+                  ? t("prompts.selector.no_templates_search")
+                  : t("prompts.selector.no_templates_empty")}
               </p>
               {(searchQuery || selectedCategory) && (
                 <Button
@@ -284,7 +289,7 @@ export const PromptSelectorDialog = ({
                     setSearchQuery("")
                     setSelectedCategory(null)
                   }}>
-                  Clear filters
+                  {t("prompts.selector.clear_filters")}
                 </Button>
               )}
             </div>
@@ -314,7 +319,9 @@ export const PromptSelectorDialog = ({
             <div className="space-y-4">
               {previewTemplate.systemPrompt && (
                 <div>
-                  <h4 className="mb-2 text-sm font-semibold">System Prompt</h4>
+                  <h4 className="mb-2 text-sm font-semibold">
+                    {t("prompts.selector.preview_system_prompt")}
+                  </h4>
                   <div className="rounded-md bg-muted p-3 text-sm">
                     {previewTemplate.systemPrompt}
                   </div>
@@ -322,7 +329,9 @@ export const PromptSelectorDialog = ({
               )}
 
               <div>
-                <h4 className="mb-2 text-sm font-semibold">User Prompt</h4>
+                <h4 className="mb-2 text-sm font-semibold">
+                  {t("prompts.selector.preview_user_prompt")}
+                </h4>
                 <div className="rounded-md bg-muted p-3 text-sm">
                   {previewTemplate.userPrompt}
                 </div>
@@ -330,7 +339,9 @@ export const PromptSelectorDialog = ({
 
               {previewTemplate.tags && previewTemplate.tags.length > 0 && (
                 <div>
-                  <h4 className="mb-2 text-sm font-semibold">Tags</h4>
+                  <h4 className="mb-2 text-sm font-semibold">
+                    {t("prompts.selector.preview_tags")}
+                  </h4>
                   <div className="flex flex-wrap gap-1">
                     {previewTemplate.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
@@ -349,13 +360,13 @@ export const PromptSelectorDialog = ({
                   setPreviewTemplate(null)
                 }}
                 className="flex-1">
-                Use Template
+                {t("prompts.selector.use_template")}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => copyToClipboard(previewTemplate.userPrompt)}>
                 <Copy className="mr-2 h-4 w-4" />
-                Copy
+                {t("prompts.selector.copy")}
               </Button>
             </div>
           </DialogContent>

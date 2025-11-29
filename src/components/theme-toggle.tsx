@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import { useThemeStore } from "@/stores/theme"
 
 export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
   const { setTheme, theme } = useThemeStore()
+  const { t } = useTranslation()
 
   return (
     <DropdownMenu>
@@ -24,7 +26,7 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
             <Button
               variant="ghost"
               size={showText ? "default" : "icon"}
-              aria-label="Toggle theme"
+              aria-label={t("common.theme.toggle_aria_label")}
               autoFocus={false}>
               <div className="relative h-[1.2rem] w-[1.2rem]">
                 <Sun className="absolute inset-0 h-full w-full rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -36,17 +38,17 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="top">Toggle Theme</TooltipContent>
+        <TooltipContent side="top">{t("common.theme.toggle")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
+          {t("common.theme.light")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
+          {t("common.theme.dark")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
+          {t("common.theme.system")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

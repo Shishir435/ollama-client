@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next"
+
+import { LanguageSelector } from "@/components/language-selector"
 import { PerformanceWarning } from "@/components/performance-warning"
 import { SocialHandles } from "@/components/social-handles"
 import {
@@ -20,48 +23,51 @@ import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
 
 export const OllamaOptions = () => {
+  const { t } = useTranslation()
+
   const tabSections = {
     general: {
-      label: "General",
+      label: t("settings.tabs.general"),
       content: (
         <div className="space-y-6">
           <PerformanceWarning />
+          <LanguageSelector />
           <ModelSettingsForm />
         </div>
       )
     },
     templates: {
-      label: "Prompts",
+      label: t("settings.tabs.prompts"),
       content: <PromptTemplateManager />
     },
     modelPull: {
-      label: "Models",
+      label: t("settings.tabs.models"),
       content: <ModelPullPanel />
     },
     contentExtraction: {
-      label: "Extraction",
+      label: t("settings.tabs.extraction"),
       content: <ContentExtractionSettings />
     },
 
     embeddings: {
       label: (
         <span className="flex items-center gap-1.5">
-          Embeddings
+          {t("settings.tabs.embeddings")}
           <MiniBadge text="Beta" />
         </span>
       ),
       content: <EmbeddingSettings />
     },
     voices: {
-      label: "Voices",
+      label: t("settings.tabs.voices"),
       content: <SpeechSettings />
     },
     reset: {
-      label: "Reset",
+      label: t("settings.tabs.reset"),
       content: <ResetStorage />
     },
     setup: {
-      label: "Guides",
+      label: t("settings.tabs.guides"),
       content: (
         <div className="space-y-6">
           <PerformanceWarning />
@@ -75,11 +81,8 @@ export const OllamaOptions = () => {
   return (
     <Card className="mx-auto my-4 max-w-4xl space-y-6 p-4">
       <CardHeader>
-        <CardTitle className="text-lg">Ollama Client Settings</CardTitle>
-        <CardDescription>
-          Manage your Ollama setup, models, prompts, voices, and more — all in
-          one place. For tips and setup instructions, see the Guides tab.
-        </CardDescription>
+        <CardTitle className="text-lg">{t("settings.page.title")}</CardTitle>
+        <CardDescription>{t("settings.page.description")}</CardDescription>
       </CardHeader>
 
       <CardContent>

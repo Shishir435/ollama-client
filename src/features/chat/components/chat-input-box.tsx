@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,6 +30,7 @@ export const ChatInputBox = ({
   ) => void
   stopGeneration: () => void
 }) => {
+  const { t } = useTranslation()
   const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -155,7 +157,7 @@ export const ChatInputBox = ({
   }, [appendInput])
 
   const hasFiles = processingStates.length > 0
-  const successCount = processingStates.filter(
+  const _successCount = processingStates.filter(
     (s) => s.status === "success"
   ).length
 
@@ -195,7 +197,7 @@ export const ChatInputBox = ({
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
-          placeholder="Type message... Ctrl + / for prompts"
+          placeholder={t("chat.input.placeholder")}
           value={input}
           onChange={(e) => {
             setInput(e.target.value)
@@ -222,7 +224,7 @@ export const ChatInputBox = ({
           <div className="flex items-center gap-4">
             <ModelMenu
               showStatusPopup={false}
-              tooltipTextContent="Switch model"
+              tooltipTextContent={t("chat.input.switch_model")}
             />
             <TabsToggle />
             <SettingsButton showText={false} />
@@ -231,23 +233,19 @@ export const ChatInputBox = ({
                 onFilesSelected={handleFilesSelected}
                 disabled={isLoading}
               />
-              {hasFiles && successCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {successCount} file{successCount !== 1 ? "s" : ""} ready
-                </span>
-              )}
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="font-mono text-xs text-muted-foreground">
-              {input.length > 0 && `${input.length} chars`}
+              {input.length > 0 &&
+                t("chat.input.chars", { count: input.length })}
             </div>
             <div className="hidden text-xs text-muted-foreground sm:block">
               <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                Enter
+                {t("chat.input.enter_key")}
               </kbd>{" "}
-              to send
+              {t("chat.input.enter_to_send")}
             </div>
           </div>
         </div>

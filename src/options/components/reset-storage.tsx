@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -25,6 +26,7 @@ import { CircleCheck, RefreshCcw } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ResetStorage = () => {
+  const { t } = useTranslation()
   const reset = useResetOllamaStorage()
   const keysByModule = getAllResetKeys()
   const [open, setOpen] = useState(false)
@@ -54,17 +56,17 @@ export const ResetStorage = () => {
   const getModuleDescription = (module: string) => {
     switch (module) {
       case "OLLAMA":
-        return "Model settings & configurations"
+        return t("settings.reset.modules.ollama.description")
       case "THEME":
-        return "UI appearance preferences"
+        return t("settings.reset.modules.theme.description")
       case "BROWSER":
-        return "Tab access & URL patterns"
+        return t("settings.reset.modules.browser.description")
       case "TTS":
-        return "Text-to-speech settings"
+        return t("settings.reset.modules.tts.description")
       case "CHAT_SESSIONS":
-        return "Conversation history"
+        return t("settings.reset.modules.chat_sessions.description")
       default:
-        return "Module settings"
+        return t("settings.reset.modules.default.description")
     }
   }
 
@@ -74,10 +76,12 @@ export const ResetStorage = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <RefreshCcw className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">Reset Settings</CardTitle>
+            <CardTitle className="text-lg">
+              {t("settings.reset.title")}
+            </CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Clear stored data by module or reset everything to defaults
+            {t("settings.reset.description")}
           </CardDescription>
         </CardHeader>
 
@@ -102,10 +106,10 @@ export const ResetStorage = () => {
               <RefreshCcw className="h-4 w-4 flex-shrink-0 text-destructive" />
               <div>
                 <h4 className="text-sm font-medium text-destructive">
-                  Danger Zone
+                  {t("settings.reset.danger_zone.title")}
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  This will clear all data and cannot be undone
+                  {t("settings.reset.danger_zone.description")}
                 </p>
               </div>
             </div>
@@ -114,22 +118,22 @@ export const ResetStorage = () => {
               <DialogTrigger asChild>
                 <span
                   className={cn(buttonVariants({ variant: "destructive" }))}>
-                  Reset All
+                  {t("settings.reset.danger_zone.button")}
                 </span>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Confirm Reset</DialogTitle>
+                  <DialogTitle>{t("settings.reset.dialog.title")}</DialogTitle>
                   <DialogDescription>
-                    This will clear all data and cannot be undone.
+                    {t("settings.reset.dialog.description")}
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="flex flex-col gap-4">
                   <Button variant="destructive" onClick={handleResetAll}>
-                    Yes, Reset All
+                    {t("settings.reset.dialog.confirm")}
                   </Button>
                   <Button variant="secondary" onClick={() => setOpen(false)}>
-                    Cancel
+                    {t("settings.reset.dialog.cancel")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -154,6 +158,7 @@ const ModuleResetItem = ({
   getModuleDescription: (module: string) => string
   reset: (key: string) => Promise<string>
 }) => {
+  const { t } = useTranslation()
   const [resetting, setResetting] = useState(false)
 
   return (
@@ -164,7 +169,9 @@ const ModuleResetItem = ({
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium">{module.replace("_", " ")}</h4>
             <Badge variant="secondary" className="text-xs">
-              {keys.length} {keys.length === 1 ? "item" : "items"}
+              {keys.length === 1
+                ? t("settings.reset.item_count", { count: keys.length })
+                : t("settings.reset.item_count_plural", { count: keys.length })}
             </Badge>
           </div>
           <p className="truncate text-xs text-muted-foreground">
@@ -180,7 +187,8 @@ const ModuleResetItem = ({
           await reset(module)
           setTimeout(() => setResetting(false), 1000)
         }}>
-        Reset {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
+        {t("settings.reset.reset_button")}{" "}
+        {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
       </Button>
     </div>
   )

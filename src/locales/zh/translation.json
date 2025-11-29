@@ -1,0 +1,825 @@
+{
+  "common": {
+    "theme": {
+      "toggle": "切换主题",
+      "toggle_aria_label": "切换主题",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "系统"
+    },
+    "bug_report": {
+      "label": "错误报告",
+      "aria_label": "报告错误或请求功能",
+      "tooltip": "报告错误或请求功能"
+    },
+    "settings": {
+      "label": "设置",
+      "aria_label": "扩展设置",
+      "tooltip": "扩展设置"
+    },
+    "actions": {
+      "retry": "重试",
+      "refresh": "刷新"
+    },
+    "social": {
+      "title": "联系我",
+      "visit_profile": "访问我的 {{platform}} 个人资料"
+    },
+    "language": {
+      "label": "语言",
+      "select_label": "界面语言",
+      "beta_badge": "测试版",
+      "description": "选择您偏好的界面语言。",
+      "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
+    }
+  },
+  "selection_button": {
+    "label": "询问 Ollama 客户端",
+    "tooltip": "添加到 Ollama 客户端"
+  },
+  "welcome": {
+    "title": "欢迎使用 Ollama Chat",
+    "subtitle": "本地 AI 对话，简单易行",
+    "start_chatting": "开始聊天",
+    "status": {
+      "connecting": {
+        "title": "正在连接...",
+        "message": "正在建立与 Ollama 服务器的连接"
+      },
+      "connection_failed": {
+        "title": "连接失败",
+        "message": "连接 Ollama 失败。服务器是否正在运行？"
+      },
+      "no_models": {
+        "title": "未找到模型",
+        "message": "请拉取一个模型以开始使用"
+      },
+      "ready": {
+        "title": "准备就绪",
+        "message": "Ollama 已连接，可开始聊天"
+      }
+    },
+    "setup_guide": {
+      "intro": "开始之前，请遵循以下快速步骤：",
+      "step1": "在您的系统上安装 <code>ollama</code>",
+      "step2": "运行 <code>ollama run llama3</code> 或任何其他模型",
+      "step3": "返回此处并点击<b>刷新</b>",
+      "full_guide_link": "完整设置指南"
+    },
+    "features": {
+      "private": {
+        "title": "100% 私密",
+        "description": "您的数据保留在本地"
+      },
+      "offline": {
+        "title": "离线工作",
+        "description": "无需互联网"
+      },
+      "local_processing": {
+        "title": "本地处理",
+        "description": "完全控制"
+      },
+      "embeddings": {
+        "title": "向量嵌入",
+        "description": "支持语义搜索"
+      }
+    },
+    "performance_notice": {
+      "title": "⚠️ 性能提示",
+      "message": "此扩展是您本地 Ollama 服务器的用户界面。响应时间和模型输出质量完全取决于您的设备硬件（CPU、RAM、GPU）以及您使用的特定模型。扩展本身不进行任何处理。"
+    }
+  },
+  "chat": {
+    "input": {
+      "placeholder": "输入消息 或 ctrl + /",
+      "switch_model": "切换模型",
+      "chars": "字符",
+      "enter_to_send": "发送",
+      "enter_key": "回车"
+    },
+    "actions": {
+      "copy": "复制",
+      "copied": "已复制",
+      "regenerate": "重新生成",
+      "switch_model_tooltip": "切换模型"
+    },
+    "metrics": {
+      "title": "性能指标",
+      "toggle_aria_label": "切换指标",
+      "toggle_title": "切换指标",
+      "total_time": "总耗时",
+      "generation_speed": "生成速度",
+      "prompt_tokens": "提示词 Token 数",
+      "generated_tokens": "生成 Token 数",
+      "load_time": "加载时间",
+      "prompt_eval_time": "提示词评估时间"
+    },
+    "search": {
+      "button_title": "搜索聊天记录 (语义搜索)",
+      "button_label": "搜索聊天",
+      "dialog_title": "语义聊天搜索",
+      "dialog_description": "通过语义搜索您的聊天记录，而不仅仅是关键词",
+      "beta_badge": "测试版 v0.3.0",
+      "placeholder": "通过语义搜索对话...",
+      "scope_all": "所有聊天",
+      "scope_current": "当前聊天",
+      "searching": "正在搜索聊天记录...",
+      "no_results": "未找到结果。请尝试不同的搜索查询。",
+      "start_typing": "开始输入以语义搜索您的聊天记录...",
+      "result_badge": "个结果",
+      "results_badge": "个结果",
+      "match_percentage": "匹配度",
+      "role_you": "您",
+      "role_assistant": "助手",
+      "unknown_session": "未知会话",
+      "time_just_now": "刚才",
+      "time_minute": "分钟",
+      "time_minutes": "分钟",
+      "time_hour": "小时",
+      "time_hours": "小时",
+      "time_day": "天",
+      "time_days": "天",
+      "time_ago": "前",
+      "time_unknown": "未知时间"
+    },
+    "backfill": {
+      "title": "回填聊天记录",
+      "description": "为所有现有聊天消息生成嵌入，以启用语义搜索",
+      "error_label": "错误",
+      "completed_label": "完成！",
+      "completed_message": "成功为 {{count}} 个会话中的 {{current}} 条消息生成了嵌入。",
+      "processing_label": "正在处理 {{total}} 条消息中的 {{current}} 条",
+      "info_sessions": "• 这将处理来自 {{count}} 个{{sessions}} 中的所有消息",
+      "session_singular": "会话",
+      "session_plural": "会话",
+      "info_min_chars": "• 只有至少 10 个字符的消息才会被嵌入",
+      "info_time_warning": "• 这可能需要一些时间，具体取决于消息数量",
+      "button_processing": "正在处理...",
+      "button_start": "开始回填",
+      "button_completed": "回填完成"
+    },
+    "send": {
+      "send_message": "发送消息",
+      "stop_generation": "停止生成"
+    },
+    "speech": {
+      "loading_voices": "正在加载声音...",
+      "stop_speaking": "停止朗读",
+      "speak_message": "朗读消息"
+    },
+    "voice_selector": {
+      "select_voice": "选择声音",
+      "select_placeholder": "选择一个声音...",
+      "search_placeholder": "按名称、语言或 URI 搜索...",
+      "no_voices_found": "未找到声音",
+      "no_voices_available": "此设备上没有可用的声音",
+      "try_different_search": "尝试不同的搜索词",
+      "network_voice": "网络声音",
+      "default_badge": "默认",
+      "unknown_language": "未知"
+    },
+    "message": {
+      "loading": "加载中..."
+    }
+  },
+  "file_upload": {
+    "button": {
+      "aria_label": "上传文件",
+      "tooltip": "上传文件 (PDF, DOCX, 文本文件)"
+    },
+    "preview": {
+      "remove_aria_label": "移除文件",
+      "generating_embeddings": "正在生成嵌入...",
+      "extracting_pdf": "正在从 PDF 提取文本...",
+      "processing_docx": "正在处理 DOCX 文档...",
+      "processing_file": "正在处理文件..."
+    },
+    "area": {
+      "files_ready": "{{count}} 个文件已准备就绪",
+      "files_ready_plural": "{{count}} 个文件已准备就绪"
+    },
+    "settings": {
+      "max_file_size_label": "最大文件大小 (MB)",
+      "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。"
+    }
+  },
+  "model": {
+    "ollama_status": {
+      "checking": "正在检查 Ollama 状态...",
+      "error": "Ollama 无法连接",
+      "empty": "未找到模型",
+      "ready": "Ollama 已准备就绪"
+    },
+    "embedding_status": {
+      "checking": "正在检查状态...",
+      "downloading": "正在下载 {{model}}... {{progress}}",
+      "ready": "嵌入模型就绪: {{model}}",
+      "missing": "模型缺失: {{model}}",
+      "checking_model": "正在检查嵌入模型...",
+      "required_for_rag": "RAG 功能需要嵌入模型。",
+      "download_button": "下载模型"
+    },
+    "menu": {
+      "select_placeholder": "选择模型...",
+      "models_label": "模型",
+      "refresh_aria_label": "刷新模型",
+      "refresh_tooltip": "刷新模型",
+      "search_placeholder": "搜索模型...",
+      "no_model_found": "未找到模型。"
+    },
+    "version": {
+      "tooltip": "Ollama 版本: {{version}}"
+    },
+    "site_overrides": {
+      "title": "特定站点覆盖设置",
+      "description": "使用正则表达式模式为特定站点配置自定义提取设置",
+      "add_pattern_label": "添加站点模式",
+      "pattern_placeholder": "medium.com 或 ^https://twitter\\.com/.*",
+      "pattern_empty_error": "站点模式不能为空",
+      "pattern_exists_error": "站点覆盖设置已存在",
+      "pattern_invalid_error": "无效的正则表达式模式",
+      "examples": "示例: <0>medium.com</0> 或 <0>^https://twitter\\.com/.*</0>",
+      "active_overrides": "活动覆盖设置",
+      "site_count": "{{count}} 个站点",
+      "site_count_plural": "{{count}} 个站点",
+      "select_site_label": "选择要配置的站点",
+      "select_placeholder": "选择一个站点...",
+      "search_placeholder": "搜索站点...",
+      "no_sites_found": "未找到站点。",
+      "no_overrides": "未配置特定站点覆盖设置",
+      "no_overrides_hint": "添加模式以自定义特定站点的提取设置",
+      "scroll_strategy_label": "滚动策略",
+      "scroll_depth_label": "滚动深度",
+      "add_button": "添加"
+    },
+    "exclude_urls": {
+      "title": "排除的 URL",
+      "description": "使用正则表达式模式阻止扩展访问敏感页面",
+      "add_pattern_label": "添加 URL 模式",
+      "pattern_placeholder": "^https://example\\.com/private.*",
+      "pattern_empty_error": "模式不能为空",
+      "pattern_exists_error": "模式已存在",
+      "pattern_invalid_error": "无效的正则表达式模式",
+      "examples": "使用正则表达式匹配 URL。示例: <0>^https://bank\\.</0> 或 <0>.*\\.private\\..*</0>",
+      "active_patterns": "活动模式",
+      "pattern_count": "{{count}} 个模式",
+      "pattern_count_plural": "{{count}} 个模式",
+      "no_patterns": "未配置 URL 模式",
+      "default_badge": "默认",
+      "add_button": "添加"
+    },
+    "embedding_config": {
+      "storage_stats_title": "存储统计",
+      "total_vectors": "总向量数",
+      "storage_used": "已用存储空间",
+      "cache": "缓存",
+      "cache_entries": "{{size}} / {{maxSize}} 个条目",
+      "database_management_title": "数据库管理",
+      "database_management_description": "清理和管理您的向量嵌入数据库",
+      "remove_duplicates_button": "移除重复项",
+      "remove_duplicates_description": "移除重复的嵌入，只保留每条唯一消息的第一次出现",
+      "clear_chat_button": "清除所有聊天嵌入",
+      "clear_chat_description": "删除所有聊天嵌入。您可以稍后回填以重新生成它们",
+      "clear_all_button": "清除所有嵌入",
+      "clear_all_description": "删除所有嵌入（聊天、文件、网页）。此操作无法撤消",
+      "chunking_title": "分块设置",
+      "chunking_description": "配置如何将文本拆分成块以进行嵌入",
+      "chunk_size_label": "块大小 (tokens)",
+      "chunk_size_description": "每个块的 token 数量。较大的块保留更多上下文，但可能不那么集中。",
+      "chunk_overlap_label": "块重叠 (tokens)",
+      "chunk_overlap_description": "块之间的重叠。有助于在块边界之间保留上下文。",
+      "chunking_strategy_label": "分块策略",
+      "chunking_strategy_description": "如何将文本拆分成块。混合策略在上下文和焦点之间提供了最佳平衡。",
+      "strategy_fixed": "固定大小",
+      "strategy_semantic": "语义边界",
+      "strategy_hybrid": "混合 (推荐)",
+      "embedding_gen_title": "嵌入生成",
+      "embedding_gen_description": "配置嵌入生成性能",
+      "batch_size_label": "批处理大小",
+      "batch_size_description": "并行嵌入的文本数量。值越高速度越快，但使用的内存越多。",
+      "enable_caching_label": "启用缓存",
+      "enable_caching_description": "缓存相同内容的嵌入以避免重复生成",
+      "use_webworker_label": "使用 Web Worker",
+      "use_webworker_description": "将嵌入生成卸载到后台线程（推荐）",
+      "limits_title": "限制与存储",
+      "limits_description": "配置存储限制和清理策略",
+      "max_embeddings_label": "每个文件最大嵌入数",
+      "max_embeddings_description": "每个文件最大嵌入数 (0 = 无限制)。有助于防止超大文件导致内存问题。",
+      "max_storage_label": "最大存储大小 (MB)",
+      "max_storage_description": "最大存储大小（MB）(0 = 无限制)。达到限制时将删除最旧的向量。",
+      "auto_cleanup_label": "自动清理",
+      "auto_cleanup_description": "自动删除旧的嵌入",
+      "cleanup_age_label": "清理期限 (天)",
+      "cleanup_age_description": "删除超过此天数的嵌入",
+      "chat_search_title": "聊天搜索设置",
+      "chat_search_description": "配置聊天记录的语义搜索",
+      "auto_embed_label": "自动嵌入聊天消息",
+      "auto_embed_description": "自动嵌入聊天消息以进行语义搜索（推荐）",
+      "backfill_title": "回填聊天记录",
+      "backfill_description": "为所有现有聊天消息生成嵌入，以启用语义搜索",
+      "search_settings_title": "搜索设置",
+      "search_settings_description": "语义搜索的默认参数",
+      "search_limit_label": "默认搜索限制",
+      "search_limit_description": "语义搜索返回结果的默认数量",
+      "min_similarity_label": "最小相似度阈值",
+      "min_similarity_description": "最小余弦相似度分数 (0-1)。对于语义搜索，建议 0.4-0.6。值越高返回结果越相关，但数量越少。",
+      "cache_ttl_label": "搜索缓存 TTL (分钟)",
+      "cache_ttl_description": "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
+      "cache_max_size_label": "最大缓存查询数",
+      "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。"
+    }
+  },
+  "prompts": {
+    "selector": {
+      "title": "提示词模板",
+      "description": "从 {{count}} 个模板中选择，快速开始您的对话",
+      "search_placeholder": "搜索模板、标签或描述...",
+      "sort_recent": "最新",
+      "sort_popular": "热门",
+      "sort_alphabetical": "A-Z",
+      "all_categories": "所有类别",
+      "no_templates_title": "未找到模板",
+      "no_templates_search": "请尝试调整您的搜索或筛选条件",
+      "no_templates_empty": "没有可用的提示词模板。请在设置中创建您的第一个模板。",
+      "clear_filters": "清除筛选器",
+      "preview_system_prompt": "系统提示词",
+      "preview_user_prompt": "用户提示词",
+      "preview_tags": "标签",
+      "use_template": "使用模板",
+      "copy": "复制"
+    }
+  },
+  "sessions": {
+    "selector": {
+      "title": "聊天会话",
+      "create_new": "创建新聊天",
+      "create_new_aria": "创建新聊天",
+      "start_new": "开始新聊天",
+      "no_sessions": "暂无聊天会话",
+      "no_sessions_hint": "创建您的第一个聊天即可开始",
+      "session_count": "{{count}} 个会话",
+      "session_count_plural": "{{count}} 个会话"
+    },
+    "delete": {
+      "aria_label": "删除聊天会话: {{title}}",
+      "tooltip": "删除聊天"
+    },
+    "export": {
+      "tooltip": "导出聊天",
+      "tooltip_all": "导出所有聊天会话",
+      "aria_label": "导出聊天",
+      "aria_label_all": "导出所有聊天会话",
+      "format_json": "JSON",
+      "format_pdf": "PDF"
+    },
+    "import": {
+      "tooltip": "导入聊天会话",
+      "aria_label": "导入聊天会话"
+    }
+  },
+  "tabs": {
+    "select": {
+      "placeholder": "选择打开的标签页"
+    },
+    "toggle": {
+      "label_off": "标签页",
+      "label_on": "标签页+",
+      "tooltip": "与打开的标签页进行交互"
+    }
+  },
+  "settings": {
+    "content_extraction": {
+      "title": "内容提取",
+      "description": "配置所有网站的默认内容提取行为。",
+      "enable": {
+        "label": "允许内容提取",
+        "description": "启用支持懒加载的增强内容提取"
+      },
+      "selection_button": {
+        "label": "选中文字后显示“询问 Ollama 客户端”按钮",
+        "description": "选中文字时显示浮动操作按钮，以加快将其添加到聊天的速度"
+      },
+      "scraper": {
+        "label": "内容爬取器",
+        "auto": {
+          "label": "自动",
+          "description": "智能回退：Defuddle 然后 Readability",
+          "detail": "适用于大多数站点。优先使用 Defuddle 以改进 Markdown 和代码格式，必要时回退到 Readability。"
+        },
+        "defuddle": {
+          "label": "Defuddle",
+          "description": "技术性和高度编码的内容",
+          "detail": "最适合 GitHub、文档、Stack Overflow 和开发者博客。保留代码块和 Markdown 结构。"
+        },
+        "readability": {
+          "label": "Readability",
+          "description": "文章和博客帖子",
+          "detail": "适用于新闻文章、Medium 帖子和传统博客内容。"
+        }
+      },
+      "scroll_strategy": {
+        "label": "滚动策略",
+        "none": "最快的提取速度，不支持懒加载",
+        "instant": "快速滚动适用于简单的懒加载",
+        "gradual": "平衡的平滑滚动，带有刻意的暂停，速度和精度兼顾",
+        "smart": "动态内容感知智能滚动",
+        "options": {
+          "none": "不滚动",
+          "instant": "快速滚动",
+          "gradual": "渐进滚动",
+          "smart": "智能检测"
+        },
+        "options_short": {
+          "none": "无",
+          "instant": "快速",
+          "gradual": "渐进",
+          "smart": "智能"
+        }
+      },
+      "scroll_depth": {
+        "label": "滚动深度",
+        "description": "页面滚动的百分比（越高 = 越多内容，越慢）"
+      },
+      "timeout": {
+        "scroll_delay": "滚动延迟（毫秒）",
+        "mutation_timeout": "变动观察器超时（毫秒）",
+        "network_timeout": "网络空闲超时（毫秒）",
+        "max_wait": "最长等待时间（毫秒）"
+      },
+      "badges": {
+        "recommended": "推荐",
+        "active": "活动"
+      }
+    },
+    "model": {
+      "title": "模型设置",
+      "switch_model": "切换模型",
+      "description": "配置参数以获得最佳性能。",
+      "configuration_title": "模型配置",
+      "configuration_description": "配置您的 AI 模型参数。",
+      "system": {
+        "title": "系统配置",
+        "description": "配置系统提示词和停止序列以控制模型行为。",
+        "prompt_label": "系统提示词",
+        "prompt_placeholder": "输入自定义系统提示词以指导模型的行为...",
+        "stop_sequences_label": "停止序列",
+        "stop_sequence_placeholder": "输入停止序列...",
+        "add_button": "添加"
+      },
+      "sampling": {
+        "title": "采样参数",
+        "description": "控制随机性和 Token 选择。"
+      },
+      "context": {
+        "title": "上下文和生成",
+        "description": "内存和输出控制设置"
+      },
+      "parameters": {
+        "temperature": {
+          "label": "温度",
+          "conservative": "保守",
+          "creative": "创意"
+        },
+        "top_p": {
+          "label": "Top-p (核)",
+          "focused": "集中",
+          "diverse": "多样"
+        },
+        "top_k": {
+          "label": "Top-k",
+          "validation_min": "必须至少为 {{min}}"
+        },
+        "min_p": {
+          "label": "Min-p",
+          "validation_min": "必须至少为 {{min}}。",
+          "validation_max": "必须至多为 {{max}}。"
+        },
+        "seed": {
+          "label": "种子",
+          "validation_min": "必须至少为 {{min}}"
+        },
+        "num_ctx": {
+          "label": "上下文大小",
+          "validation_min": "必须至少为 {{min}}"
+        },
+        "num_predict": {
+          "label": "最大 Token 数",
+          "validation_min": "必须至少为 {{min}}。"
+        },
+        "repeat_penalty": {
+          "label": "重复惩罚",
+          "validation_min": "必须大于 {{min}}。"
+        },
+        "repeat_last_n": {
+          "label": "重复最后 N 个",
+          "validation_min": "必须至少为 {{min}}。"
+        }
+      }
+    },
+    "base_url": {
+      "title": "Ollama 基础 URL",
+      "description": "配置您的 Ollama 安装服务器端点。",
+      "label": "Ollama API 服务器端点",
+      "error_invalid_url": "请输入有效的 URL。",
+      "status_local": "本地服务器连接",
+      "status_remote": "远程服务器连接",
+      "badges": {
+        "default": "默认",
+        "remote": "远程"
+      },
+      "button": {
+        "save": "保存",
+        "saving": "正在保存",
+        "saved": "已保存"
+      }
+    },
+    "model_pull": {
+      "title": "模型库",
+      "description": "浏览和下载您的 AI 模型。",
+      "search_placeholder": "按名称或描述搜索模型...",
+      "status": {
+        "cancelled": "已取消",
+        "downloading": "正在下载模型",
+        "loading_models": "正在加载模型...",
+        "no_models": "未找到模型",
+        "adjust_search": "调整您的搜索词。"
+      },
+      "button": {
+        "variants": "变体",
+        "loading": "正在加载",
+        "pulling": "正在拉取"
+      },
+      "variants_label": "可用变体"
+    },
+    "model_list": {
+      "unknown_size": "未知大小",
+      "invalid_size": "无效大小",
+      "unknown_date": "未知日期",
+      "invalid_date": "无效日期",
+      "time_ago_hours": "{{count}} 小时前",
+      "time_ago_days": "{{count}} 天前",
+      "title": "模型",
+      "title_count": "{{count}} 个模型",
+      "retry": "重试",
+      "refresh": "刷新",
+      "no_models": "未找到模型",
+      "refresh_tooltip": "刷新模型",
+      "delete_dialog": {
+        "title": "删除此模型？",
+        "description": "此操作无法撤消。该模型将从您的本地系统永久移除。",
+        "cancel": "取消",
+        "confirm": "删除"
+      }
+    },
+    "model_info": {
+      "title": "模型信息",
+      "no_data": "此模型无可用数据。",
+      "no_data_available": "无模型数据可用",
+      "error_fetching": "获取模型数据出错。",
+      "error_details": "无法检索模型详细信息。",
+      "refresh_tooltip": "刷新模型详细信息",
+      "capabilities": "功能",
+      "technical_details": "技术详情",
+      "unknown_file_type": "未知"
+    },
+    "loaded_models": {
+      "title": "已加载模型",
+      "count_one": "{{count}} 个模型",
+      "count_other": "{{count}} 个模型",
+      "refresh_tooltip": "刷新已加载模型",
+      "no_models_title": "目前内存中没有加载模型",
+      "no_models_description": "模型加载后将在此处显示。",
+      "unload_tooltip": "卸载模型"
+    },
+    "tabs": {
+      "general": "通用",
+      "prompts": "提示词",
+      "models": "模型",
+      "extraction": "提取",
+      "embeddings": "嵌入",
+      "voices": "声音",
+      "reset": "重置",
+      "guides": "指南"
+    },
+    "page": {
+      "title": "Ollama 客户端设置",
+      "description": "在一个地方管理您的 Ollama 设置的所有方面。有关提示和设置指南，请访问“指南”标签页。"
+    },
+    "speech": {
+      "title": "语音设置",
+      "description": "配置您的文本转语音声音、语速和音调设置。",
+      "voice_label": "声音",
+      "rate_label": "语速",
+      "pitch_label": "音调",
+      "preview_title": "预览",
+      "test_text_label": "测试文本",
+      "test_text_placeholder": "在此处输入文字以测试您的语音设置...",
+      "test_hint_text": "点击“测试声音”听取您的文字。",
+      "test_hint_default": "点击“测试声音”听取默认样本。",
+      "test_button": "测试声音",
+      "test_fallback": "你好，这是对你的语音设置的测试。",
+      "rate": {
+        "very_slow": "非常慢",
+        "slow": "慢",
+        "normal": "正常",
+        "fast": "快",
+        "very_fast": "非常快"
+      },
+      "pitch": {
+        "very_low": "非常低",
+        "low": "低",
+        "normal": "正常",
+        "high": "高",
+        "very_high": "非常高"
+      }
+    },
+    "embeddings": {
+      "title": "向量嵌入",
+      "beta_badge": "测试版",
+      "description": "嵌入功能支持语义搜索、检索增强生成和文件上传与聊天记录的上下文感知功能。",
+      "model_label": "嵌入模型",
+      "status": {
+        "installed": "已安装",
+        "not_found": "未找到",
+        "checking": "正在检查...",
+        "check_button": "检查状态"
+      },
+      "not_loaded": {
+        "title": "嵌入模型未加载",
+        "description": "语义搜索、RAG（检索增强生成）和上下文感知功能需要嵌入模型。立即下载它，以通过更好的上下文理解和文件搜索功能来增强您的聊天体验。",
+        "download_button": "下载模型"
+      },
+      "downloading": {
+        "title": "正在下载模型..."
+      },
+      "success": {
+        "title": "下载成功",
+        "description": "嵌入模型现在可以使用了。您现在可以享受带有语义搜索和上下文感知功能的增强聊天体验。"
+      },
+      "auto_downloaded": {
+        "title": "自动安装",
+        "description": "安装扩展时，嵌入模型已自动下载。"
+      },
+      "test_generation": {
+        "title": "测试嵌入生成",
+        "description": "生成一个测试嵌入以验证嵌入模型是否正常工作。",
+        "button": "测试",
+        "button_testing": "测试中..."
+      },
+      "rebuild_index": {
+        "title": "重建索引",
+        "description": "强制从现有向量重建关键字搜索索引。如果搜索结果丢失或不一致，请使用此选项。",
+        "button": "重建索引",
+        "button_rebuilding": "正在重建...",
+        "status_starting": "开始重建...",
+        "status_processing": "正在处理 {{total}} 项中的 {{current}} 项...",
+        "success": "索引重建成功完成！",
+        "error": "重建索引失败。请重试。"
+      },
+      "test_search": {
+        "title": "语义搜索",
+        "description": "验证您上传的文件是否可访问和可搜索。输入搜索查询以查找匹配的内容。",
+        "placeholder": "搜索...",
+        "results_found": "找到 {{count}} 个结果",
+        "no_results": "未找到结果。请尝试不同的搜索或上传更多内容。"
+      },
+      "what_are_embeddings": {
+        "title": "什么是嵌入？",
+        "point_1": "将文本转换为捕获语义意义的数值向量",
+        "point_2": "实现在您的聊天记录和上传文件中的语义搜索",
+        "point_3": "为上下文感知响应提供 RAG 能力",
+        "point_4": "从您的文件中提供相关上下文以改善 AI 响应"
+      },
+      "rag_mode": {
+        "label": "智能上下文 (RAG)",
+        "description": "使用语义搜索从您的文件中查找相关上下文，而不是发送整个文件内容。"
+      },
+      "model_select": {
+        "label": "嵌入模型",
+        "placeholder": "选择一个模型",
+        "description": "选择一个模型来生成嵌入。您可能需要先下载它。"
+      }
+    },
+    "prompts": {
+      "title": "提示词模板",
+      "description": "管理您收集的 {{count}} 个提示词模板。",
+      "export": "导出模板",
+      "import": "导入模板",
+      "reset": "重置为默认值",
+      "reset_dialog": {
+        "title": "重置模板为默认值？",
+        "description": "这会将您当前所有的模板替换为默认模板。此操作无法撤销。",
+        "cancel": "取消",
+        "confirm": "重置模板"
+      },
+      "search_placeholder": "搜索模板...",
+      "category_placeholder": "类别",
+      "all_categories": "所有类别",
+      "sort": {
+        "recent": "最新",
+        "popular": "热门",
+        "alphabetical": "A-Z"
+      },
+      "new_template": "新建模板",
+      "form": {
+        "title": "标题",
+        "title_placeholder": "模板标题",
+        "category": "类别",
+        "category_placeholder": "例如，开发, 写作",
+        "description": "描述",
+        "description_placeholder": "模板目的和功能的简要描述。",
+        "tags": "标签",
+        "tags_placeholder": "标签1, 标签2, 标签3",
+        "user_prompt": "用户提示词",
+        "user_prompt_placeholder": "主提示词模板",
+        "system_prompt": "系统提示词",
+        "create_button": "创建模板"
+      },
+      "delete_dialog": {
+        "title": "删除模板",
+        "description": "您确定要删除“{{title}}”吗？此操作无法撤销。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "created_at": "{{date}} 创建",
+      "used_times": "已使用 {{count}} 次"
+    },
+    "reset": {
+      "title": "重置设置",
+      "description": "按模块清除存储的数据或将所有内容重置为默认值",
+      "danger_zone": {
+        "title": "危险区域",
+        "description": "这将清除所有数据且无法撤消",
+        "button": "全部重置"
+      },
+      "dialog": {
+        "title": "确认重置",
+        "description": "这将清除所有数据且无法撤消。",
+        "confirm": "是，全部重置",
+        "cancel": "取消"
+      },
+      "modules": {
+        "ollama": {
+          "description": "模型设置和配置"
+        },
+        "theme": {
+          "description": "UI 外观偏好设置"
+        },
+        "browser": {
+          "description": "标签页访问和 URL 模式"
+        },
+        "tts": {
+          "description": "文本转语音设置"
+        },
+        "chat_sessions": {
+          "description": "对话历史记录"
+        },
+        "default": {
+          "description": "模块设置"
+        }
+      },
+      "item_count": "{{count}} 个项目",
+      "item_count_plural": "{{count}} 个项目",
+      "reset_button": "重置"
+    }
+  },
+  "guides": {
+    "title": "有用的指南和文档",
+    "description": "需要帮助设置 Ollama 客户端或探索功能？查看这些有用的资源",
+    "support": {
+      "title": "支持项目",
+      "description": "在 Product Hunt 上推荐 Ollama 客户端，帮助我们发展",
+      "image_alt": "Ollama Client - 在浏览器中与本地 LLM 聊天 | Product Hunt"
+    },
+    "items": {
+      "setup": {
+        "label": "Ollama 客户端设置指南",
+        "description": "完整的安装和配置指南",
+        "badge": "指南"
+      },
+      "library": {
+        "label": "官方 Ollama 模型库",
+        "description": "浏览可用的 AI 模型和文档",
+        "badge": "库"
+      },
+      "github": {
+        "label": "GitHub 仓库",
+        "description": "源代码、发布和贡献指南",
+        "badge": "代码"
+      },
+      "faq": {
+        "label": "故障排除和常见问题",
+        "description": "常见问题和社区支持",
+        "badge": "帮助"
+      }
+    }
+  },
+  "social": {
+    "github": "GitHub 页面",
+    "portfolio": "作品集",
+    "linkedin": "领英",
+    "twitter": "推特",
+    "instagram": "Instagram",
+    "bug_report": "报告错误 / 功能"
+  }
+}

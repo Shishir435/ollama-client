@@ -78,6 +78,8 @@ type SliderConfig = {
   rightLabel?: string
 }
 
+import { useTranslation } from "react-i18next"
+
 // Field configurations for validation
 const fieldValidations: Record<
   keyof FormValues,
@@ -95,103 +97,8 @@ const fieldValidations: Record<
   repeat_last_n: (v) => typeof v === "number" && !Number.isNaN(v) && v >= -1
 }
 
-// Slider field configurations
-const sliderConfigs: SliderConfig[] = [
-  {
-    name: "temperature",
-    label: "Temperature",
-    icon: Thermometer,
-    min: 0,
-    max: 1,
-    step: 0.01,
-    leftLabel: "Conservative",
-    rightLabel: "Creative"
-  },
-  {
-    name: "top_p",
-    label: "Top P (Nucleus)",
-    icon: Eye,
-    min: 0,
-    max: 1,
-    step: 0.01,
-    leftLabel: "Focused",
-    rightLabel: "Diverse"
-  }
-]
-
-// Number input field configurations
-const numberInputConfigs: NumberInputConfig[] = [
-  {
-    name: "top_k",
-    label: "Top K",
-    icon: Hash,
-    min: 1,
-    group: "sampling",
-    validation: {
-      min: { value: 1, message: "Must be at least 1" }
-    }
-  },
-  {
-    name: "min_p",
-    label: "Min P",
-    icon: Layers,
-    step: 0.01,
-    min: 0.0,
-    max: 1.0,
-    group: "sampling",
-    validation: {
-      min: { value: 0, message: "Must be at least 0" },
-      max: { value: 1, message: "Must be at most 1" }
-    }
-  },
-  {
-    name: "seed",
-    label: "Seed",
-    min: 0,
-    group: "context-row1",
-    validation: {
-      min: { value: 0, message: "Must be at least 0" }
-    }
-  },
-  {
-    name: "num_ctx",
-    label: "Context Size",
-    min: 128,
-    group: "context-row1",
-    validation: {
-      min: { value: 128, message: "Must be at least 128" }
-    }
-  },
-  {
-    name: "num_predict",
-    label: "Max Tokens",
-    group: "context-row2",
-    validation: {
-      min: { value: -1, message: "Must be at least -1" }
-    }
-  },
-  {
-    name: "repeat_penalty",
-    label: "Repeat Penalty",
-    step: 0.1,
-    min: 0.1,
-    group: "context-row2",
-    validation: {
-      min: { value: 0.1, message: "Must be greater than 0" }
-    }
-  },
-  {
-    name: "repeat_last_n",
-    label: "Repeat Last N",
-    min: -1,
-    group: "context-row3",
-    validation: {
-      min: { value: -1, message: "Must be at least -1" }
-    }
-  }
-]
-
 export const ModelSettingsForm = () => {
+  const { t } = useTranslation()
   const [selectedModel] = useStorage<string>(
     { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
     ""
@@ -199,6 +106,145 @@ export const ModelSettingsForm = () => {
 
   const [config, updateConfig] = useModelConfig(selectedModel)
   const [newStop, setNewStop] = useState("")
+
+  // Slider field configurations
+  const sliderConfigs: SliderConfig[] = [
+    {
+      name: "temperature",
+      label: t("settings.model.parameters.temperature.label"),
+      icon: Thermometer,
+      min: 0,
+      max: 1,
+      step: 0.01,
+      leftLabel: t("settings.model.parameters.temperature.conservative"),
+      rightLabel: t("settings.model.parameters.temperature.creative")
+    },
+    {
+      name: "top_p",
+      label: t("settings.model.parameters.top_p.label"),
+      icon: Eye,
+      min: 0,
+      max: 1,
+      step: 0.01,
+      leftLabel: t("settings.model.parameters.top_p.focused"),
+      rightLabel: t("settings.model.parameters.top_p.diverse")
+    }
+  ]
+
+  // Number input field configurations
+  const numberInputConfigs: NumberInputConfig[] = [
+    {
+      name: "top_k",
+      label: t("settings.model.parameters.top_k.label"),
+      icon: Hash,
+      min: 1,
+      group: "sampling",
+      validation: {
+        min: {
+          value: 1,
+          message: t("settings.model.parameters.top_k.validation_min", {
+            min: 1
+          })
+        }
+      }
+    },
+    {
+      name: "min_p",
+      label: t("settings.model.parameters.min_p.label"),
+      icon: Layers,
+      step: 0.01,
+      min: 0.0,
+      max: 1.0,
+      group: "sampling",
+      validation: {
+        min: {
+          value: 0,
+          message: t("settings.model.parameters.min_p.validation_min", {
+            min: 0
+          })
+        },
+        max: {
+          value: 1,
+          message: t("settings.model.parameters.min_p.validation_max", {
+            max: 1
+          })
+        }
+      }
+    },
+    {
+      name: "seed",
+      label: t("settings.model.parameters.seed.label"),
+      min: 0,
+      group: "context-row1",
+      validation: {
+        min: {
+          value: 0,
+          message: t("settings.model.parameters.seed.validation_min", {
+            min: 0
+          })
+        }
+      }
+    },
+    {
+      name: "num_ctx",
+      label: t("settings.model.parameters.num_ctx.label"),
+      min: 128,
+      group: "context-row1",
+      validation: {
+        min: {
+          value: 128,
+          message: t("settings.model.parameters.num_ctx.validation_min", {
+            min: 128
+          })
+        }
+      }
+    },
+    {
+      name: "num_predict",
+      label: t("settings.model.parameters.num_predict.label"),
+      group: "context-row2",
+      validation: {
+        min: {
+          value: -1,
+          message: t("settings.model.parameters.num_predict.validation_min", {
+            min: -1
+          })
+        }
+      }
+    },
+    {
+      name: "repeat_penalty",
+      label: t("settings.model.parameters.repeat_penalty.label"),
+      step: 0.1,
+      min: 0.1,
+      group: "context-row2",
+      validation: {
+        min: {
+          value: 0.1,
+          message: t(
+            "settings.model.parameters.repeat_penalty.validation_min",
+            {
+              min: 0.1
+            }
+          )
+        }
+      }
+    },
+    {
+      name: "repeat_last_n",
+      label: t("settings.model.parameters.repeat_last_n.label"),
+      min: -1,
+      group: "context-row3",
+      validation: {
+        min: {
+          value: -1,
+          message: t("settings.model.parameters.repeat_last_n.validation_min", {
+            min: -1
+          })
+        }
+      }
+    }
+  ]
 
   const methods = useForm<FormValues>({
     defaultValues: {
@@ -325,14 +371,16 @@ export const ModelSettingsForm = () => {
           <CardHeader>
             <div className="mb-2 flex items-center gap-2">
               <Settings className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-2xl">Model Settings</CardTitle>
+              <CardTitle className="text-2xl">
+                {t("settings.model.configuration_title")}
+              </CardTitle>
             </div>
             <CardDescription>
-              Configure your AI model parameters
+              {t("settings.model.configuration_description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ModelMenu tooltipTextContent="Choose model" />
+            <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
             <BaseUrlSettings />
           </CardContent>
         </Card>
@@ -373,18 +421,20 @@ export const ModelSettingsForm = () => {
             <div className="flex items-center justify-between">
               <div className="mb-2 flex items-center gap-2">
                 <Settings className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-xl">Model Settings</CardTitle>
+                <CardTitle className="text-xl">
+                  {t("settings.model.title")}
+                </CardTitle>
               </div>
               <div className="flex items-center gap-3">
-                <ModelMenu tooltipTextContent="Switch model" />
+                <ModelMenu
+                  tooltipTextContent={t("settings.model.switch_model")}
+                />
                 <ThemeToggle />
                 <OllamaStatusIndicator />
                 <OllamaVersion />
               </div>
             </div>
-            <CardDescription>
-              Configure parameters for optimal performance
-            </CardDescription>
+            <CardDescription>{t("settings.model.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ModelInfo selectedModel={selectedModel} />
@@ -398,21 +448,22 @@ export const ModelSettingsForm = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-xl">System Configuration</CardTitle>
+              <CardTitle className="text-xl">
+                {t("settings.model.system.title")}
+              </CardTitle>
             </div>
             <CardDescription>
-              Configure system prompts and stop sequences to control model
-              behavior
+              {t("settings.model.system.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <Label htmlFor="system" className="text-base font-medium">
-                System Prompt
+                {t("settings.model.system.prompt_label")}
               </Label>
               <Textarea
                 id="system"
-                placeholder="Enter a custom system prompt to guide the model's behavior..."
+                placeholder={t("settings.model.system.prompt_placeholder")}
                 {...methods.register("system")}
                 className="min-h-[100px] resize-none"
               />
@@ -423,19 +474,21 @@ export const ModelSettingsForm = () => {
                 htmlFor="stop-sequences"
                 className="flex items-center gap-2 text-base font-medium">
                 <StopCircle className="h-4 w-4" />
-                Stop Sequences
+                {t("settings.model.system.stop_sequences_label")}
               </Label>
               <div className="flex gap-2">
                 <Input
                   id="stop-sequences"
                   value={newStop}
-                  placeholder="Enter stop sequence..."
+                  placeholder={t(
+                    "settings.model.system.stop_sequence_placeholder"
+                  )}
                   onChange={(e) => setNewStop(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddStop()}
                   className="flex-1"
                 />
                 <Button type="button" onClick={handleAddStop}>
-                  Add
+                  {t("settings.model.system.add_button")}
                 </Button>
               </div>
               {config.stop.length > 0 && (
@@ -462,8 +515,8 @@ export const ModelSettingsForm = () => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <FormSectionCard
-            title="Sampling Parameters"
-            description="Control randomness and token selection"
+            title={t("settings.model.sampling.title")}
+            description={t("settings.model.sampling.description")}
             icon={Target}>
             <div className="space-y-6">
               {sliderConfigs.map((slider) => (
@@ -478,8 +531,8 @@ export const ModelSettingsForm = () => {
           </FormSectionCard>
 
           <FormSectionCard
-            title="Context & Generation"
-            description="Memory and output control settings"
+            title={t("settings.model.context.title")}
+            description={t("settings.model.context.description")}
             icon={Brain}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

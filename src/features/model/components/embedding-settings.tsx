@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,7 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import {
   getStorageStats,
@@ -39,6 +41,7 @@ import {
 import {
   AlertCircle,
   CheckCircle,
+  Database,
   Download,
   Loader2,
   Search,
@@ -49,6 +52,7 @@ import type { ChromeResponse } from "@/types"
 import { EmbeddingConfigSettings } from "./embedding-config-settings"
 
 export const EmbeddingSettings = () => {
+  const { t } = useTranslation()
   const [selectedModel, setSelectedModel] = useStorage<string>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
@@ -211,6 +215,45 @@ export const EmbeddingSettings = () => {
     null
   )
 
+  const [isRebuildingIndex, setIsRebuildingIndex] = useState(false)
+  const [rebuildProgress, setRebuildProgress] = useState<{
+    current: number
+    total: number
+    status: string
+  } | null>(null)
+  const [rebuildResult, setRebuildResult] = useState<string | null>(null)
+
+  const handleRebuildIndex = async () => {
+    setIsRebuildingIndex(true)
+    setRebuildProgress({
+      current: 0,
+      total: 100,
+      status: t("settings.embeddings.rebuild_index.status_starting")
+    })
+    setRebuildResult(null)
+
+    try {
+      await buildKeywordIndexFromExisting((current, total) => {
+        setRebuildProgress({
+          current,
+          total,
+          status: t("settings.embeddings.rebuild_index.status_processing", {
+            current,
+            total
+          })
+        })
+      }, true) // Force rebuild
+
+      setRebuildResult(`✅ ${t("settings.embeddings.rebuild_index.success")}`)
+    } catch (error) {
+      console.error("Failed to rebuild index:", error)
+      setRebuildResult(`❌ ${t("settings.embeddings.rebuild_index.error")}`)
+    } finally {
+      setIsRebuildingIndex(false)
+      setRebuildProgress(null)
+    }
+  }
+
   const handleTestSearch = async () => {
     if (!searchQuery.trim()) return
     setIsSearching(true)
@@ -247,13 +290,13 @@ export const EmbeddingSettings = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">Vector Embeddings</CardTitle>
-            <MiniBadge text="Beta v0.3.0" />
+            <CardTitle className="text-lg">
+              {t("settings.embeddings.title")}
+            </CardTitle>
+            <MiniBadge text={t("settings.embeddings.beta_badge")} />
           </div>
           <CardDescription className="text-sm">
-            Embeddings enable semantic search, RAG (Retrieval Augmented
-            Generation), and context-aware features for file uploads and chat
-            history.
+            {t("settings.embeddings.description")}
           </CardDescription>
         </CardHeader>
 
@@ -261,7 +304,9 @@ export const EmbeddingSettings = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Embedding Model</p>
+                <p className="text-sm font-medium">
+                  {t("settings.embeddings.model_label")}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {selectedModel || DEFAULT_EMBEDDING_MODEL}
                 </p>
@@ -269,13 +314,13 @@ export const EmbeddingSettings = () => {
               {modelExists === true && (
                 <Badge variant="default" className="gap-1">
                   <CheckCircle className="h-3 w-3" />
-                  Installed
+                  {t("settings.embeddings.status.installed")}
                 </Badge>
               )}
               {modelExists === false && (
                 <Badge variant="secondary" className="gap-1">
                   <AlertCircle className="h-3 w-3" />
-                  Not Found
+                  {t("settings.embeddings.status.not_found")}
                 </Badge>
               )}
             </div>
@@ -288,14 +333,10 @@ export const EmbeddingSettings = () => {
                   <div className="flex-1 space-y-3">
                     <div>
                       <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">
-                        Embedding Model Not Loaded
+                        {t("settings.embeddings.not_loaded.title")}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        The embedding model is required for semantic search, RAG
-                        (Retrieval Augmented Generation), and context-aware
-                        features. Download it now to enhance your chat
-                        experience with better context understanding and file
-                        search capabilities.
+                        {t("settings.embeddings.not_loaded.description")}
                       </p>
                     </div>
                     <Button
@@ -303,7 +344,9 @@ export const EmbeddingSettings = () => {
                       size="sm"
                       className="w-full sm:w-auto">
                       <Download className="h-4 w-4 mr-2" />
-                      Download {currentModel}
+                      {t("settings.embeddings.not_loaded.download_button", {
+                        model: currentModel
+                      })}
                     </Button>
                   </div>
                 </div>
@@ -317,7 +360,9 @@ export const EmbeddingSettings = () => {
                   <Loader2 className="h-5 w-5 text-primary animate-spin mt-0.5 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <p className="text-sm font-medium text-primary">
-                      Downloading {currentModel}...
+                      {t("settings.embeddings.downloading.title", {
+                        model: currentModel
+                      })}
                     </p>
                     {progress && (
                       <p className="text-xs text-muted-foreground">
@@ -342,12 +387,10 @@ export const EmbeddingSettings = () => {
                   <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-green-600 dark:text-green-400">
-                      Successfully downloaded!
+                      {t("settings.embeddings.success.title")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      The embedding model is now ready to use. You can now enjoy
-                      enhanced chat experiences with semantic search and
-                      context-aware features.
+                      {t("settings.embeddings.success.description")}
                     </p>
                   </div>
                 </div>
@@ -360,11 +403,10 @@ export const EmbeddingSettings = () => {
                   <Download className="h-4 w-4 text-primary mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-primary">
-                      Auto-downloaded on install
+                      {t("settings.embeddings.auto_downloaded.title")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      The embedding model was automatically downloaded when you
-                      installed the extension.
+                      {t("settings.embeddings.auto_downloaded.description")}
                     </p>
                   </div>
                 </div>
@@ -381,16 +423,16 @@ export const EmbeddingSettings = () => {
                 {isChecking ? (
                   <>
                     <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                    Checking...
+                    {t("settings.embeddings.status.checking")}
                   </>
                 ) : (
-                  "Check Status"
+                  t("settings.embeddings.status.check_button")
                 )}
               </Button>
               {modelExists === false && !isDownloading && (
                 <Button onClick={handleDownload} size="sm" className="flex-1">
                   <Download className="h-3 w-3 mr-2" />
-                  Download
+                  {t("model.embedding_status.download_button")}
                 </Button>
               )}
             </div>
@@ -400,7 +442,7 @@ export const EmbeddingSettings = () => {
               <div className="rounded-lg border border-muted bg-muted/30 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-medium">
-                    Test Embedding Generation
+                    {t("settings.embeddings.test_generation.title")}
                   </h4>
                   <Button
                     variant="outline"
@@ -410,19 +452,20 @@ export const EmbeddingSettings = () => {
                     {isTestingEmbedding ? (
                       <>
                         <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                        Testing...
+                        {t(
+                          "settings.embeddings.test_generation.button_testing"
+                        )}
                       </>
                     ) : (
                       <>
                         <Sparkles className="h-3 w-3 mr-1" />
-                        Test
+                        {t("settings.embeddings.test_generation.button")}
                       </>
                     )}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Generate a test embedding to verify the embedding model is
-                  working correctly.
+                  {t("settings.embeddings.test_generation.description")}
                 </p>
                 {testResult && (
                   <div
@@ -437,20 +480,88 @@ export const EmbeddingSettings = () => {
               </div>
             )}
 
+            {/* Rebuild Keyword Index */}
+            {modelExists === true && (
+              <div className="rounded-lg border border-muted bg-muted/30 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">
+                    {t("settings.embeddings.rebuild_index.title")}
+                  </h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRebuildIndex}
+                    disabled={isRebuildingIndex}>
+                    {isRebuildingIndex ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        {t(
+                          "settings.embeddings.rebuild_index.button_rebuilding"
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-3 w-3 mr-1" />
+                        {t("settings.embeddings.rebuild_index.button")}
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("settings.embeddings.rebuild_index.description")}
+                </p>
+                {rebuildProgress && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{rebuildProgress.status}</span>
+                      <span>
+                        {Math.round(
+                          (rebuildProgress.current / rebuildProgress.total) *
+                            100
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300"
+                        style={{
+                          width: `${(rebuildProgress.current / rebuildProgress.total) * 100}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {rebuildResult && (
+                  <div
+                    className={`text-xs p-2 rounded mt-2 ${
+                      rebuildResult.startsWith("✅")
+                        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                        : "bg-red-500/10 text-red-600 dark:text-red-400"
+                    }`}>
+                    {rebuildResult}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Test Semantic Search */}
             {modelExists === true && (
               <div className="rounded-lg border border-muted bg-muted/30 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">Test Semantic Search</h4>
+                  <h4 className="text-sm font-medium">
+                    {t("settings.embeddings.test_search.title")}
+                  </h4>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Verify that your uploaded files can be found. Enter a query to
-                  see matching chunks.
+                  {t("settings.embeddings.test_search.description")}
                 </p>
 
                 <div className="flex gap-2 mb-3">
                   <Input
-                    placeholder="Enter a search query..."
+                    placeholder={t(
+                      "settings.embeddings.test_search.placeholder"
+                    )}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-8 text-xs"
@@ -472,12 +583,13 @@ export const EmbeddingSettings = () => {
                 {searchResults && (
                   <div className="space-y-2 mt-2">
                     <p className="text-xs font-medium text-muted-foreground">
-                      Found {searchResults.length} results:
+                      {t("settings.embeddings.test_search.results_found", {
+                        count: searchResults.length
+                      })}
                     </p>
                     {searchResults.length === 0 ? (
                       <div className="text-xs text-muted-foreground italic p-2 border rounded bg-background/50">
-                        No matches found. Try a different query or upload more
-                        files.
+                        {t("settings.embeddings.test_search.no_results")}
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
@@ -509,33 +621,25 @@ export const EmbeddingSettings = () => {
           </div>
 
           <div className="rounded-lg border border-muted bg-muted/30 p-4">
-            <h4 className="text-sm font-medium mb-2">What are embeddings?</h4>
+            <h4 className="text-sm font-medium mb-2">
+              {t("settings.embeddings.what_are_embeddings.title")}
+            </h4>
             <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-              <li>
-                Convert text into numerical vectors that capture semantic
-                meaning
-              </li>
-              <li>
-                Enable semantic search across your chat history and uploaded
-                files
-              </li>
-              <li>
-                Power RAG (Retrieval Augmented Generation) for context-aware
-                responses
-              </li>
-              <li>
-                Help find relevant context from files for better AI responses
-              </li>
+              <li>{t("settings.embeddings.what_are_embeddings.point_1")}</li>
+              <li>{t("settings.embeddings.what_are_embeddings.point_2")}</li>
+              <li>{t("settings.embeddings.what_are_embeddings.point_3")}</li>
+              <li>{t("settings.embeddings.what_are_embeddings.point_4")}</li>
             </ul>
           </div>
 
           <div className="rounded-lg border p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="rag-mode">Smart Context (RAG)</Label>
+                <Label htmlFor="rag-mode">
+                  {t("settings.embeddings.rag_mode.label")}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  Use semantic search to find relevant context from your files
-                  instead of sending the full text.
+                  {t("settings.embeddings.rag_mode.description")}
                 </p>
               </div>
               <Switch
@@ -552,16 +656,21 @@ export const EmbeddingSettings = () => {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Embedding Model</Label>
+              <Label>{t("settings.embeddings.model_select.label")}</Label>
               <Select
                 value={selectedModel}
                 onValueChange={(value) => setSelectedModel(value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a model" />
+                  <SelectValue
+                    placeholder={t(
+                      "settings.embeddings.model_select.placeholder"
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mxbai-embed-large">
-                    mxbai-embed-large (Recommended)
+                    mxbai-embed-large (
+                    {t("settings.content_extraction.badges.recommended")})
                   </SelectItem>
                   <SelectItem value="nomic-embed-text">
                     nomic-embed-text
@@ -573,8 +682,7 @@ export const EmbeddingSettings = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Select the model used for generating embeddings. You may need to
-                download it first.
+                {t("settings.embeddings.model_select.description")}
               </p>
             </div>
           </div>

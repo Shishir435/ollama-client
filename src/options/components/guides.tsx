@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -12,72 +13,73 @@ import { ExternalLink, Notebook } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const Guides = () => {
+  const { t } = useTranslation()
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Notebook className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">
-              Helpful Guides & Documentation
-            </CardTitle>
+            <CardTitle className="text-lg">{t("guides.title")}</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Need help setting up Ollama Client or exploring features? Check out
-            these useful resources
+            {t("guides.description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
           <div className="grid gap-3">
-            {GUIDES.map(({ label, href, description, badge, icon: Icon }) => (
-              <Card
-                key={href}
-                className="group transition-all hover:border-primary/20 hover:shadow-sm">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <h4 className="truncate text-sm font-medium">
-                          {label}
-                        </h4>
-                        <Badge
-                          variant="secondary"
-                          className="flex-shrink-0 text-xs">
-                          {badge}
-                        </Badge>
+            {GUIDES.map(
+              ({ labelKey, href, descriptionKey, badgeKey, icon: Icon }) => (
+                <Card
+                  key={href}
+                  className="group transition-all hover:border-primary/20 hover:shadow-sm">
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
+                        <Icon className="h-4 w-4" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {description}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <h4 className="truncate text-sm font-medium">
+                            {t(labelKey)}
+                          </h4>
+                          <Badge
+                            variant="secondary"
+                            className="flex-shrink-0 text-xs">
+                            {t(badgeKey)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {t(descriptionKey)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      buttonVariants({ variant: "link" }),
-                      "flex items-center justify-center"
-                    )}>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </CardContent>
-              </Card>
-            ))}
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        buttonVariants({ variant: "link" }),
+                        "flex items-center justify-center"
+                      )}>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </CardContent>
+                </Card>
+              )
+            )}
           </div>
 
           <div className="border-t pt-4">
             <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
               <div className="text-center sm:text-left">
                 <h4 className="mb-1 text-sm font-medium">
-                  Support the Project
+                  {t("guides.support.title")}
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Help us grow by featuring Ollama Client on Product Hunt
+                  {t("guides.support.description")}
                 </p>
               </div>
               <div className="flex-shrink-0">
@@ -88,7 +90,7 @@ export const Guides = () => {
                   className="block transition-opacity hover:opacity-80">
                   <img
                     src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=975260&theme=light&t=1749479481982"
-                    alt="Ollama Client - Chat with local LLMs — right inside your browser | Product Hunt"
+                    alt={t("guides.support.image_alt")}
                     className="h-[48px] w-[220px] rounded border"
                     width="220"
                     height="48"

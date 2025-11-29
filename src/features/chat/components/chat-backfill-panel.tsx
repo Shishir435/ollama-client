@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,6 +16,7 @@ import { db } from "@/lib/db"
 import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
 
 export const ChatBackfillPanel = () => {
+  const { t } = useTranslation()
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState<string | null>(null)
@@ -82,12 +85,9 @@ export const ChatBackfillPanel = () => {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5" />
-          Backfill Chat History
+          {t("chat.backfill.title")}
         </CardTitle>
-        <CardDescription>
-          Generate embeddings for all existing chat messages to enable semantic
-          search
-        </CardDescription>
+        <CardDescription>{t("chat.backfill.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
@@ -96,7 +96,7 @@ export const ChatBackfillPanel = () => {
               <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                  Error
+                  {t("chat.backfill.error_label")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{error}</p>
               </div>
@@ -110,11 +110,13 @@ export const ChatBackfillPanel = () => {
               <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <p className="text-xs font-medium text-green-600 dark:text-green-400">
-                  Completed!
+                  {t("chat.backfill.completed_label")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Successfully embedded {progress.current} messages across{" "}
-                  {sessions.length} sessions.
+                  {t("chat.backfill.completed_message", {
+                    current: progress.current,
+                    count: sessions.length
+                  })}
                 </p>
               </div>
             </div>
@@ -125,7 +127,10 @@ export const ChatBackfillPanel = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                Processing {progress.current} of {progress.total} messages
+                {t("chat.backfill.processing_label", {
+                  current: progress.current,
+                  total: progress.total
+                })}
               </span>
               <span>{Math.round(progressPercentage)}%</span>
             </div>
@@ -135,11 +140,16 @@ export const ChatBackfillPanel = () => {
 
         <div className="text-xs text-muted-foreground space-y-1">
           <p>
-            • This will process all messages from {sessions.length}{" "}
-            {sessions.length === 1 ? "session" : "sessions"}
+            {t("chat.backfill.info_sessions", {
+              count: sessions.length,
+              sessions:
+                sessions.length === 1
+                  ? t("chat.backfill.session_singular")
+                  : t("chat.backfill.session_plural")
+            })}
           </p>
-          <p>• Only messages with at least 10 characters will be embedded</p>
-          <p>• This may take a while depending on the number of messages</p>
+          <p>{t("chat.backfill.info_min_chars")}</p>
+          <p>{t("chat.backfill.info_time_warning")}</p>
         </div>
 
         <Button
@@ -150,17 +160,17 @@ export const ChatBackfillPanel = () => {
           {isRunning ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Processing...
+              {t("chat.backfill.button_processing")}
             </>
           ) : completed ? (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Backfill Completed
+              {t("chat.backfill.button_completed")}
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Start Backfill
+              {t("chat.backfill.button_start")}
             </>
           )}
         </Button>

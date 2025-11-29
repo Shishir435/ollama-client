@@ -2,9 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 import type { EmbeddingConfig } from "@/lib/constants"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
-import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
+import { searchHybrid } from "@/lib/embeddings/vector-store"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export interface ChatSearchResult {
@@ -62,9 +63,21 @@ export const useSemanticChatSearch = () => {
           sessionId: options.sessionId
         }
 
-        // Search for similar vectors
-        const results = await searchSimilarVectors(
-          embeddingResult.embedding,
+        // Auto-build keyword index on first use (backward compatibility)
+        try {
+          await ensureKeywordIndexBuilt()
+        } catch (indexError) {
+          console.warn(
+            "[Keyword Index] Auto-build failed, continuing without keyword search:",
+            indexError
+          )
+          // Continue with semantic-only search
+        }
+
+        // Use hybrid search (keyword + semantic) for better exact matching
+        const results = await searchHybrid(
+          query.trim(), // Raw text for keyword search
+          embeddingResult.embedding, // Embedding for semantic search
           searchOptions
         )
 

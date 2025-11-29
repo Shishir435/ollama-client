@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -8,6 +9,8 @@ import browser from "@/lib/browser-api"
 import { Settings } from "@/lib/lucide-icon"
 
 export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
+  const { t } = useTranslation()
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -17,12 +20,12 @@ export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
           onClick={() => {
             browser.runtime.openOptionsPage()
           }}
-          aria-label="Extension Settings">
+          aria-label={t("common.settings.aria_label")}>
           <Settings size="16" className="opacity-80" />
-          {showText && <span>Setting</span>}
+          {showText && <span>{t("common.settings.label")}</span>}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Extension Settings</TooltipContent>
+      <TooltipContent>{t("common.settings.tooltip")}</TooltipContent>
     </Tooltip>
   )
 }

@@ -7,7 +7,7 @@ export const cn = (...inputs: ClassValue[]) => {
 
 export const normalizeWhitespace = (text: string): string => {
   return text
-    .replace(/\s+\n/g, "\n") // Remove trailing spaces before newlines
+    .replace(/[ \t]+\n/g, "\n") // Remove trailing spaces before newlines
     .replace(/\n{3,}/g, "\n\n") // Limit consecutive newlines to 2
     .replace(/[ \t]{2,}/g, " ") // Convert multiple spaces/tabs to one space
     .replace(/\r\n/g, "\n") // Normalize line endings
@@ -64,10 +64,10 @@ export const formatTokensPerSecond = (
 
 export const markdownToSpeechText = (markdown: string): string => {
   return markdown
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1") // format links: [text](url) → text
     .replace(/`{1,3}[^`]*`{1,3}/g, "") // remove inline/code blocks
     .replace(/[*_~#>[\]()`]/g, "") // remove symbols
     .replace(/\\+/g, "") // remove backslashes
-    .replace(/\[(.*?)\]\((.*?)\)/g, "$1") // format links: [text](url) → text
     .replace(/\s+/g, " ") // normalize whitespace
     .trim()
 }

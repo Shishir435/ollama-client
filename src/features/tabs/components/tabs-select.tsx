@@ -1,5 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -16,6 +18,7 @@ const trimTitle = (title: string, max = 25) =>
     : "undefined"
 
 export const TabsSelect = () => {
+  const { t } = useTranslation()
   const [tabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
@@ -80,7 +83,7 @@ export const TabsSelect = () => {
         onValueChange={setSelectedTabIds}
         onRefresh={refreshTabs}
         defaultValue={selectedTabIds}
-        placeholder="Select open tabs"
+        placeholder={t("tabs.select.placeholder")}
         statusForValue={getTabStatus}
       />
     </div>

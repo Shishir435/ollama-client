@@ -4,6 +4,8 @@ import {
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
+import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 /**
@@ -412,6 +414,26 @@ export const storeVector = async (
     metadata
   })
 
+  const doc: VectorDocument = {
+    id,
+    content,
+    embedding,
+    normalizedEmbedding: normalized,
+    norm,
+    metadata
+  }
+
+  // Add to keyword index for full-text search
+  keywordIndexManager.addDocument(id, content, doc)
+
+  // Add to HNSW index incrementally (if initialized)
+  try {
+    await hnswIndexManager.addVector(id, embedding)
+  } catch (error) {
+    // Index might not be initialized yet, will be built on first search
+    console.debug("[HNSW] Not adding to index (not initialized):", error)
+  }
+
   // Check storage limits
   await checkStorageLimit()
 
@@ -419,7 +441,10 @@ export const storeVector = async (
 }
 
 /**
- * Searches for similar documents using cosine similarity
+ * Searches for similar documents using HNSW or brute-force cosine similarity
+ * Strategy:
+ * - Uses HNSW when index is built and enabled (default for all searches)
+ * - Falls back to brute-force if HNSW unavailable or disabled
  * Optimized with:
  * - Pre-normalized embeddings and Float32Array
  * - Early termination for low similarity scores
@@ -451,16 +476,14 @@ export const searchSimilarVectors = async (
   const cached = searchCache.get(cacheKey)
   const { ttl } = await getCacheConfig()
   if (cached && Date.now() - cached.timestamp < ttl) {
+    console.log("[Search] Returning cached results")
     return cached.results
   }
 
-  // Normalize query embedding once
-  const { normalized: queryNormalized, norm: queryNorm } =
-    normalizeVector(queryEmbedding)
+  const startTime = performance.now()
 
+  // Get total vector count for strategy decision
   let query: Dexie.Collection<VectorDocument, number>
-
-  // Use indexed queries when possible for better performance
   if (type) {
     query = vectorDb.vectors.where("metadata.type").equals(type)
   } else if (sessionId) {
@@ -471,7 +494,7 @@ export const searchSimilarVectors = async (
     query = vectorDb.vectors.toCollection()
   }
 
-  // Apply additional filters
+  // Apply filters
   if (type && sessionId) {
     query = query.filter((v) => v.metadata.sessionId === sessionId)
   }
@@ -484,6 +507,112 @@ export const searchSimilarVectors = async (
       query = query.filter((v) => v.metadata.fileId === fileId)
     }
   }
+
+  const vectorCount = await query.count()
+
+  // Decide search strategy
+  const useHNSW = await hnswIndexManager.shouldUseHNSW(vectorCount)
+
+  let results: SearchResult[]
+
+  if (useHNSW) {
+    // HNSW Search Path (High Quality)
+    console.log(`[HNSW Search] Searching ${vectorCount} vectors with HNSW`)
+    try {
+      results = await searchWithHNSW(
+        queryEmbedding,
+        limit,
+        minSimilarity,
+        query
+      )
+      const duration = performance.now() - startTime
+      console.log(
+        `[HNSW Search] Completed: ${results.length} results in ${duration.toFixed(2)}ms`
+      )
+    } catch (error) {
+      console.warn("[HNSW Search] Failed, falling back to brute-force:", error)
+      results = await searchBruteForce(
+        queryEmbedding,
+        limit,
+        minSimilarity,
+        query
+      )
+    }
+  } else {
+    // Brute-force Search Path (Small datasets or HNSW disabled)
+    console.log(
+      `[Brute-force Search] Searching ${vectorCount} vectors (HNSW ${config.useHNSW ? "not initialized" : "disabled"})`
+    )
+    results = await searchBruteForce(
+      queryEmbedding,
+      limit,
+      minSimilarity,
+      query
+    )
+    const duration = performance.now() - startTime
+    console.log(
+      `[Brute-force Search] Completed: ${results.length} results in ${duration.toFixed(2)}ms`
+    )
+  }
+
+  // Cache results
+  await cleanSearchCache()
+  searchCache.set(cacheKey, {
+    results,
+    timestamp: Date.now()
+  })
+
+  return results
+}
+
+/**
+ * Search using HNSW index
+ */
+async function searchWithHNSW(
+  queryEmbedding: number[],
+  limit: number,
+  minSimilarity: number,
+  query: Dexie.Collection<VectorDocument, number>
+): Promise<SearchResult[]> {
+  // Get HNSW results (returns IDs and distances)
+  const hnswResults = await hnswIndexManager.search(queryEmbedding, limit * 2) // Get more candidates
+
+  // Get matching documents from filtered query
+  const documents = await query.toArray()
+  const docMap = new Map(
+    documents
+      .filter((d): d is VectorDocument & { id: number } => d.id !== undefined)
+      .map((d) => [d.id, d])
+  )
+
+  // Map HNSW results to SearchResults with filtering
+  const results: SearchResult[] = []
+  for (const { id, distance } of hnswResults) {
+    const doc = docMap.get(id)
+    if (doc && distance >= minSimilarity) {
+      results.push({
+        document: doc,
+        similarity: distance
+      })
+    }
+  }
+
+  // Sort by similarity and limit
+  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
+}
+
+/**
+ * Search using brute-force cosine similarity
+ */
+async function searchBruteForce(
+  queryEmbedding: number[],
+  limit: number,
+  minSimilarity: number,
+  query: Dexie.Collection<VectorDocument, number>
+): Promise<SearchResult[]> {
+  // Normalize query embedding once
+  const { normalized: queryNormalized, norm: queryNorm } =
+    normalizeVector(queryEmbedding)
 
   const documents = await query.toArray()
 
@@ -508,7 +637,6 @@ export const searchSimilarVectors = async (
       )
 
       // Early termination: skip if below threshold
-      // This saves computation time by not storing low-similarity results
       if (similarity >= minSimilarity) {
         chunkResults.push({
           document: doc,
@@ -526,18 +654,100 @@ export const searchSimilarVectors = async (
   }
 
   // Sort and limit results
-  const sortedResults = results
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit)
+  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
+}
 
-  // Cache results
-  await cleanSearchCache()
-  searchCache.set(cacheKey, {
-    results: sortedResults,
-    timestamp: Date.now()
+/**
+ * Hybrid search combining keyword and semantic search
+ * Strategy: Keyword search (fast, exact) + Semantic search (slow, conceptual)
+ * Results are fused with weighted scoring (keyword prioritized)
+ *
+ * @param queryText - Raw text query for keyword search
+ * @param queryEmbedding - Embedding vector for semantic search
+ * @param options - Search options including weights
+ */
+export const searchHybrid = async (
+  queryText: string,
+  queryEmbedding: number[],
+  options: {
+    limit?: number
+    minSimilarity?: number
+    keywordWeight?: number // α (default: 0.7) - priority for keyword matches
+    semanticWeight?: number // β (default: 0.3) - priority for semantic matches
+    type?: VectorDocument["metadata"]["type"]
+    sessionId?: string
+    fileId?: string | string[]
+  } = {}
+): Promise<SearchResult[]> => {
+  const {
+    limit = 10,
+    keywordWeight = 0.7,
+    semanticWeight = 0.3,
+    ...searchOptions
+  } = options
+
+  const startTime = performance.now()
+
+  // 1. Keyword search (fast, exact)
+  const keywordResults = keywordIndexManager.search(queryText, {
+    limit: limit * 3, // Get more candidates for fusion
+    fuzzy: 0.2,
+    prefix: true,
+    combineWith: "OR"
   })
 
-  return sortedResults
+  // 2. Semantic search (conceptual)
+  const semanticResults = await searchSimilarVectors(queryEmbedding, {
+    ...searchOptions,
+    limit: limit * 3
+  })
+
+  // 3. Fuse results with weighted scoring
+  const scoreMap = new Map<number, number>()
+  const docMap = new Map<number, VectorDocument>()
+
+  // Normalize keyword scores (BM25 scores vary widely)
+  const maxKeywordScore = Math.max(...keywordResults.map((r) => r.score), 1)
+
+  // Add keyword scores
+  for (const result of keywordResults) {
+    const normalizedScore = result.score / maxKeywordScore
+    scoreMap.set(result.id, keywordWeight * normalizedScore)
+    docMap.set(result.id, result.document)
+  }
+
+  // Add semantic scores (already normalized 0-1)
+  for (const result of semanticResults) {
+    const id = result.document.id
+    if (id === undefined) continue
+
+    const existing = scoreMap.get(id) ?? 0
+    scoreMap.set(id, existing + semanticWeight * result.similarity)
+    if (!docMap.has(id)) {
+      docMap.set(id, result.document)
+    }
+  }
+
+  // Sort by combined score and limit
+  const fusedResults = Array.from(scoreMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id, similarity]) => {
+      const document = docMap.get(id)
+      if (!document) return null
+      return {
+        document,
+        similarity
+      }
+    })
+    .filter((r): r is SearchResult => r !== null)
+
+  const duration = performance.now() - startTime
+  console.log(
+    `[Hybrid Search] Completed: ${fusedResults.length} results (${keywordResults.length} keyword + ${semanticResults.length} semantic) in ${duration.toFixed(2)}ms`
+  )
+
+  return fusedResults
 }
 
 /**
@@ -564,6 +774,14 @@ export const deleteVectors = async (filters: {
   }
   if (url) {
     query = query.filter((v) => v.metadata.url === url)
+  }
+
+  // Get IDs to delete for keyword index cleanup
+  const toDelete = await query.primaryKeys()
+
+  // Remove from keyword index
+  for (const id of toDelete) {
+    keywordIndexManager.removeDocument(id as number)
   }
 
   return await query.delete()

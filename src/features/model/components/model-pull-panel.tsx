@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,7 @@ import {
 import { cn } from "@/lib/utils"
 
 export const ModelPullPanel = () => {
+  const { t } = useTranslation()
   const [progressMap, setProgressMap] = useState<Record<string, string>>({})
   const [cancelledModels, setCancelledModels] = useState<Set<string>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
@@ -86,10 +88,12 @@ export const ModelPullPanel = () => {
         <CardHeader className="pb-4">
           <div className="mb-2 flex items-center gap-2">
             <Package className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-xl">Model Library</CardTitle>
+            <CardTitle className="text-xl">
+              {t("settings.model_pull.title")}
+            </CardTitle>
           </div>
           <CardDescription>
-            Discover and download AI models for your projects
+            {t("settings.model_pull.description")}
           </CardDescription>
           <div className="pt-3">
             <ModelList />
@@ -100,7 +104,7 @@ export const ModelPullPanel = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search models by name or description..."
+              placeholder={t("settings.model_pull.search_placeholder")}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 bg-background pl-10"
             />
@@ -118,8 +122,10 @@ export const ModelPullPanel = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
                       {cancelledModels.has(model)
-                        ? `Cancelled ${model}`
-                        : `Downloading ${model}`}
+                        ? t("settings.model_pull.status.cancelled", { model })
+                        : t("settings.model_pull.status.downloading", {
+                            model
+                          })}
                     </p>
                     <p className="text-xs text-muted-foreground">{prog}</p>
                   </div>
@@ -142,7 +148,7 @@ export const ModelPullPanel = () => {
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Loading models...
+                  {t("settings.model_pull.status.loading_models")}
                 </p>
               </div>
             </div>
@@ -155,9 +161,11 @@ export const ModelPullPanel = () => {
                       <div className="flex flex-col items-center gap-3 text-center">
                         <Package className="h-12 w-12 text-muted-foreground/50" />
                         <div className="space-y-1">
-                          <p className="text-sm font-medium">No models found</p>
+                          <p className="text-sm font-medium">
+                            {t("settings.model_pull.status.no_models")}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            Try adjusting your search terms
+                            {t("settings.model_pull.status.adjust_search")}
                           </p>
                         </div>
                       </div>
@@ -211,12 +219,12 @@ export const ModelPullPanel = () => {
                                 {loadingVariantsFor === model.name ? (
                                   <>
                                     <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                    Loading
+                                    {t("settings.model_pull.button.loading")}
                                   </>
                                 ) : (
                                   <>
                                     <Info className="mr-2 h-3 w-3" />
-                                    Variants
+                                    {t("settings.model_pull.button.variants")}
                                   </>
                                 )}
                               </Button>
@@ -230,7 +238,7 @@ export const ModelPullPanel = () => {
                             <CardContent className="pt-4">
                               <div className="space-y-3">
                                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                  Available Variants
+                                  {t("settings.model_pull.variants_label")}
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                   {model.variants.map((variant) => {
@@ -256,7 +264,9 @@ export const ModelPullPanel = () => {
                                         {isPulling ? (
                                           <>
                                             <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                                            Pulling
+                                            {t(
+                                              "settings.model_pull.button.pulling"
+                                            )}
                                           </>
                                         ) : (
                                           <>
