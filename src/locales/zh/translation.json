@@ -326,7 +326,14 @@
       "cache_ttl_label": "搜索缓存 TTL (分钟)",
       "cache_ttl_description": "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
       "cache_max_size_label": "最大缓存查询数",
-      "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。"
+      "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

@@ -326,7 +326,14 @@
       "cache_ttl_label": "खोज कैश TTL (मिनट)",
       "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
       "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
-      "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।"
+      "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

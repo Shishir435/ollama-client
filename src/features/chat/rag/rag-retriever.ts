@@ -37,7 +37,9 @@ export async function retrieveContext(
   if (mode === "full") {
     // Retrieve all documents for this knowledge base
     // If multiple files, we need to fetch for each and combine
-    const fileIds = Array.isArray(fileId) ? fileId : [fileId]
+    const fileIds: (string | undefined)[] = Array.isArray(fileId)
+      ? fileId
+      : [fileId]
     documents = []
 
     for (const id of fileIds) {

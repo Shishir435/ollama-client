@@ -326,7 +326,14 @@
       "cache_ttl_label": "TTL Cache di Ricerca (minuti)",
       "cache_ttl_description": "Per quanto tempo memorizzare nella cache i risultati di ricerca (1-60 minuti). Le query memorizzate nella cache vengono restituite istantaneamente.",
       "cache_max_size_label": "Max Query Memorizzate nella Cache",
-      "cache_max_size_description": "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite."
+      "cache_max_size_description": "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

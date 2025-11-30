@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -13,6 +14,8 @@ import {
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const RAGSettings = () => {
+  const { t } = useTranslation()
+
   const [config, setConfig] = useStorage<EmbeddingConfig>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
@@ -66,9 +69,11 @@ export const RAGSettings = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-base">Enable RAG</Label>
+            <Label className="text-base">
+              {t("model.embedding_config.rag_enable_label")}
+            </Label>
             <p className="text-sm text-muted-foreground">
-              Use retrieved context to answer questions about your files
+              {t("model.embedding_config.rag_enable_description")}
             </p>
           </div>
           <Switch checked={useRAG} onCheckedChange={handleRAGToggle} />
@@ -77,7 +82,9 @@ export const RAGSettings = () => {
 
       <div className="space-y-4">
         <div className="flex justify-between">
-          <Label>Retrieval Count (Top-K: {topK})</Label>
+          <Label>
+            {t("model.embedding_config.search_limit_label")} (Top-K: {topK})
+          </Label>
         </div>
         <Slider
           value={[topK]}
@@ -87,13 +94,12 @@ export const RAGSettings = () => {
           onValueChange={handleTopKChange}
         />
         <p className="text-xs text-muted-foreground">
-          Number of relevant chunks to retrieve. Higher values provide more
-          context but use more tokens.
+          {t("model.embedding_config.search_limit_description")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label>RAG System Prompt</Label>
+        <Label>{t("model.embedding_config.rag_system_prompt_label")}</Label>
         <Textarea
           value={systemPrompt}
           onChange={handleSystemPromptChange}
@@ -101,8 +107,7 @@ export const RAGSettings = () => {
           className="min-h-[150px] font-mono text-sm"
         />
         <p className="text-xs text-muted-foreground">
-          Template for the system prompt. Use {"{context}"} for retrieved text
-          and {"{question}"} for the user query.
+          {t("model.embedding_config.rag_system_prompt_description")}
         </p>
       </div>
     </div>

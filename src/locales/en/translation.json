@@ -326,7 +326,14 @@
       "cache_ttl_label": "Search Cache TTL (minutes)",
       "cache_ttl_description": "How long to cache search results (1-60 minutes). Cached queries return instantly.",
       "cache_max_size_label": "Max Cached Queries",
-      "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached."
+      "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

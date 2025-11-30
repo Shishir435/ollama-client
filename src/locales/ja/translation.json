@@ -326,7 +326,14 @@
       "cache_ttl_label": "検索キャッシュTTL (分)",
       "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
       "cache_max_size_label": "最大キャッシュクエリ数",
-      "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。"
+      "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

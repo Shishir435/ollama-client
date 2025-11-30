@@ -326,7 +326,14 @@
       "cache_ttl_label": "TTL кэша поиска (минуты)",
       "cache_ttl_description": "Как долго кэшировать результаты поиска (1-60 минут). Кэшированные запросы возвращаются мгновенно.",
       "cache_max_size_label": "Макс. кэшированных запросов",
-      "cache_max_size_description": "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита."
+      "cache_max_size_description": "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {

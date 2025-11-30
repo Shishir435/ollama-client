@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -28,6 +29,8 @@ export const TextSplittingSettings = () => {
     },
     DEFAULT_EMBEDDING_CONFIG
   )
+
+  const { t } = useTranslation()
 
   const [chunkSize, setChunkSize] = useState(config.chunkSize)
   const [chunkOverlap, setChunkOverlap] = useState(config.chunkOverlap)
@@ -75,9 +78,11 @@ export const TextSplittingSettings = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-base">Enhanced Chunking</Label>
+            <Label className="text-base">
+              {t("model.embedding_config.enhanced_chunking_label")}
+            </Label>
             <p className="text-sm text-muted-foreground">
-              Use advanced recursive character splitting for better context
+              {t("model.embedding_config.enhanced_chunking_description")}
             </p>
           </div>
           <Switch
@@ -88,18 +93,16 @@ export const TextSplittingSettings = () => {
 
         {config.useEnhancedChunking && (
           <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
-            <p>
-              Enhanced chunking splits text hierarchically (paragraphs →
-              sentences → words) to preserve semantic meaning. This is
-              recommended for RAG.
-            </p>
+            <p>{t("model.embedding_config.enhanced_chunking_info")}</p>
           </div>
         )}
       </div>
 
       <div className="space-y-4">
         <div className="flex justify-between">
-          <Label>Chunk Size ({chunkSize} tokens)</Label>
+          <Label>
+            {t("model.embedding_config.chunk_size_label")} ({chunkSize} tokens)
+          </Label>
         </div>
         <Slider
           value={[chunkSize]}
@@ -109,14 +112,16 @@ export const TextSplittingSettings = () => {
           onValueChange={handleChunkSizeChange}
         />
         <p className="text-xs text-muted-foreground">
-          Larger chunks provide more context but may dilute specific details.
-          Recommended: 500-1000.
+          {t("model.embedding_config.chunk_size_description")}
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="flex justify-between">
-          <Label>Chunk Overlap ({chunkOverlap} tokens)</Label>
+          <Label>
+            {t("model.embedding_config.chunk_overlap_label")} ({chunkOverlap}{" "}
+            tokens)
+          </Label>
         </div>
         <Slider
           value={[chunkOverlap]}
@@ -126,14 +131,13 @@ export const TextSplittingSettings = () => {
           onValueChange={handleChunkOverlapChange}
         />
         <p className="text-xs text-muted-foreground">
-          Overlap ensures context isn't lost at chunk boundaries. Recommended:
-          10-20% of chunk size.
+          {t("model.embedding_config.chunk_overlap_description")}
         </p>
       </div>
 
       {!config.useEnhancedChunking && (
         <div className="space-y-2">
-          <Label>Legacy Strategy</Label>
+          <Label>{t("model.embedding_config.chunking_strategy_label")}</Label>
           <Select
             value={config.chunkingStrategy}
             onValueChange={handleStrategyChange}>
@@ -141,9 +145,15 @@ export const TextSplittingSettings = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="fixed">Fixed Size</SelectItem>
-              <SelectItem value="semantic">Semantic (Experimental)</SelectItem>
-              <SelectItem value="hybrid">Hybrid (Recommended)</SelectItem>
+              <SelectItem value="fixed">
+                {t("model.embedding_config.strategy_fixed")}
+              </SelectItem>
+              <SelectItem value="semantic">
+                {t("model.embedding_config.strategy_semantic")}
+              </SelectItem>
+              <SelectItem value="hybrid">
+                {t("model.embedding_config.strategy_hybrid")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

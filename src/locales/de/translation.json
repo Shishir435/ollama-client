@@ -326,7 +326,14 @@
       "cache_ttl_label": "Such-Cache-TTL (Minuten)",
       "cache_ttl_description": "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
       "cache_max_size_label": "Max. zwischengespeicherte Abfragen",
-      "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist."
+      "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
