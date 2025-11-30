@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
+import { retrieveContext } from "@/features/chat/rag"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -9,8 +10,6 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
-import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, FileAttachment } from "@/types"
@@ -122,34 +121,26 @@ export const useChat = () => {
       if (useRag) {
         try {
           console.log("RAG Enabled: Searching for relevant context...")
-          // Generate embedding for the user query
-          const embeddingResult = await generateEmbedding(rawInput || "summary")
 
-          if ("embedding" in embeddingResult) {
-            // Search for relevant chunks across all attached files
-            const fileIds = files
-              .map((f) => f.metadata.fileId)
-              .filter(Boolean) as string[]
+          const fileIds = files
+            .map((f) => f.metadata.fileId)
+            .filter(Boolean) as string[]
 
-            const searchResults = await searchSimilarVectors(
-              embeddingResult.embedding,
+          if (fileIds.length > 0) {
+            const context = await retrieveContext(
+              rawInput || "summary",
+              fileIds,
               {
-                fileId: fileIds,
-                limit: 5, // Top 5 chunks
-                minSimilarity: 0.3 // Lower threshold to ensure we get something
+                mode: "similarity",
+                topK: 5 // Default to 5 chunks
               }
             )
 
-            if (searchResults.length > 0) {
+            if (context.documents.length > 0) {
               console.log(
-                `RAG: Found ${searchResults.length} relevant chunks from ${fileIds.length} files`
+                `RAG: Found ${context.documents.length} relevant chunks`
               )
-              fileContext = searchResults
-                .map(
-                  (result) =>
-                    `[Context from ${result.document.metadata.title || "file"}]\n${result.document.content}`
-                )
-                .join("\n\n---\n\n")
+              fileContext = context.formattedContext
             } else {
               console.log(
                 "RAG: No relevant chunks found, falling back to full text"

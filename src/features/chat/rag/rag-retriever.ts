@@ -22,7 +22,7 @@ export interface RetrievedContext {
  */
 export async function retrieveContext(
   query: string,
-  fileId: string,
+  fileId: string | string[],
   options: {
     mode?: "similarity" | "full"
     topK?: number
@@ -36,18 +36,29 @@ export async function retrieveContext(
 
   if (mode === "full") {
     // Retrieve all documents for this knowledge base
-    const result = await getAllDocuments({
-      fileId,
-      type: "file",
-      maxTokens: maxTokens || (await knowledgeConfig.getMaxContextSize())
-    })
-    documents = result.documents
-    tokenCount = result.tokenCount
+    // If multiple files, we need to fetch for each and combine
+    const fileIds = Array.isArray(fileId) ? fileId : [fileId]
+    documents = []
+
+    for (const id of fileIds) {
+      const result = await getAllDocuments({
+        fileId: id,
+        type: "file",
+        maxTokens: maxTokens || (await knowledgeConfig.getMaxContextSize())
+      })
+      documents.push(...result.documents)
+      tokenCount += result.tokenCount
+
+      // Check if we exceeded max tokens
+      if (maxTokens && tokenCount >= maxTokens) {
+        break
+      }
+    }
   } else {
     // Similarity search for top-k most relevant chunks
     const k = topK || (await knowledgeConfig.getRetrievalTopK())
     const results = await similaritySearchWithScore(query, k, {
-      fileId,
+      fileId, // similaritySearchWithScore supports string | string[]
       type: "file"
     })
     documents = results.map((r) => r.document)
