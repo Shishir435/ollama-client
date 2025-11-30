@@ -33,8 +33,10 @@ import {
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
 import {
+  BookOpen,
   Database,
   MessageSquare,
+  Scissors,
   Settings,
   Sparkles,
   Trash2,
@@ -309,7 +311,12 @@ export const EmbeddingConfigSettings = memo(() => {
       </Card>
 
       {/* Chunking Settings */}
-      <TextSplittingSettings />
+      <FormSectionCard
+        icon={Scissors}
+        title={t("model.embedding_config.chunking_title")}
+        description={t("model.embedding_config.chunking_description")}>
+        <TextSplittingSettings />
+      </FormSectionCard>
 
       {/* Embedding Generation Settings */}
       <FormSectionCard
@@ -378,7 +385,12 @@ export const EmbeddingConfigSettings = memo(() => {
       </FormSectionCard>
 
       {/* RAG Settings */}
-      <RAGSettings />
+      <FormSectionCard
+        icon={BookOpen}
+        title={t("model.embedding_config.rag_settings_title")}
+        description={t("model.embedding_config.rag_settings_description")}>
+        <RAGSettings />
+      </FormSectionCard>
 
       {/* Limits Settings */}
       <FormSectionCard

@@ -330,6 +330,8 @@
       "enhanced_chunking_label": "Enhanced Chunking",
       "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
       "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_description": "Configure how files are used to answer questions with retrieved context",
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
