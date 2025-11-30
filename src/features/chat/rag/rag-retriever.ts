@@ -22,7 +22,7 @@ export interface RetrievedContext {
  */
 export async function retrieveContext(
   query: string,
-  fileId: string | string[],
+  fileId?: string | string[],
   options: {
     mode?: "similarity" | "full"
     topK?: number
@@ -57,9 +57,12 @@ export async function retrieveContext(
   } else {
     // Similarity search for top-k most relevant chunks
     const k = topK || (await knowledgeConfig.getRetrievalTopK())
+    const minSimilarity = await knowledgeConfig.getMinSimilarity()
+
     const results = await similaritySearchWithScore(query, k, {
       fileId, // similaritySearchWithScore supports string | string[]
-      type: "file"
+      type: "file",
+      minSimilarity
     })
     documents = results.map((r) => r.document)
   }

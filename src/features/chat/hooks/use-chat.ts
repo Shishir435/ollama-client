@@ -108,60 +108,55 @@ export const useChat = () => {
         : contextText
     }
 
-    // Add file content to message
-    if (files && files.length > 0) {
-      // Check if RAG is enabled
-      const useRag =
-        (await plasmoGlobalStorage.get<boolean>(
-          STORAGE_KEYS.EMBEDDINGS.USE_RAG
-        )) ?? true
+    // RAG & Context Injection
+    let fileContext = ""
 
-      let fileContext = ""
+    const useRag =
+      (await plasmoGlobalStorage.get<boolean>(
+        STORAGE_KEYS.EMBEDDINGS.USE_RAG
+      )) ?? true
 
-      if (useRag) {
-        try {
-          console.log("RAG Enabled: Searching for relevant context...")
+    if (useRag) {
+      try {
+        // Determine scope: specific files or global
+        const fileIds =
+          files && files.length > 0
+            ? (files.map((f) => f.metadata.fileId).filter(Boolean) as string[])
+            : undefined // undefined means search all files
 
-          const fileIds = files
-            .map((f) => f.metadata.fileId)
-            .filter(Boolean) as string[]
+        console.log(
+          `RAG Enabled: Searching for context (Scope: ${
+            fileIds ? "Specific Files" : "Global"
+          })`
+        )
 
-          if (fileIds.length > 0) {
-            const context = await retrieveContext(
-              rawInput || "summary",
-              fileIds,
-              {
-                mode: "similarity",
-                topK: 5 // Default to 5 chunks
-              }
-            )
+        const context = await retrieveContext(rawInput || "summary", fileIds, {
+          mode: "similarity",
+          topK: 5
+        })
 
-            if (context.documents.length > 0) {
-              console.log(
-                `RAG: Found ${context.documents.length} relevant chunks`
-              )
-              fileContext = context.formattedContext
-            } else {
-              console.log(
-                "RAG: No relevant chunks found, falling back to full text"
-              )
-            }
-          }
-        } catch (e) {
-          console.error("RAG Error:", e)
+        if (context.documents.length > 0) {
+          console.log(`RAG: Found ${context.documents.length} relevant chunks`)
+          fileContext = context.formattedContext
         }
+      } catch (e) {
+        console.error("RAG Error:", e)
       }
+    }
 
-      // Fallback to full text if RAG disabled or no results found
-      if (!fileContext) {
-        fileContext = files
-          .map(
-            (file) =>
-              `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${file.text.length > 10000 ? "\n... (truncated)" : ""}`
-          )
-          .join("\n\n---\n\n")
-      }
+    // Fallback to full text ONLY if specific files attached AND no RAG context found
+    if (!fileContext && files && files.length > 0) {
+      fileContext = files
+        .map(
+          (file) =>
+            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
+              file.text.length > 10000 ? "\n... (truncated)" : ""
+            }`
+        )
+        .join("\n\n---\n\n")
+    }
 
+    if (fileContext) {
       contentWithContext = contentWithContext
         ? `${contentWithContext}\n\n---\n\n${fileContext}`
         : fileContext

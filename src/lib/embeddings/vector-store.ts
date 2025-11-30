@@ -1091,6 +1091,7 @@ export const similaritySearchWithScore = async (
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
     fileId?: string | string[]
+    minSimilarity?: number
   }
 ): Promise<Array<{ document: VectorDocument; score: number }>> => {
   // Generate embedding for query

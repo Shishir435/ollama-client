@@ -1,3 +1,8 @@
+import {
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingConfig,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { CharacterTextSplitter } from "../text-processing/character-text-splitter"
 import { RecursiveCharacterTextSplitter } from "../text-processing/recursive-character-text-splitter"
@@ -93,6 +98,16 @@ export class KnowledgeConfig {
       KNOWLEDGE_CONFIG_KEYS.RETRIEVAL_TOP_K
     )
     return value ?? KNOWLEDGE_DEFAULTS.retrievalTopK
+  }
+
+  async getMinSimilarity(): Promise<number> {
+    const config = await plasmoGlobalStorage.get<EmbeddingConfig>(
+      STORAGE_KEYS.EMBEDDINGS.CONFIG
+    )
+    return (
+      config?.defaultMinSimilarity ??
+      DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity
+    )
   }
 
   async setRetrievalTopK(k: number): Promise<void> {
