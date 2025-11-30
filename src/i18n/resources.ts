@@ -376,7 +376,18 @@ export const resources = {
             "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
           cache_max_size_label: "Max. zwischengespeicherte Abfragen",
           cache_max_size_description:
-            "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist."
+            "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -1314,7 +1325,21 @@ export const resources = {
             "How long to cache search results (1-60 minutes). Cached queries return instantly.",
           cache_max_size_label: "Max Cached Queries",
           cache_max_size_description:
-            "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached."
+            "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configure how files are used to answer questions with retrieved context",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -2242,7 +2267,18 @@ export const resources = {
             "Tiempo que se almacenan en caché los resultados de búsqueda (1-60 minutos). Las consultas en caché se devuelven instantáneamente.",
           cache_max_size_label: "Máx. Consultas en Caché",
           cache_max_size_description:
-            "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite."
+            "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -3186,7 +3222,18 @@ export const resources = {
             "Durée de mise en cache des résultats de recherche (1-60 minutes). Les requêtes mises en cache sont renvoyées instantanément.",
           cache_max_size_label: "Max Requêtes Mises en Cache",
           cache_max_size_description:
-            "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte."
+            "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -4123,7 +4170,18 @@ export const resources = {
             "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
           cache_max_size_label: "अधिकतम कैश की गई क्वेरी",
           cache_max_size_description:
-            "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।"
+            "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -5051,7 +5109,18 @@ export const resources = {
             "Per quanto tempo memorizzare nella cache i risultati di ricerca (1-60 minuti). Le query memorizzate nella cache vengono restituite istantaneamente.",
           cache_max_size_label: "Max Query Memorizzate nella Cache",
           cache_max_size_description:
-            "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite."
+            "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -5989,7 +6058,18 @@ export const resources = {
             "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
           cache_max_size_label: "最大キャッシュクエリ数",
           cache_max_size_description:
-            "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。"
+            "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -6915,7 +6995,21 @@ export const resources = {
             "Как долго кэшировать результаты поиска (1-60 минут). Кэшированные запросы возвращаются мгновенно.",
           cache_max_size_label: "Макс. кэшированных запросов",
           cache_max_size_description:
-            "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита."
+            "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита.",
+          enhanced_chunking_label: "Улучшенное разбиение",
+          enhanced_chunking_description:
+            "Использовать продвинутое рекурсивное разбиение для лучшего контекста",
+          enhanced_chunking_info:
+            "Улучшенное разбиение разделяет текст иерархически (абзацы → предложения → слова) для сохранения семантического значения. Рекомендуется для RAG.",
+          rag_settings_title: "RAG (Генерация с дополненным поиском)",
+          rag_settings_description:
+            "Настройте, как файлы используются для ответов на вопросы с использованием контекста",
+          rag_enable_label: "Включить RAG",
+          rag_enable_description:
+            "Использовать извлеченный контекст для ответов на вопросы о ваших файлах",
+          rag_system_prompt_label: "Системный промпт RAG",
+          rag_system_prompt_description:
+            "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя."
         }
       },
       prompts: {
@@ -7825,7 +7919,19 @@ export const resources = {
             "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
           cache_max_size_label: "最大缓存查询数",
           cache_max_size_description:
-            "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。"
+            "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。",
+          enhanced_chunking_label: "增强分块",
+          enhanced_chunking_description:
+            "使用高级递归字符分割以获得更好的上下文",
+          enhanced_chunking_info:
+            "增强分块以分层方式分割文本（段落 → 句子 → 单词）以保留语义。建议用于 RAG。",
+          rag_settings_title: "RAG（检索增强生成）",
+          rag_settings_description: "配置如何使用文件以检索上下文来回答问题",
+          rag_enable_label: "启用 RAG",
+          rag_enable_description: "使用检索上下文来回答有关您文件的问题",
+          rag_system_prompt_label: "RAG 系统提示",
+          rag_system_prompt_description:
+            "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。"
         }
       },
       prompts: {

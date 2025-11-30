@@ -158,6 +158,7 @@ export interface VectorDocument {
   // Pre-computed L2 norm - speeds up similarity calculation
   norm?: number
   metadata: {
+    source: string
     type: "chat" | "file" | "webpage"
     sessionId?: string
     fileId?: string
@@ -824,7 +825,8 @@ export const storeChatMessage = async (
     sessionId,
     timestamp: Date.now(),
     // Store role and chatId in metadata for filtering/context
-    ...metadata
+    ...metadata,
+    source: ""
   })
 }
 
@@ -1071,7 +1073,8 @@ export const addDocuments = async (
       fileId: fileId || doc.metadata.fileId,
       title: doc.metadata.title || doc.metadata.source,
       timestamp: Date.now(),
-      ...doc.metadata
+      ...doc.metadata,
+      source: ""
     })
 
     ids.push(id)
