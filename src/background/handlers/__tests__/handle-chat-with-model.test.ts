@@ -26,6 +26,17 @@ vi.mock("@/background/handlers/handle-chat-stream", () => ({
   handleChatStream: vi.fn().mockResolvedValue(undefined)
 }))
 
+vi.mock("@/lib/embeddings/vector-store", () => ({
+  retrieveContext: vi.fn().mockResolvedValue([]),
+  storeChatMessage: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("@/background/lib/memory-manager", () => ({
+  memoryManager: {
+    saveChatToMemory: vi.fn().mockResolvedValue(undefined)
+  }
+}))
+
 describe("handleChatWithModel", () => {
   let mockPort: ReturnType<typeof createMockPort>
   let mockIsPortClosed: ReturnType<typeof createMockIsPortClosed>

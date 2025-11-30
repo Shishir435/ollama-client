@@ -85,7 +85,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
     // Check if system prompt contains context
     const systemMessage = requestBody.messages.find((m: any) => m.role === "system")
     expect(systemMessage).toBeDefined()
-    expect(systemMessage.content).toContain("Context from past conversations")
+    expect(systemMessage.content).toContain("context from previous conversations")
     expect(systemMessage.content).toContain("User likes pizza")
     expect(systemMessage.content).toContain("User lives in New York")
   })
@@ -122,7 +122,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
     // System prompt should NOT contain context header
     const systemMessage = requestBody.messages.find((m: any) => m.role === "system")
     if (systemMessage) {
-      expect(systemMessage.content).not.toContain("Context from past conversations")
+      expect(systemMessage.content).not.toContain("context from previous conversations")
     }
   })
 
