@@ -34,6 +34,14 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
   searchSimilarVectors: vi.fn()
 }))
 
+vi.mock("@/features/chat/rag/rag-retriever", () => ({
+  retrieveContext: vi.fn().mockResolvedValue({
+    documents: [],
+    formattedContext: "",
+    sources: []
+  })
+}))
+
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn()
@@ -160,6 +168,7 @@ describe("useChat", () => {
     expect(updateMessages).toHaveBeenCalled()
     expect(startStream).toHaveBeenCalledWith({
       model: "",
+      sessionId: "session-1",
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: "user",
@@ -388,21 +397,20 @@ describe("useChat", () => {
     })
 
     it("should use RAG when enabled", async () => {
+      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
+      
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
-      vi.mocked(generateEmbedding).mockResolvedValue({
-        embedding: [0.1, 0.2, 0.3],
-        model: "test-model"
-      })
-      vi.mocked(searchSimilarVectors).mockResolvedValue([
-        {
-          document: {
+      vi.mocked(retrieveContext).mockResolvedValue({
+        documents: [
+          {
             content: "Relevant chunk",
             embedding: [0.1, 0.2, 0.3],
-            metadata: { title: "test.txt", type: "file", timestamp: Date.now() }
-          },
-          similarity: 0.9
-        }
-      ])
+            metadata: { source: "test.txt", title: "test.txt", type: "file", timestamp: Date.now() }
+          }
+        ],
+        formattedContext: "[Document 1] test.txt\nRelevant chunk",
+        sources: [{ title: "test.txt", type: "file", fileId: "file-1" }]
+      })
 
       const { result } = renderHook(() => useChat())
 
@@ -421,17 +429,20 @@ describe("useChat", () => {
         await result.current.sendMessage("Summarize", undefined, [file])
       })
 
-      expect(generateEmbedding).toHaveBeenCalledWith("Summarize")
-      expect(searchSimilarVectors).toHaveBeenCalled()
+      expect(retrieveContext).toHaveBeenCalledWith("Summarize", ["file-1"], {
+        mode: "similarity",
+        topK: 5
+      })
     })
 
     it("should fallback to full text when RAG fails", async () => {
+      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
       const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
       const startStream = vi.fn()
       vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
       
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
-      vi.mocked(generateEmbedding).mockRejectedValue(new Error("RAG Error"))
+      vi.mocked(retrieveContext).mockRejectedValue(new Error("RAG Error"))
 
       const { result } = renderHook(() => useChat())
 
@@ -463,16 +474,17 @@ describe("useChat", () => {
     })
 
     it("should fallback to full text when RAG finds no results", async () => {
+      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
       const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
       const startStream = vi.fn()
       vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
       
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
-      vi.mocked(generateEmbedding).mockResolvedValue({
-        embedding: [0.1, 0.2, 0.3],
-        model: "test-model"
+      vi.mocked(retrieveContext).mockResolvedValue({
+        documents: [],
+        formattedContext: "",
+        sources: []
       })
-      vi.mocked(searchSimilarVectors).mockResolvedValue([]) // No results
 
       const { result } = renderHook(() => useChat())
 
