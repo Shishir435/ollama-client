@@ -13,7 +13,7 @@ export class CharacterTextSplitter implements TextSplitter {
   constructor(config: TextSplitterConfig & { separator?: string }) {
     this.chunkSize = config.chunkSize
     this.chunkOverlap = config.chunkOverlap
-    this.separator = config.separator || "\n\n"
+    this.separator = config.separator ?? "\n\n"
     this.lengthFunction = config.lengthFunction || ((text) => text.length)
   }
 
