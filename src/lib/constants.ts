@@ -81,6 +81,7 @@ export interface EmbeddingConfig {
   chunkSize: number // Tokens per chunk (default: 500)
   chunkOverlap: number // Overlap between chunks in tokens (default: 100)
   chunkingStrategy: ChunkingStrategy // "fixed" | "semantic" | "hybrid"
+  useEnhancedChunking: boolean // Use new text splitters (RecursiveCharacterTextSplitter) (default: false - backward compat)
 
   // Embedding generation settings
   batchSize: number // Number of texts to embed in parallel (default: 5)
@@ -116,6 +117,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   chunkSize: 500, // ~500 tokens per chunk
   chunkOverlap: 100, // 100 token overlap
   chunkingStrategy: "hybrid", // Best balance
+  useEnhancedChunking: false, // Backward compatibility - users can enable in settings
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   useWebWorker: true, // Offload to worker thread
