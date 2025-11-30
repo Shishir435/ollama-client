@@ -91,8 +91,9 @@
   },
   "chat": {
     "input": {
-      "placeholder": "Type a message or ctrl + /",
+      "placeholder": "Type a message...",
       "switch_model": "Change model",
+      "files_ready": "There are {{count}} files ready.",
       "chars": "Characters",
       "enter_to_send": "Send",
       "enter_key": "Enter"
@@ -599,27 +600,7 @@
       "embeddings": "Embeddings",
       "voices": "Voices",
       "reset": "Reset",
-      "guides": "Guides",
-      "memory": "Memory"
-    },
-    "memory": {
-      "title": "Contextual Memory",
-      "beta_badge": "Beta",
-      "description": "Allow the AI to remember details from past conversations to provide personalized responses.",
-      "enable": {
-        "label": "Enable Memory",
-        "description": "When enabled, chat history is stored locally and used to provide context."
-      },
-      "clear": {
-        "label": "Clear Memory",
-        "description": "Delete all stored chat memories.",
-        "button": "Clear Chat Memory",
-        "button_clearing": "Clearing...",
-        "confirm_dialog": "Are you sure you want to clear all chat memory? This cannot be undone.",
-        "success": "Chat memory cleared successfully.",
-        "error": "Failed to clear memory.",
-        "usage": "Usage: {{count}} items ({{size}} MB total)"
-      }
+      "guides": "Guides"
     },
     "page": {
       "title": "Ollama Client Settings",
@@ -685,16 +666,6 @@
         "description": "Generate a test embedding to verify the embedding model is working correctly.",
         "button": "Test",
         "button_testing": "Testing..."
-      },
-      "rebuild_index": {
-        "title": "Rebuild Keyword Index",
-        "description": "Force a rebuild of the keyword search index from existing vectors. Use this if search results are missing or inconsistent.",
-        "button": "Rebuild Index",
-        "button_rebuilding": "Rebuilding...",
-        "status_starting": "Starting rebuild...",
-        "status_processing": "Processing {{current}} of {{total}} items...",
-        "success": "Index rebuild completed successfully!",
-        "error": "Failed to rebuild index. Please try again."
       },
       "test_search": {
         "title": "Semantic Search",
@@ -843,3 +814,11 @@
     "bug_report": "Report Bug / Feature"
   }
 }
+
+
+
+
+I'm making ollama client i18n comaptible and i need your help in translating this en to
+
+{ value: "ru", label: "Russian" },, Russian. help me. keep the order of json same. and try to be as correct possible.
+

@@ -599,7 +599,27 @@
       "embeddings": "Embeddings",
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
-      "guides": "Anleitungen"
+      "guides": "Anleitungen",
+      "memory": "Gedächtnis"
+    },
+    "memory": {
+      "title": "Kontextuelles Gedächtnis",
+      "beta_badge": "Beta",
+      "description": "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
+      "enable": {
+        "label": "Gedächtnis aktivieren",
+        "description": "Wenn aktiviert, wird der Chatverlauf lokal gespeichert und verwendet, um Kontext bereitzustellen."
+      },
+      "clear": {
+        "label": "Gedächtnis löschen",
+        "description": "Alle gespeicherten Chat-Erinnerungen löschen.",
+        "button": "Chat-Gedächtnis löschen",
+        "button_clearing": "Lösche...",
+        "confirm_dialog": "Sind Sie sicher, dass Sie das gesamte Chat-Gedächtnis löschen möchten? Dies kann nicht rückgängig gemacht werden.",
+        "success": "Chat-Gedächtnis erfolgreich gelöscht.",
+        "error": "Fehler beim Löschen des Gedächtnisses.",
+        "usage": "Nutzung: {{count}} Elemente ({{size}} MB gesamt)"
+      }
     },
     "page": {
       "title": "Ollama Client Einstellungen",

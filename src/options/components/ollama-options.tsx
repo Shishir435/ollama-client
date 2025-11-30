@@ -14,6 +14,7 @@ import { MiniBadge } from "@/components/ui/mini-badge"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
+import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
@@ -57,6 +58,15 @@ export const OllamaOptions = () => {
         </span>
       ),
       content: <EmbeddingSettings />
+    },
+    memory: {
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t("settings.tabs.memory")}
+          <MiniBadge text="Beta" />
+        </span>
+      ),
+      content: <MemorySettings />
     },
     voices: {
       label: t("settings.tabs.voices"),

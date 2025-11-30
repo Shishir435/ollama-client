@@ -63,6 +63,9 @@ export const STORAGE_KEYS = {
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"
+  },
+  MEMORY: {
+    ENABLED: "memory-enabled"
   }
 }
 

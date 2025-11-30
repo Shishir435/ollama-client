@@ -669,7 +669,30 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Sprachausgaben",
           reset: "Zurücksetzen",
-          guides: "Anleitungen"
+          guides: "Anleitungen",
+          memory: "Gedächtnis"
+        },
+        memory: {
+          title: "Kontextuelles Gedächtnis",
+          beta_badge: "Beta",
+          description:
+            "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
+          enable: {
+            label: "Gedächtnis aktivieren",
+            description:
+              "Wenn aktiviert, wird der Chatverlauf lokal gespeichert und verwendet, um Kontext bereitzustellen."
+          },
+          clear: {
+            label: "Gedächtnis löschen",
+            description: "Alle gespeicherten Chat-Erinnerungen löschen.",
+            button: "Chat-Gedächtnis löschen",
+            button_clearing: "Lösche...",
+            confirm_dialog:
+              "Sind Sie sicher, dass Sie das gesamte Chat-Gedächtnis löschen möchten? Dies kann nicht rückgängig gemacht werden.",
+            success: "Chat-Gedächtnis erfolgreich gelöscht.",
+            error: "Fehler beim Löschen des Gedächtnisses.",
+            usage: "Nutzung: {{count}} Elemente ({{size}} MB gesamt)"
+          }
         },
         page: {
           title: "Ollama Client Einstellungen",
@@ -1578,7 +1601,30 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Voices",
           reset: "Reset",
-          guides: "Guides"
+          guides: "Guides",
+          memory: "Memory"
+        },
+        memory: {
+          title: "Contextual Memory",
+          beta_badge: "Beta",
+          description:
+            "Allow the AI to remember details from past conversations to provide personalized responses.",
+          enable: {
+            label: "Enable Memory",
+            description:
+              "When enabled, chat history is stored locally and used to provide context."
+          },
+          clear: {
+            label: "Clear Memory",
+            description: "Delete all stored chat memories.",
+            button: "Clear Chat Memory",
+            button_clearing: "Clearing...",
+            confirm_dialog:
+              "Are you sure you want to clear all chat memory? This cannot be undone.",
+            success: "Chat memory cleared successfully.",
+            error: "Failed to clear memory.",
+            usage: "Usage: {{count}} items ({{size}} MB total)"
+          }
         },
         page: {
           title: "Ollama Client Settings",
@@ -2490,7 +2536,30 @@ export const resources = {
           embeddings: "Incrustaciones",
           voices: "Voces",
           reset: "Restablecer",
-          guides: "Guías"
+          guides: "Guías",
+          memory: "Memoria"
+        },
+        memory: {
+          title: "Memoria Contextual",
+          beta_badge: "Beta",
+          description:
+            "Permite que la IA recuerde detalles de conversaciones pasadas para proporcionar respuestas personalizadas.",
+          enable: {
+            label: "Habilitar Memoria",
+            description:
+              "Cuando está habilitado, el historial de chat se almacena localmente y se utiliza para proporcionar contexto."
+          },
+          clear: {
+            label: "Borrar Memoria",
+            description: "Eliminar todos los recuerdos de chat almacenados.",
+            button: "Borrar Memoria de Chat",
+            button_clearing: "Borrando...",
+            confirm_dialog:
+              "¿Estás seguro de que quieres borrar toda la memoria de chat? Esta acción no se puede deshacer.",
+            success: "Memoria de chat borrada con éxito.",
+            error: "Error al borrar la memoria.",
+            usage: "Uso: {{count}} elementos ({{size}} MB total)"
+          }
         },
         page: {
           title: "Ajustes de Ollama Client",
@@ -3415,7 +3484,30 @@ export const resources = {
           embeddings: "Incrustations",
           voices: "Voix",
           reset: "Réinitialiser",
-          guides: "Guides"
+          guides: "Guides",
+          memory: "Mémoire"
+        },
+        memory: {
+          title: "Mémoire Contextuelle",
+          beta_badge: "Bêta",
+          description:
+            "Permettre à l'IA de se souvenir des détails des conversations passées pour fournir des réponses personnalisées.",
+          enable: {
+            label: "Activer la Mémoire",
+            description:
+              "Lorsqu'elle est activée, l'historique des discussions est stocké localement et utilisé pour fournir du contexte."
+          },
+          clear: {
+            label: "Effacer la Mémoire",
+            description: "Supprimer tous les souvenirs de discussion stockés.",
+            button: "Effacer la Mémoire de Discussion",
+            button_clearing: "Effacement...",
+            confirm_dialog:
+              "Êtes-vous sûr de vouloir effacer toute la mémoire de discussion ? Cette action est irréversible.",
+            success: "Mémoire de discussion effacée avec succès.",
+            error: "Échec de l'effacement de la mémoire.",
+            usage: "Utilisation : {{count}} éléments ({{size}} Mo total)"
+          }
         },
         page: {
           title: "Paramètres d'Ollama Client",
@@ -4316,7 +4408,30 @@ export const resources = {
           embeddings: "एम्बेडिंग",
           voices: "वॉयस",
           reset: "रीसेट करें",
-          guides: "गाइड"
+          guides: "गाइड",
+          memory: "मेमोरी"
+        },
+        memory: {
+          title: "प्रासंगिक मेमोरी",
+          beta_badge: "बीटा",
+          description:
+            "व्यक्तिगत प्रतिक्रियाएँ प्रदान करने के लिए AI को पिछली बातचीत के विवरण याद रखने की अनुमति दें।",
+          enable: {
+            label: "मेमोरी सक्षम करें",
+            description:
+              "सक्षम होने पर, चैट इतिहास स्थानीय रूप से संग्रहीत किया जाता है और संदर्भ प्रदान करने के लिए उपयोग किया जाता है।"
+          },
+          clear: {
+            label: "मेमोरी साफ़ करें",
+            description: "सभी संग्रहीत चैट यादें हटाएँ।",
+            button: "चैट मेमोरी साफ़ करें",
+            button_clearing: "साफ़ कर रहा है...",
+            confirm_dialog:
+              "क्या आप वाकई सभी चैट मेमोरी साफ़ करना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।",
+            success: "चैट मेमोरी सफलतापूर्वक साफ़ की गई।",
+            error: "मेमोरी साफ़ करने में विफल।",
+            usage: "उपयोग: {{count}} आइटम ({{size}} MB कुल)"
+          }
         },
         page: {
           title: "Ollama क्लाइंट सेटिंग्स",
@@ -5229,7 +5344,30 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Voci",
           reset: "Reset",
-          guides: "Guide"
+          guides: "Guide",
+          memory: "Memoria"
+        },
+        memory: {
+          title: "Memoria Contestuale",
+          beta_badge: "Beta",
+          description:
+            "Consenti all'IA di ricordare i dettagli delle conversazioni passate per fornire risposte personalizzate.",
+          enable: {
+            label: "Abilita Memoria",
+            description:
+              "Quando abilitato, la cronologia della chat viene archiviata localmente e utilizzata per fornire contesto."
+          },
+          clear: {
+            label: "Cancella Memoria",
+            description: "Elimina tutti i ricordi della chat archiviati.",
+            button: "Cancella Memoria Chat",
+            button_clearing: "Cancellazione...",
+            confirm_dialog:
+              "Sei sicuro di voler cancellare tutta la memoria della chat? Questa operazione non può essere annullata.",
+            success: "Memoria della chat cancellata con successo.",
+            error: "Impossibile cancellare la memoria.",
+            usage: "Utilizzo: {{count}} elementi ({{size}} MB totali)"
+          }
         },
         page: {
           title: "Impostazioni Ollama Client",
@@ -6137,7 +6275,30 @@ export const resources = {
           embeddings: "エンベディング",
           voices: "音声",
           reset: "リセット",
-          guides: "ガイド"
+          guides: "ガイド",
+          memory: "メモリ"
+        },
+        memory: {
+          title: "コンテキストメモリ",
+          beta_badge: "ベータ",
+          description:
+            "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
+          enable: {
+            label: "メモリを有効にする",
+            description:
+              "有効にすると、チャット履歴がローカルに保存され、コンテキストを提供するために使用されます。"
+          },
+          clear: {
+            label: "メモリを消去",
+            description: "保存されたすべてのチャットメモリを削除します。",
+            button: "チャットメモリを消去",
+            button_clearing: "消去中...",
+            confirm_dialog:
+              "すべてのチャットメモリを消去してもよろしいですか？この操作は取り消せません。",
+            success: "チャットメモリが正常に消去されました。",
+            error: "メモリの消去に失敗しました。",
+            usage: "使用状況: {{count}} 項目 (合計 {{size}} MB)"
+          }
         },
         page: {
           title: "Ollama Client設定",
@@ -7044,7 +7205,30 @@ export const resources = {
           embeddings: "Эмбеддинги",
           voices: "Голоса",
           reset: "Сброс",
-          guides: "Руководства"
+          guides: "Руководства",
+          memory: "Память"
+        },
+        memory: {
+          title: "Контекстная память",
+          beta_badge: "Бета",
+          description:
+            "Позволить ИИ запоминать детали прошлых разговоров для предоставления персонализированных ответов.",
+          enable: {
+            label: "Включить память",
+            description:
+              "Если включено, история чата сохраняется локально и используется для предоставления контекста."
+          },
+          clear: {
+            label: "Очистить память",
+            description: "Удалить все сохраненные воспоминания чата.",
+            button: "Очистить память чата",
+            button_clearing: "Очистка...",
+            confirm_dialog:
+              "Вы уверены, что хотите очистить всю память чата? Это действие нельзя отменить.",
+            success: "Память чата успешно очищена.",
+            error: "Не удалось очистить память.",
+            usage: "Использование: {{count}} элементов (всего {{size}} МБ)"
+          }
         },
         page: {
           title: "Настройки Ollama Client",
@@ -7918,7 +8102,27 @@ export const resources = {
           embeddings: "嵌入",
           voices: "声音",
           reset: "重置",
-          guides: "指南"
+          guides: "指南",
+          memory: "记忆"
+        },
+        memory: {
+          title: "上下文记忆",
+          beta_badge: "测试版",
+          description: "允许 AI 记住过去对话的细节，以提供个性化的回复。",
+          enable: {
+            label: "启用记忆",
+            description: "启用后，聊天记录将存储在本地并用于提供上下文。"
+          },
+          clear: {
+            label: "清除记忆",
+            description: "删除所有存储的聊天记忆。",
+            button: "清除聊天记忆",
+            button_clearing: "清除中...",
+            confirm_dialog: "您确定要清除所有聊天记忆吗？此操作无法撤销。",
+            success: "聊天记忆已成功清除。",
+            error: "清除记忆失败。",
+            usage: "使用情况：{{count}} 个项目（共 {{size}} MB）"
+          }
         },
         page: {
           title: "Ollama 客户端设置",

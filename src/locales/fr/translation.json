@@ -599,7 +599,27 @@
       "embeddings": "Incrustations",
       "voices": "Voix",
       "reset": "Réinitialiser",
-      "guides": "Guides"
+      "guides": "Guides",
+      "memory": "Mémoire"
+    },
+    "memory": {
+      "title": "Mémoire Contextuelle",
+      "beta_badge": "Bêta",
+      "description": "Permettre à l'IA de se souvenir des détails des conversations passées pour fournir des réponses personnalisées.",
+      "enable": {
+        "label": "Activer la Mémoire",
+        "description": "Lorsqu'elle est activée, l'historique des discussions est stocké localement et utilisé pour fournir du contexte."
+      },
+      "clear": {
+        "label": "Effacer la Mémoire",
+        "description": "Supprimer tous les souvenirs de discussion stockés.",
+        "button": "Effacer la Mémoire de Discussion",
+        "button_clearing": "Effacement...",
+        "confirm_dialog": "Êtes-vous sûr de vouloir effacer toute la mémoire de discussion ? Cette action est irréversible.",
+        "success": "Mémoire de discussion effacée avec succès.",
+        "error": "Échec de l'effacement de la mémoire.",
+        "usage": "Utilisation : {{count}} éléments ({{size}} Mo total)"
+      }
     },
     "page": {
       "title": "Paramètres d'Ollama Client",

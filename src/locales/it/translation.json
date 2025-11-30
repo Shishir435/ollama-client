@@ -599,7 +599,27 @@
       "embeddings": "Embeddings",
       "voices": "Voci",
       "reset": "Reset",
-      "guides": "Guide"
+      "guides": "Guide",
+      "memory": "Memoria"
+    },
+    "memory": {
+      "title": "Memoria Contestuale",
+      "beta_badge": "Beta",
+      "description": "Consenti all'IA di ricordare i dettagli delle conversazioni passate per fornire risposte personalizzate.",
+      "enable": {
+        "label": "Abilita Memoria",
+        "description": "Quando abilitato, la cronologia della chat viene archiviata localmente e utilizzata per fornire contesto."
+      },
+      "clear": {
+        "label": "Cancella Memoria",
+        "description": "Elimina tutti i ricordi della chat archiviati.",
+        "button": "Cancella Memoria Chat",
+        "button_clearing": "Cancellazione...",
+        "confirm_dialog": "Sei sicuro di voler cancellare tutta la memoria della chat? Questa operazione non può essere annullata.",
+        "success": "Memoria della chat cancellata con successo.",
+        "error": "Impossibile cancellare la memoria.",
+        "usage": "Utilizzo: {{count}} elementi ({{size}} MB totali)"
+      }
     },
     "page": {
       "title": "Impostazioni Ollama Client",

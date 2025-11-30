@@ -598,7 +598,27 @@
       "embeddings": "Incrustaciones",
       "voices": "Voces",
       "reset": "Restablecer",
-      "guides": "Guías"
+      "guides": "Guías",
+      "memory": "Memoria"
+    },
+    "memory": {
+      "title": "Memoria Contextual",
+      "beta_badge": "Beta",
+      "description": "Permite que la IA recuerde detalles de conversaciones pasadas para proporcionar respuestas personalizadas.",
+      "enable": {
+        "label": "Habilitar Memoria",
+        "description": "Cuando está habilitado, el historial de chat se almacena localmente y se utiliza para proporcionar contexto."
+      },
+      "clear": {
+        "label": "Borrar Memoria",
+        "description": "Eliminar todos los recuerdos de chat almacenados.",
+        "button": "Borrar Memoria de Chat",
+        "button_clearing": "Borrando...",
+        "confirm_dialog": "¿Estás seguro de que quieres borrar toda la memoria de chat? Esta acción no se puede deshacer.",
+        "success": "Memoria de chat borrada con éxito.",
+        "error": "Error al borrar la memoria.",
+        "usage": "Uso: {{count}} elementos ({{size}} MB total)"
+      }
     },
     "page": {
       "title": "Ajustes de Ollama Client",

@@ -599,7 +599,27 @@
       "embeddings": "エンベディング",
       "voices": "音声",
       "reset": "リセット",
-      "guides": "ガイド"
+      "guides": "ガイド",
+      "memory": "メモリ"
+    },
+    "memory": {
+      "title": "コンテキストメモリ",
+      "beta_badge": "ベータ",
+      "description": "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
+      "enable": {
+        "label": "メモリを有効にする",
+        "description": "有効にすると、チャット履歴がローカルに保存され、コンテキストを提供するために使用されます。"
+      },
+      "clear": {
+        "label": "メモリを消去",
+        "description": "保存されたすべてのチャットメモリを削除します。",
+        "button": "チャットメモリを消去",
+        "button_clearing": "消去中...",
+        "confirm_dialog": "すべてのチャットメモリを消去してもよろしいですか？この操作は取り消せません。",
+        "success": "チャットメモリが正常に消去されました。",
+        "error": "メモリの消去に失敗しました。",
+        "usage": "使用状況: {{count}} 項目 (合計 {{size}} MB)"
+      }
     },
     "page": {
       "title": "Ollama Client設定",

@@ -3,8 +3,10 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
+import { memoryManager } from "@/background/lib/memory-manager"
 import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { retrieveContext } from "@/lib/embeddings/vector-store"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatMessage,
@@ -31,7 +33,7 @@ export const handleChatWithModel = async (
   port: ChromePort,
   isPortClosed: PortStatusFunction
 ): Promise<void> => {
-  const { model, messages } = msg.payload
+  const { model, messages, sessionId, chatId } = msg.payload
   const baseUrl = await getBaseUrl()
 
   // Always create a fresh AbortController
@@ -49,6 +51,56 @@ export const handleChatWithModel = async (
     const limitedMessages = limitMessagesForModel(model, messages)
 
     let preparedMessages = [...limitedMessages]
+
+    // --- Contextual Memory Injection ---
+    const isMemoryEnabled = await plasmoGlobalStorage.get<boolean>(
+      STORAGE_KEYS.MEMORY.ENABLED
+    )
+
+    console.log(
+      `[Memory] Enabled: ${isMemoryEnabled}, Messages: ${messages.length}`
+    )
+
+    if (isMemoryEnabled && messages.length > 0) {
+      const lastUserMessage = messages[messages.length - 1]
+      if (lastUserMessage.role === "user") {
+        const context = await retrieveContext(
+          lastUserMessage.content,
+          sessionId || "unknown"
+        )
+
+        if (context.length > 0) {
+          console.log(`[Memory] Injected ${context.length} past context items`)
+          const contextString = context.map((c) => `- ${c}`).join("\n")
+          const systemContext = `
+
+IMPORTANT: You have access to context from previous conversations with this user:
+${contextString}
+
+Use this information to provide personalized and contextually aware responses. When the user asks about past conversations or information they've shared, refer to this context.`
+
+          // Inject into system message if exists, or create one
+          const systemMsgIndex = preparedMessages.findIndex(
+            (m) => m.role === "system"
+          )
+          if (systemMsgIndex !== -1) {
+            preparedMessages[systemMsgIndex] = {
+              ...preparedMessages[systemMsgIndex],
+              content: preparedMessages[systemMsgIndex].content + systemContext
+            }
+          } else {
+            preparedMessages.unshift({
+              role: "system",
+              content:
+                (modelParams.system || "You are a helpful AI assistant.") +
+                systemContext
+            })
+          }
+        }
+      }
+    }
+    // -----------------------------------
+
     const hasSystemMessage = preparedMessages.some(
       (msg) => msg.role === "system"
     )
@@ -81,7 +133,21 @@ export const handleChatWithModel = async (
       return
     }
 
-    await handleChatStream(response, port, isPortClosed)
+    const fullResponse = await handleChatStream(response, port, isPortClosed)
+
+    // --- Save to Memory ---
+    if (isMemoryEnabled && fullResponse && messages.length > 0) {
+      const lastUserMessage = messages[messages.length - 1]
+      if (lastUserMessage.role === "user") {
+        await memoryManager.saveChatToMemory({
+          userMessage: lastUserMessage.content,
+          aiResponse: fullResponse,
+          sessionId: sessionId || "unknown",
+          chatId
+        })
+      }
+    }
+    // ----------------------
   } catch (err) {
     const error = err as NetworkError
 

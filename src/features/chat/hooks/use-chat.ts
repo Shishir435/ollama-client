@@ -213,7 +213,8 @@ export const useChat = () => {
     if (!customInput) setInput("")
     startStream({
       model: customModel || selectedModel,
-      messages: newMessages
+      messages: newMessages,
+      sessionId: currentSessionId
     })
   }
 

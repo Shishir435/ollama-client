@@ -6,6 +6,7 @@ import {
 } from "@/lib/constants"
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 /**
@@ -165,6 +166,8 @@ export interface VectorDocument {
     timestamp: number
     chunkIndex?: number
     totalChunks?: number
+    role?: "user" | "assistant" | "system"
+    chatId?: string
   }
 }
 
@@ -750,6 +753,8 @@ export const searchHybrid = async (
   return fusedResults
 }
 
+// ... (rest of the file until deleteVectors)
+
 /**
  * Deletes vectors by metadata filters
  */
@@ -785,6 +790,91 @@ export const deleteVectors = async (filters: {
   }
 
   return await query.delete()
+}
+
+/**
+ * Stores a chat message in the vector database
+ */
+export const storeChatMessage = async (
+  content: string,
+  metadata: {
+    role: "user" | "assistant" | "system"
+    sessionId: string
+    chatId?: string
+  }
+): Promise<number> => {
+  const { sessionId } = metadata
+
+  // Generate embedding
+  const result = await generateEmbedding(content)
+
+  if ("error" in result) {
+    console.error(
+      "Failed to generate embedding for chat message:",
+      result.error
+    )
+    // Fallback: store without embedding (will rely on keyword search only)
+    // Or throw error? For now, let's throw to be safe
+    throw new Error(result.error)
+  }
+
+  // Store in vector DB
+  return await storeVector(content, result.embedding, {
+    type: "chat",
+    sessionId,
+    timestamp: Date.now(),
+    // Store role and chatId in metadata for filtering/context
+    ...metadata
+  })
+}
+
+/**
+ * Retrieves relevant context from past conversations
+ * Excludes the current session to avoid retrieving immediate history
+ */
+export const retrieveContext = async (
+  query: string,
+  currentSessionId: string,
+  limit = 5
+): Promise<string[]> => {
+  // Generate embedding for the query
+  const result = await generateEmbedding(query)
+
+  if ("error" in result) {
+    console.warn(
+      "Failed to generate embedding for context retrieval:",
+      result.error
+    )
+    return []
+  }
+
+  // Search for similar vectors
+  const results = await searchSimilarVectors(result.embedding, {
+    limit: limit * 2, // Fetch more to filter
+    type: "chat",
+    minSimilarity: 0.5 // Lower threshold to catch more relevant context
+  })
+
+  console.log(`[Memory] Found ${results.length} potential context items`)
+
+  // Filter out current session and map to content
+  const context = results
+    .filter((r) => {
+      const isDifferentSession =
+        r.document.metadata.sessionId !== currentSessionId
+      if (!isDifferentSession) {
+        console.log(`[Memory] Filtered out same-session item: ${r.document.id}`)
+      }
+      return isDifferentSession
+    })
+    .slice(0, limit)
+    .map((r) => r.document.content)
+
+  console.log(
+    `[Memory] Returning ${context.length} context items after filtering`
+  )
+
+  return context
 }
 
 /**
@@ -940,4 +1030,157 @@ export const removeDuplicateVectors = async (): Promise<{
   }
 
   return { removed, kept }
+}
+
+/**
+ * ========================================================================
+ * LangChain-Compatible Methods
+ * ========================================================================
+ * These methods provide compatibility with LangChain's document processing
+ * and RAG patterns while using the existing IndexedDB vector store
+ */
+
+/**
+ * Add documents with embeddings to the vector store
+ * Compatible with LangChain's Document interface
+ */
+export const addDocuments = async (
+  documents: Array<{
+    pageContent: string
+    metadata: Record<string, any>
+  }>,
+  fileId?: string
+): Promise<number[]> => {
+  const ids: number[] = []
+
+  for (const doc of documents) {
+    // Generate embedding for document
+    const result = await generateEmbedding(doc.pageContent)
+
+    // Handle error case
+    if ("error" in result) {
+      console.error(
+        `[addDocuments] Failed to generate embedding: ${result.error}`
+      )
+      continue // Skip this document
+    }
+
+    // Store vector with proper metadata
+    const id = await storeVector(doc.pageContent, result.embedding, {
+      type: "file",
+      fileId: fileId || doc.metadata.fileId,
+      title: doc.metadata.title || doc.metadata.source,
+      timestamp: Date.now(),
+      ...doc.metadata
+    })
+
+    ids.push(id)
+  }
+
+  return ids
+}
+
+/**
+ * Similarity search that returns documents with scores
+ * Compatible with LangChain's similaritySearchWithScore pattern
+ */
+export const similaritySearchWithScore = async (
+  query: string,
+  k: number = 4,
+  filter?: {
+    type?: VectorDocument["metadata"]["type"]
+    sessionId?: string
+    fileId?: string | string[]
+  }
+): Promise<Array<{ document: VectorDocument; score: number }>> => {
+  // Generate embedding for query
+  const result = await generateEmbedding(query)
+
+  // Handle error case
+  if ("error" in result) {
+    console.error(
+      `[similaritySearchWithScore] Failed to generate embedding: ${result.error}`
+    )
+    return []
+  }
+
+  // Search for similar vectors
+  const results = await searchSimilarVectors(result.embedding, {
+    limit: k,
+    ...filter
+  })
+
+  // Map to LangChain-compatible format
+  return results.map((result) => ({
+    document: result.document,
+    score: result.similarity
+  }))
+}
+
+/**
+ * Factory method to create vector store from documents
+ * Compatible with LangChain's fromDocuments pattern
+ */
+export const fromDocuments = async (
+  documents: Array<{
+    pageContent: string
+    metadata: Record<string, any>
+  }>,
+  fileId?: string
+): Promise<{
+  documentCount: number
+  vectorIds: number[]
+}> => {
+  const vectorIds = await addDocuments(documents, fileId)
+
+  return {
+    documentCount: documents.length,
+    vectorIds
+  }
+}
+
+/**
+ * Get all documents for a knowledge base (file/session) with pagination
+ * Useful for RAG context retrieval when you want full context
+ */
+export const getAllDocuments = async (context: {
+  fileId?: string
+  sessionId?: string
+  url?: string
+  type?: VectorDocument["metadata"]["type"]
+  maxTokens?: number
+}): Promise<{
+  documents: VectorDocument[]
+  tokenCount: number
+}> => {
+  const docs = await getVectorsByContext({
+    type: context.type,
+    sessionId: context.sessionId,
+    fileId: context.fileId,
+    url: context.url
+  })
+
+  // If maxTokens specified, truncate
+  if (context.maxTokens) {
+    let tokenCount = 0
+    const truncated: VectorDocument[] = []
+
+    for (const doc of docs) {
+      const docTokens = Math.ceil(doc.content.length / 4) // Rough token estimate
+      if (tokenCount + docTokens > context.maxTokens) {
+        break
+      }
+      truncated.push(doc)
+      tokenCount += docTokens
+    }
+
+    return { documents: truncated, tokenCount }
+  }
+
+  const tokenCount = docs.reduce(
+    (acc, doc) => acc + Math.ceil(doc.content.length / 4),
+    0
+  )
+
+  return { documents: docs, tokenCount }
 }
