@@ -44,6 +44,12 @@ export const FilePreview = ({
         return <FileText className="size-4 text-red-500/80" />
       case FILE_UPLOAD.EXTENSIONS.DOCX:
         return <FileText className="size-4 text-blue-500/80" />
+      case FILE_UPLOAD.EXTENSIONS.CSV:
+      case FILE_UPLOAD.EXTENSIONS.TSV:
+        return <FileText className="size-4 text-green-500/80" />
+      case FILE_UPLOAD.EXTENSIONS.HTML:
+      case FILE_UPLOAD.EXTENSIONS.HTM:
+        return <FileText className="size-4 text-orange-500/80" />
       default:
         return <FileText className="size-4 text-muted-foreground/50" />
     }
@@ -65,11 +71,29 @@ export const FilePreview = ({
       return t("file_upload.preview.generating_embeddings")
     }
     const extension = file.name.split(".").pop()?.toLowerCase()
+
+    // Check file type
     if (extension === FILE_UPLOAD.EXTENSIONS.PDF) {
       return t("file_upload.preview.extracting_pdf")
     }
     if (extension === FILE_UPLOAD.EXTENSIONS.DOCX) {
       return t("file_upload.preview.processing_docx")
+    }
+    if (
+      extension === FILE_UPLOAD.EXTENSIONS.CSV ||
+      extension === FILE_UPLOAD.EXTENSIONS.TSV
+    ) {
+      return t("file_upload.preview.processing_csv", {
+        defaultValue: "Parsing CSV file..."
+      })
+    }
+    if (
+      extension === FILE_UPLOAD.EXTENSIONS.HTML ||
+      extension === FILE_UPLOAD.EXTENSIONS.HTM
+    ) {
+      return t("file_upload.preview.processing_html", {
+        defaultValue: "Converting HTML to Markdown..."
+      })
     }
     return t("file_upload.preview.processing_file")
   }

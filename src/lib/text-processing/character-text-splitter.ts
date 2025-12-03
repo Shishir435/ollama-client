@@ -39,6 +39,7 @@ export class CharacterTextSplitter implements TextSplitter {
    */
   async createDocuments(
     texts: string[],
+    // biome-ignore lint/suspicious/noExplicitAny: Flexible metadata storage
     metadatas?: Record<string, any>[]
   ): Promise<Document[]> {
     const _metadatas =

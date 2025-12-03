@@ -71,10 +71,13 @@
 - 🔧 **Configurable** – Chunk size, overlap, similarity threshold, search limits
 - 📁 **Context-Aware** – Search across all chats or within current session
 
-### 📎 File Upload & Processing (Beta v0.3.0)
+### 📎 File Upload & Processing (Beta v0.3.0+)
 - 📄 **Text Files** – Support for .txt, .md and text based files
-- 📕 **PDF Support** – Full text extraction from PDF documents
+- 📁 **PDF Support** – Extract and process text from PDF documents
 - 📘 **DOCX Support** – Extract text from Word documents
+- 📊 **CSV Support** – Parse CSV, TSV, PSV with custom delimiters and column extraction (Beta v0.5.0)
+- 🌐 **HTML Support** – Convert HTML to Markdown for clean text extraction (Beta v0.5.0)
+with 50+ language support (Beta v0.5.0)
 - ⚙️ **Auto-Embedding** – Automatic embedding generation for uploaded files
 - 📊 **Progress Tracking** – Real-time progress indicators during processing
 - 🎛️ **Configurable Limits** – User-defined max file size in settings
@@ -457,7 +460,14 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
   - [x] Configurable max file size
   - [x] Auto-embed toggle
   - [x] Embedding batch size configuration
-- [ ] Image OCR via **Tesseract.js** (Deferred - CSP issues in Manifest V3)
+- [x] **CSV Support** (Beta v0.5.0 - Completed):
+  - [x] CSV parsing with d3-dsv
+  - [x] Custom delimiter support (comma, tab, pipe, semicolon)
+  - [x] Column extraction
+  - [x] TSV and PSV file support
+- [x] **HTML Support** (Beta v0.5.0 - Completed):
+  - [x] HTML to Markdown conversion via Turndown
+  - [x] Structure and link preservation
 
 ### UX & Metrics Enhancements
 

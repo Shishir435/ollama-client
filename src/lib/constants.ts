@@ -610,7 +610,17 @@ export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   EXTENSIONS: {
     PDF: "pdf",
-    DOCX: "docx"
+    DOCX: "docx",
+    CSV: "csv",
+    TSV: "tsv",
+    HTML: "html",
+    HTM: "htm",
+    PNG: "png",
+    JPG: "jpg",
+    JPEG: "jpeg",
+    WEBP: "webp",
+    GIF: "gif",
+    BMP: "bmp"
   }
 }
 

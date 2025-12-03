@@ -188,7 +188,8 @@ export const EmbeddingSettings = () => {
       const id = await storeVector(testText, result.embedding, {
         type: "chat",
         title: "Test Embedding",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const stats = await getStorageStats()

@@ -3,6 +3,7 @@
  */
 export interface Document {
   pageContent: string
+  // biome-ignore lint/suspicious/noExplicitAny: Flexible metadata storage
   metadata: Record<string, any>
 }
 
@@ -23,6 +24,7 @@ export interface TextSplitter {
   splitDocuments(documents: Document[]): Promise<Document[]>
   createDocuments(
     texts: string[],
+    // biome-ignore lint/suspicious/noExplicitAny: Flexible metadata storage
     metadatas?: Record<string, any>[]
   ): Promise<Document[]>
 }

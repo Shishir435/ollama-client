@@ -41,9 +41,12 @@ export const FileUploadButton = ({
   }
 
   const accept = [
-    "text/*",
-    "application/pdf,.pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx",
+    "text/*", // Text files
+    "application/pdf,.pdf", // PDF
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx", // DOCX
+    "text/csv,.csv", // CSV
+    "text/tab-separated-values,.tsv", // TSV
+    "text/html,.html,.htm", // HTML
     "application/javascript,application/json,application/xml,application/yaml"
   ].join(",")
 

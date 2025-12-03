@@ -1049,6 +1049,7 @@ export const removeDuplicateVectors = async (): Promise<{
 export const addDocuments = async (
   documents: Array<{
     pageContent: string
+    // biome-ignore lint/suspicious/noExplicitAny: Flexible metadata storage
     metadata: Record<string, any>
   }>,
   fileId?: string
@@ -1128,6 +1129,7 @@ export const similaritySearchWithScore = async (
 export const fromDocuments = async (
   documents: Array<{
     pageContent: string
+    // biome-ignore lint/suspicious/noExplicitAny: Flexible metadata storage
     metadata: Record<string, any>
   }>,
   fileId?: string

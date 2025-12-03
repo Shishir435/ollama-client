@@ -16,6 +16,7 @@ import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChromeMessage } from "@/types"
 
@@ -38,6 +39,7 @@ export const ChatInputBox = ({
   const selectionEndRef = useRef<number | null>(null)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   const {
     processFiles,
@@ -138,6 +140,56 @@ export const ChatInputBox = ({
     [processFiles]
   )
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Check if any dragged item is an image
+    const hasImage = Array.from(e.dataTransfer.items).some((item) =>
+      item.type.startsWith("image/")
+    )
+
+    if (!hasImage) {
+      setIsDragging(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const files = Array.from(e.dataTransfer.files)
+        const validFiles = files.filter(
+          (file) => !file.type.startsWith("image/")
+        )
+
+        if (validFiles.length < files.length) {
+          // TODO: Show toast notification that images are not supported
+          console.warn("Images are currently not supported")
+        }
+
+        if (validFiles.length > 0) {
+          // Create a new DataTransfer to convert array back to FileList
+          const dt = new DataTransfer()
+          validFiles.forEach((file) => {
+            dt.items.add(file)
+          })
+          processFiles(dt.files)
+        }
+      }
+    },
+    [processFiles]
+  )
+
   useEffect(() => {
     const handleMessage = (message: unknown) => {
       const msg = message as ChromeMessage
@@ -187,13 +239,29 @@ export const ChatInputBox = ({
         />
       )}
 
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Drag and drop zone wrapper */}
       <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={cn(
           "relative rounded-xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
           isFocused
             ? "border-primary/50 shadow-lg shadow-primary/10"
-            : "border-border/50 hover:border-border"
+            : "border-border/50 hover:border-border",
+          isDragging && "border-primary border-dashed bg-primary/5"
         )}>
+        {isDragging && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm">
+            <Upload className="mb-2 size-8 animate-bounce text-primary" />
+            <p className="text-sm font-medium text-primary">
+              {t("chat.input.drop_files_here", {
+                defaultValue: "Drop files here"
+              })}
+            </p>
+          </div>
+        )}
+
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}

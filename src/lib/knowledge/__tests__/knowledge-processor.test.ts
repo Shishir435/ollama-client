@@ -21,7 +21,10 @@ describe("processKnowledge", () => {
 
   it("processes document successfully", async () => {
     vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({ vectorIds: [1, 2] })
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
+      vectorIds: [1, 2],
+      documentCount: 0
+    })
 
     const onProgress = vi.fn()
     const result = await processKnowledge({
@@ -67,7 +70,10 @@ describe("processKnowledgeBatch", () => {
       splitDocuments: vi.fn().mockResolvedValue([{ pageContent: "chunk", metadata: {} }])
     }
     vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({ vectorIds: [1] })
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
+      vectorIds: [1],
+      documentCount: 0
+    })
 
     const files = [
       { fileId: "f1", fileName: "1.txt", content: "c1", contentType: "txt" },
