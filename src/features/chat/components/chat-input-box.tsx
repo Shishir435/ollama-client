@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
+import { CharCount } from "@/features/chat/components/char-count"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
@@ -312,10 +313,7 @@ export const ChatInputBox = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="font-mono text-xs text-muted-foreground">
-              {input.length > 0 &&
-                t("chat.input.chars", { count: input.length })}
-            </div>
+            <CharCount count={input.length} />
             <div className="hidden text-xs text-muted-foreground sm:block">
               <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">
                 {t("chat.input.enter_key")}
