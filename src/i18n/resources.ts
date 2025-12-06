@@ -105,7 +105,11 @@ export const resources = {
           switch_model: "Modell wechseln",
           chars: "Zeichen",
           enter_to_send: "Senden",
-          enter_key: "Eingabe"
+          enter_key: "Eingabe",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
         },
         actions: {
           copy: "Kopieren",
@@ -1078,7 +1082,10 @@ export const resources = {
           switch_model: "Change model",
           chars: "Characters",
           enter_to_send: "Send",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context"
         },
         actions: {
           copy: "Copy",
@@ -2032,7 +2039,11 @@ export const resources = {
           placeholder: "Escribe un mensaje o ctrl + /",
           chars: "Caracteres",
           enter_to_send: "Enviar",
-          enter_key: "Intro"
+          enter_key: "Intro",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Usar contexto de archivos y chat"
         },
         actions: {
           copy: "Copiar",
@@ -3004,7 +3015,11 @@ export const resources = {
           switch_model: "Changer de modèle",
           chars: "Caractères",
           enter_to_send: "Envoyer",
-          enter_key: "Entrée"
+          enter_key: "Entrée",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
         },
         actions: {
           copy: "Copier",
@@ -3981,7 +3996,11 @@ export const resources = {
           switch_model: "मॉडल बदलें",
           chars: "अक्षर",
           enter_to_send: "भेजें",
-          enter_key: "एंटर"
+          enter_key: "एंटर",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
         },
         actions: {
           copy: "कॉपी करें",
@@ -4928,7 +4947,10 @@ export const resources = {
           switch_model: "Cambia modello",
           chars: "Caratteri",
           enter_to_send: "Invia",
-          enter_key: "Invio"
+          enter_key: "Invio",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat"
         },
         actions: {
           copy: "Copia",
@@ -5901,7 +5923,11 @@ export const resources = {
           switch_model: "モデルを変更",
           chars: "文字",
           enter_to_send: "送信",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
         },
         actions: {
           copy: "コピー",
@@ -6856,7 +6882,11 @@ export const resources = {
           switch_model: "Сменить модель",
           chars: "Символов",
           enter_to_send: "Отправить",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Бета): Использовать контекст файлов и чата"
         },
         actions: {
           copy: "Копировать",
@@ -7817,7 +7847,10 @@ export const resources = {
           switch_model: "切换模型",
           chars: "字符",
           enter_to_send: "发送",
-          enter_key: "回车"
+          enter_key: "回车",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文"
         },
         actions: {
           copy: "复制",

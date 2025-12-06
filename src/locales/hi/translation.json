@@ -95,7 +95,10 @@
       "switch_model": "मॉडल बदलें",
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
-      "enter_key": "एंटर"
+      "enter_key": "एंटर",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
     },
     "actions": {
       "copy": "कॉपी करें",

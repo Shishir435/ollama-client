@@ -94,7 +94,10 @@
       "placeholder": "Escribe un mensaje o ctrl + /",
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
-      "enter_key": "Intro"
+      "enter_key": "Intro",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat"
     },
     "actions": {
       "copy": "Copiar",

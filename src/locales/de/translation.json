@@ -95,7 +95,10 @@
       "switch_model": "Modell wechseln",
       "chars": "Zeichen",
       "enter_to_send": "Senden",
-      "enter_key": "Eingabe"
+      "enter_key": "Eingabe",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
     },
     "actions": {
       "copy": "Kopieren",

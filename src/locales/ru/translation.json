@@ -95,7 +95,10 @@
       "switch_model": "Сменить модель",
       "chars": "Символов",
       "enter_to_send": "Отправить",
-      "enter_key": "Enter"
+      "enter_key": "Enter",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата"
     },
     "actions": {
       "copy": "Копировать",

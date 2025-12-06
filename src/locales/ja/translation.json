@@ -95,7 +95,10 @@
       "switch_model": "モデルを変更",
       "chars": "文字",
       "enter_to_send": "送信",
-      "enter_key": "Enter"
+      "enter_key": "Enter",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
     },
     "actions": {
       "copy": "コピー",

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { CharCount } from "@/features/chat/components/char-count"
+import { RAGToggle } from "@/features/chat/components/rag-toggle"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
@@ -303,6 +304,7 @@ export const ChatInputBox = ({
               tooltipTextContent={t("chat.input.switch_model")}
             />
             <TabsToggle />
+            <RAGToggle />
             <SettingsButton showText={false} />
             <div className="flex items-center gap-2">
               <FileUploadButton

@@ -95,7 +95,10 @@
       "switch_model": "切换模型",
       "chars": "字符",
       "enter_to_send": "发送",
-      "enter_key": "回车"
+      "enter_key": "回车",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文"
     },
     "actions": {
       "copy": "复制",
