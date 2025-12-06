@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { BrainCircuit } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
-import { Switch } from "@/components/ui/switch"
+import { Toggle } from "@/components/ui/toggle"
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
+import { cn } from "@/lib/utils"
 export const RAGToggle = () => {
   const { t } = useTranslation()
   const [useRAG, setUseRAG] = useStorage<boolean>(
@@ -23,20 +23,18 @@ export const RAGToggle = () => {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex cursor-pointer items-center space-x-2">
-          <Switch
-            id="rag-switch"
-            checked={useRAG}
-            onCheckedChange={setUseRAG}
-          />
-          {useRAG ? (
-            <span className="text-sm">{t("chat.input.rag_toggle_on")}</span>
-          ) : (
-            <label htmlFor="rag-switch" className="text-sm">
-              {t("chat.input.rag_toggle_off")}
-            </label>
-          )}
-        </div>
+        <Toggle
+          pressed={useRAG}
+          onPressedChange={setUseRAG}
+          aria-label={t("chat.input.rag_toggle_tooltip")}
+          className={cn(
+            "size-8 p-0",
+            useRAG
+              ? "text-green-500 hover:text-green-600 hover:bg-muted"
+              : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+          )}>
+          <BrainCircuit className="size-4" />
+        </Toggle>
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>{t("chat.input.rag_toggle_tooltip")}</p>

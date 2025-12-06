@@ -1,7 +1,9 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { AppWindow } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Switch } from "@/components/ui/switch"
+import { Toggle } from "@/components/ui/toggle"
+
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +11,7 @@ import {
 } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
+import { cn } from "@/lib/utils"
 export const TabsToggle = () => {
   const { t } = useTranslation()
   const [tabAccess, setTabAccess] = useStorage<boolean>(
@@ -23,23 +25,23 @@ export const TabsToggle = () => {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex cursor-pointer items-center space-x-2">
-          <Switch
-            id="tabs-switch"
-            checked={tabAccess}
-            onCheckedChange={setTabAccess}
-          />
-          {tabAccess ? (
-            <span>{t("tabs.toggle.label_on")}</span>
-          ) : (
-            <label htmlFor="tabs-switch" className="text-sm">
-              {t("tabs.toggle.label_off")}
-            </label>
-          )}
-        </div>
+        <Toggle
+          pressed={tabAccess}
+          onPressedChange={setTabAccess}
+          aria-label={t("tabs.toggle.label_on")}
+          className={cn(
+            "size-8 p-0",
+            tabAccess
+              ? "text-green-500 hover:text-green-600 hover:bg-muted"
+              : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+          )}>
+          <AppWindow className="size-4" />
+        </Toggle>
       </TooltipTrigger>
       <TooltipContent side="top">
-        <p>{t("tabs.toggle.tooltip")}</p>
+        <p>
+          {tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")}
+        </p>
       </TooltipContent>
     </Tooltip>
   )

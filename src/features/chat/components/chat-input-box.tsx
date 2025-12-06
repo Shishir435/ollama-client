@@ -298,14 +298,16 @@ export const ChatInputBox = ({
         />
 
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-xl border-t border-border/30 bg-muted/30 p-2">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <ModelMenu
               showStatusPopup={false}
               tooltipTextContent={t("chat.input.switch_model")}
             />
-            <TabsToggle />
-            <RAGToggle />
-            <SettingsButton showText={false} />
+            <div className="flex items-center gap-1">
+              <TabsToggle />
+              <RAGToggle />
+              <SettingsButton showText={false} />
+            </div>
             <div className="flex items-center gap-2">
               <FileUploadButton
                 onFilesSelected={handleFilesSelected}
