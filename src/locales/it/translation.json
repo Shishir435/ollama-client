@@ -114,6 +114,17 @@
       "load_time": "Tempo di Caricamento",
       "prompt_eval_time": "Tempo di Valutazione del Prompt"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} token",
+      "prompt_tokens": "{{value}} prompt",
+      "generated_tokens": "{{value}} generati",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} msgs",
+      "tooltip_tokens": "Token totali usati in questa sessione",
+      "tooltip_time": "Tempo totale di generazione risposta",
+      "tooltip_speed": "Velocità media di generazione",
+      "tooltip_messages": "Numero di risposte AI"
+    },
     "search": {
       "button_title": "Cerca nella cronologia chat (ricerca semantica)",
       "button_label": "Cerca Chat",
@@ -395,6 +406,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Visualizzazione Chat",
+      "description": "Configura come vengono visualizzate le informazioni della chat",
+      "session_metrics_label": "Mostra Metriche Sessione",
+      "session_metrics_description": "Mostra utilizzo token, durata e velocità sopra l'input della chat"
+    },
     "content_extraction": {
       "title": "Estrazione Contenuto",
       "description": "Configura il comportamento predefinito di estrazione del contenuto per tutti i siti web.",

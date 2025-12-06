@@ -116,6 +116,7 @@ export const Chat = () => {
         <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background/80 pb-2 pt-3 backdrop-blur-md">
           <div className="mx-auto max-w-4xl px-2">
             <ChatInputBox
+              messages={messages}
               onSend={sendMessage}
               stopGeneration={stopGeneration}
             />

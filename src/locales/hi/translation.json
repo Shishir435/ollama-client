@@ -114,6 +114,17 @@
       "load_time": "लोड समय",
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} टोकन",
+      "prompt_tokens": "{{value}} प्रॉम्प्ट",
+      "generated_tokens": "{{value}} जनरेट",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} संदेश",
+      "tooltip_tokens": "इस सत्र में उपयोग किए गए कुल टोकन",
+      "tooltip_time": "कुल प्रतिक्रिया जनरेशन समय",
+      "tooltip_speed": "औसत जनरेशन गति",
+      "tooltip_messages": "AI प्रतिक्रियाओं की संख्या"
+    },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
       "button_label": "चैट खोजें",
@@ -395,6 +406,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "चैट डिस्प्ले",
+      "description": "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",
+      "session_metrics_label": "सत्र मेट्रिक्स दिखाएं",
+      "session_metrics_description": "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+    },
     "content_extraction": {
       "title": "सामग्री निष्कर्षण",
       "description": "सभी वेबसाइटों के लिए डिफ़ॉल्ट सामग्री निष्कर्षण व्यवहार कॉन्फ़िगर करें।",

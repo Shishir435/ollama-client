@@ -114,6 +114,17 @@
       "load_time": "ロード時間",
       "prompt_eval_time": "プロンプト評価時間"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} トークン",
+      "prompt_tokens": "{{value}} プロンプト",
+      "generated_tokens": "{{value}} 生成",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} メッセージ",
+      "tooltip_tokens": "このセッションで使用された合計トークン",
+      "tooltip_time": "合計応答生成時間",
+      "tooltip_speed": "平均生成速度",
+      "tooltip_messages": "AIの応答数"
+    },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
       "button_label": "チャット検索",
@@ -395,6 +406,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "チャット表示",
+      "description": "チャット情報の表示方法を設定",
+      "session_metrics_label": "セッションメトリクスを表示",
+      "session_metrics_description": "チャット入力上にトークン使用量、時間、速度を表示"
+    },
     "content_extraction": {
       "title": "コンテンツ抽出",
       "description": "すべてのWebサイトのデフォルトのコンテンツ抽出動作を設定します。",

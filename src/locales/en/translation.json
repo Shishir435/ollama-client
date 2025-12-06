@@ -114,6 +114,17 @@
       "load_time": "Load Time",
       "prompt_eval_time": "Prompt Eval Time"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} tokens",
+      "prompt_tokens": "{{value}} prompt",
+      "generated_tokens": "{{value}} generated",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} msgs",
+      "tooltip_tokens": "Total tokens used in this session",
+      "tooltip_time": "Total response generation time",
+      "tooltip_speed": "Average generation speed",
+      "tooltip_messages": "Number of AI responses"
+    },
     "search": {
       "button_title": "Search chat history (semantic search)",
       "button_label": "Search Chats",
@@ -397,6 +408,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Chat Display",
+      "description": "Configure how chat information is displayed",
+      "session_metrics_label": "Show Session Metrics",
+      "session_metrics_description": "Display token usage, duration, and speed above the chat input"
+    },
     "content_extraction": {
       "title": "Content Extraction",
       "description": "Configure default content extraction behavior for all websites.",

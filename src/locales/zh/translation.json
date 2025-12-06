@@ -114,6 +114,17 @@
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} 令牌",
+      "prompt_tokens": "{{value}} 提示",
+      "generated_tokens": "{{value}} 生成",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} 条消息",
+      "tooltip_tokens": "此会话使用的总令牌数",
+      "tooltip_time": "总响应生成时间",
+      "tooltip_speed": "平均生成速度",
+      "tooltip_messages": "AI响应数量"
+    },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
       "button_label": "搜索聊天",
@@ -397,6 +408,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "聊天显示",
+      "description": "配置聊天信息的显示方式",
+      "session_metrics_label": "显示会话指标",
+      "session_metrics_description": "在聊天输入框上方显示令牌使用量、时长和速度"
+    },
     "content_extraction": {
       "title": "内容提取",
       "description": "配置所有网站的默认内容提取行为。",

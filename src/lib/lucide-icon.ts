@@ -1,4 +1,5 @@
 // @ts-nocheck
+import Activity from "lucide-react/dist/esm/icons/activity"
 import AlertCircle from "lucide-react/dist/esm/icons/alert-circle"
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle"
 import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3"
@@ -80,6 +81,7 @@ import Zap from "lucide-react/dist/esm/icons/zap"
 import type { LucideIcon } from "lucide-react/dist/lucide-react"
 
 export {
+  Activity,
   TriangleAlert,
   ChevronsUpDown,
   CheckIcon,

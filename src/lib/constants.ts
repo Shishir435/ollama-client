@@ -66,6 +66,9 @@ export const STORAGE_KEYS = {
   },
   MEMORY: {
     ENABLED: "memory-enabled"
+  },
+  CHAT: {
+    SHOW_SESSION_METRICS: "chat-show-session-metrics"
   }
 }
 

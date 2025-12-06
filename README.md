@@ -471,7 +471,7 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 
 ### UX & Metrics Enhancements
 
-- [ ] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
+- [x] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
 - [x] Enable **Semantic Chat Search / Filter** once embeddings are in place
 - [x] Add **Export/Import UI Buttons** in chat selector ui
 

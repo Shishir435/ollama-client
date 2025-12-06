@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
+import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
+import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { FilePreview } from "@/features/file-upload/components/file-preview"
@@ -18,12 +20,14 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
-import type { ChromeMessage } from "@/types"
+import type { ChatMessage, ChromeMessage } from "@/types"
 
 export const ChatInputBox = ({
+  messages,
   onSend,
   stopGeneration
 }: {
+  messages: ChatMessage[]
   onSend: (
     customInput?: string,
     customModel?: string,
@@ -40,6 +44,7 @@ export const ChatInputBox = ({
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [showSessionMetrics] = useSessionMetricsPreference()
 
   const {
     processFiles,
@@ -218,6 +223,8 @@ export const ChatInputBox = ({
       <div className="mb-2">
         <TabsSelect />
       </div>
+
+      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
 
       {hasFiles && (
         <div className="mb-2 space-y-1">

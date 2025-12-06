@@ -114,6 +114,17 @@
       "load_time": "Время загрузки",
       "prompt_eval_time": "Время оценки промпта"
     },
+    "session_metrics": {
+      "total_tokens": "{{value}} токенов",
+      "prompt_tokens": "{{value}} промпт",
+      "generated_tokens": "{{value}} сгенер.",
+      "avg_speed": "{{speed}} т/с",
+      "messages": "{{value}} сообщ.",
+      "tooltip_tokens": "Всего токенов в этой сессии",
+      "tooltip_time": "Общее время генерации ответа",
+      "tooltip_speed": "Средняя скорость генерации",
+      "tooltip_messages": "Количество ответов ИИ"
+    },
     "search": {
       "button_title": "Поиск по истории чатов (семантический)",
       "button_label": "Поиск чатов",
@@ -397,6 +408,12 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Отображение чата",
+      "description": "Настройте отображение информации о чате",
+      "session_metrics_label": "Показать метрики сессии",
+      "session_metrics_description": "Показывать использование токенов, время и скорость над полем ввода"
+    },
     "content_extraction": {
       "title": "Извлечение контента",
       "description": "Настройка поведения извлечения контента по умолчанию для всех веб-сайтов.",

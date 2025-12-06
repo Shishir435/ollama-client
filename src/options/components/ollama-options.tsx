@@ -13,6 +13,7 @@ import {
 import { MiniBadge } from "@/components/ui/mini-badge"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
@@ -33,6 +34,7 @@ export const OllamaOptions = () => {
         <div className="space-y-6">
           <PerformanceWarning />
           <LanguageSelector />
+          <ChatDisplaySettings />
           <ModelSettingsForm />
         </div>
       )

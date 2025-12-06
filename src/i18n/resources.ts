@@ -124,6 +124,17 @@ export const resources = {
           load_time: "Ladezeit",
           prompt_eval_time: "Prompt-Evaluierungszeit"
         },
+        session_metrics: {
+          total_tokens: "{{value}} Token",
+          prompt_tokens: "{{value}} Prompt",
+          generated_tokens: "{{value}} generiert",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} Nachr.",
+          tooltip_tokens: "Gesamte Token in dieser Sitzung",
+          tooltip_time: "Gesamte Antwortgenerierungszeit",
+          tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
+          tooltip_messages: "Anzahl der KI-Antworten"
+        },
         search: {
           button_title: "Chat-Verlauf suchen (semantische Suche)",
           button_label: "Chats suchen",
@@ -452,6 +463,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Chat-Anzeige",
+          description: "Konfigurieren Sie die Anzeige von Chat-Informationen",
+          session_metrics_label: "Sitzungsmetriken anzeigen",
+          session_metrics_description:
+            "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+        },
         content_extraction: {
           title: "Inhaltsextraktion",
           description:
@@ -1079,6 +1097,17 @@ export const resources = {
           load_time: "Load Time",
           prompt_eval_time: "Prompt Eval Time"
         },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generated",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Total tokens used in this session",
+          tooltip_time: "Total response generation time",
+          tooltip_speed: "Average generation speed",
+          tooltip_messages: "Number of AI responses"
+        },
         search: {
           button_title: "Search chat history (semantic search)",
           button_label: "Search Chats",
@@ -1403,6 +1432,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Chat Display",
+          description: "Configure how chat information is displayed",
+          session_metrics_label: "Show Session Metrics",
+          session_metrics_description:
+            "Display token usage, duration, and speed above the chat input"
+        },
         content_extraction: {
           title: "Content Extraction",
           description:
@@ -2015,6 +2051,17 @@ export const resources = {
           load_time: "Tiempo de Carga",
           prompt_eval_time: "Tiempo de Evaluación de Prompt"
         },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generados",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Tokens totales usados en esta sesión",
+          tooltip_time: "Tiempo total de generación de respuesta",
+          tooltip_speed: "Velocidad promedio de generación",
+          tooltip_messages: "Número de respuestas de IA"
+        },
         search: {
           button_title: "Buscar historial de chat (búsqueda semántica)",
           button_label: "Buscar Chats",
@@ -2343,6 +2390,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Visualización del Chat",
+          description: "Configura cómo se muestra la información del chat",
+          session_metrics_label: "Mostrar Métricas de Sesión",
+          session_metrics_description:
+            "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
+        },
         content_extraction: {
           title: "Extracción de Contenido",
           description:
@@ -2969,6 +3023,17 @@ export const resources = {
           load_time: "Temps de Chargement",
           prompt_eval_time: "Temps d'Évaluation du Prompt"
         },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} générés",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Tokens totaux utilisés dans cette session",
+          tooltip_time: "Temps total de génération de réponse",
+          tooltip_speed: "Vitesse moyenne de génération",
+          tooltip_messages: "Nombre de réponses IA"
+        },
         search: {
           button_title:
             "Rechercher l'historique de chat (recherche sémantique)",
@@ -3299,6 +3364,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Affichage du Chat",
+          description: "Configurer l'affichage des informations du chat",
+          session_metrics_label: "Afficher les Métriques de Session",
+          session_metrics_description:
+            "Afficher l'utilisation des tokens, la durée et la vitesse au-dessus de la saisie"
+        },
         content_extraction: {
           title: "Extraction de Contenu",
           description:
@@ -3928,6 +4000,17 @@ export const resources = {
           load_time: "लोड समय",
           prompt_eval_time: "प्रॉम्प्ट मूल्यांकन समय"
         },
+        session_metrics: {
+          total_tokens: "{{value}} टोकन",
+          prompt_tokens: "{{value}} प्रॉम्प्ट",
+          generated_tokens: "{{value}} जनरेट",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} संदेश",
+          tooltip_tokens: "इस सत्र में उपयोग किए गए कुल टोकन",
+          tooltip_time: "कुल प्रतिक्रिया जनरेशन समय",
+          tooltip_speed: "औसत जनरेशन गति",
+          tooltip_messages: "AI प्रतिक्रियाओं की संख्या"
+        },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
           button_label: "चैट खोजें",
@@ -4245,6 +4328,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "चैट डिस्प्ले",
+          description: "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",
+          session_metrics_label: "सत्र मेट्रिक्स दिखाएं",
+          session_metrics_description:
+            "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+        },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
           description:
@@ -4857,6 +4947,17 @@ export const resources = {
           load_time: "Tempo di Caricamento",
           prompt_eval_time: "Tempo di Valutazione del Prompt"
         },
+        session_metrics: {
+          total_tokens: "{{value}} token",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generati",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Token totali usati in questa sessione",
+          tooltip_time: "Tempo totale di generazione risposta",
+          tooltip_speed: "Velocità media di generazione",
+          tooltip_messages: "Numero di risposte AI"
+        },
         search: {
           button_title: "Cerca nella cronologia chat (ricerca semantica)",
           button_label: "Cerca Chat",
@@ -5185,6 +5286,14 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Visualizzazione Chat",
+          description:
+            "Configura come vengono visualizzate le informazioni della chat",
+          session_metrics_label: "Mostra Metriche Sessione",
+          session_metrics_description:
+            "Mostra utilizzo token, durata e velocità sopra l'input della chat"
+        },
         content_extraction: {
           title: "Estrazione Contenuto",
           description:
@@ -5811,6 +5920,17 @@ export const resources = {
           load_time: "ロード時間",
           prompt_eval_time: "プロンプト評価時間"
         },
+        session_metrics: {
+          total_tokens: "{{value}} トークン",
+          prompt_tokens: "{{value}} プロンプト",
+          generated_tokens: "{{value}} 生成",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} メッセージ",
+          tooltip_tokens: "このセッションで使用された合計トークン",
+          tooltip_time: "合計応答生成時間",
+          tooltip_speed: "平均生成速度",
+          tooltip_messages: "AIの応答数"
+        },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
           button_label: "チャット検索",
@@ -6132,6 +6252,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "チャット表示",
+          description: "チャット情報の表示方法を設定",
+          session_metrics_label: "セッションメトリクスを表示",
+          session_metrics_description:
+            "チャット入力上にトークン使用量、時間、速度を表示"
+        },
         content_extraction: {
           title: "コンテンツ抽出",
           description:
@@ -6748,6 +6875,17 @@ export const resources = {
           load_time: "Время загрузки",
           prompt_eval_time: "Время оценки промпта"
         },
+        session_metrics: {
+          total_tokens: "{{value}} токенов",
+          prompt_tokens: "{{value}} промпт",
+          generated_tokens: "{{value}} сгенер.",
+          avg_speed: "{{speed}} т/с",
+          messages: "{{value}} сообщ.",
+          tooltip_tokens: "Всего токенов в этой сессии",
+          tooltip_time: "Общее время генерации ответа",
+          tooltip_speed: "Средняя скорость генерации",
+          tooltip_messages: "Количество ответов ИИ"
+        },
         search: {
           button_title: "Поиск по истории чатов (семантический)",
           button_label: "Поиск чатов",
@@ -7074,6 +7212,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Отображение чата",
+          description: "Настройте отображение информации о чате",
+          session_metrics_label: "Показать метрики сессии",
+          session_metrics_description:
+            "Показывать использование токенов, время и скорость над полем ввода"
+        },
         content_extraction: {
           title: "Извлечение контента",
           description:
@@ -7691,6 +7836,17 @@ export const resources = {
           load_time: "加载时间",
           prompt_eval_time: "提示词评估时间"
         },
+        session_metrics: {
+          total_tokens: "{{value}} 令牌",
+          prompt_tokens: "{{value}} 提示",
+          generated_tokens: "{{value}} 生成",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} 条消息",
+          tooltip_tokens: "此会话使用的总令牌数",
+          tooltip_time: "总响应生成时间",
+          tooltip_speed: "平均生成速度",
+          tooltip_messages: "AI响应数量"
+        },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",
           button_label: "搜索聊天",
@@ -7994,6 +8150,13 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "聊天显示",
+          description: "配置聊天信息的显示方式",
+          session_metrics_label: "显示会话指标",
+          session_metrics_description:
+            "在聊天输入框上方显示令牌使用量、时长和速度"
+        },
         content_extraction: {
           title: "内容提取",
           description: "配置所有网站的默认内容提取行为。",
