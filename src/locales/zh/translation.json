@@ -453,7 +453,9 @@
       "clear_chat": "清除聊天",
       "clear_chat_desc": "清除当前聊天会话",
       "copy_last_response": "复制最后响应",
-      "copy_last_response_desc": "复制最后一条AI响应到剪贴板"
+      "copy_last_response_desc": "复制最后一条AI响应到剪贴板",
+      "toggle_session_metrics": "切换会话指标",
+      "toggle_session_metrics_desc": "显示或隐藏会话指标栏"
     },
     "content_extraction": {
       "title": "内容提取",

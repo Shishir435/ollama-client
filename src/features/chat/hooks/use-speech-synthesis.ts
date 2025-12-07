@@ -1,30 +1,23 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect } from "react"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
+import { useSpeechStore } from "@/features/chat/stores/speech-store"
 import { markdownToSpeechText } from "@/lib/utils"
 
 export const useSpeechSynthesis = () => {
-  const [speaking, setSpeaking] = useState(false)
+  const { speakingText, setSpeakingText } = useSpeechStore()
   const { voices, isLoading: isLoadingVoices } = useVoices()
   const { rate, pitch, voiceURI } = useSpeechSettings()
 
   useEffect(() => {
-    const handleEnd = () => setSpeaking(false)
-    const handleError = () => setSpeaking(false)
-
-    window.speechSynthesis.addEventListener("end", handleEnd)
-    window.speechSynthesis.addEventListener("error", handleError)
-
     return () => {
-      window.speechSynthesis.removeEventListener("end", handleEnd)
-      window.speechSynthesis.removeEventListener("error", handleError)
       window.speechSynthesis.cancel()
     }
   }, [])
 
   const speak = useCallback(
     (markdownText: string) => {
-      if (!markdownText || speaking || isLoadingVoices) return
+      if (!markdownText || speakingText || isLoadingVoices) return
 
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel()
@@ -42,32 +35,40 @@ export const useSpeechSynthesis = () => {
         utterance.voice = matchedVoice
       }
 
-      utterance.onstart = () => setSpeaking(true)
-      utterance.onend = () => setSpeaking(false)
-      utterance.onerror = () => setSpeaking(false)
+      utterance.onstart = () => setSpeakingText(markdownText)
+      utterance.onend = () => setSpeakingText(null)
+      utterance.onerror = () => setSpeakingText(null)
 
       window.speechSynthesis.speak(utterance)
     },
-    [speaking, rate, pitch, voiceURI, voices, isLoadingVoices]
+    [
+      speakingText,
+      rate,
+      pitch,
+      voiceURI,
+      voices,
+      isLoadingVoices,
+      setSpeakingText
+    ]
   )
 
   const stop = useCallback(() => {
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel()
-      setSpeaking(false)
+      setSpeakingText(null)
     }
-  }, [])
+  }, [setSpeakingText])
 
   const toggle = useCallback(
     (text: string) => {
-      if (speaking) {
+      if (speakingText === text) {
         stop()
       } else {
         speak(text)
       }
     },
-    [speaking, speak, stop]
+    [speakingText, speak, stop]
   )
 
-  return { speaking, speak, stop, toggle, isLoadingVoices, voices }
+  return { speakingText, speak, stop, toggle, isLoadingVoices, voices }
 }

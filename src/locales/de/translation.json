@@ -451,7 +451,9 @@
       "clear_chat": "Chat löschen",
       "clear_chat_desc": "Aktuelle Chat-Sitzung löschen",
       "copy_last_response": "Letzte Antwort kopieren",
-      "copy_last_response_desc": "Letzte KI-Antwort in die Zwischenablage kopieren"
+      "copy_last_response_desc": "Letzte KI-Antwort in die Zwischenablage kopieren",
+      "toggle_session_metrics": "Sitzungsmetriken umschalten",
+      "toggle_session_metrics_desc": "Sitzungsmetriken-Leiste ein-/ausblenden"
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",

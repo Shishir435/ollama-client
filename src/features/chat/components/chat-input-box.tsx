@@ -48,7 +48,8 @@ export const ChatInputBox = ({
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [showSessionMetrics] = useSessionMetricsPreference()
+  const [showSessionMetrics, setShowSessionMetrics] =
+    useSessionMetricsPreference()
 
   const {
     processFiles,
@@ -93,6 +94,10 @@ export const ChatInputBox = ({
     toggleTabs: (e) => {
       e.preventDefault()
       setTabAccess(!tabAccess)
+    },
+    toggleSessionMetrics: (e) => {
+      e.preventDefault()
+      setShowSessionMetrics(!showSessionMetrics)
     }
   })
 

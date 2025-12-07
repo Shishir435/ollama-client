@@ -453,7 +453,9 @@
       "clear_chat": "Clear Chat",
       "clear_chat_desc": "Clear the current chat session",
       "copy_last_response": "Copy Last Response",
-      "copy_last_response_desc": "Copy the last AI response to clipboard"
+      "copy_last_response_desc": "Copy the last AI response to clipboard",
+      "toggle_session_metrics": "Toggle Session Metrics",
+      "toggle_session_metrics_desc": "Show or hide the session metrics bar"
     },
     "content_extraction": {
       "title": "Content Extraction",

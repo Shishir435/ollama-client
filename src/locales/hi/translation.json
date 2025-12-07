@@ -451,7 +451,9 @@
       "clear_chat": "चैट साफ़ करें",
       "clear_chat_desc": "वर्तमान चैट सत्र साफ़ करें",
       "copy_last_response": "अंतिम प्रतिक्रिया कॉपी करें",
-      "copy_last_response_desc": "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें"
+      "copy_last_response_desc": "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें",
+      "toggle_session_metrics": "सत्र मेट्रिक्स टॉगल करें",
+      "toggle_session_metrics_desc": "सत्र मेट्रिक्स बार दिखाएं या छिपाएं"
     },
     "content_extraction": {
       "title": "सामग्री निष्कर्षण",
