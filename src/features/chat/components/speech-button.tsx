@@ -15,7 +15,8 @@ interface SpeakButtonProps {
 
 export const SpeechButton = ({ text }: SpeakButtonProps) => {
   const { t } = useTranslation()
-  const { speaking, toggle, isLoadingVoices } = useSpeechSynthesis()
+  const { speakingText, toggle, isLoadingVoices } = useSpeechSynthesis()
+  const speaking = speakingText === text
 
   if (!text.trim()) return null
 

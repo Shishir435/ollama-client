@@ -450,7 +450,9 @@
       "clear_chat": "Limpiar Chat",
       "clear_chat_desc": "Limpiar la sesión de chat actual",
       "copy_last_response": "Copiar Última Respuesta",
-      "copy_last_response_desc": "Copiar la última respuesta de IA al portapapeles"
+      "copy_last_response_desc": "Copiar la última respuesta de IA al portapapeles",
+      "toggle_session_metrics": "Alternar métricas de sesión",
+      "toggle_session_metrics_desc": "Mostrar u ocultar la barra de métricas de sesión"
     },
     "content_extraction": {
       "title": "Extracción de Contenido",

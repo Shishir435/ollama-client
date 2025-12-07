@@ -4,6 +4,7 @@ import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChat } from "@/features/chat/hooks/use-chat"
+import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
@@ -27,6 +28,8 @@ export const Chat = () => {
   } = useChatSessions()
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
 
+  const { toggle: toggleSpeech } = useSpeechSynthesis()
+
   useKeyboardShortcuts({
     newChat: (e) => {
       e.preventDefault()
@@ -44,19 +47,12 @@ export const Chat = () => {
     },
     toggleSpeech: (e) => {
       e.preventDefault()
-      // Toggle speech on the last assistant message
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel()
-      } else {
-        const lastAssistantMessage = [...messages]
-          .reverse()
-          .find((m) => m.role === "assistant")
-        if (lastAssistantMessage) {
-          const utterance = new SpeechSynthesisUtterance(
-            lastAssistantMessage.content
-          )
-          window.speechSynthesis.speak(utterance)
-        }
+      const lastAssistantMessage = [...messages]
+        .reverse()
+        .find((m) => m.role === "assistant")
+
+      if (lastAssistantMessage) {
+        toggleSpeech(lastAssistantMessage.content)
       }
     },
     searchMessages: (e) => {

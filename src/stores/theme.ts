@@ -28,3 +28,28 @@ export const useThemeStore = create<ThemeState>()(
     }
   )
 )
+
+// Listen for changes from other contexts (e.g. sidebar changing theme should update options page)
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "sync" && changes[STORAGE_KEYS.THEME.PREFERENCE]) {
+    const newValue = changes[STORAGE_KEYS.THEME.PREFERENCE].newValue
+    if (newValue) {
+      try {
+        // Zustand persists as a stringified JSON object
+        // We need to parse it to get the state
+        const parsed =
+          typeof newValue === "string" ? JSON.parse(newValue) : newValue
+
+        if (parsed?.state?.theme) {
+          useThemeStore.setState({ theme: parsed.state.theme })
+        } else {
+          // Fallback to rehydrate if structure doesn't match
+          useThemeStore.persist.rehydrate()
+        }
+      } catch (e) {
+        console.error("Failed to sync theme:", e)
+        useThemeStore.persist.rehydrate()
+      }
+    }
+  }
+})

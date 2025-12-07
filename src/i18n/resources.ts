@@ -513,7 +513,9 @@ export const resources = {
           clear_chat_desc: "Aktuelle Chat-Sitzung löschen",
           copy_last_response: "Letzte Antwort kopieren",
           copy_last_response_desc:
-            "Letzte KI-Antwort in die Zwischenablage kopieren"
+            "Letzte KI-Antwort in die Zwischenablage kopieren",
+          toggle_session_metrics: "Sitzungsmetriken umschalten",
+          toggle_session_metrics_desc: "Sitzungsmetriken-Leiste ein-/ausblenden"
         },
         content_extraction: {
           title: "Inhaltsextraktion",
@@ -1525,7 +1527,9 @@ export const resources = {
           clear_chat: "Clear Chat",
           clear_chat_desc: "Clear the current chat session",
           copy_last_response: "Copy Last Response",
-          copy_last_response_desc: "Copy the last AI response to clipboard"
+          copy_last_response_desc: "Copy the last AI response to clipboard",
+          toggle_session_metrics: "Toggle Session Metrics",
+          toggle_session_metrics_desc: "Show or hide the session metrics bar"
         },
         content_extraction: {
           title: "Content Extraction",
@@ -2529,7 +2533,10 @@ export const resources = {
           clear_chat_desc: "Limpiar la sesión de chat actual",
           copy_last_response: "Copiar Última Respuesta",
           copy_last_response_desc:
-            "Copiar la última respuesta de IA al portapapeles"
+            "Copiar la última respuesta de IA al portapapeles",
+          toggle_session_metrics: "Alternar métricas de sesión",
+          toggle_session_metrics_desc:
+            "Mostrar u ocultar la barra de métricas de sesión"
         },
         content_extraction: {
           title: "Extracción de Contenido",
@@ -3549,7 +3556,10 @@ export const resources = {
           clear_chat_desc: "Effacer la session de chat actuelle",
           copy_last_response: "Copier la Dernière Réponse",
           copy_last_response_desc:
-            "Copier la dernière réponse de l'IA dans le presse-papiers"
+            "Copier la dernière réponse de l'IA dans le presse-papiers",
+          toggle_session_metrics: "Basculer les métriques de session",
+          toggle_session_metrics_desc:
+            "Afficher ou masquer la barre de métriques de session"
         },
         content_extraction: {
           title: "Extraction de Contenu",
@@ -4556,7 +4566,9 @@ export const resources = {
           clear_chat: "चैट साफ़ करें",
           clear_chat_desc: "वर्तमान चैट सत्र साफ़ करें",
           copy_last_response: "अंतिम प्रतिक्रिया कॉपी करें",
-          copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें"
+          copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें",
+          toggle_session_metrics: "सत्र मेट्रिक्स टॉगल करें",
+          toggle_session_metrics_desc: "सत्र मेट्रिक्स बार दिखाएं या छिपाएं"
         },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
@@ -5560,7 +5572,10 @@ export const resources = {
           clear_chat_desc: "Cancella la sessione di chat corrente",
           copy_last_response: "Copia Ultima Risposta",
           copy_last_response_desc:
-            "Copia l'ultima risposta dell'IA negli appunti"
+            "Copia l'ultima risposta dell'IA negli appunti",
+          toggle_session_metrics: "Attiva/disattiva metriche sessione",
+          toggle_session_metrics_desc:
+            "Mostra o nascondi la barra delle metriche di sessione"
         },
         content_extraction: {
           title: "Estrazione Contenuto",
@@ -6570,7 +6585,10 @@ export const resources = {
           clear_chat: "チャットをクリア",
           clear_chat_desc: "現在のチャットセッションをクリア",
           copy_last_response: "最後の応答をコピー",
-          copy_last_response_desc: "最後のAI応答をクリップボードにコピー"
+          copy_last_response_desc: "最後のAI応答をクリップボードにコピー",
+          toggle_session_metrics: "セッション統計を切り替え",
+          toggle_session_metrics_desc:
+            "セッション統計バーの表示/非表示を切り替え"
         },
         content_extraction: {
           title: "コンテンツ抽出",
@@ -7576,7 +7594,10 @@ export const resources = {
           clear_chat_desc: "Очистить текущую сессию чата",
           copy_last_response: "Копировать Последний Ответ",
           copy_last_response_desc:
-            "Копировать последний ответ ИИ в буфер обмена"
+            "Копировать последний ответ ИИ в буфер обмена",
+          toggle_session_metrics: "Переключить метрики сессии",
+          toggle_session_metrics_desc:
+            "Показать или скрыть панель метрик сессии"
         },
         content_extraction: {
           title: "Извлечение контента",
@@ -8556,7 +8577,9 @@ export const resources = {
           clear_chat: "清除聊天",
           clear_chat_desc: "清除当前聊天会话",
           copy_last_response: "复制最后响应",
-          copy_last_response_desc: "复制最后一条AI响应到剪贴板"
+          copy_last_response_desc: "复制最后一条AI响应到剪贴板",
+          toggle_session_metrics: "切换会话指标",
+          toggle_session_metrics_desc: "显示或隐藏会话指标栏"
         },
         content_extraction: {
           title: "内容提取",

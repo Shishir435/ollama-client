@@ -453,7 +453,9 @@
       "clear_chat": "Очистить Чат",
       "clear_chat_desc": "Очистить текущую сессию чата",
       "copy_last_response": "Копировать Последний Ответ",
-      "copy_last_response_desc": "Копировать последний ответ ИИ в буфер обмена"
+      "copy_last_response_desc": "Копировать последний ответ ИИ в буфер обмена",
+      "toggle_session_metrics": "Переключить метрики сессии",
+      "toggle_session_metrics_desc": "Показать или скрыть панель метрик сессии"
     },
     "content_extraction": {
       "title": "Извлечение контента",

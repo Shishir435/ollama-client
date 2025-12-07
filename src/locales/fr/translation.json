@@ -451,7 +451,9 @@
       "clear_chat": "Effacer le Chat",
       "clear_chat_desc": "Effacer la session de chat actuelle",
       "copy_last_response": "Copier la Dernière Réponse",
-      "copy_last_response_desc": "Copier la dernière réponse de l'IA dans le presse-papiers"
+      "copy_last_response_desc": "Copier la dernière réponse de l'IA dans le presse-papiers",
+      "toggle_session_metrics": "Basculer les métriques de session",
+      "toggle_session_metrics_desc": "Afficher ou masquer la barre de métriques de session"
     },
     "content_extraction": {
       "title": "Extraction de Contenu",

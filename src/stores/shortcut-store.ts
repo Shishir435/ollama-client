@@ -13,6 +13,7 @@ export type ShortcutAction =
   | "toggleRAG"
   | "toggleSpeech"
   | "toggleTabs"
+  | "toggleSessionMetrics"
   | "searchMessages"
   | "clearChat"
   | "copyLastResponse"
@@ -138,6 +139,14 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, Shortcut> = {
     category: "toggles",
     defaultKey: "Alt+K",
     key: "Alt+K"
+  },
+  toggleSessionMetrics: {
+    id: "toggleSessionMetrics",
+    label: "settings.shortcuts.toggle_session_metrics",
+    description: "settings.shortcuts.toggle_session_metrics_desc",
+    category: "toggles",
+    defaultKey: "Alt+M",
+    key: "Alt+M"
   }
 }
 

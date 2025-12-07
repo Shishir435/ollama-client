@@ -451,7 +451,9 @@
       "clear_chat": "Cancella Chat",
       "clear_chat_desc": "Cancella la sessione di chat corrente",
       "copy_last_response": "Copia Ultima Risposta",
-      "copy_last_response_desc": "Copia l'ultima risposta dell'IA negli appunti"
+      "copy_last_response_desc": "Copia l'ultima risposta dell'IA negli appunti",
+      "toggle_session_metrics": "Attiva/disattiva metriche sessione",
+      "toggle_session_metrics_desc": "Mostra o nascondi la barra delle metriche di sessione"
     },
     "content_extraction": {
       "title": "Estrazione Contenuto",
