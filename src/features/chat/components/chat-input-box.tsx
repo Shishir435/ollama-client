@@ -1,27 +1,26 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsButton } from "@/components/settings-button"
+
 import { Textarea } from "@/components/ui/textarea"
-import { CharCount } from "@/features/chat/components/char-count"
-import { RAGToggle } from "@/features/chat/components/rag-toggle"
+import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
+import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
+import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
-import { FilePreview } from "@/features/file-upload/components/file-preview"
-import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
-import { ModelMenu } from "@/features/model/components/model-menu"
+
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
-import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
+
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
-import { Upload } from "@/lib/lucide-icon"
+
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChromeMessage } from "@/types"
@@ -257,7 +256,6 @@ export const ChatInputBox = ({
     return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [appendInput])
 
-  const hasFiles = processingStates.length > 0
   const _successCount = processingStates.filter(
     (s) => s.status === "success"
   ).length
@@ -270,17 +268,10 @@ export const ChatInputBox = ({
 
       {showSessionMetrics && <SessionMetricsBar messages={messages} />}
 
-      {hasFiles && (
-        <div className="mb-2 space-y-1">
-          {processingStates.map((state) => (
-            <FilePreview
-              key={state.file.name}
-              processingState={state}
-              onRemove={() => clearProcessingState(state.file)}
-            />
-          ))}
-        </div>
-      )}
+      <ChatInputAttachmentList
+        processingStates={processingStates}
+        onRemove={(file) => clearProcessingState(file)}
+      />
 
       {showPromptOverlay && (
         <PromptSelectorDialog
@@ -302,16 +293,7 @@ export const ChatInputBox = ({
             : "border-border/50 hover:border-border",
           isDragging && "border-primary border-dashed bg-primary/5"
         )}>
-        {isDragging && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm">
-            <Upload className="mb-2 size-8 animate-bounce text-primary" />
-            <p className="text-sm font-medium text-primary">
-              {t("chat.input.drop_files_here", {
-                defaultValue: "Drop files here"
-              })}
-            </p>
-          </div>
-        )}
+        <ChatInputDragOverlay isDragging={isDragging} />
 
         <Textarea
           id="chat-input-textarea"
@@ -339,35 +321,11 @@ export const ChatInputBox = ({
           autoFocus
         />
 
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-xl border-t border-border/30 bg-muted/30 p-2">
-          <div className="flex items-center gap-2">
-            <ModelMenu
-              showStatusPopup={false}
-              tooltipTextContent={t("chat.input.switch_model")}
-            />
-            <div className="flex items-center gap-1">
-              <TabsToggle />
-              <RAGToggle />
-              <SettingsButton showText={false} />
-            </div>
-            <div className="flex items-center gap-2">
-              <FileUploadButton
-                onFilesSelected={handleFilesSelected}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <CharCount count={input.length} />
-            <div className="hidden text-xs text-muted-foreground sm:block">
-              <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                {t("chat.input.enter_key")}
-              </kbd>{" "}
-              {t("chat.input.enter_to_send")}
-            </div>
-          </div>
-        </div>
+        <ChatInputToolbar
+          inputLength={input.length}
+          isLoading={isLoading}
+          onFilesSelected={handleFilesSelected}
+        />
 
         <div className="absolute right-3 top-3">
           <SendOrStopButton

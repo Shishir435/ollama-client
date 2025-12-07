@@ -1,3 +1,4 @@
+import { Menu, MessageSquare, SquarePen } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { BugReportIcon } from "@/components/bug-report-icon"
@@ -6,16 +7,20 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { SemanticChatSearchButton } from "@/features/chat/components/semantic-chat-search-button"
 import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
 import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
-import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-export const ChatSessionSelector = () => {
+interface ChatSessionSelectorProps {
+  searchTrigger?: React.ReactNode
+}
+
+export const ChatSessionSelector = ({
+  searchTrigger
+}: ChatSessionSelectorProps) => {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const {
@@ -67,7 +72,7 @@ export const ChatSessionSelector = () => {
               <SquarePen className="mr-2 h-4 w-4" />
               {t("sessions.selector.start_new")}
             </Button>
-            <SemanticChatSearchButton />
+            {searchTrigger}
           </div>
 
           <ScrollArea className="flex-1 px-2">

@@ -382,3 +382,5 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     clearAllProcessingStates
   }
 }
+
+export type UseFileUploadReturn = ReturnType<typeof useFileUpload>

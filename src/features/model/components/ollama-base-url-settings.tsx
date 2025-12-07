@@ -1,17 +1,10 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
@@ -79,15 +72,14 @@ export const BaseUrlSettings = () => {
 
   return (
     <div className="mx-auto space-y-4">
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="mb-2 flex items-center gap-2">
-              <Server className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-xl">
-                {t("settings.base_url.title")}
-              </CardTitle>
-            </div>
+      <SettingsCard
+        className="w-full"
+        icon={Server}
+        title={t("settings.base_url.title")}
+        description={t("settings.base_url.description")}
+        contentClassName="space-y-3"
+        headerActions={
+          <>
             {isDefault && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {t("settings.base_url.badges.default")}
@@ -99,34 +91,31 @@ export const BaseUrlSettings = () => {
                 {t("settings.base_url.badges.remote")}
               </Badge>
             )}
-          </div>
-          <CardDescription>
-            {t("settings.base_url.description")}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label
-              htmlFor="ollama-url"
-              className="flex items-center justify-between text-sm text-muted-foreground">
-              <div className="text-sm">{t("settings.base_url.label")}</div>
-              {!urlIsValid && ollamaUrl && (
-                <p className="flex items-center gap-1 text-xs text-destructive">
-                  <span className="inline-block h-1 w-1 rounded-full bg-destructive" />
-                  {t("settings.base_url.error_invalid_url")}
-                </p>
-              )}
-              {urlIsValid && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <p className="h-1 w-1 rounded-full bg-green-500" />
-                  {isLocalhost
-                    ? t("settings.base_url.status_local")
-                    : t("settings.base_url.status_remote")}
-                </div>
-              )}
-            </Label>
-
+          </>
+        }>
+        <div className="space-y-2">
+          <SettingsFormField
+            htmlFor="ollama-url"
+            label={
+              <div className="flex items-center justify-between w-full">
+                <div className="text-sm">{t("settings.base_url.label")}</div>
+                {!urlIsValid && ollamaUrl && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <span className="inline-block h-1 w-1 rounded-full bg-destructive" />
+                    {t("settings.base_url.error_invalid_url")}
+                  </p>
+                )}
+                {urlIsValid && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <p className="h-1 w-1 rounded-full bg-green-500" />
+                    {isLocalhost
+                      ? t("settings.base_url.status_local")
+                      : t("settings.base_url.status_remote")}
+                  </div>
+                )}
+              </div>
+            }
+            labelClassName="text-muted-foreground pb-1">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -175,9 +164,9 @@ export const BaseUrlSettings = () => {
                 )}
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </SettingsFormField>
+        </div>
+      </SettingsCard>
     </div>
   )
 }

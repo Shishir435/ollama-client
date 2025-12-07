@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Label } from "@/components/ui/label"
+import { SettingsFormField, SettingsSwitch } from "@/components/settings"
 import {
   Select,
   SelectContent,
@@ -10,7 +10,6 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
   type ChunkingStrategy,
@@ -75,20 +74,14 @@ export const TextSplittingSettings = () => {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label className="text-base">
-              {t("model.embedding_config.enhanced_chunking_label")}
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              {t("model.embedding_config.enhanced_chunking_description")}
-            </p>
-          </div>
-          <Switch
-            checked={config.useEnhancedChunking}
-            onCheckedChange={handleEnhancedChunkingChange}
-          />
-        </div>
+        <SettingsSwitch
+          label={t("model.embedding_config.enhanced_chunking_label")}
+          description={t(
+            "model.embedding_config.enhanced_chunking_description"
+          )}
+          checked={config.useEnhancedChunking}
+          onCheckedChange={handleEnhancedChunkingChange}
+        />
 
         {config.useEnhancedChunking && (
           <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
@@ -97,12 +90,9 @@ export const TextSplittingSettings = () => {
         )}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex justify-between">
-          <Label>
-            {t("model.embedding_config.chunk_size_label")} ({chunkSize} tokens)
-          </Label>
-        </div>
+      <SettingsFormField
+        label={`${t("model.embedding_config.chunk_size_label")} (${chunkSize} tokens)`}
+        description={t("model.embedding_config.chunk_size_description")}>
         <Slider
           value={[chunkSize]}
           min={100}
@@ -110,18 +100,11 @@ export const TextSplittingSettings = () => {
           step={100}
           onValueChange={handleChunkSizeChange}
         />
-        <p className="text-xs text-muted-foreground">
-          {t("model.embedding_config.chunk_size_description")}
-        </p>
-      </div>
+      </SettingsFormField>
 
-      <div className="space-y-4">
-        <div className="flex justify-between">
-          <Label>
-            {t("model.embedding_config.chunk_overlap_label")} ({chunkOverlap}{" "}
-            tokens)
-          </Label>
-        </div>
+      <SettingsFormField
+        label={`${t("model.embedding_config.chunk_overlap_label")} (${chunkOverlap} tokens)`}
+        description={t("model.embedding_config.chunk_overlap_description")}>
         <Slider
           value={[chunkOverlap]}
           min={0}
@@ -129,14 +112,11 @@ export const TextSplittingSettings = () => {
           step={10}
           onValueChange={handleChunkOverlapChange}
         />
-        <p className="text-xs text-muted-foreground">
-          {t("model.embedding_config.chunk_overlap_description")}
-        </p>
-      </div>
+      </SettingsFormField>
 
       {!config.useEnhancedChunking && (
-        <div className="space-y-2">
-          <Label>{t("model.embedding_config.chunking_strategy_label")}</Label>
+        <SettingsFormField
+          label={t("model.embedding_config.chunking_strategy_label")}>
           <Select
             value={config.chunkingStrategy}
             onValueChange={handleStrategyChange}>
@@ -155,7 +135,7 @@ export const TextSplittingSettings = () => {
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </SettingsFormField>
       )}
     </div>
   )
