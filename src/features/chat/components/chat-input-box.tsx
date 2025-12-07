@@ -1,6 +1,6 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsButton } from "@/components/settings-button"
 import { Textarea } from "@/components/ui/textarea"
 import { CharCount } from "@/features/chat/components/char-count"
@@ -18,9 +18,11 @@ import { PromptSelectorDialog } from "@/features/prompt/components/prompt-select
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { TabsToggle } from "@/features/tabs/components/tabs-toggle"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { MESSAGE_KEYS } from "@/lib/constants"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { Upload } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChromeMessage } from "@/types"
 
@@ -56,6 +58,41 @@ export const ChatInputBox = ({
   } = useFileUpload({
     onError: (error) => {
       console.error("File processing error:", error)
+    }
+  })
+
+  const [useRAG, setUseRAG] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
+
+  const [tabAccess, setTabAccess] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
+
+  useKeyboardShortcuts({
+    focusInput: (e) => {
+      e.preventDefault()
+      textareaRef.current?.focus()
+    },
+    stopGeneration: (e) => {
+      e.preventDefault()
+      stopGeneration()
+    },
+    toggleRAG: (e) => {
+      e.preventDefault()
+      setUseRAG(!useRAG)
+    },
+    toggleTabs: (e) => {
+      e.preventDefault()
+      setTabAccess(!tabAccess)
     }
   })
 

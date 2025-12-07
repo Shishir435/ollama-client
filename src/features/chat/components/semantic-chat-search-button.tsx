@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -6,10 +5,11 @@ import { MiniBadge } from "@/components/ui/mini-badge"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { Search } from "@/lib/lucide-icon"
+import { useSearchDialogStore } from "@/stores/search-dialog-store"
 
 export const SemanticChatSearchButton = () => {
   const { t } = useTranslation()
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const { isOpen, openSearchDialog, closeSearchDialog } = useSearchDialogStore()
   const { currentSessionId } = useChatSessions()
 
   return (
@@ -17,7 +17,7 @@ export const SemanticChatSearchButton = () => {
       <Button
         type="button"
         variant="outline"
-        onClick={() => setIsSearchOpen(true)}
+        onClick={openSearchDialog}
         className="flex h-10 w-full items-center justify-start rounded-lg border-border/50 bg-background/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent/50"
         title={t("chat.search.button_title")}>
         <Search className="mr-2 h-4 w-4" />
@@ -26,8 +26,8 @@ export const SemanticChatSearchButton = () => {
       </Button>
 
       <SemanticChatSearchDialog
-        open={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
+        open={isOpen}
+        onClose={closeSearchDialog}
         currentSessionId={currentSessionId}
       />
     </>

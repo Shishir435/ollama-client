@@ -474,6 +474,47 @@ export const resources = {
           session_metrics_description:
             "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
         },
+        shortcuts: {
+          title: "Tastaturkürzel",
+          description:
+            "Tastaturkürzel für schnellen Zugriff auf Funktionen anpassen.",
+          recording: "Tasten drücken...",
+          reset_one: "Auf Standard zurücksetzen",
+          reset_all: "Alle Kürzel zurücksetzen",
+          conflict_warning:
+            '"{{key}}" wird bereits von "{{existing}}" verwendet',
+          category_navigation: "Navigation",
+          category_navigation_desc: "In der Oberfläche navigieren",
+          category_actions: "Aktionen",
+          category_actions_desc: "Häufige Aufgaben ausführen",
+          category_toggles: "Schalter",
+          category_toggles_desc: "Funktionen ein-/ausschalten",
+          new_chat: "Neuer Chat",
+          new_chat_desc: "Neue Chat-Sitzung erstellen",
+          focus_input: "Eingabe fokussieren",
+          focus_input_desc: "Chat-Eingabefeld fokussieren",
+          toggle_sidebar: "Seitenleiste umschalten",
+          toggle_sidebar_desc: "Seitenleiste öffnen oder schließen",
+          stop_generation: "Generierung stoppen",
+          stop_generation_desc: "KI-Antwort stoppen",
+          open_settings: "Einstellungen öffnen",
+          open_settings_desc: "Einstellungsseite öffnen",
+          toggle_theme: "Thema wechseln",
+          toggle_theme_desc: "Zwischen Hell- und Dunkelmodus wechseln",
+          toggle_rag: "RAG umschalten",
+          toggle_rag_desc: "Kontextabruf aktivieren oder deaktivieren",
+          toggle_speech: "Sprache umschalten",
+          toggle_speech_desc: "Letzte KI-Antwort vorlesen starten oder stoppen",
+          toggle_tabs: "Tabs umschalten",
+          toggle_tabs_desc: "Tab-Zugriff aktivieren oder deaktivieren",
+          search_messages: "Nachrichten suchen",
+          search_messages_desc: "Semantische Chat-Suche öffnen",
+          clear_chat: "Chat löschen",
+          clear_chat_desc: "Aktuelle Chat-Sitzung löschen",
+          copy_last_response: "Letzte Antwort kopieren",
+          copy_last_response_desc:
+            "Letzte KI-Antwort in die Zwischenablage kopieren"
+        },
         content_extraction: {
           title: "Inhaltsextraktion",
           description:
@@ -703,7 +744,8 @@ export const resources = {
           voices: "Sprachausgaben",
           reset: "Zurücksetzen",
           guides: "Anleitungen",
-          memory: "Gedächtnis"
+          memory: "Gedächtnis",
+          shortcuts: "Tastaturkürzel"
         },
         memory: {
           title: "Kontextuelles Gedächtnis",
@@ -1446,6 +1488,45 @@ export const resources = {
           session_metrics_description:
             "Display token usage, duration, and speed above the chat input"
         },
+        shortcuts: {
+          title: "Keyboard Shortcuts",
+          description:
+            "Customize keyboard shortcuts for quick access to features.",
+          recording: "Press keys...",
+          reset_one: "Reset to default",
+          reset_all: "Reset All Shortcuts",
+          conflict_warning: '"{{key}}" is already used by "{{existing}}"',
+          category_navigation: "Navigation",
+          category_navigation_desc: "Move around the interface",
+          category_actions: "Actions",
+          category_actions_desc: "Perform common tasks",
+          category_toggles: "Toggles",
+          category_toggles_desc: "Switch features on/off",
+          new_chat: "New Chat",
+          new_chat_desc: "Create a new chat session",
+          focus_input: "Focus Input",
+          focus_input_desc: "Focus the chat input field",
+          toggle_sidebar: "Toggle Sidebar",
+          toggle_sidebar_desc: "Open or close the sidebar",
+          stop_generation: "Stop Generation",
+          stop_generation_desc: "Stop the AI response",
+          open_settings: "Open Settings",
+          open_settings_desc: "Open the settings page",
+          toggle_theme: "Toggle Theme",
+          toggle_theme_desc: "Switch between light and dark mode",
+          toggle_rag: "Toggle RAG",
+          toggle_rag_desc: "Enable or disable context retrieval",
+          toggle_speech: "Toggle Speech",
+          toggle_speech_desc: "Start or stop speaking the last AI response",
+          toggle_tabs: "Toggle Tabs",
+          toggle_tabs_desc: "Enable or disable tab access",
+          search_messages: "Search Messages",
+          search_messages_desc: "Open semantic chat search",
+          clear_chat: "Clear Chat",
+          clear_chat_desc: "Clear the current chat session",
+          copy_last_response: "Copy Last Response",
+          copy_last_response_desc: "Copy the last AI response to clipboard"
+        },
         content_extraction: {
           title: "Content Extraction",
           description:
@@ -1670,7 +1751,8 @@ export const resources = {
           voices: "Voices",
           reset: "Reset",
           guides: "Guides",
-          memory: "Memory"
+          memory: "Memory",
+          shortcuts: "Shortcuts"
         },
         memory: {
           title: "Contextual Memory",
@@ -2408,6 +2490,47 @@ export const resources = {
           session_metrics_description:
             "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
         },
+        shortcuts: {
+          title: "Atajos de Teclado",
+          description:
+            "Personaliza los atajos de teclado para acceso rápido a funciones.",
+          recording: "Presiona teclas...",
+          reset_one: "Restablecer a predeterminado",
+          reset_all: "Restablecer Todos los Atajos",
+          conflict_warning: '"{{key}}" ya está en uso por "{{existing}}"',
+          category_navigation: "Navegación",
+          category_navigation_desc: "Navegar por la interfaz",
+          category_actions: "Acciones",
+          category_actions_desc: "Realizar tareas comunes",
+          category_toggles: "Alternar",
+          category_toggles_desc: "Activar/desactivar funciones",
+          new_chat: "Nuevo Chat",
+          new_chat_desc: "Crear una nueva sesión de chat",
+          focus_input: "Enfocar Entrada",
+          focus_input_desc: "Enfocar el campo de entrada del chat",
+          toggle_sidebar: "Alternar Barra Lateral",
+          toggle_sidebar_desc: "Abrir o cerrar la barra lateral",
+          stop_generation: "Detener Generación",
+          stop_generation_desc: "Detener la respuesta de IA",
+          open_settings: "Abrir Configuración",
+          open_settings_desc: "Abrir la página de configuración",
+          toggle_theme: "Cambiar Tema",
+          toggle_theme_desc: "Cambiar entre modo claro y oscuro",
+          toggle_rag: "Alternar RAG",
+          toggle_rag_desc: "Habilitar o deshabilitar recuperación de contexto",
+          toggle_speech: "Alternar Voz",
+          toggle_speech_desc:
+            "Iniciar o detener la lectura de la última respuesta de IA",
+          toggle_tabs: "Alternar Pestañas",
+          toggle_tabs_desc: "Habilitar o deshabilitar acceso a pestañas",
+          search_messages: "Buscar Mensajes",
+          search_messages_desc: "Abrir búsqueda semántica del chat",
+          clear_chat: "Limpiar Chat",
+          clear_chat_desc: "Limpiar la sesión de chat actual",
+          copy_last_response: "Copiar Última Respuesta",
+          copy_last_response_desc:
+            "Copiar la última respuesta de IA al portapapeles"
+        },
         content_extraction: {
           title: "Extracción de Contenido",
           description:
@@ -2638,7 +2761,8 @@ export const resources = {
           voices: "Voces",
           reset: "Restablecer",
           guides: "Guías",
-          memory: "Memoria"
+          memory: "Memoria",
+          shortcuts: "Atajos"
         },
         memory: {
           title: "Memoria Contextual",
@@ -3386,6 +3510,47 @@ export const resources = {
           session_metrics_description:
             "Afficher l'utilisation des tokens, la durée et la vitesse au-dessus de la saisie"
         },
+        shortcuts: {
+          title: "Raccourcis Clavier",
+          description:
+            "Personnalisez les raccourcis clavier pour un accès rapide aux fonctionnalités.",
+          recording: "Appuyez sur les touches...",
+          reset_one: "Réinitialiser par défaut",
+          reset_all: "Réinitialiser Tous les Raccourcis",
+          conflict_warning: '"{{key}}" est déjà utilisé par "{{existing}}"',
+          category_navigation: "Navigation",
+          category_navigation_desc: "Naviguer dans l'interface",
+          category_actions: "Actions",
+          category_actions_desc: "Effectuer des tâches courantes",
+          category_toggles: "Basculer",
+          category_toggles_desc: "Activer/désactiver les fonctionnalités",
+          new_chat: "Nouveau Chat",
+          new_chat_desc: "Créer une nouvelle session de chat",
+          focus_input: "Focus sur l'Entrée",
+          focus_input_desc: "Focus sur le champ de saisie du chat",
+          toggle_sidebar: "Basculer la Barre Latérale",
+          toggle_sidebar_desc: "Ouvrir ou fermer la barre latérale",
+          stop_generation: "Arrêter la Génération",
+          stop_generation_desc: "Arrêter la réponse de l'IA",
+          open_settings: "Ouvrir les Paramètres",
+          open_settings_desc: "Ouvrir la page des paramètres",
+          toggle_theme: "Changer de Thème",
+          toggle_theme_desc: "Basculer entre le mode clair et sombre",
+          toggle_rag: "Basculer RAG",
+          toggle_rag_desc: "Activer ou désactiver la récupération de contexte",
+          toggle_speech: "Basculer la Parole",
+          toggle_speech_desc:
+            "Démarrer ou arrêter la lecture de la dernière réponse de l'IA",
+          toggle_tabs: "Basculer les Onglets",
+          toggle_tabs_desc: "Activer ou désactiver l'accès aux onglets",
+          search_messages: "Rechercher des Messages",
+          search_messages_desc: "Ouvrir la recherche sémantique du chat",
+          clear_chat: "Effacer le Chat",
+          clear_chat_desc: "Effacer la session de chat actuelle",
+          copy_last_response: "Copier la Dernière Réponse",
+          copy_last_response_desc:
+            "Copier la dernière réponse de l'IA dans le presse-papiers"
+        },
         content_extraction: {
           title: "Extraction de Contenu",
           description:
@@ -3619,7 +3784,8 @@ export const resources = {
           voices: "Voix",
           reset: "Réinitialiser",
           guides: "Guides",
-          memory: "Mémoire"
+          memory: "Mémoire",
+          shortcuts: "Raccourcis"
         },
         memory: {
           title: "Mémoire Contextuelle",
@@ -4354,6 +4520,44 @@ export const resources = {
           session_metrics_description:
             "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
         },
+        shortcuts: {
+          title: "कीबोर्ड शॉर्टकट",
+          description: "सुविधाओं तक त्वरित पहुंच के लिए कीबोर्ड शॉर्टकट अनुकूलित करें।",
+          recording: "कुंजियां दबाएं...",
+          reset_one: "डिफ़ॉल्ट पर रीसेट करें",
+          reset_all: "सभी शॉर्टकट रीसेट करें",
+          conflict_warning: '"{{key}}" पहले से "{{existing}}" द्वारा उपयोग में है',
+          category_navigation: "नेविगेशन",
+          category_navigation_desc: "इंटरफ़ेस में नेविगेट करें",
+          category_actions: "क्रियाएं",
+          category_actions_desc: "सामान्य कार्य करें",
+          category_toggles: "टॉगल",
+          category_toggles_desc: "सुविधाएं चालू/बंद करें",
+          new_chat: "नई चैट",
+          new_chat_desc: "एक नई चैट सत्र बनाएं",
+          focus_input: "इनपुट फोकस करें",
+          focus_input_desc: "चैट इनपुट फ़ील्ड पर फोकस करें",
+          toggle_sidebar: "साइडबार टॉगल करें",
+          toggle_sidebar_desc: "साइडबार खोलें या बंद करें",
+          stop_generation: "जनरेशन रोकें",
+          stop_generation_desc: "AI प्रतिक्रिया रोकें",
+          open_settings: "सेटिंग्स खोलें",
+          open_settings_desc: "सेटिंग्स पेज खोलें",
+          toggle_theme: "थीम बदलें",
+          toggle_theme_desc: "लाइट और डार्क मोड के बीच स्विच करें",
+          toggle_rag: "RAG टॉगल करें",
+          toggle_rag_desc: "संदर्भ पुनर्प्राप्ति सक्षम या अक्षम करें",
+          toggle_speech: "स्पीच टॉगल करें",
+          toggle_speech_desc: "अंतिम AI प्रतिक्रिया बोलना शुरू या बंद करें",
+          toggle_tabs: "टैब्स टॉगल करें",
+          toggle_tabs_desc: "टैब एक्सेस सक्षम या अक्षम करें",
+          search_messages: "संदेश खोजें",
+          search_messages_desc: "सिमेंटिक चैट खोज खोलें",
+          clear_chat: "चैट साफ़ करें",
+          clear_chat_desc: "वर्तमान चैट सत्र साफ़ करें",
+          copy_last_response: "अंतिम प्रतिक्रिया कॉपी करें",
+          copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें"
+        },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
           description:
@@ -4576,7 +4780,8 @@ export const resources = {
           voices: "वॉयस",
           reset: "रीसेट करें",
           guides: "गाइड",
-          memory: "मेमोरी"
+          memory: "मेमोरी",
+          shortcuts: "शॉर्टकट"
         },
         memory: {
           title: "प्रासंगिक मेमोरी",
@@ -5316,6 +5521,47 @@ export const resources = {
           session_metrics_description:
             "Mostra utilizzo token, durata e velocità sopra l'input della chat"
         },
+        shortcuts: {
+          title: "Scorciatoie da Tastiera",
+          description:
+            "Personalizza le scorciatoie da tastiera per un accesso rapido alle funzionalità.",
+          recording: "Premi i tasti...",
+          reset_one: "Ripristina predefinito",
+          reset_all: "Ripristina Tutte le Scorciatoie",
+          conflict_warning: '"{{key}}" è già in uso da "{{existing}}"',
+          category_navigation: "Navigazione",
+          category_navigation_desc: "Naviga nell'interfaccia",
+          category_actions: "Azioni",
+          category_actions_desc: "Esegui attività comuni",
+          category_toggles: "Interruttori",
+          category_toggles_desc: "Attiva/disattiva funzionalità",
+          new_chat: "Nuova Chat",
+          new_chat_desc: "Crea una nuova sessione di chat",
+          focus_input: "Focus sull'Input",
+          focus_input_desc: "Focus sul campo di input della chat",
+          toggle_sidebar: "Attiva/Disattiva Barra Laterale",
+          toggle_sidebar_desc: "Apri o chiudi la barra laterale",
+          stop_generation: "Ferma Generazione",
+          stop_generation_desc: "Ferma la risposta dell'IA",
+          open_settings: "Apri Impostazioni",
+          open_settings_desc: "Apri la pagina delle impostazioni",
+          toggle_theme: "Cambia Tema",
+          toggle_theme_desc: "Passa tra modalità chiara e scura",
+          toggle_rag: "Attiva/Disattiva RAG",
+          toggle_rag_desc: "Abilita o disabilita il recupero del contesto",
+          toggle_speech: "Attiva/Disattiva Voce",
+          toggle_speech_desc:
+            "Avvia o ferma la lettura dell'ultima risposta dell'IA",
+          toggle_tabs: "Attiva/Disattiva Schede",
+          toggle_tabs_desc: "Abilita o disabilita l'accesso alle schede",
+          search_messages: "Cerca Messaggi",
+          search_messages_desc: "Apri la ricerca semantica della chat",
+          clear_chat: "Cancella Chat",
+          clear_chat_desc: "Cancella la sessione di chat corrente",
+          copy_last_response: "Copia Ultima Risposta",
+          copy_last_response_desc:
+            "Copia l'ultima risposta dell'IA negli appunti"
+        },
         content_extraction: {
           title: "Estrazione Contenuto",
           description:
@@ -5545,7 +5791,8 @@ export const resources = {
           voices: "Voci",
           reset: "Reset",
           guides: "Guide",
-          memory: "Memoria"
+          memory: "Memoria",
+          shortcuts: "Scorciatoie"
         },
         memory: {
           title: "Memoria Contestuale",
@@ -6285,6 +6532,46 @@ export const resources = {
           session_metrics_description:
             "チャット入力上にトークン使用量、時間、速度を表示"
         },
+        shortcuts: {
+          title: "キーボードショートカット",
+          description:
+            "機能への素早いアクセス用にキーボードショートカットをカスタマイズ",
+          recording: "キーを押してください...",
+          reset_one: "デフォルトにリセット",
+          reset_all: "すべてのショートカットをリセット",
+          conflict_warning:
+            '"{{key}}" は "{{existing}}" で既に使用されています',
+          category_navigation: "ナビゲーション",
+          category_navigation_desc: "インターフェースを移動する",
+          category_actions: "アクション",
+          category_actions_desc: "一般的なタスクを実行する",
+          category_toggles: "トグル",
+          category_toggles_desc: "機能のオン/オフを切り替える",
+          new_chat: "新しいチャット",
+          new_chat_desc: "新しいチャットセッションを作成",
+          focus_input: "入力にフォーカス",
+          focus_input_desc: "チャット入力フィールドにフォーカス",
+          toggle_sidebar: "サイドバー切り替え",
+          toggle_sidebar_desc: "サイドバーを開く/閉じる",
+          stop_generation: "生成を停止",
+          stop_generation_desc: "AI応答を停止",
+          open_settings: "設定を開く",
+          open_settings_desc: "設定ページを開く",
+          toggle_theme: "テーマ切り替え",
+          toggle_theme_desc: "ライト/ダークモードを切り替え",
+          toggle_rag: "RAG切り替え",
+          toggle_rag_desc: "コンテキスト取得を有効/無効にする",
+          toggle_speech: "音声切り替え",
+          toggle_speech_desc: "最後のAI応答の読み上げを開始/停止",
+          toggle_tabs: "タブ切り替え",
+          toggle_tabs_desc: "タブアクセスを有効/無効にする",
+          search_messages: "メッセージ検索",
+          search_messages_desc: "セマンティックチャット検索を開く",
+          clear_chat: "チャットをクリア",
+          clear_chat_desc: "現在のチャットセッションをクリア",
+          copy_last_response: "最後の応答をコピー",
+          copy_last_response_desc: "最後のAI応答をクリップボードにコピー"
+        },
         content_extraction: {
           title: "コンテンツ抽出",
           description:
@@ -6509,7 +6796,8 @@ export const resources = {
           voices: "音声",
           reset: "リセット",
           guides: "ガイド",
-          memory: "メモリ"
+          memory: "メモリ",
+          shortcuts: "ショートカット"
         },
         memory: {
           title: "コンテキストメモリ",
@@ -7249,6 +7537,47 @@ export const resources = {
           session_metrics_description:
             "Показывать использование токенов, время и скорость над полем ввода"
         },
+        shortcuts: {
+          title: "Сочетания Клавиш",
+          description:
+            "Настройте сочетания клавиш для быстрого доступа к функциям.",
+          recording: "Нажмите клавиши...",
+          reset_one: "Сбросить по умолчанию",
+          reset_all: "Сбросить Все Сочетания",
+          conflict_warning: '"{{key}}" уже используется для "{{existing}}"',
+          category_navigation: "Навигация",
+          category_navigation_desc: "Перемещение по интерфейсу",
+          category_actions: "Действия",
+          category_actions_desc: "Выполнение общих задач",
+          category_toggles: "Переключатели",
+          category_toggles_desc: "Включение/выключение функций",
+          new_chat: "Новый Чат",
+          new_chat_desc: "Создать новую сессию чата",
+          focus_input: "Фокус на Ввод",
+          focus_input_desc: "Фокус на поле ввода чата",
+          toggle_sidebar: "Переключить Боковую Панель",
+          toggle_sidebar_desc: "Открыть или закрыть боковую панель",
+          stop_generation: "Остановить Генерацию",
+          stop_generation_desc: "Остановить ответ ИИ",
+          open_settings: "Открыть Настройки",
+          open_settings_desc: "Открыть страницу настроек",
+          toggle_theme: "Сменить Тему",
+          toggle_theme_desc: "Переключить между светлой и темной темой",
+          toggle_rag: "Переключить RAG",
+          toggle_rag_desc: "Включить или выключить извлечение контекста",
+          toggle_speech: "Переключить Речь",
+          toggle_speech_desc:
+            "Начать или остановить озвучивание последнего ответа ИИ",
+          toggle_tabs: "Переключить Вкладки",
+          toggle_tabs_desc: "Включить или выключить доступ к вкладкам",
+          search_messages: "Поиск Сообщений",
+          search_messages_desc: "Открыть семантический поиск по чату",
+          clear_chat: "Очистить Чат",
+          clear_chat_desc: "Очистить текущую сессию чата",
+          copy_last_response: "Копировать Последний Ответ",
+          copy_last_response_desc:
+            "Копировать последний ответ ИИ в буфер обмена"
+        },
         content_extraction: {
           title: "Извлечение контента",
           description:
@@ -7475,7 +7804,8 @@ export const resources = {
           voices: "Голоса",
           reset: "Сброс",
           guides: "Руководства",
-          memory: "Память"
+          memory: "Память",
+          shortcuts: "Горячие клавиши"
         },
         memory: {
           title: "Контекстная память",
@@ -8190,6 +8520,44 @@ export const resources = {
           session_metrics_description:
             "在聊天输入框上方显示令牌使用量、时长和速度"
         },
+        shortcuts: {
+          title: "键盘快捷键",
+          description: "自定义键盘快捷键以快速访问功能。",
+          recording: "请按键...",
+          reset_one: "重置为默认",
+          reset_all: "重置所有快捷键",
+          conflict_warning: '"{{key}}" 已被 "{{existing}}" 使用',
+          category_navigation: "导航",
+          category_navigation_desc: "在界面中导航",
+          category_actions: "操作",
+          category_actions_desc: "执行常见任务",
+          category_toggles: "切换",
+          category_toggles_desc: "开启/关闭功能",
+          new_chat: "新聊天",
+          new_chat_desc: "创建新的聊天会话",
+          focus_input: "聚焦输入",
+          focus_input_desc: "聚焦到聊天输入框",
+          toggle_sidebar: "切换侧边栏",
+          toggle_sidebar_desc: "打开或关闭侧边栏",
+          stop_generation: "停止生成",
+          stop_generation_desc: "停止AI响应",
+          open_settings: "打开设置",
+          open_settings_desc: "打开设置页面",
+          toggle_theme: "切换主题",
+          toggle_theme_desc: "在浅色和深色模式之间切换",
+          toggle_rag: "切换RAG",
+          toggle_rag_desc: "启用或禁用上下文检索",
+          toggle_speech: "切换语音",
+          toggle_speech_desc: "开始或停止朗读最后一条AI响应",
+          toggle_tabs: "切换标签页",
+          toggle_tabs_desc: "启用或禁用标签页访问",
+          search_messages: "搜索消息",
+          search_messages_desc: "打开语义聊天搜索",
+          clear_chat: "清除聊天",
+          clear_chat_desc: "清除当前聊天会话",
+          copy_last_response: "复制最后响应",
+          copy_last_response_desc: "复制最后一条AI响应到剪贴板"
+        },
         content_extraction: {
           title: "内容提取",
           description: "配置所有网站的默认内容提取行为。",
@@ -8405,7 +8773,8 @@ export const resources = {
           voices: "声音",
           reset: "重置",
           guides: "指南",
-          memory: "记忆"
+          memory: "记忆",
+          shortcuts: "快捷键"
         },
         memory: {
           title: "上下文记忆",

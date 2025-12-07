@@ -23,6 +23,7 @@ import { ModelSettingsForm } from "@/features/model/components/model-settings-fo
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
+import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
 export const OllamaOptions = () => {
   const { t } = useTranslation()
@@ -38,6 +39,10 @@ export const OllamaOptions = () => {
           <ModelSettingsForm />
         </div>
       )
+    },
+    shortcuts: {
+      label: t("settings.tabs.shortcuts"),
+      content: <ShortcutsSettings />
     },
     templates: {
       label: t("settings.tabs.prompts"),

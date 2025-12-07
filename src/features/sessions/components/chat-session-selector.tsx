@@ -1,5 +1,5 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -11,11 +11,13 @@ import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-but
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
 import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { Menu, MessageSquare, SquarePen } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ChatSessionSelector = () => {
   const { t } = useTranslation()
+  const [isOpen, setIsOpen] = useState(false)
   const {
     sessions,
     currentSessionId,
@@ -24,8 +26,15 @@ export const ChatSessionSelector = () => {
     deleteSession
   } = useChatSessions()
 
+  useKeyboardShortcuts({
+    closeSidebar: (e) => {
+      e.preventDefault()
+      setIsOpen((prev) => !prev)
+    }
+  })
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"

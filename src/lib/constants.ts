@@ -50,7 +50,8 @@ export const STORAGE_KEYS = {
   TTS: {
     RATE: "tts-rate",
     PITCH: "tts-pitch",
-    VOICE_URI: "tts-voice-uri"
+    VOICE_URI: "tts-voice-uri",
+    AUTO_PLAY: "tts-auto-play"
   },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
@@ -69,7 +70,8 @@ export const STORAGE_KEYS = {
   },
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics"
-  }
+  },
+  SHORTCUTS: "keyboard-shortcuts"
 }
 
 // Default embedding model - use `mxbai-embed-large` for improved semantics
