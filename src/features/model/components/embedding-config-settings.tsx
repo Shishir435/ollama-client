@@ -1,26 +1,12 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
+import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import {
   RAGSettings,
   TextSplittingSettings
 } from "@/features/knowledge/components"
-import { FormSectionCard } from "@/features/model/components/form-section-card"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
@@ -32,17 +18,14 @@ import {
   getStorageStats,
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
-import {
-  BookOpen,
-  Database,
-  MessageSquare,
-  Scissors,
-  Settings,
-  Sparkles,
-  Trash2,
-  Zap
-} from "@/lib/lucide-icon"
+import { BookOpen, MessageSquare, Scissors } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+
+import { DatabaseManagementCard } from "./embedding-config/database-management-card"
+import { EmbeddingGenerationConfig } from "./embedding-config/embedding-generation-config"
+import { EmbeddingLimitsConfig } from "./embedding-config/embedding-limits-config"
+import { EmbeddingSearchConfig } from "./embedding-config/embedding-search-config"
+import { StorageStatsCard } from "./embedding-config/storage-stats-card"
 
 const useEmbeddingConfig = () => {
   const [config, setConfig] = useStorage<EmbeddingConfig>(
@@ -68,6 +51,7 @@ const useEmbeddingConfig = () => {
 }
 
 const AutoEmbedChatToggle = memo(() => {
+  const { t } = useTranslation()
   const [autoEmbedEnabled, setAutoEmbedEnabled] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT,
@@ -77,8 +61,9 @@ const AutoEmbedChatToggle = memo(() => {
   )
 
   return (
-    <Switch
-      id="autoEmbedChat"
+    <SettingsSwitch
+      label={t("model.embedding_config.auto_embed_label")}
+      description={t("model.embedding_config.auto_embed_description")}
       checked={autoEmbedEnabled ?? true}
       onCheckedChange={setAutoEmbedEnabled}
     />
@@ -214,438 +199,52 @@ export const EmbeddingConfigSettings = memo(() => {
     <div className="mx-auto space-y-6">
       {/* Statistics Card */}
       {storageStats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              {t("model.embedding_config.storage_stats_title")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {t("model.embedding_config.total_vectors")}
-                </p>
-                <p className="text-2xl font-bold">
-                  {storageStats.totalVectors}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {t("model.embedding_config.storage_used")}
-                </p>
-                <p className="text-2xl font-bold">
-                  {storageStats.totalSizeMB.toFixed(2)} MB
-                </p>
-              </div>
-            </div>
-            {cacheStats && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
-                  {t("model.embedding_config.cache")}
-                </p>
-                <p className="text-sm">
-                  {t("model.embedding_config.cache_entries", {
-                    size: cacheStats.size,
-                    maxSize: cacheStats.maxSize
-                  })}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <StorageStatsCard storageStats={storageStats} cacheStats={cacheStats} />
       )}
 
       {/* Database Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Trash2 className="h-5 w-5" />
-            {t("model.embedding_config.database_management_title")}
-          </CardTitle>
-          <CardDescription>
-            {t("model.embedding_config.database_management_description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              onClick={handleRemoveDuplicates}
-              disabled={isCleaning || !storageStats?.totalVectors}
-              className="w-full">
-              {t("model.embedding_config.remove_duplicates_button")}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.remove_duplicates_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              onClick={handleClearChatVectors}
-              disabled={isCleaning || !storageStats?.byType?.chat}
-              className="w-full">
-              {t("model.embedding_config.clear_chat_button")}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.clear_chat_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Button
-              variant="destructive"
-              onClick={handleClearAllVectors}
-              disabled={isCleaning || !storageStats?.totalVectors}
-              className="w-full">
-              {t("model.embedding_config.clear_all_button")}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.clear_all_description")}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <DatabaseManagementCard
+        onRemoveDuplicates={handleRemoveDuplicates}
+        onClearChat={handleClearChatVectors}
+        onClearAll={handleClearAllVectors}
+        isCleaning={isCleaning}
+        hasVectors={!!storageStats?.totalVectors}
+        hasChatVectors={!!storageStats?.byType?.chat}
+      />
 
       {/* Chunking Settings */}
-      <FormSectionCard
+      <SettingsCard
         icon={Scissors}
         title={t("model.embedding_config.chunking_title")}
         description={t("model.embedding_config.chunking_description")}>
         <TextSplittingSettings />
-      </FormSectionCard>
+      </SettingsCard>
 
       {/* Embedding Generation Settings */}
-      <FormSectionCard
-        icon={Zap}
-        title={t("model.embedding_config.embedding_gen_title")}
-        description={t("model.embedding_config.embedding_gen_description")}>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="batchSize">
-              {t("model.embedding_config.batch_size_label")}
-            </Label>
-            <Input
-              id="batchSize"
-              type="number"
-              value={config.batchSize}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 1 && val <= 20) {
-                  updateConfig({ batchSize: val })
-                }
-              }}
-              min={1}
-              max={20}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.batch_size_description")}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="enableCaching">
-                {t("model.embedding_config.enable_caching_label")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_config.enable_caching_description")}
-              </p>
-            </div>
-            <Switch
-              id="enableCaching"
-              checked={config.enableCaching}
-              onCheckedChange={(checked) =>
-                updateConfig({ enableCaching: checked })
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="useWebWorker">
-                {t("model.embedding_config.use_webworker_label")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_config.use_webworker_description")}
-              </p>
-            </div>
-            <Switch
-              id="useWebWorker"
-              checked={config.useWebWorker}
-              onCheckedChange={(checked) =>
-                updateConfig({ useWebWorker: checked })
-              }
-            />
-          </div>
-        </div>
-      </FormSectionCard>
+      <EmbeddingGenerationConfig config={config} updateConfig={updateConfig} />
 
       {/* RAG Settings */}
-      <FormSectionCard
+      <SettingsCard
         icon={BookOpen}
         title={t("model.embedding_config.rag_settings_title")}
         description={t("model.embedding_config.rag_settings_description")}>
         <RAGSettings />
-      </FormSectionCard>
+      </SettingsCard>
 
       {/* Limits Settings */}
-      <FormSectionCard
-        icon={Settings}
-        title={t("model.embedding_config.limits_title")}
-        description={t("model.embedding_config.limits_description")}>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="maxEmbeddingsPerFile">
-              {t("model.embedding_config.max_embeddings_label")}
-            </Label>
-            <Input
-              id="maxEmbeddingsPerFile"
-              type="number"
-              value={config.maxEmbeddingsPerFile}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 0) {
-                  updateConfig({
-                    maxEmbeddingsPerFile: val
-                  })
-                }
-              }}
-              min={0}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.max_embeddings_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="maxStorageSize">
-              {t("model.embedding_config.max_storage_label")}
-            </Label>
-            <Input
-              id="maxStorageSize"
-              type="number"
-              value={config.maxStorageSize}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 0) {
-                  updateConfig({
-                    maxStorageSize: val
-                  })
-                }
-              }}
-              min={0}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.max_storage_description")}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="autoCleanup">
-                {t("model.embedding_config.auto_cleanup_label")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_config.auto_cleanup_description")}
-              </p>
-            </div>
-            <Switch
-              id="autoCleanup"
-              checked={config.autoCleanup}
-              onCheckedChange={(checked) =>
-                updateConfig({ autoCleanup: checked })
-              }
-            />
-          </div>
-
-          {config.autoCleanup && (
-            <div className="space-y-2">
-              <Label htmlFor="cleanupDaysOld">
-                {t("model.embedding_config.cleanup_age_label")}
-              </Label>
-              <Input
-                id="cleanupDaysOld"
-                type="number"
-                value={config.cleanupDaysOld}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val) && val >= 1) {
-                    updateConfig({
-                      cleanupDaysOld: val
-                    })
-                  }
-                }}
-                min={1}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_config.cleanup_age_description")}
-              </p>
-            </div>
-          )}
-        </div>
-      </FormSectionCard>
+      <EmbeddingLimitsConfig config={config} updateConfig={updateConfig} />
 
       {/* Chat Search Settings */}
-      <FormSectionCard
+      <SettingsCard
         icon={MessageSquare}
         title={t("model.embedding_config.chat_search_title")}
         description={t("model.embedding_config.chat_search_description")}>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="autoEmbedChat">
-                {t("model.embedding_config.auto_embed_label")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_config.auto_embed_description")}
-              </p>
-            </div>
-            <AutoEmbedChatToggle />
-          </div>
-        </div>
-      </FormSectionCard>
+        <AutoEmbedChatToggle />
+      </SettingsCard>
 
-      {/* Backfill Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            {t("model.embedding_config.backfill_title")}
-          </CardTitle>
-          <CardDescription>
-            {t("model.embedding_config.backfill_description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChatBackfillPanel />
-        </CardContent>
-      </Card>
+      <ChatBackfillPanel />
 
-      {/* Search Settings */}
-      <FormSectionCard
-        icon={Settings}
-        title={t("model.embedding_config.search_settings_title")}
-        description={t("model.embedding_config.search_settings_description")}>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="defaultSearchLimit">
-              {t("model.embedding_config.search_limit_label")}
-            </Label>
-            <Input
-              id="defaultSearchLimit"
-              type="number"
-              value={config.defaultSearchLimit}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 1 && val <= 100) {
-                  updateConfig({
-                    defaultSearchLimit: val
-                  })
-                }
-              }}
-              min={1}
-              max={100}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.search_limit_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="defaultMinSimilarity">
-              {t("model.embedding_config.min_similarity_label")}
-            </Label>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={[config.defaultMinSimilarity]}
-                onValueChange={([value]) =>
-                  updateConfig({ defaultMinSimilarity: value })
-                }
-                min={0}
-                max={1}
-                step={0.05}
-                className="flex-1"
-              />
-              <Input
-                id="defaultMinSimilarity"
-                type="number"
-                value={config.defaultMinSimilarity.toFixed(2)}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value)
-                  if (!Number.isNaN(val) && val >= 0 && val <= 1) {
-                    updateConfig({
-                      defaultMinSimilarity: val
-                    })
-                  }
-                }}
-                className="w-24"
-                min={0}
-                max={1}
-                step={0.05}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span>1</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.min_similarity_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2 pt-2 border-t">
-            <Label htmlFor="searchCacheTTL">
-              {t("model.embedding_config.cache_ttl_label")}
-            </Label>
-            <Input
-              id="searchCacheTTL"
-              type="number"
-              value={config.searchCacheTTL}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 1 && val <= 60) {
-                  updateConfig({
-                    searchCacheTTL: val
-                  })
-                }
-              }}
-              min={1}
-              max={60}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.cache_ttl_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="searchCacheMaxSize">
-              {t("model.embedding_config.cache_max_size_label")}
-            </Label>
-            <Input
-              id="searchCacheMaxSize"
-              type="number"
-              value={config.searchCacheMaxSize}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                if (!Number.isNaN(val) && val >= 10 && val <= 200) {
-                  updateConfig({
-                    searchCacheMaxSize: val
-                  })
-                }
-              }}
-              min={10}
-              max={200}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.cache_max_size_description")}
-            </p>
-          </div>
-        </div>
-      </FormSectionCard>
+      <EmbeddingSearchConfig config={config} updateConfig={updateConfig} />
     </div>
   )
 })

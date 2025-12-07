@@ -3,6 +3,8 @@ import { useMemo } from "react"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
+export type OllamaModelConfig = typeof DEFAULT_MODEL_CONFIG
+
 export const useModelConfig = (modelName: string) => {
   const [modelConfigs, setModelConfigs] = useStorage<
     Record<string, typeof DEFAULT_MODEL_CONFIG>

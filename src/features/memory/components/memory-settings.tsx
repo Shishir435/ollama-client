@@ -2,16 +2,9 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
@@ -64,59 +57,52 @@ export const MemorySettings = () => {
   })
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">
-            {t("settings.memory.title")}
-          </CardTitle>
-          <MiniBadge text={t("settings.memory.beta_badge")} />
-        </div>
-        <CardDescription>{t("settings.memory.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between space-x-2">
-          <Label htmlFor="memory-toggle" className="flex flex-col space-y-1">
-            <span>{t("settings.memory.enable.label")}</span>
-            <span className="font-normal text-xs text-muted-foreground">
-              {t("settings.memory.enable.description")}
-            </span>
-          </Label>
-          <Switch
-            id="memory-toggle"
-            checked={isEnabled}
-            onCheckedChange={setIsEnabled}
-          />
-        </div>
+    <SettingsCard
+      icon={Brain}
+      title={t("settings.memory.title")}
+      description={t("settings.memory.description")}
+      badge={t("settings.memory.beta_badge")}
+      contentClassName="space-y-6">
+      <div className="flex items-center justify-between space-x-2">
+        <Label htmlFor="memory-toggle" className="flex flex-col space-y-1">
+          <span>{t("settings.memory.enable.label")}</span>
+          <span className="font-normal text-xs text-muted-foreground">
+            {t("settings.memory.enable.description")}
+          </span>
+        </Label>
+        <Switch
+          id="memory-toggle"
+          checked={isEnabled}
+          onCheckedChange={setIsEnabled}
+        />
+      </div>
 
-        <div className="flex items-center justify-between border-t pt-4">
-          <div className="space-y-1">
-            <Label>{t("settings.memory.clear.label")}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.memory.clear.description")}
-              {stats && (
-                <span className="block mt-1">
-                  {t("settings.memory.clear.usage", {
-                    count: stats.byType?.chat || 0,
-                    size: stats.totalSizeMB.toFixed(2)
-                  })}
-                </span>
-              )}
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearMemory}
-            disabled={isClearing}>
-            <Trash2 className="size-4 mr-2" />
-            {isClearing
-              ? t("settings.memory.clear.button_clearing")
-              : t("settings.memory.clear.button")}
-          </Button>
+      <div className="flex items-center justify-between border-t pt-4">
+        <div className="space-y-1">
+          <Label>{t("settings.memory.clear.label")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("settings.memory.clear.description")}
+            {stats && (
+              <span className="block mt-1">
+                {t("settings.memory.clear.usage", {
+                  count: stats.byType?.chat || 0,
+                  size: stats.totalSizeMB.toFixed(2)
+                })}
+              </span>
+            )}
+          </p>
         </div>
-      </CardContent>
-    </Card>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleClearMemory}
+          disabled={isClearing}>
+          <Trash2 className="size-4 mr-2" />
+          {isClearing
+            ? t("settings.memory.clear.button_clearing")
+            : t("settings.memory.clear.button")}
+        </Button>
+      </div>
+    </SettingsCard>
   )
 }

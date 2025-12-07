@@ -1,18 +1,15 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import {
+  SettingsCard,
+  SettingsFormField,
+  SettingsSwitch,
+  StatusAlert
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import {
   Select,
   SelectContent,
@@ -21,7 +18,6 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
 import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
 import { browser } from "@/lib/browser-api"
@@ -287,21 +283,12 @@ export const EmbeddingSettings = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">
-              {t("settings.embeddings.title")}
-            </CardTitle>
-            <MiniBadge text={t("settings.embeddings.beta_badge")} />
-          </div>
-          <CardDescription className="text-sm">
-            {t("settings.embeddings.description")}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
+      <SettingsCard
+        icon={Database}
+        title={t("settings.embedding.title")}
+        description={t("settings.embedding.description")}
+        badge="Beta">
+        <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div>
@@ -328,43 +315,35 @@ export const EmbeddingSettings = () => {
 
             {/* Show download prompt when model is not found */}
             {modelExists === false && !isDownloading && (
-              <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">
-                        {t("settings.embeddings.not_loaded.title")}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("settings.embeddings.not_loaded.description")}
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleDownload}
-                      size="sm"
-                      className="w-full sm:w-auto">
-                      <Download className="h-4 w-4 mr-2" />
-                      {t("settings.embeddings.not_loaded.download_button", {
-                        model: currentModel
-                      })}
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <StatusAlert
+                variant="warning"
+                icon={AlertCircle}
+                title={t("settings.embeddings.not_loaded.title")}
+                description={t("settings.embeddings.not_loaded.description")}
+                actions={
+                  <Button
+                    onClick={handleDownload}
+                    size="sm"
+                    className="w-full sm:w-auto mt-2">
+                    <Download className="h-4 w-4 mr-2" />
+                    {t("settings.embeddings.not_loaded.download_button", {
+                      model: currentModel
+                    })}
+                  </Button>
+                }
+              />
             )}
 
             {/* Show download progress when downloading */}
             {isDownloading && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <div className="flex items-start gap-3">
-                  <Loader2 className="h-5 w-5 text-primary animate-spin mt-0.5 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <p className="text-sm font-medium text-primary">
-                      {t("settings.embeddings.downloading.title", {
-                        model: currentModel
-                      })}
-                    </p>
+              <StatusAlert
+                variant="default"
+                icon={Loader2}
+                title={t("settings.embeddings.downloading.title", {
+                  model: currentModel
+                })}
+                description={
+                  <div className="space-y-2">
                     {progress && (
                       <p className="text-xs text-muted-foreground">
                         {progress}
@@ -377,41 +356,29 @@ export const EmbeddingSettings = () => {
                       />
                     </div>
                   </div>
-                </div>
-              </div>
+                }
+              />
             )}
 
             {/* Show success message when download completes */}
             {progress === "✅ Success" && modelExists === true && (
-              <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-green-600 dark:text-green-400">
-                      {t("settings.embeddings.success.title")}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t("settings.embeddings.success.description")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <StatusAlert
+                variant="success"
+                icon={CheckCircle}
+                title={t("settings.embeddings.success.title")}
+                description={t("settings.embeddings.success.description")}
+              />
             )}
 
             {autoDownloaded && modelExists === true && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-                <div className="flex items-start gap-2">
-                  <Download className="h-4 w-4 text-primary mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-primary">
-                      {t("settings.embeddings.auto_downloaded.title")}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t("settings.embeddings.auto_downloaded.description")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <StatusAlert
+                variant="default"
+                icon={Download}
+                title={t("settings.embeddings.auto_downloaded.title")}
+                description={t(
+                  "settings.embeddings.auto_downloaded.description"
+                )}
+              />
             )}
 
             <div className="flex gap-2">
@@ -634,21 +601,13 @@ export const EmbeddingSettings = () => {
           </div>
 
           <div className="rounded-lg border p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="rag-mode">
-                  {t("settings.embeddings.rag_mode.label")}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("settings.embeddings.rag_mode.description")}
-                </p>
-              </div>
-              <Switch
-                id="rag-mode"
-                checked={useRag}
-                onCheckedChange={setUseRag}
-              />
-            </div>
+            <SettingsSwitch
+              id="rag-mode"
+              label={t("settings.embeddings.rag_mode.label")}
+              description={t("settings.embeddings.rag_mode.description")}
+              checked={useRag}
+              onCheckedChange={setUseRag}
+            />
 
             <Separator />
 
@@ -656,8 +615,9 @@ export const EmbeddingSettings = () => {
 
             <Separator />
 
-            <div className="space-y-2">
-              <Label>{t("settings.embeddings.model_select.label")}</Label>
+            <SettingsFormField
+              label={t("settings.embeddings.model_select.label")}
+              description={t("settings.embeddings.model_select.description")}>
               <Select
                 value={selectedModel}
                 onValueChange={(value) => setSelectedModel(value)}>
@@ -682,13 +642,10 @@ export const EmbeddingSettings = () => {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.embeddings.model_select.description")}
-              </p>
-            </div>
+            </SettingsFormField>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsCard>
 
       <Separator />
 

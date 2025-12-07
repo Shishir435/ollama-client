@@ -1,9 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Label } from "@/components/ui/label"
+import { SettingsFormField, SettingsSwitch } from "@/components/settings"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
@@ -67,25 +66,17 @@ export const RAGSettings = () => {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label className="text-base">
-              {t("model.embedding_config.rag_enable_label")}
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              {t("model.embedding_config.rag_enable_description")}
-            </p>
-          </div>
-          <Switch checked={useRAG} onCheckedChange={handleRAGToggle} />
-        </div>
+        <SettingsSwitch
+          label={t("model.embedding_config.rag_enable_label")}
+          description={t("model.embedding_config.rag_enable_description")}
+          checked={useRAG}
+          onCheckedChange={handleRAGToggle}
+        />
       </div>
 
-      <div className="space-y-4">
-        <div className="flex justify-between">
-          <Label>
-            {t("model.embedding_config.search_limit_label")} (Top-K: {topK})
-          </Label>
-        </div>
+      <SettingsFormField
+        label={`${t("model.embedding_config.search_limit_label")} (Top-K: ${topK})`}
+        description={t("model.embedding_config.search_limit_description")}>
         <Slider
           value={[topK]}
           min={1}
@@ -93,23 +84,18 @@ export const RAGSettings = () => {
           step={1}
           onValueChange={handleTopKChange}
         />
-        <p className="text-xs text-muted-foreground">
-          {t("model.embedding_config.search_limit_description")}
-        </p>
-      </div>
+      </SettingsFormField>
 
-      <div className="space-y-2">
-        <Label>{t("model.embedding_config.rag_system_prompt_label")}</Label>
+      <SettingsFormField
+        label={t("model.embedding_config.rag_system_prompt_label")}
+        description={t("model.embedding_config.rag_system_prompt_description")}>
         <Textarea
           value={systemPrompt}
           onChange={handleSystemPromptChange}
           placeholder="Enter system prompt..."
           className="min-h-[150px] font-mono text-sm"
         />
-        <p className="text-xs text-muted-foreground">
-          {t("model.embedding_config.rag_system_prompt_description")}
-        </p>
-      </div>
+      </SettingsFormField>
     </div>
   )
 }

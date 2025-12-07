@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
+import { describe, it, expect, beforeEach, vi, beforeAll } from "vitest"
 import { renderHook, act } from "@testing-library/react"
-import { useThemeStore } from "../theme"
+import type { useThemeStore as UseThemeStoreType } from "../theme"
 
 // Mock plasmo storage
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -11,7 +11,24 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   }
 }))
 
+// Mock chrome
+const mockChrome = {
+  storage: {
+    onChanged: {
+      addListener: vi.fn()
+    }
+  }
+}
+globalThis.chrome = mockChrome as any
+
 describe("theme store", () => {
+  let useThemeStore: typeof UseThemeStoreType
+
+  beforeAll(async () => {
+    const mod = await import("../theme")
+    useThemeStore = mod.useThemeStore
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })

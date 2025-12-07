@@ -2,14 +2,8 @@ import { Keyboard, RotateCcw, Search, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
 import {
@@ -176,110 +170,104 @@ export const ShortcutsSettings = () => {
   )
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Keyboard className="size-5" />
-          {t("settings.shortcuts.title")}
-        </CardTitle>
-        <CardDescription>{t("settings.shortcuts.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search shortcuts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+    <SettingsCard
+      icon={Keyboard}
+      title={t("settings.shortcuts.title")}
+      description={t("settings.shortcuts.description")}>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search shortcuts..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Conflict warning */}
+      {conflictWarning && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {conflictWarning}
         </div>
+      )}
 
-        {/* Conflict warning */}
-        {conflictWarning && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {conflictWarning}
-          </div>
-        )}
+      {/* Shortcuts list */}
+      <div className="space-y-6">
+        {(["navigation", "actions", "toggles"] as const).map((category) => {
+          const categoryShortcuts = groupedShortcuts[category]
+          if (categoryShortcuts.length === 0) return null
 
-        {/* Shortcuts list */}
-        <div className="space-y-6">
-          {(["navigation", "actions", "toggles"] as const).map((category) => {
-            const categoryShortcuts = groupedShortcuts[category]
-            if (categoryShortcuts.length === 0) return null
+          return (
+            <div key={category}>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {CATEGORY_LABELS[category]}
+              </h4>
+              <div className="space-y-1">
+                {categoryShortcuts.map((shortcut) => {
+                  const isRecording = recordingAction === shortcut.id
+                  const isModified =
+                    shortcut.key !== DEFAULT_SHORTCUTS[shortcut.id].defaultKey
 
-            return (
-              <div key={category}>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {CATEGORY_LABELS[category]}
-                </h4>
-                <div className="space-y-1">
-                  {categoryShortcuts.map((shortcut) => {
-                    const isRecording = recordingAction === shortcut.id
-                    const isModified =
-                      shortcut.key !== DEFAULT_SHORTCUTS[shortcut.id].defaultKey
-
-                    return (
-                      <button
-                        type="button"
-                        key={shortcut.id}
-                        className={`group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50 ${
-                          isRecording ? "bg-accent ring-2 ring-primary" : ""
-                        }`}
-                        onClick={() => {
-                          if (!isRecording) {
-                            setRecordingAction(shortcut.id)
-                          }
-                        }}>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">
-                            {t(shortcut.label)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {t(shortcut.description, { defaultValue: "" })}
-                          </div>
+                  return (
+                    <button
+                      type="button"
+                      key={shortcut.id}
+                      className={`group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50 ${
+                        isRecording ? "bg-accent ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => {
+                        if (!isRecording) {
+                          setRecordingAction(shortcut.id)
+                        }
+                      }}>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">
+                          {t(shortcut.label)}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {isRecording ? (
-                            <span className="animate-pulse text-sm text-primary">
-                              {t("settings.shortcuts.recording")}
-                            </span>
-                          ) : (
-                            renderShortcutKeys(shortcut.key)
-                          )}
-                          {isModified && !isRecording && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                resetShortcut(shortcut.id)
-                              }}>
-                              <X className="size-3" />
-                            </Button>
-                          )}
+                        <div className="text-xs text-muted-foreground">
+                          {t(shortcut.description, { defaultValue: "" })}
                         </div>
-                      </button>
-                    )
-                  })}
-                </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isRecording ? (
+                          <span className="animate-pulse text-sm text-primary">
+                            {t("settings.shortcuts.recording")}
+                          </span>
+                        ) : (
+                          renderShortcutKeys(shortcut.key)
+                        )}
+                        {isModified && !isRecording && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              resetShortcut(shortcut.id)
+                            }}>
+                            <X className="size-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
+      </div>
 
-        {/* Reset all */}
-        {hasAnyModifications && (
-          <div className="flex justify-end border-t pt-4">
-            <Button variant="outline" size="sm" onClick={resetShortcuts}>
-              <RotateCcw className="mr-2 size-3" />
-              {t("settings.shortcuts.reset_all")}
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Reset all */}
+      {hasAnyModifications && (
+        <div className="flex justify-end border-t pt-4">
+          <Button variant="outline" size="sm" onClick={resetShortcuts}>
+            <RotateCcw className="mr-2 size-3" />
+            {t("settings.shortcuts.reset_all")}
+          </Button>
+        </div>
+      )}
+    </SettingsCard>
   )
 }

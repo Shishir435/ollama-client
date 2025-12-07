@@ -1,15 +1,12 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@/components/ui/badge"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
+  SettingsCard,
+  SettingsFormField,
+  SettingsSwitch
+} from "@/components/settings"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -19,7 +16,6 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SelectionButtonToggle } from "@/features/model/components/selection-button-toggle"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
@@ -35,7 +31,6 @@ import {
   BookOpen,
   Code,
   FileText,
-  Settings,
   Sparkles,
   Target,
   Zap
@@ -157,13 +152,18 @@ const ContentExtractionSettingsForm = ({
     onChange: (value: number) => void,
     className?: string
   ) => (
-    <div className="space-y-2">
-      <Label htmlFor={field.id} className="flex items-center gap-2 text-sm">
-        <field.icon className="h-3 w-3" />
-        {t(
-          `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
-        )}
-      </Label>
+    <SettingsFormField
+      key={field.id}
+      htmlFor={field.id}
+      label={
+        <>
+          <field.icon className="h-3 w-3" />
+          {t(
+            `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
+          )}
+        </>
+      }
+      className={className}>
       <Input
         id={field.id}
         type="number"
@@ -177,7 +177,7 @@ const ContentExtractionSettingsForm = ({
         }}
         className={className || "text-center"}
       />
-    </div>
+    </SettingsFormField>
   )
 
   // Get icon for scraper type
@@ -198,20 +198,24 @@ const ContentExtractionSettingsForm = ({
     onValueChange: (value: ContentScraper) => void
   ) => (
     <div className="space-y-3">
-      <Label className="flex items-center gap-2 text-sm font-medium">
-        <FileText className="h-4 w-4" />
-        {t("settings.content_extraction.scraper.label")}
-      </Label>
-      <div className="grid gap-3">
-        {CONTENT_SCRAPER_OPTIONS.map((option) => {
-          const Icon = getScraperIcon(option.value)
-          const isSelected = value === option.value
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onValueChange(option.value)}
-              className={`
+      <SettingsFormField
+        label={
+          <>
+            <FileText className="h-4 w-4" />
+            {t("settings.content_extraction.scraper.label")}
+          </>
+        }
+        labelClassName="font-medium">
+        <div className="grid gap-3">
+          {CONTENT_SCRAPER_OPTIONS.map((option) => {
+            const Icon = getScraperIcon(option.value)
+            const isSelected = value === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onValueChange(option.value)}
+                className={`
                 group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all
                 hover:bg-accent/50 hover:border-accent-foreground/20
                 ${
@@ -220,50 +224,51 @@ const ContentExtractionSettingsForm = ({
                     : "border-border"
                 }
               `}>
-              <div
-                className={`
+                <div
+                  className={`
                   flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors
                   ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted group-hover:bg-muted/80"}
                 `}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="flex-1 space-y-1.5 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm">
-                    {t(
-                      `settings.content_extraction.scraper.${option.value}.label`
-                    )}
-                  </span>
-                  {option.recommended && (
-                    <Badge
-                      variant="default"
-                      className="text-[10px] h-5 px-1.5 font-medium">
-                      {t("settings.content_extraction.badges.recommended")}
-                    </Badge>
-                  )}
-                  {isSelected && (
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] h-5 px-1.5">
-                      {t("settings.content_extraction.badges.active")}
-                    </Badge>
-                  )}
+                  <Icon className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-medium text-foreground/80">
-                  {t(
-                    `settings.content_extraction.scraper.${option.value}.description`
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t(
-                    `settings.content_extraction.scraper.${option.value}.detail`
-                  )}
-                </p>
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm">
+                      {t(
+                        `settings.content_extraction.scraper.${option.value}.label`
+                      )}
+                    </span>
+                    {option.recommended && (
+                      <Badge
+                        variant="default"
+                        className="text-[10px] h-5 px-1.5 font-medium">
+                        {t("settings.content_extraction.badges.recommended")}
+                      </Badge>
+                    )}
+                    {isSelected && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] h-5 px-1.5">
+                        {t("settings.content_extraction.badges.active")}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs font-medium text-foreground/80">
+                    {t(
+                      `settings.content_extraction.scraper.${option.value}.description`
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {t(
+                      `settings.content_extraction.scraper.${option.value}.detail`
+                    )}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </SettingsFormField>
     </div>
   )
 
@@ -274,13 +279,15 @@ const ContentExtractionSettingsForm = ({
     id?: string,
     className?: string
   ) => (
-    <div className="space-y-3">
-      <Label
-        htmlFor={id || "scroll-strategy"}
-        className="flex items-center gap-2">
-        <Target className="h-4 w-4" />
-        {t("settings.content_extraction.scroll_strategy.label")}
-      </Label>
+    <SettingsFormField
+      htmlFor={id || "scroll-strategy"}
+      label={
+        <>
+          <Target className="h-4 w-4" />
+          {t("settings.content_extraction.scroll_strategy.label")}
+        </>
+      }
+      description={t(`settings.content_extraction.scroll_strategy.${value}`)}>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger id={id || "scroll-strategy"} className={className}>
           <SelectValue />
@@ -295,10 +302,7 @@ const ContentExtractionSettingsForm = ({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-xs text-muted-foreground">
-        {t(`settings.content_extraction.scroll_strategy.${value}`)}
-      </p>
-    </div>
+    </SettingsFormField>
   )
 
   // Render scroll depth slider
@@ -309,13 +313,15 @@ const ContentExtractionSettingsForm = ({
   ) => {
     const depthPercent = Math.round(depth * 100)
     return (
-      <div className="space-y-3">
-        <Label
-          htmlFor={id || "scroll-depth"}
-          className="flex items-center gap-2">
-          <Zap className="h-4 w-4" />
-          {t("settings.content_extraction.scroll_depth.label")}
-        </Label>
+      <SettingsFormField
+        htmlFor={id || "scroll-depth"}
+        label={
+          <>
+            <Zap className="h-4 w-4" />
+            {t("settings.content_extraction.scroll_depth.label")}
+          </>
+        }
+        description={t("settings.content_extraction.scroll_depth.description")}>
         <Slider
           id={id || "scroll-depth"}
           min={0}
@@ -332,94 +338,70 @@ const ContentExtractionSettingsForm = ({
           </Badge>
           <span>100%</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t("settings.content_extraction.scroll_depth.description")}
-        </p>
-      </div>
+      </SettingsFormField>
     )
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">
-            {t("settings.content_extraction.title")}
-          </CardTitle>
-        </div>
-        <CardDescription className="text-sm">
-          {t("settings.content_extraction.description")}
-        </CardDescription>
-      </CardHeader>
+    <SettingsCard
+      icon={Sparkles}
+      title={t("settings.content_extraction.title")}
+      description={t("settings.content_extraction.description")}
+      badge="Beta">
+      {/* Enable/Disable Toggle */}
+      <SettingsSwitch
+        id="enabled"
+        label={t("settings.content_extraction.enable.label")}
+        description={t("settings.content_extraction.enable.description")}
+        checked={config.enabled}
+        onCheckedChange={(checked) => onUpdate({ enabled: checked })}
+      />
 
-      <CardContent className="space-y-6">
-        {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="enabled" className="text-base font-medium">
-              {t("settings.content_extraction.enable.label")}
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.content_extraction.enable.description")}
-            </p>
+      <div className="rounded-lg border bg-card p-4">
+        <SettingsFormField
+          htmlFor="show-selection-button"
+          label={t("settings.content_extraction.selection_button.label")}
+          description={t(
+            "settings.content_extraction.selection_button.description"
+          )}
+          className="flex items-center justify-between space-y-0"
+          labelClassName="flex-col items-start gap-1">
+          <SelectionButtonToggle />
+        </SettingsFormField>
+      </div>
+
+      <Separator />
+
+      {/* Content Scraper Selection */}
+      {renderContentScraperSelect(config.contentScraper, (value) =>
+        onUpdate({ contentScraper: value })
+      )}
+
+      <Separator />
+
+      {/* Scroll Strategy */}
+      {renderScrollStrategySelect(config.scrollStrategy, (value) =>
+        onUpdate({ scrollStrategy: value })
+      )}
+
+      {/* Scroll Depth */}
+      {renderScrollDepthSlider(config.scrollDepth, (value) =>
+        onUpdate({ scrollDepth: value })
+      )}
+
+      {/* Advanced Settings Grid */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {TIMEOUT_FIELDS.map((field) => (
+          <div key={field.id}>
+            {renderTimeoutInput(
+              field,
+              config[field.name],
+              (value) => onUpdate({ [field.name]: value }),
+              "text-center"
+            )}
           </div>
-          <Switch
-            id="enabled"
-            checked={config.enabled}
-            onCheckedChange={(checked) => onUpdate({ enabled: checked })}
-          />
-        </div>
-
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between space-x-2">
-            <Label
-              htmlFor="show-selection-button"
-              className="flex flex-col space-y-1">
-              <span>
-                {t("settings.content_extraction.selection_button.label")}
-              </span>
-              <span className="font-normal text-muted-foreground text-xs">
-                {t("settings.content_extraction.selection_button.description")}
-              </span>
-            </Label>
-            <SelectionButtonToggle />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Content Scraper Selection */}
-        {renderContentScraperSelect(config.contentScraper, (value) =>
-          onUpdate({ contentScraper: value })
-        )}
-
-        <Separator />
-
-        {/* Scroll Strategy */}
-        {renderScrollStrategySelect(config.scrollStrategy, (value) =>
-          onUpdate({ scrollStrategy: value })
-        )}
-
-        {/* Scroll Depth */}
-        {renderScrollDepthSlider(config.scrollDepth, (value) =>
-          onUpdate({ scrollDepth: value })
-        )}
-
-        {/* Advanced Settings Grid */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {TIMEOUT_FIELDS.map((field) => (
-            <div key={field.id}>
-              {renderTimeoutInput(
-                field,
-                config[field.name],
-                (value) => onUpdate({ [field.name]: value }),
-                "text-center"
-              )}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+    </SettingsCard>
   )
 }
