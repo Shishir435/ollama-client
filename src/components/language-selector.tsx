@@ -61,7 +61,6 @@ export const LanguageSelector = () => {
               <SelectValue>
                 {currentLang && (
                   <span className="flex items-center gap-2">
-                    <span>{currentLang.flag}</span>
                     <span>{currentLang.label}</span>
                     {currentLang.nativeLabel !== currentLang.label && (
                       <span className="text-muted-foreground">
@@ -76,7 +75,6 @@ export const LanguageSelector = () => {
               {LANGUAGES.map((lang) => (
                 <SelectItem key={lang.value} value={lang.value}>
                   <span className="flex items-center gap-2">
-                    <span>{lang.flag}</span>
                     <span>{lang.label}</span>
                     {lang.nativeLabel !== lang.label && (
                       <span className="text-muted-foreground">
