@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
+import { SemanticChatSearchButton } from "@/features/chat/components/semantic-chat-search-button"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
@@ -128,7 +129,7 @@ export const Chat = () => {
   return (
     <div className="flex h-screen flex-col rounded-lg bg-gradient-to-br from-background via-background to-background/95 p-1">
       <div className="fixed left-2 top-2 z-50">
-        <ChatSessionSelector />
+        <ChatSessionSelector searchTrigger={<SemanticChatSearchButton />} />
       </div>
       <div className="fixed right-2 top-2 z-50 flex items-center gap-2">
         <EmbeddingStatusIndicator />

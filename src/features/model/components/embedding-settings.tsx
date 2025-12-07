@@ -285,8 +285,8 @@ export const EmbeddingSettings = () => {
     <div className="space-y-6">
       <SettingsCard
         icon={Database}
-        title={t("settings.embedding.title")}
-        description={t("settings.embedding.description")}
+        title={t("settings.embeddings.title")}
+        description={t("settings.embeddings.description")}
         badge="Beta">
         <div className="space-y-4">
           <div className="space-y-2">
