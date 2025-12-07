@@ -95,7 +95,10 @@
       "switch_model": "モデルを変更",
       "chars": "文字",
       "enter_to_send": "送信",
-      "enter_key": "Enter"
+      "enter_key": "Enter",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
     },
     "actions": {
       "copy": "コピー",
@@ -113,6 +116,17 @@
       "generated_tokens": "生成トークン",
       "load_time": "ロード時間",
       "prompt_eval_time": "プロンプト評価時間"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} トークン",
+      "prompt_tokens": "{{value}} プロンプト",
+      "generated_tokens": "{{value}} 生成",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} メッセージ",
+      "tooltip_tokens": "このセッションで使用された合計トークン",
+      "tooltip_time": "合計応答生成時間",
+      "tooltip_speed": "平均生成速度",
+      "tooltip_messages": "AIの応答数"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -326,7 +340,14 @@
       "cache_ttl_label": "検索キャッシュTTL (分)",
       "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
       "cache_max_size_label": "最大キャッシュクエリ数",
-      "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。"
+      "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
@@ -388,6 +409,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "チャット表示",
+      "description": "チャット情報の表示方法を設定",
+      "session_metrics_label": "セッションメトリクスを表示",
+      "session_metrics_description": "チャット入力上にトークン使用量、時間、速度を表示"
+    },
+    "shortcuts": {
+      "title": "キーボードショートカット",
+      "description": "機能への素早いアクセス用にキーボードショートカットをカスタマイズ",
+      "recording": "キーを押してください...",
+      "reset_one": "デフォルトにリセット",
+      "reset_all": "すべてのショートカットをリセット",
+      "conflict_warning": "\"{{key}}\" は \"{{existing}}\" で既に使用されています",
+      "category_navigation": "ナビゲーション",
+      "category_navigation_desc": "インターフェースを移動する",
+      "category_actions": "アクション",
+      "category_actions_desc": "一般的なタスクを実行する",
+      "category_toggles": "トグル",
+      "category_toggles_desc": "機能のオン/オフを切り替える",
+      "new_chat": "新しいチャット",
+      "new_chat_desc": "新しいチャットセッションを作成",
+      "focus_input": "入力にフォーカス",
+      "focus_input_desc": "チャット入力フィールドにフォーカス",
+      "toggle_sidebar": "サイドバー切り替え",
+      "toggle_sidebar_desc": "サイドバーを開く/閉じる",
+      "stop_generation": "生成を停止",
+      "stop_generation_desc": "AI応答を停止",
+      "open_settings": "設定を開く",
+      "open_settings_desc": "設定ページを開く",
+      "toggle_theme": "テーマ切り替え",
+      "toggle_theme_desc": "ライト/ダークモードを切り替え",
+      "toggle_rag": "RAG切り替え",
+      "toggle_rag_desc": "コンテキスト取得を有効/無効にする",
+      "toggle_speech": "音声切り替え",
+      "toggle_speech_desc": "最後のAI応答の読み上げを開始/停止",
+      "toggle_tabs": "タブ切り替え",
+      "toggle_tabs_desc": "タブアクセスを有効/無効にする",
+      "search_messages": "メッセージ検索",
+      "search_messages_desc": "セマンティックチャット検索を開く",
+      "clear_chat": "チャットをクリア",
+      "clear_chat_desc": "現在のチャットセッションをクリア",
+      "copy_last_response": "最後の応答をコピー",
+      "copy_last_response_desc": "最後のAI応答をクリップボードにコピー"
+    },
     "content_extraction": {
       "title": "コンテンツ抽出",
       "description": "すべてのWebサイトのデフォルトのコンテンツ抽出動作を設定します。",
@@ -599,7 +664,28 @@
       "embeddings": "エンベディング",
       "voices": "音声",
       "reset": "リセット",
-      "guides": "ガイド"
+      "guides": "ガイド",
+      "memory": "メモリ",
+      "shortcuts": "ショートカット"
+    },
+    "memory": {
+      "title": "コンテキストメモリ",
+      "beta_badge": "ベータ",
+      "description": "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
+      "enable": {
+        "label": "メモリを有効にする",
+        "description": "有効にすると、チャット履歴がローカルに保存され、コンテキストを提供するために使用されます。"
+      },
+      "clear": {
+        "label": "メモリを消去",
+        "description": "保存されたすべてのチャットメモリを削除します。",
+        "button": "チャットメモリを消去",
+        "button_clearing": "消去中...",
+        "confirm_dialog": "すべてのチャットメモリを消去してもよろしいですか？この操作は取り消せません。",
+        "success": "チャットメモリが正常に消去されました。",
+        "error": "メモリの消去に失敗しました。",
+        "usage": "使用状況: {{count}} 項目 (合計 {{size}} MB)"
+      }
     },
     "page": {
       "title": "Ollama Client設定",

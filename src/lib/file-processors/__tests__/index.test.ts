@@ -95,18 +95,19 @@ describe("File Processors - Infrastructure", () => {
       expect(processor?.constructor.name).toBe("DocxProcessor")
     })
 
-    it("should return null for unsupported file types", () => {
-      const file = new File(["data"], "image.jpg", { type: "image/jpeg" })
+    it("should return false for image files (OCR disabled)", () => {
+      const file = new File([""], "test.png", { type: "image/png" })
       const processor = getProcessor(file)
-
       expect(processor).toBeNull()
     })
 
     it("should handle files by extension when MIME type is missing", () => {
-      const file = new File(["content"], "test.txt", { type: "" })
+      const file = new File([""], "test.md", { type: "" })
       const processor = getProcessor(file)
 
-      expect(processor).toBeInstanceOf(TextProcessor)
+      // Should default to TextProcessor
+      expect(processor).not.toBeNull()
+      expect(processor?.constructor.name).toBe("TextProcessor")
     })
 
     it("should handle .js files", () => {
@@ -129,7 +130,8 @@ describe("File Processors - Infrastructure", () => {
       const file = new File(["a,b,c"], "data.csv", { type: "text/csv" })
       const processor = getProcessor(file)
 
-      expect(processor).toBeInstanceOf(TextProcessor)
+      expect(processor).not.toBeNull()
+      expect(processor?.constructor.name).toBe("CsvProcessor")
     })
   })
 
@@ -165,7 +167,8 @@ describe("File Processors - Infrastructure", () => {
     })
 
     it("should return error for unsupported file types", async () => {
-      const file = new File(["data"], "image.png", { type: "image/png" })
+      // Use a truly unsupported file type
+      const file = new File(["data"], "video.mp4", { type: "video/mp4" })
 
       await expect(processFile(file)).rejects.toThrow("No processor available")
     })
@@ -233,9 +236,8 @@ describe("File Processors - Infrastructure", () => {
       expect(isFileTypeSupported(pyFile)).toBe(true)
     })
 
-    it("should return false for image files", () => {
-      const file = new File(["data"], "image.png", { type: "image/png" })
-
+    it("should return false for image files (OCR disabled)", () => {
+      const file = new File([""], "test.png", { type: "image/png" })
       expect(isFileTypeSupported(file)).toBe(false)
     })
 
@@ -252,7 +254,7 @@ describe("File Processors - Infrastructure", () => {
     })
 
     it("should check by extension when MIME type is empty", () => {
-      const file = new File(["content"], "test.txt", { type: "" })
+      const file = new File(["content"], "test.pdf", { type: "" })
 
       expect(isFileTypeSupported(file)).toBe(true)
     })
@@ -286,13 +288,14 @@ describe("File Processors - Infrastructure", () => {
       expect(extensions).toContain("*")
     })
 
-
-    it("should not include unsupported extensions", () => {
+    it("should NOT include image extensions (OCR disabled)", () => {
       const extensions = getSupportedExtensions()
 
-      expect(extensions).not.toContain("png")
-      expect(extensions).not.toContain("jpg")
-      expect(extensions).not.toContain("mp4")
+      // Image extensions are now supported
+      expect(extensions).not.toContain(".png")
+      expect(extensions).not.toContain(".jpg")
+      // But video is still not supported
+      expect(extensions).not.toContain(".mp4")
     })
 
     it("should return unique extensions", () => {

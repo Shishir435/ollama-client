@@ -95,7 +95,10 @@
       "switch_model": "Modell wechseln",
       "chars": "Zeichen",
       "enter_to_send": "Senden",
-      "enter_key": "Eingabe"
+      "enter_key": "Eingabe",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
     },
     "actions": {
       "copy": "Kopieren",
@@ -113,6 +116,17 @@
       "generated_tokens": "Generierte Tokens",
       "load_time": "Ladezeit",
       "prompt_eval_time": "Prompt-Evaluierungszeit"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} Token",
+      "prompt_tokens": "{{value}} Prompt",
+      "generated_tokens": "{{value}} generiert",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} Nachr.",
+      "tooltip_tokens": "Gesamte Token in dieser Sitzung",
+      "tooltip_time": "Gesamte Antwortgenerierungszeit",
+      "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
+      "tooltip_messages": "Anzahl der KI-Antworten"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -326,7 +340,14 @@
       "cache_ttl_label": "Such-Cache-TTL (Minuten)",
       "cache_ttl_description": "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
       "cache_max_size_label": "Max. zwischengespeicherte Abfragen",
-      "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist."
+      "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
@@ -388,6 +409,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Chat-Anzeige",
+      "description": "Konfigurieren Sie die Anzeige von Chat-Informationen",
+      "session_metrics_label": "Sitzungsmetriken anzeigen",
+      "session_metrics_description": "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+    },
+    "shortcuts": {
+      "title": "Tastaturkürzel",
+      "description": "Tastaturkürzel für schnellen Zugriff auf Funktionen anpassen.",
+      "recording": "Tasten drücken...",
+      "reset_one": "Auf Standard zurücksetzen",
+      "reset_all": "Alle Kürzel zurücksetzen",
+      "conflict_warning": "\"{{key}}\" wird bereits von \"{{existing}}\" verwendet",
+      "category_navigation": "Navigation",
+      "category_navigation_desc": "In der Oberfläche navigieren",
+      "category_actions": "Aktionen",
+      "category_actions_desc": "Häufige Aufgaben ausführen",
+      "category_toggles": "Schalter",
+      "category_toggles_desc": "Funktionen ein-/ausschalten",
+      "new_chat": "Neuer Chat",
+      "new_chat_desc": "Neue Chat-Sitzung erstellen",
+      "focus_input": "Eingabe fokussieren",
+      "focus_input_desc": "Chat-Eingabefeld fokussieren",
+      "toggle_sidebar": "Seitenleiste umschalten",
+      "toggle_sidebar_desc": "Seitenleiste öffnen oder schließen",
+      "stop_generation": "Generierung stoppen",
+      "stop_generation_desc": "KI-Antwort stoppen",
+      "open_settings": "Einstellungen öffnen",
+      "open_settings_desc": "Einstellungsseite öffnen",
+      "toggle_theme": "Thema wechseln",
+      "toggle_theme_desc": "Zwischen Hell- und Dunkelmodus wechseln",
+      "toggle_rag": "RAG umschalten",
+      "toggle_rag_desc": "Kontextabruf aktivieren oder deaktivieren",
+      "toggle_speech": "Sprache umschalten",
+      "toggle_speech_desc": "Letzte KI-Antwort vorlesen starten oder stoppen",
+      "toggle_tabs": "Tabs umschalten",
+      "toggle_tabs_desc": "Tab-Zugriff aktivieren oder deaktivieren",
+      "search_messages": "Nachrichten suchen",
+      "search_messages_desc": "Semantische Chat-Suche öffnen",
+      "clear_chat": "Chat löschen",
+      "clear_chat_desc": "Aktuelle Chat-Sitzung löschen",
+      "copy_last_response": "Letzte Antwort kopieren",
+      "copy_last_response_desc": "Letzte KI-Antwort in die Zwischenablage kopieren"
+    },
     "content_extraction": {
       "title": "Inhaltsextraktion",
       "description": "Konfigurieren Sie das Standardverhalten der Inhaltsextraktion für alle Websites.",
@@ -599,7 +664,28 @@
       "embeddings": "Embeddings",
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
-      "guides": "Anleitungen"
+      "guides": "Anleitungen",
+      "memory": "Gedächtnis",
+      "shortcuts": "Tastaturkürzel"
+    },
+    "memory": {
+      "title": "Kontextuelles Gedächtnis",
+      "beta_badge": "Beta",
+      "description": "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
+      "enable": {
+        "label": "Gedächtnis aktivieren",
+        "description": "Wenn aktiviert, wird der Chatverlauf lokal gespeichert und verwendet, um Kontext bereitzustellen."
+      },
+      "clear": {
+        "label": "Gedächtnis löschen",
+        "description": "Alle gespeicherten Chat-Erinnerungen löschen.",
+        "button": "Chat-Gedächtnis löschen",
+        "button_clearing": "Lösche...",
+        "confirm_dialog": "Sind Sie sicher, dass Sie das gesamte Chat-Gedächtnis löschen möchten? Dies kann nicht rückgängig gemacht werden.",
+        "success": "Chat-Gedächtnis erfolgreich gelöscht.",
+        "error": "Fehler beim Löschen des Gedächtnisses.",
+        "usage": "Nutzung: {{count}} Elemente ({{size}} MB gesamt)"
+      }
     },
     "page": {
       "title": "Ollama Client Einstellungen",

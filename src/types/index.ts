@@ -240,6 +240,8 @@ export interface ChatWithModelMessage {
   payload: {
     model: string
     messages: ChatMessage[]
+    sessionId?: string
+    chatId?: string
   }
 }
 

@@ -9,7 +9,7 @@ export const handleChatStream = async (
   response: Response,
   port: ChromePort,
   isPortClosed: PortStatusFunction
-): Promise<void> => {
+): Promise<string> => {
   if (!response.body) {
     console.error("No response body received")
     safePostMessage(port, {
@@ -18,7 +18,7 @@ export const handleChatStream = async (
         message: "No response from model - try regenerating"
       }
     })
-    return
+    return ""
   }
 
   const reader = response.body.getReader()
@@ -74,13 +74,15 @@ export const handleChatStream = async (
 
       if (processResult.isDone) {
         if (timeoutId) clearTimeout(timeoutId)
-        return
+        return fullText
       }
     }
 
     if (buffer.trim() && !isPortClosed()) {
       processRemainingMetricsBuffer(buffer, fullText, port)
     }
+
+    return fullText
   } catch (error) {
     console.error("Stream processing error:", error)
     throw error

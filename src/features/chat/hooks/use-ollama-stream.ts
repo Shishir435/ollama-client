@@ -7,6 +7,7 @@ import type { ChatMessage, ChatStreamMessage } from "@/types"
 interface StreamOptions {
   model: string
   messages: ChatMessage[]
+  sessionId?: string
 }
 
 interface UseOllamaStreamProps {
@@ -23,7 +24,7 @@ export const useOllamaStream = ({
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
 
-  const startStream = ({ model, messages }: StreamOptions) => {
+  const startStream = ({ model, messages, sessionId }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     const port = browser.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
@@ -99,7 +100,8 @@ export const useOllamaStream = ({
       type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
       payload: {
         model,
-        messages
+        messages,
+        sessionId
       }
     })
   }

@@ -105,7 +105,11 @@ export const resources = {
           switch_model: "Modell wechseln",
           chars: "Zeichen",
           enter_to_send: "Senden",
-          enter_key: "Eingabe"
+          enter_key: "Eingabe",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
         },
         actions: {
           copy: "Kopieren",
@@ -123,6 +127,17 @@ export const resources = {
           generated_tokens: "Generierte Tokens",
           load_time: "Ladezeit",
           prompt_eval_time: "Prompt-Evaluierungszeit"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} Token",
+          prompt_tokens: "{{value}} Prompt",
+          generated_tokens: "{{value}} generiert",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} Nachr.",
+          tooltip_tokens: "Gesamte Token in dieser Sitzung",
+          tooltip_time: "Gesamte Antwortgenerierungszeit",
+          tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
+          tooltip_messages: "Anzahl der KI-Antworten"
         },
         search: {
           button_title: "Chat-Verlauf suchen (semantische Suche)",
@@ -376,7 +391,18 @@ export const resources = {
             "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
           cache_max_size_label: "Max. zwischengespeicherte Abfragen",
           cache_max_size_description:
-            "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist."
+            "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -441,6 +467,54 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Chat-Anzeige",
+          description: "Konfigurieren Sie die Anzeige von Chat-Informationen",
+          session_metrics_label: "Sitzungsmetriken anzeigen",
+          session_metrics_description:
+            "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+        },
+        shortcuts: {
+          title: "Tastaturkürzel",
+          description:
+            "Tastaturkürzel für schnellen Zugriff auf Funktionen anpassen.",
+          recording: "Tasten drücken...",
+          reset_one: "Auf Standard zurücksetzen",
+          reset_all: "Alle Kürzel zurücksetzen",
+          conflict_warning:
+            '"{{key}}" wird bereits von "{{existing}}" verwendet',
+          category_navigation: "Navigation",
+          category_navigation_desc: "In der Oberfläche navigieren",
+          category_actions: "Aktionen",
+          category_actions_desc: "Häufige Aufgaben ausführen",
+          category_toggles: "Schalter",
+          category_toggles_desc: "Funktionen ein-/ausschalten",
+          new_chat: "Neuer Chat",
+          new_chat_desc: "Neue Chat-Sitzung erstellen",
+          focus_input: "Eingabe fokussieren",
+          focus_input_desc: "Chat-Eingabefeld fokussieren",
+          toggle_sidebar: "Seitenleiste umschalten",
+          toggle_sidebar_desc: "Seitenleiste öffnen oder schließen",
+          stop_generation: "Generierung stoppen",
+          stop_generation_desc: "KI-Antwort stoppen",
+          open_settings: "Einstellungen öffnen",
+          open_settings_desc: "Einstellungsseite öffnen",
+          toggle_theme: "Thema wechseln",
+          toggle_theme_desc: "Zwischen Hell- und Dunkelmodus wechseln",
+          toggle_rag: "RAG umschalten",
+          toggle_rag_desc: "Kontextabruf aktivieren oder deaktivieren",
+          toggle_speech: "Sprache umschalten",
+          toggle_speech_desc: "Letzte KI-Antwort vorlesen starten oder stoppen",
+          toggle_tabs: "Tabs umschalten",
+          toggle_tabs_desc: "Tab-Zugriff aktivieren oder deaktivieren",
+          search_messages: "Nachrichten suchen",
+          search_messages_desc: "Semantische Chat-Suche öffnen",
+          clear_chat: "Chat löschen",
+          clear_chat_desc: "Aktuelle Chat-Sitzung löschen",
+          copy_last_response: "Letzte Antwort kopieren",
+          copy_last_response_desc:
+            "Letzte KI-Antwort in die Zwischenablage kopieren"
+        },
         content_extraction: {
           title: "Inhaltsextraktion",
           description:
@@ -669,7 +743,31 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Sprachausgaben",
           reset: "Zurücksetzen",
-          guides: "Anleitungen"
+          guides: "Anleitungen",
+          memory: "Gedächtnis",
+          shortcuts: "Tastaturkürzel"
+        },
+        memory: {
+          title: "Kontextuelles Gedächtnis",
+          beta_badge: "Beta",
+          description:
+            "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
+          enable: {
+            label: "Gedächtnis aktivieren",
+            description:
+              "Wenn aktiviert, wird der Chatverlauf lokal gespeichert und verwendet, um Kontext bereitzustellen."
+          },
+          clear: {
+            label: "Gedächtnis löschen",
+            description: "Alle gespeicherten Chat-Erinnerungen löschen.",
+            button: "Chat-Gedächtnis löschen",
+            button_clearing: "Lösche...",
+            confirm_dialog:
+              "Sind Sie sicher, dass Sie das gesamte Chat-Gedächtnis löschen möchten? Dies kann nicht rückgängig gemacht werden.",
+            success: "Chat-Gedächtnis erfolgreich gelöscht.",
+            error: "Fehler beim Löschen des Gedächtnisses.",
+            usage: "Nutzung: {{count}} Elemente ({{size}} MB gesamt)"
+          }
         },
         page: {
           title: "Ollama Client Einstellungen",
@@ -1026,7 +1124,10 @@ export const resources = {
           switch_model: "Change model",
           chars: "Characters",
           enter_to_send: "Send",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context"
         },
         actions: {
           copy: "Copy",
@@ -1044,6 +1145,17 @@ export const resources = {
           generated_tokens: "Generated Tokens",
           load_time: "Load Time",
           prompt_eval_time: "Prompt Eval Time"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generated",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Total tokens used in this session",
+          tooltip_time: "Total response generation time",
+          tooltip_speed: "Average generation speed",
+          tooltip_messages: "Number of AI responses"
         },
         search: {
           button_title: "Search chat history (semantic search)",
@@ -1291,7 +1403,21 @@ export const resources = {
             "How long to cache search results (1-60 minutes). Cached queries return instantly.",
           cache_max_size_label: "Max Cached Queries",
           cache_max_size_description:
-            "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached."
+            "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configure how files are used to answer questions with retrieved context",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -1355,6 +1481,52 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Chat Display",
+          description: "Configure how chat information is displayed",
+          session_metrics_label: "Show Session Metrics",
+          session_metrics_description:
+            "Display token usage, duration, and speed above the chat input"
+        },
+        shortcuts: {
+          title: "Keyboard Shortcuts",
+          description:
+            "Customize keyboard shortcuts for quick access to features.",
+          recording: "Press keys...",
+          reset_one: "Reset to default",
+          reset_all: "Reset All Shortcuts",
+          conflict_warning: '"{{key}}" is already used by "{{existing}}"',
+          category_navigation: "Navigation",
+          category_navigation_desc: "Move around the interface",
+          category_actions: "Actions",
+          category_actions_desc: "Perform common tasks",
+          category_toggles: "Toggles",
+          category_toggles_desc: "Switch features on/off",
+          new_chat: "New Chat",
+          new_chat_desc: "Create a new chat session",
+          focus_input: "Focus Input",
+          focus_input_desc: "Focus the chat input field",
+          toggle_sidebar: "Toggle Sidebar",
+          toggle_sidebar_desc: "Open or close the sidebar",
+          stop_generation: "Stop Generation",
+          stop_generation_desc: "Stop the AI response",
+          open_settings: "Open Settings",
+          open_settings_desc: "Open the settings page",
+          toggle_theme: "Toggle Theme",
+          toggle_theme_desc: "Switch between light and dark mode",
+          toggle_rag: "Toggle RAG",
+          toggle_rag_desc: "Enable or disable context retrieval",
+          toggle_speech: "Toggle Speech",
+          toggle_speech_desc: "Start or stop speaking the last AI response",
+          toggle_tabs: "Toggle Tabs",
+          toggle_tabs_desc: "Enable or disable tab access",
+          search_messages: "Search Messages",
+          search_messages_desc: "Open semantic chat search",
+          clear_chat: "Clear Chat",
+          clear_chat_desc: "Clear the current chat session",
+          copy_last_response: "Copy Last Response",
+          copy_last_response_desc: "Copy the last AI response to clipboard"
+        },
         content_extraction: {
           title: "Content Extraction",
           description:
@@ -1578,7 +1750,31 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Voices",
           reset: "Reset",
-          guides: "Guides"
+          guides: "Guides",
+          memory: "Memory",
+          shortcuts: "Shortcuts"
+        },
+        memory: {
+          title: "Contextual Memory",
+          beta_badge: "Beta",
+          description:
+            "Allow the AI to remember details from past conversations to provide personalized responses.",
+          enable: {
+            label: "Enable Memory",
+            description:
+              "When enabled, chat history is stored locally and used to provide context."
+          },
+          clear: {
+            label: "Clear Memory",
+            description: "Delete all stored chat memories.",
+            button: "Clear Chat Memory",
+            button_clearing: "Clearing...",
+            confirm_dialog:
+              "Are you sure you want to clear all chat memory? This cannot be undone.",
+            success: "Chat memory cleared successfully.",
+            error: "Failed to clear memory.",
+            usage: "Usage: {{count}} items ({{size}} MB total)"
+          }
         },
         page: {
           title: "Ollama Client Settings",
@@ -1925,7 +2121,11 @@ export const resources = {
           placeholder: "Escribe un mensaje o ctrl + /",
           chars: "Caracteres",
           enter_to_send: "Enviar",
-          enter_key: "Intro"
+          enter_key: "Intro",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Usar contexto de archivos y chat"
         },
         actions: {
           copy: "Copiar",
@@ -1943,6 +2143,17 @@ export const resources = {
           generated_tokens: "Tokens Generados",
           load_time: "Tiempo de Carga",
           prompt_eval_time: "Tiempo de Evaluación de Prompt"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generados",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Tokens totales usados en esta sesión",
+          tooltip_time: "Tiempo total de generación de respuesta",
+          tooltip_speed: "Velocidad promedio de generación",
+          tooltip_messages: "Número de respuestas de IA"
         },
         search: {
           button_title: "Buscar historial de chat (búsqueda semántica)",
@@ -2196,7 +2407,18 @@ export const resources = {
             "Tiempo que se almacenan en caché los resultados de búsqueda (1-60 minutos). Las consultas en caché se devuelven instantáneamente.",
           cache_max_size_label: "Máx. Consultas en Caché",
           cache_max_size_description:
-            "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite."
+            "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -2261,6 +2483,54 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Visualización del Chat",
+          description: "Configura cómo se muestra la información del chat",
+          session_metrics_label: "Mostrar Métricas de Sesión",
+          session_metrics_description:
+            "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
+        },
+        shortcuts: {
+          title: "Atajos de Teclado",
+          description:
+            "Personaliza los atajos de teclado para acceso rápido a funciones.",
+          recording: "Presiona teclas...",
+          reset_one: "Restablecer a predeterminado",
+          reset_all: "Restablecer Todos los Atajos",
+          conflict_warning: '"{{key}}" ya está en uso por "{{existing}}"',
+          category_navigation: "Navegación",
+          category_navigation_desc: "Navegar por la interfaz",
+          category_actions: "Acciones",
+          category_actions_desc: "Realizar tareas comunes",
+          category_toggles: "Alternar",
+          category_toggles_desc: "Activar/desactivar funciones",
+          new_chat: "Nuevo Chat",
+          new_chat_desc: "Crear una nueva sesión de chat",
+          focus_input: "Enfocar Entrada",
+          focus_input_desc: "Enfocar el campo de entrada del chat",
+          toggle_sidebar: "Alternar Barra Lateral",
+          toggle_sidebar_desc: "Abrir o cerrar la barra lateral",
+          stop_generation: "Detener Generación",
+          stop_generation_desc: "Detener la respuesta de IA",
+          open_settings: "Abrir Configuración",
+          open_settings_desc: "Abrir la página de configuración",
+          toggle_theme: "Cambiar Tema",
+          toggle_theme_desc: "Cambiar entre modo claro y oscuro",
+          toggle_rag: "Alternar RAG",
+          toggle_rag_desc: "Habilitar o deshabilitar recuperación de contexto",
+          toggle_speech: "Alternar Voz",
+          toggle_speech_desc:
+            "Iniciar o detener la lectura de la última respuesta de IA",
+          toggle_tabs: "Alternar Pestañas",
+          toggle_tabs_desc: "Habilitar o deshabilitar acceso a pestañas",
+          search_messages: "Buscar Mensajes",
+          search_messages_desc: "Abrir búsqueda semántica del chat",
+          clear_chat: "Limpiar Chat",
+          clear_chat_desc: "Limpiar la sesión de chat actual",
+          copy_last_response: "Copiar Última Respuesta",
+          copy_last_response_desc:
+            "Copiar la última respuesta de IA al portapapeles"
+        },
         content_extraction: {
           title: "Extracción de Contenido",
           description:
@@ -2490,7 +2760,31 @@ export const resources = {
           embeddings: "Incrustaciones",
           voices: "Voces",
           reset: "Restablecer",
-          guides: "Guías"
+          guides: "Guías",
+          memory: "Memoria",
+          shortcuts: "Atajos"
+        },
+        memory: {
+          title: "Memoria Contextual",
+          beta_badge: "Beta",
+          description:
+            "Permite que la IA recuerde detalles de conversaciones pasadas para proporcionar respuestas personalizadas.",
+          enable: {
+            label: "Habilitar Memoria",
+            description:
+              "Cuando está habilitado, el historial de chat se almacena localmente y se utiliza para proporcionar contexto."
+          },
+          clear: {
+            label: "Borrar Memoria",
+            description: "Eliminar todos los recuerdos de chat almacenados.",
+            button: "Borrar Memoria de Chat",
+            button_clearing: "Borrando...",
+            confirm_dialog:
+              "¿Estás seguro de que quieres borrar toda la memoria de chat? Esta acción no se puede deshacer.",
+            success: "Memoria de chat borrada con éxito.",
+            error: "Error al borrar la memoria.",
+            usage: "Uso: {{count}} elementos ({{size}} MB total)"
+          }
         },
         page: {
           title: "Ajustes de Ollama Client",
@@ -2845,7 +3139,11 @@ export const resources = {
           switch_model: "Changer de modèle",
           chars: "Caractères",
           enter_to_send: "Envoyer",
-          enter_key: "Entrée"
+          enter_key: "Entrée",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
         },
         actions: {
           copy: "Copier",
@@ -2863,6 +3161,17 @@ export const resources = {
           generated_tokens: "Tokens Générés",
           load_time: "Temps de Chargement",
           prompt_eval_time: "Temps d'Évaluation du Prompt"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} tokens",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} générés",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Tokens totaux utilisés dans cette session",
+          tooltip_time: "Temps total de génération de réponse",
+          tooltip_speed: "Vitesse moyenne de génération",
+          tooltip_messages: "Nombre de réponses IA"
         },
         search: {
           button_title:
@@ -3117,7 +3426,18 @@ export const resources = {
             "Durée de mise en cache des résultats de recherche (1-60 minutes). Les requêtes mises en cache sont renvoyées instantanément.",
           cache_max_size_label: "Max Requêtes Mises en Cache",
           cache_max_size_description:
-            "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte."
+            "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -3183,6 +3503,54 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Affichage du Chat",
+          description: "Configurer l'affichage des informations du chat",
+          session_metrics_label: "Afficher les Métriques de Session",
+          session_metrics_description:
+            "Afficher l'utilisation des tokens, la durée et la vitesse au-dessus de la saisie"
+        },
+        shortcuts: {
+          title: "Raccourcis Clavier",
+          description:
+            "Personnalisez les raccourcis clavier pour un accès rapide aux fonctionnalités.",
+          recording: "Appuyez sur les touches...",
+          reset_one: "Réinitialiser par défaut",
+          reset_all: "Réinitialiser Tous les Raccourcis",
+          conflict_warning: '"{{key}}" est déjà utilisé par "{{existing}}"',
+          category_navigation: "Navigation",
+          category_navigation_desc: "Naviguer dans l'interface",
+          category_actions: "Actions",
+          category_actions_desc: "Effectuer des tâches courantes",
+          category_toggles: "Basculer",
+          category_toggles_desc: "Activer/désactiver les fonctionnalités",
+          new_chat: "Nouveau Chat",
+          new_chat_desc: "Créer une nouvelle session de chat",
+          focus_input: "Focus sur l'Entrée",
+          focus_input_desc: "Focus sur le champ de saisie du chat",
+          toggle_sidebar: "Basculer la Barre Latérale",
+          toggle_sidebar_desc: "Ouvrir ou fermer la barre latérale",
+          stop_generation: "Arrêter la Génération",
+          stop_generation_desc: "Arrêter la réponse de l'IA",
+          open_settings: "Ouvrir les Paramètres",
+          open_settings_desc: "Ouvrir la page des paramètres",
+          toggle_theme: "Changer de Thème",
+          toggle_theme_desc: "Basculer entre le mode clair et sombre",
+          toggle_rag: "Basculer RAG",
+          toggle_rag_desc: "Activer ou désactiver la récupération de contexte",
+          toggle_speech: "Basculer la Parole",
+          toggle_speech_desc:
+            "Démarrer ou arrêter la lecture de la dernière réponse de l'IA",
+          toggle_tabs: "Basculer les Onglets",
+          toggle_tabs_desc: "Activer ou désactiver l'accès aux onglets",
+          search_messages: "Rechercher des Messages",
+          search_messages_desc: "Ouvrir la recherche sémantique du chat",
+          clear_chat: "Effacer le Chat",
+          clear_chat_desc: "Effacer la session de chat actuelle",
+          copy_last_response: "Copier la Dernière Réponse",
+          copy_last_response_desc:
+            "Copier la dernière réponse de l'IA dans le presse-papiers"
+        },
         content_extraction: {
           title: "Extraction de Contenu",
           description:
@@ -3415,7 +3783,31 @@ export const resources = {
           embeddings: "Incrustations",
           voices: "Voix",
           reset: "Réinitialiser",
-          guides: "Guides"
+          guides: "Guides",
+          memory: "Mémoire",
+          shortcuts: "Raccourcis"
+        },
+        memory: {
+          title: "Mémoire Contextuelle",
+          beta_badge: "Bêta",
+          description:
+            "Permettre à l'IA de se souvenir des détails des conversations passées pour fournir des réponses personnalisées.",
+          enable: {
+            label: "Activer la Mémoire",
+            description:
+              "Lorsqu'elle est activée, l'historique des discussions est stocké localement et utilisé pour fournir du contexte."
+          },
+          clear: {
+            label: "Effacer la Mémoire",
+            description: "Supprimer tous les souvenirs de discussion stockés.",
+            button: "Effacer la Mémoire de Discussion",
+            button_clearing: "Effacement...",
+            confirm_dialog:
+              "Êtes-vous sûr de vouloir effacer toute la mémoire de discussion ? Cette action est irréversible.",
+            success: "Mémoire de discussion effacée avec succès.",
+            error: "Échec de l'effacement de la mémoire.",
+            usage: "Utilisation : {{count}} éléments ({{size}} Mo total)"
+          }
         },
         page: {
           title: "Paramètres d'Ollama Client",
@@ -3770,7 +4162,11 @@ export const resources = {
           switch_model: "मॉडल बदलें",
           chars: "अक्षर",
           enter_to_send: "भेजें",
-          enter_key: "एंटर"
+          enter_key: "एंटर",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
         },
         actions: {
           copy: "कॉपी करें",
@@ -3788,6 +4184,17 @@ export const resources = {
           generated_tokens: "जनरेट किए गए टोकन",
           load_time: "लोड समय",
           prompt_eval_time: "प्रॉम्प्ट मूल्यांकन समय"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} टोकन",
+          prompt_tokens: "{{value}} प्रॉम्प्ट",
+          generated_tokens: "{{value}} जनरेट",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} संदेश",
+          tooltip_tokens: "इस सत्र में उपयोग किए गए कुल टोकन",
+          tooltip_time: "कुल प्रतिक्रिया जनरेशन समय",
+          tooltip_speed: "औसत जनरेशन गति",
+          tooltip_messages: "AI प्रतिक्रियाओं की संख्या"
         },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -4031,7 +4438,18 @@ export const resources = {
             "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
           cache_max_size_label: "अधिकतम कैश की गई क्वेरी",
           cache_max_size_description:
-            "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।"
+            "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -4095,6 +4513,51 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "चैट डिस्प्ले",
+          description: "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",
+          session_metrics_label: "सत्र मेट्रिक्स दिखाएं",
+          session_metrics_description:
+            "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+        },
+        shortcuts: {
+          title: "कीबोर्ड शॉर्टकट",
+          description: "सुविधाओं तक त्वरित पहुंच के लिए कीबोर्ड शॉर्टकट अनुकूलित करें।",
+          recording: "कुंजियां दबाएं...",
+          reset_one: "डिफ़ॉल्ट पर रीसेट करें",
+          reset_all: "सभी शॉर्टकट रीसेट करें",
+          conflict_warning: '"{{key}}" पहले से "{{existing}}" द्वारा उपयोग में है',
+          category_navigation: "नेविगेशन",
+          category_navigation_desc: "इंटरफ़ेस में नेविगेट करें",
+          category_actions: "क्रियाएं",
+          category_actions_desc: "सामान्य कार्य करें",
+          category_toggles: "टॉगल",
+          category_toggles_desc: "सुविधाएं चालू/बंद करें",
+          new_chat: "नई चैट",
+          new_chat_desc: "एक नई चैट सत्र बनाएं",
+          focus_input: "इनपुट फोकस करें",
+          focus_input_desc: "चैट इनपुट फ़ील्ड पर फोकस करें",
+          toggle_sidebar: "साइडबार टॉगल करें",
+          toggle_sidebar_desc: "साइडबार खोलें या बंद करें",
+          stop_generation: "जनरेशन रोकें",
+          stop_generation_desc: "AI प्रतिक्रिया रोकें",
+          open_settings: "सेटिंग्स खोलें",
+          open_settings_desc: "सेटिंग्स पेज खोलें",
+          toggle_theme: "थीम बदलें",
+          toggle_theme_desc: "लाइट और डार्क मोड के बीच स्विच करें",
+          toggle_rag: "RAG टॉगल करें",
+          toggle_rag_desc: "संदर्भ पुनर्प्राप्ति सक्षम या अक्षम करें",
+          toggle_speech: "स्पीच टॉगल करें",
+          toggle_speech_desc: "अंतिम AI प्रतिक्रिया बोलना शुरू या बंद करें",
+          toggle_tabs: "टैब्स टॉगल करें",
+          toggle_tabs_desc: "टैब एक्सेस सक्षम या अक्षम करें",
+          search_messages: "संदेश खोजें",
+          search_messages_desc: "सिमेंटिक चैट खोज खोलें",
+          clear_chat: "चैट साफ़ करें",
+          clear_chat_desc: "वर्तमान चैट सत्र साफ़ करें",
+          copy_last_response: "अंतिम प्रतिक्रिया कॉपी करें",
+          copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें"
+        },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
           description:
@@ -4316,7 +4779,31 @@ export const resources = {
           embeddings: "एम्बेडिंग",
           voices: "वॉयस",
           reset: "रीसेट करें",
-          guides: "गाइड"
+          guides: "गाइड",
+          memory: "मेमोरी",
+          shortcuts: "शॉर्टकट"
+        },
+        memory: {
+          title: "प्रासंगिक मेमोरी",
+          beta_badge: "बीटा",
+          description:
+            "व्यक्तिगत प्रतिक्रियाएँ प्रदान करने के लिए AI को पिछली बातचीत के विवरण याद रखने की अनुमति दें।",
+          enable: {
+            label: "मेमोरी सक्षम करें",
+            description:
+              "सक्षम होने पर, चैट इतिहास स्थानीय रूप से संग्रहीत किया जाता है और संदर्भ प्रदान करने के लिए उपयोग किया जाता है।"
+          },
+          clear: {
+            label: "मेमोरी साफ़ करें",
+            description: "सभी संग्रहीत चैट यादें हटाएँ।",
+            button: "चैट मेमोरी साफ़ करें",
+            button_clearing: "साफ़ कर रहा है...",
+            confirm_dialog:
+              "क्या आप वाकई सभी चैट मेमोरी साफ़ करना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।",
+            success: "चैट मेमोरी सफलतापूर्वक साफ़ की गई।",
+            error: "मेमोरी साफ़ करने में विफल।",
+            usage: "उपयोग: {{count}} आइटम ({{size}} MB कुल)"
+          }
         },
         page: {
           title: "Ollama क्लाइंट सेटिंग्स",
@@ -4665,7 +5152,10 @@ export const resources = {
           switch_model: "Cambia modello",
           chars: "Caratteri",
           enter_to_send: "Invia",
-          enter_key: "Invio"
+          enter_key: "Invio",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat"
         },
         actions: {
           copy: "Copia",
@@ -4683,6 +5173,17 @@ export const resources = {
           generated_tokens: "Token Generati",
           load_time: "Tempo di Caricamento",
           prompt_eval_time: "Tempo di Valutazione del Prompt"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} token",
+          prompt_tokens: "{{value}} prompt",
+          generated_tokens: "{{value}} generati",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} msgs",
+          tooltip_tokens: "Token totali usati in questa sessione",
+          tooltip_time: "Tempo totale di generazione risposta",
+          tooltip_speed: "Velocità media di generazione",
+          tooltip_messages: "Numero di risposte AI"
         },
         search: {
           button_title: "Cerca nella cronologia chat (ricerca semantica)",
@@ -4936,7 +5437,18 @@ export const resources = {
             "Per quanto tempo memorizzare nella cache i risultati di ricerca (1-60 minuti). Le query memorizzate nella cache vengono restituite istantaneamente.",
           cache_max_size_label: "Max Query Memorizzate nella Cache",
           cache_max_size_description:
-            "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite."
+            "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite.",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -5001,6 +5513,55 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Visualizzazione Chat",
+          description:
+            "Configura come vengono visualizzate le informazioni della chat",
+          session_metrics_label: "Mostra Metriche Sessione",
+          session_metrics_description:
+            "Mostra utilizzo token, durata e velocità sopra l'input della chat"
+        },
+        shortcuts: {
+          title: "Scorciatoie da Tastiera",
+          description:
+            "Personalizza le scorciatoie da tastiera per un accesso rapido alle funzionalità.",
+          recording: "Premi i tasti...",
+          reset_one: "Ripristina predefinito",
+          reset_all: "Ripristina Tutte le Scorciatoie",
+          conflict_warning: '"{{key}}" è già in uso da "{{existing}}"',
+          category_navigation: "Navigazione",
+          category_navigation_desc: "Naviga nell'interfaccia",
+          category_actions: "Azioni",
+          category_actions_desc: "Esegui attività comuni",
+          category_toggles: "Interruttori",
+          category_toggles_desc: "Attiva/disattiva funzionalità",
+          new_chat: "Nuova Chat",
+          new_chat_desc: "Crea una nuova sessione di chat",
+          focus_input: "Focus sull'Input",
+          focus_input_desc: "Focus sul campo di input della chat",
+          toggle_sidebar: "Attiva/Disattiva Barra Laterale",
+          toggle_sidebar_desc: "Apri o chiudi la barra laterale",
+          stop_generation: "Ferma Generazione",
+          stop_generation_desc: "Ferma la risposta dell'IA",
+          open_settings: "Apri Impostazioni",
+          open_settings_desc: "Apri la pagina delle impostazioni",
+          toggle_theme: "Cambia Tema",
+          toggle_theme_desc: "Passa tra modalità chiara e scura",
+          toggle_rag: "Attiva/Disattiva RAG",
+          toggle_rag_desc: "Abilita o disabilita il recupero del contesto",
+          toggle_speech: "Attiva/Disattiva Voce",
+          toggle_speech_desc:
+            "Avvia o ferma la lettura dell'ultima risposta dell'IA",
+          toggle_tabs: "Attiva/Disattiva Schede",
+          toggle_tabs_desc: "Abilita o disabilita l'accesso alle schede",
+          search_messages: "Cerca Messaggi",
+          search_messages_desc: "Apri la ricerca semantica della chat",
+          clear_chat: "Cancella Chat",
+          clear_chat_desc: "Cancella la sessione di chat corrente",
+          copy_last_response: "Copia Ultima Risposta",
+          copy_last_response_desc:
+            "Copia l'ultima risposta dell'IA negli appunti"
+        },
         content_extraction: {
           title: "Estrazione Contenuto",
           description:
@@ -5229,7 +5790,31 @@ export const resources = {
           embeddings: "Embeddings",
           voices: "Voci",
           reset: "Reset",
-          guides: "Guide"
+          guides: "Guide",
+          memory: "Memoria",
+          shortcuts: "Scorciatoie"
+        },
+        memory: {
+          title: "Memoria Contestuale",
+          beta_badge: "Beta",
+          description:
+            "Consenti all'IA di ricordare i dettagli delle conversazioni passate per fornire risposte personalizzate.",
+          enable: {
+            label: "Abilita Memoria",
+            description:
+              "Quando abilitato, la cronologia della chat viene archiviata localmente e utilizzata per fornire contesto."
+          },
+          clear: {
+            label: "Cancella Memoria",
+            description: "Elimina tutti i ricordi della chat archiviati.",
+            button: "Cancella Memoria Chat",
+            button_clearing: "Cancellazione...",
+            confirm_dialog:
+              "Sei sicuro di voler cancellare tutta la memoria della chat? Questa operazione non può essere annullata.",
+            success: "Memoria della chat cancellata con successo.",
+            error: "Impossibile cancellare la memoria.",
+            usage: "Utilizzo: {{count}} elementi ({{size}} MB totali)"
+          }
         },
         page: {
           title: "Impostazioni Ollama Client",
@@ -5585,7 +6170,11 @@ export const resources = {
           switch_model: "モデルを変更",
           chars: "文字",
           enter_to_send: "送信",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
         },
         actions: {
           copy: "コピー",
@@ -5603,6 +6192,17 @@ export const resources = {
           generated_tokens: "生成トークン",
           load_time: "ロード時間",
           prompt_eval_time: "プロンプト評価時間"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} トークン",
+          prompt_tokens: "{{value}} プロンプト",
+          generated_tokens: "{{value}} 生成",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} メッセージ",
+          tooltip_tokens: "このセッションで使用された合計トークン",
+          tooltip_time: "合計応答生成時間",
+          tooltip_speed: "平均生成速度",
+          tooltip_messages: "AIの応答数"
         },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
@@ -5851,7 +6451,18 @@ export const resources = {
             "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
           cache_max_size_label: "最大キャッシュクエリ数",
           cache_max_size_description:
-            "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。"
+            "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
+          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_description:
+            "Use advanced recursive character splitting for better context",
+          enhanced_chunking_info:
+            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+          rag_enable_label: "Enable RAG",
+          rag_enable_description:
+            "Use retrieved context to answer questions about your files",
+          rag_system_prompt_label: "RAG System Prompt",
+          rag_system_prompt_description:
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
         }
       },
       prompts: {
@@ -5914,6 +6525,53 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "チャット表示",
+          description: "チャット情報の表示方法を設定",
+          session_metrics_label: "セッションメトリクスを表示",
+          session_metrics_description:
+            "チャット入力上にトークン使用量、時間、速度を表示"
+        },
+        shortcuts: {
+          title: "キーボードショートカット",
+          description:
+            "機能への素早いアクセス用にキーボードショートカットをカスタマイズ",
+          recording: "キーを押してください...",
+          reset_one: "デフォルトにリセット",
+          reset_all: "すべてのショートカットをリセット",
+          conflict_warning:
+            '"{{key}}" は "{{existing}}" で既に使用されています',
+          category_navigation: "ナビゲーション",
+          category_navigation_desc: "インターフェースを移動する",
+          category_actions: "アクション",
+          category_actions_desc: "一般的なタスクを実行する",
+          category_toggles: "トグル",
+          category_toggles_desc: "機能のオン/オフを切り替える",
+          new_chat: "新しいチャット",
+          new_chat_desc: "新しいチャットセッションを作成",
+          focus_input: "入力にフォーカス",
+          focus_input_desc: "チャット入力フィールドにフォーカス",
+          toggle_sidebar: "サイドバー切り替え",
+          toggle_sidebar_desc: "サイドバーを開く/閉じる",
+          stop_generation: "生成を停止",
+          stop_generation_desc: "AI応答を停止",
+          open_settings: "設定を開く",
+          open_settings_desc: "設定ページを開く",
+          toggle_theme: "テーマ切り替え",
+          toggle_theme_desc: "ライト/ダークモードを切り替え",
+          toggle_rag: "RAG切り替え",
+          toggle_rag_desc: "コンテキスト取得を有効/無効にする",
+          toggle_speech: "音声切り替え",
+          toggle_speech_desc: "最後のAI応答の読み上げを開始/停止",
+          toggle_tabs: "タブ切り替え",
+          toggle_tabs_desc: "タブアクセスを有効/無効にする",
+          search_messages: "メッセージ検索",
+          search_messages_desc: "セマンティックチャット検索を開く",
+          clear_chat: "チャットをクリア",
+          clear_chat_desc: "現在のチャットセッションをクリア",
+          copy_last_response: "最後の応答をコピー",
+          copy_last_response_desc: "最後のAI応答をクリップボードにコピー"
+        },
         content_extraction: {
           title: "コンテンツ抽出",
           description:
@@ -6137,7 +6795,31 @@ export const resources = {
           embeddings: "エンベディング",
           voices: "音声",
           reset: "リセット",
-          guides: "ガイド"
+          guides: "ガイド",
+          memory: "メモリ",
+          shortcuts: "ショートカット"
+        },
+        memory: {
+          title: "コンテキストメモリ",
+          beta_badge: "ベータ",
+          description:
+            "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
+          enable: {
+            label: "メモリを有効にする",
+            description:
+              "有効にすると、チャット履歴がローカルに保存され、コンテキストを提供するために使用されます。"
+          },
+          clear: {
+            label: "メモリを消去",
+            description: "保存されたすべてのチャットメモリを削除します。",
+            button: "チャットメモリを消去",
+            button_clearing: "消去中...",
+            confirm_dialog:
+              "すべてのチャットメモリを消去してもよろしいですか？この操作は取り消せません。",
+            success: "チャットメモリが正常に消去されました。",
+            error: "メモリの消去に失敗しました。",
+            usage: "使用状況: {{count}} 項目 (合計 {{size}} MB)"
+          }
         },
         page: {
           title: "Ollama Client設定",
@@ -6488,7 +7170,11 @@ export const resources = {
           switch_model: "Сменить модель",
           chars: "Символов",
           enter_to_send: "Отправить",
-          enter_key: "Enter"
+          enter_key: "Enter",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip:
+            "Smart Context (Бета): Использовать контекст файлов и чата"
         },
         actions: {
           copy: "Копировать",
@@ -6506,6 +7192,17 @@ export const resources = {
           generated_tokens: "Сгенерировано токенов",
           load_time: "Время загрузки",
           prompt_eval_time: "Время оценки промпта"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} токенов",
+          prompt_tokens: "{{value}} промпт",
+          generated_tokens: "{{value}} сгенер.",
+          avg_speed: "{{speed}} т/с",
+          messages: "{{value}} сообщ.",
+          tooltip_tokens: "Всего токенов в этой сессии",
+          tooltip_time: "Общее время генерации ответа",
+          tooltip_speed: "Средняя скорость генерации",
+          tooltip_messages: "Количество ответов ИИ"
         },
         search: {
           button_title: "Поиск по истории чатов (семантический)",
@@ -6754,7 +7451,21 @@ export const resources = {
             "Как долго кэшировать результаты поиска (1-60 минут). Кэшированные запросы возвращаются мгновенно.",
           cache_max_size_label: "Макс. кэшированных запросов",
           cache_max_size_description:
-            "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита."
+            "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита.",
+          enhanced_chunking_label: "Улучшенное разбиение",
+          enhanced_chunking_description:
+            "Использовать продвинутое рекурсивное разбиение для лучшего контекста",
+          enhanced_chunking_info:
+            "Улучшенное разбиение разделяет текст иерархически (абзацы → предложения → слова) для сохранения семантического значения. Рекомендуется для RAG.",
+          rag_settings_title: "RAG (Генерация с дополненным поиском)",
+          rag_settings_description:
+            "Настройте, как файлы используются для ответов на вопросы с использованием контекста",
+          rag_enable_label: "Включить RAG",
+          rag_enable_description:
+            "Использовать извлеченный контекст для ответов на вопросы о ваших файлах",
+          rag_system_prompt_label: "Системный промпт RAG",
+          rag_system_prompt_description:
+            "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя."
         }
       },
       prompts: {
@@ -6819,6 +7530,54 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "Отображение чата",
+          description: "Настройте отображение информации о чате",
+          session_metrics_label: "Показать метрики сессии",
+          session_metrics_description:
+            "Показывать использование токенов, время и скорость над полем ввода"
+        },
+        shortcuts: {
+          title: "Сочетания Клавиш",
+          description:
+            "Настройте сочетания клавиш для быстрого доступа к функциям.",
+          recording: "Нажмите клавиши...",
+          reset_one: "Сбросить по умолчанию",
+          reset_all: "Сбросить Все Сочетания",
+          conflict_warning: '"{{key}}" уже используется для "{{existing}}"',
+          category_navigation: "Навигация",
+          category_navigation_desc: "Перемещение по интерфейсу",
+          category_actions: "Действия",
+          category_actions_desc: "Выполнение общих задач",
+          category_toggles: "Переключатели",
+          category_toggles_desc: "Включение/выключение функций",
+          new_chat: "Новый Чат",
+          new_chat_desc: "Создать новую сессию чата",
+          focus_input: "Фокус на Ввод",
+          focus_input_desc: "Фокус на поле ввода чата",
+          toggle_sidebar: "Переключить Боковую Панель",
+          toggle_sidebar_desc: "Открыть или закрыть боковую панель",
+          stop_generation: "Остановить Генерацию",
+          stop_generation_desc: "Остановить ответ ИИ",
+          open_settings: "Открыть Настройки",
+          open_settings_desc: "Открыть страницу настроек",
+          toggle_theme: "Сменить Тему",
+          toggle_theme_desc: "Переключить между светлой и темной темой",
+          toggle_rag: "Переключить RAG",
+          toggle_rag_desc: "Включить или выключить извлечение контекста",
+          toggle_speech: "Переключить Речь",
+          toggle_speech_desc:
+            "Начать или остановить озвучивание последнего ответа ИИ",
+          toggle_tabs: "Переключить Вкладки",
+          toggle_tabs_desc: "Включить или выключить доступ к вкладкам",
+          search_messages: "Поиск Сообщений",
+          search_messages_desc: "Открыть семантический поиск по чату",
+          clear_chat: "Очистить Чат",
+          clear_chat_desc: "Очистить текущую сессию чата",
+          copy_last_response: "Копировать Последний Ответ",
+          copy_last_response_desc:
+            "Копировать последний ответ ИИ в буфер обмена"
+        },
         content_extraction: {
           title: "Извлечение контента",
           description:
@@ -7044,7 +7803,31 @@ export const resources = {
           embeddings: "Эмбеддинги",
           voices: "Голоса",
           reset: "Сброс",
-          guides: "Руководства"
+          guides: "Руководства",
+          memory: "Память",
+          shortcuts: "Горячие клавиши"
+        },
+        memory: {
+          title: "Контекстная память",
+          beta_badge: "Бета",
+          description:
+            "Позволить ИИ запоминать детали прошлых разговоров для предоставления персонализированных ответов.",
+          enable: {
+            label: "Включить память",
+            description:
+              "Если включено, история чата сохраняется локально и используется для предоставления контекста."
+          },
+          clear: {
+            label: "Очистить память",
+            description: "Удалить все сохраненные воспоминания чата.",
+            button: "Очистить память чата",
+            button_clearing: "Очистка...",
+            confirm_dialog:
+              "Вы уверены, что хотите очистить всю память чата? Это действие нельзя отменить.",
+            success: "Память чата успешно очищена.",
+            error: "Не удалось очистить память.",
+            usage: "Использование: {{count}} элементов (всего {{size}} МБ)"
+          }
         },
         page: {
           title: "Настройки Ollama Client",
@@ -7394,7 +8177,10 @@ export const resources = {
           switch_model: "切换模型",
           chars: "字符",
           enter_to_send: "发送",
-          enter_key: "回车"
+          enter_key: "回车",
+          rag_toggle_on: "RAG+",
+          rag_toggle_off: "RAG",
+          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文"
         },
         actions: {
           copy: "复制",
@@ -7412,6 +8198,17 @@ export const resources = {
           generated_tokens: "生成 Token 数",
           load_time: "加载时间",
           prompt_eval_time: "提示词评估时间"
+        },
+        session_metrics: {
+          total_tokens: "{{value}} 令牌",
+          prompt_tokens: "{{value}} 提示",
+          generated_tokens: "{{value}} 生成",
+          avg_speed: "{{speed}} t/s",
+          messages: "{{value}} 条消息",
+          tooltip_tokens: "此会话使用的总令牌数",
+          tooltip_time: "总响应生成时间",
+          tooltip_speed: "平均生成速度",
+          tooltip_messages: "AI响应数量"
         },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",
@@ -7641,7 +8438,19 @@ export const resources = {
             "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
           cache_max_size_label: "最大缓存查询数",
           cache_max_size_description:
-            "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。"
+            "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。",
+          enhanced_chunking_label: "增强分块",
+          enhanced_chunking_description:
+            "使用高级递归字符分割以获得更好的上下文",
+          enhanced_chunking_info:
+            "增强分块以分层方式分割文本（段落 → 句子 → 单词）以保留语义。建议用于 RAG。",
+          rag_settings_title: "RAG（检索增强生成）",
+          rag_settings_description: "配置如何使用文件以检索上下文来回答问题",
+          rag_enable_label: "启用 RAG",
+          rag_enable_description: "使用检索上下文来回答有关您文件的问题",
+          rag_system_prompt_label: "RAG 系统提示",
+          rag_system_prompt_description:
+            "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。"
         }
       },
       prompts: {
@@ -7704,6 +8513,51 @@ export const resources = {
         }
       },
       settings: {
+        chat_display: {
+          title: "聊天显示",
+          description: "配置聊天信息的显示方式",
+          session_metrics_label: "显示会话指标",
+          session_metrics_description:
+            "在聊天输入框上方显示令牌使用量、时长和速度"
+        },
+        shortcuts: {
+          title: "键盘快捷键",
+          description: "自定义键盘快捷键以快速访问功能。",
+          recording: "请按键...",
+          reset_one: "重置为默认",
+          reset_all: "重置所有快捷键",
+          conflict_warning: '"{{key}}" 已被 "{{existing}}" 使用',
+          category_navigation: "导航",
+          category_navigation_desc: "在界面中导航",
+          category_actions: "操作",
+          category_actions_desc: "执行常见任务",
+          category_toggles: "切换",
+          category_toggles_desc: "开启/关闭功能",
+          new_chat: "新聊天",
+          new_chat_desc: "创建新的聊天会话",
+          focus_input: "聚焦输入",
+          focus_input_desc: "聚焦到聊天输入框",
+          toggle_sidebar: "切换侧边栏",
+          toggle_sidebar_desc: "打开或关闭侧边栏",
+          stop_generation: "停止生成",
+          stop_generation_desc: "停止AI响应",
+          open_settings: "打开设置",
+          open_settings_desc: "打开设置页面",
+          toggle_theme: "切换主题",
+          toggle_theme_desc: "在浅色和深色模式之间切换",
+          toggle_rag: "切换RAG",
+          toggle_rag_desc: "启用或禁用上下文检索",
+          toggle_speech: "切换语音",
+          toggle_speech_desc: "开始或停止朗读最后一条AI响应",
+          toggle_tabs: "切换标签页",
+          toggle_tabs_desc: "启用或禁用标签页访问",
+          search_messages: "搜索消息",
+          search_messages_desc: "打开语义聊天搜索",
+          clear_chat: "清除聊天",
+          clear_chat_desc: "清除当前聊天会话",
+          copy_last_response: "复制最后响应",
+          copy_last_response_desc: "复制最后一条AI响应到剪贴板"
+        },
         content_extraction: {
           title: "内容提取",
           description: "配置所有网站的默认内容提取行为。",
@@ -7918,7 +8772,28 @@ export const resources = {
           embeddings: "嵌入",
           voices: "声音",
           reset: "重置",
-          guides: "指南"
+          guides: "指南",
+          memory: "记忆",
+          shortcuts: "快捷键"
+        },
+        memory: {
+          title: "上下文记忆",
+          beta_badge: "测试版",
+          description: "允许 AI 记住过去对话的细节，以提供个性化的回复。",
+          enable: {
+            label: "启用记忆",
+            description: "启用后，聊天记录将存储在本地并用于提供上下文。"
+          },
+          clear: {
+            label: "清除记忆",
+            description: "删除所有存储的聊天记忆。",
+            button: "清除聊天记忆",
+            button_clearing: "清除中...",
+            confirm_dialog: "您确定要清除所有聊天记忆吗？此操作无法撤销。",
+            success: "聊天记忆已成功清除。",
+            error: "清除记忆失败。",
+            usage: "使用情况：{{count}} 个项目（共 {{size}} MB）"
+          }
         },
         page: {
           title: "Ollama 客户端设置",

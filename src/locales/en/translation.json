@@ -95,7 +95,10 @@
       "switch_model": "Change model",
       "chars": "Characters",
       "enter_to_send": "Send",
-      "enter_key": "Enter"
+      "enter_key": "Enter",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context"
     },
     "actions": {
       "copy": "Copy",
@@ -113,6 +116,17 @@
       "generated_tokens": "Generated Tokens",
       "load_time": "Load Time",
       "prompt_eval_time": "Prompt Eval Time"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} tokens",
+      "prompt_tokens": "{{value}} prompt",
+      "generated_tokens": "{{value}} generated",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} msgs",
+      "tooltip_tokens": "Total tokens used in this session",
+      "tooltip_time": "Total response generation time",
+      "tooltip_speed": "Average generation speed",
+      "tooltip_messages": "Number of AI responses"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
@@ -326,7 +340,16 @@
       "cache_ttl_label": "Search Cache TTL (minutes)",
       "cache_ttl_description": "How long to cache search results (1-60 minutes). Cached queries return instantly.",
       "cache_max_size_label": "Max Cached Queries",
-      "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached."
+      "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_description": "Configure how files are used to answer questions with retrieved context",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
@@ -388,6 +411,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Chat Display",
+      "description": "Configure how chat information is displayed",
+      "session_metrics_label": "Show Session Metrics",
+      "session_metrics_description": "Display token usage, duration, and speed above the chat input"
+    },
+    "shortcuts": {
+      "title": "Keyboard Shortcuts",
+      "description": "Customize keyboard shortcuts for quick access to features.",
+      "recording": "Press keys...",
+      "reset_one": "Reset to default",
+      "reset_all": "Reset All Shortcuts",
+      "conflict_warning": "\"{{key}}\" is already used by \"{{existing}}\"",
+      "category_navigation": "Navigation",
+      "category_navigation_desc": "Move around the interface",
+      "category_actions": "Actions",
+      "category_actions_desc": "Perform common tasks",
+      "category_toggles": "Toggles",
+      "category_toggles_desc": "Switch features on/off",
+      "new_chat": "New Chat",
+      "new_chat_desc": "Create a new chat session",
+      "focus_input": "Focus Input",
+      "focus_input_desc": "Focus the chat input field",
+      "toggle_sidebar": "Toggle Sidebar",
+      "toggle_sidebar_desc": "Open or close the sidebar",
+      "stop_generation": "Stop Generation",
+      "stop_generation_desc": "Stop the AI response",
+      "open_settings": "Open Settings",
+      "open_settings_desc": "Open the settings page",
+      "toggle_theme": "Toggle Theme",
+      "toggle_theme_desc": "Switch between light and dark mode",
+      "toggle_rag": "Toggle RAG",
+      "toggle_rag_desc": "Enable or disable context retrieval",
+      "toggle_speech": "Toggle Speech",
+      "toggle_speech_desc": "Start or stop speaking the last AI response",
+      "toggle_tabs": "Toggle Tabs",
+      "toggle_tabs_desc": "Enable or disable tab access",
+      "search_messages": "Search Messages",
+      "search_messages_desc": "Open semantic chat search",
+      "clear_chat": "Clear Chat",
+      "clear_chat_desc": "Clear the current chat session",
+      "copy_last_response": "Copy Last Response",
+      "copy_last_response_desc": "Copy the last AI response to clipboard"
+    },
     "content_extraction": {
       "title": "Content Extraction",
       "description": "Configure default content extraction behavior for all websites.",
@@ -599,7 +666,28 @@
       "embeddings": "Embeddings",
       "voices": "Voices",
       "reset": "Reset",
-      "guides": "Guides"
+      "guides": "Guides",
+      "memory": "Memory",
+      "shortcuts": "Shortcuts"
+    },
+    "memory": {
+      "title": "Contextual Memory",
+      "beta_badge": "Beta",
+      "description": "Allow the AI to remember details from past conversations to provide personalized responses.",
+      "enable": {
+        "label": "Enable Memory",
+        "description": "When enabled, chat history is stored locally and used to provide context."
+      },
+      "clear": {
+        "label": "Clear Memory",
+        "description": "Delete all stored chat memories.",
+        "button": "Clear Chat Memory",
+        "button_clearing": "Clearing...",
+        "confirm_dialog": "Are you sure you want to clear all chat memory? This cannot be undone.",
+        "success": "Chat memory cleared successfully.",
+        "error": "Failed to clear memory.",
+        "usage": "Usage: {{count}} items ({{size}} MB total)"
+      }
     },
     "page": {
       "title": "Ollama Client Settings",

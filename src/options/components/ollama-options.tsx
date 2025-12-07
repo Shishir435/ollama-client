@@ -13,7 +13,9 @@ import {
 import { MiniBadge } from "@/components/ui/mini-badge"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
+import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
@@ -21,6 +23,7 @@ import { ModelSettingsForm } from "@/features/model/components/model-settings-fo
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
+import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
 export const OllamaOptions = () => {
   const { t } = useTranslation()
@@ -32,9 +35,14 @@ export const OllamaOptions = () => {
         <div className="space-y-6">
           <PerformanceWarning />
           <LanguageSelector />
+          <ChatDisplaySettings />
           <ModelSettingsForm />
         </div>
       )
+    },
+    shortcuts: {
+      label: t("settings.tabs.shortcuts"),
+      content: <ShortcutsSettings />
     },
     templates: {
       label: t("settings.tabs.prompts"),
@@ -57,6 +65,15 @@ export const OllamaOptions = () => {
         </span>
       ),
       content: <EmbeddingSettings />
+    },
+    memory: {
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t("settings.tabs.memory")}
+          <MiniBadge text="Beta" />
+        </span>
+      ),
+      content: <MemorySettings />
     },
     voices: {
       label: t("settings.tabs.voices"),

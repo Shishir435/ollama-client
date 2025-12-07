@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
+import { retrieveContext } from "@/features/chat/rag"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -9,8 +10,6 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
-import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, FileAttachment } from "@/types"
@@ -109,68 +108,55 @@ export const useChat = () => {
         : contextText
     }
 
-    // Add file content to message
-    if (files && files.length > 0) {
-      // Check if RAG is enabled
-      const useRag =
-        (await plasmoGlobalStorage.get<boolean>(
-          STORAGE_KEYS.EMBEDDINGS.USE_RAG
-        )) ?? true
+    // RAG & Context Injection
+    let fileContext = ""
 
-      let fileContext = ""
+    const useRag =
+      (await plasmoGlobalStorage.get<boolean>(
+        STORAGE_KEYS.EMBEDDINGS.USE_RAG
+      )) ?? true
 
-      if (useRag) {
-        try {
-          console.log("RAG Enabled: Searching for relevant context...")
-          // Generate embedding for the user query
-          const embeddingResult = await generateEmbedding(rawInput || "summary")
+    if (useRag) {
+      try {
+        // Determine scope: specific files or global
+        const fileIds =
+          files && files.length > 0
+            ? (files.map((f) => f.metadata.fileId).filter(Boolean) as string[])
+            : undefined // undefined means search all files
 
-          if ("embedding" in embeddingResult) {
-            // Search for relevant chunks across all attached files
-            const fileIds = files
-              .map((f) => f.metadata.fileId)
-              .filter(Boolean) as string[]
+        console.log(
+          `RAG Enabled: Searching for context (Scope: ${
+            fileIds ? "Specific Files" : "Global"
+          })`
+        )
 
-            const searchResults = await searchSimilarVectors(
-              embeddingResult.embedding,
-              {
-                fileId: fileIds,
-                limit: 5, // Top 5 chunks
-                minSimilarity: 0.3 // Lower threshold to ensure we get something
-              }
-            )
+        const context = await retrieveContext(rawInput || "summary", fileIds, {
+          mode: "similarity",
+          topK: 5
+        })
 
-            if (searchResults.length > 0) {
-              console.log(
-                `RAG: Found ${searchResults.length} relevant chunks from ${fileIds.length} files`
-              )
-              fileContext = searchResults
-                .map(
-                  (result) =>
-                    `[Context from ${result.document.metadata.title || "file"}]\n${result.document.content}`
-                )
-                .join("\n\n---\n\n")
-            } else {
-              console.log(
-                "RAG: No relevant chunks found, falling back to full text"
-              )
-            }
-          }
-        } catch (e) {
-          console.error("RAG Error:", e)
+        if (context.documents.length > 0) {
+          console.log(`RAG: Found ${context.documents.length} relevant chunks`)
+          fileContext = context.formattedContext
         }
+      } catch (e) {
+        console.error("RAG Error:", e)
       }
+    }
 
-      // Fallback to full text if RAG disabled or no results found
-      if (!fileContext) {
-        fileContext = files
-          .map(
-            (file) =>
-              `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${file.text.length > 10000 ? "\n... (truncated)" : ""}`
-          )
-          .join("\n\n---\n\n")
-      }
+    // Fallback to full text ONLY if specific files attached AND no RAG context found
+    if (!fileContext && files && files.length > 0) {
+      fileContext = files
+        .map(
+          (file) =>
+            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
+              file.text.length > 10000 ? "\n... (truncated)" : ""
+            }`
+        )
+        .join("\n\n---\n\n")
+    }
 
+    if (fileContext) {
       contentWithContext = contentWithContext
         ? `${contentWithContext}\n\n---\n\n${fileContext}`
         : fileContext
@@ -213,7 +199,8 @@ export const useChat = () => {
     if (!customInput) setInput("")
     startStream({
       model: customModel || selectedModel,
-      messages: newMessages
+      messages: newMessages,
+      sessionId: currentSessionId
     })
   }
 

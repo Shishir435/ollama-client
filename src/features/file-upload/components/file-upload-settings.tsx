@@ -33,23 +33,25 @@ export const FileUploadSettings = () => {
     : "10"
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Label htmlFor="max-file-size">
-          {t("file_upload.settings.max_file_size_label")}
-        </Label>
-        <Input
-          id="max-file-size"
-          type="number"
-          min="1"
-          value={currentSizeMB}
-          onChange={handleMaxSizeChange}
-          className="max-w-[100px]"
-        />
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="max-file-size">
+            {t("file_upload.settings.max_file_size_label")}
+          </Label>
+          <Input
+            id="max-file-size"
+            type="number"
+            min="1"
+            value={currentSizeMB}
+            onChange={handleMaxSizeChange}
+            className="max-w-[100px]"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("file_upload.settings.max_file_size_description")}
+        </p>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {t("file_upload.settings.max_file_size_description")}
-      </p>
     </div>
   )
 }

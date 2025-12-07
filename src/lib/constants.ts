@@ -50,7 +50,8 @@ export const STORAGE_KEYS = {
   TTS: {
     RATE: "tts-rate",
     PITCH: "tts-pitch",
-    VOICE_URI: "tts-voice-uri"
+    VOICE_URI: "tts-voice-uri",
+    AUTO_PLAY: "tts-auto-play"
   },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
@@ -63,7 +64,14 @@ export const STORAGE_KEYS = {
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"
-  }
+  },
+  MEMORY: {
+    ENABLED: "memory-enabled"
+  },
+  CHAT: {
+    SHOW_SESSION_METRICS: "chat-show-session-metrics"
+  },
+  SHORTCUTS: "keyboard-shortcuts"
 }
 
 // Default embedding model - use `mxbai-embed-large` for improved semantics
@@ -78,6 +86,7 @@ export interface EmbeddingConfig {
   chunkSize: number // Tokens per chunk (default: 500)
   chunkOverlap: number // Overlap between chunks in tokens (default: 100)
   chunkingStrategy: ChunkingStrategy // "fixed" | "semantic" | "hybrid"
+  useEnhancedChunking: boolean // Use new text splitters (RecursiveCharacterTextSplitter) (default: false - backward compat)
 
   // Embedding generation settings
   batchSize: number // Number of texts to embed in parallel (default: 5)
@@ -113,6 +122,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   chunkSize: 500, // ~500 tokens per chunk
   chunkOverlap: 100, // 100 token overlap
   chunkingStrategy: "hybrid", // Best balance
+  useEnhancedChunking: false, // Backward compatibility - users can enable in settings
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   useWebWorker: true, // Offload to worker thread
@@ -605,7 +615,17 @@ export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   EXTENSIONS: {
     PDF: "pdf",
-    DOCX: "docx"
+    DOCX: "docx",
+    CSV: "csv",
+    TSV: "tsv",
+    HTML: "html",
+    HTM: "htm",
+    PNG: "png",
+    JPG: "jpg",
+    JPEG: "jpeg",
+    WEBP: "webp",
+    GIF: "gif",
+    BMP: "bmp"
   }
 }
 

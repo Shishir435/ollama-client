@@ -94,7 +94,10 @@
       "placeholder": "Escribe un mensaje o ctrl + /",
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
-      "enter_key": "Intro"
+      "enter_key": "Intro",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat"
     },
     "actions": {
       "copy": "Copiar",
@@ -112,6 +115,17 @@
       "generated_tokens": "Tokens Generados",
       "load_time": "Tiempo de Carga",
       "prompt_eval_time": "Tiempo de Evaluación de Prompt"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} tokens",
+      "prompt_tokens": "{{value}} prompt",
+      "generated_tokens": "{{value}} generados",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} msgs",
+      "tooltip_tokens": "Tokens totales usados en esta sesión",
+      "tooltip_time": "Tiempo total de generación de respuesta",
+      "tooltip_speed": "Velocidad promedio de generación",
+      "tooltip_messages": "Número de respuestas de IA"
     },
     "search": {
       "button_title": "Buscar historial de chat (búsqueda semántica)",
@@ -325,7 +339,14 @@
       "cache_ttl_label": "TTL de Caché de Búsqueda (minutos)",
       "cache_ttl_description": "Tiempo que se almacenan en caché los resultados de búsqueda (1-60 minutos). Las consultas en caché se devuelven instantáneamente.",
       "cache_max_size_label": "Máx. Consultas en Caché",
-      "cache_max_size_description": "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite."
+      "cache_max_size_description": "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
@@ -387,6 +408,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "Visualización del Chat",
+      "description": "Configura cómo se muestra la información del chat",
+      "session_metrics_label": "Mostrar Métricas de Sesión",
+      "session_metrics_description": "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
+    },
+    "shortcuts": {
+      "title": "Atajos de Teclado",
+      "description": "Personaliza los atajos de teclado para acceso rápido a funciones.",
+      "recording": "Presiona teclas...",
+      "reset_one": "Restablecer a predeterminado",
+      "reset_all": "Restablecer Todos los Atajos",
+      "conflict_warning": "\"{{key}}\" ya está en uso por \"{{existing}}\"",
+      "category_navigation": "Navegación",
+      "category_navigation_desc": "Navegar por la interfaz",
+      "category_actions": "Acciones",
+      "category_actions_desc": "Realizar tareas comunes",
+      "category_toggles": "Alternar",
+      "category_toggles_desc": "Activar/desactivar funciones",
+      "new_chat": "Nuevo Chat",
+      "new_chat_desc": "Crear una nueva sesión de chat",
+      "focus_input": "Enfocar Entrada",
+      "focus_input_desc": "Enfocar el campo de entrada del chat",
+      "toggle_sidebar": "Alternar Barra Lateral",
+      "toggle_sidebar_desc": "Abrir o cerrar la barra lateral",
+      "stop_generation": "Detener Generación",
+      "stop_generation_desc": "Detener la respuesta de IA",
+      "open_settings": "Abrir Configuración",
+      "open_settings_desc": "Abrir la página de configuración",
+      "toggle_theme": "Cambiar Tema",
+      "toggle_theme_desc": "Cambiar entre modo claro y oscuro",
+      "toggle_rag": "Alternar RAG",
+      "toggle_rag_desc": "Habilitar o deshabilitar recuperación de contexto",
+      "toggle_speech": "Alternar Voz",
+      "toggle_speech_desc": "Iniciar o detener la lectura de la última respuesta de IA",
+      "toggle_tabs": "Alternar Pestañas",
+      "toggle_tabs_desc": "Habilitar o deshabilitar acceso a pestañas",
+      "search_messages": "Buscar Mensajes",
+      "search_messages_desc": "Abrir búsqueda semántica del chat",
+      "clear_chat": "Limpiar Chat",
+      "clear_chat_desc": "Limpiar la sesión de chat actual",
+      "copy_last_response": "Copiar Última Respuesta",
+      "copy_last_response_desc": "Copiar la última respuesta de IA al portapapeles"
+    },
     "content_extraction": {
       "title": "Extracción de Contenido",
       "description": "Configura el comportamiento de extracción de contenido predeterminado para todos los sitios web.",
@@ -598,7 +663,28 @@
       "embeddings": "Incrustaciones",
       "voices": "Voces",
       "reset": "Restablecer",
-      "guides": "Guías"
+      "guides": "Guías",
+      "memory": "Memoria",
+      "shortcuts": "Atajos"
+    },
+    "memory": {
+      "title": "Memoria Contextual",
+      "beta_badge": "Beta",
+      "description": "Permite que la IA recuerde detalles de conversaciones pasadas para proporcionar respuestas personalizadas.",
+      "enable": {
+        "label": "Habilitar Memoria",
+        "description": "Cuando está habilitado, el historial de chat se almacena localmente y se utiliza para proporcionar contexto."
+      },
+      "clear": {
+        "label": "Borrar Memoria",
+        "description": "Eliminar todos los recuerdos de chat almacenados.",
+        "button": "Borrar Memoria de Chat",
+        "button_clearing": "Borrando...",
+        "confirm_dialog": "¿Estás seguro de que quieres borrar toda la memoria de chat? Esta acción no se puede deshacer.",
+        "success": "Memoria de chat borrada con éxito.",
+        "error": "Error al borrar la memoria.",
+        "usage": "Uso: {{count}} elementos ({{size}} MB total)"
+      }
     },
     "page": {
       "title": "Ajustes de Ollama Client",

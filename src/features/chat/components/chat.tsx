@@ -2,19 +2,84 @@ import { useEffect } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
+import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import browser from "@/lib/browser-api"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
+import { useSearchDialogStore } from "@/stores/search-dialog-store"
+import { useThemeStore } from "@/stores/theme"
 
 export const Chat = () => {
   const { messages, sendMessage, stopGeneration, scrollRef } = useChat()
   const { isLoading, isStreaming } = useLoadStream()
-  const { currentSessionId, highlightedMessage, setHighlightedMessage } =
-    useChatSessions()
+  const {
+    currentSessionId,
+    highlightedMessage,
+    setHighlightedMessage,
+    createSession,
+    deleteSession
+  } = useChatSessions()
+  const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
+
+  useKeyboardShortcuts({
+    newChat: (e) => {
+      e.preventDefault()
+      createSession()
+    },
+    settings: (e) => {
+      e.preventDefault()
+      browser.runtime.openOptionsPage()
+    },
+    toggleTheme: (e) => {
+      e.preventDefault()
+      const { theme, setTheme } = useThemeStore.getState()
+      const nextTheme = theme === "dark" ? "light" : "dark"
+      setTheme(nextTheme)
+    },
+    toggleSpeech: (e) => {
+      e.preventDefault()
+      // Toggle speech on the last assistant message
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel()
+      } else {
+        const lastAssistantMessage = [...messages]
+          .reverse()
+          .find((m) => m.role === "assistant")
+        if (lastAssistantMessage) {
+          const utterance = new SpeechSynthesisUtterance(
+            lastAssistantMessage.content
+          )
+          window.speechSynthesis.speak(utterance)
+        }
+      }
+    },
+    searchMessages: (e) => {
+      e.preventDefault()
+      useSearchDialogStore.getState().openSearchDialog()
+    },
+    clearChat: (e) => {
+      e.preventDefault()
+      if (currentSessionId && confirm("Clear this chat session?")) {
+        deleteSession(currentSessionId)
+        createSession()
+      }
+    },
+    copyLastResponse: (e) => {
+      e.preventDefault()
+      const lastAssistantMessage = [...messages]
+        .reverse()
+        .find((m) => m.role === "assistant")
+      if (lastAssistantMessage) {
+        navigator.clipboard.writeText(lastAssistantMessage.content)
+      }
+    }
+  })
 
   useEffect(() => {
     if (highlightedMessage && messages.length > 0) {
@@ -116,12 +181,18 @@ export const Chat = () => {
         <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background/80 pb-2 pt-3 backdrop-blur-md">
           <div className="mx-auto max-w-4xl px-2">
             <ChatInputBox
+              messages={messages}
               onSend={sendMessage}
               stopGeneration={stopGeneration}
             />
           </div>
         </div>
       )}
+      <SemanticChatSearchDialog
+        open={isSearchOpen}
+        onClose={closeSearchDialog}
+        currentSessionId={currentSessionId}
+      />
     </div>
   )
 }

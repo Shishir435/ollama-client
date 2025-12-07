@@ -29,6 +29,8 @@ export const LanguageSelector = () => {
     instance: plasmoGlobalStorage
   })
 
+  const currentLang = LANGUAGES.find((l) => l.value === i18n.language)
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -56,12 +58,30 @@ export const LanguageSelector = () => {
               setStoredLanguage(value)
             }}>
             <SelectTrigger id="language-select">
-              <SelectValue />
+              <SelectValue>
+                {currentLang && (
+                  <span className="flex items-center gap-2">
+                    <span>{currentLang.label}</span>
+                    {currentLang.nativeLabel !== currentLang.label && (
+                      <span className="text-muted-foreground">
+                        ({currentLang.nativeLabel})
+                      </span>
+                    )}
+                  </span>
+                )}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {LANGUAGES.map((lang) => (
                 <SelectItem key={lang.value} value={lang.value}>
-                  {lang.label}
+                  <span className="flex items-center gap-2">
+                    <span>{lang.label}</span>
+                    {lang.nativeLabel !== lang.label && (
+                      <span className="text-muted-foreground">
+                        ({lang.nativeLabel})
+                      </span>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

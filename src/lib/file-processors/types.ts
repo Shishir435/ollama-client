@@ -11,6 +11,10 @@ export interface FileMetadata {
   pageCount?: number
   processedAt: number
   fileId?: string
+  // OCR-specific metadata (for image files)
+  ocrLanguage?: string
+  ocrConfidence?: number
+  processingTime?: number
 }
 
 export interface FileProcessor {

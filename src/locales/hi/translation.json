@@ -95,7 +95,10 @@
       "switch_model": "मॉडल बदलें",
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
-      "enter_key": "एंटर"
+      "enter_key": "एंटर",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
     },
     "actions": {
       "copy": "कॉपी करें",
@@ -113,6 +116,17 @@
       "generated_tokens": "जनरेट किए गए टोकन",
       "load_time": "लोड समय",
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} टोकन",
+      "prompt_tokens": "{{value}} प्रॉम्प्ट",
+      "generated_tokens": "{{value}} जनरेट",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} संदेश",
+      "tooltip_tokens": "इस सत्र में उपयोग किए गए कुल टोकन",
+      "tooltip_time": "कुल प्रतिक्रिया जनरेशन समय",
+      "tooltip_speed": "औसत जनरेशन गति",
+      "tooltip_messages": "AI प्रतिक्रियाओं की संख्या"
     },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -326,7 +340,14 @@
       "cache_ttl_label": "खोज कैश TTL (मिनट)",
       "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
       "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
-      "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।"
+      "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
+      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
+      "rag_enable_label": "Enable RAG",
+      "rag_enable_description": "Use retrieved context to answer questions about your files",
+      "rag_system_prompt_label": "RAG System Prompt",
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
     }
   },
   "prompts": {
@@ -388,6 +409,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "चैट डिस्प्ले",
+      "description": "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",
+      "session_metrics_label": "सत्र मेट्रिक्स दिखाएं",
+      "session_metrics_description": "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+    },
+    "shortcuts": {
+      "title": "कीबोर्ड शॉर्टकट",
+      "description": "सुविधाओं तक त्वरित पहुंच के लिए कीबोर्ड शॉर्टकट अनुकूलित करें।",
+      "recording": "कुंजियां दबाएं...",
+      "reset_one": "डिफ़ॉल्ट पर रीसेट करें",
+      "reset_all": "सभी शॉर्टकट रीसेट करें",
+      "conflict_warning": "\"{{key}}\" पहले से \"{{existing}}\" द्वारा उपयोग में है",
+      "category_navigation": "नेविगेशन",
+      "category_navigation_desc": "इंटरफ़ेस में नेविगेट करें",
+      "category_actions": "क्रियाएं",
+      "category_actions_desc": "सामान्य कार्य करें",
+      "category_toggles": "टॉगल",
+      "category_toggles_desc": "सुविधाएं चालू/बंद करें",
+      "new_chat": "नई चैट",
+      "new_chat_desc": "एक नई चैट सत्र बनाएं",
+      "focus_input": "इनपुट फोकस करें",
+      "focus_input_desc": "चैट इनपुट फ़ील्ड पर फोकस करें",
+      "toggle_sidebar": "साइडबार टॉगल करें",
+      "toggle_sidebar_desc": "साइडबार खोलें या बंद करें",
+      "stop_generation": "जनरेशन रोकें",
+      "stop_generation_desc": "AI प्रतिक्रिया रोकें",
+      "open_settings": "सेटिंग्स खोलें",
+      "open_settings_desc": "सेटिंग्स पेज खोलें",
+      "toggle_theme": "थीम बदलें",
+      "toggle_theme_desc": "लाइट और डार्क मोड के बीच स्विच करें",
+      "toggle_rag": "RAG टॉगल करें",
+      "toggle_rag_desc": "संदर्भ पुनर्प्राप्ति सक्षम या अक्षम करें",
+      "toggle_speech": "स्पीच टॉगल करें",
+      "toggle_speech_desc": "अंतिम AI प्रतिक्रिया बोलना शुरू या बंद करें",
+      "toggle_tabs": "टैब्स टॉगल करें",
+      "toggle_tabs_desc": "टैब एक्सेस सक्षम या अक्षम करें",
+      "search_messages": "संदेश खोजें",
+      "search_messages_desc": "सिमेंटिक चैट खोज खोलें",
+      "clear_chat": "चैट साफ़ करें",
+      "clear_chat_desc": "वर्तमान चैट सत्र साफ़ करें",
+      "copy_last_response": "अंतिम प्रतिक्रिया कॉपी करें",
+      "copy_last_response_desc": "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें"
+    },
     "content_extraction": {
       "title": "सामग्री निष्कर्षण",
       "description": "सभी वेबसाइटों के लिए डिफ़ॉल्ट सामग्री निष्कर्षण व्यवहार कॉन्फ़िगर करें।",
@@ -599,7 +664,28 @@
       "embeddings": "एम्बेडिंग",
       "voices": "वॉयस",
       "reset": "रीसेट करें",
-      "guides": "गाइड"
+      "guides": "गाइड",
+      "memory": "मेमोरी",
+      "shortcuts": "शॉर्टकट"
+    },
+    "memory": {
+      "title": "प्रासंगिक मेमोरी",
+      "beta_badge": "बीटा",
+      "description": "व्यक्तिगत प्रतिक्रियाएँ प्रदान करने के लिए AI को पिछली बातचीत के विवरण याद रखने की अनुमति दें।",
+      "enable": {
+        "label": "मेमोरी सक्षम करें",
+        "description": "सक्षम होने पर, चैट इतिहास स्थानीय रूप से संग्रहीत किया जाता है और संदर्भ प्रदान करने के लिए उपयोग किया जाता है।"
+      },
+      "clear": {
+        "label": "मेमोरी साफ़ करें",
+        "description": "सभी संग्रहीत चैट यादें हटाएँ।",
+        "button": "चैट मेमोरी साफ़ करें",
+        "button_clearing": "साफ़ कर रहा है...",
+        "confirm_dialog": "क्या आप वाकई सभी चैट मेमोरी साफ़ करना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।",
+        "success": "चैट मेमोरी सफलतापूर्वक साफ़ की गई।",
+        "error": "मेमोरी साफ़ करने में विफल।",
+        "usage": "उपयोग: {{count}} आइटम ({{size}} MB कुल)"
+      }
     },
     "page": {
       "title": "Ollama क्लाइंट सेटिंग्स",

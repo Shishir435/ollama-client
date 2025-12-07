@@ -13,6 +13,7 @@ import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
+import { processKnowledge } from "@/lib/knowledge"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   EmbeddingConfig,
@@ -104,7 +105,80 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           // Generate embeddings if enabled
           if (config.autoEmbedFiles && embeddingConfig) {
             try {
-              // Chunk the text (non-blocking)
+              // Check if using new knowledge processor (enhanced text splitters)
+              const useNewProcessor =
+                embeddingConfig.useEnhancedChunking || false
+
+              if (useNewProcessor) {
+                // Use new knowledge processor with enhanced text splitters
+                console.log(
+                  `Processing file "${file.name}" with enhanced knowledge system`
+                )
+
+                const processResult = await processKnowledge({
+                  fileId: result.metadata.fileId || file.name,
+                  fileName: result.metadata.fileName,
+                  content: result.text,
+                  contentType: file.type || "text/plain",
+                  onProgress: (progress) => {
+                    if (
+                      config.showEmbeddingProgress &&
+                      progress.status === "processing"
+                    ) {
+                      const progressPercent =
+                        progress.totalChunks > 0
+                          ? Math.round(
+                              (progress.processedChunks /
+                                progress.totalChunks) *
+                                100
+                            )
+                          : 0
+
+                      setProcessingStates((prev) => {
+                        const next = new Map(prev)
+                        next.set(file, {
+                          file,
+                          status: "processing",
+                          progress: progressPercent,
+                          result
+                        })
+                        return next
+                      })
+                    }
+                  }
+                })
+
+                if (processResult.success) {
+                  console.log(
+                    `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`
+                  )
+                } else {
+                  console.error(
+                    `Failed to process "${file.name}":`,
+                    processResult.error
+                  )
+                }
+
+                // Mark as complete
+                if (config.showEmbeddingProgress) {
+                  setProcessingStates((prev) => {
+                    const next = new Map(prev)
+                    next.set(file, {
+                      file,
+                      status: processResult.success ? "success" : "error",
+                      progress: 100,
+                      error: processResult.error,
+                      result
+                    })
+                    return next
+                  })
+                }
+
+                // Skip old chunking system
+                continue
+              }
+
+              // Use old chunking system (backward compatibility)
               const chunks = await chunkTextAsync(result.text, {
                 chunkSize: embeddingConfig.chunkSize,
                 chunkOverlap: embeddingConfig.chunkOverlap,

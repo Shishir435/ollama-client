@@ -12,19 +12,16 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
+
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
+import {
+  RAGSettings,
+  TextSplittingSettings
+} from "@/features/knowledge/components"
 import { FormSectionCard } from "@/features/model/components/form-section-card"
 import {
-  type ChunkingStrategy,
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
   STORAGE_KEYS
@@ -36,6 +33,7 @@ import {
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
 import {
+  BookOpen,
   Database,
   MessageSquare,
   Scissors,
@@ -317,112 +315,7 @@ export const EmbeddingConfigSettings = memo(() => {
         icon={Scissors}
         title={t("model.embedding_config.chunking_title")}
         description={t("model.embedding_config.chunking_description")}>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="chunkSize">
-              {t("model.embedding_config.chunk_size_label")}
-            </Label>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={[config.chunkSize]}
-                onValueChange={([value]) => updateConfig({ chunkSize: value })}
-                min={100}
-                max={2000}
-                step={50}
-                className="flex-1"
-              />
-              <Input
-                id="chunkSize"
-                type="number"
-                value={config.chunkSize}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val) && val >= 100 && val <= 2000) {
-                    updateConfig({ chunkSize: val })
-                  }
-                }}
-                className="w-24"
-                min={100}
-                max={2000}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>100</span>
-              <span>2000</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.chunk_size_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="chunkOverlap">
-              {t("model.embedding_config.chunk_overlap_label")}
-            </Label>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={[config.chunkOverlap]}
-                onValueChange={([value]) =>
-                  updateConfig({ chunkOverlap: value })
-                }
-                min={0}
-                max={500}
-                step={25}
-                className="flex-1"
-              />
-              <Input
-                id="chunkOverlap"
-                type="number"
-                value={config.chunkOverlap}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10)
-                  if (!Number.isNaN(val) && val >= 0 && val <= 500) {
-                    updateConfig({ chunkOverlap: val })
-                  }
-                }}
-                className="w-24"
-                min={0}
-                max={500}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span>500</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.chunk_overlap_description")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="chunkingStrategy">
-              {t("model.embedding_config.chunking_strategy_label")}
-            </Label>
-            <Select
-              value={config.chunkingStrategy}
-              onValueChange={(value: ChunkingStrategy) =>
-                updateConfig({ chunkingStrategy: value })
-              }>
-              <SelectTrigger id="chunkingStrategy">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fixed">
-                  {t("model.embedding_config.strategy_fixed")}
-                </SelectItem>
-                <SelectItem value="semantic">
-                  {t("model.embedding_config.strategy_semantic")}
-                </SelectItem>
-                <SelectItem value="hybrid">
-                  {t("model.embedding_config.strategy_hybrid")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {t("model.embedding_config.chunking_strategy_description")}
-            </p>
-          </div>
-        </div>
+        <TextSplittingSettings />
       </FormSectionCard>
 
       {/* Embedding Generation Settings */}
@@ -489,6 +382,14 @@ export const EmbeddingConfigSettings = memo(() => {
             />
           </div>
         </div>
+      </FormSectionCard>
+
+      {/* RAG Settings */}
+      <FormSectionCard
+        icon={BookOpen}
+        title={t("model.embedding_config.rag_settings_title")}
+        description={t("model.embedding_config.rag_settings_description")}>
+        <RAGSettings />
       </FormSectionCard>
 
       {/* Limits Settings */}

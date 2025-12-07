@@ -95,7 +95,10 @@
       "switch_model": "切换模型",
       "chars": "字符",
       "enter_to_send": "发送",
-      "enter_key": "回车"
+      "enter_key": "回车",
+      "rag_toggle_on": "RAG+",
+      "rag_toggle_off": "RAG",
+      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文"
     },
     "actions": {
       "copy": "复制",
@@ -113,6 +116,17 @@
       "generated_tokens": "生成 Token 数",
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间"
+    },
+    "session_metrics": {
+      "total_tokens": "{{value}} 令牌",
+      "prompt_tokens": "{{value}} 提示",
+      "generated_tokens": "{{value}} 生成",
+      "avg_speed": "{{speed}} t/s",
+      "messages": "{{value}} 条消息",
+      "tooltip_tokens": "此会话使用的总令牌数",
+      "tooltip_time": "总响应生成时间",
+      "tooltip_speed": "平均生成速度",
+      "tooltip_messages": "AI响应数量"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -326,7 +340,16 @@
       "cache_ttl_label": "搜索缓存 TTL (分钟)",
       "cache_ttl_description": "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
       "cache_max_size_label": "最大缓存查询数",
-      "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。"
+      "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。",
+      "enhanced_chunking_label": "增强分块",
+      "enhanced_chunking_description": "使用高级递归字符分割以获得更好的上下文",
+      "enhanced_chunking_info": "增强分块以分层方式分割文本（段落 → 句子 → 单词）以保留语义。建议用于 RAG。",
+      "rag_settings_title": "RAG（检索增强生成）",
+      "rag_settings_description": "配置如何使用文件以检索上下文来回答问题",
+      "rag_enable_label": "启用 RAG",
+      "rag_enable_description": "使用检索上下文来回答有关您文件的问题",
+      "rag_system_prompt_label": "RAG 系统提示",
+      "rag_system_prompt_description": "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。"
     }
   },
   "prompts": {
@@ -388,6 +411,50 @@
     }
   },
   "settings": {
+    "chat_display": {
+      "title": "聊天显示",
+      "description": "配置聊天信息的显示方式",
+      "session_metrics_label": "显示会话指标",
+      "session_metrics_description": "在聊天输入框上方显示令牌使用量、时长和速度"
+    },
+    "shortcuts": {
+      "title": "键盘快捷键",
+      "description": "自定义键盘快捷键以快速访问功能。",
+      "recording": "请按键...",
+      "reset_one": "重置为默认",
+      "reset_all": "重置所有快捷键",
+      "conflict_warning": "\"{{key}}\" 已被 \"{{existing}}\" 使用",
+      "category_navigation": "导航",
+      "category_navigation_desc": "在界面中导航",
+      "category_actions": "操作",
+      "category_actions_desc": "执行常见任务",
+      "category_toggles": "切换",
+      "category_toggles_desc": "开启/关闭功能",
+      "new_chat": "新聊天",
+      "new_chat_desc": "创建新的聊天会话",
+      "focus_input": "聚焦输入",
+      "focus_input_desc": "聚焦到聊天输入框",
+      "toggle_sidebar": "切换侧边栏",
+      "toggle_sidebar_desc": "打开或关闭侧边栏",
+      "stop_generation": "停止生成",
+      "stop_generation_desc": "停止AI响应",
+      "open_settings": "打开设置",
+      "open_settings_desc": "打开设置页面",
+      "toggle_theme": "切换主题",
+      "toggle_theme_desc": "在浅色和深色模式之间切换",
+      "toggle_rag": "切换RAG",
+      "toggle_rag_desc": "启用或禁用上下文检索",
+      "toggle_speech": "切换语音",
+      "toggle_speech_desc": "开始或停止朗读最后一条AI响应",
+      "toggle_tabs": "切换标签页",
+      "toggle_tabs_desc": "启用或禁用标签页访问",
+      "search_messages": "搜索消息",
+      "search_messages_desc": "打开语义聊天搜索",
+      "clear_chat": "清除聊天",
+      "clear_chat_desc": "清除当前聊天会话",
+      "copy_last_response": "复制最后响应",
+      "copy_last_response_desc": "复制最后一条AI响应到剪贴板"
+    },
     "content_extraction": {
       "title": "内容提取",
       "description": "配置所有网站的默认内容提取行为。",
@@ -599,7 +666,28 @@
       "embeddings": "嵌入",
       "voices": "声音",
       "reset": "重置",
-      "guides": "指南"
+      "guides": "指南",
+      "memory": "记忆",
+      "shortcuts": "快捷键"
+    },
+    "memory": {
+      "title": "上下文记忆",
+      "beta_badge": "测试版",
+      "description": "允许 AI 记住过去对话的细节，以提供个性化的回复。",
+      "enable": {
+        "label": "启用记忆",
+        "description": "启用后，聊天记录将存储在本地并用于提供上下文。"
+      },
+      "clear": {
+        "label": "清除记忆",
+        "description": "删除所有存储的聊天记忆。",
+        "button": "清除聊天记忆",
+        "button_clearing": "清除中...",
+        "confirm_dialog": "您确定要清除所有聊天记忆吗？此操作无法撤销。",
+        "success": "聊天记忆已成功清除。",
+        "error": "清除记忆失败。",
+        "usage": "使用情况：{{count}} 个项目（共 {{size}} MB）"
+      }
     },
     "page": {
       "title": "Ollama 客户端设置",
