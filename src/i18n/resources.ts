@@ -839,7 +839,19 @@ export const resources = {
             title: "Brauchen Sie Hilfe?",
             description:
               "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
-          }
+          },
+          crashApp: "App abstürzen lassen (Test)",
+          confirmCrash:
+            "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
+          manualCrashError:
+            "Manueller Absturztest aus den Entwicklereinstellungen"
+        },
+        errorBoundary: {
+          title: "Etwas ist schiefgelaufen",
+          description:
+            "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
+          exportLogs: "Protokolle exportieren",
+          reload: "Neu laden"
         },
         embeddings: {
           title: "Vektor-Embeddings",
@@ -1877,6 +1889,10 @@ export const resources = {
             description:
               "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
           },
+          crashApp: "Crash App (Test)",
+          confirmCrash:
+            "This will crash the application to test the Error Boundary. Are you sure?",
+          manualCrashError: "Manual Crash Test from Developer Settings",
           logViewer: {
             title: "Log Viewer",
             description: "Showing {{count}} of {{total}} logs",
@@ -2095,6 +2111,13 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Report Bug / Feature"
+      },
+      errorBoundary: {
+        title: "Something went wrong",
+        description:
+          "An unexpected error occurred. We've logged this issue internally.",
+        exportLogs: "Export Logs",
+        reload: "Reload"
       }
     }
   },
@@ -2845,6 +2868,42 @@ export const resources = {
           memory: "Memoria",
           shortcuts: "Atajos"
         },
+        developer: {
+          title: "Configuración de Desarrollador",
+          description: "Configurar opciones de registro y depuración",
+          logLevel: "Nivel de Registro",
+          logLevelDescription:
+            "Establecer el nivel mínimo de registros a capturar.",
+          enableLogger: "Habilitar Registro",
+          enableLoggerDescription:
+            "Desactivar para mejorar el rendimiento si es necesario",
+          persistLogs: "Persistir registros en IndexedDB",
+          persistLogsDescription:
+            "Almacenar registros para persistencia (recomendado)",
+          viewLogs: "Ver Registros",
+          exportLogs: "Exportar Registros",
+          clearLogs: "Borrar Registros",
+          confirmClear:
+            "¿Estás seguro de que quieres borrar todos los registros?",
+          bufferSize: "Búfer: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "¿Necesitas ayuda?",
+            description:
+              "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
+          },
+          crashApp: "Colgar App (Prueba)",
+          confirmCrash:
+            "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
+          manualCrashError:
+            "Prueba de bloqueo manual desde configuración de desarrollador"
+        },
+        errorBoundary: {
+          title: "Algo salió mal",
+          description:
+            "Ocurrió un error inesperado. Hemos registrado este problema internamente.",
+          exportLogs: "Exportar registros",
+          reload: "Recargar"
+        },
         memory: {
           title: "Memoria Contextual",
           beta_badge: "Beta",
@@ -3036,16 +3095,16 @@ export const resources = {
           title: "Restablecer Ajustes",
           description:
             "Borra los datos almacenados por módulo o restablece todo a los valores predeterminados",
-          danger_zone: {
-            title: "Zona de Peligro",
-            description: "Esto borrará todos los datos y no se puede deshacer",
-            button: "Restablecer Todo"
-          },
           dialog: {
             title: "Confirmar Restablecimiento",
             description: "Esto borrará todos los datos y no se puede deshacer.",
             confirm: "Sí, Restablecer Todo",
             cancel: "Cancelar"
+          },
+          danger_zone: {
+            title: "Zona de Peligro",
+            description: "Esto borrará todos los datos y no se puede deshacer",
+            button: "Restablecer Todo"
           },
           modules: {
             ollama: {
@@ -3872,6 +3931,42 @@ export const resources = {
           memory: "Mémoire",
           shortcuts: "Raccourcis"
         },
+        developer: {
+          title: "Paramètres Développeur",
+          description:
+            "Configurer les options de journalisation et de débogage",
+          logLevel: "Niveau de Journalisation",
+          logLevelDescription:
+            "Définir le niveau minimum de journaux à capturer.",
+          enableLogger: "Activer la Journalisation",
+          enableLoggerDescription:
+            "Désactiver pour améliorer les performances si nécessaire",
+          persistLogs: "Persister les journaux dans IndexedDB",
+          persistLogsDescription:
+            "Stockez les journaux pour la persistance (recommandé)",
+          viewLogs: "Voir les Logs",
+          exportLogs: "Exporter les Logs",
+          clearLogs: "Effacer les Logs",
+          confirmClear: "Êtes-vous sûr de vouloir effacer tous les journaux ?",
+          bufferSize: "Tampon: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "Besoin d'aide ?",
+            description:
+              "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
+          },
+          crashApp: "Planter l'app (Test)",
+          confirmCrash:
+            "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
+          manualCrashError:
+            "Test de plantage manuel depuis les paramètres développeur"
+        },
+        errorBoundary: {
+          title: "Une erreur est survenue",
+          description:
+            "Une erreur inattendue s'est produite. Nous avons enregistré ce problème en interne.",
+          exportLogs: "Exporter les logs",
+          reload: "Recharger"
+        },
         memory: {
           title: "Mémoire Contextuelle",
           beta_badge: "Bêta",
@@ -4064,18 +4159,18 @@ export const resources = {
           title: "Réinitialiser les Paramètres",
           description:
             "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
-          danger_zone: {
-            title: "Zone de Danger",
-            description:
-              "Ceci effacera toutes les données et ne peut être annulé",
-            button: "Tout Réinitialiser"
-          },
           dialog: {
             title: "Confirmer la Réinitialisation",
             description:
               "Ceci effacera toutes les données et ne peut être annulé.",
             confirm: "Oui, Tout Réinitialiser",
             cancel: "Annuler"
+          },
+          danger_zone: {
+            title: "Zone de Danger",
+            description:
+              "Ceci effacera toutes les données et ne peut être annulé",
+            button: "Tout Réinitialiser"
           },
           modules: {
             ollama: {
@@ -4955,7 +5050,18 @@ export const resources = {
             title: "मदद चाहिए?",
             description:
               "यदि आप समस्याओं का अनुभव कर रहे हैं, तो लॉग निर्यात करें और उन्हें अपनी बग रिपोर्ट में शामिल करें। इससे हमें आपकी समस्या को तेज़ी से डीबग करने में मदद मिलती है।"
-          }
+          },
+          crashApp: "ऐप क्रैश करें (टेस्ट)",
+          confirmCrash:
+            "यह Error Boundary का परीक्षण करने के लिए एप्लिकेशन को क्रैश कर देगा। क्या आप सुनिश्चित हैं?",
+          manualCrashError: "डेवलपर सेटिंग्स से मैनुअल क्रैश टेस्ट"
+        },
+        errorBoundary: {
+          title: "कुछ गड़बड़ हो गई",
+          description:
+            "एक अप्रत्याशित त्रुटि हुई। हमने इस समस्या को आंतरिक रूप से लॉग किया है।",
+          exportLogs: "लॉग निर्यात करें",
+          reload: "रीलोड करें"
         },
         embeddings: {
           title: "वेक्टर एम्बेडिंग",
@@ -6003,7 +6109,19 @@ export const resources = {
             title: "Serve aiuto?",
             description:
               "Se riscontri problemi, esporta i log e includili nella tua segnalazione di bug. Questo ci aiuta a risolvere il problema più velocemente."
-          }
+          },
+          crashApp: "Arresta App (Test)",
+          confirmCrash:
+            "Questo farà arrestare l'applicazione per testare l'Error Boundary. Sei sicuro?",
+          manualCrashError:
+            "Test di arresto manuale dalle impostazioni sviluppatore"
+        },
+        errorBoundary: {
+          title: "Qualcosa è andato storto",
+          description:
+            "Si è verificato un errore imprevisto. Abbiamo registrato questo problema internamente.",
+          exportLogs: "Esporta Log",
+          reload: "Ricarica"
         },
         embeddings: {
           title: "Embeddings Vettoriali",
@@ -6954,6 +7072,39 @@ export const resources = {
           guides: "ガイド",
           memory: "メモリ",
           shortcuts: "ショートカット"
+        },
+        developer: {
+          title: "開発者設定",
+          description: "ログ記録とデバッグオプションを構成します",
+          logLevel: "ログレベル",
+          logLevelDescription: "記録するログの最小レベルを設定します。",
+          enableLogger: "ログ記録を有効にする",
+          enableLoggerDescription:
+            "パフォーマンスを向上させるために、必要に応じてログ記録を無効にします",
+          persistLogs: "IndexedDBにログを保存",
+          persistLogsDescription:
+            "再起動後もログを保持するためにIndexedDBに保存します（推奨）",
+          viewLogs: "ログを表示",
+          exportLogs: "ログをエクスポート",
+          clearLogs: "ログを消去",
+          confirmClear: "すべてのログを消去してもよろしいですか？",
+          bufferSize: "バッファ: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "助けが必要ですか？",
+            description:
+              "問題が発生した場合は、ログをエクスポートしてバグレポートに含めてください。これにより、問題をより迅速にデバッグできます。"
+          },
+          crashApp: "アプリをクラッシュ (テスト)",
+          confirmCrash:
+            "これはエラー境界をテストするためにアプリケーションをクラッシュさせます。よろしいですか？",
+          manualCrashError: "開発者設定からの手動クラッシュテスト"
+        },
+        errorBoundary: {
+          title: "問題が発生しました",
+          description:
+            "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+          exportLogs: "ログをエクスポート",
+          reload: "再読み込み"
         },
         memory: {
           title: "コンテキストメモリ",
@@ -8053,7 +8204,18 @@ export const resources = {
             title: "Нужна помощь?",
             description:
               "Если вы столкнулись с проблемами, экспортируйте логи и приложите их к отчету об ошибке. Это поможет нам быстрее решить проблему."
-          }
+          },
+          crashApp: "Сбой приложения (Тест)",
+          confirmCrash:
+            "Это вызовет сбой приложения для проверки Error Boundary. Вы уверены?",
+          manualCrashError: "Ручной тест сбоя из настроек разработчика"
+        },
+        errorBoundary: {
+          title: "Что-то пошло не так",
+          description:
+            "Произошла непредвиденная ошибка. Мы зарегистрировали эту проблему внутри системы.",
+          exportLogs: "Экспорт логов",
+          reload: "Перезагрузить"
         },
         embeddings: {
           title: "Векторные эмбеддинги",
@@ -9049,7 +9211,16 @@ export const resources = {
             title: "需要帮助？",
             description:
               "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
-          }
+          },
+          crashApp: "崩溃应用 (测试)",
+          confirmCrash: "这将导致应用程序崩溃以测试错误边界。您确定吗？",
+          manualCrashError: "来自开发者设置的手动崩溃测试"
+        },
+        errorBoundary: {
+          title: "出错了",
+          description: "发生了意外错误。我们已在内部记录了此问题。",
+          exportLogs: "导出日志",
+          reload: "重新加载"
         },
         embeddings: {
           title: "向量嵌入",

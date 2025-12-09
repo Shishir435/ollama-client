@@ -670,6 +670,34 @@
       "memory": "Memoria",
       "shortcuts": "Atajos"
     },
+    "developer": {
+      "title": "Configuración de Desarrollador",
+      "description": "Configurar opciones de registro y depuración",
+      "logLevel": "Nivel de Registro",
+      "logLevelDescription": "Establecer el nivel mínimo de registros a capturar.",
+      "enableLogger": "Habilitar Registro",
+      "enableLoggerDescription": "Desactivar para mejorar el rendimiento si es necesario",
+      "persistLogs": "Persistir registros en IndexedDB",
+      "persistLogsDescription": "Almacenar registros para persistencia (recomendado)",
+      "viewLogs": "Ver Registros",
+      "exportLogs": "Exportar Registros",
+      "clearLogs": "Borrar Registros",
+      "confirmClear": "¿Estás seguro de que quieres borrar todos los registros?",
+      "bufferSize": "Búfer: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "¿Necesitas ayuda?",
+        "description": "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
+      },
+      "crashApp": "Colgar App (Prueba)",
+      "confirmCrash": "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
+      "manualCrashError": "Prueba de bloqueo manual desde configuración de desarrollador"
+    },
+    "errorBoundary": {
+      "title": "Algo salió mal",
+      "description": "Ocurrió un error inesperado. Hemos registrado este problema internamente.",
+      "exportLogs": "Exportar registros",
+      "reload": "Recargar"
+    },
     "memory": {
       "title": "Memoria Contextual",
       "beta_badge": "Beta",
@@ -835,16 +863,16 @@
     "reset": {
       "title": "Restablecer Ajustes",
       "description": "Borra los datos almacenados por módulo o restablece todo a los valores predeterminados",
-      "danger_zone": {
-        "title": "Zona de Peligro",
-        "description": "Esto borrará todos los datos y no se puede deshacer",
-        "button": "Restablecer Todo"
-      },
       "dialog": {
         "title": "Confirmar Restablecimiento",
         "description": "Esto borrará todos los datos y no se puede deshacer.",
         "confirm": "Sí, Restablecer Todo",
         "cancel": "Cancelar"
+      },
+      "danger_zone": {
+        "title": "Zona de Peligro",
+        "description": "Esto borrará todos los datos y no se puede deshacer",
+        "button": "Restablecer Todo"
       },
       "modules": {
         "ollama": {

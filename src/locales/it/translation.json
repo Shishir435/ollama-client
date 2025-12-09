@@ -746,7 +746,16 @@
       "troubleshooting": {
         "title": "Serve aiuto?",
         "description": "Se riscontri problemi, esporta i log e includili nella tua segnalazione di bug. Questo ci aiuta a risolvere il problema più velocemente."
-      }
+      },
+      "crashApp": "Arresta App (Test)",
+      "confirmCrash": "Questo farà arrestare l'applicazione per testare l'Error Boundary. Sei sicuro?",
+      "manualCrashError": "Test di arresto manuale dalle impostazioni sviluppatore"
+    },
+    "errorBoundary": {
+      "title": "Qualcosa è andato storto",
+      "description": "Si è verificato un errore imprevisto. Abbiamo registrato questo problema internamente.",
+      "exportLogs": "Esporta Log",
+      "reload": "Ricarica"
     },
     "embeddings": {
       "title": "Embeddings Vettoriali",

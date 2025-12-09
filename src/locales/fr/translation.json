@@ -671,6 +671,34 @@
       "memory": "Mémoire",
       "shortcuts": "Raccourcis"
     },
+    "developer": {
+      "title": "Paramètres Développeur",
+      "description": "Configurer les options de journalisation et de débogage",
+      "logLevel": "Niveau de Journalisation",
+      "logLevelDescription": "Définir le niveau minimum de journaux à capturer.",
+      "enableLogger": "Activer la Journalisation",
+      "enableLoggerDescription": "Désactiver pour améliorer les performances si nécessaire",
+      "persistLogs": "Persister les journaux dans IndexedDB",
+      "persistLogsDescription": "Stockez les journaux pour la persistance (recommandé)",
+      "viewLogs": "Voir les Logs",
+      "exportLogs": "Exporter les Logs",
+      "clearLogs": "Effacer les Logs",
+      "confirmClear": "Êtes-vous sûr de vouloir effacer tous les journaux ?",
+      "bufferSize": "Tampon: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "Besoin d'aide ?",
+        "description": "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
+      },
+      "crashApp": "Planter l'app (Test)",
+      "confirmCrash": "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
+      "manualCrashError": "Test de plantage manuel depuis les paramètres développeur"
+    },
+    "errorBoundary": {
+      "title": "Une erreur est survenue",
+      "description": "Une erreur inattendue s'est produite. Nous avons enregistré ce problème en interne.",
+      "exportLogs": "Exporter les logs",
+      "reload": "Recharger"
+    },
     "memory": {
       "title": "Mémoire Contextuelle",
       "beta_badge": "Bêta",
@@ -836,16 +864,16 @@
     "reset": {
       "title": "Réinitialiser les Paramètres",
       "description": "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
-      "danger_zone": {
-        "title": "Zone de Danger",
-        "description": "Ceci effacera toutes les données et ne peut être annulé",
-        "button": "Tout Réinitialiser"
-      },
       "dialog": {
         "title": "Confirmer la Réinitialisation",
         "description": "Ceci effacera toutes les données et ne peut être annulé.",
         "confirm": "Oui, Tout Réinitialiser",
         "cancel": "Annuler"
+      },
+      "danger_zone": {
+        "title": "Zone de Danger",
+        "description": "Ceci effacera toutes les données et ne peut être annulé",
+        "button": "Tout Réinitialiser"
       },
       "modules": {
         "ollama": {

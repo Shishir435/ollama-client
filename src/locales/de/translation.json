@@ -746,7 +746,16 @@
       "troubleshooting": {
         "title": "Brauchen Sie Hilfe?",
         "description": "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
-      }
+      },
+      "crashApp": "App abstürzen lassen (Test)",
+      "confirmCrash": "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
+      "manualCrashError": "Manueller Absturztest aus den Entwicklereinstellungen"
+    },
+    "errorBoundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
+      "exportLogs": "Protokolle exportieren",
+      "reload": "Neu laden"
     },
     "embeddings": {
       "title": "Vektor-Embeddings",

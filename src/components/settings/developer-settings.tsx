@@ -1,4 +1,4 @@
-import { Code, Download, Eye, Trash2 } from "lucide-react"
+import { AlertCircle, Code, Download, Eye, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { LogViewerDialog } from "@/components/settings/log-viewer-dialog"
@@ -23,6 +23,11 @@ export function DeveloperSettings() {
   const [isIndexedDBEnabled, setIsIndexedDBEnabled] = useState(
     logger.isIndexedDBEnabled()
   )
+  const [shouldCrash, setShouldCrash] = useState(false)
+
+  if (shouldCrash) {
+    throw new Error(t("settings.developer.manualCrashError"))
+  }
 
   useEffect(() => {
     // Update buffer size periodically
@@ -204,6 +209,18 @@ export function DeveloperSettings() {
               className="flex-1">
               <Trash2 className="mr-2 h-4 w-4" />
               {t("settings.developer.clearLogs")}
+            </Button>
+
+            <Button
+              onClick={() => {
+                if (confirm(t("settings.developer.confirmCrash"))) {
+                  setShouldCrash(true)
+                }
+              }}
+              variant="destructive"
+              className="flex-1">
+              <AlertCircle className="mr-2 h-4 w-4" />
+              {t("settings.developer.crashApp", "Crash App (Test)")}
             </Button>
           </div>
 

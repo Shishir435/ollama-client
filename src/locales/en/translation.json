@@ -749,6 +749,9 @@
         "title": "Need Help?",
         "description": "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
       },
+      "crashApp": "Crash App (Test)",
+      "confirmCrash": "This will crash the application to test the Error Boundary. Are you sure?",
+      "manualCrashError": "Manual Crash Test from Developer Settings",
       "logViewer": {
         "title": "Log Viewer",
         "description": "Showing {{count}} of {{total}} logs",
@@ -948,5 +951,11 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Report Bug / Feature"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. We've logged this issue internally.",
+    "exportLogs": "Export Logs",
+    "reload": "Reload"
   }
 }

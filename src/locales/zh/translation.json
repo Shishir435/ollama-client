@@ -748,7 +748,16 @@
       "troubleshooting": {
         "title": "需要帮助？",
         "description": "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
-      }
+      },
+      "crashApp": "崩溃应用 (测试)",
+      "confirmCrash": "这将导致应用程序崩溃以测试错误边界。您确定吗？",
+      "manualCrashError": "来自开发者设置的手动崩溃测试"
+    },
+    "errorBoundary": {
+      "title": "出错了",
+      "description": "发生了意外错误。我们已在内部记录了此问题。",
+      "exportLogs": "导出日志",
+      "reload": "重新加载"
     },
     "embeddings": {
       "title": "向量嵌入",

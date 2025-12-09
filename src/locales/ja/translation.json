@@ -671,6 +671,34 @@
       "memory": "メモリ",
       "shortcuts": "ショートカット"
     },
+    "developer": {
+      "title": "開発者設定",
+      "description": "ログ記録とデバッグオプションを構成します",
+      "logLevel": "ログレベル",
+      "logLevelDescription": "記録するログの最小レベルを設定します。",
+      "enableLogger": "ログ記録を有効にする",
+      "enableLoggerDescription": "パフォーマンスを向上させるために、必要に応じてログ記録を無効にします",
+      "persistLogs": "IndexedDBにログを保存",
+      "persistLogsDescription": "再起動後もログを保持するためにIndexedDBに保存します（推奨）",
+      "viewLogs": "ログを表示",
+      "exportLogs": "ログをエクスポート",
+      "clearLogs": "ログを消去",
+      "confirmClear": "すべてのログを消去してもよろしいですか？",
+      "bufferSize": "バッファ: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "助けが必要ですか？",
+        "description": "問題が発生した場合は、ログをエクスポートしてバグレポートに含めてください。これにより、問題をより迅速にデバッグできます。"
+      },
+      "crashApp": "アプリをクラッシュ (テスト)",
+      "confirmCrash": "これはエラー境界をテストするためにアプリケーションをクラッシュさせます。よろしいですか？",
+      "manualCrashError": "開発者設定からの手動クラッシュテスト"
+    },
+    "errorBoundary": {
+      "title": "問題が発生しました",
+      "description": "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+      "exportLogs": "ログをエクスポート",
+      "reload": "再読み込み"
+    },
     "memory": {
       "title": "コンテキストメモリ",
       "beta_badge": "ベータ",
