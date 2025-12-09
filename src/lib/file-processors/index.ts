@@ -3,6 +3,7 @@ import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
 import { HtmlProcessor } from "@/features/file-upload/processors/html-processor"
 import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
 import { TextProcessor } from "@/features/file-upload/processors/text-processor"
+import { logger } from "@/lib/logger"
 import type { FileProcessor, ProcessedFile } from "./types"
 
 // Processor priority order: specific formats first, then generic text
@@ -18,27 +19,28 @@ const processors: FileProcessor[] = [
  * Get the appropriate processor for a file
  */
 export function getProcessor(file: File): FileProcessor | null {
-  console.log(
-    "🟡🟡🟡 [getProcessor] Finding processor for:",
-    file.name,
-    "type:",
-    file.type
-  )
+  logger.verbose("Finding processor for file", "getProcessor", {
+    fileName: file.name,
+    fileType: file.type
+  })
 
   for (const processor of processors) {
     const processorName = processor.constructor.name
-    console.log("🟡 [getProcessor] Checking:", processorName)
-
     const canProcess = processor.canProcess(file)
-    console.log("🟡 [getProcessor]", processorName, "can process?", canProcess)
+
+    logger.verbose("Checking processor", "getProcessor", {
+      processorName,
+      canProcess
+    })
 
     if (canProcess) {
-      console.log("✅ [getProcessor] Using processor:", processorName)
       return processor
     }
   }
 
-  console.log("❌ [getProcessor] No processor found for:", file.name)
+  logger.warn("No processor found for file", "getProcessor", {
+    fileName: file.name
+  })
   return null
 }
 
@@ -46,31 +48,31 @@ export function getProcessor(file: File): FileProcessor | null {
  * Process a file using the appropriate processor
  */
 export async function processFile(file: File): Promise<ProcessedFile> {
-  console.log(
-    "🔵🔵🔵 [processFile] Starting to process:",
-    file.name,
-    "type:",
-    file.type,
-    "size:",
-    file.size
-  )
+  logger.info("Starting file processing", "processFile", {
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size
+  })
 
   const processor = getProcessor(file)
 
   if (!processor) {
-    console.error(
-      "🔴 [processFile] No processor available for:",
-      file.name,
-      file.type
-    )
+    logger.error("No processor available for file", "processFile", {
+      fileName: file.name,
+      fileType: file.type
+    })
     throw new Error(
       `No processor available for file type: ${file.type || file.name}`
     )
   }
 
-  console.log("🔵 [processFile] Processing with:", processor.constructor.name)
+  logger.verbose("Processing with processor", "processFile", {
+    processorName: processor.constructor.name
+  })
   const result = await processor.process(file)
-  console.log("🔵 [processFile] Successfully processed:", file.name)
+  logger.info("Successfully processed file", "processFile", {
+    fileName: file.name
+  })
   return result
 }
 

@@ -1,4 +1,5 @@
 import MiniSearch from "minisearch"
+import { logger } from "@/lib/logger"
 import type { VectorDocument } from "./vector-store"
 
 /**
@@ -50,7 +51,9 @@ class KeywordIndexManager {
         timestamp: document.metadata.timestamp
       })
     } catch (error) {
-      console.error("[Keyword Index] Failed to add document:", error)
+      logger.error("Failed to add document to keyword index", "KeywordIndex", {
+        error
+      })
     }
   }
 
@@ -88,7 +91,7 @@ class KeywordIndexManager {
         }))
         .filter((r): r is KeywordSearchResult => r.document !== undefined)
     } catch (error) {
-      console.error("[Keyword Index] Search failed:", error)
+      logger.error("Keyword search failed", "KeywordIndex", { error })
       return []
     }
   }
@@ -107,7 +110,11 @@ class KeywordIndexManager {
         this.documents.delete(id)
       }
     } catch (error) {
-      console.error("[Keyword Index] Failed to remove document:", error)
+      logger.error(
+        "Failed to remove document from keyword index",
+        "KeywordIndex",
+        { error }
+      )
     }
   }
 
@@ -117,7 +124,7 @@ class KeywordIndexManager {
   clear(): void {
     this.index.removeAll()
     this.documents.clear()
-    console.log("[Keyword Index] Cleared")
+    logger.verbose("Keyword index cleared", "KeywordIndex")
   }
 
   /**
@@ -141,9 +148,9 @@ class KeywordIndexManager {
     documents: VectorDocument[],
     onProgress?: (current: number, total: number) => void
   ): Promise<void> {
-    console.log(
-      `[Keyword Index] Building index from ${documents.length} documents...`
-    )
+    logger.info("Building keyword index from documents", "KeywordIndex", {
+      count: documents.length
+    })
     const startTime = performance.now()
 
     this.clear()
@@ -167,9 +174,10 @@ class KeywordIndexManager {
     }
 
     const duration = performance.now() - startTime
-    console.log(
-      `[Keyword Index] Built successfully: ${documents.length} documents in ${duration.toFixed(2)}ms`
-    )
+    logger.info("Keyword index built successfully", "KeywordIndex", {
+      count: documents.length,
+      duration: `${duration.toFixed(2)}ms`
+    })
   }
 }
 

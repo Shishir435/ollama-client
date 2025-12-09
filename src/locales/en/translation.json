@@ -667,6 +667,7 @@
       "extraction": "Extraction",
       "embeddings": "Embeddings",
       "voices": "Voices",
+      "developer": "Developer",
       "reset": "Reset",
       "guides": "Guides",
       "memory": "Memory",
@@ -723,6 +724,42 @@
         "very_high": "Very High"
       }
     },
+    "developer": {
+      "title": "Developer Settings",
+      "description": "Configure logging and debugging options",
+      "logLevel": "Log Level",
+      "logLevelDescription": "Set the minimum level of logs to capture. Lower levels show more detail.",
+      "enableLogger": "Enable Logging",
+      "enableLoggerDescription": "Turn off logging to improve performance if experiencing issues",
+      "persistLogs": "Persist Logs to IndexedDB",
+      "persistLogsDescription": "Store logs in IndexedDB for persistence across browser restarts (recommended)",
+      "levels": {
+        "error": "Error Only",
+        "warn": "Warning",
+        "info": "Info (Default)",
+        "verbose": "Verbose",
+        "debug": "Debug (All)"
+      },
+      "viewLogs": "View Logs",
+      "exportLogs": "Export Logs",
+      "clearLogs": "Clear Logs",
+      "confirmClear": "Are you sure you want to clear all logs?",
+      "bufferSize": "Log buffer: {{current}} / {{max}} entries",
+      "troubleshooting": {
+        "title": "Need Help?",
+        "description": "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
+      },
+      "logViewer": {
+        "title": "Log Viewer",
+        "description": "Showing {{count}} of {{total}} logs",
+        "search": "Search logs...",
+        "allLevels": "All Levels",
+        "noLogs": "No logs to display",
+        "showData": "Show additional data",
+        "close": "Close"
+      }
+    },
+
     "embeddings": {
       "title": "Vector Embeddings",
       "beta_badge": "Beta",

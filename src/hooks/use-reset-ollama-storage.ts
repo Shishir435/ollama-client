@@ -2,6 +2,7 @@ import { useCallback } from "react"
 
 import { db } from "@/lib/db"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
@@ -31,7 +32,9 @@ export const useResetOllamaStorage = () => {
         ? "All Ollama Client data has been reset. Please reload the extension."
         : `${key} has been reset.`
     } catch (err) {
-      console.error("Failed to reset Ollama Client:", err)
+      logger.error("Failed to reset Ollama Client", "useResetOllamaStorage", {
+        error: err
+      })
       return "Failed to reset Ollama Client. Check console for details."
     }
   }, [])

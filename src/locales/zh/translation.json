@@ -667,6 +667,7 @@
       "extraction": "提取",
       "embeddings": "嵌入",
       "voices": "声音",
+      "developer": "开发者",
       "reset": "重置",
       "guides": "指南",
       "memory": "记忆",
@@ -721,6 +722,32 @@
         "normal": "正常",
         "high": "高",
         "very_high": "非常高"
+      }
+    },
+    "developer": {
+      "title": "开发者设置",
+      "description": "配置日志记录和调试选项",
+      "logLevel": "日志级别",
+      "logLevelDescription": "设置要捕获的最低日志级别。较低的级别显示更多详细信息。",
+      "enableLogger": "启用日志记录",
+      "enableLoggerDescription": "如果在遇到问题时，可以关闭日志记录以提高性能",
+      "persistLogs": "将日志保存到 IndexedDB",
+      "persistLogsDescription": "将日志存储在 IndexedDB 中，以便在浏览器重新启动后仍然保留（推荐）",
+      "levels": {
+        "error": "仅错误",
+        "warn": "警告",
+        "info": "信息 (默认)",
+        "verbose": "详细",
+        "debug": "调试 (所有)"
+      },
+      "viewLogs": "查看日志",
+      "exportLogs": "导出日志",
+      "clearLogs": "清除日志",
+      "confirmClear": "您确定要清除所有日志吗？",
+      "bufferSize": "日志缓冲区: {{current}} / {{max}} 条目",
+      "troubleshooting": {
+        "title": "需要帮助？",
+        "description": "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
       }
     },
     "embeddings": {

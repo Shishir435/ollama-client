@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { storeChatMessage } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export interface ChatMemoryPayload {
@@ -43,9 +44,11 @@ export const memoryManager = {
         chatId
       })
 
-      console.log(`[Memory] Saved chat exchange for session ${sessionId}`)
+      logger.info("Saved chat exchange for session", "memoryManager", {
+        sessionId
+      })
     } catch (error) {
-      console.error("[Memory] Failed to save chat to memory:", error)
+      logger.error("Failed to save chat to memory", "memoryManager", { error })
     }
   }
 }

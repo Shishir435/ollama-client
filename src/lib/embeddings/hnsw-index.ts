@@ -5,6 +5,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { vectorDb } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 /**
@@ -184,7 +185,7 @@ class HNSWIndexManager {
    */
   async initialize(dimension: number): Promise<void> {
     this.index.initialize(dimension)
-    console.log(`[Vector Index] Initialized (dimension: ${dimension})`)
+    logger.info("Vector Index Initialized", "HNSWIndex", { dimension })
   }
 
   /**
@@ -194,7 +195,7 @@ class HNSWIndexManager {
     onProgress?: (current: number, total: number) => void
   ): Promise<void> {
     if (this.isBuilding) {
-      console.warn("[Vector Index] Build already in progress")
+      logger.warn("Vector Index build already in progress", "HNSWIndex")
       return
     }
 
@@ -202,13 +203,13 @@ class HNSWIndexManager {
     this.buildProgress = 0
 
     try {
-      console.log("[Vector Index] Starting index build...")
+      logger.info("Starting vector index build", "HNSWIndex")
       const startTime = performance.now()
 
       const allVectors = await vectorDb.vectors.toArray()
 
       if (allVectors.length === 0) {
-        console.log("[Vector Index] No vectors to index")
+        logger.info("No vectors to index", "HNSWIndex")
         this.isBuilding = false
         return
       }
@@ -237,11 +238,12 @@ class HNSWIndexManager {
       }
 
       const duration = performance.now() - startTime
-      console.log(
-        `[Vector Index] Built successfully: ${allVectors.length} vectors in ${duration.toFixed(2)}ms`
-      )
+      logger.info("Vector Index built successfully", "HNSWIndex", {
+        count: allVectors.length,
+        duration: `${duration.toFixed(2)}ms`
+      })
     } catch (error) {
-      console.error("[Vector Index] Build failed:", error)
+      logger.error("Vector Index build failed", "HNSWIndex", { error })
       throw error
     } finally {
       this.isBuilding = false
@@ -256,7 +258,7 @@ class HNSWIndexManager {
     try {
       this.index.addVector(id, embedding)
     } catch (error) {
-      console.error("[Vector Index] Failed to add vector:", error)
+      logger.error("Failed to add vector to index", "HNSWIndex", { error })
     }
   }
 
@@ -277,7 +279,7 @@ class HNSWIndexManager {
   async clearIndex(): Promise<void> {
     this.index.clear()
     await hnswIndexDb.hnswIndex.clear()
-    console.log("[Vector Index] Cleared")
+    logger.verbose("Vector Index cleared", "HNSWIndex")
   }
 
   /**

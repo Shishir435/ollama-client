@@ -1,5 +1,6 @@
 import { generateEmbeddingsBatch } from "@/lib/embeddings/ollama-embedder"
 import { storeVector } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import type { ChromeMessage, ChromePort, ChromeResponse } from "@/types"
 
 export interface EmbedChunksPayload {
@@ -54,7 +55,11 @@ export const handleEmbedFileChunks = async (
             totalChunks: payload.chunks.length
           })
         } catch (e) {
-          console.warn("Failed to store vector for chunk", chunk.index, e)
+          logger.warn(
+            "Failed to store vector for chunk",
+            "handleEmbedFileChunks",
+            { chunkIndex: chunk.index, error: e }
+          )
         }
       }
     }
@@ -160,7 +165,11 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
                 totalChunks: totalChunks
               })
             } catch (e) {
-              console.warn("Failed to store vector for chunk", chunk.index, e)
+              logger.warn(
+                "Failed to store vector for chunk",
+                "handleEmbedFileChunksPort",
+                { chunkIndex: chunk.index, error: e }
+              )
             }
           }
           processed++

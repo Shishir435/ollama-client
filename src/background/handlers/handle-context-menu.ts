@@ -1,5 +1,6 @@
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_CONTEXT_MENU_ID, MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromeSidePanel } from "@/types"
 
 export const initializeContextMenu = () => {
@@ -11,9 +12,12 @@ export const initializeContextMenu = () => {
     },
     () => {
       if (browser.runtime.lastError) {
-        console.log(
-          "Context menu item already exists or error:",
-          browser.runtime.lastError.message
+        logger.verbose(
+          "Context menu already exists or error",
+          "initializeContextMenu",
+          {
+            error: browser.runtime.lastError.message
+          }
         )
       }
     }
@@ -26,14 +30,11 @@ export const initializeContextMenu = () => {
         const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
           .sidePanel
         if (sidePanel.open && tab?.windowId) {
-          sidePanel
-            .open({ windowId: tab.windowId })
-            .catch((err: unknown) =>
-              console.error(
-                "Failed to open sidepanel:",
-                err instanceof Error ? err.message : String(err)
-              )
-            )
+          sidePanel.open({ windowId: tab.windowId }).catch((err: unknown) =>
+            logger.error("Failed to open sidepanel", "initializeContextMenu", {
+              error: err instanceof Error ? err.message : String(err)
+            })
+          )
         }
       }
 
@@ -44,7 +45,11 @@ export const initializeContextMenu = () => {
           fromBackground: true
         })
         .catch((err) => {
-          console.log("Could not send selection to chat:", err)
+          logger.warn(
+            "Could not send selection to chat",
+            "initializeContextMenu",
+            { error: err }
+          )
         })
     }
   })

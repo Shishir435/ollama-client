@@ -7,6 +7,7 @@ import { memoryManager } from "@/background/lib/memory-manager"
 import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { retrieveContext } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatMessage,
@@ -57,9 +58,10 @@ export const handleChatWithModel = async (
       STORAGE_KEYS.MEMORY.ENABLED
     )
 
-    console.log(
-      `[Memory] Enabled: ${isMemoryEnabled}, Messages: ${messages.length}`
-    )
+    logger.verbose("Memory status check", "handleChatWithModel", {
+      isMemoryEnabled,
+      messageCount: messages.length
+    })
 
     if (isMemoryEnabled && messages.length > 0) {
       const lastUserMessage = messages[messages.length - 1]
@@ -70,7 +72,13 @@ export const handleChatWithModel = async (
         )
 
         if (context.length > 0) {
-          console.log(`[Memory] Injected ${context.length} past context items`)
+          logger.info(
+            `Injected ${context.length} past context items`,
+            "handleChatWithModel",
+            {
+              contextCount: context.length
+            }
+          )
           const contextString = context.map((c) => `- ${c}`).join("\n")
           const systemContext = `
 

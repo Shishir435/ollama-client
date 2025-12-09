@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type {
   ContentExtractionConfig,
   ExtractionLogEntry,
@@ -306,14 +307,18 @@ export const extractContentWithLoading = async (
 
   const errors: string[] = []
 
-  console.log(`[Content Extraction] Starting extraction for ${site}`)
-  console.log(`[Content Extraction] Config:`, config)
-  console.log(`[Content Extraction] Detected patterns:`, detectedPatterns)
+  logger.info("Starting content extraction", "extractContentWithLoading", {
+    site
+  })
+  logger.verbose("Extraction config", "extractContentWithLoading", { config })
+  logger.verbose("Detected patterns", "extractContentWithLoading", {
+    detectedPatterns
+  })
 
   try {
     // Step 1: Wait for initial page load
     if (document.readyState !== "complete") {
-      console.log("[Content Extraction] Waiting for page load...")
+      logger.verbose("Waiting for page load", "extractContentWithLoading")
       await new Promise((resolve) => {
         if (document.readyState === "complete") {
           resolve(undefined)
@@ -327,55 +332,61 @@ export const extractContentWithLoading = async (
 
     // Step 2: Scroll and trigger lazy loading
     if (config.scrollStrategy !== "none" && config.enabled) {
-      console.log(
-        `[Content Extraction] Executing scroll strategy: ${config.scrollStrategy}`
-      )
+      logger.verbose("Executing scroll strategy", "extractContentWithLoading", {
+        strategy: config.scrollStrategy
+      })
       try {
         metrics.scrollSteps = await scrollStrategies[config.scrollStrategy](
           config.scrollDepth,
           config.scrollDelay,
           (progress) => {
-            console.log(
-              `[Content Extraction] Scroll progress: ${(progress * 100).toFixed(0)}%`
-            )
+            logger.verbose("Scroll progress", "extractContentWithLoading", {
+              percent: (progress * 100).toFixed(0)
+            })
           }
         )
       } catch (error) {
         const errorMsg = `Scroll error: ${error instanceof Error ? error.message : String(error)}`
         errors.push(errorMsg)
-        console.error(`[Content Extraction] ${errorMsg}`)
+        logger.error("Scroll error", "extractContentWithLoading", {
+          error: errorMsg
+        })
       }
     }
 
     // Step 3: Monitor DOM mutations
     if (config.mutationObserverTimeout > 0 && config.enabled) {
-      console.log("[Content Extraction] Monitoring DOM mutations...")
+      logger.verbose("Monitoring DOM mutations", "extractContentWithLoading")
       try {
         metrics.mutationsDetected = await observeDOMChanges(
           config.mutationObserverTimeout,
           (mutations) => {
-            console.log(
-              `[Content Extraction] Detected ${mutations.length} mutations`
-            )
+            logger.verbose("Detected mutations", "extractContentWithLoading", {
+              count: mutations.length
+            })
           }
         )
       } catch (error) {
         const errorMsg = `Mutation observer error: ${error instanceof Error ? error.message : String(error)}`
         errors.push(errorMsg)
-        console.error(`[Content Extraction] ${errorMsg}`)
+        logger.error("Mutation observer error", "extractContentWithLoading", {
+          error: errorMsg
+        })
       }
     }
 
     // Step 4: Wait for network idle
     if (config.networkIdleTimeout > 0 && config.enabled) {
-      console.log("[Content Extraction] Waiting for network idle...")
+      logger.verbose("Waiting for network idle", "extractContentWithLoading")
       try {
         await waitForNetworkIdle(config.networkIdleTimeout)
-        console.log("[Content Extraction] Network idle detected")
+        logger.verbose("Network idle detected", "extractContentWithLoading")
       } catch (error) {
         const errorMsg = `Network idle error: ${error instanceof Error ? error.message : String(error)}`
         errors.push(errorMsg)
-        console.error(`[Content Extraction] ${errorMsg}`)
+        logger.error("Network idle error", "extractContentWithLoading", {
+          error: errorMsg
+        })
       }
     }
 
@@ -400,10 +411,10 @@ export const extractContentWithLoading = async (
     }
 
     // Log comprehensive metrics
-    console.log(
-      `[Content Extraction] Extraction completed in ${metrics.duration}ms`
-    )
-    console.log(`[Content Extraction] Metrics:`, {
+    logger.info("Extraction completed", "extractContentWithLoading", {
+      duration: `${metrics.duration}ms`
+    })
+    logger.verbose("Extraction metrics", "extractContentWithLoading", {
       duration: `${metrics.duration}ms`,
       scrollSteps: metrics.scrollSteps,
       mutationsDetected: metrics.mutationsDetected,
@@ -439,7 +450,9 @@ export const extractContentWithLoading = async (
   } catch (error) {
     const errorMsg = `Extraction error: ${error instanceof Error ? error.message : String(error)}`
     errors.push(errorMsg)
-    console.error(`[Content Extraction] ${errorMsg}`)
+    logger.error("Extraction error", "extractContentWithLoading", {
+      error: errorMsg
+    })
 
     metrics.endTime = Date.now()
     metrics.duration = metrics.endTime - metrics.startTime

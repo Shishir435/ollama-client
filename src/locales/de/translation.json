@@ -665,6 +665,7 @@
       "extraction": "Extraktion",
       "embeddings": "Embeddings",
       "voices": "Sprachausgaben",
+      "developer": "Entwickler",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
@@ -719,6 +720,32 @@
         "normal": "Normal",
         "high": "Hoch",
         "very_high": "Sehr hoch"
+      }
+    },
+    "developer": {
+      "title": "Entwicklereinstellungen",
+      "description": "Konfigurieren Sie Protokollierungs- und Debugging-Optionen",
+      "logLevel": "Protokollierungsgrad",
+      "logLevelDescription": "Legen Sie das Mindestniveau der zu erfassenden Protokolle fest. Niedrigere Stufen zeigen mehr Details.",
+      "enableLogger": "Protokollierung aktivieren",
+      "enableLoggerDescription": "Schalten Sie die Protokollierung aus, um die Leistung zu verbessern, wenn Probleme auftreten",
+      "persistLogs": "Protokolle in IndexedDB speichern",
+      "persistLogsDescription": "Speichern Sie Protokolle in IndexedDB für Persistenz über Browser-Neustarts hinweg (empfohlen)",
+      "levels": {
+        "error": "Nur Fehler",
+        "warn": "Warnung",
+        "info": "Info (Standard)",
+        "verbose": "Ausführlich",
+        "debug": "Debug (Alle)"
+      },
+      "viewLogs": "Protokolle anzeigen",
+      "exportLogs": "Protokolle exportieren",
+      "clearLogs": "Protokolle löschen",
+      "confirmClear": "Sind Sie sicher, dass Sie alle Protokolle löschen möchten?",
+      "bufferSize": "Protokollpuffer: {{current}} / {{max}} Einträge",
+      "troubleshooting": {
+        "title": "Brauchen Sie Hilfe?",
+        "description": "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
       }
     },
     "embeddings": {

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
 import { PerformanceWarning } from "@/components/performance-warning"
+import { DeveloperSettings } from "@/components/settings/developer-settings"
 import { SocialHandles } from "@/components/social-handles"
 import {
   Card,
@@ -11,7 +12,6 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { MiniBadge } from "@/components/ui/mini-badge"
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
@@ -78,6 +78,10 @@ export const OllamaOptions = () => {
     voices: {
       label: t("settings.tabs.voices"),
       content: <SpeechSettings />
+    },
+    developer: {
+      label: t("settings.tabs.developer"),
+      content: <DeveloperSettings />
     },
     reset: {
       label: t("settings.tabs.reset"),

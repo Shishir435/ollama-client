@@ -665,6 +665,7 @@
       "extraction": "Estrazione",
       "embeddings": "Embeddings",
       "voices": "Voci",
+      "developer": "Sviluppatore",
       "reset": "Reset",
       "guides": "Guide",
       "memory": "Memoria",
@@ -719,6 +720,32 @@
         "normal": "Normale",
         "high": "Alto",
         "very_high": "Molto Alto"
+      }
+    },
+    "developer": {
+      "title": "Impostazioni sviluppatore",
+      "description": "Configura le opzioni di logging e debug",
+      "logLevel": "Livello di logging",
+      "logLevelDescription": "Imposta il livello minimo di log da catturare. I livelli più bassi mostrano più dettagli.",
+      "enableLogger": "Abilita logging",
+      "enableLoggerDescription": "Disattiva il logging per migliorare le prestazioni in caso di problemi",
+      "persistLogs": "Salva log su IndexedDB",
+      "persistLogsDescription": "Salva i log su IndexedDB per la persistenza tra i riavvii del browser (consigliato)",
+      "levels": {
+        "error": "Solo errori",
+        "warn": "Avviso",
+        "info": "Info (Predefinito)",
+        "verbose": "Prolisso",
+        "debug": "Debug (Tutto)"
+      },
+      "viewLogs": "Visualizza log",
+      "exportLogs": "Esporta log",
+      "clearLogs": "Cancella log",
+      "confirmClear": "Sei sicuro di voler cancellare tutti i log?",
+      "bufferSize": "Buffer log: {{current}} / {{max}} voci",
+      "troubleshooting": {
+        "title": "Serve aiuto?",
+        "description": "Se riscontri problemi, esporta i log e includili nella tua segnalazione di bug. Questo ci aiuta a risolvere il problema più velocemente."
       }
     },
     "embeddings": {

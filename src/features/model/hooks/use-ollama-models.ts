@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromeResponse, OllamaModel } from "@/types"
 
 export const useOllamaModels = () => {
@@ -28,7 +29,7 @@ export const useOllamaModels = () => {
         setModels(null)
       }
     } catch (error) {
-      console.error("Failed to fetch models:", error)
+      logger.error("Failed to fetch models", "useOllamaModels", { error })
       setError(
         "Failed to fetch models. Ensure Ollama is running or check the base URL."
       )
@@ -50,13 +51,16 @@ export const useOllamaModels = () => {
           prev ? prev.filter((model) => model.name !== modelName) : null
         )
       } else {
-        console.error(
-          `Failed to delete model "${modelName}":`,
-          response?.error?.message
-        )
+        logger.error("Failed to delete model", "useOllamaModels", {
+          modelName,
+          error: response?.error?.message
+        })
       }
     } catch (error) {
-      console.error(`Failed to delete model "${modelName}":`, error)
+      logger.error("Failed to delete model", "useOllamaModels", {
+        modelName,
+        error
+      })
     }
   }
 
@@ -73,7 +77,9 @@ export const useOllamaModels = () => {
         setVersion(null)
       }
     } catch (error) {
-      console.error("Failed to fetch Ollama version:", error)
+      logger.error("Failed to fetch Ollama version", "useOllamaModels", {
+        error
+      })
       setVersionError("Failed to fetch Ollama version.")
       setVersion(null)
     }

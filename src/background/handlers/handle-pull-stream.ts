@@ -3,6 +3,7 @@ import {
   getPullAbortControllerKey,
   safePostMessage
 } from "@/background/lib/utils"
+import { logger } from "@/lib/logger"
 import type {
   ChromePort,
   OllamaPullResponse,
@@ -15,7 +16,7 @@ export const handlePullStream = async (
   isPortClosed: PortStatusFunction,
   modelName: string
 ): Promise<void> => {
-  console.log("handlePullStream called for", modelName)
+  logger.info("Pull stream started", "handlePullStream", { modelName })
   if (!res.body) return
 
   const reader = res.body.getReader()
@@ -29,7 +30,11 @@ export const handlePullStream = async (
       if (done) break
 
       if (isPortClosed()) {
-        reader.cancel().catch(console.error)
+        reader.cancel().catch((err) =>
+          logger.error("Failed to cancel reader", "handlePullStream", {
+            error: err
+          })
+        )
         break
       }
 
@@ -68,7 +73,10 @@ export const handlePullStream = async (
             })
           }
         } catch (parseError) {
-          console.warn("Failed to parse line:", trimmedLine, parseError)
+          logger.warn("Failed to parse line", "handlePullStream", {
+            line: trimmedLine,
+            error: parseError
+          })
         }
       }
     }
@@ -80,7 +88,10 @@ export const handlePullStream = async (
           safePostMessage(port, { done: true })
         }
       } catch (parseError) {
-        console.warn("Failed to parse final buffer:", buffer, parseError)
+        logger.warn("Failed to parse final buffer", "handlePullStream", {
+          buffer,
+          error: parseError
+        })
       }
     }
   } finally {

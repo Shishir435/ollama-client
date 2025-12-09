@@ -1,4 +1,5 @@
 import { fromDocuments } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { getTextSplitter } from "@/lib/text-processing"
 import type { Document } from "@/lib/text-processing/types"
 
@@ -59,11 +60,12 @@ export async function processKnowledge(
     const textSplitter = await getTextSplitter()
 
     // 3. Split document into chunks
-    console.log(`[Knowledge Processor] Splitting document: ${fileName}`)
+    logger.verbose("Splitting document", "processKnowledge", { fileName })
     const chunks = await textSplitter.splitDocuments([document])
-    console.log(
-      `[Knowledge Processor] Created ${chunks.length} chunks from ${fileName}`
-    )
+    logger.verbose("Created chunks from document", "processKnowledge", {
+      fileName,
+      chunkCount: chunks.length
+    })
 
     // Update progress with total chunks
     onProgress?.({
@@ -75,7 +77,9 @@ export async function processKnowledge(
     })
 
     // 4. Store chunks with embeddings
-    console.log(`[Knowledge Processor] Storing embeddings for ${fileName}`)
+    logger.verbose("Storing embeddings for document", "processKnowledge", {
+      fileName
+    })
     const result = await fromDocuments(chunks, fileId)
 
     // Report completion
@@ -87,9 +91,10 @@ export async function processKnowledge(
       totalChunks: chunks.length
     })
 
-    console.log(
-      `[Knowledge Processor] Successfully processed ${fileName}: ${result.vectorIds.length} vectors stored`
-    )
+    logger.info("Successfully processed document", "processKnowledge", {
+      fileName,
+      vectorCount: result.vectorIds.length
+    })
 
     return {
       success: true,
@@ -99,10 +104,10 @@ export async function processKnowledge(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
 
-    console.error(
-      `[Knowledge Processor] Error processing ${fileName}:`,
-      errorMessage
-    )
+    logger.error("Error processing document", "processKnowledge", {
+      fileName,
+      error: errorMessage
+    })
 
     // Report error
     onProgress?.({

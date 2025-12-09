@@ -1,4 +1,5 @@
 import { dsvFormat } from "d3-dsv"
+import { logger } from "@/lib/logger"
 import type { CsvLoaderOptions, DocumentLoader, LoaderDocument } from "./types"
 
 /**
@@ -107,7 +108,7 @@ export class CsvLoader implements DocumentLoader {
         }
       }))
     } catch (error) {
-      console.error("[CsvLoader] Error loading CSV:", error)
+      logger.error("CSV loading error", "CsvLoader", { error })
       throw error
     }
   }

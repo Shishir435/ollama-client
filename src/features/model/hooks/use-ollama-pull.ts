@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { PullStreamMessage } from "@/types"
 
 export const useOllamaPull = () => {
@@ -10,7 +11,7 @@ export const useOllamaPull = () => {
   const portRef = useRef<browser.Runtime.Port | null>(null)
 
   const pullModel = (modelName: string) => {
-    console.log("modelName: ", modelName)
+    logger.verbose("Pull model requested", "useOllamaPull", { modelName })
     setPullingModel(modelName)
     setProgress("Starting...")
 

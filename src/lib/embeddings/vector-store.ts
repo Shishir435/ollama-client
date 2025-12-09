@@ -7,6 +7,7 @@ import {
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 /**
@@ -435,7 +436,11 @@ export const storeVector = async (
     await hnswIndexManager.addVector(id, embedding)
   } catch (error) {
     // Index might not be initialized yet, will be built on first search
-    console.debug("[HNSW] Not adding to index (not initialized):", error)
+    logger.debug(
+      "HNSW index not initialized, will be built on first search",
+      "storeVector",
+      { error }
+    )
   }
 
   // Check storage limits
@@ -480,7 +485,7 @@ export const searchSimilarVectors = async (
   const cached = searchCache.get(cacheKey)
   const { ttl } = await getCacheConfig()
   if (cached && Date.now() - cached.timestamp < ttl) {
-    console.log("[Search] Returning cached results")
+    logger.info("Returning cached search results", "searchSimilarVectors")
     return cached.results
   }
 
@@ -521,7 +526,9 @@ export const searchSimilarVectors = async (
 
   if (useHNSW) {
     // HNSW Search Path (High Quality)
-    console.log(`[HNSW Search] Searching ${vectorCount} vectors with HNSW`)
+    logger.verbose("HNSW Search started", "searchSimilarVectors", {
+      vectorCount
+    })
     try {
       results = await searchWithHNSW(
         queryEmbedding,
@@ -530,11 +537,16 @@ export const searchSimilarVectors = async (
         query
       )
       const duration = performance.now() - startTime
-      console.log(
-        `[HNSW Search] Completed: ${results.length} results in ${duration.toFixed(2)}ms`
-      )
+      logger.info("HNSW search completed", "searchSimilarVectors", {
+        resultCount: results.length,
+        duration: `${duration.toFixed(2)}ms`
+      })
     } catch (error) {
-      console.warn("[HNSW Search] Failed, falling back to brute-force:", error)
+      logger.warn(
+        "HNSW Search failed, falling back to brute-force",
+        "searchSimilarVectors",
+        { error }
+      )
       results = await searchBruteForce(
         queryEmbedding,
         limit,
@@ -544,9 +556,10 @@ export const searchSimilarVectors = async (
     }
   } else {
     // Brute-force Search Path (Small datasets or HNSW disabled)
-    console.log(
-      `[Brute-force Search] Searching ${vectorCount} vectors (HNSW ${config.useHNSW ? "not initialized" : "disabled"})`
-    )
+    logger.verbose("Brute-force search started", "searchSimilarVectors", {
+      vectorCount,
+      hnswStatus: config.useHNSW ? "not initialized" : "disabled"
+    })
     results = await searchBruteForce(
       queryEmbedding,
       limit,
@@ -554,9 +567,10 @@ export const searchSimilarVectors = async (
       query
     )
     const duration = performance.now() - startTime
-    console.log(
-      `[Brute-force Search] Completed: ${results.length} results in ${duration.toFixed(2)}ms`
-    )
+    logger.info("Brute-force search completed", "searchSimilarVectors", {
+      resultCount: results.length,
+      duration: `${duration.toFixed(2)}ms`
+    })
   }
 
   // Cache results
@@ -747,9 +761,12 @@ export const searchHybrid = async (
     .filter((r): r is SearchResult => r !== null)
 
   const duration = performance.now() - startTime
-  console.log(
-    `[Hybrid Search] Completed: ${fusedResults.length} results (${keywordResults.length} keyword + ${semanticResults.length} semantic) in ${duration.toFixed(2)}ms`
-  )
+  logger.info("Hybrid search completed", "searchHybrid", {
+    resultCount: fusedResults.length,
+    keywordCount: keywordResults.length,
+    semanticCount: semanticResults.length,
+    duration: `${duration.toFixed(2)}ms`
+  })
 
   return fusedResults
 }
@@ -810,9 +827,14 @@ export const storeChatMessage = async (
   const result = await generateEmbedding(content)
 
   if ("error" in result) {
-    console.error(
-      "Failed to generate embedding for chat message:",
-      result.error
+    const errorMessage = result.error
+    logger.error(
+      "Failed to generate embedding for chat message",
+      "storeChatMessage",
+      {
+        error: errorMessage,
+        content: content.substring(0, 100)
+      }
     )
     // Fallback: store without embedding (will rely on keyword search only)
     // Or throw error? For now, let's throw to be safe
@@ -843,9 +865,14 @@ export const retrieveContext = async (
   const result = await generateEmbedding(query)
 
   if ("error" in result) {
-    console.warn(
-      "Failed to generate embedding for context retrieval:",
-      result.error
+    const errorMessage = result.error
+    logger.warn(
+      "Failed to generate embedding for context retrieval",
+      "retrieveContext",
+      {
+        error: errorMessage,
+        query: query.substring(0, 100)
+      }
     )
     return []
   }
@@ -857,7 +884,9 @@ export const retrieveContext = async (
     minSimilarity: 0.5 // Lower threshold to catch more relevant context
   })
 
-  console.log(`[Memory] Found ${results.length} potential context items`)
+  logger.verbose("Memory context search results", "retrieveContext", {
+    potentialItems: results.length
+  })
 
   // Filter out current session and map to content
   const context = results
@@ -865,16 +894,19 @@ export const retrieveContext = async (
       const isDifferentSession =
         r.document.metadata.sessionId !== currentSessionId
       if (!isDifferentSession) {
-        console.log(`[Memory] Filtered out same-session item: ${r.document.id}`)
+        logger.verbose("Filtered out same-session item", "retrieveContext", {
+          documentId: r.document.id
+        })
       }
       return isDifferentSession
     })
     .slice(0, limit)
     .map((r) => r.document.content)
 
-  console.log(
-    `[Memory] Returning ${context.length} context items after filtering`
-  )
+  logger.info("Returning memory context items", "retrieveContext", {
+    contextItems: context.length,
+    afterFiltering: true
+  })
 
   return context
 }
@@ -1062,9 +1094,9 @@ export const addDocuments = async (
 
     // Handle error case
     if ("error" in result) {
-      console.error(
-        `[addDocuments] Failed to generate embedding: ${result.error}`
-      )
+      logger.error("Failed to generate document embedding", "addDocuments", {
+        error: result.error
+      })
       continue // Skip this document
     }
 
@@ -1103,8 +1135,12 @@ export const similaritySearchWithScore = async (
 
   // Handle error case
   if ("error" in result) {
-    console.error(
-      `[similaritySearchWithScore] Failed to generate embedding: ${result.error}`
+    logger.error(
+      "Failed to generate embedding for similarity search",
+      "similaritySearchWithScore",
+      {
+        error: result.error
+      }
     )
     return []
   }

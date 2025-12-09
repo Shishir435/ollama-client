@@ -12,6 +12,7 @@ import sup from "markdown-it-sup"
 import taskLists from "markdown-it-task-lists"
 
 import { hljs } from "@/lib/hljs"
+import { logger } from "@/lib/logger"
 import type { ChatSession } from "@/types"
 
 const createMarkdownParser = () => {
@@ -325,7 +326,7 @@ const parseMessageContent = (content: string, md: MarkdownIt): string => {
     })
     return safeHtml
   } catch (error) {
-    console.error("Error parsing markdown:", error)
+    logger.error("Error parsing markdown", "parseMessageContent", { error })
     return md.utils.escapeHtml(content)
   }
 }

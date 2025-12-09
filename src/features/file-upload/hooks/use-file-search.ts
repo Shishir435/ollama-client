@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export interface FileSearchResult {
@@ -86,7 +87,7 @@ export const useFileSearch = () => {
         const errorMessage =
           err instanceof Error ? err.message : "Search failed"
         setError(errorMessage)
-        console.error("File search error:", err)
+        logger.error("File search error", "useFileSearch", { error: err })
         return []
       } finally {
         setIsSearching(false)

@@ -11,6 +11,7 @@ import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, FileAttachment } from "@/types"
 
@@ -53,7 +54,7 @@ export const useChat = () => {
         // Auto-embed messages in background (don't await to avoid blocking)
         embedMessages(newMessages, currentSessionId, isStreaming).catch(
           (err) => {
-            console.error("Failed to embed messages:", err)
+            logger.error("Failed to embed messages", "useChat", { error: err })
           }
         )
       }
@@ -124,11 +125,9 @@ export const useChat = () => {
             ? (files.map((f) => f.metadata.fileId).filter(Boolean) as string[])
             : undefined // undefined means search all files
 
-        console.log(
-          `RAG Enabled: Searching for context (Scope: ${
-            fileIds ? "Specific Files" : "Global"
-          })`
-        )
+        logger.verbose("RAG searching for context", "useChat", {
+          scope: fileIds ? "Specific Files" : "Global"
+        })
 
         const context = await retrieveContext(rawInput || "summary", fileIds, {
           mode: "similarity",
@@ -136,11 +135,13 @@ export const useChat = () => {
         })
 
         if (context.documents.length > 0) {
-          console.log(`RAG: Found ${context.documents.length} relevant chunks`)
+          logger.info("RAG found relevant chunks", "useChat", {
+            chunkCount: context.documents.length
+          })
           fileContext = context.formattedContext
         }
       } catch (e) {
-        console.error("RAG Error:", e)
+        logger.error("RAG error", "useChat", { error: e })
       }
     }
 
@@ -189,7 +190,7 @@ export const useChat = () => {
 
     // Auto-embed user message (always complete, not streaming)
     embedMessages(newMessages, currentSessionId, false).catch((err) => {
-      console.error("Failed to embed messages:", err)
+      logger.error("Failed to embed messages", "useChat", { error: err })
     })
 
     // Rename session title if it's still "New Chat"

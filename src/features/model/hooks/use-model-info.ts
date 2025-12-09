@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromeResponse, OllamaShowResponse } from "@/types"
 
 export const useModelInfo = (model: string) => {
@@ -25,7 +26,7 @@ export const useModelInfo = (model: string) => {
         setError("Failed to fetch model info")
       }
     } catch (error) {
-      console.error("Failed to fetch model info:", error)
+      logger.error("Failed to fetch model info", "useModelInfo", { error })
       setError("Failed to fetch model info")
     } finally {
       setLoading(false)

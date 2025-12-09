@@ -4,6 +4,7 @@ import type {
   TextItem
 } from "pdfjs-dist/types/src/display/api"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
+import { logger } from "@/lib/logger"
 
 import "pdfjs-dist/build/pdf.worker.min.mjs"
 
@@ -31,8 +32,9 @@ export class PdfProcessor implements FileProcessor {
         pdf = await promiseTimeout(loadingTask.promise, 10000)
       } catch (_firstErr) {
         // First attempt failed or timed out; retry without worker
-        console.warn(
-          "pdfjs worker load failed or timed out, retrying with disableWorker:"
+        logger.warn(
+          "PDF worker load failed or timed out, retrying without worker",
+          "PdfProcessor"
         )
         const loadingTask2 = pdfjsLib.getDocument({ data: arrayBuffer })
         pdf = await promiseTimeout(loadingTask2.promise, 15000)
