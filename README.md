@@ -488,6 +488,14 @@ Here’s what’s coming up next in **Ollama Client**—grouped by priority:
 - 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
 - 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
 
+### 📚 For Developers & Contributors
+
+- 🏗️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Technical architecture, design patterns, and implementation details
+- 🗺️ **[ROADMAP.md](./ROADMAP.md)** - Planned features and development timeline
+- 📊 **[PROJECT_ANALYSIS.md](./PROJECT_ANALYSIS.md)** - Comprehensive code quality analysis
+- 🤝 **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Guidelines for contributing to the project
+
+
 ---
 
 ## 📢 Spread the Word!
