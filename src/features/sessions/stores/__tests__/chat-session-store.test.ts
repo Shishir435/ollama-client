@@ -25,6 +25,7 @@ vi.mock("@/lib/db", () => ({
     files: {
       where: vi.fn(() => ({
         equals: vi.fn(() => ({
+          toArray: vi.fn().mockResolvedValue([]),
           delete: vi.fn()
         }))
       })),
@@ -65,6 +66,11 @@ describe("chatSessionStore", () => {
     const equalsMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
     const whereMock = vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
 
+    // Mock the chain: db.files.where().equals().toArray()
+    const toArrayMock = vi.fn().mockResolvedValue([])
+    const filesEqualsMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
+    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
+
     // Pre-populate a session so we can load it
     chatSessionStore.setState({
        sessions: [{ id: "session-1", title: "Test", createdAt: 0, updatedAt: 0, messages: [] }]
@@ -81,7 +87,7 @@ describe("chatSessionStore", () => {
     
     const state = chatSessionStore.getState()
     expect(state.currentSessionId).toBe("session-1")
-    expect(state.sessions[0].messages).toEqual(mockMessages)
+    expect(state.sessions[0].messages).toEqual([{ ...mockMessages[0], attachments: [] }])
   })
 
   it("should set highlighted message", () => {
@@ -111,6 +117,11 @@ describe("chatSessionStore", () => {
     const equalsMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
     vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
 
+    // Mock files load for session 1
+    const toArrayMock = vi.fn().mockResolvedValue([])
+    const filesEqualsMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
+    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
+
     const { loadSessions } = chatSessionStore.getState()
     await loadSessions()
 
@@ -119,7 +130,7 @@ describe("chatSessionStore", () => {
     // Should have updated metadata
     expect(state.sessions[0].id).toBe("1")
     // Should have loaded messages for first session
-    expect(state.sessions[0].messages).toEqual(mockMessages)
+    expect(state.sessions[0].messages).toEqual([{ ...mockMessages[0], attachments: [] }])
     expect(state.currentSessionId).toBe("1")
   })
 
@@ -149,9 +160,11 @@ describe("chatSessionStore", () => {
     // Mock cascading deletes
     const deleteMock = vi.fn().mockResolvedValue(undefined)
     const sortByMock = vi.fn().mockResolvedValue([])
-    const equalsMock = vi.fn().mockReturnValue({ delete: deleteMock, sortBy: sortByMock })
-    vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
-    vi.mocked(db.files.where).mockReturnValue({ equals: equalsMock } as any)
+    const toArrayMock = vi.fn().mockResolvedValue([])
+    const messagesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, sortBy: sortByMock })
+    const filesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, toArray: toArrayMock })
+    vi.mocked(db.messages.where).mockReturnValue({ equals: messagesEqualsMock } as any)
+    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
 
     const { deleteSession } = chatSessionStore.getState()
     await deleteSession("1")
@@ -159,7 +172,8 @@ describe("chatSessionStore", () => {
     expect(db.sessions.delete).toHaveBeenCalledWith("1")
     expect(db.messages.where).toHaveBeenCalledWith("sessionId")
     expect(db.files.where).toHaveBeenCalledWith("sessionId")
-    expect(equalsMock).toHaveBeenCalledWith("1") // for both
+    expect(messagesEqualsMock).toHaveBeenCalledWith("1")
+    expect(filesEqualsMock).toHaveBeenCalledWith("1")
     expect(deleteVectors).toHaveBeenCalledWith({ sessionId: "1", type: "chat" })
 
     const state = chatSessionStore.getState()
@@ -227,9 +241,11 @@ describe("chatSessionStore", () => {
             expect.objectContaining({
                 sessionId: "1",
                 content: "Hello",
-                timestamp: 500
+                timestamp: 500,
+                role: "user"
             })
-        ])
+        ]),
+        { allKeys: true }
     )
 
     const state = chatSessionStore.getState()
