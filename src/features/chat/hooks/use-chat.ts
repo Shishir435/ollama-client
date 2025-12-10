@@ -8,6 +8,7 @@ import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
+import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
@@ -23,6 +24,7 @@ export const useChat = () => {
     },
     ""
   )
+  const { toast } = useToast()
 
   const { input, setInput } = useChatInput()
   const { selectedTabIds } = useSelectedTabs()
@@ -142,6 +144,12 @@ export const useChat = () => {
         }
       } catch (e) {
         logger.error("RAG error", "useChat", { error: e })
+        toast({
+          variant: "destructive",
+          title: "RAG Warning",
+          description:
+            "Failed to retrieve context from files. Searching without context."
+        })
       }
     }
 

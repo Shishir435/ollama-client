@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
@@ -21,6 +22,7 @@ export const useOllamaStream = ({
   setIsLoading,
   setIsStreaming
 }: UseOllamaStreamProps) => {
+  const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
 
@@ -78,6 +80,11 @@ export const useOllamaStream = ({
             ...currentMessagesRef.current.slice(0, -1),
             { role: "assistant", content: errMsg, done: true }
           ]
+          toast({
+            variant: "destructive",
+            title: "Response Generation Failed",
+            description: msg.error.message || "An unknown error occurred"
+          })
         } else {
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),

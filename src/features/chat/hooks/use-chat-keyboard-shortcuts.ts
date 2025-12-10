@@ -1,5 +1,6 @@
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { useToast } from "@/hooks/use-toast"
 import browser from "@/lib/browser-api"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import { useThemeStore } from "@/stores/theme"
@@ -23,11 +24,13 @@ export const useChatKeyboardShortcuts = ({
   deleteSession
 }: UseChatKeyboardShortcutsParams) => {
   const { toggle: toggleSpeech } = useSpeechSynthesis()
+  const { toast } = useToast()
 
   useKeyboardShortcuts({
     newChat: (e) => {
       e.preventDefault()
       createSession()
+      toast({ description: "Started new chat session" })
     },
     settings: (e) => {
       e.preventDefault()
@@ -38,6 +41,7 @@ export const useChatKeyboardShortcuts = ({
       const { theme, setTheme } = useThemeStore.getState()
       const nextTheme = theme === "dark" ? "light" : "dark"
       setTheme(nextTheme)
+      toast({ description: `Switched to ${nextTheme} mode` })
     },
     toggleSpeech: (e) => {
       e.preventDefault()
@@ -58,6 +62,7 @@ export const useChatKeyboardShortcuts = ({
       if (currentSessionId && confirm("Clear this chat session?")) {
         deleteSession(currentSessionId)
         createSession()
+        toast({ description: "Chat session cleared" })
       }
     },
     copyLastResponse: (e) => {
@@ -67,6 +72,7 @@ export const useChatKeyboardShortcuts = ({
         .find((m) => m.role === "assistant")
       if (lastAssistantMessage) {
         navigator.clipboard.writeText(lastAssistantMessage.content)
+        toast({ description: "Copied to clipboard" })
       }
     }
   })
