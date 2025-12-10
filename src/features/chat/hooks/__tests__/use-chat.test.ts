@@ -88,6 +88,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
     hasSession: true,
     deleteSession: vi.fn().mockResolvedValue(undefined),
     loadSessions: vi.fn().mockResolvedValue(undefined),
+    loadSessionMessages: vi.fn().mockResolvedValue(undefined),
     highlightedMessage: null,
     setHighlightedMessage: vi.fn()
   }))
@@ -155,6 +156,7 @@ describe("useChat", () => {
         hasSession: true,
         deleteSession: vi.fn().mockResolvedValue(undefined),
         loadSessions: vi.fn().mockResolvedValue(undefined),
+        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
         highlightedMessage: null,
         setHighlightedMessage: vi.fn()
     })
@@ -189,6 +191,7 @@ describe("useChat", () => {
     hasSession: false,
     deleteSession: vi.fn().mockResolvedValue(undefined),
     loadSessions: vi.fn().mockResolvedValue(undefined),
+    loadSessionMessages: vi.fn().mockResolvedValue(undefined),
     highlightedMessage: null,
     setHighlightedMessage: vi.fn(),
       updateMessages: vi.fn().mockResolvedValue(undefined),
@@ -217,6 +220,7 @@ describe("useChat", () => {
       hasSession: false,
       deleteSession: vi.fn().mockResolvedValue(undefined),
       loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
       highlightedMessage: null,
       setHighlightedMessage: vi.fn(),
       updateMessages: vi.fn().mockResolvedValue(undefined),
@@ -264,6 +268,7 @@ describe("useChat", () => {
         hasSession: true,
         deleteSession: vi.fn().mockResolvedValue(undefined),
         loadSessions: vi.fn().mockResolvedValue(undefined),
+        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
         highlightedMessage: null,
         setHighlightedMessage: vi.fn()
     })
@@ -294,6 +299,7 @@ describe("useChat", () => {
         hasSession: true,
         deleteSession: vi.fn().mockResolvedValue(undefined),
         loadSessions: vi.fn().mockResolvedValue(undefined),
+        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
         highlightedMessage: null,
         setHighlightedMessage: vi.fn()
     })
@@ -365,8 +371,13 @@ describe("useChat", () => {
       await result.current.sendMessage("Hello")
     })
 
-    // Should catch error and log it
-    expect(consoleSpy).toHaveBeenCalledWith("Failed to embed messages:", expect.any(Error))
+    // Should catch error and log it with structured logger format
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("ERROR [useChat] Failed to embed messages"),
+      expect.objectContaining({
+        error: expect.any(Error)
+      })
+    )
     consoleSpy.mockRestore()
   })
 

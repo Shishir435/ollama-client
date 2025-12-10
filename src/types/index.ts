@@ -41,14 +41,17 @@ export interface FileAttachment {
   fileSize: number
   textPreview?: string
   processedAt: number
+  messageId?: number
 }
 
 export interface ChatMessage {
+  id?: number
   role: Role
   content: string
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
+  timestamp?: number
   metrics?: {
     total_duration?: number
     load_duration?: number
@@ -64,7 +67,8 @@ export interface ChatSession {
   title: string
   createdAt: number
   updatedAt: number
-  messages: ChatMessage[]
+  modelId?: string
+  messages?: ChatMessage[]
 }
 
 export interface ChromePort extends browser.Runtime.Port {
@@ -306,6 +310,7 @@ export interface ChatSessionState {
   renameSessionTitle: (id: string, title: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
+  loadSessionMessages: (sessionId: string) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
     message: { role: Role; content: string } | null
