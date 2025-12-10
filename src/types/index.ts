@@ -315,6 +315,13 @@ export interface ChatSessionState {
   setHighlightedMessage: (
     message: { role: Role; content: string } | null
   ) => void
+  addMessage: (sessionId: string, message: ChatMessage) => Promise<number>
+  updateMessage: (
+    messageId: number,
+    updates: Partial<ChatMessage>,
+    skipDb?: boolean
+  ) => Promise<void>
+  deleteMessage: (messageId: number) => Promise<void>
 }
 
 export interface SelectedTabsState {

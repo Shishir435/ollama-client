@@ -11,6 +11,7 @@ import {
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
+import { generateEmbedding } from "./ollama-embedder"
 import type { SearchResult, VectorDocument } from "./types"
 
 /**
@@ -338,20 +339,6 @@ export const retrieveContext = async (
     type?: VectorDocument["metadata"]["type"]
   } = {}
 ): Promise<string> => {
-  // Use hybrid search if we have a text query, or semantic if no keyword weight
-  // Since we don't calculate query embedding here easily without import (circular?),
-  // we might need to rely on the caller passing embedding?
-  // Wait, retrieveContext is high level. It likely took query string and did embedding generation internally too?
-
-  // Previous grep showed: use-chat.ts calls `retrieveContext(rawInput, fileIds, options)`
-  // RAG retriever imports it.
-
-  // If `retrieveContext` generates embedding, it needs `generateEmbedding`.
-  // Which is in `ollama-embedder`.
-  // We can import `generateEmbedding` in `search.ts` (safe, no circular dep).
-
-  const { generateEmbedding } = await import("./ollama-embedder")
-
   const embeddingResult = await generateEmbedding(query)
   if ("error" in embeddingResult) {
     logger.warn(

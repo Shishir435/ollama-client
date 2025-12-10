@@ -35,7 +35,9 @@ export const useChat = () => {
   const {
     currentSessionId,
     sessions,
-    updateMessages,
+    updateMessages, // Keep for backward compatibility if needed, or remove? Keeping for now.
+    addMessage,
+    updateMessage,
     renameSessionTitle,
     createSession,
     setCurrentSessionId
@@ -48,17 +50,55 @@ export const useChat = () => {
 
   const { embedMessages } = useAutoEmbedMessages()
 
+  const currentStreamingMessageId = useRef<number | null>(null)
+  const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const debouncedDbUpdate = (id: number, content: string) => {
+    if (dbUpdateTimeoutRef.current) {
+      clearTimeout(dbUpdateTimeoutRef.current)
+    }
+    dbUpdateTimeoutRef.current = setTimeout(() => {
+      updateMessage(id, { content }, false) // false = write to DB
+    }, 1000) // 1 second debounce
+  }
+
   const { startStream, stopStream } = useOllamaStream({
     setMessages: async (newMessages) => {
-      if (currentSessionId) {
-        await updateMessages(currentSessionId, newMessages)
-        // Only embed when streaming is complete (don't embed during streaming)
-        // Auto-embed messages in background (don't await to avoid blocking)
-        embedMessages(newMessages, currentSessionId, isStreaming).catch(
-          (err) => {
-            logger.error("Failed to embed messages", "useChat", { error: err })
-          }
+      // Logic to update UI state immediately (skip DB)
+      if (currentStreamingMessageId.current && newMessages.length > 0) {
+        const lastMsg = newMessages[newMessages.length - 1]
+        // Update local state ONLY (fast)
+        updateMessage(
+          currentStreamingMessageId.current,
+          {
+            content: lastMsg.content,
+            metrics: lastMsg.metrics,
+            done: lastMsg.done
+          },
+          true // true = skip DB
         )
+
+        // Debounce DB update
+        if (!lastMsg.done) {
+          debouncedDbUpdate(currentStreamingMessageId.current, lastMsg.content)
+        } else {
+          // Final update should flush DB immediately
+          if (dbUpdateTimeoutRef.current)
+            clearTimeout(dbUpdateTimeoutRef.current)
+          updateMessage(
+            currentStreamingMessageId.current,
+            { content: lastMsg.content, metrics: lastMsg.metrics, done: true },
+            false
+          )
+          // Also embed if needed
+          if (currentSessionId) {
+            embedMessages(newMessages, currentSessionId, false).catch((err) => {
+              logger.error("Failed to embed messages", "useChat", {
+                error: err
+              })
+            })
+          }
+        }
       }
     },
     setIsLoading,
@@ -185,31 +225,39 @@ export const useChat = () => {
           }))
         : undefined
 
+    // 1. Add User Message
     const userMessage: ChatMessage = {
       role: "user",
       content: contentWithContext,
       attachments
     }
+    // Optimistic UI update? No, addMessage updates store.
+    await addMessage(currentSessionId, userMessage)
 
-    const newMessages = [...messages, userMessage]
+    // 2. Add Assistant Shell
+    const assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: "",
+      model: customModel || selectedModel
+    }
+    const assistantId = await addMessage(currentSessionId, assistantMessage)
+    currentStreamingMessageId.current = assistantId
 
-    // Save updated messages
-    await updateMessages(currentSessionId, newMessages)
-
-    // Auto-embed user message (always complete, not streaming)
-    embedMessages(newMessages, currentSessionId, false).catch((err) => {
-      logger.error("Failed to embed messages", "useChat", { error: err })
-    })
+    // 3. Prepare updated messages for stream context
+    // We need to pass the *new* messages to startStream so it has context.
+    const newMessages = [...messages, userMessage] // Don't include assistant, startStream will use generatedMessage
 
     // Rename session title if it's still "New Chat"
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
     await autoRenameSession(sessionId, titleContent)
 
     if (!customInput) setInput("")
+
     startStream({
       model: customModel || selectedModel,
       messages: newMessages,
-      sessionId: currentSessionId
+      sessionId: currentSessionId,
+      generatedMessage: { ...assistantMessage, id: assistantId }
     })
   }
 

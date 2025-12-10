@@ -6,7 +6,7 @@ import { useShallow } from "zustand/react/shallow"
 import { db } from "@/lib/db"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import type { ChatSession, ChatSessionState } from "@/types"
+import type { ChatMessage, ChatSession, ChatSessionState } from "@/types"
 
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
@@ -164,6 +164,83 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
         s.id === id ? { ...s, messages, updatedAt } : s
       )
     }))
+  },
+
+  addMessage: async (sessionId: string, message: ChatMessage) => {
+    // 1. Add to DB
+    const timestamp = message.timestamp || Date.now()
+    const msgWithSession = {
+      ...message,
+      sessionId,
+      timestamp
+    }
+    const id = (await db.messages.add(msgWithSession)) as number
+
+    // 2. Add attachments if any
+    if (message.attachments && message.attachments.length > 0) {
+      const files = message.attachments.map((f) => ({
+        ...f,
+        messageId: id,
+        sessionId
+      }))
+      await db.files.bulkAdd(files)
+    }
+
+    // 3. Update session timestamp
+    const updatedAt = Date.now()
+    await db.sessions.update(sessionId, { updatedAt })
+
+    // 4. Update local state
+    set((state) => ({
+      sessions: state.sessions.map((s) => {
+        if (s.id === sessionId) {
+          const newMsg = { ...message, id, timestamp }
+          return {
+            ...s,
+            messages: [...(s.messages || []), newMsg],
+            updatedAt
+          }
+        }
+        return s
+      })
+    }))
+
+    return id
+  },
+
+  updateMessage: async (
+    messageId: number,
+    updates: Partial<ChatMessage>,
+    skipDb = false
+  ) => {
+    // 1. Update DB (if not skipped)
+    if (!skipDb) {
+      await db.messages.update(messageId, updates)
+    }
+
+    // 2. Update local state
+    set((state) => ({
+      sessions: state.sessions.map((s) => ({
+        ...s,
+        messages: s.messages?.map((m) =>
+          m.id === messageId ? { ...m, ...updates } : m
+        )
+      }))
+    }))
+  },
+
+  deleteMessage: async (messageId: number) => {
+    // 1. Delete from DB
+    await db.messages.delete(messageId)
+    await db.files.where("messageId").equals(messageId).delete()
+
+    // 2. Update local state
+    set((state) => ({
+      sessions: state.sessions.map((s) => ({
+        ...s,
+        messages: s.messages?.filter((m) => m.id !== messageId)
+      }))
+    }))
   }
 }))
 
@@ -181,7 +258,10 @@ export const useChatSessions = () => {
       loadSessions: s.loadSessions,
       loadSessionMessages: s.loadSessionMessages,
       highlightedMessage: s.highlightedMessage,
-      setHighlightedMessage: s.setHighlightedMessage
+      setHighlightedMessage: s.setHighlightedMessage,
+      addMessage: s.addMessage,
+      updateMessage: s.updateMessage,
+      deleteMessage: s.deleteMessage
     }))
   )
   useEffect(() => {

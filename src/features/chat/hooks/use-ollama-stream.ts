@@ -9,24 +9,32 @@ interface StreamOptions {
   model: string
   messages: ChatMessage[]
   sessionId?: string
+  generatedMessage?: ChatMessage
 }
 
 interface UseOllamaStreamProps {
   setMessages: (messages: ChatMessage[]) => void
   setIsLoading: (v: boolean) => void
   setIsStreaming: (v: boolean) => void
+  onToken?: (token: string) => void
 }
 
 export const useOllamaStream = ({
   setMessages,
   setIsLoading,
-  setIsStreaming
+  setIsStreaming,
+  onToken
 }: UseOllamaStreamProps) => {
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
 
-  const startStream = ({ model, messages, sessionId }: StreamOptions) => {
+  const startStream = ({
+    model,
+    messages,
+    sessionId,
+    generatedMessage
+  }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     const port = browser.runtime.connect({
       name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
@@ -37,7 +45,7 @@ export const useOllamaStream = ({
     setIsLoading(true)
     setIsStreaming(false)
 
-    const assistantMessage: ChatMessage = {
+    const assistantMessage: ChatMessage = generatedMessage || {
       role: "assistant",
       content: "",
       model
@@ -56,6 +64,10 @@ export const useOllamaStream = ({
       }
 
       if (msg.delta !== undefined) {
+        if (onToken) {
+          onToken(msg.delta)
+        }
+
         assistantMessage.content += msg.delta
         // Replace the last message (assistant) with updated content
         const updated = [
