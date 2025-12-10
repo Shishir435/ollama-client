@@ -17,7 +17,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
-import { SelectionButtonToggle } from "@/features/model/components/selection-button-toggle"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
@@ -357,18 +356,17 @@ const ContentExtractionSettingsForm = ({
         onCheckedChange={(checked) => onUpdate({ enabled: checked })}
       />
 
-      <div className="rounded-lg border bg-card p-4">
-        <SettingsFormField
-          htmlFor="show-selection-button"
-          label={t("settings.content_extraction.selection_button.label")}
-          description={t(
-            "settings.content_extraction.selection_button.description"
-          )}
-          className="flex items-center justify-between space-y-0"
-          labelClassName="flex-col items-start gap-1">
-          <SelectionButtonToggle />
-        </SettingsFormField>
-      </div>
+      <SettingsSwitch
+        id="show-selection-button"
+        label={t("settings.content_extraction.selection_button.label")}
+        description={t(
+          "settings.content_extraction.selection_button.description"
+        )}
+        checked={config.showSelectionButton}
+        onCheckedChange={(checked) =>
+          onUpdate({ showSelectionButton: checked })
+        }
+      />
 
       <Separator />
 

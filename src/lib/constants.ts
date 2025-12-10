@@ -44,8 +44,7 @@ export const STORAGE_KEYS = {
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
-    CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
-    SHOW_SELECTION_BUTTON: "show-selection-button"
+    CONTENT_EXTRACTION_CONFIG: "content-extraction-config"
   },
   TTS: {
     RATE: "tts-rate",
@@ -263,6 +262,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 
 export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
   enabled: true,
+  showSelectionButton: true,
   contentScraper: "auto", // Try defuddle first, then readability
   excludedUrlPatterns: DEFAULT_EXCLUDE_URLS,
   scrollStrategy: "smart",

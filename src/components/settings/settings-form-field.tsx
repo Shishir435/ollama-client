@@ -28,10 +28,10 @@ export const SettingsFormField = ({
         className={cn("flex items-center gap-2 text-sm", labelClassName)}>
         {label}
       </Label>
-      {children}
       {description && (
         <p className="text-xs text-muted-foreground">{description}</p>
       )}
+      {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
