@@ -1,3 +1,4 @@
+import { Storage as PlasmoStorage } from "@plasmohq/storage"
 import Dexie, { type Table } from "dexie"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -78,6 +79,9 @@ export class Logger {
   private useIndexedDBKey = "logger-use-indexeddb"
   private bufferKey = "logger-buffer"
   private isLoadingBuffer = false
+
+  // Use local storage for logs (larger quota than sync)
+  private localStorage = new PlasmoStorage({ area: "local" })
 
   constructor(maxBufferSize = 1000, defaultLevel = LogLevel.INFO) {
     this.maxBufferSize = maxBufferSize
@@ -180,8 +184,8 @@ export class Logger {
           .toArray()
         this.buffer = logs.reverse()
       } else {
-        // Fallback to Chrome Storage
-        const stored = await plasmoGlobalStorage.get<LogEntry[]>(this.bufferKey)
+        // Fallback to Chrome Storage (Local)
+        const stored = await this.localStorage.get<LogEntry[]>(this.bufferKey)
         if (stored && Array.isArray(stored)) {
           this.buffer = stored
         }
@@ -203,8 +207,8 @@ export class Logger {
       if (timeoutId) clearTimeout(timeoutId)
       timeoutId = setTimeout(async () => {
         try {
-          // Always save to Chrome Storage for cross-context access
-          await plasmoGlobalStorage.set(this.bufferKey, this.buffer)
+          // Always save to Chrome Storage (Local) for cross-context access
+          await this.localStorage.set(this.bufferKey, this.buffer)
 
           // Also save to IndexedDB if enabled (for persistence)
           if (this.useIndexedDB) {
@@ -375,7 +379,7 @@ export class Logger {
    */
   async clearLogs() {
     this.buffer = []
-    await plasmoGlobalStorage.set(this.bufferKey, [])
+    await this.localStorage.set(this.bufferKey, [])
     if (this.useIndexedDB) {
       await logDb.logs.clear()
     }
