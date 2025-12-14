@@ -1,5 +1,5 @@
 import { generateEmbeddingsBatch } from "@/lib/embeddings/ollama-embedder"
-import { storeVector } from "@/lib/embeddings/vector-store"
+import { storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
 import type { ChromeMessage, ChromePort, ChromeResponse } from "@/types"
 
@@ -50,6 +50,7 @@ export const handleEmbedFileChunks = async (
             type: "file",
             fileId: payload.metadata.fileId,
             title: payload.metadata.title,
+            source: payload.metadata.title || payload.metadata.fileId,
             timestamp: payload.metadata.timestamp || Date.now(),
             chunkIndex: chunk.index,
             totalChunks: payload.chunks.length
@@ -160,6 +161,7 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
                 type: "file",
                 fileId: metadata?.fileId || "",
                 title: metadata?.title,
+                source: metadata?.title || metadata?.fileId || "Unknown File",
                 timestamp: metadata?.timestamp || Date.now(),
                 chunkIndex: chunk.index,
                 totalChunks: totalChunks

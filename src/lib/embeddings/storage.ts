@@ -296,7 +296,10 @@ export const clearAllVectors = async (
  * Removes duplicate vectors from the database
  * Keeps the oldest version of each duplicate
  */
-export const removeDuplicateVectors = async (): Promise<number> => {
+export const removeDuplicateVectors = async (): Promise<{
+  deleted: number
+  kept: number
+}> => {
   const vectors = await vectorDb.vectors.toArray()
   const uniqueKeys = new Set<string>()
   const duplicates: number[] = []
@@ -320,7 +323,10 @@ export const removeDuplicateVectors = async (): Promise<number> => {
     // We should ideally clean indexes too, but implicit rebuild/clear is acceptable for this maintenance op
   }
 
-  return duplicates.length
+  return {
+    deleted: duplicates.length,
+    kept: vectors.length - duplicates.length
+  }
 }
 
 /**

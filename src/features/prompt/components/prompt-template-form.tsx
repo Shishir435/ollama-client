@@ -111,7 +111,10 @@ export const PromptTemplateForm = ({
             onChange={(e) => {
               handleChange("title", e.target.value)
               if (isEditing)
-                onSubmit({ ...initialValues, title: e.target.value } as any)
+                onSubmit({
+                  ...initialValues,
+                  title: e.target.value
+                } as PromptTemplate)
             }}
           />
         </div>
@@ -126,7 +129,10 @@ export const PromptTemplateForm = ({
             onChange={(e) => {
               handleChange("category", e.target.value)
               if (isEditing)
-                onSubmit({ ...initialValues, category: e.target.value } as any)
+                onSubmit({
+                  ...initialValues,
+                  category: e.target.value
+                } as PromptTemplate)
             }}
           />
         </div>
@@ -143,7 +149,10 @@ export const PromptTemplateForm = ({
           onChange={(e) => {
             handleChange("description", e.target.value)
             if (isEditing)
-              onSubmit({ ...initialValues, description: e.target.value } as any)
+              onSubmit({
+                ...initialValues,
+                description: e.target.value
+              } as PromptTemplate)
           }}
         />
       </div>
@@ -163,7 +172,7 @@ export const PromptTemplateForm = ({
                     .map((tag) => tag.trim())
                     .filter(Boolean)
                 : undefined
-              onSubmit({ ...initialValues, tags } as any)
+              onSubmit({ ...initialValues, tags } as PromptTemplate)
             }
           }}
         />
@@ -183,7 +192,7 @@ export const PromptTemplateForm = ({
               onSubmit({
                 ...initialValues,
                 systemPrompt: e.target.value
-              } as any)
+              } as PromptTemplate)
           }}
         />
       </div>
@@ -200,7 +209,10 @@ export const PromptTemplateForm = ({
           onChange={(e) => {
             handleChange("userPrompt", e.target.value)
             if (isEditing)
-              onSubmit({ ...initialValues, userPrompt: e.target.value } as any)
+              onSubmit({
+                ...initialValues,
+                userPrompt: e.target.value
+              } as PromptTemplate)
           }}
         />
       </div>

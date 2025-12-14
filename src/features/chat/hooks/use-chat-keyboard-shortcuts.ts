@@ -1,4 +1,6 @@
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
+import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
 import browser from "@/lib/browser-api"
@@ -25,6 +27,13 @@ export const useChatKeyboardShortcuts = ({
 }: UseChatKeyboardShortcutsParams) => {
   const { toggle: toggleSpeech } = useSpeechSynthesis()
   const { toast } = useToast()
+  const { sessions } = useChatSessions()
+  const {
+    exportSessionAsJson,
+    exportSessionAsMarkdown,
+    exportSessionAsPdf,
+    exportSessionAsText
+  } = useChatExport()
 
   useKeyboardShortcuts({
     newChat: (e) => {
@@ -73,6 +82,38 @@ export const useChatKeyboardShortcuts = ({
       if (lastAssistantMessage) {
         navigator.clipboard.writeText(lastAssistantMessage.content)
         toast({ description: "Copied to clipboard" })
+      }
+    },
+    exportJson: (e) => {
+      e.preventDefault()
+      const session = sessions.find((s) => s.id === currentSessionId)
+      if (session) {
+        exportSessionAsJson(session)
+        toast({ description: "Chat exported as JSON" })
+      }
+    },
+    exportMarkdown: (e) => {
+      e.preventDefault()
+      const session = sessions.find((s) => s.id === currentSessionId)
+      if (session) {
+        exportSessionAsMarkdown(session)
+        toast({ description: "Chat exported as Markdown" })
+      }
+    },
+    exportPdf: (e) => {
+      e.preventDefault()
+      const session = sessions.find((s) => s.id === currentSessionId)
+      if (session) {
+        exportSessionAsPdf(session)
+        toast({ description: "Chat exported as PDF" })
+      }
+    },
+    exportText: (e) => {
+      e.preventDefault()
+      const session = sessions.find((s) => s.id === currentSessionId)
+      if (session) {
+        exportSessionAsText(session)
+        toast({ description: "Chat exported as Text" })
       }
     }
   })

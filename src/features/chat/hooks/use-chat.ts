@@ -35,7 +35,6 @@ export const useChat = () => {
   const {
     currentSessionId,
     sessions,
-    updateMessages, // Keep for backward compatibility if needed, or remove? Keeping for now.
     addMessage,
     updateMessage,
     renameSessionTitle,

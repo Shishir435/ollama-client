@@ -390,7 +390,13 @@
       "aria_label": "Exportar chat",
       "aria_label_all": "Exportar todas las sesiones de chat",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Texto",
+      "default_title": "Sesión de chat",
+      "all_sessions_title": "Todas las sesiones",
+      "role_user": "Tú",
+      "role_assistant": "Asistente IA"
     },
     "import": {
       "tooltip": "Importar sesiones de chat",
@@ -452,7 +458,15 @@
       "copy_last_response": "Copiar Última Respuesta",
       "copy_last_response_desc": "Copiar la última respuesta de IA al portapapeles",
       "toggle_session_metrics": "Alternar métricas de sesión",
-      "toggle_session_metrics_desc": "Mostrar u ocultar la barra de métricas de sesión"
+      "toggle_session_metrics_desc": "Mostrar u ocultar métricas de sesión",
+      "export_json": "Exportar como JSON",
+      "export_json_desc": "Exportar chat actual como JSON",
+      "export_markdown": "Exportar como Markdown",
+      "export_markdown_desc": "Exportar chat actual como Markdown",
+      "export_pdf": "Exportar como PDF",
+      "export_pdf_desc": "Exportar chat actual como PDF",
+      "export_text": "Exportar como Texto",
+      "export_text_desc": "Exportar chat actual como texto"
     },
     "content_extraction": {
       "title": "Extracción de Contenido",

@@ -391,7 +391,13 @@
       "aria_label": "チャットをエクスポート",
       "aria_label_all": "すべてのチャットセッションをエクスポート",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "テキスト",
+      "default_title": "チャットセッション",
+      "all_sessions_title": "すべてのチャットセッション",
+      "role_user": "あなた",
+      "role_assistant": "AIアシスタント"
     },
     "import": {
       "tooltip": "チャットセッションをインポート",
@@ -453,7 +459,15 @@
       "copy_last_response": "最後の応答をコピー",
       "copy_last_response_desc": "最後のAI応答をクリップボードにコピー",
       "toggle_session_metrics": "セッション統計を切り替え",
-      "toggle_session_metrics_desc": "セッション統計バーの表示/非表示を切り替え"
+      "toggle_session_metrics_desc": "セッションメトリクスバーを表示または非表示にする",
+      "export_json": "JSONとしてエクスポート",
+      "export_json_desc": "現在のチャットをJSONファイルとしてエクスポート",
+      "export_markdown": "Markdownとしてエクスポート",
+      "export_markdown_desc": "現在のチャットをMarkdownファイルとしてエクスポート",
+      "export_pdf": "PDFとしてエクスポート",
+      "export_pdf_desc": "現在のチャットをPDFファイルとしてエクスポート",
+      "export_text": "テキストとしてエクスポート",
+      "export_text_desc": "現在のチャットをテキストファイルとしてエクスポート"
     },
     "content_extraction": {
       "title": "コンテンツ抽出",

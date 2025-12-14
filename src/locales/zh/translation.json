@@ -393,7 +393,13 @@
       "aria_label": "导出聊天",
       "aria_label_all": "导出所有聊天会话",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "文本",
+      "default_title": "聊天会话",
+      "all_sessions_title": "所有会话",
+      "role_user": "你",
+      "role_assistant": "AI助手"
     },
     "import": {
       "tooltip": "导入聊天会话",
@@ -455,7 +461,15 @@
       "copy_last_response": "复制最后响应",
       "copy_last_response_desc": "复制最后一条AI响应到剪贴板",
       "toggle_session_metrics": "切换会话指标",
-      "toggle_session_metrics_desc": "显示或隐藏会话指标栏"
+      "toggle_session_metrics_desc": "显示或隐藏会话指标栏",
+      "export_json": "导出为JSON",
+      "export_json_desc": "导出当前聊天为JSON文件",
+      "export_markdown": "导出为Markdown",
+      "export_markdown_desc": "导出当前聊天为Markdown文件",
+      "export_pdf": "导出为PDF",
+      "export_pdf_desc": "导出当前聊天为PDF文件",
+      "export_text": "导出为文本",
+      "export_text_desc": "导出当前聊天为文本文件"
     },
     "content_extraction": {
       "title": "内容提取",

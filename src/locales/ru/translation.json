@@ -393,7 +393,13 @@
       "aria_label": "Экспорт чата",
       "aria_label_all": "Экспорт всех сессий чата",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Текст",
+      "default_title": "Чат-сессия",
+      "all_sessions_title": "Все сессии",
+      "role_user": "Вы",
+      "role_assistant": "ИИ-ассистент"
     },
     "import": {
       "tooltip": "Импорт сессий чата",
@@ -455,7 +461,15 @@
       "copy_last_response": "Копировать Последний Ответ",
       "copy_last_response_desc": "Копировать последний ответ ИИ в буфер обмена",
       "toggle_session_metrics": "Переключить метрики сессии",
-      "toggle_session_metrics_desc": "Показать или скрыть панель метрик сессии"
+      "toggle_session_metrics_desc": "Показать или скрыть метрики сессии",
+      "export_json": "Экспорт в JSON",
+      "export_json_desc": "Экспортировать текущий чат в JSON",
+      "export_markdown": "Экспорт в Markdown",
+      "export_markdown_desc": "Экспортировать текущий чат в Markdown",
+      "export_pdf": "Экспорт в PDF",
+      "export_pdf_desc": "Экспортировать текущий чат в PDF",
+      "export_text": "Экспорт в Текст",
+      "export_text_desc": "Экспортировать текущий чат в текстовый файл"
     },
     "content_extraction": {
       "title": "Извлечение контента",

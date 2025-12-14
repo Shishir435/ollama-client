@@ -391,7 +391,13 @@
       "aria_label": "Chat exportieren",
       "aria_label_all": "Alle Chat-Sitzungen exportieren",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Text",
+      "default_title": "Chat-Sitzung",
+      "all_sessions_title": "Alle Chat-Sitzungen",
+      "role_user": "Du",
+      "role_assistant": "KI-Assistent"
     },
     "import": {
       "tooltip": "Chat-Sitzungen importieren",
@@ -453,7 +459,15 @@
       "copy_last_response": "Letzte Antwort kopieren",
       "copy_last_response_desc": "Letzte KI-Antwort in die Zwischenablage kopieren",
       "toggle_session_metrics": "Sitzungsmetriken umschalten",
-      "toggle_session_metrics_desc": "Sitzungsmetriken-Leiste ein-/ausblenden"
+      "toggle_session_metrics_desc": "Sitzungsmetriken anzeigen oder ausblenden",
+      "export_json": "Als JSON exportieren",
+      "export_json_desc": "Aktuellen Chat als JSON exportieren",
+      "export_markdown": "Als Markdown exportieren",
+      "export_markdown_desc": "Aktuellen Chat als Markdown exportieren",
+      "export_pdf": "Als PDF exportieren",
+      "export_pdf_desc": "Aktuellen Chat als PDF exportieren",
+      "export_text": "Als Text exportieren",
+      "export_text_desc": "Aktuellen Chat als Text exportieren"
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",

@@ -80,7 +80,18 @@ export async function processKnowledge(
     logger.verbose("Storing embeddings for document", "processKnowledge", {
       fileName
     })
-    const result = await fromDocuments(chunks, fileId)
+    const vectorIds = await fromDocuments(
+      chunks.map((chunk) => ({
+        pageContent: chunk.pageContent,
+        metadata: {
+          fileId: (chunk.metadata.fileId as string) || fileId,
+          source: (chunk.metadata.source as string) || fileName,
+          title: (chunk.metadata.title as string) || fileName,
+          ...chunk.metadata
+        }
+      })),
+      fileId
+    )
 
     // Report completion
     onProgress?.({
@@ -93,12 +104,12 @@ export async function processKnowledge(
 
     logger.info("Successfully processed document", "processKnowledge", {
       fileName,
-      vectorCount: result.vectorIds.length
+      vectorCount: vectorIds.length
     })
 
     return {
       success: true,
-      vectorIds: result.vectorIds,
+      vectorIds: vectorIds,
       chunkCount: chunks.length
     }
   } catch (error) {

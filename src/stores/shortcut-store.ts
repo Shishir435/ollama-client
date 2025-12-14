@@ -17,6 +17,10 @@ export type ShortcutAction =
   | "searchMessages"
   | "clearChat"
   | "copyLastResponse"
+  | "exportJson"
+  | "exportMarkdown"
+  | "exportPdf"
+  | "exportText"
 
 export interface Shortcut {
   id: ShortcutAction
@@ -105,6 +109,38 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, Shortcut> = {
     category: "actions",
     defaultKey: "Mod+Shift+C",
     key: "Mod+Shift+C"
+  },
+  exportJson: {
+    id: "exportJson",
+    label: "settings.shortcuts.export_json",
+    description: "settings.shortcuts.export_json_desc",
+    category: "actions",
+    defaultKey: "Alt+J",
+    key: "Alt+J"
+  },
+  exportMarkdown: {
+    id: "exportMarkdown",
+    label: "settings.shortcuts.export_markdown",
+    description: "settings.shortcuts.export_markdown_desc",
+    category: "actions",
+    defaultKey: "Alt+M",
+    key: "Alt+M"
+  },
+  exportPdf: {
+    id: "exportPdf",
+    label: "settings.shortcuts.export_pdf",
+    description: "settings.shortcuts.export_pdf_desc",
+    category: "actions",
+    defaultKey: "Alt+P",
+    key: "Alt+P"
+  },
+  exportText: {
+    id: "exportText",
+    label: "settings.shortcuts.export_text",
+    description: "settings.shortcuts.export_text_desc",
+    category: "actions",
+    defaultKey: "Alt+Shift+T",
+    key: "Alt+Shift+T"
   },
 
   // Toggles

@@ -449,7 +449,13 @@ export const resources = {
           aria_label: "Chat exportieren",
           aria_label_all: "Alle Chat-Sitzungen exportieren",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Text",
+          default_title: "Chat-Sitzung",
+          all_sessions_title: "Alle Chat-Sitzungen",
+          role_user: "Du",
+          role_assistant: "KI-Assistent"
         },
         import: {
           tooltip: "Chat-Sitzungen importieren",
@@ -515,7 +521,16 @@ export const resources = {
           copy_last_response_desc:
             "Letzte KI-Antwort in die Zwischenablage kopieren",
           toggle_session_metrics: "Sitzungsmetriken umschalten",
-          toggle_session_metrics_desc: "Sitzungsmetriken-Leiste ein-/ausblenden"
+          toggle_session_metrics_desc:
+            "Sitzungsmetriken anzeigen oder ausblenden",
+          export_json: "Als JSON exportieren",
+          export_json_desc: "Aktuellen Chat als JSON exportieren",
+          export_markdown: "Als Markdown exportieren",
+          export_markdown_desc: "Aktuellen Chat als Markdown exportieren",
+          export_pdf: "Als PDF exportieren",
+          export_pdf_desc: "Aktuellen Chat als PDF exportieren",
+          export_text: "Als Text exportieren",
+          export_text_desc: "Aktuellen Chat als Text exportieren"
         },
         content_extraction: {
           title: "Inhaltsextraktion",
@@ -1510,7 +1525,13 @@ export const resources = {
           aria_label: "Export chat",
           aria_label_all: "Export all chat sessions",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Text",
+          default_title: "Chat Session",
+          all_sessions_title: "All Chat Sessions",
+          role_user: "You",
+          role_assistant: "AI Assistant"
         },
         import: {
           tooltip: "Import chat sessions",
@@ -1574,7 +1595,15 @@ export const resources = {
           copy_last_response: "Copy Last Response",
           copy_last_response_desc: "Copy the last AI response to clipboard",
           toggle_session_metrics: "Toggle Session Metrics",
-          toggle_session_metrics_desc: "Show or hide the session metrics bar"
+          toggle_session_metrics_desc: "Show or hide the session metrics bar",
+          export_json: "Export as JSON",
+          export_json_desc: "Export current chat as JSON file",
+          export_markdown: "Export as Markdown",
+          export_markdown_desc: "Export current chat as Markdown file",
+          export_pdf: "Export as PDF",
+          export_pdf_desc: "Export current chat as PDF file",
+          export_text: "Export as Text",
+          export_text_desc: "Export current chat as plain text file"
         },
         content_extraction: {
           title: "Content Extraction",
@@ -2565,7 +2594,13 @@ export const resources = {
           aria_label: "Exportar chat",
           aria_label_all: "Exportar todas las sesiones de chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Texto",
+          default_title: "Sesión de chat",
+          all_sessions_title: "Todas las sesiones",
+          role_user: "Tú",
+          role_assistant: "Asistente IA"
         },
         import: {
           tooltip: "Importar sesiones de chat",
@@ -2631,8 +2666,15 @@ export const resources = {
           copy_last_response_desc:
             "Copiar la última respuesta de IA al portapapeles",
           toggle_session_metrics: "Alternar métricas de sesión",
-          toggle_session_metrics_desc:
-            "Mostrar u ocultar la barra de métricas de sesión"
+          toggle_session_metrics_desc: "Mostrar u ocultar métricas de sesión",
+          export_json: "Exportar como JSON",
+          export_json_desc: "Exportar chat actual como JSON",
+          export_markdown: "Exportar como Markdown",
+          export_markdown_desc: "Exportar chat actual como Markdown",
+          export_pdf: "Exportar como PDF",
+          export_pdf_desc: "Exportar chat actual como PDF",
+          export_text: "Exportar como Texto",
+          export_text_desc: "Exportar chat actual como texto"
         },
         content_extraction: {
           title: "Extracción de Contenido",
@@ -3625,7 +3667,13 @@ export const resources = {
           aria_label: "Exporter le chat",
           aria_label_all: "Exporter toutes les sessions de chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Texte",
+          default_title: "Session de chat",
+          all_sessions_title: "Toutes les sessions",
+          role_user: "Vous",
+          role_assistant: "Assistant IA"
         },
         import: {
           tooltip: "Importer des sessions de chat",
@@ -3692,7 +3740,15 @@ export const resources = {
             "Copier la dernière réponse de l'IA dans le presse-papiers",
           toggle_session_metrics: "Basculer les métriques de session",
           toggle_session_metrics_desc:
-            "Afficher ou masquer la barre de métriques de session"
+            "Afficher ou masquer la barre de métriques de session",
+          export_json: "Exporter en JSON",
+          export_json_desc: "Exporter le chat actuel en JSON",
+          export_markdown: "Exporter en Markdown",
+          export_markdown_desc: "Exporter le chat actuel en Markdown",
+          export_pdf: "Exporter en PDF",
+          export_pdf_desc: "Exporter le chat actuel en PDF",
+          export_text: "Exporter en Texte",
+          export_text_desc: "Exporter le chat actuel en texte brut"
         },
         content_extraction: {
           title: "Extraction de Contenu",
@@ -4675,7 +4731,13 @@ export const resources = {
           aria_label: "चैट निर्यात करें",
           aria_label_all: "सभी चैट सेशन निर्यात करें",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "पाठ",
+          default_title: "चैट सत्र",
+          all_sessions_title: "सभी चैट सत्र",
+          role_user: "आप",
+          role_assistant: "AI सहायक"
         },
         import: {
           tooltip: "चैट सेशन आयात करें",
@@ -4738,7 +4800,15 @@ export const resources = {
           copy_last_response: "अंतिम प्रतिक्रिया कॉपी करें",
           copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें",
           toggle_session_metrics: "सत्र मेट्रिक्स टॉगल करें",
-          toggle_session_metrics_desc: "सत्र मेट्रिक्स बार दिखाएं या छिपाएं"
+          toggle_session_metrics_desc: "सत्र मेट्रिक्स बार दिखाएं या छिपाएं",
+          export_json: "JSON निर्यात करें",
+          export_json_desc: "वर्तमान चैट को JSON फ़ाइल के रूप में निर्यात करें",
+          export_markdown: "Markdown निर्यात करें",
+          export_markdown_desc: "वर्तमान चैट को Markdown फ़ाइल के रूप में निर्यात करें",
+          export_pdf: "PDF निर्यात करें",
+          export_pdf_desc: "वर्तमान चैट को PDF फ़ाइल के रूप में निर्यात करें",
+          export_text: "पाठ निर्यात करें",
+          export_text_desc: "वर्तमान चैट को पाठ फ़ाइल के रूप में निर्यात करें"
         },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
@@ -5719,7 +5789,13 @@ export const resources = {
           aria_label: "Esporta chat",
           aria_label_all: "Esporta tutte le sessioni di chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Testo",
+          default_title: "Sessione di chat",
+          all_sessions_title: "Tutte le sessioni",
+          role_user: "Tu",
+          role_assistant: "Assistente IA"
         },
         import: {
           tooltip: "Importa sessioni di chat",
@@ -5787,7 +5863,15 @@ export const resources = {
             "Copia l'ultima risposta dell'IA negli appunti",
           toggle_session_metrics: "Attiva/disattiva metriche sessione",
           toggle_session_metrics_desc:
-            "Mostra o nascondi la barra delle metriche di sessione"
+            "Mostra o nascondi la barra delle metriche della sessione",
+          export_json: "Esporta come JSON",
+          export_json_desc: "Esporta chat corrente come JSON",
+          export_markdown: "Esporta come Markdown",
+          export_markdown_desc: "Esporta chat corrente come Markdown",
+          export_pdf: "Esporta come PDF",
+          export_pdf_desc: "Esporta chat corrente come PDF",
+          export_text: "Esporta come Testo",
+          export_text_desc: "Esporta chat corrente come testo"
         },
         content_extraction: {
           title: "Estrazione Contenuto",
@@ -6777,7 +6861,13 @@ export const resources = {
           aria_label: "チャットをエクスポート",
           aria_label_all: "すべてのチャットセッションをエクスポート",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "テキスト",
+          default_title: "チャットセッション",
+          all_sessions_title: "すべてのチャットセッション",
+          role_user: "あなた",
+          role_assistant: "AIアシスタント"
         },
         import: {
           tooltip: "チャットセッションをインポート",
@@ -6843,7 +6933,16 @@ export const resources = {
           copy_last_response_desc: "最後のAI応答をクリップボードにコピー",
           toggle_session_metrics: "セッション統計を切り替え",
           toggle_session_metrics_desc:
-            "セッション統計バーの表示/非表示を切り替え"
+            "セッションメトリクスバーを表示または非表示にする",
+          export_json: "JSONとしてエクスポート",
+          export_json_desc: "現在のチャットをJSONファイルとしてエクスポート",
+          export_markdown: "Markdownとしてエクスポート",
+          export_markdown_desc:
+            "現在のチャットをMarkdownファイルとしてエクスポート",
+          export_pdf: "PDFとしてエクスポート",
+          export_pdf_desc: "現在のチャットをPDFファイルとしてエクスポート",
+          export_text: "テキストとしてエクスポート",
+          export_text_desc: "現在のチャットをテキストファイルとしてエクスポート"
         },
         content_extraction: {
           title: "コンテンツ抽出",
@@ -7819,7 +7918,13 @@ export const resources = {
           aria_label: "Экспорт чата",
           aria_label_all: "Экспорт всех сессий чата",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Текст",
+          default_title: "Чат-сессия",
+          all_sessions_title: "Все сессии",
+          role_user: "Вы",
+          role_assistant: "ИИ-ассистент"
         },
         import: {
           tooltip: "Импорт сессий чата",
@@ -7885,8 +7990,15 @@ export const resources = {
           copy_last_response_desc:
             "Копировать последний ответ ИИ в буфер обмена",
           toggle_session_metrics: "Переключить метрики сессии",
-          toggle_session_metrics_desc:
-            "Показать или скрыть панель метрик сессии"
+          toggle_session_metrics_desc: "Показать или скрыть метрики сессии",
+          export_json: "Экспорт в JSON",
+          export_json_desc: "Экспортировать текущий чат в JSON",
+          export_markdown: "Экспорт в Markdown",
+          export_markdown_desc: "Экспортировать текущий чат в Markdown",
+          export_pdf: "Экспорт в PDF",
+          export_pdf_desc: "Экспортировать текущий чат в PDF",
+          export_text: "Экспорт в Текст",
+          export_text_desc: "Экспортировать текущий чат в текстовый файл"
         },
         content_extraction: {
           title: "Извлечение контента",
@@ -8847,7 +8959,13 @@ export const resources = {
           aria_label: "导出聊天",
           aria_label_all: "导出所有聊天会话",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "文本",
+          default_title: "聊天会话",
+          all_sessions_title: "所有会话",
+          role_user: "你",
+          role_assistant: "AI助手"
         },
         import: {
           tooltip: "导入聊天会话",
@@ -8910,7 +9028,15 @@ export const resources = {
           copy_last_response: "复制最后响应",
           copy_last_response_desc: "复制最后一条AI响应到剪贴板",
           toggle_session_metrics: "切换会话指标",
-          toggle_session_metrics_desc: "显示或隐藏会话指标栏"
+          toggle_session_metrics_desc: "显示或隐藏会话指标栏",
+          export_json: "导出为JSON",
+          export_json_desc: "导出当前聊天为JSON文件",
+          export_markdown: "导出为Markdown",
+          export_markdown_desc: "导出当前聊天为Markdown文件",
+          export_pdf: "导出为PDF",
+          export_pdf_desc: "导出当前聊天为PDF文件",
+          export_text: "导出为文本",
+          export_text_desc: "导出当前聊天为文本文件"
         },
         content_extraction: {
           title: "内容提取",
