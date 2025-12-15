@@ -311,6 +311,9 @@ export interface ChatSessionState {
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   loadSessionMessages: (sessionId: string) => Promise<void>
+  hasMoreMessages: boolean
+  loadMoreMessages: () => Promise<void>
+  ensureMessageLoaded: (sessionId: string, timestamp: number) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
     message: { role: Role; content: string } | null

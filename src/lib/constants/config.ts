@@ -96,3 +96,5 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
   showEmbeddingProgress: true, // Show progress to users
   embeddingBatchSize: 3 // Process 3 chunks at a time (balanced performance)
 }
+
+export const CHAT_PAGINATION_LIMIT = 50

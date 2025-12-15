@@ -85,6 +85,7 @@ ollama-client/
 │   │   ├── knowledge/       # RAG implementation
 │   │   ├── text-processing/ # Text chunking
 │   │   ├── file-processors/ # File format handlers
+│   │   ├── exporters/       # Chat export modules (JSON, PDF, MD, TXT)
 │   │   ├── loaders/         # Data loaders
 │   │   ├── config/          # Configuration
 │   │   ├── db.ts            # Database schema

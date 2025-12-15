@@ -39,7 +39,9 @@ export const useChat = () => {
     updateMessage,
     renameSessionTitle,
     createSession,
-    setCurrentSessionId
+    setCurrentSessionId,
+    hasMoreMessages,
+    loadMoreMessages
   } = useChatSessions()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -266,6 +268,8 @@ export const useChat = () => {
     isStreaming,
     sendMessage,
     stopGeneration: stopStream,
-    scrollRef
+    scrollRef,
+    hasMore: hasMoreMessages,
+    onLoadMore: loadMoreMessages
   }
 }

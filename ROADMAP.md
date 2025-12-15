@@ -12,56 +12,31 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 - **Toast Notification System**: Added visible user feedback for errors and actions
 - **Settings Refactoring**: Standardized Content Extraction settings
 - **Structured Logger**: Configurable log levels and developer UI
+- **Chat Export Refactor**: Modularized exporters (JSON, PDF, Markdown, Text) with i18n support
+- **Error Boundaries**: Implemented top-level error catching with fallback UI and log export
+- **Virtual Scrolling**: Implemented `react-virtuoso` for chat messages with performant streaming support
+- **Large File Refactoring**: Decomposed Vector Store, Constants, Embedding Settings, and Prompt Manager into modular components
+- **Database Schema Refactoring**: Normalized V2 schema with separate tables for sessions, messages, and files
+- **Chat Pagination**: (Completed) Optimized message loading with virtual scrolling and deep linking.
+- **Configuration Management**: (Completed) Split constants.ts into granular modules.
 
 ---
 
-## �️ v0.5.x - Code Quality & Refactoring (Current Focus)
+## 🛠️ v0.5.x - Code Quality & Refactoring (Current Focus)
 
-### 🟡 Tech Debt Reduction
-
-#### Large File Refactoring
-- **Vector Store** (`src/lib/embeddings/vector-store.ts` ~1.2k lines)
-    - Extract `VectorCache`, `VectorIndex`, and `VectorSearch` classes
-- **Constants** (`src/lib/constants.ts` ~640 lines)
-    - Split into `config/` directory (e.g. `config/ollama.ts`, `config/ui.ts`)
-- **Embedding Settings** (`src/features/model/components/embedding-settings.tsx` ~650 lines)
-    - Extract `ChunkingOptions`, `StorageOptions`, `DatabaseActions` sub-components
-- **Prompt Manager** (`src/features/prompt/components/prompt-template-manager.tsx` ~600 lines)
-    - Extract dialogs and list items
-
-#### Logic Extraction
+### Logic Extraction
 - **Content Script** (`src/contents/index.ts` ~500 lines)
     - Move scraping logic to dedicated handlers
-- **Chat Export** (`src/features/sessions/hooks/use-export-chat.ts` ~450 lines)
-    - Create `src/lib/exporters/` for PDF and JSON logic
 
 ---
 
-## �🚀 v0.6.0 - Database & Core Reliability (Q1 2025)
+## 🚀 v0.6.0 - Database & Core Reliability (Q1 2025)
 
 ### 🔴 Critical Priority
-
-#### Database Schema Refactoring
-- **Normalize database schema** with separate tables for sessions, messages, and files
-- Implement migration from v1 (single table) to v2 (normalized)
-- Add proper indexes for efficient querying
-- Support pagination for large chat histories
-- **Enables**: Message Editing and Deletion features
-- **Type**: Major technical debt reduction
 
 ---
 
 ### 🟡 High Priority
-
-#### Error Boundaries & Stability
-- Add React error boundaries to prevent full UI crashes
-- Graceful error recovery with fallback UI
-- Log errors for debugging
-
-#### Virtual Scrolling for Messages
-- Implement virtual scrolling for chat message lists
-- Reduce memory usage with very long conversations
-- Improve performance for 1000+ message sessions
 
 ---
 
@@ -80,12 +55,6 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 - Tree-shake unused code
 - Dynamic imports for heavy features
 - Target: Reduce initial bundle by 30%
-
-#### Configuration Management
-- **Split constants.ts** (currently 19,104 bytes!)
-- Create `config/` directory structure
-- Separate UI constants from business logic
-- Environment-based configuration
 
 ---
 

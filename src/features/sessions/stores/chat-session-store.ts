@@ -3,10 +3,16 @@ import { useEffect } from "react"
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 
+import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { db } from "@/lib/db"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import type { ChatMessage, ChatSession, ChatSessionState } from "@/types"
+import type {
+  ChatMessage,
+  ChatSession,
+  ChatSessionState,
+  FileAttachment
+} from "@/types"
 
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
@@ -14,6 +20,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   hasSession: false,
   hydrated: false,
   highlightedMessage: null,
+  hasMoreMessages: false,
 
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
@@ -43,21 +50,168 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
   loadSessionMessages: async (sessionId: string) => {
     if (!sessionId) return
+
     const messages = await db.messages
       .where("sessionId")
       .equals(sessionId)
+      .reverse()
       .sortBy("timestamp")
-    const files = await db.files.where("sessionId").equals(sessionId).toArray()
+      .then((msgs) => msgs.slice(0, CHAT_PAGINATION_LIMIT))
 
-    // Reconstruct attachments from files table by matching messageId
+    const hasMore = messages.length === CHAT_PAGINATION_LIMIT
+
+    const messageIds = messages.map((m) => m.id as number)
+    const files = await db.files.where("messageId").anyOf(messageIds).toArray()
+
+    // O(F) - Create lookup map for files
+    const filesByMessageId = new Map<number, FileAttachment[]>()
+    for (const file of files) {
+      if (file.messageId) {
+        const existing = filesByMessageId.get(file.messageId) || []
+        existing.push(file)
+        filesByMessageId.set(file.messageId, existing)
+      }
+    }
+
+    // O(M) - Map messages using lookup
     const messagesWithFiles = messages.map((msg) => ({
       ...msg,
-      attachments: files.filter((f) => f.messageId === msg.id)
+      attachments: msg.id ? filesByMessageId.get(msg.id) || [] : []
     }))
 
+    const sortedMessages = messagesWithFiles.sort(
+      (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+    )
+
     set((state) => ({
+      hasMoreMessages: hasMore,
       sessions: state.sessions.map((s) =>
-        s.id === sessionId ? { ...s, messages: messagesWithFiles } : s
+        s.id === sessionId ? { ...s, messages: sortedMessages } : s
+      )
+    }))
+  },
+
+  loadMoreMessages: async () => {
+    const { currentSessionId, sessions, hasMoreMessages } = get()
+    if (!currentSessionId || !hasMoreMessages) return
+
+    const currentSession = sessions.find((s) => s.id === currentSessionId)
+    if (
+      !currentSession ||
+      !currentSession.messages ||
+      currentSession.messages.length === 0
+    )
+      return
+
+    const oldestMessage = currentSession.messages[0]
+    const oldestTimestamp = oldestMessage.timestamp || 0
+
+    const messages = await db.messages
+      .where("[sessionId+timestamp]")
+      .between(
+        [currentSessionId, 0],
+        [currentSessionId, oldestTimestamp],
+        false,
+        false
+      ) // 0 to oldestTimestamp, exclusive end
+      .reverse()
+      .limit(CHAT_PAGINATION_LIMIT)
+      .toArray()
+
+    const hasMore = messages.length === CHAT_PAGINATION_LIMIT
+
+    const messageIds = messages.map((m) => m.id as number)
+    const files = await db.files.where("messageId").anyOf(messageIds).toArray()
+
+    const filesByMessageId = new Map<number, FileAttachment[]>()
+    for (const file of files) {
+      if (file.messageId) {
+        const existing = filesByMessageId.get(file.messageId) || []
+        existing.push(file)
+        filesByMessageId.set(file.messageId, existing)
+      }
+    }
+
+    const messagesWithFiles = messages.map((msg) => ({
+      ...msg,
+      attachments: msg.id ? filesByMessageId.get(msg.id) || [] : []
+    }))
+
+    const sortedNewMessages = messagesWithFiles.sort(
+      (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+    )
+
+    set((state) => ({
+      hasMoreMessages: hasMore,
+      sessions: state.sessions.map((s) =>
+        s.id === currentSessionId
+          ? { ...s, messages: [...sortedNewMessages, ...(s.messages || [])] }
+          : s
+      )
+    }))
+  },
+
+  ensureMessageLoaded: async (sessionId: string, timestamp: number) => {
+    const { sessions } = get()
+    const session = sessions.find((s) => s.id === sessionId)
+
+    // If session not loaded or no messages, just load initial
+    if (!session || !session.messages || session.messages.length === 0) {
+      await get().loadSessionMessages(sessionId)
+      // Recalculate session after load
+      const updatedSession = get().sessions.find((s) => s.id === sessionId)
+      // If still no messages or target is older than oldest, we might need to load more?
+      // Actually, loadSessionMessages loads the *latest*.
+      // If target is old, we still need to check below.
+      if (!updatedSession?.messages?.length) return
+    }
+
+    const currentSession = get().sessions.find((s) => s.id === sessionId)
+    if (!currentSession?.messages?.length) return
+
+    const oldestLoaded = currentSession.messages[0].timestamp || 0
+
+    // If target is newer than oldest loaded, it's already here (assuming contiguous list from bottom)
+    if (timestamp >= oldestLoaded) return
+
+    // Target is older. We need to load everything from target up to oldestLoaded.
+    // We add a small buffer (e.g. 1ms? or just use exact) to avoiding duplicates with 'exclusive' ranges
+    const messages = await db.messages
+      .where("[sessionId+timestamp]")
+      .between([sessionId, 0], [sessionId, oldestLoaded], false, false) // 0 to oldestLoaded (exclusive)
+      .toArray()
+
+    // Since we fetched from 0 (beginning of time) to current oldest, we have loaded all history.
+    // Since we fetched from 0 (beginning of time) to current oldest, we have loaded all history.
+    // const hasMore = false
+
+    const messageIds = messages.map((m) => m.id as number)
+    const files = await db.files.where("messageId").anyOf(messageIds).toArray()
+
+    const filesByMessageId = new Map<number, FileAttachment[]>()
+    for (const file of files) {
+      if (file.messageId) {
+        const existing = filesByMessageId.get(file.messageId) || []
+        existing.push(file)
+        filesByMessageId.set(file.messageId, existing)
+      }
+    }
+
+    const messagesWithFiles = messages.map((msg) => ({
+      ...msg,
+      attachments: msg.id ? filesByMessageId.get(msg.id) || [] : []
+    }))
+
+    const sortedNewMessages = messagesWithFiles.sort(
+      (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+    )
+
+    set((state) => ({
+      hasMoreMessages: false, // We loaded everything down to 0
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId
+          ? { ...s, messages: [...sortedNewMessages, ...(s.messages || [])] }
+          : s
       )
     }))
   },
@@ -257,6 +411,9 @@ export const useChatSessions = () => {
       setCurrentSessionId: s.setCurrentSessionId,
       loadSessions: s.loadSessions,
       loadSessionMessages: s.loadSessionMessages,
+      hasMoreMessages: s.hasMoreMessages,
+      loadMoreMessages: s.loadMoreMessages,
+      ensureMessageLoaded: s.ensureMessageLoaded,
       highlightedMessage: s.highlightedMessage,
       setHighlightedMessage: s.setHighlightedMessage,
       addMessage: s.addMessage,

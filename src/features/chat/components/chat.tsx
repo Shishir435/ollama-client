@@ -10,7 +10,8 @@ import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 
 export const Chat = () => {
-  const { messages, sendMessage, stopGeneration, scrollRef } = useChat()
+  const { messages, sendMessage, stopGeneration, hasMore, onLoadMore } =
+    useChat()
   const { isLoading, isStreaming } = useLoadStream()
   const {
     currentSessionId,
@@ -63,8 +64,9 @@ export const Chat = () => {
             isStreaming={isStreaming}
             highlightedMessage={highlightedMessage}
             setHighlightedMessage={setHighlightedMessage}
-            scrollRef={scrollRef}
             onRegenerate={handleRegenerate}
+            hasMore={hasMore}
+            onLoadMore={onLoadMore}
           />
 
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background/80 pb-2 pt-3 backdrop-blur-md">

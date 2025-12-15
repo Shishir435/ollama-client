@@ -96,6 +96,7 @@ src/
 │   └── tabs/
 ├── components/        # Shared UI components
 ├── lib/               # Utilities & core libraries
+│   └── exporters/     # Export logic (JSON, PDF, Markdown, Text)
 ├── stores/            # Global state (Zustand)
 ├── hooks/             # Shared React hooks
 └── i18n/              # Internationalization
@@ -580,7 +581,7 @@ const allVectors = await query.toArray()  // ⚠️ Could be 10,000+ vectors
 - Metrics tracking (tokens, duration)
 - Regenerate functionality
 - Copy responses
-- Export to PDF/JSON
+- Export to PDF/JSON/Markdown/Text
 
 **Weaknesses:**
 - No message editing
