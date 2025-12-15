@@ -14,7 +14,8 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 - **Structured Logger**: Configurable log levels and developer UI
 - **Chat Export Refactor**: Modularized exporters (JSON, PDF, Markdown, Text) with i18n support
 - **Error Boundaries**: Implemented top-level error catching with fallback UI and log export
-- **Virtual Scrolling**: Implemented `react-virtuoso` for chat messages with performant streaming support
+- [x] Implement virtual scrolling for chat messages lists `react-virtuoso`
+- [x] Implement chat history pagination (incremental loading) support
 - **Large File Refactoring**: Decomposed Vector Store, Constants, Embedding Settings, and Prompt Manager into modular components
 - **Database Schema Refactoring**: Normalized V2 schema with separate tables for sessions, messages, and files
 - **Chat Pagination**: (Completed) Optimized message loading with virtual scrolling and deep linking.

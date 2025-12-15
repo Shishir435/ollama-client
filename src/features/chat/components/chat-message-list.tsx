@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
-import { useThemeStore } from "@/stores/theme"
 import type { ChatMessage } from "@/types"
 
 interface ChatMessageListProps {
@@ -9,8 +8,6 @@ interface ChatMessageListProps {
   isLoading: boolean
   isStreaming: boolean
   highlightedMessage: ChatMessage | null
-  /* eslint-disable @typescript-eslint/no-unused-vars */
-  setHighlightedMessage: (msg: ChatMessage | null) => void // Kept for interface compatibility
   onRegenerate: (message: ChatMessage, model?: string) => void
   hasMore: boolean
   onLoadMore: () => void
@@ -21,21 +18,11 @@ export const ChatMessageList = ({
   isLoading,
   isStreaming,
   highlightedMessage,
-  // setHighlightedMessage, // Unused
   onRegenerate,
   hasMore,
   onLoadMore
 }: ChatMessageListProps) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
-  // const { theme } = useThemeStore() // Unused
-
-  // We calculate first item index dynamically to handle prepending
-  // const [firstItemIndex, setFirstItemIndex] = useState(1000000)
-
-  // Effect to manage scroll or other state if needed
-  // useEffect(() => { ... }, [messages.length]) - The previous effect just set unused state.
-
-  // Filter out system messages
   const filteredMessages = messages.filter((msg) => msg.role !== "system")
 
   return (

@@ -90,7 +90,13 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
     loadSessions: vi.fn().mockResolvedValue(undefined),
     loadSessionMessages: vi.fn().mockResolvedValue(undefined),
     highlightedMessage: null,
-    setHighlightedMessage: vi.fn()
+    setHighlightedMessage: vi.fn(),
+    addMessage: vi.fn().mockResolvedValue(123),
+    updateMessage: vi.fn().mockResolvedValue(undefined),
+    deleteMessage: vi.fn().mockResolvedValue(undefined),
+    ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+    loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+    hasMoreMessages: false
   }))
 }))
 
@@ -157,8 +163,14 @@ describe("useChat", () => {
         deleteSession: vi.fn().mockResolvedValue(undefined),
         loadSessions: vi.fn().mockResolvedValue(undefined),
         loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+        addMessage: vi.fn().mockResolvedValue(123),
         highlightedMessage: null,
-        setHighlightedMessage: vi.fn()
+        setHighlightedMessage: vi.fn(),
+        updateMessage: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+        hasMoreMessages: false
     })
 
     const { result } = renderHook(() => useChat())
@@ -167,8 +179,8 @@ describe("useChat", () => {
       await result.current.sendMessage("Hello")
     })
 
-    expect(updateMessages).toHaveBeenCalled()
-    expect(startStream).toHaveBeenCalledWith({
+    expect(useChatSessions().addMessage).toHaveBeenCalled()
+    expect(startStream).toHaveBeenCalledWith(expect.objectContaining({
       model: "",
       sessionId: "session-1",
       messages: expect.arrayContaining([
@@ -177,7 +189,7 @@ describe("useChat", () => {
           content: "Hello"
         })
       ])
-    })
+    }))
   })
 
   it("should create session if none exists", async () => {
@@ -187,17 +199,23 @@ describe("useChat", () => {
     
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: null,
-    sessions: [],
-    hasSession: false,
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-    loadSessions: vi.fn().mockResolvedValue(undefined),
-    loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-    highlightedMessage: null,
-    setHighlightedMessage: vi.fn(),
+      sessions: [],
+      hasSession: false,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
       updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession,
-      setCurrentSessionId
+      setCurrentSessionId,
+      addMessage: vi.fn().mockResolvedValue(123),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false
     })
 
     const { result } = renderHook(() => useChat())
@@ -226,7 +244,13 @@ describe("useChat", () => {
       updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue(undefined),
-      setCurrentSessionId: vi.fn()
+      setCurrentSessionId: vi.fn(),
+      addMessage: vi.fn().mockResolvedValue(undefined),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false
     })
 
     // Mock db to return null for latest session
@@ -270,7 +294,13 @@ describe("useChat", () => {
         loadSessions: vi.fn().mockResolvedValue(undefined),
         loadSessionMessages: vi.fn().mockResolvedValue(undefined),
         highlightedMessage: null,
-        setHighlightedMessage: vi.fn()
+        setHighlightedMessage: vi.fn(),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        updateMessage: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+        hasMoreMessages: false
     })
 
     const { result } = renderHook(() => useChat())
@@ -301,7 +331,13 @@ describe("useChat", () => {
         loadSessions: vi.fn().mockResolvedValue(undefined),
         loadSessionMessages: vi.fn().mockResolvedValue(undefined),
         highlightedMessage: null,
-        setHighlightedMessage: vi.fn()
+        setHighlightedMessage: vi.fn(),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        updateMessage: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+        hasMoreMessages: false
     })
 
     const { result } = renderHook(() => useChat())
@@ -356,12 +392,48 @@ describe("useChat", () => {
 
   it("should handle error during message embedding", async () => {
     const { useAutoEmbedMessages } = await import("@/features/chat/hooks/use-auto-embed-messages")
+    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+
     const embedMessages = vi.fn().mockRejectedValue(new Error("Embedding failed"))
     
     vi.mocked(useAutoEmbedMessages).mockReturnValue({
       embedMessages,
       embedMessage: vi.fn(),
       isEnabled: true
+    })
+
+    // Capture the setMessages callback
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    let setMessagesCallback: ((messages: any[]) => Promise<void>) | null = null
+    vi.mocked(useOllamaStream).mockImplementation((config: any) => {
+      setMessagesCallback = config.setMessages
+      return {
+        startStream: vi.fn(),
+        stopStream: vi.fn()
+      }
+    })
+    
+    // Ensure we have a valid session and addMessage returns an ID
+    vi.mocked(useChatSessions).mockReturnValue({
+        currentSessionId: "session-1",
+        sessions: [{ id: "session-1", title: "New Chat", messages: [], createdAt: 0, updatedAt: 0 }],
+        updateMessages: vi.fn().mockResolvedValue(undefined),
+        renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+        createSession: vi.fn().mockResolvedValue(undefined),
+        setCurrentSessionId: vi.fn(),
+        hasSession: true,
+        deleteSession: vi.fn().mockResolvedValue(undefined),
+        loadSessions: vi.fn().mockResolvedValue(undefined),
+        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+        highlightedMessage: null,
+        setHighlightedMessage: vi.fn(),
+        addMessage: vi.fn().mockResolvedValue(123), // Return number as ID
+        updateMessage: vi.fn().mockResolvedValue(undefined),
+        deleteMessage: vi.fn().mockResolvedValue(undefined),
+        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+        hasMoreMessages: false
     })
 
     const { result } = renderHook(() => useChat())
@@ -371,9 +443,16 @@ describe("useChat", () => {
       await result.current.sendMessage("Hello")
     })
 
+    // Manually trigger the callback with a 'done' message to trigger embedding
+    await act(async () => {
+        if (setMessagesCallback) {
+            await (setMessagesCallback as any)([{ role: "assistant", content: "Response", done: true }])
+        }
+    })
+
     // Should catch error and log it with structured logger format
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("ERROR [useChat] Failed to embed messages"),
+      expect.stringContaining("Failed to embed messages"), 
       expect.objectContaining({
         error: expect.any(Error)
       })

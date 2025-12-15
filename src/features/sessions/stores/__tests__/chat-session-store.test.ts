@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => ({
       where: vi.fn(() => ({
         equals: vi.fn(() => ({
           sortBy: vi.fn(),
+          reverse: vi.fn().mockReturnThis(),
           delete: vi.fn()
         })),
         delete: vi.fn()
@@ -27,6 +28,9 @@ vi.mock("@/lib/db", () => ({
         equals: vi.fn(() => ({
           toArray: vi.fn().mockResolvedValue([]),
           delete: vi.fn()
+        })),
+        anyOf: vi.fn(() => ({
+          toArray: vi.fn().mockResolvedValue([])
         }))
       })),
       delete: vi.fn()
@@ -63,13 +67,14 @@ describe("chatSessionStore", () => {
     const mockMessages = [{ role: "user", content: "Hi", timestamp: 1 }]
     // Mock the chain: db.messages.where().equals().sortBy()
     const sortByMock = vi.fn().mockResolvedValue(mockMessages)
-    const equalsMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
+    const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
+    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock })
     const whereMock = vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
 
-    // Mock the chain: db.files.where().equals().toArray()
+    // Mock the chain: db.files.where().anyOf().toArray()
     const toArrayMock = vi.fn().mockResolvedValue([])
-    const filesEqualsMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
-    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
+    const anyOfMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
+    vi.mocked(db.files.where).mockReturnValue({ anyOf: anyOfMock } as any)
 
     // Pre-populate a session so we can load it
     chatSessionStore.setState({
@@ -114,13 +119,14 @@ describe("chatSessionStore", () => {
     // Mock message load for session 1
     const mockMessages = [{ role: "user", content: "Hi" }]
     const sortByMock = vi.fn().mockResolvedValue(mockMessages)
-    const equalsMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
+    const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
+    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock })
     vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
 
     // Mock files load for session 1
     const toArrayMock = vi.fn().mockResolvedValue([])
-    const filesEqualsMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
-    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
+    const anyOfMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
+    vi.mocked(db.files.where).mockReturnValue({ anyOf: anyOfMock } as any)
 
     const { loadSessions } = chatSessionStore.getState()
     await loadSessions()
@@ -160,11 +166,19 @@ describe("chatSessionStore", () => {
     // Mock cascading deletes
     const deleteMock = vi.fn().mockResolvedValue(undefined)
     const sortByMock = vi.fn().mockResolvedValue([])
+    const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
     const toArrayMock = vi.fn().mockResolvedValue([])
-    const messagesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, sortBy: sortByMock })
+    const messagesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, reverse: reverseMock })
+    
     const filesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, toArray: toArrayMock })
+    const filesAnyOfMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
+    const filesObject = {
+        equals: filesEqualsMock,
+        anyOf: filesAnyOfMock
+    }
+    
     vi.mocked(db.messages.where).mockReturnValue({ equals: messagesEqualsMock } as any)
-    vi.mocked(db.files.where).mockReturnValue({ equals: filesEqualsMock } as any)
+    vi.mocked(db.files.where).mockReturnValue(filesObject as any)
 
     const { deleteSession } = chatSessionStore.getState()
     await deleteSession("1")
