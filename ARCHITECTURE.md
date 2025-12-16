@@ -290,6 +290,46 @@ class VectorDatabase extends Dexie {
 - Pre-normalized vectors for performance
 - Circular cache with configurable TTL
 
+
+---
+
+## 🌳 Conversation Branching & History
+
+Ollama Client supports non-linear conversation history (branching/forking), allowing users to explore different paths in a single session.
+
+### Tree-Based Data Model
+
+The data model for messages is a **Linked List Tree**:
+
+- **`parentId`**: Each message optionally points to a parent ID.
+- **`currentLeafId`**: The `ChatSession` stores the ID of the "Active Tip" (the visible end of the conversation).
+- **`siblingIds`**: A transient property calculated at runtime to identify alternative versions of a message node.
+
+### Branching Flows
+
+There are two primary ways to create branches:
+
+#### 1. Editing User Messages (Forking)
+When a user edits their *own* message:
+- A new sibling message is created with the new content.
+- Both the old and new messages share the same `parentId`.
+- A new Assistant response is generated for the new path.
+- **Navigation**: Users can toggle between versions using `<` and `>` arrows.
+
+#### 2. Regenerating Assistant Responses (Versioning)
+When a user regenerates an *Assistant* response:
+- The session rewinds to the *User Message* (Parent).
+- A new sibling Assistant message is generated.
+- This creates a fork at the Assistant level (Multiple answers to one question).
+- **Navigation**: Users can toggle between Assistant versions.
+
+### Semantic Search Integration
+
+Semantic Search is fully compatible with branching:
+- **Indexing**: All messages (including those in hidden branches) are embedded and stored in the Vector DB.
+- **Retrieval**: Search queries scan the entire vector space.
+- **Context Switching**: Clicking a result from a hidden branch automatically triggers `navigateToNode`, switching the active view to that specific conversation path.
+
 ---
 
 ## 🎨 State Management

@@ -12,6 +12,7 @@ import Check from "lucide-react/dist/esm/icons/check"
 import CheckIcon from "lucide-react/dist/esm/icons/check"
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle"
 import ChevronDown from "lucide-react/dist/esm/icons/chevron-down"
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left"
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right"
 import ChevronUp from "lucide-react/dist/esm/icons/chevron-up"
 import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down"
@@ -29,6 +30,7 @@ import Eye from "lucide-react/dist/esm/icons/eye"
 import FileDown from "lucide-react/dist/esm/icons/file-down"
 import FileText from "lucide-react/dist/esm/icons/file-text"
 import Filter from "lucide-react/dist/esm/icons/filter"
+import GitFork from "lucide-react/dist/esm/icons/git-fork"
 import Github from "lucide-react/dist/esm/icons/github"
 import Globe from "lucide-react/dist/esm/icons/globe"
 import HardDrive from "lucide-react/dist/esm/icons/hard-drive"
@@ -139,6 +141,7 @@ export {
   Instagram,
   Library,
   Linkedin,
+  GitFork,
   Twitter,
   Settings,
   Moon,
@@ -147,6 +150,7 @@ export {
   Check,
   Code,
   ChevronDown,
+  ChevronLeft,
   RefreshCcw,
   Circle,
   SendHorizontal,

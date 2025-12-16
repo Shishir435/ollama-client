@@ -1,6 +1,8 @@
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { logger } from "@/lib/logger"
+// import logger to debug
+
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { normalizeVector } from "./math"
@@ -111,8 +113,26 @@ export const storeVector = async (
     const existing = await vectorDb.vectors
       .where("metadata.sessionId")
       .equals(metadata.sessionId)
-      .filter((doc) => doc.content === content)
+      .filter((doc) => {
+        // If messageId is provided, check that too
+        if (metadata.messageId && doc.metadata.messageId) {
+          return doc.metadata.messageId === metadata.messageId
+        }
+        return doc.content === content
+      })
       .first()
+
+    // Optimization: If messageId is present, we can query by it directly if we had a compound index or just check it first?
+    // Current schema: messageId is indexed.
+    // So we can do:
+    if (!existing && metadata.messageId) {
+      // Double check by messageId directly to be sure
+      const existingById = await vectorDb.vectors
+        .where("metadata.messageId")
+        .equals(metadata.messageId)
+        .first()
+      if (existingById) return existingById.id || 0
+    }
 
     if (existing) {
       // Return existing ID instead of creating duplicate
@@ -190,8 +210,9 @@ export const deleteVectors = async (filters: {
   sessionId?: string
   fileId?: string
   url?: string
+  messageId?: number
 }): Promise<number> => {
-  const { type, sessionId, fileId, url } = filters
+  const { type, sessionId, fileId, url, messageId } = filters
 
   let query = vectorDb.vectors.toCollection()
 
@@ -206,6 +227,9 @@ export const deleteVectors = async (filters: {
   }
   if (url) {
     query = query.filter((v) => v.metadata.url === url)
+  }
+  if (messageId) {
+    query = query.filter((v) => v.metadata.messageId === messageId)
   }
 
   const count = await query.count()
@@ -332,8 +356,33 @@ export const removeDuplicateVectors = async (): Promise<{
 /**
  * Retrieves all vector documents from the database
  */
-export const getAllDocuments = async (): Promise<VectorDocument[]> => {
-  return vectorDb.vectors.toArray()
+export const getAllDocuments = async (params: {
+  fileId?: string
+  type: string
+  maxTokens?: number
+}): Promise<{ documents: VectorDocument[]; tokenCount: number }> => {
+  const { fileId, type } = params
+  const collection = vectorDb.vectors.orderBy("metadata.timestamp")
+
+  // Apply filtering manually since we need compound query support
+  // or use Dexie's collection filtering
+  const documents = await collection
+    .filter((doc) => {
+      if (doc.metadata.type !== type) return false
+      if (fileId && doc.metadata.fileId !== fileId) return false
+      return true
+    })
+    .toArray()
+
+  // Calculate token count (approx)
+  const tokenCount = documents.reduce((acc, doc) => {
+    return acc + Math.ceil(doc.content.length / 4)
+  }, 0)
+
+  return {
+    documents,
+    tokenCount
+  }
 }
 
 /**
@@ -396,6 +445,7 @@ export const storeChatMessage = async (
     role: "user" | "assistant" | "system"
     sessionId: string
     title?: string
+    messageId?: number
   }
 ): Promise<number> => {
   try {

@@ -20,6 +20,11 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 - **Database Schema Refactoring**: Normalized V2 schema with separate tables for sessions, messages, and files
 - **Chat Pagination**: (Completed) Optimized message loading with virtual scrolling and deep linking.
 - **Configuration Management**: (Completed) Split constants.ts into granular modules.
+- **Message editing** - Edit previously sent messages (Completed)
+- **Message deletion** - Delete individual messages (Completed)
+- **Message search** - Search within current session (Completed)
+- **Conversation Forking** - Branch conversations by editing messages (Completed)
+- Export individual messages
 
 ---
 
@@ -61,34 +66,24 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 
 ## 🌟 v0.7.0 - Feature Enhancements (Q3 2025)
 
-### Chat Features
 
-#### Message Management
-- **Message editing** - Edit previously sent messages (Requires DB Refactor)
-- **Message deletion** - Delete individual messages (Requires DB Refactor)
-- **Message search** - Search within current session
-- Export individual messages
-- *Note: Conversation branching (forking) postponed due to complexity*
-
-#### Rich Media Support
-- **Image support in chat** (Currently partial)
-- Image paste from clipboard
-- Image viewing in messages
-- Image compression before sending
 
 ---
 
-### 🔌 Multi-Provider Support (New)
+### 🔌 Multi-Provider Support (New Priority)
 
 #### Provider Abstraction Layer
-- Abstract LLM calls into a `Provider` interface
-- Decouple app logic from specific Ollama API formats
-- Prepare for generic OpenAI-compatible endpoints
+- Create a `LLMProvider` interface to decouple app logic from Ollama
+- Implement `OllamaProvider` (current default)
+- **Goal**: Support OpenAI-compatible endpoints (LMStudio, Llama.cpp server, etc.)
 
-#### Supported Backends
-- **LMStudio** (via OpenAI compatible server)
-- **Llama.cpp** (via server mode)
-- **OpenAI / Groq** (Optional, user key required)
+#### Stats & Token Usage
+- **Challenge**: Standard OpenAI API endpoints often do not return token usage/timing stats in the same format as Ollama.
+- **Requirement**: Abstract stats handling. If provider doesn't support stats, UI should gracefully hide them or show estimates.
+- **Backends**:
+    - **Custom OpenAI-compatible** (User provides Base URL + Key if needed)
+    - **Llama.cpp** (Server mode)
+    - **LMStudio**
 
 ---
 
@@ -201,6 +196,11 @@ This roadmap outlines planned features and improvements for the Ollama Client Ch
 - Opt-in Brave / DuckDuckGo API (user-provided key)
 - WASM fallback (tinysearch) when no key
 - Search result summarization
+
+#### Rich Media Support (Future)
+- **Image support in chat** (Refinement)
+- **Mermaid Diagrams** (Rendering support)
+- Image paste/compression optimizations
 
 ---
 

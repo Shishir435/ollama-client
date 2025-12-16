@@ -110,23 +110,23 @@
       "title": "性能指标",
       "toggle_aria_label": "切换指标",
       "toggle_title": "切换指标",
-      "total_time": "总耗时",
+      "total_time": "总时间",
       "generation_speed": "生成速度",
-      "prompt_tokens": "提示词 Token 数",
-      "generated_tokens": "生成 Token 数",
+      "prompt_tokens": "提示词 Token",
+      "generated_tokens": "生成的 Token",
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} 令牌",
-      "prompt_tokens": "{{value}} 提示",
+      "total_tokens": "{{value}} Token",
+      "prompt_tokens": "{{value}} 提示词",
       "generated_tokens": "{{value}} 生成",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} 条消息",
-      "tooltip_tokens": "此会话使用的总令牌数",
-      "tooltip_time": "总响应生成时间",
+      "tooltip_tokens": "本次会话使用的总 Token",
+      "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI响应数量"
+      "tooltip_messages": "AI 回复数量"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",

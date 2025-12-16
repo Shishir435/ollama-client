@@ -107,24 +107,24 @@
       "switch_model_tooltip": "Cambia modello"
     },
     "metrics": {
-      "title": "Metriche di Prestazione",
-      "toggle_aria_label": "Attiva/disattiva metriche",
-      "toggle_title": "Attiva/disattiva metriche",
-      "total_time": "Tempo Totale",
-      "generation_speed": "Velocità di Generazione",
-      "prompt_tokens": "Token di Prompt",
-      "generated_tokens": "Token Generati",
-      "load_time": "Tempo di Caricamento",
-      "prompt_eval_time": "Tempo di Valutazione del Prompt"
+      "title": "Metriche delle Prestazioni",
+      "toggle_aria_label": "Attiva/Disattiva metriche",
+      "toggle_title": "Attiva/Disattiva metriche",
+      "total_time": "Tempo totale",
+      "generation_speed": "Velocità di generazione",
+      "prompt_tokens": "Token del prompt",
+      "generated_tokens": "Token generati",
+      "load_time": "Tempo di caricamento",
+      "prompt_eval_time": "Tempo val. prompt"
     },
     "session_metrics": {
       "total_tokens": "{{value}} token",
       "prompt_tokens": "{{value}} prompt",
       "generated_tokens": "{{value}} generati",
       "avg_speed": "{{speed}} t/s",
-      "messages": "{{value}} msgs",
-      "tooltip_tokens": "Token totali usati in questa sessione",
-      "tooltip_time": "Tempo totale di generazione risposta",
+      "messages": "{{value}} msg",
+      "tooltip_tokens": "Token totali utilizzati in questa sessione",
+      "tooltip_time": "Tempo totale generazione risposte",
       "tooltip_speed": "Velocità media di generazione",
       "tooltip_messages": "Numero di risposte AI"
     },

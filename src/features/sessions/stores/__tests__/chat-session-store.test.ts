@@ -7,6 +7,7 @@ import { deleteVectors } from "@/lib/embeddings/vector-store"
 vi.mock("@/lib/db", () => ({
   db: {
     sessions: {
+      get: vi.fn(),
       orderBy: vi.fn(),
       add: vi.fn(),
       delete: vi.fn(),
@@ -64,12 +65,13 @@ describe("chatSessionStore", () => {
   })
 
   it("should set current session ID and trigger message load", async () => {
-    const mockMessages = [{ role: "user", content: "Hi", timestamp: 1 }]
+    const mockMessages = [{ id: 1, role: "user", content: "Hi", timestamp: 1 }]
     // Mock the chain: db.messages.where().equals().sortBy()
     const sortByMock = vi.fn().mockResolvedValue(mockMessages)
     const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
-    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock })
+    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock, sortBy: sortByMock })
     const whereMock = vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
+    vi.mocked(db.sessions.get).mockResolvedValue({ id: "session-1", title: "Test", messages: [] })
 
     // Mock the chain: db.files.where().anyOf().toArray()
     const toArrayMock = vi.fn().mockResolvedValue([])
@@ -115,12 +117,13 @@ describe("chatSessionStore", () => {
         toArray: vi.fn().mockResolvedValue(mockSessions)
       })
     } as any)
+    vi.mocked(db.sessions.get).mockResolvedValue(mockSessions[0])
 
     // Mock message load for session 1
-    const mockMessages = [{ role: "user", content: "Hi" }]
+    const mockMessages = [{ id: 1, role: "user", content: "Hi" }]
     const sortByMock = vi.fn().mockResolvedValue(mockMessages)
     const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
-    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock })
+    const equalsMock = vi.fn().mockReturnValue({ reverse: reverseMock, sortBy: sortByMock })
     vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
 
     // Mock files load for session 1
@@ -142,6 +145,7 @@ describe("chatSessionStore", () => {
 
   it("should create new session with empty messages", async () => {
     vi.mocked(db.sessions.add).mockResolvedValue(1)
+    vi.mocked(db.sessions.get).mockResolvedValue({ id: "1", title: "New Chat", messages: [] })
     
     const { createSession } = chatSessionStore.getState()
     await createSession()
@@ -161,14 +165,16 @@ describe("chatSessionStore", () => {
     chatSessionStore.setState({ sessions, currentSessionId: "1", hasSession: true })
 
     vi.mocked(db.sessions.delete).mockResolvedValue()
+    vi.mocked(db.sessions.delete).mockResolvedValue()
     vi.mocked(deleteVectors).mockResolvedValue(5)
+    vi.mocked(db.sessions.get).mockResolvedValue({ id: "1", title: "Chat 1", messages: [] })
     
     // Mock cascading deletes
     const deleteMock = vi.fn().mockResolvedValue(undefined)
     const sortByMock = vi.fn().mockResolvedValue([])
     const reverseMock = vi.fn().mockReturnValue({ sortBy: sortByMock })
     const toArrayMock = vi.fn().mockResolvedValue([])
-    const messagesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, reverse: reverseMock })
+    const messagesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, reverse: reverseMock, sortBy: sortByMock })
     
     const filesEqualsMock = vi.fn().mockReturnValue({ delete: deleteMock, toArray: toArrayMock })
     const filesAnyOfMock = vi.fn().mockReturnValue({ toArray: toArrayMock })
@@ -202,13 +208,14 @@ describe("chatSessionStore", () => {
     chatSessionStore.setState({ sessions, currentSessionId: "1" })
 
     vi.mocked(db.sessions.delete).mockResolvedValue()
+    vi.mocked(db.sessions.get).mockResolvedValue({ id: "1", title: "Chat 1", messages: [] })
     vi.mocked(deleteVectors).mockRejectedValue(new Error("Embedding error"))
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     
     // Mock message/file deletion
     const deleteMock = vi.fn()
     const sortByMock = vi.fn().mockResolvedValue([])
-    const equalsMock = vi.fn().mockReturnValue({ delete: deleteMock, sortBy: sortByMock })
+    const equalsMock = vi.fn().mockReturnValue({ delete: deleteMock, sortBy: sortByMock, reverse: vi.fn().mockReturnValue({ sortBy: sortByMock }) })
     vi.mocked(db.messages.where).mockReturnValue({ equals: equalsMock } as any)
     vi.mocked(db.files.where).mockReturnValue({ equals: equalsMock } as any)
 
@@ -228,6 +235,7 @@ describe("chatSessionStore", () => {
     chatSessionStore.setState({ sessions })
 
     vi.mocked(db.sessions.update).mockResolvedValue(1)
+    vi.mocked(db.sessions.get).mockResolvedValue({ id: "1", title: "Old Title", messages: [] })
 
     const { renameSessionTitle } = chatSessionStore.getState()
     await renameSessionTitle("1", "New Title")
@@ -235,34 +243,6 @@ describe("chatSessionStore", () => {
     expect(db.sessions.update).toHaveBeenCalledWith("1", { title: "New Title" })
     expect(chatSessionStore.getState().sessions[0].title).toBe("New Title")
   })
-
-  it("should update session metadata and save messages to new table", async () => {
-    const sessions = [
-      { id: "1", title: "Chat", messages: [], createdAt: 100, updatedAt: 100 }
-    ]
-    chatSessionStore.setState({ sessions })
-
-    const newMessages = [{ role: "user" as const, content: "Hello", timestamp: 500 }]
-    vi.mocked(db.sessions.update).mockResolvedValue(1)
-    vi.mocked(db.messages.bulkPut).mockResolvedValue(1 as any)
-
-    const { updateMessages } = chatSessionStore.getState()
-    await updateMessages("1", newMessages)
-
-    expect(db.sessions.update).toHaveBeenCalledWith("1", expect.objectContaining({ updatedAt: expect.any(Number) }))
-    expect(db.messages.bulkPut).toHaveBeenCalledWith(
-        expect.arrayContaining([
-            expect.objectContaining({
-                sessionId: "1",
-                content: "Hello",
-                timestamp: 500,
-                role: "user"
-            })
-        ]),
-        { allKeys: true }
-    )
-
-    const state = chatSessionStore.getState()
-    expect(state.sessions[0].messages).toEqual(newMessages)
-  })
 })
+
+

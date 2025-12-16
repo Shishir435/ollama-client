@@ -112,10 +112,10 @@
       "toggle_title": "Переключить метрики",
       "total_time": "Общее время",
       "generation_speed": "Скорость генерации",
-      "prompt_tokens": "Токенов промпта",
+      "prompt_tokens": "Токены промпта",
       "generated_tokens": "Сгенерировано токенов",
       "load_time": "Время загрузки",
-      "prompt_eval_time": "Время оценки промпта"
+      "prompt_eval_time": "Время обработки промпта"
     },
     "session_metrics": {
       "total_tokens": "{{value}} токенов",
@@ -123,8 +123,8 @@
       "generated_tokens": "{{value}} сгенер.",
       "avg_speed": "{{speed}} т/с",
       "messages": "{{value}} сообщ.",
-      "tooltip_tokens": "Всего токенов в этой сессии",
-      "tooltip_time": "Общее время генерации ответа",
+      "tooltip_tokens": "Всего токенов в текущей сессии",
+      "tooltip_time": "Общее время генерации",
       "tooltip_speed": "Средняя скорость генерации",
       "tooltip_messages": "Количество ответов ИИ"
     },

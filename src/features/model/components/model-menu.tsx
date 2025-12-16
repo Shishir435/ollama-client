@@ -122,21 +122,42 @@ export const ModelMenu = ({
           <CommandList>
             <CommandEmpty>{t("model.menu.no_model_found")}</CommandEmpty>
             <CommandGroup>
-              {models.map((model) => (
-                <CommandItem
-                  key={model.name}
-                  value={model.name}
-                  onSelect={() => handleSelect(model.name)}
-                  className="capitalize">
-                  {model.name}
-                  <Check
-                    className={cn(
-                      "ml-auto",
-                      selectedModel === model.name ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                </CommandItem>
-              ))}
+              {models
+                .filter((model) => {
+                  // Filter out embedding models
+                  // Check 1: Families often contain "bert" for embedding models
+                  if (
+                    model.details?.families?.some(
+                      (f) =>
+                        f === "bert" ||
+                        f === "nomic-bert" ||
+                        f === "xlm-roberta"
+                    )
+                  )
+                    return false
+
+                  // Check 2: Name conventions (fallback)
+                  if (model.name.includes("embed")) return false
+
+                  return true
+                })
+                .map((model) => (
+                  <CommandItem
+                    key={model.name}
+                    value={model.name}
+                    onSelect={() => handleSelect(model.name)}
+                    className="capitalize">
+                    {model.name}
+                    <Check
+                      className={cn(
+                        "ml-auto",
+                        selectedModel === model.name
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                  </CommandItem>
+                ))}
             </CommandGroup>
           </CommandList>
         </Command>

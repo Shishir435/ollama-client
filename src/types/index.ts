@@ -60,6 +60,9 @@ export interface ChatMessage {
     eval_count?: number
     eval_duration?: number
   }
+  parentId?: number
+  childrenIds?: number[]
+  siblingIds?: number[]
 }
 
 export interface ChatSession {
@@ -69,6 +72,7 @@ export interface ChatSession {
   updatedAt: number
   modelId?: string
   messages?: ChatMessage[]
+  currentLeafId?: number
 }
 
 export interface ChromePort extends browser.Runtime.Port {
@@ -313,7 +317,11 @@ export interface ChatSessionState {
   loadSessionMessages: (sessionId: string) => Promise<void>
   hasMoreMessages: boolean
   loadMoreMessages: () => Promise<void>
-  ensureMessageLoaded: (sessionId: string, timestamp: number) => Promise<void>
+  ensureMessageLoaded: (
+    sessionId: string,
+    timestamp: number,
+    messageId?: number
+  ) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
     message: { role: Role; content: string } | null
@@ -325,6 +333,16 @@ export interface ChatSessionState {
     skipDb?: boolean
   ) => Promise<void>
   deleteMessage: (messageId: number) => Promise<void>
+  forkMessage: (
+    sessionId: string,
+    originalMessageId: number,
+    newContent: string
+  ) => Promise<number | undefined>
+  navigateToNode: (
+    sessionId: string,
+    nodeId: number,
+    exact?: boolean
+  ) => Promise<void>
 }
 
 export interface SelectedTabsState {

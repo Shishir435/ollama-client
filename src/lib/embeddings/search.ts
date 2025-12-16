@@ -140,32 +140,28 @@ export const searchSimilarVectors = async (
   const startTime = performance.now()
 
   // Get total vector count for strategy decision
-  let query: Dexie.Collection<VectorDocument, number>
-  if (type) {
-    query = vectorDb.vectors.where("metadata.type").equals(type)
-  } else if (sessionId) {
-    query = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-  } else if (fileId && !Array.isArray(fileId)) {
-    query = vectorDb.vectors.where("metadata.fileId").equals(fileId)
-  } else {
-    query = vectorDb.vectors.toCollection()
+  let vectorQuery: Dexie.Collection<VectorDocument, number> = type
+    ? vectorDb.vectors.where("metadata.type").equals(type)
+    : sessionId
+      ? vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+      : fileId && !Array.isArray(fileId)
+        ? vectorDb.vectors.where("metadata.fileId").equals(fileId)
+        : vectorDb.vectors.toCollection()
+
+  // Apply filters to collection if needed (for toCollection case or additional filters)
+  if (sessionId && !type) {
+    vectorQuery = vectorQuery.filter(
+      (doc) => doc.metadata.sessionId === sessionId
+    )
   }
 
-  // Apply filters
-  if (type && sessionId) {
-    query = query.filter((v) => v.metadata.sessionId === sessionId)
-  }
-  if (fileId) {
-    if (Array.isArray(fileId)) {
-      query = query.filter(
-        (v) => v.metadata.fileId && fileId.includes(v.metadata.fileId)
-      )
-    } else {
-      query = query.filter((v) => v.metadata.fileId === fileId)
-    }
+  if (fileId && Array.isArray(fileId)) {
+    vectorQuery = vectorQuery.filter((doc) =>
+      fileId.includes(doc.metadata.fileId || "")
+    )
   }
 
-  const vectorCount = await query.count()
+  const vectorCount = await vectorQuery.count()
 
   // Decide search strategy
   const useHNSW = await hnswIndexManager.shouldUseHNSW(vectorCount)
@@ -182,7 +178,7 @@ export const searchSimilarVectors = async (
         queryEmbedding,
         limit,
         minSimilarity,
-        query
+        vectorQuery
       )
       const duration = performance.now() - startTime
       logger.info("HNSW search completed", "searchSimilarVectors", {
@@ -199,7 +195,7 @@ export const searchSimilarVectors = async (
         queryEmbedding,
         limit,
         minSimilarity,
-        query
+        vectorQuery
       )
     }
   } else {
@@ -212,7 +208,7 @@ export const searchSimilarVectors = async (
       queryEmbedding,
       limit,
       minSimilarity,
-      query
+      vectorQuery
     )
     const duration = performance.now() - startTime
     logger.info("Brute-force search completed", "searchSimilarVectors", {

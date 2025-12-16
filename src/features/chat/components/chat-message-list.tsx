@@ -9,6 +9,9 @@ interface ChatMessageListProps {
   isStreaming: boolean
   highlightedMessage: ChatMessage | null
   onRegenerate: (message: ChatMessage, model?: string) => void
+  onUpdateMessage: (message: ChatMessage, content: string) => void
+  onDeleteMessage: (message: ChatMessage) => void
+  onNavigate?: (nodeId: number) => void
   hasMore: boolean
   onLoadMore: () => void
 }
@@ -20,7 +23,10 @@ export const ChatMessageList = ({
   highlightedMessage,
   onRegenerate,
   hasMore,
-  onLoadMore
+  onLoadMore,
+  onUpdateMessage,
+  onDeleteMessage,
+  onNavigate
 }: ChatMessageListProps) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const filteredMessages = messages.filter((msg) => msg.role !== "system")
@@ -87,6 +93,9 @@ export const ChatMessageList = ({
                       }
                     : undefined
                 }
+                onUpdate={(content) => onUpdateMessage(msg, content)}
+                onDelete={() => onDeleteMessage(msg)}
+                onNavigate={onNavigate}
               />
             </div>
           )

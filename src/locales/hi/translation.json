@@ -107,26 +107,26 @@
       "switch_model_tooltip": "मॉडल बदलें"
     },
     "metrics": {
-      "title": "परफॉर्मेंस मेट्रिक्स",
+      "title": "प्रदर्शन मेट्रिक्स",
       "toggle_aria_label": "मेट्रिक्स टॉगल करें",
       "toggle_title": "मेट्रिक्स टॉगल करें",
       "total_time": "कुल समय",
-      "generation_speed": "जनरेशन गति",
+      "generation_speed": "उत्पन्न करने की गति",
       "prompt_tokens": "प्रॉम्प्ट टोकन",
-      "generated_tokens": "जनरेट किए गए टोकन",
-      "load_time": "लोड समय",
+      "generated_tokens": "उत्पन्न टोकन",
+      "load_time": "लोड करने का समय",
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
     },
     "session_metrics": {
       "total_tokens": "{{value}} टोकन",
       "prompt_tokens": "{{value}} प्रॉम्प्ट",
-      "generated_tokens": "{{value}} जनरेट",
+      "generated_tokens": "{{value}} उत्पन्न",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} संदेश",
-      "tooltip_tokens": "इस सत्र में उपयोग किए गए कुल टोकन",
-      "tooltip_time": "कुल प्रतिक्रिया जनरेशन समय",
-      "tooltip_speed": "औसत जनरेशन गति",
-      "tooltip_messages": "AI प्रतिक्रियाओं की संख्या"
+      "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
+      "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
+      "tooltip_speed": "औसत उत्पन्न करने की गति",
+      "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
     },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",

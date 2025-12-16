@@ -108,25 +108,25 @@
     },
     "metrics": {
       "title": "パフォーマンス指標",
-      "toggle_aria_label": "指標の切り替え",
-      "toggle_title": "指標の切り替え",
+      "toggle_aria_label": "指標を切り替え",
+      "toggle_title": "指標を切り替え",
       "total_time": "合計時間",
       "generation_speed": "生成速度",
       "prompt_tokens": "プロンプトトークン",
       "generated_tokens": "生成トークン",
-      "load_time": "ロード時間",
+      "load_time": "読み込み時間",
       "prompt_eval_time": "プロンプト評価時間"
     },
     "session_metrics": {
       "total_tokens": "{{value}} トークン",
       "prompt_tokens": "{{value}} プロンプト",
-      "generated_tokens": "{{value}} 生成",
+      "generated_tokens": "{{value}} 生成済",
       "avg_speed": "{{speed}} t/s",
-      "messages": "{{value}} メッセージ",
+      "messages": "{{value}} 件",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AIの応答数"
+      "tooltip_messages": "AI応答数"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",

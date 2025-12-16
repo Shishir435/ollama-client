@@ -1,9 +1,11 @@
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
+import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import {
   getAllDocuments,
   similaritySearchWithScore,
   type VectorDocument
 } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 
 export interface RetrievedContext {
   documents: VectorDocument[]
@@ -61,10 +63,29 @@ export async function retrieveContext(
     const k = topK || (await knowledgeConfig.getRetrievalTopK())
     const minSimilarity = await knowledgeConfig.getMinSimilarity()
 
-    const results = await similaritySearchWithScore(query, k, {
+    // Generate embedding for query
+    const embeddingResult = await generateEmbedding(query)
+    if ("error" in embeddingResult) {
+      logger.error(
+        "Failed to generate embedding for query",
+        "retrieveContext",
+        {
+          error: embeddingResult.error
+        }
+      )
+      // Return empty if embedding fails
+      return {
+        documents: [],
+        formattedContext: "",
+        sources: []
+      }
+    }
+
+    const results = await similaritySearchWithScore(embeddingResult.embedding, {
       fileId, // similaritySearchWithScore supports string | string[]
       type: "file",
-      minSimilarity
+      minSimilarity,
+      limit: k
     })
     documents = results.map((r) => r.document)
   }
@@ -85,8 +106,9 @@ export async function retrieveContext(
     fileId: doc.metadata.fileId
   }))
 
-  console.log(
-    `[RAG Retriever] Retrieved ${documents.length} chunks (${tokenCount || "unknown"} tokens approx)`
+  logger.info(
+    `[RAG Retriever] Retrieved ${documents.length} chunks (${tokenCount || "unknown"} tokens approx)`,
+    "RAGRetriever"
   )
 
   return {
@@ -124,7 +146,18 @@ export async function reformulateQuestion(
   // Get reformulated question from LLM
   const reformulated = await modelInvokeFn(prompt)
 
-  console.log(`[RAG Retriever] Reformulated question: "${reformulated}"`)
+  if (!reformulated) {
+    logger.warn(
+      "[RAG Retriever] Failed to reformulate question",
+      "RAGRetriever"
+    )
+    return question
+  }
+
+  logger.info(
+    `[RAG Retriever] Reformulated question: "${reformulated}"`,
+    "RAGRetriever"
+  )
 
   return reformulated.trim()
 }

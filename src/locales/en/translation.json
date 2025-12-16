@@ -104,7 +104,8 @@
       "copy": "Copy",
       "copied": "Copied",
       "regenerate": "Regenerate",
-      "switch_model_tooltip": "Switch model"
+      "switch_model_tooltip": "Switch model",
+      "fork": "Fork Conversation"
     },
     "metrics": {
       "title": "Performance Metrics",

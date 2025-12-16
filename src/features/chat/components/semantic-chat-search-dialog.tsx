@@ -144,7 +144,11 @@ export const SemanticChatSearchDialog = ({
       // We'll fire and forget the close, but await the load for the highlight?
       // Actually, if we close dialog immediately, the user sees the chat.
       // We should probably await the load fast.
-      ensureMessageLoaded(result.sessionId, result.timestamp).then(() => {
+      ensureMessageLoaded(
+        result.sessionId,
+        result.timestamp,
+        result.messageId
+      ).then(() => {
         setHighlightedMessage({
           role: result.role,
           content: result.messageContent

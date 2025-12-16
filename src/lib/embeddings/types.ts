@@ -19,6 +19,7 @@ export interface VectorDocument {
     totalChunks?: number
     role?: "user" | "assistant" | "system"
     chatId?: string
+    messageId?: number
   }
 }
 

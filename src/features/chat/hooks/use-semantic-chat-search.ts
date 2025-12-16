@@ -15,6 +15,7 @@ export interface ChatSearchResult {
   messageContent: string
   role: "user" | "assistant"
   timestamp: number
+  messageId?: number
 }
 
 export interface UseSemanticChatSearchOptions {
@@ -91,7 +92,8 @@ export const useSemanticChatSearch = () => {
           role: result.document.metadata.title?.includes("User")
             ? "user"
             : "assistant",
-          timestamp: result.document.metadata.timestamp
+          timestamp: result.document.metadata.timestamp,
+          messageId: result.document.metadata.messageId
         }))
 
         return chatResults

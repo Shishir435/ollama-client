@@ -110,12 +110,12 @@
       "title": "Métriques de Performance",
       "toggle_aria_label": "Basculer les métriques",
       "toggle_title": "Basculer les métriques",
-      "total_time": "Temps Total",
-      "generation_speed": "Vitesse de Génération",
-      "prompt_tokens": "Tokens de Prompt",
-      "generated_tokens": "Tokens Générés",
-      "load_time": "Temps de Chargement",
-      "prompt_eval_time": "Temps d'Évaluation du Prompt"
+      "total_time": "Temps total",
+      "generation_speed": "Vitesse de génération",
+      "prompt_tokens": "Tokens du prompt",
+      "generated_tokens": "Tokens générés",
+      "load_time": "Temps de chargement",
+      "prompt_eval_time": "Temps d'évaluation du prompt"
     },
     "session_metrics": {
       "total_tokens": "{{value}} tokens",
@@ -123,8 +123,8 @@
       "generated_tokens": "{{value}} générés",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} msgs",
-      "tooltip_tokens": "Tokens totaux utilisés dans cette session",
-      "tooltip_time": "Temps total de génération de réponse",
+      "tooltip_tokens": "Total des tokens utilisés dans cette session",
+      "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
       "tooltip_messages": "Nombre de réponses IA"
     },

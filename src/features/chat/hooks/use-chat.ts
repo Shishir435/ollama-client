@@ -127,6 +127,38 @@ export const useChat = () => {
     }
   }
 
+  const generateResponse = async (
+    customModel?: string,
+    sessionIdParam?: string,
+    contextMessages?: ChatMessage[]
+  ) => {
+    const sessionId = sessionIdParam || currentSessionId
+    if (!sessionId) return
+
+    // 1. Add Assistant Shell
+    const assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: "",
+      model: customModel || selectedModel
+    }
+    const assistantId = await addMessage(sessionId, assistantMessage)
+    currentStreamingMessageId.current = assistantId
+
+    // 2. Prepare updated messages for stream context
+    // If contextMessages is provided (e.g. from fork), use it.
+    // Otherwise fallback to current messages (might be stale if we assume addMessage updated it immediately? No, hook state is stale)
+    // Actually, startStream takes `messages` (history) + `generatedMessage`
+    // So if contextMessages is passed, it should NOT include the assistant placeholder yet (startStream handles that).
+    const history = contextMessages || messages
+
+    startStream({
+      model: customModel || selectedModel,
+      messages: history,
+      sessionId: sessionId,
+      generatedMessage: { ...assistantMessage, id: assistantId }
+    })
+  }
+
   const sendMessage = async (
     customInput?: string,
     customModel?: string,
@@ -235,18 +267,8 @@ export const useChat = () => {
     // Optimistic UI update? No, addMessage updates store.
     await addMessage(currentSessionId, userMessage)
 
-    // 2. Add Assistant Shell
-    const assistantMessage: ChatMessage = {
-      role: "assistant",
-      content: "",
-      model: customModel || selectedModel
-    }
-    const assistantId = await addMessage(currentSessionId, assistantMessage)
-    currentStreamingMessageId.current = assistantId
-
-    // 3. Prepare updated messages for stream context
-    // We need to pass the *new* messages to startStream so it has context.
-    const newMessages = [...messages, userMessage] // Don't include assistant, startStream will use generatedMessage
+    // 2. Add Assistant Msg and Stream
+    const newMessages = [...messages, userMessage] // History + New User Msg
 
     // Rename session title if it's still "New Chat"
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
@@ -254,12 +276,7 @@ export const useChat = () => {
 
     if (!customInput) setInput("")
 
-    startStream({
-      model: customModel || selectedModel,
-      messages: newMessages,
-      sessionId: currentSessionId,
-      generatedMessage: { ...assistantMessage, id: assistantId }
-    })
+    await generateResponse(customModel, sessionId, newMessages)
   }
 
   return {
@@ -267,6 +284,7 @@ export const useChat = () => {
     isLoading,
     isStreaming,
     sendMessage,
+    generateResponse,
     stopGeneration: stopStream,
     scrollRef,
     hasMore: hasMoreMessages,

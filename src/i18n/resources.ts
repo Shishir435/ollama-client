@@ -118,13 +118,13 @@ export const resources = {
           switch_model_tooltip: "Modell wechseln"
         },
         metrics: {
-          title: "Leistungsmetriken",
-          toggle_aria_label: "Metriken umschalten",
-          toggle_title: "Metriken umschalten",
+          title: "Leistungskennzahlen",
+          toggle_aria_label: "Kennzahlen umschalten",
+          toggle_title: "Kennzahlen umschalten",
           total_time: "Gesamtzeit",
           generation_speed: "Generierungsgeschwindigkeit",
-          prompt_tokens: "Prompt-Tokens",
-          generated_tokens: "Generierte Tokens",
+          prompt_tokens: "Prompt-Token",
+          generated_tokens: "Generierte Token",
           load_time: "Ladezeit",
           prompt_eval_time: "Prompt-Evaluierungszeit"
         },
@@ -132,10 +132,10 @@ export const resources = {
           total_tokens: "{{value}} Token",
           prompt_tokens: "{{value}} Prompt",
           generated_tokens: "{{value}} generiert",
-          avg_speed: "{{speed}} t/s",
-          messages: "{{value}} Nachr.",
-          tooltip_tokens: "Gesamte Token in dieser Sitzung",
-          tooltip_time: "Gesamte Antwortgenerierungszeit",
+          avg_speed: "{{speed}} T/s",
+          messages: "{{value}} Nachrichten",
+          tooltip_tokens: "Insgesamt in dieser Sitzung genutzte Token",
+          tooltip_time: "Gesamte Antwortzeit",
           tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
           tooltip_messages: "Anzahl der KI-Antworten"
         },
@@ -1195,7 +1195,8 @@ export const resources = {
           copy: "Copy",
           copied: "Copied",
           regenerate: "Regenerate",
-          switch_model_tooltip: "Switch model"
+          switch_model_tooltip: "Switch model",
+          fork: "Fork Conversation"
         },
         metrics: {
           title: "Performance Metrics",
@@ -2266,12 +2267,12 @@ export const resources = {
           title: "Métricas de Rendimiento",
           toggle_aria_label: "Alternar métricas",
           toggle_title: "Alternar métricas",
-          total_time: "Tiempo Total",
-          generation_speed: "Velocidad de Generación",
-          prompt_tokens: "Tokens de Prompt",
-          generated_tokens: "Tokens Generados",
-          load_time: "Tiempo de Carga",
-          prompt_eval_time: "Tiempo de Evaluación de Prompt"
+          total_time: "Tiempo total",
+          generation_speed: "Velocidad de generación",
+          prompt_tokens: "Tokens del prompt",
+          generated_tokens: "Tokens generados",
+          load_time: "Tiempo de carga",
+          prompt_eval_time: "Tiempo de evaluación del prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} tokens",
@@ -2279,9 +2280,9 @@ export const resources = {
           generated_tokens: "{{value}} generados",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} msgs",
-          tooltip_tokens: "Tokens totales usados en esta sesión",
-          tooltip_time: "Tiempo total de generación de respuesta",
-          tooltip_speed: "Velocidad promedio de generación",
+          tooltip_tokens: "Total de tokens usados en esta sesión",
+          tooltip_time: "Tiempo total de generación de respuestas",
+          tooltip_speed: "Velocidad media de generación",
           tooltip_messages: "Número de respuestas de IA"
         },
         search: {
@@ -3337,12 +3338,12 @@ export const resources = {
           title: "Métriques de Performance",
           toggle_aria_label: "Basculer les métriques",
           toggle_title: "Basculer les métriques",
-          total_time: "Temps Total",
-          generation_speed: "Vitesse de Génération",
-          prompt_tokens: "Tokens de Prompt",
-          generated_tokens: "Tokens Générés",
-          load_time: "Temps de Chargement",
-          prompt_eval_time: "Temps d'Évaluation du Prompt"
+          total_time: "Temps total",
+          generation_speed: "Vitesse de génération",
+          prompt_tokens: "Tokens du prompt",
+          generated_tokens: "Tokens générés",
+          load_time: "Temps de chargement",
+          prompt_eval_time: "Temps d'évaluation du prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} tokens",
@@ -3350,8 +3351,8 @@ export const resources = {
           generated_tokens: "{{value}} générés",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} msgs",
-          tooltip_tokens: "Tokens totaux utilisés dans cette session",
-          tooltip_time: "Temps total de génération de réponse",
+          tooltip_tokens: "Total des tokens utilisés dans cette session",
+          tooltip_time: "Temps total de génération des réponses",
           tooltip_speed: "Vitesse moyenne de génération",
           tooltip_messages: "Nombre de réponses IA"
         },
@@ -4411,26 +4412,26 @@ export const resources = {
           switch_model_tooltip: "मॉडल बदलें"
         },
         metrics: {
-          title: "परफॉर्मेंस मेट्रिक्स",
+          title: "प्रदर्शन मेट्रिक्स",
           toggle_aria_label: "मेट्रिक्स टॉगल करें",
           toggle_title: "मेट्रिक्स टॉगल करें",
           total_time: "कुल समय",
-          generation_speed: "जनरेशन गति",
+          generation_speed: "उत्पन्न करने की गति",
           prompt_tokens: "प्रॉम्प्ट टोकन",
-          generated_tokens: "जनरेट किए गए टोकन",
-          load_time: "लोड समय",
+          generated_tokens: "उत्पन्न टोकन",
+          load_time: "लोड करने का समय",
           prompt_eval_time: "प्रॉम्प्ट मूल्यांकन समय"
         },
         session_metrics: {
           total_tokens: "{{value}} टोकन",
           prompt_tokens: "{{value}} प्रॉम्प्ट",
-          generated_tokens: "{{value}} जनरेट",
+          generated_tokens: "{{value}} उत्पन्न",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} संदेश",
-          tooltip_tokens: "इस सत्र में उपयोग किए गए कुल टोकन",
-          tooltip_time: "कुल प्रतिक्रिया जनरेशन समय",
-          tooltip_speed: "औसत जनरेशन गति",
-          tooltip_messages: "AI प्रतिक्रियाओं की संख्या"
+          tooltip_tokens: "इस सत्र में कुल उपयोग किए गए टोकन",
+          tooltip_time: "कुल प्रतिक्रिया उत्पन्न करने का समय",
+          tooltip_speed: "औसत उत्पन्न करने की गति",
+          tooltip_messages: "एआई प्रतिक्रियाओं की संख्या"
         },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -5458,24 +5459,24 @@ export const resources = {
           switch_model_tooltip: "Cambia modello"
         },
         metrics: {
-          title: "Metriche di Prestazione",
-          toggle_aria_label: "Attiva/disattiva metriche",
-          toggle_title: "Attiva/disattiva metriche",
-          total_time: "Tempo Totale",
-          generation_speed: "Velocità di Generazione",
-          prompt_tokens: "Token di Prompt",
-          generated_tokens: "Token Generati",
-          load_time: "Tempo di Caricamento",
-          prompt_eval_time: "Tempo di Valutazione del Prompt"
+          title: "Metriche delle Prestazioni",
+          toggle_aria_label: "Attiva/Disattiva metriche",
+          toggle_title: "Attiva/Disattiva metriche",
+          total_time: "Tempo totale",
+          generation_speed: "Velocità di generazione",
+          prompt_tokens: "Token del prompt",
+          generated_tokens: "Token generati",
+          load_time: "Tempo di caricamento",
+          prompt_eval_time: "Tempo val. prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} token",
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generati",
           avg_speed: "{{speed}} t/s",
-          messages: "{{value}} msgs",
-          tooltip_tokens: "Token totali usati in questa sessione",
-          tooltip_time: "Tempo totale di generazione risposta",
+          messages: "{{value}} msg",
+          tooltip_tokens: "Token totali utilizzati in questa sessione",
+          tooltip_time: "Tempo totale generazione risposte",
           tooltip_speed: "Velocità media di generazione",
           tooltip_messages: "Numero di risposte AI"
         },
@@ -6538,25 +6539,25 @@ export const resources = {
         },
         metrics: {
           title: "パフォーマンス指標",
-          toggle_aria_label: "指標の切り替え",
-          toggle_title: "指標の切り替え",
+          toggle_aria_label: "指標を切り替え",
+          toggle_title: "指標を切り替え",
           total_time: "合計時間",
           generation_speed: "生成速度",
           prompt_tokens: "プロンプトトークン",
           generated_tokens: "生成トークン",
-          load_time: "ロード時間",
+          load_time: "読み込み時間",
           prompt_eval_time: "プロンプト評価時間"
         },
         session_metrics: {
           total_tokens: "{{value}} トークン",
           prompt_tokens: "{{value}} プロンプト",
-          generated_tokens: "{{value}} 生成",
+          generated_tokens: "{{value}} 生成済",
           avg_speed: "{{speed}} t/s",
-          messages: "{{value}} メッセージ",
+          messages: "{{value}} 件",
           tooltip_tokens: "このセッションで使用された合計トークン",
           tooltip_time: "合計応答生成時間",
           tooltip_speed: "平均生成速度",
-          tooltip_messages: "AIの応答数"
+          tooltip_messages: "AI応答数"
         },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
@@ -7594,10 +7595,10 @@ export const resources = {
           toggle_title: "Переключить метрики",
           total_time: "Общее время",
           generation_speed: "Скорость генерации",
-          prompt_tokens: "Токенов промпта",
+          prompt_tokens: "Токены промпта",
           generated_tokens: "Сгенерировано токенов",
           load_time: "Время загрузки",
-          prompt_eval_time: "Время оценки промпта"
+          prompt_eval_time: "Время обработки промпта"
         },
         session_metrics: {
           total_tokens: "{{value}} токенов",
@@ -7605,8 +7606,8 @@ export const resources = {
           generated_tokens: "{{value}} сгенер.",
           avg_speed: "{{speed}} т/с",
           messages: "{{value}} сообщ.",
-          tooltip_tokens: "Всего токенов в этой сессии",
-          tooltip_time: "Общее время генерации ответа",
+          tooltip_tokens: "Всего токенов в текущей сессии",
+          tooltip_time: "Общее время генерации",
           tooltip_speed: "Средняя скорость генерации",
           tooltip_messages: "Количество ответов ИИ"
         },
@@ -8656,23 +8657,23 @@ export const resources = {
           title: "性能指标",
           toggle_aria_label: "切换指标",
           toggle_title: "切换指标",
-          total_time: "总耗时",
+          total_time: "总时间",
           generation_speed: "生成速度",
-          prompt_tokens: "提示词 Token 数",
-          generated_tokens: "生成 Token 数",
+          prompt_tokens: "提示词 Token",
+          generated_tokens: "生成的 Token",
           load_time: "加载时间",
           prompt_eval_time: "提示词评估时间"
         },
         session_metrics: {
-          total_tokens: "{{value}} 令牌",
-          prompt_tokens: "{{value}} 提示",
+          total_tokens: "{{value}} Token",
+          prompt_tokens: "{{value}} 提示词",
           generated_tokens: "{{value}} 生成",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} 条消息",
-          tooltip_tokens: "此会话使用的总令牌数",
-          tooltip_time: "总响应生成时间",
+          tooltip_tokens: "本次会话使用的总 Token",
+          tooltip_time: "总生成时间",
           tooltip_speed: "平均生成速度",
-          tooltip_messages: "AI响应数量"
+          tooltip_messages: "AI 回复数量"
         },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",

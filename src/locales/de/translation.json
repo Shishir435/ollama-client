@@ -107,13 +107,13 @@
       "switch_model_tooltip": "Modell wechseln"
     },
     "metrics": {
-      "title": "Leistungsmetriken",
-      "toggle_aria_label": "Metriken umschalten",
-      "toggle_title": "Metriken umschalten",
+      "title": "Leistungskennzahlen",
+      "toggle_aria_label": "Kennzahlen umschalten",
+      "toggle_title": "Kennzahlen umschalten",
       "total_time": "Gesamtzeit",
       "generation_speed": "Generierungsgeschwindigkeit",
-      "prompt_tokens": "Prompt-Tokens",
-      "generated_tokens": "Generierte Tokens",
+      "prompt_tokens": "Prompt-Token",
+      "generated_tokens": "Generierte Token",
       "load_time": "Ladezeit",
       "prompt_eval_time": "Prompt-Evaluierungszeit"
     },
@@ -121,10 +121,10 @@
       "total_tokens": "{{value}} Token",
       "prompt_tokens": "{{value}} Prompt",
       "generated_tokens": "{{value}} generiert",
-      "avg_speed": "{{speed}} t/s",
-      "messages": "{{value}} Nachr.",
-      "tooltip_tokens": "Gesamte Token in dieser Sitzung",
-      "tooltip_time": "Gesamte Antwortgenerierungszeit",
+      "avg_speed": "{{speed}} T/s",
+      "messages": "{{value}} Nachrichten",
+      "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
+      "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten"
     },

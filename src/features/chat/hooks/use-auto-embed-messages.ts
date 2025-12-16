@@ -1,8 +1,10 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useRef } from "react"
+
 import { STORAGE_KEYS } from "@/lib/constants"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage } from "@/types"
 
@@ -11,12 +13,20 @@ import type { ChatMessage } from "@/types"
  */
 const checkDuplicateEmbedding = async (
   content: string,
-  sessionId: string
+  sessionId: string,
+  messageId?: number
 ): Promise<boolean> => {
   try {
-    const existing = await vectorDb.vectors
-      .where("metadata.sessionId")
-      .equals(sessionId)
+    const query = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+
+    if (messageId) {
+      const existing = await query
+        .filter((doc) => doc.metadata.messageId === messageId)
+        .first()
+      return !!existing
+    }
+
+    const existing = await query
       .filter((doc) => doc.content === content)
       .first()
     return !!existing
@@ -70,7 +80,11 @@ export const useAutoEmbedMessages = () => {
       }
 
       // Check for duplicate embedding
-      const isDuplicate = await checkDuplicateEmbedding(content, sessionId)
+      const isDuplicate = await checkDuplicateEmbedding(
+        content,
+        sessionId,
+        message.id
+      )
       if (isDuplicate) {
         return // Skip if already embedded
       }
@@ -83,20 +97,31 @@ export const useAutoEmbedMessages = () => {
         const result = await generateEmbedding(content)
 
         if ("error" in result) {
-          console.warn("Failed to embed message:", result.error)
+          logger.warn(
+            "Failed to embed message:",
+            "useAutoEmbedMessages",
+            result.error
+          )
           return
         }
 
+        const embedding = result.embedding
+
         // Store vector with metadata
         // storeVector will also check for duplicates as a safety measure
-        await storeVector(content, result.embedding, {
+        await storeVector(message.content, embedding, {
           type: "chat",
+          source: "chat",
           sessionId,
           timestamp: Date.now(),
-          title: message.role === "user" ? "User message" : "Assistant response"
+          title:
+            message.role === "user" ? "User message" : "Assistant response",
+          messageId: message.id
         })
       } catch (error) {
-        console.error("Error embedding message:", error)
+        logger.error("Error embedding message:", "useAutoEmbedMessages", {
+          error
+        })
         // Don't throw - embedding failures shouldn't block chat
       } finally {
         // Remove from processing set after a delay to allow for race conditions

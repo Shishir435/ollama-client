@@ -10,6 +10,11 @@ class VectorDatabase extends Dexie {
       vectors:
         "++id, metadata.type, metadata.sessionId, metadata.fileId, metadata.url, metadata.timestamp"
     })
+
+    this.version(2).stores({
+      vectors:
+        "++id, metadata.type, metadata.sessionId, metadata.fileId, metadata.url, metadata.timestamp, metadata.messageId"
+    })
   }
 }
 

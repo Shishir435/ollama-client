@@ -14,6 +14,10 @@ vi.mock("@/lib/config/knowledge-config", () => ({
   }
 }))
 
+vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+  generateEmbedding: vi.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
+}))
+
 describe("retrieveContext", () => {
   const mockDocuments: vectorStore.VectorDocument[] = [
     {
@@ -44,16 +48,20 @@ describe("retrieveContext", () => {
 
   it("retrieves context using similarity search by default", async () => {
     vi.mocked(vectorStore.similaritySearchWithScore).mockResolvedValue([
-      { document: mockDocuments[0], score: 0.9 },
-      { document: mockDocuments[1], score: 0.8 }
-    ])
+      { document: mockDocuments[0], similarity: 0.9 },
+      { document: mockDocuments[1], similarity: 0.8 }
+    ] as any)
 
     const result = await retrieveContext("query", "file1")
 
     expect(vectorStore.similaritySearchWithScore).toHaveBeenCalledWith(
-      "query",
-      4,
-      expect.objectContaining({ fileId: "file1", minSimilarity: 0.5 })
+      [0.1, 0.2, 0.3],
+      expect.objectContaining({ 
+        limit: 4, 
+        fileId: "file1", 
+        minSimilarity: 0.5,
+        type: "file" 
+      })
     )
     expect(result.documents).toHaveLength(2)
     expect(result.formattedContext).toContain("Chunk 1 content")
