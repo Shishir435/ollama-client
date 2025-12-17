@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next"
 
-import type { ChatSession } from "@/types"
+import type { ChatMessage, ChatSession } from "@/types"
 
 import type { Exporter, ExportOptions } from "./types"
 import { downloadFile } from "./utils"
@@ -39,5 +39,21 @@ export const markdownExporter: Exporter = {
       .join("\n\n========================================\n\n")
     const blob = new Blob([content], { type: "text/markdown" })
     downloadFile(blob, "all-chat-sessions.md")
+  },
+
+  exportMessage: (
+    message: ChatMessage,
+    t: TFunction,
+    options?: ExportOptions
+  ) => {
+    const role =
+      message.role === "user"
+        ? `**${t("sessions.export.role_user")}**`
+        : `**${t("sessions.export.role_assistant")}**`
+    const content = `${role}:\n${message.content}\n`
+
+    const filename = options?.fileName || `message-${message.id || "export"}.md`
+    const blob = new Blob([content], { type: "text/markdown" })
+    downloadFile(blob, filename)
   }
 }

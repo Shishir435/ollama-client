@@ -3,6 +3,7 @@ import { ChatMessageContainer } from "@/features/chat/components/chat-message-co
 import { ChatMessageContent } from "@/features/chat/components/chat-message-content"
 import { ChatMessageEditor } from "@/features/chat/components/chat-message-editor"
 import { ChatMessageFooter } from "@/features/chat/components/chat-message-footer"
+import { useMessageExport } from "@/features/chat/hooks/use-message-export"
 import type { ChatMessage } from "@/types"
 
 export const ChatMessageBubble = ({
@@ -28,16 +29,30 @@ export const ChatMessageBubble = ({
     setIsEditing(false)
   }
 
-  const handleExport = () => {
-    const blob = new Blob([msg.content], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `message-${msg.id || "export"}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  /* import { useMessageExport } from "@/features/chat/hooks/use-message-export" */
+
+  const {
+    exportMessageAsJson,
+    exportMessageAsMarkdown,
+    exportMessageAsPdf,
+    exportMessageAsText
+  } = useMessageExport()
+
+  const handleExport = (format: "json" | "pdf" | "markdown" | "text") => {
+    switch (format) {
+      case "json":
+        exportMessageAsJson(msg)
+        break
+      case "pdf":
+        exportMessageAsPdf(msg)
+        break
+      case "markdown":
+        exportMessageAsMarkdown(msg)
+        break
+      case "text":
+        exportMessageAsText(msg)
+        break
+    }
   }
 
   return (

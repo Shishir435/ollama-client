@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next"
 
-import type { ChatSession } from "@/types"
+import type { ChatMessage, ChatSession } from "@/types"
 
 import type { Exporter, ExportOptions } from "./types"
 import { downloadFile } from "./utils"
@@ -36,8 +36,25 @@ export const textExporter: Exporter = {
   exportAllSessions: (sessions: ChatSession[], t: TFunction) => {
     const content = sessions
       .map((session) => formatSession(session, t))
-      .join("\n\n########################################\n\n")
+      .join("\n\n========================================\n\n")
     const blob = new Blob([content], { type: "text/plain" })
     downloadFile(blob, "all-chat-sessions.txt")
+  },
+
+  exportMessage: (
+    message: ChatMessage,
+    t: TFunction,
+    options?: ExportOptions
+  ) => {
+    const role =
+      message.role === "user"
+        ? t("sessions.export.role_user")
+        : t("sessions.export.role_assistant")
+
+    const content = `${role}:\n${message.content}\n`
+    const filename =
+      options?.fileName || `message-${message.id || "export"}.txt`
+    const blob = new Blob([content], { type: "text/plain" })
+    downloadFile(blob, filename)
   }
 }

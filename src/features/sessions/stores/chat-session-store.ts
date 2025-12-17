@@ -513,23 +513,106 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   },
 
   deleteMessage: async (messageId: number) => {
-    await db.messages.delete(messageId)
-    await db.files.where("messageId").equals(messageId).delete()
-    deleteVectors({ messageId }).catch((error) => {
-      logger.error("Failed to delete message embeddings", "chatSessionStore", {
-        error,
-        messageId
-      })
-    })
+    // 1. Fetch all messages to build tree context
+    // Ideally we optimize this, but for consistent tree traversal we need the links.
+    // We can filter by sessionId if we had it, but `deleteMessage` only takes ID.
+    // We'll fetch the message first to get sessionId.
+    const targetMsg = await db.messages.get(messageId)
+    if (!targetMsg || !targetMsg.sessionId) return
 
-    // If deleted message was current leaf, we need to pick a new leaf.
-    // Parent?
+    const { sessionId, parentId: targetParentId } = targetMsg
+
+    // Get all messages in session to find descendants
+    const allMessages = await db.messages
+      .where("sessionId")
+      .equals(sessionId)
+      .toArray()
+
+    // Build Parent -> Children map
+    const childrenMap = new Map<number, number[]>()
+    for (const msg of allMessages) {
+      if (msg.parentId) {
+        const list = childrenMap.get(msg.parentId) || []
+        list.push(msg.id!)
+        childrenMap.set(msg.parentId, list)
+      }
+    }
+
+    // 2. BFS/DFS to find all descendants
+    const toDeleteIds = new Set<number>([messageId])
+    const queue = [messageId]
+
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      const children = childrenMap.get(current)
+      if (children) {
+        for (const childId of children) {
+          if (!toDeleteIds.has(childId)) {
+            toDeleteIds.add(childId)
+            queue.push(childId)
+          }
+        }
+      }
+    }
+
+    const idsToDelete = Array.from(toDeleteIds)
+
+    // 3. Update Session Leaf if needed
+    // If the current leaf is one of the deleted messages, we must revert leaf to the target's parent.
+    const session = await db.sessions.get(sessionId)
+    if (
+      session &&
+      session.currentLeafId &&
+      toDeleteIds.has(session.currentLeafId)
+    ) {
+      // The active branch is being cut.
+      // New leaf should be the parent of the *target message* (the root of deletion).
+      // If target has no parent (it was root), then leaf is undefined (empty chat).
+      await db.sessions.update(sessionId, {
+        currentLeafId: targetParentId
+      })
+    }
+
+    // 4. Bulk Delete
+    await db.messages.bulkDelete(idsToDelete)
+    await db.files.where("messageId").anyOf(idsToDelete).delete()
+
+    // Delete embeddings
+    // We can't bulk delete by ID easily in vector store without looping?
+    // vector-store deleteVectors takes { messageId }
+    // Let's loop for now (it's usually fast enough for small deletions)
+    // Or check if deleteVectors supports array? It doesn't seem to.
+    for (const id of idsToDelete) {
+      deleteVectors({ messageId: id }).catch((error) => {
+        logger.error(
+          "Failed to delete message embeddings",
+          "chatSessionStore",
+          {
+            error,
+            messageId: id
+          }
+        )
+      })
+    }
+
+    // 5. Update Local State
     set((state) => ({
-      sessions: state.sessions.map((s) => ({
-        ...s,
-        messages: s.messages?.filter((m) => m.id !== messageId)
-      }))
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId
+          ? {
+              ...s,
+              messages: s.messages?.filter((m) => !toDeleteIds.has(m.id!)),
+              currentLeafId: toDeleteIds.has(s.currentLeafId!)
+                ? targetParentId
+                : s.currentLeafId
+            }
+          : s
+      )
     }))
+
+    // 6. Reload to ensure full consistency (re-calc siblings, etc)
+    // Especially if we changed leaf.
+    get().loadSessionMessages(sessionId)
   }
 }))
 

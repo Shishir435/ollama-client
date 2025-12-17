@@ -1,7 +1,7 @@
 import html2pdf from "html2pdf.js"
 import type { TFunction } from "i18next"
 
-import type { ChatSession } from "@/types"
+import type { ChatMessage, ChatSession } from "@/types"
 
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
 import { getPdfStyles } from "./styles"
@@ -97,6 +97,52 @@ export const pdfExporter: Exporter = {
       .set({
         margin: [15, 15, 15, 15],
         filename: "all-chat-sessions.pdf",
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          allowTaint: false
+        },
+        jsPDF: {
+          unit: "mm",
+          format: "a4",
+          orientation: "portrait",
+          compress: true
+        },
+        pagebreak: {
+          mode: ["avoid-all", "css", "legacy"]
+        }
+      })
+      .save()
+  },
+
+  exportMessage: (
+    message: ChatMessage,
+    t: TFunction,
+    options?: ExportOptions
+  ) => {
+    const md = createMarkdownParser()
+    const element = document.createElement("div")
+    element.innerHTML = `
+      ${getPdfStyles()}
+      <div class="chat-container">
+        <div class="message ${message.role === "user" ? "user-message" : "ai-message"}">
+          <div class="message-header">${message.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
+          <div class="message-content">
+            ${parseMessageContent(message.content, md)}
+          </div>
+        </div>
+      </div>
+    `
+
+    const filename =
+      options?.fileName || `message-${message.id || "export"}.pdf`
+
+    html2pdf()
+      .from(element)
+      .set({
+        margin: [15, 15, 15, 15],
+        filename,
         html2canvas: {
           scale: 2,
           useCORS: true,
