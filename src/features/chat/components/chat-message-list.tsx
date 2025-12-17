@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
 import type { ChatMessage } from "@/types"
@@ -28,16 +28,36 @@ export const ChatMessageList = ({
   onDeleteMessage,
   onNavigate
 }: ChatMessageListProps) => {
+  const [firstItemIndex, setFirstItemIndex] = useState(10000)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const filteredMessages = messages.filter((msg) => msg.role !== "system")
+  const internalMessagesRef = useRef(filteredMessages)
+
+  // Update firstItemIndex when prepending items to ensure stable indices
+  if (filteredMessages.length > internalMessagesRef.current.length) {
+    const newMessages = filteredMessages
+    const oldMessages = internalMessagesRef.current
+    const diff = newMessages.length - oldMessages.length
+
+    // specific check for prepend: if the old first message is now at index `diff`
+    const isPrepend =
+      oldMessages.length > 0 && newMessages[diff] === oldMessages[0]
+
+    if (isPrepend) {
+      setFirstItemIndex((prev) => prev - diff)
+    }
+  }
+
+  // Update ref after render
+  internalMessagesRef.current = filteredMessages
 
   return (
     <div className="flex-1 px-4 py-2 h-full">
       <Virtuoso
         ref={virtuosoRef}
-        firstItemIndex={10000000 - filteredMessages.length}
+        firstItemIndex={firstItemIndex}
         data={filteredMessages}
-        initialTopMostItemIndex={filteredMessages.length - 1}
+        initialTopMostItemIndex={filteredMessages.length - 1} // We'll rely on alignToBottom/followOutput mostly
         startReached={() => {
           if (hasMore) {
             onLoadMore()
