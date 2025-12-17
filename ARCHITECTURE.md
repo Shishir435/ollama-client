@@ -1,859 +1,151 @@
-# Ollama Client - Architecture Documentation
+# 🏗️ Architecture Documentation
 
-> **Version**: 0.5.8  
-> **Last Updated**: December 11, 2025
+> **Version**: 0.5.10
+> **Last Updated**: December 18, 2025
 
-This document provides a comprehensive overview of the Ollama Client architecture, design patterns, and technical implementation details to help contributors understand the codebase.
+**Ollama Client** is a local-first, privacy-focused Chrome Extension that interfaces with a local Ollama instance. It features a sophisticated architecture typically found in full-scale web applications, including client-side vector search, normalized database with tree-based history, and virtualized lists.
 
 ---
 
-## 📐 Architecture Overview
+## 📐 System Overview
 
-Ollama Client is a **privacy-first browser extension** built with modern web technologies. It follows a **feature-based modular architecture** with clear separation of concerns between UI, business logic, and data persistence.
-
-### High-Level Architecture
+The application is built on the **Plasmo** framework (Manifest V3) and employs a modular "feature-slice" architecture.
 
 ```mermaid
 graph TB
-    subgraph "Extension Components"
-        SP[Side Panel<br/>Main Chat UI]
-        OP[Options Page<br/>Settings]
-        CS[Content Script<br/>Page Integration]
-        BG[Background Service Worker<br/>Message Handlers]
+    subgraph ChromeRuntime [Chrome Runtime]
+        UI["Side Panel UI<br/>(React 18)"]
+        BG["Background Worker<br/>(Service Worker)"]
+        CS["Content Scripts<br/>(DOM Interaction)"]
     end
-    
-    subgraph "State & Data"
-        STORES[Zustand Stores<br/>Global State]
-        IDB[(IndexedDB<br/>Dexie)]
-        STORAGE[(Chrome Storage<br/>Plasmo)]
+
+    subgraph StatePersistence [State & Persistence]
+        Zustand["Zustand Stores<br/>(Global State)"]
+        Dexie[("IndexedDB<br/>(Chat & Vectors)")]
+        LocalStorage[("Chrome Storage<br/>(Settings)")]
     end
-    
-    subgraph "External"
-        OLLAMA[Ollama Server<br/>Local LLM]
+
+    subgraph External [External]
+        Ollama["Ollama API<br/>(Localhost:11434)"]
+        LLM["LLM Models"]
     end
-    
-    SP --> STORES
-    OP --> STORES
-    CS --> BG
-    
-    STORES --> IDB
-    STORES --> STORAGE
-    
-    BG --> OLLAMA
-    
-    style OLLAMA fill:#e1f5fe
-    style BG fill:#fff3e0
-    style STORES fill:#f3e5f5
+
+    UI -->|Hooks/Actions| Zustand
+    Zustand -->|Persist| Dexie
+    UI -->|Messages| BG
+    BG -->|Fetch| Ollama
+    Ollama --> LLM
+    CS -->|Port| BG
 ```
 
 ---
 
-## 🗂️ Project Structure
+## 🧩 Core Architecture
+
+### 1. Feature-First Directory Structure
+We organize code by business domain rather than technical layer. This ensures scalability and cohesive maintenance.
 
 ```
-ollama-client/
-├── src/
-│   ├── background/          # Service worker & message handlers
-│   │   ├── handlers/        # API request handlers
-│   │   ├── lib/             # Background utilities
-│   │   └── index.ts         # Service worker entry point
-│   │
-│   ├── sidepanel/           # Main chat interface
-│   │   ├── components/      # Sidepanel-specific components
-│   │   └── index.tsx        # Sidepanel entry point
-│   │
-│   ├── options/             # Settings page
-│   │   ├── components/      # Settings UI components
-│   │   └── index.tsx        # Options entry point
-│   │
-│   ├── contents/            # Content scripts
-│   │   ├── selection-button.tsx  # Text selection button
-│   │   └── index.ts         # Content script entry
-│   │
-│   ├── features/            # Feature modules (CORE)
-│   │   ├── chat/            # Chat functionality
-│   │   ├── file-upload/     # File processing
-│   │   ├── knowledge/       # Knowledge management
-│   │   ├── memory/          # Contextual memory
-│   │   ├── model/           # Model management
-│   │   ├── prompt/          # Prompt templates
-│   │   ├── sessions/        # Session management
-│   │   └── tabs/            # Browser tab integration
-│   │
-│   ├── lib/                 # Shared utilities
-│   │   ├── embeddings/      # Vector search
-│   │   ├── knowledge/       # RAG implementation
-│   │   ├── text-processing/ # Text chunking
-│   │   ├── file-processors/ # File format handlers
-│   │   ├── exporters/       # Chat export modules (JSON, PDF, MD, TXT)
-│   │   ├── loaders/         # Data loaders
-│   │   ├── config/          # Configuration
-│   │   ├── db.ts            # Database schema
-│   │   ├── logger.ts        # Logging utility
-│   │   └── utils.ts         # Helper functions
-│   │
-│   ├── components/          # Shared UI components
-│   │   ├── ui/              # Shadcn UI components
-│   │   └── settings/        # Settings components
-│   │
-│   ├── stores/              # Zustand state management
-│   │   ├── search-dialog-store.ts
-│   │   ├── shortcut-store.ts
-│   │   ├── speech-store.ts
-│   │   └── theme.ts
-│   │
-│   ├── hooks/               # Custom React hooks
-│   ├── i18n/                # Internationalization
-│   ├── locales/             # Translation files (9 languages)
-│   ├── types/               # TypeScript definitions
-│   └── test/                # Test setup & fixtures
-│
-├── tools/                   # Build & development tools
-├── docs/                    # Documentation website
-└── coverage/                # Test coverage reports
+src/
+├── features/             # Domain Logic
+│   ├── chat/             # Message bubbles, list virtualization, input
+│   ├── model/            # Model pulling, selection, settings
+│   ├── knowledge/        # RAG, Vector Search UI, Indexing
+│   ├── file-upload/      # File processors (PDF/DOCX/CSV)
+│   └── sessions/         # Session management, history tree
+├── lib/                  # Shared Infrastructure
+│   ├── db.ts             # Database Schema & Migrations
+│   ├── embeddings/       # HNSW Vector Store Implementation
+│   └── exporters/        # PDF/JSON/MD Export Logic
+├── stores/               # Global State (Zustand)
+└── background/           # Service Worker Handlers
 ```
+
+### 2. Message Passing Bus
+The UI communicates with the Background Worker via a typed message bus (`src/lib/constants.ts`). This offloads heavy tasks (scraping, model inference) from the UI thread.
+*   **Pattern**: `sendMessage({ type: "ACTION", payload })` -> `Handler` -> `sendResponse`.
+*   **Streaming**: Uses `Port` connections for streaming LLM responses to avoid message size limits.
 
 ---
 
-## 🧩 Feature Modules
+## 💾 Data Architecture (IndexedDB)
 
-Each feature module follows a consistent structure:
+The project uses **Dexie.js** to manage IndexedDB. The schema has evolved to `Version 3` to support advanced features like branching.
 
-```
-features/[feature-name]/
-├── components/      # React components
-├── hooks/           # Feature-specific hooks
-├── stores/          # Zustand stores (if needed)
-├── utils/           # Helper functions
-└── __tests__/       # Unit tests
-```
+### Schema Definition (`src/lib/db.ts`)
 
-### Module Communication
+#### 1. Sessions Table
+Stores high-level metadata.
+*   `id`: Primary Key
+*   `currentLeafId`: Pointer to the *active* message in the conversation tree.
+*   `modelId`, `title`, `updatedAt`.
 
-Features communicate through:
-1. **Zustand stores** - Global state sharing
-2. **Chrome messages** - Background ↔ UI communication
-3. **Custom events** - Component-to-component signaling
-4. **React Context** - Scoped state (rarely used)
+#### 2. Messages Table (Normalized & Tree-Structured)
+Stores individual message nodes.
+*   `id`: Primary Key (Auto-increment)
+*   `sessionId`: Foreign Key.
+*   `parentId`: **Adjacency List** implementation for tree structure. Allows forking conversations.
+*   `content`: The message text.
+*   `role`: user | assistant | system.
+*   **Indexes**: `[sessionId+timestamp]`, `parentId`.
 
----
+#### 3. Files Table
+Attachments are normalized and linked to messages.
+*   `id`: Primary Key.
+*   `messageId`: Foreign Key.
+*   `data`: Binary Blob (or text).
+*   `processedAt`: Timestamp.
 
-## 🔄 Message Passing Architecture
-
-### Background ↔ UI Communication
-
-```mermaid
-sequenceDiagram
-    participant UI as UI Component
-    participant BG as Background Worker
-    participant Ollama as Ollama Server
-    
-    UI->>BG: chrome.runtime.sendMessage()
-    BG->>BG: Route to handler
-    BG->>Ollama: HTTP Request
-    Ollama->>BG: Response
-    BG->>UI: sendResponse()
-    UI->>UI: Update UI
-```
-
-### Message Types
-
-Defined in `src/lib/constants.ts`:
-
-```typescript
-export const MESSAGE_KEYS = {
-  OLLAMA: {
-    GET_MODELS: "get-ollama-models",
-    CHAT_WITH_MODEL: "chat-with-model",
-    PULL_MODEL: "OLLAMA.PULL_MODEL",
-    DELETE_MODEL: "delete-model",
-    // ... more
-  },
-  BROWSER: {
-    GET_PAGE_CONTENT: "get-page-content",
-    ADD_SELECTION_TO_CHAT: "add-selection-to-chat"
-  }
-}
-```
-
-### Handler Pattern
-
-```typescript
-// src/background/handlers/handle-get-models.ts
-export async function handleGetModels(sendResponse: SendResponseFunction) {
-  try {
-    const baseUrl = await getOllamaBaseUrl()
-    const response = await fetch(`${baseUrl}/api/tags`)
-    const data = await response.json()
-    
-    safeSendResponse(sendResponse, {
-      success: true,
-      data: data.models
-    })
-  } catch (error) {
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: { status: 0, message: error.message }
-    })
-  }
-}
-```
+#### 4. Vector Store (`VectorDatabase`)
+Stores embeddings for Semantic Search.
+*   `vectors` table: Contains `embedding` (Float32Array) and `metadata`.
+*   **HNSW Index**: Custom implementation for efficient nearest-neighbor search.
 
 ---
 
-## 💾 Data Persistence
+## ⚡ Performance & UI Patterns
 
-### Storage Layers
+### 1. Virtualization (`react-virtuoso`)
+*   **Component**: `ChatMessageList` (`src/features/chat/components/chat-message-list.tsx`).
+*   **Mechanism**: Renders only the visible window of messages.
+*   **Dynamic**: Handles variable height message bubbles (streaming content, code blocks).
+*   **Scroll Sync**: "Stick-to-bottom" behavior during streaming.
 
-```mermaid
-graph LR
-    A[Application] --> B{Storage Type?}
-    B -->|Settings| C[Chrome Storage<br/>Plasmo]
-    B -->|Chat Data| D[IndexedDB<br/>Dexie]
-    B -->|Vectors| E[IndexedDB<br/>Vector DB]
-    
-    style C fill:#e8f5e9
-    style D fill:#e3f2fd
-    style E fill:#f3e5f5
-```
+### 2. Optimized Vector Search
+We implement **Client-Side RAG** without external DBs.
+*   **Algorithm**: Hybrid Search (Keyword + Cosine Similarity).
+*   **Storage**: Embeddings stored as `Float32Array` for 50% memory reduction vs standard arrays.
+*   **Math**: Dot product optimization for normalized vectors (skips sqrt calculation).
 
-#### Chrome Storage (via Plasmo)
-
-**Used for**: Settings, preferences, small data
-
-```typescript
-import { Storage } from "@/wab/plasmo/storage"
-
-// Read
-const theme = await storage.get(STORAGE_KEYS.THEME.PREFERENCE)
-
-// Write
-await storage.set(STORAGE_KEYS.THEME.PREFERENCE, "dark")
-```
-
-**Storage Keys** (see `src/lib/constants.ts`):
-- `OLLAMA.*` - Ollama configuration
-- `EMBEDDINGS.*` - Embedding settings
-- `THEME.*` - UI theme
-- `TTS.*` - Text-to-speech settings
-- `LOGGER.*` - Logger configuration
-
-#### IndexedDB (Dexie)
-
-**Used for**: Chat sessions, messages, files
-
-```typescript
-// src/lib/db.ts
-class ChatDatabase extends Dexie {
-  sessions!: Table<ChatSession>
-  
-  constructor() {
-    super("ChatDatabase")
-    this.version(1).stores({
-      sessions: "id, createdAt, updatedAt"
-    })
-  }
-}
-
-export const db = new ChatDatabase()
-```
-
-**Current Schema (v1)**:
-- `sessions` - Chat sessions with embedded messages array
-
-**Planned Schema (v2)** - See ROADMAP.md:
-- `sessions` - Session metadata only
-- `messages` - Individual messages with sessionId foreign key
-- `files` - File attachments with sessionId foreign key
-
-#### Vector Database
-
-**Used for**: Embeddings for semantic search
-
-```typescript
-// src/lib/embeddings/vector-store.ts
-class VectorDatabase extends Dexie {
-  vectors!: Table<VectorDocument>
-  
-  constructor() {
-    super("VectorDatabase")
-    this.version(1).stores({
-      vectors: "++id, metadata.type, metadata.sessionId, ..."
-    })
-  }
-}
-```
-
-**Features**:
-- HNSW indexing for fast similarity search
-- Keyword index for hybrid search
-- Pre-normalized vectors for performance
-- Circular cache with configurable TTL
-
+### 3. File Processing Pipeline
+*   **PDF**: `pdfjs-dist` (Worker-based).
+*   **DOCX**: `mammoth.js`.
+*   **CSV**: `d3-dsv` with auto-delimiter detection.
+*   **Flow**: Upload -> Extract Text -> Chunk -> Generate Embeddings -> Store in Vector DB.
 
 ---
 
-## 🌳 Conversation Branching & History
+## 🛡️ Error Handling & Reliability
 
-Ollama Client supports non-linear conversation history (branching/forking), allowing users to explore different paths in a single session.
+### 1. Global Error Boundary
+*   Wraps the entire Side Panel application.
+*   Catches React rendering errors and provides a "Reload Extension" fallback.
 
-### Tree-Based Data Model
-
-The data model for messages is a **Linked List Tree**:
-
-- **`parentId`**: Each message optionally points to a parent ID.
-- **`currentLeafId`**: The `ChatSession` stores the ID of the "Active Tip" (the visible end of the conversation).
-- **`siblingIds`**: A transient property calculated at runtime to identify alternative versions of a message node.
-
-### Branching Flows
-
-There are two primary ways to create branches:
-
-#### 1. Editing User Messages (Forking)
-When a user edits their *own* message:
-- A new sibling message is created with the new content.
-- Both the old and new messages share the same `parentId`.
-- A new Assistant response is generated for the new path.
-- **Navigation**: Users can toggle between versions using `<` and `>` arrows.
-
-#### 2. Regenerating Assistant Responses (Versioning)
-When a user regenerates an *Assistant* response:
-- The session rewinds to the *User Message* (Parent).
-- A new sibling Assistant message is generated.
-- This creates a fork at the Assistant level (Multiple answers to one question).
-- **Navigation**: Users can toggle between Assistant versions.
-
-### Semantic Search Integration
-
-Semantic Search is fully compatible with branching:
-- **Indexing**: All messages (including those in hidden branches) are embedded and stored in the Vector DB.
-- **Retrieval**: Search queries scan the entire vector space.
-- **Context Switching**: Clicking a result from a hidden branch automatically triggers `navigateToNode`, switching the active view to that specific conversation path.
+### 2. Transactional Integrity
+*   Database operations (like `deleteMessage` cascading) run in Dexie transactions to ensure atomicity. All descendants and associated files are deleted, or nothing is.
 
 ---
 
-## 🎨 State Management
+## 🔐 Security
 
-### Zustand Stores
-
-**Philosophy**: Lightweight, no boilerplate, easy to test
-
-```typescript
-// src/stores/theme.ts
-export const useThemeStore = create<ThemeState>((set) => ({
-  theme: "system",
-  setTheme: (theme) => set({ theme })
-}))
-
-// Usage in components
-const { theme, setTheme } = useThemeStore()
-```
-
-### State Persistence
-
-Stores automatically persist to Chrome Storage via Plasmo:
-
-```typescript
-const [theme, setTheme] = useStorage({
-  key: STORAGE_KEYS.THEME.PREFERENCE,
-  instance: plasmoGlobalStorage
-}, "system")
-```
-
-### Store Files
-
-- `theme.ts` - UI theme (dark/light/system)
-- `search-dialog-store.ts` - Semantic search dialog state
-- `shortcut-store.ts` - Keyboard shortcuts configuration
-- `speech-store.ts` - Text-to-speech state
-- `chat-session-store.ts` - Chat session state (feature-specific)
-- `load-stream-store.ts` - Loading indicators
-
----
-
-## 🔍 Vector Search Architecture
-
-### HNSW Implementation
-
-**Hierarchical Navigable Small World** graph for approximate nearest neighbor search.
-
-```mermaid
-graph TB
-    A[Query Vector] --> B[Normalize Vector]
-    B --> C{HNSW Index<br/>Available?}
-    C -->|Yes| D[HNSW Search<br/>O-log n]
-    C -->|No| E[Brute Force<br/>O-n]
-    D --> F[Filter by Threshold]
-    E --> F
-    F --> G[Return Top K Results]
-```
-
-**Performance**:
-- **HNSW**: ~10-50ms for 10,000 vectors
-- **Brute-force**: ~200-500ms for 10,000 vectors
-- **Speedup**: 5-10x for large datasets
-
-### Hybrid Search
-
-Combines keyword and semantic search:
-
-```typescript
-// src/lib/embeddings/vector-store.ts
-async function searchHybrid(
-  query: string,
-  { keywordWeight = 0.7, semanticWeight = 0.3 }
-) {
-  // 1. Keyword search (fast, exact)
-  const keywordResults = await keywordIndexManager.search(query)
-  
-  // 2. Semantic search (slow, conceptual)
-  const embedding = await generateEmbedding(query)
-  const semanticResults = await searchSimilarVectors(embedding)
-  
-  // 3. Fuse results with weighted scoring
-  return fuseResults(keywordResults, semanticResults, weights)
-}
-```
+*   **CSP (Content Security Policy)**: Strict Manifest V3 policy. `'wasm-unsafe-eval'` used limitedly for ONNX Runtime (if enabled).
+*   **Local-Only**: No data leaves the device unless the user explicitly configures a remote Ollama endpoint.
+*   **Sanitization**: All Markdown rendering is sanitized via `DOMPurify`.
 
 ---
 
 ## 🧪 Testing Strategy
 
-### Test Structure
-
-```
-src/
-├── __tests__/           # Unit tests (co-located)
-│   ├── *.test.ts
-│   └── *.test.tsx
-└── test/
-    ├── setup.ts         # Global test setup
-    └── fixtures/        # Test data
-```
-
-### Testing Tools
-
-- **Vitest** - Test runner (faster than Jest)
-- **Happy-DOM** - Lightweight DOM environment
-- **Testing Library** - React component testing
-- **Fake IndexedDB** - Mock IndexedDB for tests
-
-### Coverage Configuration
-
-```typescript
-// vitest.config.ts
-coverage: {
-  include: ["src/**/*.ts"],
-  exclude: [
-    "src/**/*.{test,spec}.{ts,tsx}",
-    "src/**/*.tsx",  // TODO: Add React component tests
-    "src/**/types.ts",
-    "src/**/*.d.ts"
-  ]
-}
-```
-
-**Current Coverage**: ~65% (TypeScript only)  
-**Target Coverage**: 80%+ (including React components)
-
-### Test Examples
-
-```typescript
-// Unit test example
-describe("logger", () => {
-  it("should filter logs by level", () => {
-    logger.setLogLevel(LogLevel.WARN)
-    logger.info("info message")
-    logger.warn("warn message")
-    
-    const logs = logger.getLogs()
-    expect(logs).toHaveLength(1)
-    expect(logs[0].level).toBe(LogLevel.WARN)
-  })
-})
-
-// Component test example (future)
-describe("DeveloperSettings", () => {
-  it("should export logs when button clicked", async () => {
-    render(<DeveloperSettings />)
-    
-    const exportBtn = screen.getByText("Export Logs")
-    await userEvent.click(exportBtn)
-    
-    // Assert download triggered
-  })
-})
-```
-
----
-
-## 🔐 Security & Privacy
-
-### Privacy-First Design
-
-1. **Local Processing**
-   - All data stays on device
-   - No cloud services
-   - No analytics or tracking
-
-2. **Secure Storage**
-   - Chrome Storage API (encrypted by browser)
-   - IndexedDB (local only)
-   - No external databases
-
-3. **CORS Handling**
-   - Declarative Net Request (DNR) for Chromium
-   - Manual OLLAMA_ORIGINS for Firefox
-   - No eval() or remote code execution
-
-### Content Security Policy
-
-```json
-// manifest.json (generated by Plasmo)
-{
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-  }
-}
-```
-
-**Challenges**:
-- OCR libraries require relaxed CSP
-- WASM modules need `'wasm-unsafe-eval'`
-- Worker scripts must be bundled
-
----
-
-## 🎯 Design Patterns
-
-### 1. Feature-Based Architecture
-
-**Benefits**:
-- Clear module boundaries
-- Parallel development
-- Easy to test in isolation
-- Scalable team structure
-
-**Example**: `features/chat/`
-- Self-contained with components, hooks, stores
-- Communicates via well-defined interfaces
-- Can be extracted as standalone package
-
-### 2. Composition over Inheritance
-
-**React Components**:
-```tsx
-// Bad: Deep inheritance
-class ChatMessage extends Message extends Component {}
-
-// Good: Composition
-function ChatMessage() {
-  return (
-    <MessageBubble>
-      <MessageContent />
-      <MessageActions />
-    </MessageBubble>
-  )
-}
-```
-
-### 3. Custom Hooks for Logic Reuse
-
-```typescript
-// features/chat/hooks/use-chat.ts
-export function useChat() {
-  const [messages, setMessages] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  
-  const sendMessage = useCallback(async (content) => {
-    // Logic here
-  }, [])
-  
-  return { messages, isLoading, sendMessage }
-}
-```
-
-### 4. Dependency Injection
-
-```typescript
-// testable code with DI
-export class VectorStore {
-  constructor(
-    private db: Dexie,
-    private embedder: EmbedderService
-  ) {}
-}
-
-// In tests
-const mockDb = createMockDb()
-const mockEmbedder = createMockEmbedder()
-const vectorStore = new VectorStore(mockDb, mockEmbedder)
-```
-
----
-
-## 📦 Build & Deployment
-
-### Build Tool: Plasmo
-
-Plasmo handles:
-- Manifest generation (V3)
-- TypeScript compilation
-- Hot module replacement (HMR)
-- Asset bundling
-- Multi-browser support
-
-```bash
-# Development
-pnpm dev          # Chrome (default)
-pnpm dev:firefox  # Firefox
-
-# Production
-pnpm build        # Chrome
-pnpm build:firefox
-pnpm package      # Creates .zip for store submission
-```
-
-### Build Output
-
-```
-build/
-├── chrome-mv3-prod/
-│   ├── manifest.json
-│   ├── background.js
-│   ├── sidepanel.html
-│   ├── options.html
-│   └── assets/
-└── firefox-mv3-prod/
-    └── (similar structure)
-```
-
----
-
-## 🌍 Internationalization (i18n)
-
-### Tech Stack
-
-- **i18next** - Translation framework
-- **react-i18next** - React bindings
-- **i18next-browser-languagedetector** - Auto language detection
-
-### Structure
-
-```
-src/locales/
-├── en/translation.json    # English (base)
-├── es/translation.json    # Spanish
-├── fr/translation.json    # French
-├── de/translation.json    # German
-├── hi/translation.json    # Hindi
-├── it/translation.json    # Italian
-├── ja/translation.json    # Japanese
-├── ru/translation.json    # Russian
-└── zh/translation.json    # Chinese
-```
-
-### Usage
-
-```tsx
-import { useTranslation } from 'react-i18next'
-
-function MyComponent() {
-  const { t } = useTranslation()
-  
-  return (
-    <div>
-      <h1>{t('settings.title')}</h1>
-      <p>{t('settings.description')}</p>
-    </div>
-  )
-}
-```
-
-### Resource Generation
-
-```bash
-# tools/generate-i18n-resources.ts
-# Bundles all translations into single resources.ts file
-pnpm run generate-i18n
-```
-
----
-
-## 🚀 Performance Optimizations
-
-### 1. Vector Search
-- Pre-normalized embeddings (skip normalization)
-- Float32Array for better memory locality
-- HNSW indexing (5-10x faster)
-- Search result caching (5min TTL)
-- Early termination on low similarity
-
-### 2. React Rendering
-- `React.memo` for expensive components
-- `useMemo` / `useCallback` to prevent re-renders
-- Virtual scrolling (planned for v0.6.x)
-- Code splitting with dynamic imports
-
-### 3. Storage
-- Circular log buffer (prevent memory bloat)
-- Indexed queries only (no full table scans)
-- Batch operations for embeddings
-- Lazy loading of chat history
-
-### 4. Network
-- Streaming responses (no wait for completion)
-- AbortController for cancellation
-- Connection pooling via Ollama server
-- Declarative Net Request (no overhead)
-
----
-
-## 🔧 Development Tools
-
-### Linting & Formatting
-
-- **Biome** - Fast linter + formatter (replaces ESLint + Prettier)
-- **Husky** - Git hooks
-- **lint-staged** - Pre-commit checks
-
-```bash
-pnpm lint       # Check code
-pnpm lint:fix   # Auto-fix issues
-pnpm format     # Format code
-```
-
-### Testing
-
-```bash
-pnpm test            # Run tests
-pnpm test:ui         # Visual test runner
-pnpm test:coverage   # Generate coverage report
-pnpm test:watch      # Watch mode
-```
-
-### Debugging
-
-```bash
-# Enable verbose logging
-Settings → Developer → Log Level → Verbose
-
-# Export logs
-Settings → Developer → Export Logs
-
-# View logs in real-time
-Settings → Developer → View Logs
-```
-
----
-
-## 📚 Key Libraries
-
-### Core
-- `react` (18.2.0) - UI framework
-- `typescript` (5.3.3) - Type safety
-- `plasmo` (0.90.5) - Extension framework
-
-### State & Data
-- `zustand` (5.0.8) - State management
-- `dexie` (4.0.11) - IndexedDB wrapper
-- `@plasmohq/storage` (1.15.0) - Chrome Storage wrapper
-
-### UI
-- `@radix-ui/*` - Headless UI primitives
-- `tailwindcss` (3.4.1) - Styling
-- `lucide-react` (0.474.0) - Icons
-
-### Content Processing
-- `markdown-it` (14.1.0) - Markdown parsing
-- `highlight.js` (11.11.1) - Code highlighting
-- `pdfjs-dist` (4.0.379) - PDF processing
-- `mammoth` (1.6.0) - DOCX processing
-- `d3-dsv` (3.0.1) - CSV parsing
-- `turndown` (7.2.2) - HTML → Markdown
-
-### Vector Search
-- `vectra` (0.11.1) - HNSW implementation
-- `minisearch` (7.2.0) - Keyword search
-
-### i18n
-- `i18next` (25.6.3)
-- `react-i18next` (16.3.5)
-- `i18next-browser-languagedetector` (8.2.0)
-
----
-
-## 🤝 Contributing Guidelines
-
-### Code Style
-
-1. **TypeScript First**
-   - Use strict typing
-   - Avoid `any` (use `unknown` if necessary)
-   - Export types for reusability
-
-2. **Component Structure**
-   ```tsx
-   // 1. Imports
-   // 2. Types/Interfaces
-   // 3. Component
-   // 4. Styles (if any)
-   // 5. Exports
-   ```
-
-3. **Naming Conventions**
-   - Components: PascalCase (`ChatMessage`)
-   - Files: kebab-case (`chat-message.tsx`)
-   - Hooks: camelCase with `use` prefix (`useChat`)
-   - Constants: SCREAMING_SNAKE_CASE (`STORAGE_KEYS`)
-
-4. **File Organization**
-   - Co-locate tests with source files
-   - Group related components in directories
-   - One component per file (exceptions for small helpers)
-
-### Commit Messages
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-**Example**:
-```
-feat(logger): add structured logging system
-
-- Created logger utility with configurable levels
-- Added developer settings UI
-- Implemented log export functionality
-
-Closes #123
-```
-
-### Pull Request Process
-
-1. Create feature branch from `main`
-2. Implement changes with tests
-3. Run `pnpm lint` and `pnpm test`
-4. Update documentation if needed
-5. Submit PR with clear description
-6. Address review comments
-7. Squash and merge
-
----
-
-## 📖 Additional Resources
-
-- [README.md](./README.md) - Project overview
-- [ROADMAP.md](./ROADMAP.md) - Future plans
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - How to contribute
-- [PROJECT_ANALYSIS.md](./PROJECT_ANALYSIS.md) - Code quality analysis
-
----
-
-**Questions?** Open an issue or reach out on [GitHub](https://github.com/Shishir435/ollama-client/issues).
+*   **Unit Tests**: `Vitest` for logic (`*.test.ts`).
+*   **Component Tests**: `Testing Library` for UI interactions.
+*   **Coverage**: >65% Line Coverage.

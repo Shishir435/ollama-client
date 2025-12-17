@@ -58,10 +58,13 @@
 ### 💬 Chat & Conversations
 - 💬 **Beautiful Chat UI** – Modern, polished interface built with Shadcn UI
 - 🗂️ **Multi-Chat Sessions** – Create, manage, and switch between multiple chat sessions
-- 📤 **Export Chat Sessions** – Export single or all chat sessions as **PDF** or **JSON**
+- 📤 **Export Chat Sessions** – Export single or all chat sessions as **PDF**, **JSON**, **Markdown**, or **Text**
 - 📥 **Import Chat Sessions** – Import single or multiple chat sessions from JSON files
 - 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
 - ⚡ **Streaming Responses** – Real-time streaming with typing indicators
+- 🗑️ **Message Deletion** – Delete individual messages with cascading cleanup (v0.5.10)
+- 📎 **Export Individual Messages** – Export single messages in PDF, Markdown, JSON, or Text formats (v0.5.10)
+- 🌿 **Conversation Branching** – Fork conversations by editing messages and explore alternate paths
 
 ### 🧠 Embeddings & Semantic Search (Beta v0.3.0)
 - 🔍 **Semantic Chat Search** – Search chat history by meaning, not just keywords
@@ -112,37 +115,9 @@ with 50+ language support (Beta v0.5.0)
 
 ## 🧩 Tech Stack
 
-### Frontend
-- **[TypeScript](https://www.typescriptlang.org/)** – Type‑safe development
-- **[React 18](https://reactjs.org/)** – Modern UI framework
-- **[Plasmo](https://docs.plasmo.com/)** – Chrome‑extension framework
-- **[Shadcn UI](https://ui.shadcn.com/)** – Professional component library (Radix UI primitives)
-- **[Radix UI](https://www.radix-ui.com/)** – Accessible UI primitives 
-- **[Tailwind CSS](https://tailwindcss.com/)** – Utility‑first styling
-- **[Lucide React](https://lucide.dev/)** – Icon library
-- **[Zustand](https://github.com/pmndrs/zustand)** – Lightweight state management
-- **[Dexie](https://dexie.org/)** – IndexedDB wrapper for chat storage
+Built with **React 18**, **TypeScript**, **Plasmo**, **Shadcn UI**, **Zustand**, **Dexie.js** and **Tailwind CSS**.
 
-- **[webextension‑polyfill](https://github.com/mozilla/webextension-polyfill)** – Promise‑based browser extension API wrapper
-
-### Backend & APIs
-- **[Ollama](https://ollama.com/)** – Local LLM backend
-- **[Chrome Extension APIs](https://developer.chrome.com/docs/extensions/)** – `declarativeNetRequest`, `storage`, `sidePanel`, `tabs`
-
-### Content Processing
-- **[Defuddle](https://github.com/kepano/defuddle)** – Advanced content extraction
-- **[Mozilla Readability](https://github.com/mozilla/readability)** – Content extraction fallback
-- **[highlight.js](https://highlightjs.org/)** – Code syntax highlighting
-- **[markdown-it](https://github.com/markdown-it/markdown-it)** – Markdown rendering
-- **[pdfjs‑dist](https://github.com/mozilla/pdfjs-dist)** – PDF parsing and rendering
-- **[dompurify](https://github.com/cure53/DOMPurify)** – HTML sanitization
-- **[html2pdf.js](https://github.com/eKoopmans/html2pdf.js)** – Convert HTML to PDF
-- **[mammoth](https://github.com/mwilliamson/mammoth.js)** – DOCX to HTML conversion
-
-### Developer Tools
-- **[Biome](https://biomejs.dev/)** – Fast formatter & linter
-- **[TypeScript](https://www.typescriptlang.org/)** – Strict type checking
-- **[Husky](https://typicode.github.io/husky/)** – Git hooks
+> For a deep dive into the code structure and design patterns, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
@@ -385,95 +360,9 @@ Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
 
 ---
 
-## What’s Next (Roadmap)
+## 🗺️ Roadmap
 
-Here’s what’s coming up next in **Ollama Client**—grouped by priority:
-
-### High Priority
-
-- [x] Migrate state management to **Zustand** for cleaner logic and global state control
-- [x] Add **Export / Import Chat History** (JSON, txt or PDF format)
-- [x] Add **Reset App Data** button ("Reset All") under **Options → Reset** (clears IndexedDB + localStorage)
-- [x] **Enhanced Content Extraction** – Phase 1 implementation with lazy loading support, site-specific overrides, and Defuddle integration
-- [x] **Advanced Text-to-Speech** – Searchable voice selector with rate/pitch controls and cross-browser compatibility
-- [x] **Automated YouTube Transcript Extraction** – Automatic button clicking for transcript access
-- [x] **GitHub Content Extraction** – Special handling for repository and profile pages
-
-### Embeddings & Semantic Search
-
-- [x] Implement **Ollama Embedding Models**:
-  - [x] Integration with Ollama embedding models (e.g., `nomic-embed-text`, `mxbai-embed-large`)
-  - [x] Generate embeddings for chat messages and store in IndexedDB
-  - [x] Semantic search over chat history (global and per-chat)
-  - [x] Auto-embedding toggle and backfill functionality
-- [x] **Vector Search Optimization** (Phase 1 - Completed):
-  - [x] Brute-force cosine similarity with optimized computation
-  - [x] Pre-normalize embeddings on storage
-  - [x] Use Float32Array for better memory locality
-  - [x] Implement early termination for low similarity scores
-  - [x] Add search result caching (configurable TTL & max size)
-  - [x] Non-blocking computation (async chunking with yields)
-- [x] **Semantic Chat Search UI** (Beta v0.3.0 - Completed):
-  - [x] Search dialog with debounced input
-  - [x] Search scope toggle (all chats / current chat)
-  - [x] Grouped results by session
-  - [x] Similarity scores with % match display
-  - [x] Click to navigate and highlight message
-  - [x] Real-time loading indicators
-- [x] **Advanced Vector Search** (Phase 2 - Completed):
-  - [x] Optimized vector indexing for faster searches
-  - [x] Service Worker-compatible implementation
-  - [x] Hybrid search strategy (indexed + brute-force fallback)
-  - [x] Incremental index updates
-  - [x] Expected performance: 5-10x faster than Phase 1 for datasets >1000 vectors
-  - [x] WASM upgrade path documented in `docs/HNSW_WASM_UPGRADE.md` (optional for >50K vectors)
-- [ ] Enable **Local RAG** over chats, PDFs, and uploaded files
-- [ ] **Browser Search Feature**:
-  - [ ] Contextual search within webpage content
-  - [ ] Semantic search over extracted content
-  - [ ] Search result highlighting
-  - [ ] Search history
-- [ ] Optional **Web Search Enrichment**:
-  - [ ] Offline-first architecture
-  - [ ] Opt-in Brave / DuckDuckGo API (user-provided key)
-  - [ ] WASM fallback (e.g., tinysearch) when no key
-
-> **Note**: Hybrid embeddings with client-side transformers (`@xenova/transformers`) have been tested and show degraded model response quality compared to direct text prompts. The focus will be on Ollama-hosted embedding models instead.
-
-### File Upload & Processing
-
-- [x] **Text File Support** (Beta v0.3.0 - Completed):
-  - [x] Plain text-based formats: `.txt`, `.md` and more.
-  - [x] Direct UTF-8 reading
-- [x] **PDF Support** (Beta v0.3.0 - Completed):
-  - [x] Full text extraction via **pdf.js**
-  - [x] Multi-page document support
-- [x] **DOCX Support** (Beta v0.3.0 - Completed):
-  - [x] Extract text from Word documents via **mammoth.js**
-  - [x] Handle formatting and structure
-- [x] **Auto-Embedding** (Beta v0.3.0 - Completed):
-  - [x] Automatic chunking with configurable strategies
-  - [x] Background embedding generation via port messaging
-  - [x] Progress tracking with real-time updates
-  - [x] Batch processing for performance
-- [x] **File Upload Settings** (Beta v0.3.0 - Completed):
-  - [x] Configurable max file size
-  - [x] Auto-embed toggle
-  - [x] Embedding batch size configuration
-- [x] **CSV Support** (Beta v0.5.0 - Completed):
-  - [x] CSV parsing with d3-dsv
-  - [x] Custom delimiter support (comma, tab, pipe, semicolon)
-  - [x] Column extraction
-  - [x] TSV and PSV file support
-- [x] **HTML Support** (Beta v0.5.0 - Completed):
-  - [x] HTML to Markdown conversion via Turndown
-  - [x] Structure and link preservation
-
-### UX & Metrics Enhancements
-
-- [x] Track **Per-Session Token Usage** and display in chat metadata (duration, token count)
-- [x] Enable **Semantic Chat Search / Filter** once embeddings are in place
-- [x] Add **Export/Import UI Buttons** in chat selector ui
+See [ROADMAP.md](./ROADMAP.md) for planned features and upcoming releases.
 
 ---
 
