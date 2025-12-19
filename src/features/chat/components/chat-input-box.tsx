@@ -248,6 +248,25 @@ export const ChatInputBox = ({
   )
 
   useEffect(() => {
+    // Check for pending selection (from context menu when sidebar was closed)
+    const checkPendingSelection = async () => {
+      const pendingText = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+      )
+
+      if (pendingText) {
+        const selectionText = `> ${pendingText.split("\n").join("\n> ")}\n`
+        appendInput(selectionText)
+        textareaRef.current?.focus()
+
+        // Clear it
+        await plasmoGlobalStorage.remove(
+          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+        )
+      }
+    }
+
+    checkPendingSelection()
     const handleMessage = (message: unknown) => {
       const msg = message as ChromeMessage
       if (

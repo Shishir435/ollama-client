@@ -37,7 +37,8 @@ export const STORAGE_KEYS = {
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
-    CONTENT_EXTRACTION_CONFIG: "content-extraction-config"
+    CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
+    PENDING_SELECTION_TEXT: "pending-selection-text"
   },
   TTS: {
     RATE: "tts-rate",

@@ -1,6 +1,11 @@
 import { browser } from "@/lib/browser-api"
-import { DEFAULT_CONTEXT_MENU_ID, MESSAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_CONTEXT_MENU_ID,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeSidePanel } from "@/types"
 
 export const initializeContextMenu = () => {
@@ -23,8 +28,13 @@ export const initializeContextMenu = () => {
     }
   )
 
-  browser.contextMenus.onClicked.addListener((info, tab) => {
+  browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === DEFAULT_CONTEXT_MENU_ID && info.selectionText) {
+      // 1. Persist selection to storage (so sidepanel can pick it up on mount)
+      await plasmoGlobalStorage.set(
+        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
+        info.selectionText
+      )
       // Open sidepanel if possible (Chrome specific)
       if ("sidePanel" in browser) {
         const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
