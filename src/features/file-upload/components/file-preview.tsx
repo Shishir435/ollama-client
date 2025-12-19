@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FILE_UPLOAD } from "@/lib/constants"
 import type { FileProcessingState } from "@/lib/file-processors/types"
-import { AlertCircle, FileText, Loader2, X } from "@/lib/lucide-icon"
+import {
+  AlertCircle,
+  CircleCheck,
+  FileText,
+  Loader2,
+  X
+} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface FilePreviewProps {
@@ -59,6 +65,8 @@ export const FilePreview = ({
     switch (status) {
       case "processing":
         return <Loader2 className="size-4 animate-spin text-primary/80" />
+      case "success":
+        return <CircleCheck className="size-4 text-green-500" />
       case "error":
         return <AlertCircle className="size-4 text-destructive/80" />
       default:
@@ -83,17 +91,13 @@ export const FilePreview = ({
       extension === FILE_UPLOAD.EXTENSIONS.CSV ||
       extension === FILE_UPLOAD.EXTENSIONS.TSV
     ) {
-      return t("file_upload.preview.processing_csv", {
-        defaultValue: "Parsing CSV file..."
-      })
+      return t("file_upload.preview.processing_csv")
     }
     if (
       extension === FILE_UPLOAD.EXTENSIONS.HTML ||
       extension === FILE_UPLOAD.EXTENSIONS.HTM
     ) {
-      return t("file_upload.preview.processing_html", {
-        defaultValue: "Converting HTML to Markdown..."
-      })
+      return t("file_upload.preview.processing_html")
     }
     return t("file_upload.preview.processing_file")
   }
@@ -114,8 +118,9 @@ export const FilePreview = ({
         </div>
         {status === "processing" && (
           <div className="mt-1">
-            <div className="mb-1 text-xs text-muted-foreground">
-              {getProcessingMessage()}
+            <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+              <span>{getProcessingMessage()}</span>
+              <span>{Math.round(progress || 0)}%</span>
             </div>
             <Progress value={progress || 0} className="h-1" />
           </div>

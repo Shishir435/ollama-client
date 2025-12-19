@@ -31,7 +31,9 @@
       "beta_badge": "बीटा",
       "description": "इंटरफ़ेस के लिए अपनी पसंदीदा भाषा चुनें।",
       "help_text": "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
-    }
+    },
+    "cancel": "रद्द करें",
+    "save": "सहेजें"
   },
   "selection_button": {
     "label": "Ollama क्लाइंट से पूछें",
@@ -98,35 +100,42 @@
       "enter_key": "एंटर",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
+      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
+      "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
+    },
+    "editor": {
+      "placeholder": "संदेश संपादित करें..."
     },
     "actions": {
       "copy": "कॉपी करें",
       "copied": "कॉपी किया गया",
       "regenerate": "पुनः जेनरेट करें",
-      "switch_model_tooltip": "मॉडल बदलें"
+      "switch_model_tooltip": "मॉडल बदलें",
+      "edit": "संपादित करें",
+      "export_as": "इस रूप में निर्यात करें...",
+      "delete": "संदेश हटाएँ"
     },
     "metrics": {
-      "title": "परफॉर्मेंस मेट्रिक्स",
+      "title": "प्रदर्शन मेट्रिक्स",
       "toggle_aria_label": "मेट्रिक्स टॉगल करें",
       "toggle_title": "मेट्रिक्स टॉगल करें",
       "total_time": "कुल समय",
-      "generation_speed": "जनरेशन गति",
+      "generation_speed": "उत्पन्न करने की गति",
       "prompt_tokens": "प्रॉम्प्ट टोकन",
-      "generated_tokens": "जनरेट किए गए टोकन",
-      "load_time": "लोड समय",
+      "generated_tokens": "उत्पन्न टोकन",
+      "load_time": "लोड करने का समय",
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
     },
     "session_metrics": {
       "total_tokens": "{{value}} टोकन",
       "prompt_tokens": "{{value}} प्रॉम्प्ट",
-      "generated_tokens": "{{value}} जनरेट",
+      "generated_tokens": "{{value}} उत्पन्न",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} संदेश",
-      "tooltip_tokens": "इस सत्र में उपयोग किए गए कुल टोकन",
-      "tooltip_time": "कुल प्रतिक्रिया जनरेशन समय",
-      "tooltip_speed": "औसत जनरेशन गति",
-      "tooltip_messages": "AI प्रतिक्रियाओं की संख्या"
+      "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
+      "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
+      "tooltip_speed": "औसत उत्पन्न करने की गति",
+      "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
     },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -206,7 +215,9 @@
       "generating_embeddings": "एम्बेडिंग जेनरेट हो रही है...",
       "extracting_pdf": "PDF से टेक्स्ट निकाला जा रहा है...",
       "processing_docx": "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
-      "processing_file": "फ़ाइल प्रोसेस की जा रही है..."
+      "processing_file": "फ़ाइल प्रोसेस की जा रही है...",
+      "processing_csv": "CSV फ़ाइल प्रोसेस की जा रही है...",
+      "processing_html": "HTML को Markdown में बदला जा रहा है..."
     },
     "area": {
       "files_ready": "{{count}} फ़ाइल तैयार",
@@ -391,7 +402,13 @@
       "aria_label": "चैट निर्यात करें",
       "aria_label_all": "सभी चैट सेशन निर्यात करें",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "पाठ",
+      "default_title": "चैट सत्र",
+      "all_sessions_title": "सभी चैट सत्र",
+      "role_user": "आप",
+      "role_assistant": "AI सहायक"
     },
     "import": {
       "tooltip": "चैट सेशन आयात करें",
@@ -453,7 +470,15 @@
       "copy_last_response": "अंतिम प्रतिक्रिया कॉपी करें",
       "copy_last_response_desc": "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें",
       "toggle_session_metrics": "सत्र मेट्रिक्स टॉगल करें",
-      "toggle_session_metrics_desc": "सत्र मेट्रिक्स बार दिखाएं या छिपाएं"
+      "toggle_session_metrics_desc": "सत्र मेट्रिक्स बार दिखाएं या छिपाएं",
+      "export_json": "JSON निर्यात करें",
+      "export_json_desc": "वर्तमान चैट को JSON फ़ाइल के रूप में निर्यात करें",
+      "export_markdown": "Markdown निर्यात करें",
+      "export_markdown_desc": "वर्तमान चैट को Markdown फ़ाइल के रूप में निर्यात करें",
+      "export_pdf": "PDF निर्यात करें",
+      "export_pdf_desc": "वर्तमान चैट को PDF फ़ाइल के रूप में निर्यात करें",
+      "export_text": "पाठ निर्यात करें",
+      "export_text_desc": "वर्तमान चैट को पाठ फ़ाइल के रूप में निर्यात करें"
     },
     "content_extraction": {
       "title": "सामग्री निष्कर्षण",
@@ -665,6 +690,7 @@
       "extraction": "निष्कर्षण",
       "embeddings": "एम्बेडिंग",
       "voices": "वॉयस",
+      "developer": "डेवलपर",
       "reset": "रीसेट करें",
       "guides": "गाइड",
       "memory": "मेमोरी",
@@ -720,6 +746,41 @@
         "high": "उच्च",
         "very_high": "बहुत उच्च"
       }
+    },
+    "developer": {
+      "title": "डेवलपर सेटिंग्स",
+      "description": "लॉगिंग और डिबगिंग विकल्प कॉन्फ़िगर करें",
+      "logLevel": "लॉग स्तर",
+      "logLevelDescription": "कैप्चर करने के लिए न्यूनतम लॉग स्तर सेट करें। निचले स्तर अधिक विवरण दिखाते हैं।",
+      "enableLogger": "लॉगिंग सक्षम करें",
+      "enableLoggerDescription": "समस्याओं का अनुभव होने पर प्रदर्शन बेहतर बनाने के लिए लॉगिंग बंद करें",
+      "persistLogs": "लॉग को IndexedDB में सहेजें",
+      "persistLogsDescription": "ब्राउज़र पुनरारंभ होने पर बने रहने के लिए लॉग को IndexedDB में संग्रहीत करें (अनुशंसित)",
+      "levels": {
+        "error": "केवल त्रुटि",
+        "warn": "चेतावनी",
+        "info": "जानकारी (डिफ़ॉल्ट)",
+        "verbose": "विस्तृत",
+        "debug": "डिबग (सभी)"
+      },
+      "viewLogs": "लॉग देखें",
+      "exportLogs": "लॉग निर्यात करें",
+      "clearLogs": "लॉग साफ़ करें",
+      "confirmClear": "क्या आप वाकई सभी लॉग साफ़ करना चाहते हैं?",
+      "bufferSize": "लॉग बफ़र: {{current}} / {{max}} प्रविष्टियाँ",
+      "troubleshooting": {
+        "title": "मदद चाहिए?",
+        "description": "यदि आप समस्याओं का अनुभव कर रहे हैं, तो लॉग निर्यात करें और उन्हें अपनी बग रिपोर्ट में शामिल करें। इससे हमें आपकी समस्या को तेज़ी से डीबग करने में मदद मिलती है।"
+      },
+      "crashApp": "ऐप क्रैश करें (टेस्ट)",
+      "confirmCrash": "यह Error Boundary का परीक्षण करने के लिए एप्लिकेशन को क्रैश कर देगा। क्या आप सुनिश्चित हैं?",
+      "manualCrashError": "डेवलपर सेटिंग्स से मैनुअल क्रैश टेस्ट"
+    },
+    "errorBoundary": {
+      "title": "कुछ गड़बड़ हो गई",
+      "description": "एक अप्रत्याशित त्रुटि हुई। हमने इस समस्या को आंतरिक रूप से लॉग किया है।",
+      "exportLogs": "लॉग निर्यात करें",
+      "reload": "रीलोड करें"
     },
     "embeddings": {
       "title": "वेक्टर एम्बेडिंग",

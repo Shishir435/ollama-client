@@ -3,6 +3,7 @@ import {
   processStreamChunk
 } from "@/background/lib/process-stream-chunk"
 import { safePostMessage } from "@/background/lib/utils"
+import { logger } from "@/lib/logger"
 import type { ChromePort, PortStatusFunction } from "@/types"
 
 export const handleChatStream = async (
@@ -11,7 +12,7 @@ export const handleChatStream = async (
   isPortClosed: PortStatusFunction
 ): Promise<string> => {
   if (!response.body) {
-    console.error("No response body received")
+    logger.error("No response body received", "handleChatStream")
     safePostMessage(port, {
       error: {
         status: 0,
@@ -32,8 +33,15 @@ export const handleChatStream = async (
   try {
     timeoutId = setTimeout(() => {
       if (!hasReceivedData) {
-        console.warn("No data received within 60 seconds, aborting")
-        reader.cancel().catch(console.error)
+        logger.warn(
+          "No data received within 60 seconds, aborting",
+          "handleChatStream"
+        )
+        reader.cancel().catch((err) =>
+          logger.error("Failed to cancel reader", "handleChatStream", {
+            error: err
+          })
+        )
         safePostMessage(port, {
           error: {
             status: 0,
@@ -53,11 +61,15 @@ export const handleChatStream = async (
       if (!hasReceivedData) {
         hasReceivedData = true
         if (timeoutId) clearTimeout(timeoutId)
-        console.log("[Handle chat stream]First data chunk received")
+        logger.verbose("First data chunk received", "handleChatStream")
       }
 
       if (isPortClosed()) {
-        reader.cancel().catch(console.error)
+        reader.cancel().catch((err) =>
+          logger.error("Failed to cancel reader", "handleChatStream", {
+            error: err
+          })
+        )
         if (timeoutId) clearTimeout(timeoutId)
         break
       }
@@ -84,7 +96,7 @@ export const handleChatStream = async (
 
     return fullText
   } catch (error) {
-    console.error("Stream processing error:", error)
+    logger.error("Stream processing error", "handleChatStream", { error })
     throw error
   } finally {
     if (timeoutId) clearTimeout(timeoutId)

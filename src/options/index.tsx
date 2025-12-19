@@ -1,4 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -63,9 +65,12 @@ export const OptionsIndex = () => {
   })
 
   return (
-    <TooltipProvider>
-      <OllamaOptions />
-    </TooltipProvider>
+    <ErrorBoundary>
+      <TooltipProvider>
+        <OllamaOptions />
+        <Toaster />
+      </TooltipProvider>
+    </ErrorBoundary>
   )
 }
 

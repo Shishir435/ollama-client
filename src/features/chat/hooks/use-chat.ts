@@ -8,9 +8,11 @@ import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
+import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, FileAttachment } from "@/types"
 
@@ -22,6 +24,7 @@ export const useChat = () => {
     },
     ""
   )
+  const { toast } = useToast()
 
   const { input, setInput } = useChatInput()
   const { selectedTabIds } = useSelectedTabs()
@@ -32,10 +35,13 @@ export const useChat = () => {
   const {
     currentSessionId,
     sessions,
-    updateMessages,
+    addMessage,
+    updateMessage,
     renameSessionTitle,
     createSession,
-    setCurrentSessionId
+    setCurrentSessionId,
+    hasMoreMessages,
+    loadMoreMessages
   } = useChatSessions()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -45,17 +51,55 @@ export const useChat = () => {
 
   const { embedMessages } = useAutoEmbedMessages()
 
+  const currentStreamingMessageId = useRef<number | null>(null)
+  const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const debouncedDbUpdate = (id: number, content: string) => {
+    if (dbUpdateTimeoutRef.current) {
+      clearTimeout(dbUpdateTimeoutRef.current)
+    }
+    dbUpdateTimeoutRef.current = setTimeout(() => {
+      updateMessage(id, { content }, false) // false = write to DB
+    }, 1000) // 1 second debounce
+  }
+
   const { startStream, stopStream } = useOllamaStream({
     setMessages: async (newMessages) => {
-      if (currentSessionId) {
-        await updateMessages(currentSessionId, newMessages)
-        // Only embed when streaming is complete (don't embed during streaming)
-        // Auto-embed messages in background (don't await to avoid blocking)
-        embedMessages(newMessages, currentSessionId, isStreaming).catch(
-          (err) => {
-            console.error("Failed to embed messages:", err)
-          }
+      // Logic to update UI state immediately (skip DB)
+      if (currentStreamingMessageId.current && newMessages.length > 0) {
+        const lastMsg = newMessages[newMessages.length - 1]
+        // Update local state ONLY (fast)
+        updateMessage(
+          currentStreamingMessageId.current,
+          {
+            content: lastMsg.content,
+            metrics: lastMsg.metrics,
+            done: lastMsg.done
+          },
+          true // true = skip DB
         )
+
+        // Debounce DB update
+        if (!lastMsg.done) {
+          debouncedDbUpdate(currentStreamingMessageId.current, lastMsg.content)
+        } else {
+          // Final update should flush DB immediately
+          if (dbUpdateTimeoutRef.current)
+            clearTimeout(dbUpdateTimeoutRef.current)
+          updateMessage(
+            currentStreamingMessageId.current,
+            { content: lastMsg.content, metrics: lastMsg.metrics, done: true },
+            false
+          )
+          // Also embed if needed
+          if (currentSessionId) {
+            embedMessages(newMessages, currentSessionId, false).catch((err) => {
+              logger.error("Failed to embed messages", "useChat", {
+                error: err
+              })
+            })
+          }
+        }
       }
     },
     setIsLoading,
@@ -81,6 +125,40 @@ export const useChat = () => {
       const firstLine = content.split("\n")[0].slice(0, 40)
       await renameSessionTitle(sessionId, firstLine)
     }
+  }
+
+  const generateResponse = async (
+    customModel?: string,
+    sessionIdParam?: string,
+    contextMessages?: ChatMessage[]
+  ) => {
+    const sessionId = sessionIdParam || currentSessionId
+    if (!sessionId) return
+
+    // 1. Add Assistant Shell
+    const assistantMessage: ChatMessage = {
+      role: "assistant",
+      content: "",
+      model: customModel || selectedModel
+    }
+    const assistantId = await addMessage(sessionId, assistantMessage)
+    currentStreamingMessageId.current = assistantId
+
+    /*
+     * 2. Prepare updated messages for stream context
+     * If contextMessages is provided (e.g. from fork), use it.
+     * Otherwise fallback to current messages (might be stale if we assume addMessage updated it immediately? No, hook state is stale)
+     * Actually, startStream takes `messages` (history) + `generatedMessage`
+     * So if contextMessages is passed, it should NOT include the assistant placeholder yet (startStream handles that).
+     */
+    const history = contextMessages || messages
+
+    startStream({
+      model: customModel || selectedModel,
+      messages: history,
+      sessionId: sessionId,
+      generatedMessage: { ...assistantMessage, id: assistantId }
+    })
   }
 
   const sendMessage = async (
@@ -124,11 +202,9 @@ export const useChat = () => {
             ? (files.map((f) => f.metadata.fileId).filter(Boolean) as string[])
             : undefined // undefined means search all files
 
-        console.log(
-          `RAG Enabled: Searching for context (Scope: ${
-            fileIds ? "Specific Files" : "Global"
-          })`
-        )
+        logger.verbose("RAG searching for context", "useChat", {
+          scope: fileIds ? "Specific Files" : "Global"
+        })
 
         const context = await retrieveContext(rawInput || "summary", fileIds, {
           mode: "similarity",
@@ -136,11 +212,19 @@ export const useChat = () => {
         })
 
         if (context.documents.length > 0) {
-          console.log(`RAG: Found ${context.documents.length} relevant chunks`)
+          logger.info("RAG found relevant chunks", "useChat", {
+            chunkCount: context.documents.length
+          })
           fileContext = context.formattedContext
         }
       } catch (e) {
-        console.error("RAG Error:", e)
+        logger.error("RAG error", "useChat", { error: e })
+        toast({
+          variant: "destructive",
+          title: "RAG Warning",
+          description:
+            "Failed to retrieve context from files. Searching without context."
+        })
       }
     }
 
@@ -176,32 +260,25 @@ export const useChat = () => {
           }))
         : undefined
 
+    // 1. Add User Message
     const userMessage: ChatMessage = {
       role: "user",
       content: contentWithContext,
       attachments
     }
+    // Optimistic UI update? No, addMessage updates store.
+    await addMessage(currentSessionId, userMessage)
 
-    const newMessages = [...messages, userMessage]
-
-    // Save updated messages
-    await updateMessages(currentSessionId, newMessages)
-
-    // Auto-embed user message (always complete, not streaming)
-    embedMessages(newMessages, currentSessionId, false).catch((err) => {
-      console.error("Failed to embed messages:", err)
-    })
+    // 2. Add Assistant Msg and Stream
+    const newMessages = [...messages, userMessage] // History + New User Msg
 
     // Rename session title if it's still "New Chat"
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
     await autoRenameSession(sessionId, titleContent)
 
     if (!customInput) setInput("")
-    startStream({
-      model: customModel || selectedModel,
-      messages: newMessages,
-      sessionId: currentSessionId
-    })
+
+    await generateResponse(customModel, sessionId, newMessages)
   }
 
   return {
@@ -209,7 +286,10 @@ export const useChat = () => {
     isLoading,
     isStreaming,
     sendMessage,
+    generateResponse,
     stopGeneration: stopStream,
-    scrollRef
+    scrollRef,
+    hasMore: hasMoreMessages,
+    onLoadMore: loadMoreMessages
   }
 }

@@ -31,7 +31,9 @@
       "beta_badge": "测试版",
       "description": "选择您偏好的界面语言。",
       "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
-    }
+    },
+    "cancel": "取消",
+    "save": "保存"
   },
   "selection_button": {
     "label": "询问 Ollama 客户端",
@@ -98,35 +100,42 @@
       "enter_key": "回车",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文"
+      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
+      "drop_files_here": "将文件拖到此处"
+    },
+    "editor": {
+      "placeholder": "编辑消息..."
     },
     "actions": {
       "copy": "复制",
       "copied": "已复制",
       "regenerate": "重新生成",
-      "switch_model_tooltip": "切换模型"
+      "switch_model_tooltip": "切换模型",
+      "edit": "编辑",
+      "export_as": "导出为...",
+      "delete": "删除消息"
     },
     "metrics": {
       "title": "性能指标",
       "toggle_aria_label": "切换指标",
       "toggle_title": "切换指标",
-      "total_time": "总耗时",
+      "total_time": "总时间",
       "generation_speed": "生成速度",
-      "prompt_tokens": "提示词 Token 数",
-      "generated_tokens": "生成 Token 数",
+      "prompt_tokens": "提示词 Token",
+      "generated_tokens": "生成的 Token",
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} 令牌",
-      "prompt_tokens": "{{value}} 提示",
+      "total_tokens": "{{value}} Token",
+      "prompt_tokens": "{{value}} 提示词",
       "generated_tokens": "{{value}} 生成",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} 条消息",
-      "tooltip_tokens": "此会话使用的总令牌数",
-      "tooltip_time": "总响应生成时间",
+      "tooltip_tokens": "本次会话使用的总 Token",
+      "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI响应数量"
+      "tooltip_messages": "AI 回复数量"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -206,7 +215,9 @@
       "generating_embeddings": "正在生成嵌入...",
       "extracting_pdf": "正在从 PDF 提取文本...",
       "processing_docx": "正在处理 DOCX 文档...",
-      "processing_file": "正在处理文件..."
+      "processing_file": "正在处理文件...",
+      "processing_csv": "正在处理 CSV 文件...",
+      "processing_html": "正在将 HTML 转换为 Markdown..."
     },
     "area": {
       "files_ready": "{{count}} 个文件已准备就绪",
@@ -393,7 +404,13 @@
       "aria_label": "导出聊天",
       "aria_label_all": "导出所有聊天会话",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "文本",
+      "default_title": "聊天会话",
+      "all_sessions_title": "所有会话",
+      "role_user": "你",
+      "role_assistant": "AI助手"
     },
     "import": {
       "tooltip": "导入聊天会话",
@@ -455,7 +472,15 @@
       "copy_last_response": "复制最后响应",
       "copy_last_response_desc": "复制最后一条AI响应到剪贴板",
       "toggle_session_metrics": "切换会话指标",
-      "toggle_session_metrics_desc": "显示或隐藏会话指标栏"
+      "toggle_session_metrics_desc": "显示或隐藏会话指标栏",
+      "export_json": "导出为JSON",
+      "export_json_desc": "导出当前聊天为JSON文件",
+      "export_markdown": "导出为Markdown",
+      "export_markdown_desc": "导出当前聊天为Markdown文件",
+      "export_pdf": "导出为PDF",
+      "export_pdf_desc": "导出当前聊天为PDF文件",
+      "export_text": "导出为文本",
+      "export_text_desc": "导出当前聊天为文本文件"
     },
     "content_extraction": {
       "title": "内容提取",
@@ -667,6 +692,7 @@
       "extraction": "提取",
       "embeddings": "嵌入",
       "voices": "声音",
+      "developer": "开发者",
       "reset": "重置",
       "guides": "指南",
       "memory": "记忆",
@@ -722,6 +748,41 @@
         "high": "高",
         "very_high": "非常高"
       }
+    },
+    "developer": {
+      "title": "开发者设置",
+      "description": "配置日志记录和调试选项",
+      "logLevel": "日志级别",
+      "logLevelDescription": "设置要捕获的最低日志级别。较低的级别显示更多详细信息。",
+      "enableLogger": "启用日志记录",
+      "enableLoggerDescription": "如果在遇到问题时，可以关闭日志记录以提高性能",
+      "persistLogs": "将日志保存到 IndexedDB",
+      "persistLogsDescription": "将日志存储在 IndexedDB 中，以便在浏览器重新启动后仍然保留（推荐）",
+      "levels": {
+        "error": "仅错误",
+        "warn": "警告",
+        "info": "信息 (默认)",
+        "verbose": "详细",
+        "debug": "调试 (所有)"
+      },
+      "viewLogs": "查看日志",
+      "exportLogs": "导出日志",
+      "clearLogs": "清除日志",
+      "confirmClear": "您确定要清除所有日志吗？",
+      "bufferSize": "日志缓冲区: {{current}} / {{max}} 条目",
+      "troubleshooting": {
+        "title": "需要帮助？",
+        "description": "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
+      },
+      "crashApp": "崩溃应用 (测试)",
+      "confirmCrash": "这将导致应用程序崩溃以测试错误边界。您确定吗？",
+      "manualCrashError": "来自开发者设置的手动崩溃测试"
+    },
+    "errorBoundary": {
+      "title": "出错了",
+      "description": "发生了意外错误。我们已在内部记录了此问题。",
+      "exportLogs": "导出日志",
+      "reload": "重新加载"
     },
     "embeddings": {
       "title": "向量嵌入",

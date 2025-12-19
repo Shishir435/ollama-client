@@ -31,7 +31,9 @@
       "beta_badge": "Beta",
       "description": "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
       "help_text": "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
-    }
+    },
+    "cancel": "Abbrechen",
+    "save": "Speichern"
   },
   "selection_button": {
     "label": "Ollama Client fragen",
@@ -98,22 +100,30 @@
       "enter_key": "Eingabe",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
+      "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
+      "drop_files_here": "Dateien hier ablegen"
+    },
+    "editor": {
+      "placeholder": "Nachricht bearbeiten..."
     },
     "actions": {
       "copy": "Kopieren",
       "copied": "Kopiert",
       "regenerate": "Neu generieren",
-      "switch_model_tooltip": "Modell wechseln"
+      "switch_model_tooltip": "Modell wechseln",
+      "fork": "Konversation abzweigen",
+      "edit": "Bearbeiten",
+      "export_as": "Exportieren als...",
+      "delete": "Nachricht löschen"
     },
     "metrics": {
-      "title": "Leistungsmetriken",
-      "toggle_aria_label": "Metriken umschalten",
-      "toggle_title": "Metriken umschalten",
+      "title": "Leistungskennzahlen",
+      "toggle_aria_label": "Kennzahlen umschalten",
+      "toggle_title": "Kennzahlen umschalten",
       "total_time": "Gesamtzeit",
       "generation_speed": "Generierungsgeschwindigkeit",
-      "prompt_tokens": "Prompt-Tokens",
-      "generated_tokens": "Generierte Tokens",
+      "prompt_tokens": "Prompt-Token",
+      "generated_tokens": "Generierte Token",
       "load_time": "Ladezeit",
       "prompt_eval_time": "Prompt-Evaluierungszeit"
     },
@@ -121,10 +131,10 @@
       "total_tokens": "{{value}} Token",
       "prompt_tokens": "{{value}} Prompt",
       "generated_tokens": "{{value}} generiert",
-      "avg_speed": "{{speed}} t/s",
-      "messages": "{{value}} Nachr.",
-      "tooltip_tokens": "Gesamte Token in dieser Sitzung",
-      "tooltip_time": "Gesamte Antwortgenerierungszeit",
+      "avg_speed": "{{speed}} T/s",
+      "messages": "{{value}} Nachrichten",
+      "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
+      "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten"
     },
@@ -206,7 +216,9 @@
       "generating_embeddings": "Embeddings werden generiert...",
       "extracting_pdf": "Text aus PDF wird extrahiert...",
       "processing_docx": "DOCX-Dokument wird verarbeitet...",
-      "processing_file": "Datei wird verarbeitet..."
+      "processing_file": "Datei wird verarbeitet...",
+      "processing_csv": "CSV-Datei wird verarbeitet...",
+      "processing_html": "HTML wird in Markdown konvertiert..."
     },
     "area": {
       "files_ready": "{{count}} Datei bereit",
@@ -391,7 +403,13 @@
       "aria_label": "Chat exportieren",
       "aria_label_all": "Alle Chat-Sitzungen exportieren",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Text",
+      "default_title": "Chat-Sitzung",
+      "all_sessions_title": "Alle Chat-Sitzungen",
+      "role_user": "Du",
+      "role_assistant": "KI-Assistent"
     },
     "import": {
       "tooltip": "Chat-Sitzungen importieren",
@@ -453,7 +471,15 @@
       "copy_last_response": "Letzte Antwort kopieren",
       "copy_last_response_desc": "Letzte KI-Antwort in die Zwischenablage kopieren",
       "toggle_session_metrics": "Sitzungsmetriken umschalten",
-      "toggle_session_metrics_desc": "Sitzungsmetriken-Leiste ein-/ausblenden"
+      "toggle_session_metrics_desc": "Sitzungsmetriken anzeigen oder ausblenden",
+      "export_json": "Als JSON exportieren",
+      "export_json_desc": "Aktuellen Chat als JSON exportieren",
+      "export_markdown": "Als Markdown exportieren",
+      "export_markdown_desc": "Aktuellen Chat als Markdown exportieren",
+      "export_pdf": "Als PDF exportieren",
+      "export_pdf_desc": "Aktuellen Chat als PDF exportieren",
+      "export_text": "Als Text exportieren",
+      "export_text_desc": "Aktuellen Chat als Text exportieren"
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",
@@ -665,6 +691,7 @@
       "extraction": "Extraktion",
       "embeddings": "Embeddings",
       "voices": "Sprachausgaben",
+      "developer": "Entwickler",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
@@ -720,6 +747,41 @@
         "high": "Hoch",
         "very_high": "Sehr hoch"
       }
+    },
+    "developer": {
+      "title": "Entwicklereinstellungen",
+      "description": "Konfigurieren Sie Protokollierungs- und Debugging-Optionen",
+      "logLevel": "Protokollierungsgrad",
+      "logLevelDescription": "Legen Sie das Mindestniveau der zu erfassenden Protokolle fest. Niedrigere Stufen zeigen mehr Details.",
+      "enableLogger": "Protokollierung aktivieren",
+      "enableLoggerDescription": "Schalten Sie die Protokollierung aus, um die Leistung zu verbessern, wenn Probleme auftreten",
+      "persistLogs": "Protokolle in IndexedDB speichern",
+      "persistLogsDescription": "Speichern Sie Protokolle in IndexedDB für Persistenz über Browser-Neustarts hinweg (empfohlen)",
+      "levels": {
+        "error": "Nur Fehler",
+        "warn": "Warnung",
+        "info": "Info (Standard)",
+        "verbose": "Ausführlich",
+        "debug": "Debug (Alle)"
+      },
+      "viewLogs": "Protokolle anzeigen",
+      "exportLogs": "Protokolle exportieren",
+      "clearLogs": "Protokolle löschen",
+      "confirmClear": "Sind Sie sicher, dass Sie alle Protokolle löschen möchten?",
+      "bufferSize": "Protokollpuffer: {{current}} / {{max}} Einträge",
+      "troubleshooting": {
+        "title": "Brauchen Sie Hilfe?",
+        "description": "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
+      },
+      "crashApp": "App abstürzen lassen (Test)",
+      "confirmCrash": "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
+      "manualCrashError": "Manueller Absturztest aus den Entwicklereinstellungen"
+    },
+    "errorBoundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
+      "exportLogs": "Protokolle exportieren",
+      "reload": "Neu laden"
     },
     "embeddings": {
       "title": "Vektor-Embeddings",

@@ -41,14 +41,17 @@ export interface FileAttachment {
   fileSize: number
   textPreview?: string
   processedAt: number
+  messageId?: number
 }
 
 export interface ChatMessage {
+  id?: number
   role: Role
   content: string
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
+  timestamp?: number
   metrics?: {
     total_duration?: number
     load_duration?: number
@@ -57,6 +60,9 @@ export interface ChatMessage {
     eval_count?: number
     eval_duration?: number
   }
+  parentId?: number
+  childrenIds?: number[]
+  siblingIds?: number[]
 }
 
 export interface ChatSession {
@@ -64,7 +70,9 @@ export interface ChatSession {
   title: string
   createdAt: number
   updatedAt: number
-  messages: ChatMessage[]
+  modelId?: string
+  messages?: ChatMessage[]
+  currentLeafId?: number
 }
 
 export interface ChromePort extends browser.Runtime.Port {
@@ -306,10 +314,35 @@ export interface ChatSessionState {
   renameSessionTitle: (id: string, title: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
+  loadSessionMessages: (sessionId: string) => Promise<void>
+  hasMoreMessages: boolean
+  loadMoreMessages: () => Promise<void>
+  ensureMessageLoaded: (
+    sessionId: string,
+    timestamp: number,
+    messageId?: number
+  ) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
     message: { role: Role; content: string } | null
   ) => void
+  addMessage: (sessionId: string, message: ChatMessage) => Promise<number>
+  updateMessage: (
+    messageId: number,
+    updates: Partial<ChatMessage>,
+    skipDb?: boolean
+  ) => Promise<void>
+  deleteMessage: (messageId: number) => Promise<void>
+  forkMessage: (
+    sessionId: string,
+    originalMessageId: number,
+    newContent: string
+  ) => Promise<number | undefined>
+  navigateToNode: (
+    sessionId: string,
+    nodeId: number,
+    exact?: boolean
+  ) => Promise<void>
 }
 
 export interface SelectedTabsState {
@@ -367,6 +400,7 @@ export type ContentScraper = "auto" | "defuddle" | "readability"
 
 export interface ContentExtractionConfig {
   enabled: boolean
+  showSelectionButton: boolean // Whether to show the floating AI button on text selection
   contentScraper: ContentScraper // Which scraper to use: auto (try defuddle then readability), defuddle, or readability
   excludedUrlPatterns: string[] // URL patterns to exclude from extraction
   scrollStrategy: ScrollStrategy

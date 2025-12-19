@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromeResponse } from "@/types"
 
 interface ModelMeta {
@@ -102,7 +103,9 @@ export const useOllamaModelSearch = () => {
         const scraped = await fetchSearchResults(searchQuery)
         setModels(scraped)
       } catch (err) {
-        console.error("Scrape failed", err)
+        logger.error("Model search scrape failed", "useOllamaModelSearch", {
+          error: err
+        })
         setModels([])
       } finally {
         setLoading(false)
@@ -119,7 +122,10 @@ export const useOllamaModelSearch = () => {
         prev.map((m) => (m.name === modelName ? { ...m, variants } : m))
       )
     } catch (err) {
-      console.error(`Failed to load variants for ${modelName}`, err)
+      logger.error("Failed to load variants", "useOllamaModelSearch", {
+        modelName,
+        error: err
+      })
     }
   }
 

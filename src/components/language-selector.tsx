@@ -44,7 +44,9 @@ export const LanguageSelector = () => {
           <SelectContent>
             {LANGUAGES.map((lang) => (
               <SelectItem key={lang.value} value={lang.value}>
-                {lang.label}
+                {lang.label === lang.nativeLabel
+                  ? lang.label
+                  : `${lang.label} (${lang.nativeLabel})`}
               </SelectItem>
             ))}
           </SelectContent>

@@ -38,7 +38,9 @@ export const resources = {
             "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
           help_text:
             "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
-        }
+        },
+        cancel: "Abbrechen",
+        save: "Speichern"
       },
       selection_button: {
         label: "Ollama Client fragen",
@@ -109,22 +111,30 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
+            "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
+          drop_files_here: "Dateien hier ablegen"
+        },
+        editor: {
+          placeholder: "Nachricht bearbeiten..."
         },
         actions: {
           copy: "Kopieren",
           copied: "Kopiert",
           regenerate: "Neu generieren",
-          switch_model_tooltip: "Modell wechseln"
+          switch_model_tooltip: "Modell wechseln",
+          fork: "Konversation abzweigen",
+          edit: "Bearbeiten",
+          export_as: "Exportieren als...",
+          delete: "Nachricht löschen"
         },
         metrics: {
-          title: "Leistungsmetriken",
-          toggle_aria_label: "Metriken umschalten",
-          toggle_title: "Metriken umschalten",
+          title: "Leistungskennzahlen",
+          toggle_aria_label: "Kennzahlen umschalten",
+          toggle_title: "Kennzahlen umschalten",
           total_time: "Gesamtzeit",
           generation_speed: "Generierungsgeschwindigkeit",
-          prompt_tokens: "Prompt-Tokens",
-          generated_tokens: "Generierte Tokens",
+          prompt_tokens: "Prompt-Token",
+          generated_tokens: "Generierte Token",
           load_time: "Ladezeit",
           prompt_eval_time: "Prompt-Evaluierungszeit"
         },
@@ -132,10 +142,10 @@ export const resources = {
           total_tokens: "{{value}} Token",
           prompt_tokens: "{{value}} Prompt",
           generated_tokens: "{{value}} generiert",
-          avg_speed: "{{speed}} t/s",
-          messages: "{{value}} Nachr.",
-          tooltip_tokens: "Gesamte Token in dieser Sitzung",
-          tooltip_time: "Gesamte Antwortgenerierungszeit",
+          avg_speed: "{{speed}} T/s",
+          messages: "{{value}} Nachrichten",
+          tooltip_tokens: "Insgesamt in dieser Sitzung genutzte Token",
+          tooltip_time: "Gesamte Antwortzeit",
           tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
           tooltip_messages: "Anzahl der KI-Antworten"
         },
@@ -226,7 +236,9 @@ export const resources = {
           generating_embeddings: "Embeddings werden generiert...",
           extracting_pdf: "Text aus PDF wird extrahiert...",
           processing_docx: "DOCX-Dokument wird verarbeitet...",
-          processing_file: "Datei wird verarbeitet..."
+          processing_file: "Datei wird verarbeitet...",
+          processing_csv: "CSV-Datei wird verarbeitet...",
+          processing_html: "HTML wird in Markdown konvertiert..."
         },
         area: {
           files_ready: "{{count}} Datei bereit",
@@ -449,7 +461,13 @@ export const resources = {
           aria_label: "Chat exportieren",
           aria_label_all: "Alle Chat-Sitzungen exportieren",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Text",
+          default_title: "Chat-Sitzung",
+          all_sessions_title: "Alle Chat-Sitzungen",
+          role_user: "Du",
+          role_assistant: "KI-Assistent"
         },
         import: {
           tooltip: "Chat-Sitzungen importieren",
@@ -515,7 +533,16 @@ export const resources = {
           copy_last_response_desc:
             "Letzte KI-Antwort in die Zwischenablage kopieren",
           toggle_session_metrics: "Sitzungsmetriken umschalten",
-          toggle_session_metrics_desc: "Sitzungsmetriken-Leiste ein-/ausblenden"
+          toggle_session_metrics_desc:
+            "Sitzungsmetriken anzeigen oder ausblenden",
+          export_json: "Als JSON exportieren",
+          export_json_desc: "Aktuellen Chat als JSON exportieren",
+          export_markdown: "Als Markdown exportieren",
+          export_markdown_desc: "Aktuellen Chat als Markdown exportieren",
+          export_pdf: "Als PDF exportieren",
+          export_pdf_desc: "Aktuellen Chat als PDF exportieren",
+          export_text: "Als Text exportieren",
+          export_text_desc: "Aktuellen Chat als Text exportieren"
         },
         content_extraction: {
           title: "Inhaltsextraktion",
@@ -744,6 +771,7 @@ export const resources = {
           extraction: "Extraktion",
           embeddings: "Embeddings",
           voices: "Sprachausgaben",
+          developer: "Entwickler",
           reset: "Zurücksetzen",
           guides: "Anleitungen",
           memory: "Gedächtnis",
@@ -807,6 +835,50 @@ export const resources = {
             high: "Hoch",
             very_high: "Sehr hoch"
           }
+        },
+        developer: {
+          title: "Entwicklereinstellungen",
+          description:
+            "Konfigurieren Sie Protokollierungs- und Debugging-Optionen",
+          logLevel: "Protokollierungsgrad",
+          logLevelDescription:
+            "Legen Sie das Mindestniveau der zu erfassenden Protokolle fest. Niedrigere Stufen zeigen mehr Details.",
+          enableLogger: "Protokollierung aktivieren",
+          enableLoggerDescription:
+            "Schalten Sie die Protokollierung aus, um die Leistung zu verbessern, wenn Probleme auftreten",
+          persistLogs: "Protokolle in IndexedDB speichern",
+          persistLogsDescription:
+            "Speichern Sie Protokolle in IndexedDB für Persistenz über Browser-Neustarts hinweg (empfohlen)",
+          levels: {
+            error: "Nur Fehler",
+            warn: "Warnung",
+            info: "Info (Standard)",
+            verbose: "Ausführlich",
+            debug: "Debug (Alle)"
+          },
+          viewLogs: "Protokolle anzeigen",
+          exportLogs: "Protokolle exportieren",
+          clearLogs: "Protokolle löschen",
+          confirmClear:
+            "Sind Sie sicher, dass Sie alle Protokolle löschen möchten?",
+          bufferSize: "Protokollpuffer: {{current}} / {{max}} Einträge",
+          troubleshooting: {
+            title: "Brauchen Sie Hilfe?",
+            description:
+              "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
+          },
+          crashApp: "App abstürzen lassen (Test)",
+          confirmCrash:
+            "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
+          manualCrashError:
+            "Manueller Absturztest aus den Entwicklereinstellungen"
+        },
+        errorBoundary: {
+          title: "Etwas ist schiefgelaufen",
+          description:
+            "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
+          exportLogs: "Protokolle exportieren",
+          reload: "Neu laden"
         },
         embeddings: {
           title: "Vektor-Embeddings",
@@ -1061,7 +1133,9 @@ export const resources = {
           description: "Select your preferred language for the interface.",
           help_text:
             "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
-        }
+        },
+        cancel: "Cancel",
+        save: "Save"
       },
       selection_button: {
         label: "Ask Ollama client",
@@ -1129,13 +1203,21 @@ export const resources = {
           enter_key: "Enter",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context"
+          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context",
+          drop_files_here: "Drop files here"
+        },
+        editor: {
+          placeholder: "Edit message..."
         },
         actions: {
           copy: "Copy",
           copied: "Copied",
           regenerate: "Regenerate",
-          switch_model_tooltip: "Switch model"
+          switch_model_tooltip: "Switch model",
+          fork: "Fork Conversation",
+          edit: "Edit",
+          export_as: "Export as...",
+          delete: "Delete Message"
         },
         metrics: {
           title: "Performance Metrics",
@@ -1244,7 +1326,9 @@ export const resources = {
           generating_embeddings: "Generating embeddings...",
           extracting_pdf: "Extracting text from PDF...",
           processing_docx: "Processing DOCX document...",
-          processing_file: "Processing file..."
+          processing_file: "Processing file...",
+          processing_csv: "Parsing CSV file...",
+          processing_html: "Converting HTML to Markdown..."
         },
         area: {
           files_ready: "{{count}} file ready",
@@ -1465,7 +1549,13 @@ export const resources = {
           aria_label: "Export chat",
           aria_label_all: "Export all chat sessions",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Text",
+          default_title: "Chat Session",
+          all_sessions_title: "All Chat Sessions",
+          role_user: "You",
+          role_assistant: "AI Assistant"
         },
         import: {
           tooltip: "Import chat sessions",
@@ -1529,7 +1619,15 @@ export const resources = {
           copy_last_response: "Copy Last Response",
           copy_last_response_desc: "Copy the last AI response to clipboard",
           toggle_session_metrics: "Toggle Session Metrics",
-          toggle_session_metrics_desc: "Show or hide the session metrics bar"
+          toggle_session_metrics_desc: "Show or hide the session metrics bar",
+          export_json: "Export as JSON",
+          export_json_desc: "Export current chat as JSON file",
+          export_markdown: "Export as Markdown",
+          export_markdown_desc: "Export current chat as Markdown file",
+          export_pdf: "Export as PDF",
+          export_pdf_desc: "Export current chat as PDF file",
+          export_text: "Export as Text",
+          export_text_desc: "Export current chat as plain text file"
         },
         content_extraction: {
           title: "Content Extraction",
@@ -1753,6 +1851,7 @@ export const resources = {
           extraction: "Extraction",
           embeddings: "Embeddings",
           voices: "Voices",
+          developer: "Developer",
           reset: "Reset",
           guides: "Guides",
           memory: "Memory",
@@ -1812,6 +1911,49 @@ export const resources = {
             normal: "Normal",
             high: "High",
             very_high: "Very High"
+          }
+        },
+        developer: {
+          title: "Developer Settings",
+          description: "Configure logging and debugging options",
+          logLevel: "Log Level",
+          logLevelDescription:
+            "Set the minimum level of logs to capture. Lower levels show more detail.",
+          enableLogger: "Enable Logging",
+          enableLoggerDescription:
+            "Turn off logging to improve performance if experiencing issues",
+          persistLogs: "Persist Logs to IndexedDB",
+          persistLogsDescription:
+            "Store logs in IndexedDB for persistence across browser restarts (recommended)",
+          levels: {
+            error: "Error Only",
+            warn: "Warning",
+            info: "Info (Default)",
+            verbose: "Verbose",
+            debug: "Debug (All)"
+          },
+          viewLogs: "View Logs",
+          exportLogs: "Export Logs",
+          clearLogs: "Clear Logs",
+          confirmClear: "Are you sure you want to clear all logs?",
+          bufferSize: "Log buffer: {{current}} / {{max}} entries",
+          troubleshooting: {
+            title: "Need Help?",
+            description:
+              "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
+          },
+          crashApp: "Crash App (Test)",
+          confirmCrash:
+            "This will crash the application to test the Error Boundary. Are you sure?",
+          manualCrashError: "Manual Crash Test from Developer Settings",
+          logViewer: {
+            title: "Log Viewer",
+            description: "Showing {{count}} of {{total}} logs",
+            search: "Search logs...",
+            allLevels: "All Levels",
+            noLogs: "No logs to display",
+            showData: "Show additional data",
+            close: "Close"
           }
         },
         embeddings: {
@@ -2022,6 +2164,13 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Report Bug / Feature"
+      },
+      errorBoundary: {
+        title: "Something went wrong",
+        description:
+          "An unexpected error occurred. We've logged this issue internally.",
+        exportLogs: "Export Logs",
+        reload: "Reload"
       }
     }
   },
@@ -2060,7 +2209,9 @@ export const resources = {
           description: "Selecciona tu idioma preferido para la interfaz.",
           help_text:
             "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
-        }
+        },
+        cancel: "Cancelar",
+        save: "Guardar"
       },
       selection_button: {
         label: "Preguntar al cliente Ollama",
@@ -2129,24 +2280,32 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Usar contexto de archivos y chat"
+            "Smart Context (Beta): Usar contexto de archivos y chat",
+          drop_files_here: "Soltar archivos aquí"
+        },
+        editor: {
+          placeholder: "Editar mensaje..."
         },
         actions: {
           copy: "Copiar",
           copied: "Copiado",
           regenerate: "Regenerar",
-          switch_model_tooltip: "Cambiar modelo"
+          switch_model_tooltip: "Cambiar modelo",
+          fork: "Bifurcar conversación",
+          edit: "Editar",
+          export_as: "Exportar como...",
+          delete: "Eliminar mensaje"
         },
         metrics: {
           title: "Métricas de Rendimiento",
           toggle_aria_label: "Alternar métricas",
           toggle_title: "Alternar métricas",
-          total_time: "Tiempo Total",
-          generation_speed: "Velocidad de Generación",
-          prompt_tokens: "Tokens de Prompt",
-          generated_tokens: "Tokens Generados",
-          load_time: "Tiempo de Carga",
-          prompt_eval_time: "Tiempo de Evaluación de Prompt"
+          total_time: "Tiempo total",
+          generation_speed: "Velocidad de generación",
+          prompt_tokens: "Tokens del prompt",
+          generated_tokens: "Tokens generados",
+          load_time: "Tiempo de carga",
+          prompt_eval_time: "Tiempo de evaluación del prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} tokens",
@@ -2154,9 +2313,9 @@ export const resources = {
           generated_tokens: "{{value}} generados",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} msgs",
-          tooltip_tokens: "Tokens totales usados en esta sesión",
-          tooltip_time: "Tiempo total de generación de respuesta",
-          tooltip_speed: "Velocidad promedio de generación",
+          tooltip_tokens: "Total de tokens usados en esta sesión",
+          tooltip_time: "Tiempo total de generación de respuestas",
+          tooltip_speed: "Velocidad media de generación",
           tooltip_messages: "Número de respuestas de IA"
         },
         search: {
@@ -2245,7 +2404,9 @@ export const resources = {
           generating_embeddings: "Generando incrustaciones...",
           extracting_pdf: "Extrayendo texto de PDF...",
           processing_docx: "Procesando documento DOCX...",
-          processing_file: "Procesando archivo..."
+          processing_file: "Procesando archivo...",
+          processing_csv: "Procesando archivo CSV...",
+          processing_html: "Convirtiendo HTML a Markdown..."
         },
         area: {
           files_ready: "{{count}} archivo listo",
@@ -2469,7 +2630,13 @@ export const resources = {
           aria_label: "Exportar chat",
           aria_label_all: "Exportar todas las sesiones de chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Texto",
+          default_title: "Sesión de chat",
+          all_sessions_title: "Todas las sesiones",
+          role_user: "Tú",
+          role_assistant: "Asistente IA"
         },
         import: {
           tooltip: "Importar sesiones de chat",
@@ -2535,8 +2702,15 @@ export const resources = {
           copy_last_response_desc:
             "Copiar la última respuesta de IA al portapapeles",
           toggle_session_metrics: "Alternar métricas de sesión",
-          toggle_session_metrics_desc:
-            "Mostrar u ocultar la barra de métricas de sesión"
+          toggle_session_metrics_desc: "Mostrar u ocultar métricas de sesión",
+          export_json: "Exportar como JSON",
+          export_json_desc: "Exportar chat actual como JSON",
+          export_markdown: "Exportar como Markdown",
+          export_markdown_desc: "Exportar chat actual como Markdown",
+          export_pdf: "Exportar como PDF",
+          export_pdf_desc: "Exportar chat actual como PDF",
+          export_text: "Exportar como Texto",
+          export_text_desc: "Exportar chat actual como texto"
         },
         content_extraction: {
           title: "Extracción de Contenido",
@@ -2766,10 +2940,47 @@ export const resources = {
           extraction: "Extracción",
           embeddings: "Incrustaciones",
           voices: "Voces",
+          developer: "Desarrollador",
           reset: "Restablecer",
           guides: "Guías",
           memory: "Memoria",
           shortcuts: "Atajos"
+        },
+        developer: {
+          title: "Configuración de Desarrollador",
+          description: "Configurar opciones de registro y depuración",
+          logLevel: "Nivel de Registro",
+          logLevelDescription:
+            "Establecer el nivel mínimo de registros a capturar.",
+          enableLogger: "Habilitar Registro",
+          enableLoggerDescription:
+            "Desactivar para mejorar el rendimiento si es necesario",
+          persistLogs: "Persistir registros en IndexedDB",
+          persistLogsDescription:
+            "Almacenar registros para persistencia (recomendado)",
+          viewLogs: "Ver Registros",
+          exportLogs: "Exportar Registros",
+          clearLogs: "Borrar Registros",
+          confirmClear:
+            "¿Estás seguro de que quieres borrar todos los registros?",
+          bufferSize: "Búfer: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "¿Necesitas ayuda?",
+            description:
+              "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
+          },
+          crashApp: "Colgar App (Prueba)",
+          confirmCrash:
+            "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
+          manualCrashError:
+            "Prueba de bloqueo manual desde configuración de desarrollador"
+        },
+        errorBoundary: {
+          title: "Algo salió mal",
+          description:
+            "Ocurrió un error inesperado. Hemos registrado este problema internamente.",
+          exportLogs: "Exportar registros",
+          reload: "Recargar"
         },
         memory: {
           title: "Memoria Contextual",
@@ -2962,16 +3173,16 @@ export const resources = {
           title: "Restablecer Ajustes",
           description:
             "Borra los datos almacenados por módulo o restablece todo a los valores predeterminados",
-          danger_zone: {
-            title: "Zona de Peligro",
-            description: "Esto borrará todos los datos y no se puede deshacer",
-            button: "Restablecer Todo"
-          },
           dialog: {
             title: "Confirmar Restablecimiento",
             description: "Esto borrará todos los datos y no se puede deshacer.",
             confirm: "Sí, Restablecer Todo",
             cancel: "Cancelar"
+          },
+          danger_zone: {
+            title: "Zona de Peligro",
+            description: "Esto borrará todos los datos y no se puede deshacer",
+            button: "Restablecer Todo"
           },
           modules: {
             ollama: {
@@ -3080,7 +3291,9 @@ export const resources = {
           description: "Sélectionnez votre langue préférée pour l'interface.",
           help_text:
             "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
-        }
+        },
+        cancel: "Annuler",
+        save: "Enregistrer"
       },
       selection_button: {
         label: "Demander au client Ollama",
@@ -3150,24 +3363,32 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
+            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
+          drop_files_here: "Déposer des fichiers ici"
+        },
+        editor: {
+          placeholder: "Modifier le message..."
         },
         actions: {
           copy: "Copier",
           copied: "Copié",
           regenerate: "Régénérer",
-          switch_model_tooltip: "Changer de modèle"
+          switch_model_tooltip: "Changer de modèle",
+          fork: "Fourcher la conversation",
+          edit: "Modifier",
+          export_as: "Exporter sous...",
+          delete: "Supprimer le message"
         },
         metrics: {
           title: "Métriques de Performance",
           toggle_aria_label: "Basculer les métriques",
           toggle_title: "Basculer les métriques",
-          total_time: "Temps Total",
-          generation_speed: "Vitesse de Génération",
-          prompt_tokens: "Tokens de Prompt",
-          generated_tokens: "Tokens Générés",
-          load_time: "Temps de Chargement",
-          prompt_eval_time: "Temps d'Évaluation du Prompt"
+          total_time: "Temps total",
+          generation_speed: "Vitesse de génération",
+          prompt_tokens: "Tokens du prompt",
+          generated_tokens: "Tokens générés",
+          load_time: "Temps de chargement",
+          prompt_eval_time: "Temps d'évaluation du prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} tokens",
@@ -3175,8 +3396,8 @@ export const resources = {
           generated_tokens: "{{value}} générés",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} msgs",
-          tooltip_tokens: "Tokens totaux utilisés dans cette session",
-          tooltip_time: "Temps total de génération de réponse",
+          tooltip_tokens: "Total des tokens utilisés dans cette session",
+          tooltip_time: "Temps total de génération des réponses",
           tooltip_speed: "Vitesse moyenne de génération",
           tooltip_messages: "Nombre de réponses IA"
         },
@@ -3267,7 +3488,9 @@ export const resources = {
           generating_embeddings: "Génération des incrustations...",
           extracting_pdf: "Extraction du texte du PDF...",
           processing_docx: "Traitement du document DOCX...",
-          processing_file: "Traitement du fichier..."
+          processing_file: "Traitement du fichier...",
+          processing_csv: "Traitement du fichier CSV...",
+          processing_html: "Conversion HTML vers Markdown..."
         },
         area: {
           files_ready: "{{count}} fichier prêt",
@@ -3492,7 +3715,13 @@ export const resources = {
           aria_label: "Exporter le chat",
           aria_label_all: "Exporter toutes les sessions de chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Texte",
+          default_title: "Session de chat",
+          all_sessions_title: "Toutes les sessions",
+          role_user: "Vous",
+          role_assistant: "Assistant IA"
         },
         import: {
           tooltip: "Importer des sessions de chat",
@@ -3559,7 +3788,15 @@ export const resources = {
             "Copier la dernière réponse de l'IA dans le presse-papiers",
           toggle_session_metrics: "Basculer les métriques de session",
           toggle_session_metrics_desc:
-            "Afficher ou masquer la barre de métriques de session"
+            "Afficher ou masquer la barre de métriques de session",
+          export_json: "Exporter en JSON",
+          export_json_desc: "Exporter le chat actuel en JSON",
+          export_markdown: "Exporter en Markdown",
+          export_markdown_desc: "Exporter le chat actuel en Markdown",
+          export_pdf: "Exporter en PDF",
+          export_pdf_desc: "Exporter le chat actuel en PDF",
+          export_text: "Exporter en Texte",
+          export_text_desc: "Exporter le chat actuel en texte brut"
         },
         content_extraction: {
           title: "Extraction de Contenu",
@@ -3792,10 +4029,47 @@ export const resources = {
           extraction: "Extraction",
           embeddings: "Incrustations",
           voices: "Voix",
+          developer: "Développeur",
           reset: "Réinitialiser",
           guides: "Guides",
           memory: "Mémoire",
           shortcuts: "Raccourcis"
+        },
+        developer: {
+          title: "Paramètres Développeur",
+          description:
+            "Configurer les options de journalisation et de débogage",
+          logLevel: "Niveau de Journalisation",
+          logLevelDescription:
+            "Définir le niveau minimum de journaux à capturer.",
+          enableLogger: "Activer la Journalisation",
+          enableLoggerDescription:
+            "Désactiver pour améliorer les performances si nécessaire",
+          persistLogs: "Persister les journaux dans IndexedDB",
+          persistLogsDescription:
+            "Stockez les journaux pour la persistance (recommandé)",
+          viewLogs: "Voir les Logs",
+          exportLogs: "Exporter les Logs",
+          clearLogs: "Effacer les Logs",
+          confirmClear: "Êtes-vous sûr de vouloir effacer tous les journaux ?",
+          bufferSize: "Tampon: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "Besoin d'aide ?",
+            description:
+              "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
+          },
+          crashApp: "Planter l'app (Test)",
+          confirmCrash:
+            "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
+          manualCrashError:
+            "Test de plantage manuel depuis les paramètres développeur"
+        },
+        errorBoundary: {
+          title: "Une erreur est survenue",
+          description:
+            "Une erreur inattendue s'est produite. Nous avons enregistré ce problème en interne.",
+          exportLogs: "Exporter les logs",
+          reload: "Recharger"
         },
         memory: {
           title: "Mémoire Contextuelle",
@@ -3989,18 +4263,18 @@ export const resources = {
           title: "Réinitialiser les Paramètres",
           description:
             "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
-          danger_zone: {
-            title: "Zone de Danger",
-            description:
-              "Ceci effacera toutes les données et ne peut être annulé",
-            button: "Tout Réinitialiser"
-          },
           dialog: {
             title: "Confirmer la Réinitialisation",
             description:
               "Ceci effacera toutes les données et ne peut être annulé.",
             confirm: "Oui, Tout Réinitialiser",
             cancel: "Annuler"
+          },
+          danger_zone: {
+            title: "Zone de Danger",
+            description:
+              "Ceci effacera toutes les données et ne peut être annulé",
+            button: "Tout Réinitialiser"
           },
           modules: {
             ollama: {
@@ -4107,7 +4381,9 @@ export const resources = {
           description: "इंटरफ़ेस के लिए अपनी पसंदीदा भाषा चुनें।",
           help_text:
             "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
-        }
+        },
+        cancel: "रद्द करें",
+        save: "सहेजें"
       },
       selection_button: {
         label: "Ollama क्लाइंट से पूछें",
@@ -4176,35 +4452,42 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
+            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
+          drop_files_here: "फ़ाइलें यहाँ छोड़ें"
+        },
+        editor: {
+          placeholder: "संदेश संपादित करें..."
         },
         actions: {
           copy: "कॉपी करें",
           copied: "कॉपी किया गया",
           regenerate: "पुनः जेनरेट करें",
-          switch_model_tooltip: "मॉडल बदलें"
+          switch_model_tooltip: "मॉडल बदलें",
+          edit: "संपादित करें",
+          export_as: "इस रूप में निर्यात करें...",
+          delete: "संदेश हटाएँ"
         },
         metrics: {
-          title: "परफॉर्मेंस मेट्रिक्स",
+          title: "प्रदर्शन मेट्रिक्स",
           toggle_aria_label: "मेट्रिक्स टॉगल करें",
           toggle_title: "मेट्रिक्स टॉगल करें",
           total_time: "कुल समय",
-          generation_speed: "जनरेशन गति",
+          generation_speed: "उत्पन्न करने की गति",
           prompt_tokens: "प्रॉम्प्ट टोकन",
-          generated_tokens: "जनरेट किए गए टोकन",
-          load_time: "लोड समय",
+          generated_tokens: "उत्पन्न टोकन",
+          load_time: "लोड करने का समय",
           prompt_eval_time: "प्रॉम्प्ट मूल्यांकन समय"
         },
         session_metrics: {
           total_tokens: "{{value}} टोकन",
           prompt_tokens: "{{value}} प्रॉम्प्ट",
-          generated_tokens: "{{value}} जनरेट",
+          generated_tokens: "{{value}} उत्पन्न",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} संदेश",
-          tooltip_tokens: "इस सत्र में उपयोग किए गए कुल टोकन",
-          tooltip_time: "कुल प्रतिक्रिया जनरेशन समय",
-          tooltip_speed: "औसत जनरेशन गति",
-          tooltip_messages: "AI प्रतिक्रियाओं की संख्या"
+          tooltip_tokens: "इस सत्र में कुल उपयोग किए गए टोकन",
+          tooltip_time: "कुल प्रतिक्रिया उत्पन्न करने का समय",
+          tooltip_speed: "औसत उत्पन्न करने की गति",
+          tooltip_messages: "एआई प्रतिक्रियाओं की संख्या"
         },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -4290,7 +4573,9 @@ export const resources = {
           generating_embeddings: "एम्बेडिंग जेनरेट हो रही है...",
           extracting_pdf: "PDF से टेक्स्ट निकाला जा रहा है...",
           processing_docx: "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
-          processing_file: "फ़ाइल प्रोसेस की जा रही है..."
+          processing_file: "फ़ाइल प्रोसेस की जा रही है...",
+          processing_csv: "CSV फ़ाइल प्रोसेस की जा रही है...",
+          processing_html: "HTML को Markdown में बदला जा रहा है..."
         },
         area: {
           files_ready: "{{count}} फ़ाइल तैयार",
@@ -4505,7 +4790,13 @@ export const resources = {
           aria_label: "चैट निर्यात करें",
           aria_label_all: "सभी चैट सेशन निर्यात करें",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "पाठ",
+          default_title: "चैट सत्र",
+          all_sessions_title: "सभी चैट सत्र",
+          role_user: "आप",
+          role_assistant: "AI सहायक"
         },
         import: {
           tooltip: "चैट सेशन आयात करें",
@@ -4568,7 +4859,15 @@ export const resources = {
           copy_last_response: "अंतिम प्रतिक्रिया कॉपी करें",
           copy_last_response_desc: "अंतिम AI प्रतिक्रिया क्लिपबोर्ड पर कॉपी करें",
           toggle_session_metrics: "सत्र मेट्रिक्स टॉगल करें",
-          toggle_session_metrics_desc: "सत्र मेट्रिक्स बार दिखाएं या छिपाएं"
+          toggle_session_metrics_desc: "सत्र मेट्रिक्स बार दिखाएं या छिपाएं",
+          export_json: "JSON निर्यात करें",
+          export_json_desc: "वर्तमान चैट को JSON फ़ाइल के रूप में निर्यात करें",
+          export_markdown: "Markdown निर्यात करें",
+          export_markdown_desc: "वर्तमान चैट को Markdown फ़ाइल के रूप में निर्यात करें",
+          export_pdf: "PDF निर्यात करें",
+          export_pdf_desc: "वर्तमान चैट को PDF फ़ाइल के रूप में निर्यात करें",
+          export_text: "पाठ निर्यात करें",
+          export_text_desc: "वर्तमान चैट को पाठ फ़ाइल के रूप में निर्यात करें"
         },
         content_extraction: {
           title: "सामग्री निष्कर्षण",
@@ -4790,6 +5089,7 @@ export const resources = {
           extraction: "निष्कर्षण",
           embeddings: "एम्बेडिंग",
           voices: "वॉयस",
+          developer: "डेवलपर",
           reset: "रीसेट करें",
           guides: "गाइड",
           memory: "मेमोरी",
@@ -4850,6 +5150,47 @@ export const resources = {
             high: "उच्च",
             very_high: "बहुत उच्च"
           }
+        },
+        developer: {
+          title: "डेवलपर सेटिंग्स",
+          description: "लॉगिंग और डिबगिंग विकल्प कॉन्फ़िगर करें",
+          logLevel: "लॉग स्तर",
+          logLevelDescription:
+            "कैप्चर करने के लिए न्यूनतम लॉग स्तर सेट करें। निचले स्तर अधिक विवरण दिखाते हैं।",
+          enableLogger: "लॉगिंग सक्षम करें",
+          enableLoggerDescription:
+            "समस्याओं का अनुभव होने पर प्रदर्शन बेहतर बनाने के लिए लॉगिंग बंद करें",
+          persistLogs: "लॉग को IndexedDB में सहेजें",
+          persistLogsDescription:
+            "ब्राउज़र पुनरारंभ होने पर बने रहने के लिए लॉग को IndexedDB में संग्रहीत करें (अनुशंसित)",
+          levels: {
+            error: "केवल त्रुटि",
+            warn: "चेतावनी",
+            info: "जानकारी (डिफ़ॉल्ट)",
+            verbose: "विस्तृत",
+            debug: "डिबग (सभी)"
+          },
+          viewLogs: "लॉग देखें",
+          exportLogs: "लॉग निर्यात करें",
+          clearLogs: "लॉग साफ़ करें",
+          confirmClear: "क्या आप वाकई सभी लॉग साफ़ करना चाहते हैं?",
+          bufferSize: "लॉग बफ़र: {{current}} / {{max}} प्रविष्टियाँ",
+          troubleshooting: {
+            title: "मदद चाहिए?",
+            description:
+              "यदि आप समस्याओं का अनुभव कर रहे हैं, तो लॉग निर्यात करें और उन्हें अपनी बग रिपोर्ट में शामिल करें। इससे हमें आपकी समस्या को तेज़ी से डीबग करने में मदद मिलती है।"
+          },
+          crashApp: "ऐप क्रैश करें (टेस्ट)",
+          confirmCrash:
+            "यह Error Boundary का परीक्षण करने के लिए एप्लिकेशन को क्रैश कर देगा। क्या आप सुनिश्चित हैं?",
+          manualCrashError: "डेवलपर सेटिंग्स से मैनुअल क्रैश टेस्ट"
+        },
+        errorBoundary: {
+          title: "कुछ गड़बड़ हो गई",
+          description:
+            "एक अप्रत्याशित त्रुटि हुई। हमने इस समस्या को आंतरिक रूप से लॉग किया है।",
+          exportLogs: "लॉग निर्यात करें",
+          reload: "रीलोड करें"
         },
         embeddings: {
           title: "वेक्टर एम्बेडिंग",
@@ -5097,7 +5438,9 @@ export const resources = {
           description: "Seleziona la tua lingua preferita per l'interfaccia.",
           help_text:
             "Le traduzioni sono generate dall'IA. Aiutaci a migliorare contribuendo su <0>GitHub</0>!"
-        }
+        },
+        cancel: "Annulla",
+        save: "Salva"
       },
       selection_button: {
         label: "Chiedi a Ollama client",
@@ -5167,33 +5510,41 @@ export const resources = {
           enter_key: "Invio",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat"
+          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat",
+          drop_files_here: "Trascina i file qui"
+        },
+        editor: {
+          placeholder: "Modifica messaggio..."
         },
         actions: {
           copy: "Copia",
           copied: "Copiato",
           regenerate: "Rigenera",
-          switch_model_tooltip: "Cambia modello"
+          switch_model_tooltip: "Cambia modello",
+          fork: "Biforca conversazione",
+          edit: "Modifica",
+          export_as: "Esporta come...",
+          delete: "Elimina messaggio"
         },
         metrics: {
-          title: "Metriche di Prestazione",
-          toggle_aria_label: "Attiva/disattiva metriche",
-          toggle_title: "Attiva/disattiva metriche",
-          total_time: "Tempo Totale",
-          generation_speed: "Velocità di Generazione",
-          prompt_tokens: "Token di Prompt",
-          generated_tokens: "Token Generati",
-          load_time: "Tempo di Caricamento",
-          prompt_eval_time: "Tempo di Valutazione del Prompt"
+          title: "Metriche delle Prestazioni",
+          toggle_aria_label: "Attiva/Disattiva metriche",
+          toggle_title: "Attiva/Disattiva metriche",
+          total_time: "Tempo totale",
+          generation_speed: "Velocità di generazione",
+          prompt_tokens: "Token del prompt",
+          generated_tokens: "Token generati",
+          load_time: "Tempo di caricamento",
+          prompt_eval_time: "Tempo val. prompt"
         },
         session_metrics: {
           total_tokens: "{{value}} token",
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generati",
           avg_speed: "{{speed}} t/s",
-          messages: "{{value}} msgs",
-          tooltip_tokens: "Token totali usati in questa sessione",
-          tooltip_time: "Tempo totale di generazione risposta",
+          messages: "{{value}} msg",
+          tooltip_tokens: "Token totali utilizzati in questa sessione",
+          tooltip_time: "Tempo totale generazione risposte",
           tooltip_speed: "Velocità media di generazione",
           tooltip_messages: "Numero di risposte AI"
         },
@@ -5283,7 +5634,9 @@ export const resources = {
           generating_embeddings: "Generazione embeddings in corso...",
           extracting_pdf: "Estrazione testo da PDF in corso...",
           processing_docx: "Elaborazione documento DOCX in corso...",
-          processing_file: "Elaborazione file in corso..."
+          processing_file: "Elaborazione file in corso...",
+          processing_csv: "Elaborazione file CSV...",
+          processing_html: "Conversione HTML in Markdown..."
         },
         area: {
           files_ready: "{{count}} file pronto",
@@ -5507,7 +5860,13 @@ export const resources = {
           aria_label: "Esporta chat",
           aria_label_all: "Esporta tutte le sessioni di chat",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Testo",
+          default_title: "Sessione di chat",
+          all_sessions_title: "Tutte le sessioni",
+          role_user: "Tu",
+          role_assistant: "Assistente IA"
         },
         import: {
           tooltip: "Importa sessioni di chat",
@@ -5575,7 +5934,15 @@ export const resources = {
             "Copia l'ultima risposta dell'IA negli appunti",
           toggle_session_metrics: "Attiva/disattiva metriche sessione",
           toggle_session_metrics_desc:
-            "Mostra o nascondi la barra delle metriche di sessione"
+            "Mostra o nascondi la barra delle metriche della sessione",
+          export_json: "Esporta come JSON",
+          export_json_desc: "Esporta chat corrente come JSON",
+          export_markdown: "Esporta come Markdown",
+          export_markdown_desc: "Esporta chat corrente come Markdown",
+          export_pdf: "Esporta come PDF",
+          export_pdf_desc: "Esporta chat corrente come PDF",
+          export_text: "Esporta come Testo",
+          export_text_desc: "Esporta chat corrente come testo"
         },
         content_extraction: {
           title: "Estrazione Contenuto",
@@ -5804,6 +6171,7 @@ export const resources = {
           extraction: "Estrazione",
           embeddings: "Embeddings",
           voices: "Voci",
+          developer: "Sviluppatore",
           reset: "Reset",
           guides: "Guide",
           memory: "Memoria",
@@ -5867,6 +6235,48 @@ export const resources = {
             high: "Alto",
             very_high: "Molto Alto"
           }
+        },
+        developer: {
+          title: "Impostazioni sviluppatore",
+          description: "Configura le opzioni di logging e debug",
+          logLevel: "Livello di logging",
+          logLevelDescription:
+            "Imposta il livello minimo di log da catturare. I livelli più bassi mostrano più dettagli.",
+          enableLogger: "Abilita logging",
+          enableLoggerDescription:
+            "Disattiva il logging per migliorare le prestazioni in caso di problemi",
+          persistLogs: "Salva log su IndexedDB",
+          persistLogsDescription:
+            "Salva i log su IndexedDB per la persistenza tra i riavvii del browser (consigliato)",
+          levels: {
+            error: "Solo errori",
+            warn: "Avviso",
+            info: "Info (Predefinito)",
+            verbose: "Prolisso",
+            debug: "Debug (Tutto)"
+          },
+          viewLogs: "Visualizza log",
+          exportLogs: "Esporta log",
+          clearLogs: "Cancella log",
+          confirmClear: "Sei sicuro di voler cancellare tutti i log?",
+          bufferSize: "Buffer log: {{current}} / {{max}} voci",
+          troubleshooting: {
+            title: "Serve aiuto?",
+            description:
+              "Se riscontri problemi, esporta i log e includili nella tua segnalazione di bug. Questo ci aiuta a risolvere il problema più velocemente."
+          },
+          crashApp: "Arresta App (Test)",
+          confirmCrash:
+            "Questo farà arrestare l'applicazione per testare l'Error Boundary. Sei sicuro?",
+          manualCrashError:
+            "Test di arresto manuale dalle impostazioni sviluppatore"
+        },
+        errorBoundary: {
+          title: "Qualcosa è andato storto",
+          description:
+            "Si è verificato un errore imprevisto. Abbiamo registrato questo problema internamente.",
+          exportLogs: "Esporta Log",
+          reload: "Ricarica"
         },
         embeddings: {
           title: "Embeddings Vettoriali",
@@ -6120,7 +6530,9 @@ export const resources = {
           description: "インターフェースの優先言語を選択してください。",
           help_text:
             "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
-        }
+        },
+        cancel: "キャンセル",
+        save: "保存"
       },
       selection_button: {
         label: "Ollama Clientに尋ねる",
@@ -6189,35 +6601,42 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
+            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
+          drop_files_here: "ここにファイルをドロップ"
+        },
+        editor: {
+          placeholder: "メッセージを編集..."
         },
         actions: {
           copy: "コピー",
           copied: "コピーしました",
           regenerate: "再生成",
-          switch_model_tooltip: "モデルを切り替え"
+          switch_model_tooltip: "モデルを切り替え",
+          edit: "編集",
+          export_as: "エクスポート...",
+          delete: "メッセージを削除"
         },
         metrics: {
           title: "パフォーマンス指標",
-          toggle_aria_label: "指標の切り替え",
-          toggle_title: "指標の切り替え",
+          toggle_aria_label: "指標を切り替え",
+          toggle_title: "指標を切り替え",
           total_time: "合計時間",
           generation_speed: "生成速度",
           prompt_tokens: "プロンプトトークン",
           generated_tokens: "生成トークン",
-          load_time: "ロード時間",
+          load_time: "読み込み時間",
           prompt_eval_time: "プロンプト評価時間"
         },
         session_metrics: {
           total_tokens: "{{value}} トークン",
           prompt_tokens: "{{value}} プロンプト",
-          generated_tokens: "{{value}} 生成",
+          generated_tokens: "{{value}} 生成済",
           avg_speed: "{{speed}} t/s",
-          messages: "{{value}} メッセージ",
+          messages: "{{value}} 件",
           tooltip_tokens: "このセッションで使用された合計トークン",
           tooltip_time: "合計応答生成時間",
           tooltip_speed: "平均生成速度",
-          tooltip_messages: "AIの応答数"
+          tooltip_messages: "AI応答数"
         },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
@@ -6302,7 +6721,9 @@ export const resources = {
           generating_embeddings: "エンベディングを生成中...",
           extracting_pdf: "PDFからテキストを抽出中...",
           processing_docx: "DOCXドキュメントを処理中...",
-          processing_file: "ファイルを処理中..."
+          processing_file: "ファイルを処理中...",
+          processing_csv: "CSVファイルを処理中...",
+          processing_html: "HTMLをMarkdownに変換中..."
         },
         area: {
           files_ready: "{{count}} ファイル準備完了",
@@ -6522,7 +6943,13 @@ export const resources = {
           aria_label: "チャットをエクスポート",
           aria_label_all: "すべてのチャットセッションをエクスポート",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "テキスト",
+          default_title: "チャットセッション",
+          all_sessions_title: "すべてのチャットセッション",
+          role_user: "あなた",
+          role_assistant: "AIアシスタント"
         },
         import: {
           tooltip: "チャットセッションをインポート",
@@ -6588,7 +7015,16 @@ export const resources = {
           copy_last_response_desc: "最後のAI応答をクリップボードにコピー",
           toggle_session_metrics: "セッション統計を切り替え",
           toggle_session_metrics_desc:
-            "セッション統計バーの表示/非表示を切り替え"
+            "セッションメトリクスバーを表示または非表示にする",
+          export_json: "JSONとしてエクスポート",
+          export_json_desc: "現在のチャットをJSONファイルとしてエクスポート",
+          export_markdown: "Markdownとしてエクスポート",
+          export_markdown_desc:
+            "現在のチャットをMarkdownファイルとしてエクスポート",
+          export_pdf: "PDFとしてエクスポート",
+          export_pdf_desc: "現在のチャットをPDFファイルとしてエクスポート",
+          export_text: "テキストとしてエクスポート",
+          export_text_desc: "現在のチャットをテキストファイルとしてエクスポート"
         },
         content_extraction: {
           title: "コンテンツ抽出",
@@ -6812,10 +7248,44 @@ export const resources = {
           extraction: "抽出",
           embeddings: "エンベディング",
           voices: "音声",
+          developer: "開発者",
           reset: "リセット",
           guides: "ガイド",
           memory: "メモリ",
           shortcuts: "ショートカット"
+        },
+        developer: {
+          title: "開発者設定",
+          description: "ログ記録とデバッグオプションを構成します",
+          logLevel: "ログレベル",
+          logLevelDescription: "記録するログの最小レベルを設定します。",
+          enableLogger: "ログ記録を有効にする",
+          enableLoggerDescription:
+            "パフォーマンスを向上させるために、必要に応じてログ記録を無効にします",
+          persistLogs: "IndexedDBにログを保存",
+          persistLogsDescription:
+            "再起動後もログを保持するためにIndexedDBに保存します（推奨）",
+          viewLogs: "ログを表示",
+          exportLogs: "ログをエクスポート",
+          clearLogs: "ログを消去",
+          confirmClear: "すべてのログを消去してもよろしいですか？",
+          bufferSize: "バッファ: {{current}} / {{max}}",
+          troubleshooting: {
+            title: "助けが必要ですか？",
+            description:
+              "問題が発生した場合は、ログをエクスポートしてバグレポートに含めてください。これにより、問題をより迅速にデバッグできます。"
+          },
+          crashApp: "アプリをクラッシュ (テスト)",
+          confirmCrash:
+            "これはエラー境界をテストするためにアプリケーションをクラッシュさせます。よろしいですか？",
+          manualCrashError: "開発者設定からの手動クラッシュテスト"
+        },
+        errorBoundary: {
+          title: "問題が発生しました",
+          description:
+            "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+          exportLogs: "ログをエクスポート",
+          reload: "再読み込み"
         },
         memory: {
           title: "コンテキストメモリ",
@@ -7122,7 +7592,9 @@ export const resources = {
           description: "Выберите предпочтительный язык интерфейса.",
           help_text:
             "Переводы созданы ИИ. Помогите нам улучшить их на <0>GitHub</0>!"
-        }
+        },
+        cancel: "Отмена",
+        save: "Сохранить"
       },
       selection_button: {
         label: "Спросить Ollama client",
@@ -7192,13 +7664,20 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Бета): Использовать контекст файлов и чата"
+            "Smart Context (Бета): Использовать контекст файлов и чата",
+          drop_files_here: "Перетащите файлы сюда"
+        },
+        editor: {
+          placeholder: "Редактировать сообщение..."
         },
         actions: {
           copy: "Копировать",
           copied: "Скопировано",
           regenerate: "Сгенерировать заново",
-          switch_model_tooltip: "Переключить модель"
+          switch_model_tooltip: "Переключить модель",
+          edit: "Редактировать",
+          export_as: "Экспортировать как...",
+          delete: "Удалить сообщение"
         },
         metrics: {
           title: "Метрики производительности",
@@ -7206,10 +7685,10 @@ export const resources = {
           toggle_title: "Переключить метрики",
           total_time: "Общее время",
           generation_speed: "Скорость генерации",
-          prompt_tokens: "Токенов промпта",
+          prompt_tokens: "Токены промпта",
           generated_tokens: "Сгенерировано токенов",
           load_time: "Время загрузки",
-          prompt_eval_time: "Время оценки промпта"
+          prompt_eval_time: "Время обработки промпта"
         },
         session_metrics: {
           total_tokens: "{{value}} токенов",
@@ -7217,8 +7696,8 @@ export const resources = {
           generated_tokens: "{{value}} сгенер.",
           avg_speed: "{{speed}} т/с",
           messages: "{{value}} сообщ.",
-          tooltip_tokens: "Всего токенов в этой сессии",
-          tooltip_time: "Общее время генерации ответа",
+          tooltip_tokens: "Всего токенов в текущей сессии",
+          tooltip_time: "Общее время генерации",
           tooltip_speed: "Средняя скорость генерации",
           tooltip_messages: "Количество ответов ИИ"
         },
@@ -7306,7 +7785,9 @@ export const resources = {
           generating_embeddings: "Генерация эмбеддингов...",
           extracting_pdf: "Извлечение текста из PDF...",
           processing_docx: "Обработка документа DOCX...",
-          processing_file: "Обработка файла..."
+          processing_file: "Обработка файла...",
+          processing_csv: "Обработка CSV файла...",
+          processing_html: "Конвертация HTML в Markdown..."
         },
         area: {
           files_ready: "{{count}} файл готов",
@@ -7530,7 +8011,13 @@ export const resources = {
           aria_label: "Экспорт чата",
           aria_label_all: "Экспорт всех сессий чата",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "Текст",
+          default_title: "Чат-сессия",
+          all_sessions_title: "Все сессии",
+          role_user: "Вы",
+          role_assistant: "ИИ-ассистент"
         },
         import: {
           tooltip: "Импорт сессий чата",
@@ -7596,8 +8083,15 @@ export const resources = {
           copy_last_response_desc:
             "Копировать последний ответ ИИ в буфер обмена",
           toggle_session_metrics: "Переключить метрики сессии",
-          toggle_session_metrics_desc:
-            "Показать или скрыть панель метрик сессии"
+          toggle_session_metrics_desc: "Показать или скрыть метрики сессии",
+          export_json: "Экспорт в JSON",
+          export_json_desc: "Экспортировать текущий чат в JSON",
+          export_markdown: "Экспорт в Markdown",
+          export_markdown_desc: "Экспортировать текущий чат в Markdown",
+          export_pdf: "Экспорт в PDF",
+          export_pdf_desc: "Экспортировать текущий чат в PDF",
+          export_text: "Экспорт в Текст",
+          export_text_desc: "Экспортировать текущий чат в текстовый файл"
         },
         content_extraction: {
           title: "Извлечение контента",
@@ -7823,6 +8317,7 @@ export const resources = {
           extraction: "Извлечение",
           embeddings: "Эмбеддинги",
           voices: "Голоса",
+          developer: "Разработчик",
           reset: "Сброс",
           guides: "Руководства",
           memory: "Память",
@@ -7885,6 +8380,47 @@ export const resources = {
             high: "Высоко",
             very_high: "Очень высоко"
           }
+        },
+        developer: {
+          title: "Настройки разработчика",
+          description: "Настройка параметров логирования и отладки",
+          logLevel: "Уровень логирования",
+          logLevelDescription:
+            "Установите минимальный уровень логов для захвата. Более низкие уровни показывают больше деталей.",
+          enableLogger: "Включить логирование",
+          enableLoggerDescription:
+            "Отключите логирование для улучшения производительности при возникновении проблем",
+          persistLogs: "Сохранять логи в IndexedDB",
+          persistLogsDescription:
+            "Сохранять логи в IndexedDB для сохранения после перезапуска браузера (рекомендуется)",
+          levels: {
+            error: "Только ошибки",
+            warn: "Предупреждение",
+            info: "Инфо (По умолчанию)",
+            verbose: "Подробно",
+            debug: "Отладка (Все)"
+          },
+          viewLogs: "Просмотреть логи",
+          exportLogs: "Экспорт логов",
+          clearLogs: "Очистить логи",
+          confirmClear: "Вы уверены, что хотите очистить все логи?",
+          bufferSize: "Буфер логов: {{current}} / {{max}} записей",
+          troubleshooting: {
+            title: "Нужна помощь?",
+            description:
+              "Если вы столкнулись с проблемами, экспортируйте логи и приложите их к отчету об ошибке. Это поможет нам быстрее решить проблему."
+          },
+          crashApp: "Сбой приложения (Тест)",
+          confirmCrash:
+            "Это вызовет сбой приложения для проверки Error Boundary. Вы уверены?",
+          manualCrashError: "Ручной тест сбоя из настроек разработчика"
+        },
+        errorBoundary: {
+          title: "Что-то пошло не так",
+          description:
+            "Произошла непредвиденная ошибка. Мы зарегистрировали эту проблему внутри системы.",
+          exportLogs: "Экспорт логов",
+          reload: "Перезагрузить"
         },
         embeddings: {
           title: "Векторные эмбеддинги",
@@ -8133,7 +8669,9 @@ export const resources = {
           beta_badge: "测试版",
           description: "选择您偏好的界面语言。",
           help_text: "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
-        }
+        },
+        cancel: "取消",
+        save: "保存"
       },
       selection_button: {
         label: "询问 Ollama 客户端",
@@ -8201,35 +8739,42 @@ export const resources = {
           enter_key: "回车",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文"
+          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文",
+          drop_files_here: "将文件拖到此处"
+        },
+        editor: {
+          placeholder: "编辑消息..."
         },
         actions: {
           copy: "复制",
           copied: "已复制",
           regenerate: "重新生成",
-          switch_model_tooltip: "切换模型"
+          switch_model_tooltip: "切换模型",
+          edit: "编辑",
+          export_as: "导出为...",
+          delete: "删除消息"
         },
         metrics: {
           title: "性能指标",
           toggle_aria_label: "切换指标",
           toggle_title: "切换指标",
-          total_time: "总耗时",
+          total_time: "总时间",
           generation_speed: "生成速度",
-          prompt_tokens: "提示词 Token 数",
-          generated_tokens: "生成 Token 数",
+          prompt_tokens: "提示词 Token",
+          generated_tokens: "生成的 Token",
           load_time: "加载时间",
           prompt_eval_time: "提示词评估时间"
         },
         session_metrics: {
-          total_tokens: "{{value}} 令牌",
-          prompt_tokens: "{{value}} 提示",
+          total_tokens: "{{value}} Token",
+          prompt_tokens: "{{value}} 提示词",
           generated_tokens: "{{value}} 生成",
           avg_speed: "{{speed}} t/s",
           messages: "{{value}} 条消息",
-          tooltip_tokens: "此会话使用的总令牌数",
-          tooltip_time: "总响应生成时间",
+          tooltip_tokens: "本次会话使用的总 Token",
+          tooltip_time: "总生成时间",
           tooltip_speed: "平均生成速度",
-          tooltip_messages: "AI响应数量"
+          tooltip_messages: "AI 回复数量"
         },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",
@@ -8310,7 +8855,9 @@ export const resources = {
           generating_embeddings: "正在生成嵌入...",
           extracting_pdf: "正在从 PDF 提取文本...",
           processing_docx: "正在处理 DOCX 文档...",
-          processing_file: "正在处理文件..."
+          processing_file: "正在处理文件...",
+          processing_csv: "正在处理 CSV 文件...",
+          processing_html: "正在将 HTML 转换为 Markdown..."
         },
         area: {
           files_ready: "{{count}} 个文件已准备就绪",
@@ -8516,7 +9063,13 @@ export const resources = {
           aria_label: "导出聊天",
           aria_label_all: "导出所有聊天会话",
           format_json: "JSON",
-          format_pdf: "PDF"
+          format_pdf: "PDF",
+          format_markdown: "Markdown",
+          format_text: "文本",
+          default_title: "聊天会话",
+          all_sessions_title: "所有会话",
+          role_user: "你",
+          role_assistant: "AI助手"
         },
         import: {
           tooltip: "导入聊天会话",
@@ -8579,7 +9132,15 @@ export const resources = {
           copy_last_response: "复制最后响应",
           copy_last_response_desc: "复制最后一条AI响应到剪贴板",
           toggle_session_metrics: "切换会话指标",
-          toggle_session_metrics_desc: "显示或隐藏会话指标栏"
+          toggle_session_metrics_desc: "显示或隐藏会话指标栏",
+          export_json: "导出为JSON",
+          export_json_desc: "导出当前聊天为JSON文件",
+          export_markdown: "导出为Markdown",
+          export_markdown_desc: "导出当前聊天为Markdown文件",
+          export_pdf: "导出为PDF",
+          export_pdf_desc: "导出当前聊天为PDF文件",
+          export_text: "导出为文本",
+          export_text_desc: "导出当前聊天为文本文件"
         },
         content_extraction: {
           title: "内容提取",
@@ -8794,6 +9355,7 @@ export const resources = {
           extraction: "提取",
           embeddings: "嵌入",
           voices: "声音",
+          developer: "开发者",
           reset: "重置",
           guides: "指南",
           memory: "记忆",
@@ -8850,6 +9412,45 @@ export const resources = {
             high: "高",
             very_high: "非常高"
           }
+        },
+        developer: {
+          title: "开发者设置",
+          description: "配置日志记录和调试选项",
+          logLevel: "日志级别",
+          logLevelDescription:
+            "设置要捕获的最低日志级别。较低的级别显示更多详细信息。",
+          enableLogger: "启用日志记录",
+          enableLoggerDescription:
+            "如果在遇到问题时，可以关闭日志记录以提高性能",
+          persistLogs: "将日志保存到 IndexedDB",
+          persistLogsDescription:
+            "将日志存储在 IndexedDB 中，以便在浏览器重新启动后仍然保留（推荐）",
+          levels: {
+            error: "仅错误",
+            warn: "警告",
+            info: "信息 (默认)",
+            verbose: "详细",
+            debug: "调试 (所有)"
+          },
+          viewLogs: "查看日志",
+          exportLogs: "导出日志",
+          clearLogs: "清除日志",
+          confirmClear: "您确定要清除所有日志吗？",
+          bufferSize: "日志缓冲区: {{current}} / {{max}} 条目",
+          troubleshooting: {
+            title: "需要帮助？",
+            description:
+              "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
+          },
+          crashApp: "崩溃应用 (测试)",
+          confirmCrash: "这将导致应用程序崩溃以测试错误边界。您确定吗？",
+          manualCrashError: "来自开发者设置的手动崩溃测试"
+        },
+        errorBoundary: {
+          title: "出错了",
+          description: "发生了意外错误。我们已在内部记录了此问题。",
+          exportLogs: "导出日志",
+          reload: "重新加载"
         },
         embeddings: {
           title: "向量嵌入",

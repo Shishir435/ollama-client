@@ -6,6 +6,7 @@
  * import('/src/lib/embeddings/test-embedding.ts').then(m => m.testEmbeddingGeneration('Hello world'))
  */
 
+import { logger } from "@/lib/logger"
 import { generateEmbedding } from "./ollama-embedder"
 import { storeVector } from "./vector-store"
 
@@ -22,23 +23,26 @@ export const testEmbeddingGeneration = async (
   }
 ): Promise<{ success: boolean; error?: string; id?: number }> => {
   try {
-    console.log(
-      `[Test Embedding] Generating embedding for: "${text.substring(0, 50)}..."`
+    logger.info(
+      `[Test Embedding] Generating embedding for: "${text.substring(0, 50)}..."`,
+      "testEmbeddingGeneration"
     )
 
     // Generate embedding
     const result = await generateEmbedding(text)
 
     if ("error" in result) {
-      console.error(
-        "[Test Embedding] Error generating embedding:",
-        result.error
+      logger.error(
+        "[Test Embedding] Error generating embedding",
+        "testEmbeddingGeneration",
+        { error: result.error }
       )
       return { success: false, error: result.error }
     }
 
-    console.log(
-      `[Test Embedding] Embedding generated: ${result.embedding.length} dimensions`
+    logger.info(
+      `[Test Embedding] Embedding generated: ${result.embedding.length} dimensions`,
+      "testEmbeddingGeneration"
     )
 
     // Store in vector database
@@ -48,14 +52,20 @@ export const testEmbeddingGeneration = async (
       fileId: metadata?.fileId,
       url: metadata?.title ? undefined : undefined,
       title: metadata?.title || "Test Embedding",
+      source: "test-embedding",
       timestamp: Date.now()
     })
 
-    console.log(`[Test Embedding] Stored in vector database with ID: ${id}`)
+    logger.info(
+      `[Test Embedding] Stored in vector database with ID: ${id}`,
+      "testEmbeddingGeneration"
+    )
     return { success: true, id }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("[Test Embedding] Error:", errorMessage)
+    logger.error("[Test Embedding] Error", "testEmbeddingGeneration", {
+      error: errorMessage
+    })
     return { success: false, error: errorMessage }
   }
 }
@@ -72,8 +82,9 @@ export const testBatchEmbeddingGeneration = async (
   }
 ): Promise<{ success: boolean; count: number; errors: string[] }> => {
   try {
-    console.log(
-      `[Test Embedding] Generating embeddings for ${texts.length} texts`
+    logger.info(
+      `[Test Embedding] Generating embeddings for ${texts.length} texts`,
+      "testBatchEmbeddingGeneration"
     )
 
     const { generateEmbeddingsBatch } = await import("./ollama-embedder")
@@ -82,7 +93,12 @@ export const testBatchEmbeddingGeneration = async (
       texts,
       undefined,
       (current, total) => {
-        console.log(`[Test Embedding] Progress: ${current}/${total}`)
+        if (current % 10 === 0 || current === total) {
+          logger.info(
+            `[Test Embedding] Progress: ${current}/${total}`,
+            "testBatchEmbeddingGeneration"
+          )
+        }
       }
     )
 
@@ -101,6 +117,7 @@ export const testBatchEmbeddingGeneration = async (
           type: metadata?.type || "file",
           fileId: metadata?.fileId,
           title: metadata?.title || `Chunk ${i + 1}`,
+          source: "test-embedding",
           timestamp: Date.now(),
           chunkIndex: i,
           totalChunks: texts.length
@@ -113,17 +130,22 @@ export const testBatchEmbeddingGeneration = async (
       }
     }
 
-    console.log(
-      `[Test Embedding] Completed: ${successCount}/${texts.length} embeddings stored`
+    logger.info(
+      `[Test Embedding] Completed: ${successCount}/${texts.length} embeddings stored`,
+      "testBatchEmbeddingGeneration"
     )
     if (errors.length > 0) {
-      console.error("[Test Embedding] Errors:", errors)
+      logger.error("[Test Embedding] Errors", "testBatchEmbeddingGeneration", {
+        errors
+      })
     }
 
     return { success: errors.length === 0, count: successCount, errors }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("[Test Embedding] Error:", errorMessage)
+    logger.error("[Test Embedding] Error", "testBatchEmbeddingGeneration", {
+      error: errorMessage
+    })
     return { success: false, count: 0, errors: [errorMessage] }
   }
 }

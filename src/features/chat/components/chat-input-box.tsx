@@ -18,6 +18,7 @@ import { TabsSelect } from "@/features/tabs/components/tabs-select"
 
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { useToast } from "@/hooks/use-toast"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 
@@ -39,6 +40,7 @@ export const ChatInputBox = ({
   stopGeneration: () => void
 }) => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -58,6 +60,11 @@ export const ChatInputBox = ({
   } = useFileUpload({
     onError: (error) => {
       console.error("File processing error:", error)
+      toast({
+        variant: "destructive",
+        title: "File Upload Failed",
+        description: error.message || "Failed to process file"
+      })
     }
   })
 
@@ -221,8 +228,10 @@ export const ChatInputBox = ({
         )
 
         if (validFiles.length < files.length) {
-          // TODO: Show toast notification that images are not supported
-          console.warn("Images are currently not supported")
+          toast({
+            variant: "destructive",
+            description: "Images are currently not supported via drag and drop"
+          })
         }
 
         if (validFiles.length > 0) {
@@ -235,10 +244,29 @@ export const ChatInputBox = ({
         }
       }
     },
-    [processFiles]
+    [processFiles, toast]
   )
 
   useEffect(() => {
+    // Check for pending selection (from context menu when sidebar was closed)
+    const checkPendingSelection = async () => {
+      const pendingText = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+      )
+
+      if (pendingText) {
+        const selectionText = `> ${pendingText.split("\n").join("\n> ")}\n`
+        appendInput(selectionText)
+        textareaRef.current?.focus()
+
+        // Clear it
+        await plasmoGlobalStorage.remove(
+          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+        )
+      }
+    }
+
+    checkPendingSelection()
     const handleMessage = (message: unknown) => {
       const msg = message as ChromeMessage
       if (

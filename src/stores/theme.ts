@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ThemeState } from "@/types"
 
@@ -47,7 +48,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
           useThemeStore.persist.rehydrate()
         }
       } catch (e) {
-        console.error("Failed to sync theme:", e)
+        logger.error("Failed to sync theme", "themeStore", { error: e })
         useThemeStore.persist.rehydrate()
       }
     }

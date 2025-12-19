@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { db } from "@/lib/db"
+import { logger } from "@/lib/logger"
 import type { ChatSession } from "@/types"
 
 function isValidChatSession(obj: unknown): obj is ChatSession {
@@ -41,11 +42,17 @@ export const useImportChat = () => {
           if (isValidChatSession(s)) {
             importedSessions.push(s)
           } else {
-            console.warn(`Invalid session in file: ${file.name}`, s)
+            logger.warn("Invalid session in file", "useImportChat", {
+              fileName: file.name,
+              session: s
+            })
           }
         }
       } catch (err) {
-        console.error(`Failed to parse ${file.name}:`, err)
+        logger.error("Failed to parse import file", "useImportChat", {
+          fileName: file.name,
+          error: err
+        })
       }
     }
 

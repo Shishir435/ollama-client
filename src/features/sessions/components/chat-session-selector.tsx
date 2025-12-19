@@ -1,11 +1,11 @@
 import { Menu, MessageSquare, SquarePen } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Virtuoso } from "react-virtuoso"
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
@@ -75,22 +75,24 @@ export const ChatSessionSelector = ({
             {searchTrigger}
           </div>
 
-          <ScrollArea className="flex-1 px-2">
-            <div className="space-y-1 pb-3">
-              {sessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="mb-3 rounded-full bg-muted/50 p-3">
-                    <MessageSquare className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t("sessions.selector.no_sessions")}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground/70">
-                    {t("sessions.selector.no_sessions_hint")}
-                  </p>
+          <div className="flex-1 px-2 h-full">
+            {sessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center h-full">
+                <div className="mb-3 rounded-full bg-muted/50 p-3">
+                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
                 </div>
-              ) : (
-                sessions.map((session) => {
+                <p className="text-sm text-muted-foreground">
+                  {t("sessions.selector.no_sessions")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/70">
+                  {t("sessions.selector.no_sessions_hint")}
+                </p>
+              </div>
+            ) : (
+              <Virtuoso
+                data={sessions}
+                className="scrollbar-none"
+                itemContent={(_index, session) => {
                   const trimmedTitle =
                     session.title.length > 25
                       ? `${session.title.slice(0, 25)}...`
@@ -99,64 +101,65 @@ export const ChatSessionSelector = ({
                   const isActive = session.id === currentSessionId
 
                   return (
-                    <div
-                      key={session.id}
-                      className={cn(
-                        "group relative overflow-hidden rounded-lg transition-all duration-200",
-                        isActive
-                          ? "border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/10 shadow-sm"
-                          : "border border-transparent hover:bg-accent/50"
-                      )}>
-                      {isActive && (
-                        <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-gradient-to-b from-primary to-primary/70" />
-                      )}
+                    <div className="pb-1">
+                      <div
+                        className={cn(
+                          "group relative overflow-hidden rounded-lg transition-all duration-200",
+                          isActive
+                            ? "border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/10 shadow-sm"
+                            : "border border-transparent hover:bg-accent/50"
+                        )}>
+                        {isActive && (
+                          <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-gradient-to-b from-primary to-primary/70" />
+                        )}
 
-                      <div className="flex items-center p-2 pr-1">
-                        <Button
-                          variant="ghost"
-                          className={cn(
-                            "h-auto flex-1 justify-start p-0 text-left hover:bg-transparent",
-                            isActive
-                              ? "font-medium text-primary"
-                              : "text-foreground/80 hover:text-foreground"
-                          )}
-                          title={session.title}
-                          onClick={() => setCurrentSessionId(session.id)}>
-                          <div className="flex w-full min-w-0 items-center gap-3">
-                            <div
-                              className={cn(
-                                "shrink-0 rounded-lg p-1",
-                                isActive
-                                  ? "bg-primary/20"
-                                  : "bg-muted/50 group-hover:bg-muted"
-                              )}>
-                              <MessageSquare
+                        <div className="flex items-center p-2 pr-1">
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              "h-auto flex-1 justify-start p-0 text-left hover:bg-transparent",
+                              isActive
+                                ? "font-medium text-primary"
+                                : "text-foreground/80 hover:text-foreground"
+                            )}
+                            title={session.title}
+                            onClick={() => setCurrentSessionId(session.id)}>
+                            <div className="flex w-full min-w-0 items-center gap-3">
+                              <div
                                 className={cn(
-                                  "h-3 w-3",
+                                  "shrink-0 rounded-lg p-1",
                                   isActive
-                                    ? "text-primary"
-                                    : "text-muted-foreground"
-                                )}
-                              />
+                                    ? "bg-primary/20"
+                                    : "bg-muted/50 group-hover:bg-muted"
+                                )}>
+                                <MessageSquare
+                                  className={cn(
+                                    "h-3 w-3",
+                                    isActive
+                                      ? "text-primary"
+                                      : "text-muted-foreground"
+                                  )}
+                                />
+                              </div>
+                              <span className="truncate text-sm leading-relaxed">
+                                {trimmedTitle}
+                              </span>
                             </div>
-                            <span className="truncate text-sm leading-relaxed">
-                              {trimmedTitle}
-                            </span>
-                          </div>
-                        </Button>
-                        <ChatExportButton sessionId={session.id} />
-                        <ChatDeleteButton
-                          sessionId={session.id}
-                          sessionTitle={session.title}
-                          onDelete={() => deleteSession(session.id)}
-                        />
+                          </Button>
+                          <ChatExportButton sessionId={session.id} />
+                          <ChatDeleteButton
+                            sessionId={session.id}
+                            sessionTitle={session.title}
+                            onDelete={() => deleteSession(session.id)}
+                          />
+                        </div>
                       </div>
                     </div>
                   )
-                })
-              )}
-            </div>
-          </ScrollArea>
+                }}
+              />
+            )}
+          </div>
           <div className="border-t border-border/50 p-2">
             <div className="flex items-center justify-center gap-2">
               <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">

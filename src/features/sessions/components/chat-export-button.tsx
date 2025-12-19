@@ -31,7 +31,11 @@ export const ChatExportButton = ({
     exportSessionAsPdf,
     exportAllSessionsAsJson,
     exportAllSessionsAsPdf,
-    exportSessionAsJson
+    exportSessionAsJson,
+    exportSessionAsMarkdown,
+    exportAllSessionsAsMarkdown,
+    exportSessionAsText,
+    exportAllSessionsAsText
   } = useChatExport()
 
   const targetId = sessionId ?? currentSessionId
@@ -47,6 +51,16 @@ export const ChatExportButton = ({
           label: t("sessions.export.format_pdf"),
           icon: FileText,
           action: () => exportAllSessionsAsPdf(sessions)
+        },
+        {
+          label: t("sessions.export.format_markdown"),
+          icon: FileText,
+          action: () => exportAllSessionsAsMarkdown(sessions)
+        },
+        {
+          label: t("sessions.export.format_text"),
+          icon: FileText,
+          action: () => exportAllSessionsAsText(sessions)
         }
       ]
     : current
@@ -60,6 +74,16 @@ export const ChatExportButton = ({
             label: t("sessions.export.format_pdf"),
             icon: FileText,
             action: () => exportSessionAsPdf(current)
+          },
+          {
+            label: t("sessions.export.format_markdown"),
+            icon: FileText,
+            action: () => exportSessionAsMarkdown(current)
+          },
+          {
+            label: t("sessions.export.format_text"),
+            icon: FileText,
+            action: () => exportSessionAsText(current)
           }
         ]
       : []

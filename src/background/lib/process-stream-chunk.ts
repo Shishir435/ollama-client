@@ -1,4 +1,5 @@
 import { safePostMessage } from "@/background/lib/utils"
+import { logger } from "@/lib/logger"
 import type { ChromePort, OllamaChatResponse, StreamChunkResult } from "@/types"
 
 export const processStreamChunk = (
@@ -26,7 +27,9 @@ export const processStreamChunk = (
       }
 
       if (data.done === true) {
-        console.log("Generation completed, total tokens:", fullText.length)
+        logger.info("Generation completed", "processStreamChunk", {
+          totalTokens: fullText.length
+        })
         safePostMessage(port, {
           done: true,
           content: fullText,
@@ -43,10 +46,14 @@ export const processStreamChunk = (
       }
     } catch (err) {
       const error = err as Error
-      console.warn("Failed to parse chunk line:", trimmedLine, error)
+      logger.warn("Failed to parse chunk line", "processStreamChunk", {
+        error,
+        line: trimmedLine
+      })
       if (error.name === "SyntaxError") {
-        console.warn(
-          "Multiple parse errors detected, connection may be corrupted"
+        logger.warn(
+          "Multiple parse errors detected, connection may be corrupted",
+          "processStreamChunk"
         )
       }
     }
@@ -63,7 +70,10 @@ export const processRemainingMetricsBuffer = (
   try {
     const data: OllamaChatResponse = JSON.parse(buffer.trim())
     if (data.done === true) {
-      console.log("Final completion from buffer")
+      logger.verbose(
+        "Final completion from buffer",
+        "processRemainingMetricsBuffer"
+      )
       safePostMessage(port, {
         done: true,
         content: fullText,
@@ -78,6 +88,10 @@ export const processRemainingMetricsBuffer = (
       })
     }
   } catch (parseError) {
-    console.warn("Failed to parse final buffer:", buffer, parseError)
+    logger.warn(
+      "Failed to parse final buffer",
+      "processRemainingMetricsBuffer",
+      { buffer, error: parseError }
+    )
   }
 }

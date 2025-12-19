@@ -9,11 +9,13 @@ import {
 
 describe("Abort Controller Registry", () => {
   beforeEach(() => {
-    // Clear map by clearing all known keys or just relying on test isolation if possible.
-    // Since the map is module-level, we need to manually clear it or rely on overwrite.
-    // The module doesn't export a clearAll function.
-    // We can just use unique keys for each test or manually clear.
-    // Let's rely on manual clearing for now.
+    /*
+     * Clear map by clearing all known keys or just relying on test isolation if possible.
+     * Since the map is module-level, we need to manually clear it or rely on overwrite.
+     * The module doesn't export a clearAll function.
+     * We can just use unique keys for each test or manually clear.
+     * Let's rely on manual clearing for now.
+     */
   })
 
   it("should set and get controller", () => {

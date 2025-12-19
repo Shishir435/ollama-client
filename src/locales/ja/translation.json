@@ -31,7 +31,9 @@
       "beta_badge": "ベータ",
       "description": "インターフェースの優先言語を選択してください。",
       "help_text": "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
-    }
+    },
+    "cancel": "キャンセル",
+    "save": "保存"
   },
   "selection_button": {
     "label": "Ollama Clientに尋ねる",
@@ -98,35 +100,42 @@
       "enter_key": "Enter",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
+      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
+      "drop_files_here": "ここにファイルをドロップ"
+    },
+    "editor": {
+      "placeholder": "メッセージを編集..."
     },
     "actions": {
       "copy": "コピー",
       "copied": "コピーしました",
       "regenerate": "再生成",
-      "switch_model_tooltip": "モデルを切り替え"
+      "switch_model_tooltip": "モデルを切り替え",
+      "edit": "編集",
+      "export_as": "エクスポート...",
+      "delete": "メッセージを削除"
     },
     "metrics": {
       "title": "パフォーマンス指標",
-      "toggle_aria_label": "指標の切り替え",
-      "toggle_title": "指標の切り替え",
+      "toggle_aria_label": "指標を切り替え",
+      "toggle_title": "指標を切り替え",
       "total_time": "合計時間",
       "generation_speed": "生成速度",
       "prompt_tokens": "プロンプトトークン",
       "generated_tokens": "生成トークン",
-      "load_time": "ロード時間",
+      "load_time": "読み込み時間",
       "prompt_eval_time": "プロンプト評価時間"
     },
     "session_metrics": {
       "total_tokens": "{{value}} トークン",
       "prompt_tokens": "{{value}} プロンプト",
-      "generated_tokens": "{{value}} 生成",
+      "generated_tokens": "{{value}} 生成済",
       "avg_speed": "{{speed}} t/s",
-      "messages": "{{value}} メッセージ",
+      "messages": "{{value}} 件",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AIの応答数"
+      "tooltip_messages": "AI応答数"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -206,7 +215,9 @@
       "generating_embeddings": "エンベディングを生成中...",
       "extracting_pdf": "PDFからテキストを抽出中...",
       "processing_docx": "DOCXドキュメントを処理中...",
-      "processing_file": "ファイルを処理中..."
+      "processing_file": "ファイルを処理中...",
+      "processing_csv": "CSVファイルを処理中...",
+      "processing_html": "HTMLをMarkdownに変換中..."
     },
     "area": {
       "files_ready": "{{count}} ファイル準備完了",
@@ -391,7 +402,13 @@
       "aria_label": "チャットをエクスポート",
       "aria_label_all": "すべてのチャットセッションをエクスポート",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "テキスト",
+      "default_title": "チャットセッション",
+      "all_sessions_title": "すべてのチャットセッション",
+      "role_user": "あなた",
+      "role_assistant": "AIアシスタント"
     },
     "import": {
       "tooltip": "チャットセッションをインポート",
@@ -453,7 +470,15 @@
       "copy_last_response": "最後の応答をコピー",
       "copy_last_response_desc": "最後のAI応答をクリップボードにコピー",
       "toggle_session_metrics": "セッション統計を切り替え",
-      "toggle_session_metrics_desc": "セッション統計バーの表示/非表示を切り替え"
+      "toggle_session_metrics_desc": "セッションメトリクスバーを表示または非表示にする",
+      "export_json": "JSONとしてエクスポート",
+      "export_json_desc": "現在のチャットをJSONファイルとしてエクスポート",
+      "export_markdown": "Markdownとしてエクスポート",
+      "export_markdown_desc": "現在のチャットをMarkdownファイルとしてエクスポート",
+      "export_pdf": "PDFとしてエクスポート",
+      "export_pdf_desc": "現在のチャットをPDFファイルとしてエクスポート",
+      "export_text": "テキストとしてエクスポート",
+      "export_text_desc": "現在のチャットをテキストファイルとしてエクスポート"
     },
     "content_extraction": {
       "title": "コンテンツ抽出",
@@ -665,10 +690,39 @@
       "extraction": "抽出",
       "embeddings": "エンベディング",
       "voices": "音声",
+      "developer": "開発者",
       "reset": "リセット",
       "guides": "ガイド",
       "memory": "メモリ",
       "shortcuts": "ショートカット"
+    },
+    "developer": {
+      "title": "開発者設定",
+      "description": "ログ記録とデバッグオプションを構成します",
+      "logLevel": "ログレベル",
+      "logLevelDescription": "記録するログの最小レベルを設定します。",
+      "enableLogger": "ログ記録を有効にする",
+      "enableLoggerDescription": "パフォーマンスを向上させるために、必要に応じてログ記録を無効にします",
+      "persistLogs": "IndexedDBにログを保存",
+      "persistLogsDescription": "再起動後もログを保持するためにIndexedDBに保存します（推奨）",
+      "viewLogs": "ログを表示",
+      "exportLogs": "ログをエクスポート",
+      "clearLogs": "ログを消去",
+      "confirmClear": "すべてのログを消去してもよろしいですか？",
+      "bufferSize": "バッファ: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "助けが必要ですか？",
+        "description": "問題が発生した場合は、ログをエクスポートしてバグレポートに含めてください。これにより、問題をより迅速にデバッグできます。"
+      },
+      "crashApp": "アプリをクラッシュ (テスト)",
+      "confirmCrash": "これはエラー境界をテストするためにアプリケーションをクラッシュさせます。よろしいですか？",
+      "manualCrashError": "開発者設定からの手動クラッシュテスト"
+    },
+    "errorBoundary": {
+      "title": "問題が発生しました",
+      "description": "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+      "exportLogs": "ログをエクスポート",
+      "reload": "再読み込み"
     },
     "memory": {
       "title": "コンテキストメモリ",

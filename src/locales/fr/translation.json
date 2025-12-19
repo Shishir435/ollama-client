@@ -31,7 +31,9 @@
       "beta_badge": "Bêta",
       "description": "Sélectionnez votre langue préférée pour l'interface.",
       "help_text": "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
-    }
+    },
+    "cancel": "Annuler",
+    "save": "Enregistrer"
   },
   "selection_button": {
     "label": "Demander au client Ollama",
@@ -98,24 +100,32 @@
       "enter_key": "Entrée",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
+      "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
+      "drop_files_here": "Déposer des fichiers ici"
+    },
+    "editor": {
+      "placeholder": "Modifier le message..."
     },
     "actions": {
       "copy": "Copier",
       "copied": "Copié",
       "regenerate": "Régénérer",
-      "switch_model_tooltip": "Changer de modèle"
+      "switch_model_tooltip": "Changer de modèle",
+      "fork": "Fourcher la conversation",
+      "edit": "Modifier",
+      "export_as": "Exporter sous...",
+      "delete": "Supprimer le message"
     },
     "metrics": {
       "title": "Métriques de Performance",
       "toggle_aria_label": "Basculer les métriques",
       "toggle_title": "Basculer les métriques",
-      "total_time": "Temps Total",
-      "generation_speed": "Vitesse de Génération",
-      "prompt_tokens": "Tokens de Prompt",
-      "generated_tokens": "Tokens Générés",
-      "load_time": "Temps de Chargement",
-      "prompt_eval_time": "Temps d'Évaluation du Prompt"
+      "total_time": "Temps total",
+      "generation_speed": "Vitesse de génération",
+      "prompt_tokens": "Tokens du prompt",
+      "generated_tokens": "Tokens générés",
+      "load_time": "Temps de chargement",
+      "prompt_eval_time": "Temps d'évaluation du prompt"
     },
     "session_metrics": {
       "total_tokens": "{{value}} tokens",
@@ -123,8 +133,8 @@
       "generated_tokens": "{{value}} générés",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} msgs",
-      "tooltip_tokens": "Tokens totaux utilisés dans cette session",
-      "tooltip_time": "Temps total de génération de réponse",
+      "tooltip_tokens": "Total des tokens utilisés dans cette session",
+      "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
       "tooltip_messages": "Nombre de réponses IA"
     },
@@ -206,7 +216,9 @@
       "generating_embeddings": "Génération des incrustations...",
       "extracting_pdf": "Extraction du texte du PDF...",
       "processing_docx": "Traitement du document DOCX...",
-      "processing_file": "Traitement du fichier..."
+      "processing_file": "Traitement du fichier...",
+      "processing_csv": "Traitement du fichier CSV...",
+      "processing_html": "Conversion HTML vers Markdown..."
     },
     "area": {
       "files_ready": "{{count}} fichier prêt",
@@ -391,7 +403,13 @@
       "aria_label": "Exporter le chat",
       "aria_label_all": "Exporter toutes les sessions de chat",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Texte",
+      "default_title": "Session de chat",
+      "all_sessions_title": "Toutes les sessions",
+      "role_user": "Vous",
+      "role_assistant": "Assistant IA"
     },
     "import": {
       "tooltip": "Importer des sessions de chat",
@@ -453,7 +471,15 @@
       "copy_last_response": "Copier la Dernière Réponse",
       "copy_last_response_desc": "Copier la dernière réponse de l'IA dans le presse-papiers",
       "toggle_session_metrics": "Basculer les métriques de session",
-      "toggle_session_metrics_desc": "Afficher ou masquer la barre de métriques de session"
+      "toggle_session_metrics_desc": "Afficher ou masquer la barre de métriques de session",
+      "export_json": "Exporter en JSON",
+      "export_json_desc": "Exporter le chat actuel en JSON",
+      "export_markdown": "Exporter en Markdown",
+      "export_markdown_desc": "Exporter le chat actuel en Markdown",
+      "export_pdf": "Exporter en PDF",
+      "export_pdf_desc": "Exporter le chat actuel en PDF",
+      "export_text": "Exporter en Texte",
+      "export_text_desc": "Exporter le chat actuel en texte brut"
     },
     "content_extraction": {
       "title": "Extraction de Contenu",
@@ -665,10 +691,39 @@
       "extraction": "Extraction",
       "embeddings": "Incrustations",
       "voices": "Voix",
+      "developer": "Développeur",
       "reset": "Réinitialiser",
       "guides": "Guides",
       "memory": "Mémoire",
       "shortcuts": "Raccourcis"
+    },
+    "developer": {
+      "title": "Paramètres Développeur",
+      "description": "Configurer les options de journalisation et de débogage",
+      "logLevel": "Niveau de Journalisation",
+      "logLevelDescription": "Définir le niveau minimum de journaux à capturer.",
+      "enableLogger": "Activer la Journalisation",
+      "enableLoggerDescription": "Désactiver pour améliorer les performances si nécessaire",
+      "persistLogs": "Persister les journaux dans IndexedDB",
+      "persistLogsDescription": "Stockez les journaux pour la persistance (recommandé)",
+      "viewLogs": "Voir les Logs",
+      "exportLogs": "Exporter les Logs",
+      "clearLogs": "Effacer les Logs",
+      "confirmClear": "Êtes-vous sûr de vouloir effacer tous les journaux ?",
+      "bufferSize": "Tampon: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "Besoin d'aide ?",
+        "description": "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
+      },
+      "crashApp": "Planter l'app (Test)",
+      "confirmCrash": "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
+      "manualCrashError": "Test de plantage manuel depuis les paramètres développeur"
+    },
+    "errorBoundary": {
+      "title": "Une erreur est survenue",
+      "description": "Une erreur inattendue s'est produite. Nous avons enregistré ce problème en interne.",
+      "exportLogs": "Exporter les logs",
+      "reload": "Recharger"
     },
     "memory": {
       "title": "Mémoire Contextuelle",
@@ -835,16 +890,16 @@
     "reset": {
       "title": "Réinitialiser les Paramètres",
       "description": "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
-      "danger_zone": {
-        "title": "Zone de Danger",
-        "description": "Ceci effacera toutes les données et ne peut être annulé",
-        "button": "Tout Réinitialiser"
-      },
       "dialog": {
         "title": "Confirmer la Réinitialisation",
         "description": "Ceci effacera toutes les données et ne peut être annulé.",
         "confirm": "Oui, Tout Réinitialiser",
         "cancel": "Annuler"
+      },
+      "danger_zone": {
+        "title": "Zone de Danger",
+        "description": "Ceci effacera toutes les données et ne peut être annulé",
+        "button": "Tout Réinitialiser"
       },
       "modules": {
         "ollama": {

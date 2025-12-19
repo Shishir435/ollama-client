@@ -1,4 +1,5 @@
 import TurndownService from "turndown"
+import { logger } from "@/lib/logger"
 import type { DocumentLoader, HtmlLoaderOptions, LoaderDocument } from "./types"
 
 /**
@@ -42,7 +43,7 @@ export class HtmlLoader implements DocumentLoader {
         }
       ]
     } catch (error) {
-      console.error("[HtmlLoader] Error converting HTML:", error)
+      logger.error("HTML conversion error", "HtmlLoader", { error })
       throw error
     }
   }

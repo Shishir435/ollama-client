@@ -47,8 +47,12 @@ export const SemanticChatSearchDialog = ({
   const [searchScope, setSearchScope] = useState<"all" | "current">("all")
   const debouncedQuery = useDebounce(searchQuery, 500)
   const { search, isSearching, error } = useSemanticChatSearch()
-  const { sessions, setCurrentSessionId, setHighlightedMessage } =
-    useChatSessions()
+  const {
+    sessions,
+    setCurrentSessionId,
+    setHighlightedMessage,
+    ensureMessageLoaded
+  } = useChatSessions()
   // Track current search to cancel if query changes
   const currentSearchRef = useRef<Promise<ChatSearchResult[]> | null>(null)
 
@@ -134,10 +138,21 @@ export const SemanticChatSearchDialog = ({
         setCurrentSessionId(result.sessionId)
       }
 
-      // Set the highlighted message to trigger scrolling
-      setHighlightedMessage({
-        role: result.role,
-        content: result.messageContent
+      // Ensure the message is loaded in the view
+      // This is async but we don't strictly need to await it for the UI to close,
+      // but we do need it for the highlight to work.
+      // We'll fire and forget the close, but await the load for the highlight?
+      // Actually, if we close dialog immediately, the user sees the chat.
+      // We should probably await the load fast.
+      ensureMessageLoaded(
+        result.sessionId,
+        result.timestamp,
+        result.messageId
+      ).then(() => {
+        setHighlightedMessage({
+          role: result.role,
+          content: result.messageContent
+        })
       })
 
       if (onSelectResult) {
@@ -151,7 +166,8 @@ export const SemanticChatSearchDialog = ({
       onSelectResult,
       onClose,
       setCurrentSessionId,
-      setHighlightedMessage
+      setHighlightedMessage,
+      ensureMessageLoaded
     ]
   )
 

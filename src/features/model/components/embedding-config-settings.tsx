@@ -138,9 +138,9 @@ export const EmbeddingConfigSettings = memo(() => {
 
     setIsCleaning(true)
     try {
-      const result = await removeDuplicateVectors()
+      const { deleted, kept } = await removeDuplicateVectors()
       alert(
-        `Removed ${result.removed} duplicate(s). Kept ${result.kept} unique embedding(s).`
+        `Removed ${deleted} duplicate(s). Kept ${kept} unique embedding(s).`
       )
       await loadStats()
     } catch (error) {

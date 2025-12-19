@@ -31,7 +31,9 @@
       "beta_badge": "Beta",
       "description": "Selecciona tu idioma preferido para la interfaz.",
       "help_text": "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
-    }
+    },
+    "cancel": "Cancelar",
+    "save": "Guardar"
   },
   "selection_button": {
     "label": "Preguntar al cliente Ollama",
@@ -97,24 +99,32 @@
       "enter_key": "Intro",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat"
+      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
+      "drop_files_here": "Soltar archivos aquí"
+    },
+    "editor": {
+      "placeholder": "Editar mensaje..."
     },
     "actions": {
       "copy": "Copiar",
       "copied": "Copiado",
       "regenerate": "Regenerar",
-      "switch_model_tooltip": "Cambiar modelo"
+      "switch_model_tooltip": "Cambiar modelo",
+      "fork": "Bifurcar conversación",
+      "edit": "Editar",
+      "export_as": "Exportar como...",
+      "delete": "Eliminar mensaje"
     },
     "metrics": {
       "title": "Métricas de Rendimiento",
       "toggle_aria_label": "Alternar métricas",
       "toggle_title": "Alternar métricas",
-      "total_time": "Tiempo Total",
-      "generation_speed": "Velocidad de Generación",
-      "prompt_tokens": "Tokens de Prompt",
-      "generated_tokens": "Tokens Generados",
-      "load_time": "Tiempo de Carga",
-      "prompt_eval_time": "Tiempo de Evaluación de Prompt"
+      "total_time": "Tiempo total",
+      "generation_speed": "Velocidad de generación",
+      "prompt_tokens": "Tokens del prompt",
+      "generated_tokens": "Tokens generados",
+      "load_time": "Tiempo de carga",
+      "prompt_eval_time": "Tiempo de evaluación del prompt"
     },
     "session_metrics": {
       "total_tokens": "{{value}} tokens",
@@ -122,9 +132,9 @@
       "generated_tokens": "{{value}} generados",
       "avg_speed": "{{speed}} t/s",
       "messages": "{{value}} msgs",
-      "tooltip_tokens": "Tokens totales usados en esta sesión",
-      "tooltip_time": "Tiempo total de generación de respuesta",
-      "tooltip_speed": "Velocidad promedio de generación",
+      "tooltip_tokens": "Total de tokens usados en esta sesión",
+      "tooltip_time": "Tiempo total de generación de respuestas",
+      "tooltip_speed": "Velocidad media de generación",
       "tooltip_messages": "Número de respuestas de IA"
     },
     "search": {
@@ -205,7 +215,9 @@
       "generating_embeddings": "Generando incrustaciones...",
       "extracting_pdf": "Extrayendo texto de PDF...",
       "processing_docx": "Procesando documento DOCX...",
-      "processing_file": "Procesando archivo..."
+      "processing_file": "Procesando archivo...",
+      "processing_csv": "Procesando archivo CSV...",
+      "processing_html": "Convirtiendo HTML a Markdown..."
     },
     "area": {
       "files_ready": "{{count}} archivo listo",
@@ -390,7 +402,13 @@
       "aria_label": "Exportar chat",
       "aria_label_all": "Exportar todas las sesiones de chat",
       "format_json": "JSON",
-      "format_pdf": "PDF"
+      "format_pdf": "PDF",
+      "format_markdown": "Markdown",
+      "format_text": "Texto",
+      "default_title": "Sesión de chat",
+      "all_sessions_title": "Todas las sesiones",
+      "role_user": "Tú",
+      "role_assistant": "Asistente IA"
     },
     "import": {
       "tooltip": "Importar sesiones de chat",
@@ -452,7 +470,15 @@
       "copy_last_response": "Copiar Última Respuesta",
       "copy_last_response_desc": "Copiar la última respuesta de IA al portapapeles",
       "toggle_session_metrics": "Alternar métricas de sesión",
-      "toggle_session_metrics_desc": "Mostrar u ocultar la barra de métricas de sesión"
+      "toggle_session_metrics_desc": "Mostrar u ocultar métricas de sesión",
+      "export_json": "Exportar como JSON",
+      "export_json_desc": "Exportar chat actual como JSON",
+      "export_markdown": "Exportar como Markdown",
+      "export_markdown_desc": "Exportar chat actual como Markdown",
+      "export_pdf": "Exportar como PDF",
+      "export_pdf_desc": "Exportar chat actual como PDF",
+      "export_text": "Exportar como Texto",
+      "export_text_desc": "Exportar chat actual como texto"
     },
     "content_extraction": {
       "title": "Extracción de Contenido",
@@ -664,10 +690,39 @@
       "extraction": "Extracción",
       "embeddings": "Incrustaciones",
       "voices": "Voces",
+      "developer": "Desarrollador",
       "reset": "Restablecer",
       "guides": "Guías",
       "memory": "Memoria",
       "shortcuts": "Atajos"
+    },
+    "developer": {
+      "title": "Configuración de Desarrollador",
+      "description": "Configurar opciones de registro y depuración",
+      "logLevel": "Nivel de Registro",
+      "logLevelDescription": "Establecer el nivel mínimo de registros a capturar.",
+      "enableLogger": "Habilitar Registro",
+      "enableLoggerDescription": "Desactivar para mejorar el rendimiento si es necesario",
+      "persistLogs": "Persistir registros en IndexedDB",
+      "persistLogsDescription": "Almacenar registros para persistencia (recomendado)",
+      "viewLogs": "Ver Registros",
+      "exportLogs": "Exportar Registros",
+      "clearLogs": "Borrar Registros",
+      "confirmClear": "¿Estás seguro de que quieres borrar todos los registros?",
+      "bufferSize": "Búfer: {{current}} / {{max}}",
+      "troubleshooting": {
+        "title": "¿Necesitas ayuda?",
+        "description": "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
+      },
+      "crashApp": "Colgar App (Prueba)",
+      "confirmCrash": "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
+      "manualCrashError": "Prueba de bloqueo manual desde configuración de desarrollador"
+    },
+    "errorBoundary": {
+      "title": "Algo salió mal",
+      "description": "Ocurrió un error inesperado. Hemos registrado este problema internamente.",
+      "exportLogs": "Exportar registros",
+      "reload": "Recargar"
     },
     "memory": {
       "title": "Memoria Contextual",
@@ -834,16 +889,16 @@
     "reset": {
       "title": "Restablecer Ajustes",
       "description": "Borra los datos almacenados por módulo o restablece todo a los valores predeterminados",
-      "danger_zone": {
-        "title": "Zona de Peligro",
-        "description": "Esto borrará todos los datos y no se puede deshacer",
-        "button": "Restablecer Todo"
-      },
       "dialog": {
         "title": "Confirmar Restablecimiento",
         "description": "Esto borrará todos los datos y no se puede deshacer.",
         "confirm": "Sí, Restablecer Todo",
         "cancel": "Cancelar"
+      },
+      "danger_zone": {
+        "title": "Zona de Peligro",
+        "description": "Esto borrará todos los datos y no se puede deshacer",
+        "button": "Restablecer Todo"
       },
       "modules": {
         "ollama": {

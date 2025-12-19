@@ -14,6 +14,7 @@ import type {
   ProcessedFile
 } from "@/lib/file-processors/types"
 import { processKnowledge } from "@/lib/knowledge"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   EmbeddingConfig,
@@ -111,8 +112,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
               if (useNewProcessor) {
                 // Use new knowledge processor with enhanced text splitters
-                console.log(
-                  `Processing file "${file.name}" with enhanced knowledge system`
+                logger.info(
+                  `Processing file "${file.name}" with enhanced knowledge system`,
+                  "useFileUpload"
                 )
 
                 const processResult = await processKnowledge({
@@ -149,13 +151,15 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                 })
 
                 if (processResult.success) {
-                  console.log(
-                    `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`
+                  logger.info(
+                    `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`,
+                    "useFileUpload"
                   )
                 } else {
-                  console.error(
-                    `Failed to process "${file.name}":`,
-                    processResult.error
+                  logger.error(
+                    `Failed to process "${file.name}"`,
+                    "useFileUpload",
+                    { error: processResult.error }
                   )
                 }
 
@@ -185,8 +189,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                 strategy: embeddingConfig.chunkingStrategy
               })
 
-              console.log(
-                `Chunked file "${file.name}" into ${chunks.length} chunks (embedding queued in background)`
+              logger.info(
+                `Chunked file "${file.name}" into ${chunks.length} chunks (embedding queued in background)`,
+                "useFileUpload"
               )
 
               // Mark status as queued so UI doesn't block while background processes embeddings
@@ -262,7 +267,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                       port.disconnect()
                     } catch (_) {}
                   } else if (m?.status === "error") {
-                    console.warn("Background embedding error:", m?.message)
+                    logger.warn("Background embedding error", "useFileUpload", {
+                      error: m?.message
+                    })
                     if (config.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
@@ -280,7 +287,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     } catch (_) {}
                   }
                 } catch (e) {
-                  console.warn("Error handling port message:", e)
+                  logger.warn("Error handling port message", "useFileUpload", {
+                    error: e
+                  })
                 }
               })
 
@@ -298,7 +307,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   // Yield to event loop to keep UI responsive during heavy sending
                   await new Promise((resolve) => setTimeout(resolve, 0))
                 } catch (e) {
-                  console.warn("Failed to post batch to embed port:", e)
+                  logger.warn(
+                    "Failed to post batch to embed port",
+                    "useFileUpload",
+                    { error: e }
+                  )
                   try {
                     port.disconnect()
                   } catch (_) {}
@@ -310,12 +323,15 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
               try {
                 port.postMessage({ type: "done" })
               } catch (e) {
-                console.warn("Failed to send done signal:", e)
+                logger.warn("Failed to send done signal", "useFileUpload", {
+                  error: e
+                })
               }
             } catch (embeddingError) {
-              console.error(
-                `Failed to queue embeddings for "${file.name}":`,
-                embeddingError
+              logger.error(
+                `Failed to queue embeddings for "${file.name}"`,
+                "useFileUpload",
+                { error: embeddingError }
               )
             }
           }

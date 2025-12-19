@@ -1,5 +1,6 @@
 import { getBaseUrl } from "@/background/lib/utils"
 import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { OllamaPullRequest } from "@/types"
 
@@ -14,7 +15,11 @@ export const checkEmbeddingModelExists = async (
     const res = await fetch(`${baseUrl}/api/tags`)
 
     if (!res.ok) {
-      console.warn("Failed to check for embedding model:", res.statusText)
+      logger.warn(
+        "Failed to check for embedding model",
+        "checkEmbeddingModelExists",
+        { status: res.statusText }
+      )
       return false
     }
 
@@ -40,13 +45,23 @@ export const checkEmbeddingModelExists = async (
       )
     })
 
-    console.log(
-      `[Embedding Check] Searching for: "${modelName}" (normalized: "${normalizedSearchName}"), Found: ${found}`
+    logger.verbose(
+      "Embedding model search result",
+      "checkEmbeddingModelExists",
+      {
+        modelName,
+        normalizedSearchName,
+        found
+      }
     )
 
     return found
   } catch (error) {
-    console.error("Error checking embedding model:", error)
+    logger.error(
+      "Error checking embedding model",
+      "checkEmbeddingModelExists",
+      { error }
+    )
     return false
   }
 }
@@ -62,7 +77,11 @@ export const downloadEmbeddingModelSilently = async (
     // Check if model already exists
     const exists = await checkEmbeddingModelExists(modelName)
     if (exists) {
-      console.log(`Embedding model ${modelName} already exists`)
+      logger.info(
+        "Embedding model already exists",
+        "downloadEmbeddingModelSilently",
+        { modelName }
+      )
       await plasmoGlobalStorage.set(
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
         true
@@ -84,8 +103,13 @@ export const downloadEmbeddingModelSilently = async (
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.error(
-        `Failed to download embedding model: ${res.status} ${errorText}`
+      logger.error(
+        "Failed to download embedding model",
+        "downloadEmbeddingModelSilently",
+        {
+          status: res.status,
+          error: errorText
+        }
       )
       return {
         success: false,
@@ -100,11 +124,19 @@ export const downloadEmbeddingModelSilently = async (
       modelName
     )
 
-    console.log(`Successfully downloaded embedding model: ${modelName}`)
+    logger.info(
+      "Successfully downloaded embedding model",
+      "downloadEmbeddingModelSilently",
+      { modelName }
+    )
     return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("Error downloading embedding model:", errorMessage)
+    logger.error(
+      "Error downloading embedding model",
+      "downloadEmbeddingModelSilently",
+      { error: errorMessage }
+    )
     return {
       success: false,
       error: errorMessage

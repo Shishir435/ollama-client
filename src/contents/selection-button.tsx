@@ -8,9 +8,14 @@ import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { useLanguageSync } from "@/hooks/use-language-sync"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_CONTENT_EXTRACTION_CONFIG,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { Quote } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { ContentExtractionConfig } from "@/types"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -33,13 +38,15 @@ const SelectionButton = () => {
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const [selectionText, setSelectionText] = useState("")
 
-  const [isEnabled] = useStorage<boolean>(
+  const [contentConfig] = useStorage<ContentExtractionConfig>(
     {
-      key: STORAGE_KEYS.BROWSER.SHOW_SELECTION_BUTTON,
+      key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
       instance: plasmoGlobalStorage
     },
-    true
+    DEFAULT_CONTENT_EXTRACTION_CONFIG
   )
+
+  const isEnabled = contentConfig?.showSelectionButton ?? true
 
   useEffect(() => {
     if (!isEnabled) {

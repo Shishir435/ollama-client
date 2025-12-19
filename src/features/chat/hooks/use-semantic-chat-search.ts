@@ -6,6 +6,7 @@ import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchHybrid } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export interface ChatSearchResult {
@@ -14,6 +15,7 @@ export interface ChatSearchResult {
   messageContent: string
   role: "user" | "assistant"
   timestamp: number
+  messageId?: number
 }
 
 export interface UseSemanticChatSearchOptions {
@@ -67,9 +69,10 @@ export const useSemanticChatSearch = () => {
         try {
           await ensureKeywordIndexBuilt()
         } catch (indexError) {
-          console.warn(
-            "[Keyword Index] Auto-build failed, continuing without keyword search:",
-            indexError
+          logger.warn(
+            "Keyword Index auto-build failed, continuing without keyword search",
+            "useSemanticChatSearch",
+            { error: indexError }
           )
           // Continue with semantic-only search
         }
@@ -89,7 +92,8 @@ export const useSemanticChatSearch = () => {
           role: result.document.metadata.title?.includes("User")
             ? "user"
             : "assistant",
-          timestamp: result.document.metadata.timestamp
+          timestamp: result.document.metadata.timestamp,
+          messageId: result.document.metadata.messageId
         }))
 
         return chatResults
@@ -97,7 +101,9 @@ export const useSemanticChatSearch = () => {
         const errorMessage =
           err instanceof Error ? err.message : "Search failed"
         setError(errorMessage)
-        console.error("Semantic search error:", err)
+        logger.error("Semantic search error", "useSemanticChatSearch", {
+          error: err
+        })
         return []
       } finally {
         setIsSearching(false)

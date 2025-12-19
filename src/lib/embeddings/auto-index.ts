@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { keywordIndexManager } from "./keyword-index"
 import { vectorDb } from "./vector-store"
@@ -11,8 +12,9 @@ export async function buildKeywordIndexFromExisting(
   onProgress?: (current: number, total: number) => void,
   forceRebuild = false
 ): Promise<void> {
-  console.log(
-    "[Keyword Index] Starting background build from existing vectors..."
+  logger.info(
+    "Starting keyword index build from existing vectors",
+    "buildKeywordIndexFromExisting"
   )
   const startTime = performance.now()
 
@@ -20,7 +22,10 @@ export async function buildKeywordIndexFromExisting(
   if (!forceRebuild) {
     const isBuilt = await isKeywordIndexBuilt()
     if (isBuilt) {
-      console.log("[Keyword Index] Index already built, skipping")
+      logger.verbose(
+        "Keyword index already built, skipping",
+        "buildKeywordIndexFromExisting"
+      )
       return
     }
   }
@@ -29,7 +34,7 @@ export async function buildKeywordIndexFromExisting(
   const allVectors = await vectorDb.vectors.toArray()
 
   if (allVectors.length === 0) {
-    console.log("[Keyword Index] No vectors to index")
+    logger.verbose("No vectors to index", "buildKeywordIndexFromExisting")
     await plasmoGlobalStorage.set(
       STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT,
       true
@@ -47,9 +52,10 @@ export async function buildKeywordIndexFromExisting(
   )
 
   const duration = performance.now() - startTime
-  console.log(
-    `[Keyword Index] Background build complete: ${allVectors.length} documents in ${duration.toFixed(2)}ms`
-  )
+  logger.info("Keyword index build complete", "buildKeywordIndexFromExisting", {
+    documentCount: allVectors.length,
+    duration: `${duration.toFixed(2)}ms`
+  })
 }
 
 /**
@@ -76,10 +82,14 @@ export async function ensureKeywordIndexBuilt(
   // If index is marked as built but memory is empty (app reload), we need to load it
   // Or if it's never been built, we need to build it
   if (!isBuilt || stats.documentCount === 0) {
-    console.log("[Keyword Index] Loading/Building index...", {
-      isBuilt,
-      docCount: stats.documentCount
-    })
+    logger.verbose(
+      "Loading/Building keyword index",
+      "ensureKeywordIndexBuilt",
+      {
+        isBuilt,
+        docCount: stats.documentCount
+      }
+    )
     // We reuse the build function which clears and rebuilds from Dexie
     // This effectively loads the index into memory
     await buildKeywordIndexFromExisting(onProgress, true)
