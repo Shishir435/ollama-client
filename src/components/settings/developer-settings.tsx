@@ -67,13 +67,7 @@ export function DeveloperSettings() {
   }
 
   const handleClearLogs = async () => {
-    if (
-      confirm(
-        t("settings.developer.confirmClear", {
-          defaultValue: "Are you sure you want to clear all logs?"
-        })
-      )
-    ) {
+    if (confirm(t("settings.developer.confirmClear"))) {
       await logger.clearLogs()
       setBufferSize(0)
     }
@@ -122,15 +116,10 @@ export function DeveloperSettings() {
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="logger-enabled">
-                {t("settings.developer.enableLogger", {
-                  defaultValue: "Enable Logging"
-                })}
+                {t("settings.developer.enableLogger")}
               </Label>
               <p className="text-sm text-muted-foreground">
-                {t("settings.developer.enableLoggerDescription", {
-                  defaultValue:
-                    "Turn off logging to improve performance if experiencing issues"
-                })}
+                {t("settings.developer.enableLoggerDescription")}
               </p>
             </div>
             <Switch
@@ -150,15 +139,10 @@ export function DeveloperSettings() {
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="logger-indexeddb">
-                {t("settings.developer.persistLogs", {
-                  defaultValue: "Persist Logs to IndexedDB"
-                })}
+                {t("settings.developer.persistLogs")}
               </Label>
               <p className="text-sm text-muted-foreground">
-                {t("settings.developer.persistLogsDescription", {
-                  defaultValue:
-                    "Store logs in IndexedDB for persistence across browser restarts (recommended)"
-                })}
+                {t("settings.developer.persistLogsDescription")}
               </p>
             </div>
             <Switch

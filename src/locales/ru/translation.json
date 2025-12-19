@@ -31,7 +31,9 @@
       "beta_badge": "Бета",
       "description": "Выберите предпочтительный язык интерфейса.",
       "help_text": "Переводы созданы ИИ. Помогите нам улучшить их на <0>GitHub</0>!"
-    }
+    },
+    "cancel": "Отмена",
+    "save": "Сохранить"
   },
   "selection_button": {
     "label": "Спросить Ollama client",
@@ -98,13 +100,20 @@
       "enter_key": "Enter",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата"
+      "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата",
+      "drop_files_here": "Перетащите файлы сюда"
+    },
+    "editor": {
+      "placeholder": "Редактировать сообщение..."
     },
     "actions": {
       "copy": "Копировать",
       "copied": "Скопировано",
       "regenerate": "Сгенерировать заново",
-      "switch_model_tooltip": "Переключить модель"
+      "switch_model_tooltip": "Переключить модель",
+      "edit": "Редактировать",
+      "export_as": "Экспортировать как...",
+      "delete": "Удалить сообщение"
     },
     "metrics": {
       "title": "Метрики производительности",
@@ -206,7 +215,9 @@
       "generating_embeddings": "Генерация эмбеддингов...",
       "extracting_pdf": "Извлечение текста из PDF...",
       "processing_docx": "Обработка документа DOCX...",
-      "processing_file": "Обработка файла..."
+      "processing_file": "Обработка файла...",
+      "processing_csv": "Обработка CSV файла...",
+      "processing_html": "Конвертация HTML в Markdown..."
     },
     "area": {
       "files_ready": "{{count}} файл готов",

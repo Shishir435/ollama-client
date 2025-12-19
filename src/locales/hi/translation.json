@@ -31,7 +31,9 @@
       "beta_badge": "बीटा",
       "description": "इंटरफ़ेस के लिए अपनी पसंदीदा भाषा चुनें।",
       "help_text": "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
-    }
+    },
+    "cancel": "रद्द करें",
+    "save": "सहेजें"
   },
   "selection_button": {
     "label": "Ollama क्लाइंट से पूछें",
@@ -98,13 +100,20 @@
       "enter_key": "एंटर",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
+      "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
+      "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
+    },
+    "editor": {
+      "placeholder": "संदेश संपादित करें..."
     },
     "actions": {
       "copy": "कॉपी करें",
       "copied": "कॉपी किया गया",
       "regenerate": "पुनः जेनरेट करें",
-      "switch_model_tooltip": "मॉडल बदलें"
+      "switch_model_tooltip": "मॉडल बदलें",
+      "edit": "संपादित करें",
+      "export_as": "इस रूप में निर्यात करें...",
+      "delete": "संदेश हटाएँ"
     },
     "metrics": {
       "title": "प्रदर्शन मेट्रिक्स",
@@ -206,7 +215,9 @@
       "generating_embeddings": "एम्बेडिंग जेनरेट हो रही है...",
       "extracting_pdf": "PDF से टेक्स्ट निकाला जा रहा है...",
       "processing_docx": "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
-      "processing_file": "फ़ाइल प्रोसेस की जा रही है..."
+      "processing_file": "फ़ाइल प्रोसेस की जा रही है...",
+      "processing_csv": "CSV फ़ाइल प्रोसेस की जा रही है...",
+      "processing_html": "HTML को Markdown में बदला जा रहा है..."
     },
     "area": {
       "files_ready": "{{count}} फ़ाइल तैयार",

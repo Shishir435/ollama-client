@@ -38,7 +38,9 @@ export const resources = {
             "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
           help_text:
             "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
-        }
+        },
+        cancel: "Abbrechen",
+        save: "Speichern"
       },
       selection_button: {
         label: "Ollama Client fragen",
@@ -109,13 +111,21 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Datei- & Chat-Kontext verwenden"
+            "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
+          drop_files_here: "Dateien hier ablegen"
+        },
+        editor: {
+          placeholder: "Nachricht bearbeiten..."
         },
         actions: {
           copy: "Kopieren",
           copied: "Kopiert",
           regenerate: "Neu generieren",
-          switch_model_tooltip: "Modell wechseln"
+          switch_model_tooltip: "Modell wechseln",
+          fork: "Konversation abzweigen",
+          edit: "Bearbeiten",
+          export_as: "Exportieren als...",
+          delete: "Nachricht löschen"
         },
         metrics: {
           title: "Leistungskennzahlen",
@@ -226,7 +236,9 @@ export const resources = {
           generating_embeddings: "Embeddings werden generiert...",
           extracting_pdf: "Text aus PDF wird extrahiert...",
           processing_docx: "DOCX-Dokument wird verarbeitet...",
-          processing_file: "Datei wird verarbeitet..."
+          processing_file: "Datei wird verarbeitet...",
+          processing_csv: "CSV-Datei wird verarbeitet...",
+          processing_html: "HTML wird in Markdown konvertiert..."
         },
         area: {
           files_ready: "{{count}} Datei bereit",
@@ -1121,7 +1133,9 @@ export const resources = {
           description: "Select your preferred language for the interface.",
           help_text:
             "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
-        }
+        },
+        cancel: "Cancel",
+        save: "Save"
       },
       selection_button: {
         label: "Ask Ollama client",
@@ -1189,14 +1203,21 @@ export const resources = {
           enter_key: "Enter",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context"
+          rag_toggle_tooltip: "Smart Context (Beta): Use file & chat context",
+          drop_files_here: "Drop files here"
+        },
+        editor: {
+          placeholder: "Edit message..."
         },
         actions: {
           copy: "Copy",
           copied: "Copied",
           regenerate: "Regenerate",
           switch_model_tooltip: "Switch model",
-          fork: "Fork Conversation"
+          fork: "Fork Conversation",
+          edit: "Edit",
+          export_as: "Export as...",
+          delete: "Delete Message"
         },
         metrics: {
           title: "Performance Metrics",
@@ -1305,7 +1326,9 @@ export const resources = {
           generating_embeddings: "Generating embeddings...",
           extracting_pdf: "Extracting text from PDF...",
           processing_docx: "Processing DOCX document...",
-          processing_file: "Processing file..."
+          processing_file: "Processing file...",
+          processing_csv: "Parsing CSV file...",
+          processing_html: "Converting HTML to Markdown..."
         },
         area: {
           files_ready: "{{count}} file ready",
@@ -2186,7 +2209,9 @@ export const resources = {
           description: "Selecciona tu idioma preferido para la interfaz.",
           help_text:
             "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
-        }
+        },
+        cancel: "Cancelar",
+        save: "Guardar"
       },
       selection_button: {
         label: "Preguntar al cliente Ollama",
@@ -2255,13 +2280,21 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Usar contexto de archivos y chat"
+            "Smart Context (Beta): Usar contexto de archivos y chat",
+          drop_files_here: "Soltar archivos aquí"
+        },
+        editor: {
+          placeholder: "Editar mensaje..."
         },
         actions: {
           copy: "Copiar",
           copied: "Copiado",
           regenerate: "Regenerar",
-          switch_model_tooltip: "Cambiar modelo"
+          switch_model_tooltip: "Cambiar modelo",
+          fork: "Bifurcar conversación",
+          edit: "Editar",
+          export_as: "Exportar como...",
+          delete: "Eliminar mensaje"
         },
         metrics: {
           title: "Métricas de Rendimiento",
@@ -2371,7 +2404,9 @@ export const resources = {
           generating_embeddings: "Generando incrustaciones...",
           extracting_pdf: "Extrayendo texto de PDF...",
           processing_docx: "Procesando documento DOCX...",
-          processing_file: "Procesando archivo..."
+          processing_file: "Procesando archivo...",
+          processing_csv: "Procesando archivo CSV...",
+          processing_html: "Convirtiendo HTML a Markdown..."
         },
         area: {
           files_ready: "{{count}} archivo listo",
@@ -3256,7 +3291,9 @@ export const resources = {
           description: "Sélectionnez votre langue préférée pour l'interface.",
           help_text:
             "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
-        }
+        },
+        cancel: "Annuler",
+        save: "Enregistrer"
       },
       selection_button: {
         label: "Demander au client Ollama",
@@ -3326,13 +3363,21 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
+            "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
+          drop_files_here: "Déposer des fichiers ici"
+        },
+        editor: {
+          placeholder: "Modifier le message..."
         },
         actions: {
           copy: "Copier",
           copied: "Copié",
           regenerate: "Régénérer",
-          switch_model_tooltip: "Changer de modèle"
+          switch_model_tooltip: "Changer de modèle",
+          fork: "Fourcher la conversation",
+          edit: "Modifier",
+          export_as: "Exporter sous...",
+          delete: "Supprimer le message"
         },
         metrics: {
           title: "Métriques de Performance",
@@ -3443,7 +3488,9 @@ export const resources = {
           generating_embeddings: "Génération des incrustations...",
           extracting_pdf: "Extraction du texte du PDF...",
           processing_docx: "Traitement du document DOCX...",
-          processing_file: "Traitement du fichier..."
+          processing_file: "Traitement du fichier...",
+          processing_csv: "Traitement du fichier CSV...",
+          processing_html: "Conversion HTML vers Markdown..."
         },
         area: {
           files_ready: "{{count}} fichier prêt",
@@ -4334,7 +4381,9 @@ export const resources = {
           description: "इंटरफ़ेस के लिए अपनी पसंदीदा भाषा चुनें।",
           help_text:
             "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
-        }
+        },
+        cancel: "रद्द करें",
+        save: "सहेजें"
       },
       selection_button: {
         label: "Ollama क्लाइंट से पूछें",
@@ -4403,13 +4452,20 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें"
+            "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
+          drop_files_here: "फ़ाइलें यहाँ छोड़ें"
+        },
+        editor: {
+          placeholder: "संदेश संपादित करें..."
         },
         actions: {
           copy: "कॉपी करें",
           copied: "कॉपी किया गया",
           regenerate: "पुनः जेनरेट करें",
-          switch_model_tooltip: "मॉडल बदलें"
+          switch_model_tooltip: "मॉडल बदलें",
+          edit: "संपादित करें",
+          export_as: "इस रूप में निर्यात करें...",
+          delete: "संदेश हटाएँ"
         },
         metrics: {
           title: "प्रदर्शन मेट्रिक्स",
@@ -4517,7 +4573,9 @@ export const resources = {
           generating_embeddings: "एम्बेडिंग जेनरेट हो रही है...",
           extracting_pdf: "PDF से टेक्स्ट निकाला जा रहा है...",
           processing_docx: "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
-          processing_file: "फ़ाइल प्रोसेस की जा रही है..."
+          processing_file: "फ़ाइल प्रोसेस की जा रही है...",
+          processing_csv: "CSV फ़ाइल प्रोसेस की जा रही है...",
+          processing_html: "HTML को Markdown में बदला जा रहा है..."
         },
         area: {
           files_ready: "{{count}} फ़ाइल तैयार",
@@ -5380,7 +5438,9 @@ export const resources = {
           description: "Seleziona la tua lingua preferita per l'interfaccia.",
           help_text:
             "Le traduzioni sono generate dall'IA. Aiutaci a migliorare contribuendo su <0>GitHub</0>!"
-        }
+        },
+        cancel: "Annulla",
+        save: "Salva"
       },
       selection_button: {
         label: "Chiedi a Ollama client",
@@ -5450,13 +5510,21 @@ export const resources = {
           enter_key: "Invio",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat"
+          rag_toggle_tooltip: "Smart Context (Beta): Usa contesto file e chat",
+          drop_files_here: "Trascina i file qui"
+        },
+        editor: {
+          placeholder: "Modifica messaggio..."
         },
         actions: {
           copy: "Copia",
           copied: "Copiato",
           regenerate: "Rigenera",
-          switch_model_tooltip: "Cambia modello"
+          switch_model_tooltip: "Cambia modello",
+          fork: "Biforca conversazione",
+          edit: "Modifica",
+          export_as: "Esporta come...",
+          delete: "Elimina messaggio"
         },
         metrics: {
           title: "Metriche delle Prestazioni",
@@ -5566,7 +5634,9 @@ export const resources = {
           generating_embeddings: "Generazione embeddings in corso...",
           extracting_pdf: "Estrazione testo da PDF in corso...",
           processing_docx: "Elaborazione documento DOCX in corso...",
-          processing_file: "Elaborazione file in corso..."
+          processing_file: "Elaborazione file in corso...",
+          processing_csv: "Elaborazione file CSV...",
+          processing_html: "Conversione HTML in Markdown..."
         },
         area: {
           files_ready: "{{count}} file pronto",
@@ -6460,7 +6530,9 @@ export const resources = {
           description: "インターフェースの優先言語を選択してください。",
           help_text:
             "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
-        }
+        },
+        cancel: "キャンセル",
+        save: "保存"
       },
       selection_button: {
         label: "Ollama Clientに尋ねる",
@@ -6529,13 +6601,20 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
+            "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
+          drop_files_here: "ここにファイルをドロップ"
+        },
+        editor: {
+          placeholder: "メッセージを編集..."
         },
         actions: {
           copy: "コピー",
           copied: "コピーしました",
           regenerate: "再生成",
-          switch_model_tooltip: "モデルを切り替え"
+          switch_model_tooltip: "モデルを切り替え",
+          edit: "編集",
+          export_as: "エクスポート...",
+          delete: "メッセージを削除"
         },
         metrics: {
           title: "パフォーマンス指標",
@@ -6642,7 +6721,9 @@ export const resources = {
           generating_embeddings: "エンベディングを生成中...",
           extracting_pdf: "PDFからテキストを抽出中...",
           processing_docx: "DOCXドキュメントを処理中...",
-          processing_file: "ファイルを処理中..."
+          processing_file: "ファイルを処理中...",
+          processing_csv: "CSVファイルを処理中...",
+          processing_html: "HTMLをMarkdownに変換中..."
         },
         area: {
           files_ready: "{{count}} ファイル準備完了",
@@ -7511,7 +7592,9 @@ export const resources = {
           description: "Выберите предпочтительный язык интерфейса.",
           help_text:
             "Переводы созданы ИИ. Помогите нам улучшить их на <0>GitHub</0>!"
-        }
+        },
+        cancel: "Отмена",
+        save: "Сохранить"
       },
       selection_button: {
         label: "Спросить Ollama client",
@@ -7581,13 +7664,20 @@ export const resources = {
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
           rag_toggle_tooltip:
-            "Smart Context (Бета): Использовать контекст файлов и чата"
+            "Smart Context (Бета): Использовать контекст файлов и чата",
+          drop_files_here: "Перетащите файлы сюда"
+        },
+        editor: {
+          placeholder: "Редактировать сообщение..."
         },
         actions: {
           copy: "Копировать",
           copied: "Скопировано",
           regenerate: "Сгенерировать заново",
-          switch_model_tooltip: "Переключить модель"
+          switch_model_tooltip: "Переключить модель",
+          edit: "Редактировать",
+          export_as: "Экспортировать как...",
+          delete: "Удалить сообщение"
         },
         metrics: {
           title: "Метрики производительности",
@@ -7695,7 +7785,9 @@ export const resources = {
           generating_embeddings: "Генерация эмбеддингов...",
           extracting_pdf: "Извлечение текста из PDF...",
           processing_docx: "Обработка документа DOCX...",
-          processing_file: "Обработка файла..."
+          processing_file: "Обработка файла...",
+          processing_csv: "Обработка CSV файла...",
+          processing_html: "Конвертация HTML в Markdown..."
         },
         area: {
           files_ready: "{{count}} файл готов",
@@ -8577,7 +8669,9 @@ export const resources = {
           beta_badge: "测试版",
           description: "选择您偏好的界面语言。",
           help_text: "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
-        }
+        },
+        cancel: "取消",
+        save: "保存"
       },
       selection_button: {
         label: "询问 Ollama 客户端",
@@ -8645,13 +8739,20 @@ export const resources = {
           enter_key: "回车",
           rag_toggle_on: "RAG+",
           rag_toggle_off: "RAG",
-          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文"
+          rag_toggle_tooltip: "智能上下文 (Beta): 使用文件和聊天上下文",
+          drop_files_here: "将文件拖到此处"
+        },
+        editor: {
+          placeholder: "编辑消息..."
         },
         actions: {
           copy: "复制",
           copied: "已复制",
           regenerate: "重新生成",
-          switch_model_tooltip: "切换模型"
+          switch_model_tooltip: "切换模型",
+          edit: "编辑",
+          export_as: "导出为...",
+          delete: "删除消息"
         },
         metrics: {
           title: "性能指标",
@@ -8754,7 +8855,9 @@ export const resources = {
           generating_embeddings: "正在生成嵌入...",
           extracting_pdf: "正在从 PDF 提取文本...",
           processing_docx: "正在处理 DOCX 文档...",
-          processing_file: "正在处理文件..."
+          processing_file: "正在处理文件...",
+          processing_csv: "正在处理 CSV 文件...",
+          processing_html: "正在将 HTML 转换为 Markdown..."
         },
         area: {
           files_ready: "{{count}} 个文件已准备就绪",

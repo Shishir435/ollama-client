@@ -91,17 +91,13 @@ export const FilePreview = ({
       extension === FILE_UPLOAD.EXTENSIONS.CSV ||
       extension === FILE_UPLOAD.EXTENSIONS.TSV
     ) {
-      return t("file_upload.preview.processing_csv", {
-        defaultValue: "Parsing CSV file..."
-      })
+      return t("file_upload.preview.processing_csv")
     }
     if (
       extension === FILE_UPLOAD.EXTENSIONS.HTML ||
       extension === FILE_UPLOAD.EXTENSIONS.HTM
     ) {
-      return t("file_upload.preview.processing_html", {
-        defaultValue: "Converting HTML to Markdown..."
-      })
+      return t("file_upload.preview.processing_html")
     }
     return t("file_upload.preview.processing_file")
   }

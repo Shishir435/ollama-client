@@ -50,14 +50,14 @@ export const ChatMessageEditor = ({
         onChange={handleInput}
         onKeyDown={handleKeyDown}
         className="min-h-[60px] resize-none border-0 p-0 shadow-none focus-visible:ring-0"
-        placeholder={t("chat.editor.placeholder", "Edit message...")}
+        placeholder={t("chat.editor.placeholder")}
       />
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          {t("common.cancel", "Cancel")}
+          {t("common.cancel")}
         </Button>
         <Button size="sm" onClick={() => onSave(content)}>
-          {t("common.save", "Save")}
+          {t("common.save")}
         </Button>
       </div>
     </div>

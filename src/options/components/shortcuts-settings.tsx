@@ -43,7 +43,7 @@ export const ShortcutsSettings = () => {
     const filtered: Partial<Record<ShortcutAction, Shortcut>> = {}
     for (const [action, shortcut] of Object.entries(shortcuts)) {
       const label = t(shortcut.label).toLowerCase()
-      const desc = t(shortcut.description, { defaultValue: "" }).toLowerCase()
+      const desc = t(shortcut.description).toLowerCase()
       if (
         label.includes(query) ||
         desc.includes(query) ||
@@ -226,7 +226,7 @@ export const ShortcutsSettings = () => {
                           {t(shortcut.label)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {t(shortcut.description, { defaultValue: "" })}
+                          {t(shortcut.description)}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

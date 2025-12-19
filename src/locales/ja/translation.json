@@ -31,7 +31,9 @@
       "beta_badge": "ベータ",
       "description": "インターフェースの優先言語を選択してください。",
       "help_text": "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
-    }
+    },
+    "cancel": "キャンセル",
+    "save": "保存"
   },
   "selection_button": {
     "label": "Ollama Clientに尋ねる",
@@ -98,13 +100,20 @@
       "enter_key": "Enter",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用"
+      "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
+      "drop_files_here": "ここにファイルをドロップ"
+    },
+    "editor": {
+      "placeholder": "メッセージを編集..."
     },
     "actions": {
       "copy": "コピー",
       "copied": "コピーしました",
       "regenerate": "再生成",
-      "switch_model_tooltip": "モデルを切り替え"
+      "switch_model_tooltip": "モデルを切り替え",
+      "edit": "編集",
+      "export_as": "エクスポート...",
+      "delete": "メッセージを削除"
     },
     "metrics": {
       "title": "パフォーマンス指標",
@@ -206,7 +215,9 @@
       "generating_embeddings": "エンベディングを生成中...",
       "extracting_pdf": "PDFからテキストを抽出中...",
       "processing_docx": "DOCXドキュメントを処理中...",
-      "processing_file": "ファイルを処理中..."
+      "processing_file": "ファイルを処理中...",
+      "processing_csv": "CSVファイルを処理中...",
+      "processing_html": "HTMLをMarkdownに変換中..."
     },
     "area": {
       "files_ready": "{{count}} ファイル準備完了",

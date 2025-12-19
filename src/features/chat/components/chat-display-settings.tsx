@@ -14,22 +14,15 @@ export const ChatDisplaySettings = () => {
   return (
     <SettingsCard
       icon={MessageSquare}
-      title={t("settings.chat_display.title", { defaultValue: "Chat Display" })}
-      description={t("settings.chat_display.description", {
-        defaultValue: "Configure how chat information is displayed"
-      })}>
+      title={t("settings.chat_display.title")}
+      description={t("settings.chat_display.description")}>
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label htmlFor="show-session-metrics">
-            {t("settings.chat_display.session_metrics_label", {
-              defaultValue: "Show Session Metrics"
-            })}
+            {t("settings.chat_display.session_metrics_label")}
           </Label>
           <p className="text-sm text-muted-foreground">
-            {t("settings.chat_display.session_metrics_description", {
-              defaultValue:
-                "Display token usage, duration, and speed above the chat input"
-            })}
+            {t("settings.chat_display.session_metrics_description")}
           </p>
         </div>
         <Switch

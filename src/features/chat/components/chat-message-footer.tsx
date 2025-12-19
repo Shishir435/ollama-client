@@ -96,11 +96,7 @@ export const ChatMessageFooter = ({
             size="icon"
             className="h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={onEdit}
-            title={
-              isUser
-                ? t("chat.actions.fork", "Fork")
-                : t("chat.actions.edit", "Edit")
-            }>
+            title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}>
             {isUser ? (
               <GitFork className="h-3.5 w-3.5" />
             ) : (
@@ -131,7 +127,7 @@ export const ChatMessageFooter = ({
             {onExport && (
               <>
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  {t("chat.actions.export_as", "Export as...")}
+                  {t("chat.actions.export_as")}
                 </div>
                 <DropdownMenuItem onClick={() => onExport("markdown")}>
                   <Download className="mr-2 h-3.5 w-3.5" />
@@ -158,7 +154,7 @@ export const ChatMessageFooter = ({
                 onClick={onDelete}
                 className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t("chat.actions.delete", "Delete Message")}
+                {t("chat.actions.delete")}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

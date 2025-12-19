@@ -31,7 +31,9 @@
       "beta_badge": "Beta",
       "description": "Select your preferred language for the interface.",
       "help_text": "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
-    }
+    },
+    "cancel": "Cancel",
+    "save": "Save"
   },
   "selection_button": {
     "label": "Ask Ollama client",
@@ -98,14 +100,21 @@
       "enter_key": "Enter",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context"
+      "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
+      "drop_files_here": "Drop files here"
+    },
+    "editor": {
+      "placeholder": "Edit message..."
     },
     "actions": {
       "copy": "Copy",
       "copied": "Copied",
       "regenerate": "Regenerate",
       "switch_model_tooltip": "Switch model",
-      "fork": "Fork Conversation"
+      "fork": "Fork Conversation",
+      "edit": "Edit",
+      "export_as": "Export as...",
+      "delete": "Delete Message"
     },
     "metrics": {
       "title": "Performance Metrics",
@@ -207,7 +216,9 @@
       "generating_embeddings": "Generating embeddings...",
       "extracting_pdf": "Extracting text from PDF...",
       "processing_docx": "Processing DOCX document...",
-      "processing_file": "Processing file..."
+      "processing_file": "Processing file...",
+      "processing_csv": "Parsing CSV file...",
+      "processing_html": "Converting HTML to Markdown..."
     },
     "area": {
       "files_ready": "{{count}} file ready",

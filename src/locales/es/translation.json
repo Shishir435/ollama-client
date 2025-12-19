@@ -31,7 +31,9 @@
       "beta_badge": "Beta",
       "description": "Selecciona tu idioma preferido para la interfaz.",
       "help_text": "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
-    }
+    },
+    "cancel": "Cancelar",
+    "save": "Guardar"
   },
   "selection_button": {
     "label": "Preguntar al cliente Ollama",
@@ -97,13 +99,21 @@
       "enter_key": "Intro",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat"
+      "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
+      "drop_files_here": "Soltar archivos aquí"
+    },
+    "editor": {
+      "placeholder": "Editar mensaje..."
     },
     "actions": {
       "copy": "Copiar",
       "copied": "Copiado",
       "regenerate": "Regenerar",
-      "switch_model_tooltip": "Cambiar modelo"
+      "switch_model_tooltip": "Cambiar modelo",
+      "fork": "Bifurcar conversación",
+      "edit": "Editar",
+      "export_as": "Exportar como...",
+      "delete": "Eliminar mensaje"
     },
     "metrics": {
       "title": "Métricas de Rendimiento",
@@ -205,7 +215,9 @@
       "generating_embeddings": "Generando incrustaciones...",
       "extracting_pdf": "Extrayendo texto de PDF...",
       "processing_docx": "Procesando documento DOCX...",
-      "processing_file": "Procesando archivo..."
+      "processing_file": "Procesando archivo...",
+      "processing_csv": "Procesando archivo CSV...",
+      "processing_html": "Convirtiendo HTML a Markdown..."
     },
     "area": {
       "files_ready": "{{count}} archivo listo",

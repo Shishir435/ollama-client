@@ -31,7 +31,9 @@
       "beta_badge": "测试版",
       "description": "选择您偏好的界面语言。",
       "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
-    }
+    },
+    "cancel": "取消",
+    "save": "保存"
   },
   "selection_button": {
     "label": "询问 Ollama 客户端",
@@ -98,13 +100,20 @@
       "enter_key": "回车",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文"
+      "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
+      "drop_files_here": "将文件拖到此处"
+    },
+    "editor": {
+      "placeholder": "编辑消息..."
     },
     "actions": {
       "copy": "复制",
       "copied": "已复制",
       "regenerate": "重新生成",
-      "switch_model_tooltip": "切换模型"
+      "switch_model_tooltip": "切换模型",
+      "edit": "编辑",
+      "export_as": "导出为...",
+      "delete": "删除消息"
     },
     "metrics": {
       "title": "性能指标",
@@ -206,7 +215,9 @@
       "generating_embeddings": "正在生成嵌入...",
       "extracting_pdf": "正在从 PDF 提取文本...",
       "processing_docx": "正在处理 DOCX 文档...",
-      "processing_file": "正在处理文件..."
+      "processing_file": "正在处理文件...",
+      "processing_csv": "正在处理 CSV 文件...",
+      "processing_html": "正在将 HTML 转换为 Markdown..."
     },
     "area": {
       "files_ready": "{{count}} 个文件已准备就绪",

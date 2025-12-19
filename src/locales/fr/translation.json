@@ -31,7 +31,9 @@
       "beta_badge": "Bêta",
       "description": "Sélectionnez votre langue préférée pour l'interface.",
       "help_text": "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
-    }
+    },
+    "cancel": "Annuler",
+    "save": "Enregistrer"
   },
   "selection_button": {
     "label": "Demander au client Ollama",
@@ -98,13 +100,21 @@
       "enter_key": "Entrée",
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
-      "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat"
+      "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
+      "drop_files_here": "Déposer des fichiers ici"
+    },
+    "editor": {
+      "placeholder": "Modifier le message..."
     },
     "actions": {
       "copy": "Copier",
       "copied": "Copié",
       "regenerate": "Régénérer",
-      "switch_model_tooltip": "Changer de modèle"
+      "switch_model_tooltip": "Changer de modèle",
+      "fork": "Fourcher la conversation",
+      "edit": "Modifier",
+      "export_as": "Exporter sous...",
+      "delete": "Supprimer le message"
     },
     "metrics": {
       "title": "Métriques de Performance",
@@ -206,7 +216,9 @@
       "generating_embeddings": "Génération des incrustations...",
       "extracting_pdf": "Extraction du texte du PDF...",
       "processing_docx": "Traitement du document DOCX...",
-      "processing_file": "Traitement du fichier..."
+      "processing_file": "Traitement du fichier...",
+      "processing_csv": "Traitement du fichier CSV...",
+      "processing_html": "Conversion HTML vers Markdown..."
     },
     "area": {
       "files_ready": "{{count}} fichier prêt",
