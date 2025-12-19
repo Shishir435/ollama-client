@@ -47,8 +47,10 @@ export const Chat = () => {
     message: (typeof messages)[number],
     model?: string
   ) => {
-    // Regenerate means: "I want a new answer for the User message that triggered this Assistant message"
-    // So we need to find the User message immediately preceding this Assistant message.
+    /*
+     * Regenerate means: "I want a new answer for the User message that triggered this Assistant message"
+     * So we need to find the User message immediately preceding this Assistant message.
+     */
 
     // Since 'messages' is the linear active path:
     const messageIndex = messages.findIndex((m) => m.id === message.id)
@@ -66,9 +68,11 @@ export const Chat = () => {
     if (prevUserIndex !== -1 && currentSessionId) {
       const prevUserMsg = messages[prevUserIndex]
 
-      // 1. Navigate to that user message (this sets it as the current leaf)
-      // This is crucial: if we are regenerating an old message deep in history,
-      // we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
+      /*
+       * 1. Navigate to that user message (this sets it as the current leaf)
+       * This is crucial: if we are regenerating an old message deep in history,
+       * we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
+       */
       if (prevUserMsg.id) {
         // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
         await navigateToNode(currentSessionId, prevUserMsg.id, true)
@@ -93,17 +97,21 @@ export const Chat = () => {
 
     if (message.role === "user") {
       if (currentSessionId) {
-        // Forking Logic
-        // 1. Fork the message (creates new branch)
+        /*
+         * Forking Logic
+         * 1. Fork the message (creates new branch)
+         */
         const newLeafId = await forkMessage(
           currentSessionId,
           message.id,
           content
         )
 
-        // 2. We need to trigger response generation for this new branch.
-        // We need to construct the context history for the new branch.
-        // We can do this by taking the messages up to the point of fork, and adding the new message.
+        /*
+         * 2. We need to trigger response generation for this new branch.
+         * We need to construct the context history for the new branch.
+         * We can do this by taking the messages up to the point of fork, and adding the new message.
+         */
         const messageIndex = messages.findIndex((m) => m.id === message.id)
         if (messageIndex !== -1 && newLeafId) {
           const precedingMessages = messages.slice(0, messageIndex)

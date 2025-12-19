@@ -144,11 +144,13 @@ export const useChat = () => {
     const assistantId = await addMessage(sessionId, assistantMessage)
     currentStreamingMessageId.current = assistantId
 
-    // 2. Prepare updated messages for stream context
-    // If contextMessages is provided (e.g. from fork), use it.
-    // Otherwise fallback to current messages (might be stale if we assume addMessage updated it immediately? No, hook state is stale)
-    // Actually, startStream takes `messages` (history) + `generatedMessage`
-    // So if contextMessages is passed, it should NOT include the assistant placeholder yet (startStream handles that).
+    /*
+     * 2. Prepare updated messages for stream context
+     * If contextMessages is provided (e.g. from fork), use it.
+     * Otherwise fallback to current messages (might be stale if we assume addMessage updated it immediately? No, hook state is stale)
+     * Actually, startStream takes `messages` (history) + `generatedMessage`
+     * So if contextMessages is passed, it should NOT include the assistant placeholder yet (startStream handles that).
+     */
     const history = contextMessages || messages
 
     startStream({

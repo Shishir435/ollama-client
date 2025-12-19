@@ -50,12 +50,16 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     const session = await db.sessions.get(sessionId)
     if (!session) return
 
-    // 1. Get the Leaf ID (Tip of the active branch)
-    // If undefined, find the latest message by timestamp
+    /*
+     * 1. Get the Leaf ID (Tip of the active branch)
+     * If undefined, find the latest message by timestamp
+     */
     let leafId = session.currentLeafId
 
-    // Load ALL messages for the session to build the tree context robustly
-    // This avoids complex index queries and ensures we catch all siblings/roots
+    /*
+     * Load ALL messages for the session to build the tree context robustly
+     * This avoids complex index queries and ensures we catch all siblings/roots
+     */
     const allMessages = await db.messages
       .where("sessionId")
       .equals(sessionId)
@@ -441,10 +445,12 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       model: originalMsg.model
     }
 
-    // 3. Add using standard addMessage flow?
-    // addMessage usually appends to *currentLeafId*.
-    // Here we are inserting in the middle of history.
-    // So we cannot use addMessage's default logic of "parent = currentLeaf".
+    /*
+     * 3. Add using standard addMessage flow?
+     * addMessage usually appends to *currentLeafId*.
+     * Here we are inserting in the middle of history.
+     * So we cannot use addMessage's default logic of "parent = currentLeaf".
+     */
 
     const timestamp = Date.now()
     const msgToSave = {
@@ -469,16 +475,18 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     return newId
   },
 
-  // Navigate to a specific message (make it the active leaf or part of active path?)
-  // If I click "<" on a node, I want to swap that node.
-  // Swapping a node implies switching the Active Path to one that passes through sibling.
-  // If sibling is a leaf, set leaf to sibling.
-  // If sibling has children, "Active Path" usually remembers the last active leaf for that branch?
-  // For MVP: Navigate to sibling -> Sibling becomes leaf (truncating its children if any? or we find its latest child?)
-  // Let's implement simpler: Switch to sibling -> Sibling is the new view focus.
-  // BUT we need to set `currentLeafId`.
-  // If I switch to a node that has children, which child do I pick?
-  // Strategy: "Latest Child".
+  /*
+   * Navigate to a specific message (make it the active leaf or part of active path?)
+   * If I click "<" on a node, I want to swap that node.
+   * Swapping a node implies switching the Active Path to one that passes through sibling.
+   * If sibling is a leaf, set leaf to sibling.
+   * If sibling has children, "Active Path" usually remembers the last active leaf for that branch?
+   * For MVP: Navigate to sibling -> Sibling becomes leaf (truncating its children if any? or we find its latest child?)
+   * Let's implement simpler: Switch to sibling -> Sibling is the new view focus.
+   * BUT we need to set `currentLeafId`.
+   * If I switch to a node that has children, which child do I pick?
+   * Strategy: "Latest Child".
+   */
   navigateToNode: async (sessionId: string, nodeId: number, exact = false) => {
     // Logic: Navigate to the LATEST leaf that descends from this node.
     // If exact is true, we strictly set the currentLeafId to this node (cutting off any existing children from view, essentially preparing to fork or view just this point).
@@ -565,9 +573,11 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       session.currentLeafId &&
       toDeleteIds.has(session.currentLeafId)
     ) {
-      // The active branch is being cut.
-      // New leaf should be the parent of the *target message* (the root of deletion).
-      // If target has no parent (it was root), then leaf is undefined (empty chat).
+      /*
+       * The active branch is being cut.
+       * New leaf should be the parent of the *target message* (the root of deletion).
+       * If target has no parent (it was root), then leaf is undefined (empty chat).
+       */
       await db.sessions.update(sessionId, {
         currentLeafId: targetParentId
       })

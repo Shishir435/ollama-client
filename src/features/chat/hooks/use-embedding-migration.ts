@@ -14,16 +14,18 @@ export const useEmbeddingMigration = () => {
   useEffect(() => {
     const runMigration = async () => {
       try {
-        // 1. Check if migration is needed
-        // Count messages that don't have embeddings or linked embeddings
-        // This is a bit expensive to check perfectly, so we'll do a simplified check:
-        // iterate sessions, check if their messages have corresponding vectors with messageId
-
-        // Better approach:
-        // We know we just added messageId support.
-        // We can check if there are any vectors with type='chat' but NO messageId.
-        // If so, we probably want to migrate them OR just nuke them and re-embed.
-        // Re-embedding is safer to ensure correct linkage.
+        /*
+         * 1. Check if migration is needed
+         * Count messages that don't have embeddings or linked embeddings
+         * This is a bit expensive to check perfectly, so we'll do a simplified check:
+         * iterate sessions, check if their messages have corresponding vectors with messageId
+         *
+         * Better approach:
+         * We know we just added messageId support.
+         * We can check if there are any vectors with type='chat' but NO messageId.
+         * If so, we probably want to migrate them OR just nuke them and re-embed.
+         * Re-embedding is safer to ensure correct linkage.
+         */
 
         // Let's count messages in DB
         const totalMessages = await db.messages.count()
@@ -47,9 +49,11 @@ export const useEmbeddingMigration = () => {
         let processed = 0
         let offset = 0
 
-        // We'll iterate all messages from newest to oldest (as they are more likely to be accessed)
-        // But for reliable migration, maybe oldest to newest?
-        // Let's do huge chunks.
+        /*
+         * We'll iterate all messages from newest to oldest (as they are more likely to be accessed)
+         * But for reliable migration, maybe oldest to newest?
+         * Let's do huge chunks.
+         */
 
         while (true) {
           const messages = await db.messages
@@ -79,14 +83,16 @@ export const useEmbeddingMigration = () => {
               }
             }
 
-            // No embedding with messageId found.
-            // We should remove any old embedding for this content to avoid dupes?
-            // "Legacy" embeddings didn't have messageId.
-            // We can delete by content matching if we want to be super clean,
-            // but the `storeVector` deduplication might handle it if we passed the right metadata?
-            // Actually `storeVector` checks for duplicates by content + sessionId + messageId (now).
-            // So we might end up with dupes if we don't clean up old ones.
-            // Let's try to find legacy embedding and delete it.
+            /*
+             * No embedding with messageId found.
+             * We should remove any old embedding for this content to avoid dupes?
+             * "Legacy" embeddings didn't have messageId.
+             * We can delete by content matching if we want to be super clean,
+             * but the `storeVector` deduplication might handle it if we passed the right metadata?
+             * Actually `storeVector` checks for duplicates by content + sessionId + messageId (now).
+             * So we might end up with dupes if we don't clean up old ones.
+             * Let's try to find legacy embedding and delete it.
+             */
 
             await vectorDb.vectors
               .where("metadata.sessionId")
