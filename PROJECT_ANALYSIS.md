@@ -10,7 +10,7 @@
 
 **Ollama Client** is a high-complexity "Thick Client" implementation operating entirely within the browser. It successfully replicates the functionality of a desktop AI client (like ChatGPT Desktop) using Chrome Extension technologies.
 
-The architecture is **mature and robust**, leveraging correct abstractions (Feature-based folder structure, separate persistence/state layers) to handle the constraints of the browser environment. The codebase demonstrates high attention to detail in areas often neglected in extensions, such as **virtualized rendering** for performance and **reliable binary processing** for file inputs.
+The architecture is **mature and robust**, leveraging correct abstractions (Feature-based folder structure, separate persistence/state layers) to handle the constraints of the browser environment. The recent migration to **SQLite (sql.js)** has significantly improved the scalability and reliability of the data layer.
 
 **Health Score**: 🟢 **Excellent (A)**
 **Maintainability**: 🟢 **High**
@@ -48,10 +48,12 @@ The architecture is **mature and robust**, leveraging correct abstractions (Feat
     *   *Threshold*: At ~5,000 document chunks (vectors), the memory usage may trigger Chrome's extension killer (usually around 100MB-300MB for Service Workers).
 
 ### 2.4. Persistence & Storage
-**Implementation**: Dexie.js (IndexedDB wrapper).
+**Implementation**: SQLite (sql.js) + IndexedDB Persistence.
 *   **Strengths**:
-    *   **Schema Evolution**: `db.ts` contains clear migration paths (v1 -> v2 -> v3). The migration logic correctly normalizes legacy "Array-based" messages into a "Relational" table structure without data loss.
-    *   **Normalization**: Files are stored in a separate `files` table, deduplicating binary blobs from the message history.
+    *   **SQL-Native Power**: Enables complex recursive CTEs (Common Table Expressions) for traversing chat trees, which was inefficient in IndexedDB.
+    *   **ACID Compliance**: Ensures data integrity even if the browser crashes during a write operation.
+    *   **Type Safety**: The repository layer is fully typed, eliminating `any` and improving developer experience.
+    *   **Deduplication**: Files are stored in a specific `files` table, and binary blobs are correctly handled as `Uint8Array`.
 
 ---
 
@@ -72,13 +74,12 @@ The Background Service Worker avoids UI dependencies. It acts purely as an API G
 
 To move from "Excellent Extension" to "Enterprise-Grade Platform", the following technical investments are recommended:
 
-### 4.1. Migration to SQLite (WASM)
-*   **Problem**: IndexedDB (Vectra) is document-oriented and RAM-heavy for vectors.
-*   **Solution**: Adopt `sqlite-wasm` with `sqlite-vec` extension.
+### 4.1. Native Vector Optimization
+*   **Problem**: `Vectra` is a great JS implementation, but it still manages indices in-memory.
+*   **Solution**: Investigate `sqlite-vec` or similar WASM-based vector extensions for SQLite.
 *   **Impact**:
-    *   **Zero-Copy Loading**: SQLite can query data from disk without loading the whole DB into RAM.
-    *   **ACID Compliance**: Better protection against data corruption during browser crashes.
-    *   **Performance**: 10x faster vector search for datasets > 10k chunks.
+    *   **Disk-Backed Vectors**: Search thousands of chunks without loading the entire index into RAM.
+    *   **Unified Querying**: Perform hybrid search (Text + Vector) in a single SQL statement.
 
 ### 4.2. WebGPU Embedding Acceleration
 *   **Problem**: Generating embeddings via CPU (Ollama) is slow for large files.

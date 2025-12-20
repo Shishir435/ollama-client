@@ -11,12 +11,10 @@ This document outlines the strategic direction for **Ollama Client**.
 
 ### 1. Robust Data Infrastructure (v0.6.0)
 **Goal**: Move beyond browser limits to desktop-class performance.
-- [ ] **SQLite WASM Migration**
-    - Replace `Dexie.js` (IndexedDB) with `sqlite-wasm`.
-    - Enable **Zero-Copy** loading for vector indices (huge performance win).
-    - Support ACID transactions for chat history reliability.
 - [ ] **Unified Sync Adapter**
     - Implement `File System Access API` to perform real-time sync of the SQLite DB to a local folder (e.g., User's Dropbox/iCloud Drive).
+- [ ] **At-Rest Encryption**
+    - Leverage SQLite's power to implement encrypted session storage using user-provided keys.
 
 ### 2. Universal Connectivity (v0.7.0)
 **Goal**: Support any LLM provider, not just Ollama.
@@ -46,6 +44,7 @@ This document outlines the strategic direction for **Ollama Client**.
 ---
 
 ## ✅ Recent Completions (v0.5.x)
+- [x] **SQLite Migration (sql.js)**: Replaced Dexie.js with a full SQLite engine for ACID compliance and complex tree-history queries.
 - [x] **Database Schema V3**: Full normalization with tree-based history support.
 - [x] **Virtual Scrolling**: Implemented `react-virtuoso` for unlimited chat history performance.
 - [x] **Global Error Boundaries**: Added React Error Boundaries for app stability.

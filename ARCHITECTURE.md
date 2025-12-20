@@ -29,10 +29,12 @@ graph TD
         subgraph Persistence["Persistence Layer"]
             Storage[("Chrome Storage / Plasmo
             (Settings & State)")]
-            IndexedDB[("IndexedDB (Dexie)
-            (Chat History & Logs)")]
+            SQLite[("SQLite (sql.js)
+            (History & Files)")]
             VectorDB[("Vector Indices (Vectra)
             (Embeddings)")]
+            IndexedDB[("IndexedDB (Persistence)
+            (SQLite Blob Storage)")]
         end
     end
 
@@ -50,8 +52,9 @@ graph TD
     BG <-->|"Fetch API
     (Stream/Pull)"| Ollama
     
-    SidePanel <-->|"Direct Read/Write"| IndexedDB
-    BG <-->|"Write"| IndexedDB
+    SidePanel <-->|"SQL Queries"| SQLite
+    BG <-->|"SQL Writes"| SQLite
+    SQLite <-->|"Auto-Save (Blob)"| IndexedDB
     
     BG <--> VectorDB
     CS -->|"Extracted Content"| BG
@@ -118,18 +121,18 @@ sequenceDiagram
     participant User
     participant UI as Side Panel (useChat)
     participant Store as Chat Store (Zustand)
-    participant DB as IndexedDB (Dexie)
+    participant DB as SQLite (sql.js)
     participant BG as Background Worker
     participant Ollama
 
     User->>UI: Types message & Sends
     UI->>Store: Optimistic Update (Show User Msg)
-    UI->>DB: Persist User Message (via Hooks)
+    UI->>DB: Persist via run() wrapper
     UI->>BG: Connect Port (CHAT_WITH_MODEL)
     
     rect rgb(240, 248, 255)
     note right of BG: RAG Pipeline
-    BG->>DB: Check Knowledge Base?
+    BG->>DB: Check Knowledge Base? (SQL)
     BG->>Ollama: Generate Embeddings (if RAG on)
     BG->>BG: Vector Search (HNSW)
     end
@@ -140,12 +143,12 @@ sequenceDiagram
         Ollama-->>BG: JSON Chunk
         BG-->>UI: Post Message (Token)
         UI->>Store: Update Local State (Smooth Typing)
-        UI->>DB: Debounce Write (Every 1s)
+        UI->>DB: Update Message Content (SQL)
     end
     
     Ollama-->>BG: Done
     BG-->>UI: Close Port
-    UI->>DB: Final Write (Complete Msg)
+    DB->>DB: Auto-Save to IndexedDB (Blob)
 ```
 
 ### 3.2. Configuration Propagation
@@ -175,10 +178,11 @@ A complete RAG pipeline running in the browser.
 -   **Hybrid Search**: Combines Scalar (Keyword) search with Vector (Semantic) search for higher accuracy.
 
 ### 4.3. Persistence Strategy
--   **IndexedDB (Dexie)**: Primary storage.
-    -   `sessions`: Lightweight metadata for lists.
-    -   `messages`: Normalized message storage.
+-   **SQLite (sql.js)**: Primary relational storage.
+    -   `sessions`: Normalized session metadata.
+    -   `messages`: Tree-based message storage (supports branching).
     -   `files`: Binary data for attachments.
+-   **IndexedDB (Persistence)**: Used strictly as a blob store for the SQLite database file to ensure persistence across browser restarts.
 -   **Chrome Storage**: Configuration and lightweight state (active tab, theme).
 
 ---
