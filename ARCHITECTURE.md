@@ -1,151 +1,195 @@
-# 🏗️ Architecture Documentation
+# Architecture Documentation
 
-> **Version**: 0.5.10
-> **Last Updated**: December 18, 2025
+## 1. System Overview
 
-**Ollama Client** is a local-first, privacy-focused Chrome Extension that interfaces with a local Ollama instance. It features a sophisticated architecture typically found in full-scale web applications, including client-side vector search, normalized database with tree-based history, and virtualized lists.
+The **Ollama Client** is a privacy-first Chrome Extension designed to interact directly with a local Ollama instance. It leverages a **Browser-Centric Architecture**, essentially operating as a "Thick Client" within the browser. The system eliminates the need for an intermediate backend server, communicating directly from the extension to the local Ollama API.
 
----
+The architecture is composed of three primary execution contexts:
 
-## 📐 System Overview
-
-The application is built on the **Plasmo** framework (Manifest V3) and employs a modular "feature-slice" architecture.
+1.  **Side Panel (Main UI)**: The primary interface for chat, residing in the browser's side panel. It manages session state, message rendering, and user input.
+2.  **Options Configuration (Settings)**: A dedicated page for deep configuration (Models, RAG, Knowledge Base, Shortcuts). It interacts heavily with the global storage to persist user preferences.
+3.  **Background Service Worker**: The "Brain" of the extension. It handles long-running tasks (model pulling, embedding generation), manages the persistent connection to Ollama, and coordinates between the Side Panel and Content Scripts.
 
 ```mermaid
-graph TB
-    subgraph ChromeRuntime [Chrome Runtime]
-        UI["Side Panel UI<br/>(React 18)"]
-        BG["Background Worker<br/>(Service Worker)"]
-        CS["Content Scripts<br/>(DOM Interaction)"]
+graph TD
+    subgraph Browser["Chrome Browser"]
+        subgraph UI_Layer["UI Layer (React)"]
+            SidePanel[("Side Panel
+            (Chat Interface)")]
+            OptionsUI[("Options Panel
+            (Configuration)")]
+        end
+        
+        BG[("Background Service Worker
+        (Orchestrator)")]
+        
+        CS[("Content Scripts
+        (Page Scraper)")]
+        
+        subgraph Persistence["Persistence Layer"]
+            Storage[("Chrome Storage / Plasmo
+            (Settings & State)")]
+            IndexedDB[("IndexedDB (Dexie)
+            (Chat History & Logs)")]
+            VectorDB[("Vector Indices (Vectra)
+            (Embeddings)")]
+        end
     end
 
-    subgraph StatePersistence [State & Persistence]
-        Zustand["Zustand Stores<br/>(Global State)"]
-        Dexie[("IndexedDB<br/>(Chat & Vectors)")]
-        LocalStorage[("Chrome Storage<br/>(Settings)")]
+    subgraph LocalHost["Local Machine"]
+        Ollama[("Ollama API
+        (Port 11434)")]
     end
 
-    subgraph External [External]
-        Ollama["Ollama API<br/>(Localhost:11434)"]
-        LLM["LLM Models"]
-    end
-
-    UI -->|Hooks/Actions| Zustand
-    Zustand -->|Persist| Dexie
-    UI -->|Messages| BG
-    BG -->|Fetch| Ollama
-    Ollama --> LLM
-    CS -->|Port| BG
+    %% Communications
+    SidePanel <-->|"Long-lived Ports
+    (Streaming)"| BG
+    OptionsUI -->|"Writes"| Storage
+    BG <-->|"Reads/Watches"| Storage
+    
+    BG <-->|"Fetch API
+    (Stream/Pull)"| Ollama
+    
+    SidePanel <-->|"Direct Read/Write"| IndexedDB
+    BG <-->|"Write"| IndexedDB
+    
+    BG <--> VectorDB
+    CS -->|"Extracted Content"| BG
 ```
 
 ---
 
-## 🧩 Core Architecture
+## 2. Component Hierarchy
 
-### 1. Feature-First Directory Structure
-We organize code by business domain rather than technical layer. This ensures scalability and cohesive maintenance.
+The application follows a **Domain-Driven Design (DDD)** approach where features are encapsulated in `src/features/`. The UI is split between the **Side Panel** (Chat focus) and **Options Page** (Management focus).
 
+```mermaid
+graph TD
+    Root["Application Root"]
+    
+    subgraph SidePanel["Side Panel (Chat)"]
+        ChatLayout["Chat Layout"]
+        ChatLayout --> Sidebar["Sidebar (Session List)"]
+        ChatLayout --> ChatArea["Chat Interface"]
+        
+        ChatArea --> MessageList["Virtual Message List"]
+        MessageList --> MessageItem["Message Bubble"]
+        MessageItem --> Markdown["Markdown & Code Renderer"]
+        
+        ChatArea --> InputArea["Input Composer"]
+        InputArea --> ModelSelect["Model Selector"]
+        InputArea --> FileUpload["File Handling"]
+        InputArea --> Dictation["Voice Input"]
+    end
+    
+    subgraph OptionsPage["Options Page (Configuration)"]
+        OptionsLayout["Settings Layout (Tabs)"]
+        
+        OptionsLayout --> GenTab["General Tab"]
+        GenTab --> DisplaySettings["Display Config"]
+        
+        OptionsLayout --> ModelTab["Models Tab"]
+        ModelTab --> PullPanel["Model Pull/Download"]
+        ModelTab --> ParamSettings["Inference Parameters (Temp, Seed)"]
+        
+        OptionsLayout --> RAGTab["RAG / Knowledge"]
+        RAGTab --> EmbedConfig["Embedding Model Config"]
+        RAGTab --> ChunkConfig["Chunking Strategy"]
+        
+        OptionsLayout --> ShortcutTab["Shortcuts"]
+        OptionsLayout --> DeveloperTab["Developer Stats & Reset"]
+    end
+    
+    subgraph Shared["Shared Feature Components"]
+        ModelSettings["Model Settings Form"] --> GenTab
+        ModelSettings --> ModelTab
+    end
 ```
-src/
-├── features/             # Domain Logic
-│   ├── chat/             # Message bubbles, list virtualization, input
-│   ├── model/            # Model pulling, selection, settings
-│   ├── knowledge/        # RAG, Vector Search UI, Indexing
-│   ├── file-upload/      # File processors (PDF/DOCX/CSV)
-│   └── sessions/         # Session management, history tree
-├── lib/                  # Shared Infrastructure
-│   ├── db.ts             # Database Schema & Migrations
-│   ├── embeddings/       # HNSW Vector Store Implementation
-│   └── exporters/        # PDF/JSON/MD Export Logic
-├── stores/               # Global State (Zustand)
-└── background/           # Service Worker Handlers
+
+---
+
+## 3. Data Flow
+
+### 3.1. Chat Interaction (Streaming)
+The chat flow involves a complex coordination between the UI (for responsiveness) and the Background/DB (for persistence).
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Side Panel (useChat)
+    participant Store as Chat Store (Zustand)
+    participant DB as IndexedDB (Dexie)
+    participant BG as Background Worker
+    participant Ollama
+
+    User->>UI: Types message & Sends
+    UI->>Store: Optimistic Update (Show User Msg)
+    UI->>DB: Persist User Message (via Hooks)
+    UI->>BG: Connect Port (CHAT_WITH_MODEL)
+    
+    rect rgb(240, 248, 255)
+    note right of BG: RAG Pipeline
+    BG->>DB: Check Knowledge Base?
+    BG->>Ollama: Generate Embeddings (if RAG on)
+    BG->>BG: Vector Search (HNSW)
+    end
+    
+    BG->>Ollama: POST /api/chat (stream: true)
+    
+    loop Streaming Response
+        Ollama-->>BG: JSON Chunk
+        BG-->>UI: Post Message (Token)
+        UI->>Store: Update Local State (Smooth Typing)
+        UI->>DB: Debounce Write (Every 1s)
+    end
+    
+    Ollama-->>BG: Done
+    BG-->>UI: Close Port
+    UI->>DB: Final Write (Complete Msg)
 ```
 
-### 2. Message Passing Bus
-The UI communicates with the Background Worker via a typed message bus (`src/lib/constants.ts`). This offloads heavy tasks (scraping, model inference) from the UI thread.
-*   **Pattern**: `sendMessage({ type: "ACTION", payload })` -> `Handler` -> `sendResponse`.
-*   **Streaming**: Uses `Port` connections for streaming LLM responses to avoid message size limits.
+### 3.2. Configuration Propagation
+Settings changes in the Options page are reactive.
+
+1.  **User Change**: User selects a new "Embedding Model" in Options.
+2.  **Storage Update**: `useStorage` hook updates `plasmo-global-storage`.
+3.  **Background Reaction**: Background worker (listening to storage changes) detects the change.
+4.  **Action**: If the model isn't downloaded, Background initiates a silent pull of the new embedding model.
+5.  **State Sync**: UI sees the status change via the shared storage hook.
 
 ---
 
-## 💾 Data Architecture (IndexedDB)
+## 4. Core Features Breakdown
 
-The project uses **Dexie.js** to manage IndexedDB. The schema has evolved to `Version 3` to support advanced features like branching.
+### 4.1. Model Management (The "Ollama Manager")
+The extension acts as a full GUI for Ollama operations.
+-   **Discovery**: Queries `localhost:11434/api/tags` to list local models.
+-   **Library**: `src/features/model` contains components for pulling, deleting, and detailed inspection of models.
+-   **Pulling Mechanism**: Implemented in `handleTheModelPull` using `fetch` streams. It supports resuming and cancellation via `AbortController`.
 
-### Schema Definition (`src/lib/db.ts`)
+### 4.2. "Zero-Server" RAG (Retrieval-Augmented Generation)
+A complete RAG pipeline running in the browser.
+-   **Ingestion**: `file-processors` (PDF, Docx, HTML) extract raw text.
+-   **Chunking**: Recursive character text splitter adapts chunk size based on content.
+-   **Vector Store**: Uses **Vectra** (for persistent storage) or **MiniSearch** (for keyword storage).
+-   **Hybrid Search**: Combines Scalar (Keyword) search with Vector (Semantic) search for higher accuracy.
 
-#### 1. Sessions Table
-Stores high-level metadata.
-*   `id`: Primary Key
-*   `currentLeafId`: Pointer to the *active* message in the conversation tree.
-*   `modelId`, `title`, `updatedAt`.
-
-#### 2. Messages Table (Normalized & Tree-Structured)
-Stores individual message nodes.
-*   `id`: Primary Key (Auto-increment)
-*   `sessionId`: Foreign Key.
-*   `parentId`: **Adjacency List** implementation for tree structure. Allows forking conversations.
-*   `content`: The message text.
-*   `role`: user | assistant | system.
-*   **Indexes**: `[sessionId+timestamp]`, `parentId`.
-
-#### 3. Files Table
-Attachments are normalized and linked to messages.
-*   `id`: Primary Key.
-*   `messageId`: Foreign Key.
-*   `data`: Binary Blob (or text).
-*   `processedAt`: Timestamp.
-
-#### 4. Vector Store (`VectorDatabase`)
-Stores embeddings for Semantic Search.
-*   `vectors` table: Contains `embedding` (Float32Array) and `metadata`.
-*   **HNSW Index**: Custom implementation for efficient nearest-neighbor search.
+### 4.3. Persistence Strategy
+-   **IndexedDB (Dexie)**: Primary storage.
+    -   `sessions`: Lightweight metadata for lists.
+    -   `messages`: Normalized message storage.
+    -   `files`: Binary data for attachments.
+-   **Chrome Storage**: Configuration and lightweight state (active tab, theme).
 
 ---
 
-## ⚡ Performance & UI Patterns
+## 5. Security & Privacy
 
-### 1. Virtualization (`react-virtuoso`)
-*   **Component**: `ChatMessageList` (`src/features/chat/components/chat-message-list.tsx`).
-*   **Mechanism**: Renders only the visible window of messages.
-*   **Dynamic**: Handles variable height message bubbles (streaming content, code blocks).
-*   **Scroll Sync**: "Stick-to-bottom" behavior during streaming.
+### "Zero-Cloud" Guarantee
+The pivotal design choice of this application is **Local-Only Execution**.
+-   **No Analytics**: The source code contains no analytics SDKs (Google Analytics, Mixpanel, etc.).
+-   **Direct LAN Access**: Interaction is strictly `Browser <-> Localhost`.
+-   **DOM Access**: `host_permissions` are used strictly for the "Read Page" feature, initiated by user action.
 
-### 2. Optimized Vector Search
-We implement **Client-Side RAG** without external DBs.
-*   **Algorithm**: Hybrid Search (Keyword + Cosine Similarity).
-*   **Storage**: Embeddings stored as `Float32Array` for 50% memory reduction vs standard arrays.
-*   **Math**: Dot product optimization for normalized vectors (skips sqrt calculation).
-
-### 3. File Processing Pipeline
-*   **PDF**: `pdfjs-dist` (Worker-based).
-*   **DOCX**: `mammoth.js`.
-*   **CSV**: `d3-dsv` with auto-delimiter detection.
-*   **Flow**: Upload -> Extract Text -> Chunk -> Generate Embeddings -> Store in Vector DB.
-
----
-
-## 🛡️ Error Handling & Reliability
-
-### 1. Global Error Boundary
-*   Wraps the entire Side Panel application.
-*   Catches React rendering errors and provides a "Reload Extension" fallback.
-
-### 2. Transactional Integrity
-*   Database operations (like `deleteMessage` cascading) run in Dexie transactions to ensure atomicity. All descendants and associated files are deleted, or nothing is.
-
----
-
-## 🔐 Security
-
-*   **CSP (Content Security Policy)**: Strict Manifest V3 policy. `'wasm-unsafe-eval'` used limitedly for ONNX Runtime (if enabled).
-*   **Local-Only**: No data leaves the device unless the user explicitly configures a remote Ollama endpoint.
-*   **Sanitization**: All Markdown rendering is sanitized via `DOMPurify`.
-
----
-
-## 🧪 Testing Strategy
-
-*   **Unit Tests**: `Vitest` for logic (`*.test.ts`).
-*   **Component Tests**: `Testing Library` for UI interactions.
-*   **Coverage**: >65% Line Coverage.
+### Content Security Policy (CSP)
+The extension relies on the relaxation of CSP for `localhost` connections to allow communication with the Ollama API, which is standard for local AI tools.
