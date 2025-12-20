@@ -36,7 +36,7 @@ describe("ChatDatabase", () => {
     expect(db.name).toBe("ChatDatabase")
   })
 
-  it("should be version 3", () => {
-    expect(db.verno).toBe(3)
+  it("should be version 2", () => {
+    expect(db.verno).toBe(2)
   })
 })

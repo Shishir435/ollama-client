@@ -84,44 +84,6 @@ class ChatDatabase extends Dexie {
           await tx.table("sessions").put(cleanSession)
         }
       })
-
-    // Version 3: Tree-based history (Forking)
-    this.version(3)
-      .stores({
-        sessions: "id, createdAt, updatedAt, modelId",
-        messages:
-          "++id, sessionId, role, timestamp, parentId, [sessionId+timestamp]"
-      })
-      .upgrade(async (tx) => {
-        // Migration: Link existing messages linearly
-        const sessions = await tx.table("sessions").toArray()
-
-        for (const session of sessions) {
-          const messages = await tx
-            .table("messages")
-            .where("sessionId")
-            .equals(session.id)
-            .sortBy("timestamp")
-
-          if (messages.length === 0) continue
-
-          let prevId: number | undefined
-
-          for (const msg of messages) {
-            if (prevId !== undefined) {
-              await tx.table("messages").update(msg.id, { parentId: prevId })
-            }
-            prevId = msg.id
-          }
-
-          // Set currentLeafId to the last message
-          if (prevId) {
-            await tx
-              .table("sessions")
-              .update(session.id, { currentLeafId: prevId })
-          }
-        }
-      })
   }
 }
 

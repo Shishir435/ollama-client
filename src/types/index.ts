@@ -35,13 +35,16 @@ export type ModelConfigMap = Record<string, ModelConfig>
 export type Role = "user" | "assistant" | "system"
 
 export interface FileAttachment {
+  id?: number
   fileId: string
   fileName: string
   fileType: string
   fileSize: number
   textPreview?: string
   processedAt: number
+  sessionId?: string
   messageId?: number
+  data?: Uint8Array
 }
 
 export interface ChatMessage {
