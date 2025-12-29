@@ -2,6 +2,12 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsFormField, SettingsSwitch } from "@/components/settings"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "@/components/ui/accordion"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
@@ -85,6 +91,153 @@ export const RAGSettings = () => {
           onValueChange={handleTopKChange}
         />
       </SettingsFormField>
+
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="advanced-retrieval">
+          <AccordionTrigger>
+            {t("model.embedding_config.advanced_retrieval_title")}
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pt-4">
+            <SettingsSwitch
+              label={t("model.embedding_config.reranking_label")}
+              description={t("model.embedding_config.reranking_description")}
+              checked={
+                config.useReranking ?? DEFAULT_EMBEDDING_CONFIG.useReranking
+              }
+              onCheckedChange={(checked) =>
+                setConfig((prev) => ({ ...prev, useReranking: checked }))
+              }
+            />
+
+            <SettingsSwitch
+              label={t("model.embedding_config.hybrid_search_label")}
+              description={t(
+                "model.embedding_config.hybrid_search_description"
+              )}
+              checked={
+                config.useHybridSearch ??
+                DEFAULT_EMBEDDING_CONFIG.useHybridSearch
+              }
+              onCheckedChange={(checked) =>
+                setConfig((prev) => ({ ...prev, useHybridSearch: checked }))
+              }
+            />
+
+            {(config.useHybridSearch ??
+              DEFAULT_EMBEDDING_CONFIG.useHybridSearch) && (
+              <SettingsFormField
+                label={`${t("model.embedding_config.keyword_weight_label")}: ${config.keywordWeight ?? DEFAULT_EMBEDDING_CONFIG.keywordWeight}`}
+                description={t(
+                  "model.embedding_config.keyword_weight_description"
+                )}>
+                <div className="flex gap-4 items-center">
+                  <span className="text-xs text-muted-foreground">
+                    Semantic
+                  </span>
+                  <Slider
+                    value={[
+                      config.keywordWeight ??
+                        DEFAULT_EMBEDDING_CONFIG.keywordWeight
+                    ]}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    onValueChange={([val]) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        keywordWeight: val,
+                        semanticWeight: parseFloat((1 - val).toFixed(1))
+                      }))
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">Keyword</span>
+                </div>
+              </SettingsFormField>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="diversity">
+          <AccordionTrigger>
+            {t("model.embedding_config.diversity_settings_title")}
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pt-4">
+            <SettingsSwitch
+              label={t("model.embedding_config.mmr_label")}
+              description={t("model.embedding_config.mmr_description")}
+              checked={
+                config.diversityEnabled ??
+                DEFAULT_EMBEDDING_CONFIG.diversityEnabled
+              }
+              onCheckedChange={(checked) =>
+                setConfig((prev) => ({ ...prev, diversityEnabled: checked }))
+              }
+            />
+
+            {(config.diversityEnabled ??
+              DEFAULT_EMBEDDING_CONFIG.diversityEnabled) && (
+              <SettingsFormField
+                label={`${t("model.embedding_config.diversity_lambda_label")}: ${config.diversityLambda ?? DEFAULT_EMBEDDING_CONFIG.diversityLambda}`}
+                description={t(
+                  "model.embedding_config.diversity_lambda_description"
+                )}>
+                <Slider
+                  value={[
+                    config.diversityLambda ??
+                      DEFAULT_EMBEDDING_CONFIG.diversityLambda
+                  ]}
+                  min={0.1}
+                  max={1}
+                  step={0.1}
+                  onValueChange={([val]) =>
+                    setConfig((prev) => ({ ...prev, diversityLambda: val }))
+                  }
+                />
+              </SettingsFormField>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="quality">
+          <AccordionTrigger>
+            {t("model.embedding_config.quality_settings_title")}
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pt-4">
+            <SettingsSwitch
+              label={t("model.embedding_config.exclude_casual_label")}
+              description={t(
+                "model.embedding_config.exclude_casual_description"
+              )}
+              checked={
+                config.excludeGreetings ??
+                DEFAULT_EMBEDDING_CONFIG.excludeGreetings
+              }
+              onCheckedChange={(checked) =>
+                setConfig((prev) => ({ ...prev, excludeGreetings: checked }))
+              }
+            />
+
+            <SettingsFormField
+              label={`${t("model.embedding_config.min_quality_score_label")}: ${config.minQualityScore ?? DEFAULT_EMBEDDING_CONFIG.minQualityScore}`}
+              description={t(
+                "model.embedding_config.min_quality_score_description"
+              )}>
+              <Slider
+                value={[
+                  config.minQualityScore ??
+                    DEFAULT_EMBEDDING_CONFIG.minQualityScore
+                ]}
+                min={0}
+                max={0.9}
+                step={0.1}
+                onValueChange={([val]) =>
+                  setConfig((prev) => ({ ...prev, minQualityScore: val }))
+                }
+              />
+            </SettingsFormField>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       <SettingsFormField
         label={t("model.embedding_config.rag_system_prompt_label")}

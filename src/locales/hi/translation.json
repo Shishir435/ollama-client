@@ -358,7 +358,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "उन्नत पुनर्प्राप्ति सेटिंग्स",
+      "reranking_label": "री-रैंकिंग सक्षम करें (Transformers.js)",
+      "reranking_description": "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
+      "hybrid_search_label": "हाइब्रिड खोज सक्षम करें",
+      "hybrid_search_description": "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
+      "keyword_weight_label": "कीवर्ड भार",
+      "keyword_weight_description": "कीवर्ड (BM25) और सिमेंटिक खोज के बीच संतुलन।",
+      "diversity_settings_title": "विविधता सेटिंग्स",
+      "mmr_label": "MMR विविधता सक्षम करें",
+      "mmr_description": "अधिकतम सीमांत प्रासंगिकता (MMR) खोज परिणामों में अतिरेक को कम करती है।",
+      "diversity_lambda_label": "विविधता लैम्ब्डा",
+      "diversity_lambda_description": "कम मान विविधता को प्राथमिकता देते हैं, उच्च मान प्रासंगिकता को प्राथमिकता देते हैं।",
+      "quality_settings_title": "सामग्री गुणवत्ता फ़िल्टरिंग",
+      "exclude_casual_label": "आकस्मिक संदेशों को बाहर निकालें",
+      "exclude_casual_description": "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
+      "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
+      "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।"
     }
   },
   "prompts": {

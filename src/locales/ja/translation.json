@@ -358,7 +358,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "高度な検索設定",
+      "reranking_label": "再ランク付けを有効にする (Transformers.js)",
+      "reranking_description": "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
+      "hybrid_search_label": "ハイブリッド検索を有効にする",
+      "hybrid_search_description": "キーワード検索 (BM25) とセマンティック検索を組み合わせて、再現率を向上させます。",
+      "keyword_weight_label": "キーワードの重み",
+      "keyword_weight_description": "キーワード (BM25) とセマンティック検索のバランス。",
+      "diversity_settings_title": "多様性設定",
+      "mmr_label": "MMR 多様性を有効にする",
+      "mmr_description": "最大限界関連性 (MMR) は、検索結果の冗長性を減らします。",
+      "diversity_lambda_label": "多様性ラムダ",
+      "diversity_lambda_description": "低い値は多様性を優先し、高い値は関連性を優先します。",
+      "quality_settings_title": "コンテンツ品質フィルタリング",
+      "exclude_casual_label": "カジュアルなメッセージを除外",
+      "exclude_casual_description": "挨拶、短い応答、情報の少ないメッセージを除外します。",
+      "min_quality_score_label": "最小品質スコア",
+      "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。"
     }
   },
   "prompts": {

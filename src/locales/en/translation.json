@@ -361,7 +361,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Advanced Retrieval Settings",
+      "reranking_label": "Enable Re-Ranking (Transformers.js)",
+      "reranking_description": "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+      "hybrid_search_label": "Enable Hybrid Search",
+      "hybrid_search_description": "Combine keyword search (BM25) with semantic search for better recall.",
+      "keyword_weight_label": "Keyword Weight",
+      "keyword_weight_description": "Balance between keyword (BM25) and semantic search.",
+      "diversity_settings_title": "Diversity Settings",
+      "mmr_label": "Enable MMR Diversity",
+      "mmr_description": "Maximal Marginal Relevance reduces redundancy in search results.",
+      "diversity_lambda_label": "Diversity Lambda",
+      "diversity_lambda_description": "Lower values prioritize diversity, higher values prioritize relevance.",
+      "quality_settings_title": "Content Quality Filtering",
+      "exclude_casual_label": "Exclude Casual Messages",
+      "exclude_casual_description": "Filter out greetings, short responses, and low-information messages.",
+      "min_quality_score_label": "Min Quality Score",
+      "min_quality_score_description": "Minimum quality score (0-1) required to embed content."
     }
   },
   "prompts": {

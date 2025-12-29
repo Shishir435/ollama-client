@@ -1,7 +1,7 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import { DEFAULT_EXCLUDE_URLS, FILE_UPLOAD } from "./defaults"
 
-export type ChunkingStrategy = "fixed" | "semantic" | "hybrid"
+export type ChunkingStrategy = "fixed" | "semantic" | "hybrid" | "markdown"
 
 export interface EmbeddingConfig {
   // Chunking settings
@@ -38,13 +38,27 @@ export interface EmbeddingConfig {
   hnswEfSearch: number // Search quality, higher = better accuracy (default: 100, range: 50-500)
   hnswMinVectors: number // Min vectors before HNSW activates (default: 0 = always use)
   hnswAutoRebuild: boolean // Auto rebuild on schema changes (default: true)
+
+  // RAG Advanced Settings (Phase 3)
+  useReranking: boolean // Enable transformers.js re-ranking (default: true)
+  useHybridSearch: boolean // Enable hybrid search (keyword + semantic) (default: true)
+  keywordWeight: number // Hybrid search keyword weight 0-1 (default: 0.6)
+  semanticWeight: number // Hybrid search semantic weight 0-1 (default: 0.4)
+
+  // Quality Filtering
+  minQualityScore: number // Content quality threshold 0-1 (default: 0.4)
+  excludeGreetings: boolean // Filter out greetings/short messages (default: true)
+
+  // Diversity Settings
+  diversityEnabled: boolean // Enable MMR diversity (default: true)
+  diversityLambda: number // MMR lambda 0-1 (default: 0.7)
 }
 
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
-  chunkSize: 500, // ~500 tokens per chunk
-  chunkOverlap: 100, // 100 token overlap
-  chunkingStrategy: "hybrid", // Best balance
-  useEnhancedChunking: false, // Backward compatibility - users can enable in settings
+  chunkSize: 500, // Reduced from 1000 for better granularity
+  chunkOverlap: 50,
+  chunkingStrategy: "markdown", // Updated to new enhanced strategy
+  useEnhancedChunking: true, // Enable enhanced chunking by default for better RAG quality
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   useWebWorker: true, // Offload to worker thread
@@ -62,7 +76,17 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswEfConstruction: 200, // High quality index construction
   hnswEfSearch: 100, // High quality search results
   hnswMinVectors: 0, // Always use HNSW (no threshold)
-  hnswAutoRebuild: true // Auto rebuild for consistency
+  hnswAutoRebuild: true, // Auto rebuild for consistency
+
+  // RAG Advanced Settings Defaults
+  useReranking: true,
+  useHybridSearch: true,
+  keywordWeight: 0.6,
+  semanticWeight: 0.4,
+  minQualityScore: 0.4,
+  excludeGreetings: true,
+  diversityEnabled: true,
+  diversityLambda: 0.7
 }
 
 export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {

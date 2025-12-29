@@ -359,7 +359,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Impostazioni avanzate di recupero",
+      "reranking_label": "Abilita Re-Ranking (Transformers.js)",
+      "reranking_description": "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
+      "hybrid_search_label": "Abilita ricerca ibrida",
+      "hybrid_search_description": "Combina la ricerca per parole chiave (BM25) con la ricerca semantica per un miglior richiamo.",
+      "keyword_weight_label": "Peso parola chiave",
+      "keyword_weight_description": "Bilanciamento tra parola chiave (BM25) e ricerca semantica.",
+      "diversity_settings_title": "Impostazioni diversità",
+      "mmr_label": "Abilita diversità MMR",
+      "mmr_description": "La Rilevanza Marginale Massima riduce la ridondanza nei risultati di ricerca.",
+      "diversity_lambda_label": "Lambda diversità",
+      "diversity_lambda_description": "Valori più bassi privilegiano la diversità, valori più alti privilegiano la rilevanza.",
+      "quality_settings_title": "Filtro qualità contenuto",
+      "exclude_casual_label": "Escludi messaggi casuali",
+      "exclude_casual_description": "Filtra saluti, risposte brevi e messaggi con poche informazioni.",
+      "min_quality_score_label": "Punteggio qualità minimo",
+      "min_quality_score_description": "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto."
     }
   },
   "prompts": {

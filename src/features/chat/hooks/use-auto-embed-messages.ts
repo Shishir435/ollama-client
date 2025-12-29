@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useRef } from "react"
 
 import { STORAGE_KEYS } from "@/lib/constants"
+import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
 import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
@@ -39,6 +40,7 @@ const checkDuplicateEmbedding = async (
  * Hook to automatically embed chat messages when they're saved
  * Embeds both user and assistant messages for semantic search
  * Prevents duplicate embeddings by tracking processed messages
+ * NOW WITH QUALITY FILTERING: Filters out low-quality content before embedding
  */
 export const useAutoEmbedMessages = () => {
   const [autoEmbedEnabled] = useStorage<boolean>(
@@ -70,6 +72,27 @@ export const useAutoEmbedMessages = () => {
       if (message.role === "assistant" && message.done !== true) {
         return
       }
+
+      // ===== NEW: Content Quality Assessment =====
+      const qualityAssessment = assessContentQuality(content, message.role)
+
+      if (!qualityAssessment.shouldEmbed) {
+        logger.debug(
+          `Skipping low-quality message (score: ${qualityAssessment.score.toFixed(2)})`,
+          "useAutoEmbedMessages",
+          {
+            reasons: qualityAssessment.reasons,
+            preview: content.substring(0, 50)
+          }
+        )
+        return
+      }
+
+      logger.verbose(
+        `Embedding message with quality score: ${qualityAssessment.score.toFixed(2)}`,
+        "useAutoEmbedMessages"
+      )
+      // ===== END Quality Assessment =====
 
       // Create a unique key for this message
       const messageKey = `${sessionId}:${content}`
@@ -107,8 +130,7 @@ export const useAutoEmbedMessages = () => {
 
         const embedding = result.embedding
 
-        // Store vector with metadata
-        // storeVector will also check for duplicates as a safety measure
+        // Store vector with metadata (including quality score)
         await storeVector(message.content, embedding, {
           type: "chat",
           source: "chat",
@@ -116,7 +138,10 @@ export const useAutoEmbedMessages = () => {
           timestamp: Date.now(),
           title:
             message.role === "user" ? "User message" : "Assistant response",
-          messageId: message.id
+          messageId: message.id,
+          role: message.role,
+          qualityScore: qualityAssessment.score,
+          qualityReasons: qualityAssessment.reasons.join(", ")
         })
       } catch (error) {
         logger.error("Error embedding message:", "useAutoEmbedMessages", {

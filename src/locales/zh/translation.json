@@ -360,7 +360,24 @@
       "rag_enable_label": "启用 RAG",
       "rag_enable_description": "使用检索上下文来回答有关您文件的问题",
       "rag_system_prompt_label": "RAG 系统提示",
-      "rag_system_prompt_description": "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。"
+      "rag_system_prompt_description": "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。",
+      "advanced_retrieval_title": "高级检索设置",
+      "reranking_label": "启用重新排序 (Transformers.js)",
+      "reranking_description": "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
+      "hybrid_search_label": "启用混合搜索",
+      "hybrid_search_description": "将关键字搜索 (BM25) 与语义搜索相结合，以获得更好的召回率。",
+      "keyword_weight_label": "关键字权重",
+      "keyword_weight_description": "关键字 (BM25) 和语义搜索之间的平衡。",
+      "diversity_settings_title": "多样性设置",
+      "mmr_label": "启用 MMR 多样性",
+      "mmr_description": "最大边际相关性 (MMR) 可减少搜索结果中的冗余。",
+      "diversity_lambda_label": "多样性 Lambda",
+      "diversity_lambda_description": "较低的值优先考虑多样性，较高的值优先考虑相关性。",
+      "quality_settings_title": "内容质量过滤",
+      "exclude_casual_label": "排除闲聊消息",
+      "exclude_casual_description": "过滤掉问候语、简短回复和低信息量的消息。",
+      "min_quality_score_label": "最低质量分数",
+      "min_quality_score_description": "嵌入内容所需的最低质量分数 (0-1)。"
     }
   },
   "prompts": {

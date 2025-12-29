@@ -170,12 +170,93 @@ The extension acts as a full GUI for Ollama operations.
 -   **Library**: `src/features/model` contains components for pulling, deleting, and detailed inspection of models.
 -   **Pulling Mechanism**: Implemented in `handleTheModelPull` using `fetch` streams. It supports resuming and cancellation via `AbortController`.
 
-### 4.2. "Zero-Server" RAG (Retrieval-Augmented Generation)
-A complete RAG pipeline running in the browser.
--   **Ingestion**: `file-processors` (PDF, Docx, HTML) extract raw text.
--   **Chunking**: Recursive character text splitter adapts chunk size based on content.
--   **Vector Store**: Uses **Vectra** (for persistent storage) or **MiniSearch** (for keyword storage).
--   **Hybrid Search**: Combines Scalar (Keyword) search with Vector (Semantic) search for higher accuracy.
+### 4.2. Enhanced RAG System (3-Stage Pipeline)
+A robust RAG pipeline running entirely in-browser, designed to maximize precision while minimizing noise.
+
+#### Architecture Overview
+The system implements a **Multi-Stage Retrieval Pipeline** to balance recall (finding all relevant docs) with precision (filtering noise):
+
+```mermaid
+graph LR
+    Query[User Query] -->|1. Generate Embedding| Hybrid[Hybrid Search]
+    Hybrid -->|Over-fetch 5x| Candidates[25 Candidates]
+    Candidates -->|2. Re-Rank| Reranker[Cross-Encoder
+    Transformers.js]
+    Reranker -->|Top 10| MMR[MMR Diversity]
+    MMR -->|3. Deduplicate| Final[Top 5 Results]
+    Final -->|Format + Token Limit| Context[Injected Context]
+```
+
+#### Stage 1: Hybrid Search (Recall-Optimized)
+Combines **BM25 Keyword Search** (60% weight) with **Vector Semantic Search** (40% weight).
+
+**Why Hybrid?**
+- Pure vector search fails on exact term matches (e.g., "What is useState?" might miss docs with that exact hook name)
+- Pure keyword search fails on semantic variations (e.g., "How to manage state" wouldn't match "useState documentation")
+
+**Implementation:**
+- Uses **Vectra** for HNSW vector indexing
+- Uses **MiniSearch** for BM25 keyword scoring
+- Over-fetches 5x the requested results (e.g., retrieve 25 candidates for topK=5)
+
+#### Stage 2: Cross-Encoder Re-Ranking (Precision-Optimized)
+Uses `transformers.js` with **WebGPU acceleration** to run a cross-encoder model (`ms-marco-MiniLM-L-6-v2`).
+
+**Why Re-Ranking?**
+Bi-encoders (used in Stage 1) encode query and document separately, missing subtle relevance signals. Cross-encoders score query-document pairs jointly, dramatically improving precision.
+
+**Performance:**
+- WebGPU: ~50ms for 25 documents
+- CPU Fallback: ~200ms for 25 documents
+
+#### Stage 3: MMR Diversity Filtering
+Applies **Maximal Marginal Relevance** to ensure the final context set covers diverse aspects of the query.
+
+**Formula:** `MMR = λ · relevance - (1-λ) · max_similarity_to_selected`
+
+**Configuration:**
+- `λ = 0.7` (default): Balanced
+- `λ = 0.9`: Strict relevance (allows duplicates)
+- `λ = 0.5`: Maximum diversity
+
+#### Noise Reduction Features
+
+##### 1. Content Quality Filtering
+**Applied:** At ingestion time (before embedding)
+
+Heuristic scoring system that evaluates:
+- **Positive Signals:** Code blocks (+0.25), Technical terms (+0.15), Complete thoughts (+0.12)
+- **Negative Signals:** Greetings (-0.5), Very short (-0.2), Simple affirmations (-0.4)
+
+**Threshold:** 0.4 (default) - Content scoring below this is not embedded
+
+##### 2. Markdown-Aware Chunking
+**Strategy:** Respects document structure
+- Splits by headers (H1-H6) to keep sections together
+- Preserves code blocks intact
+- Falls back to hybrid chunking for oversized sections
+
+**Benefit:** Avoids mid-sentence or mid-code splits that destroya semantic context
+
+#### Token Limit Enforcement
+All context is truncated to respect the model's context window:
+- Default: 1000 tokens (~4000 characters)
+- Estimation: `tokens ≈ characters / 4`
+
+#### Configuration UI
+Users can tune the pipeline under **Settings > Models > Advanced Retrieval**:
+- Re-Ranking Toggle
+- Hybrid Search Toggle
+- Keyword/Semantic Weight Balance
+- MMR Diversity Lambda
+- Quality Filter Strictness
+
+#### Known Limitations
+- **Language Bias:** Quality filter optimized for English technical content
+- **No Temporal Weighting:** Recent docs not prioritized over old ones
+- **Code-Heavy Edge Case:** Re-ranker may struggle with pure code without surrounding text
+- **Fixed Weights:** Keyword/semantic balance not adaptive to query type
+
 
 ### 4.3. Persistence Strategy
 -   **SQLite (sql.js)**: Primary relational storage.

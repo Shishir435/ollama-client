@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
 import { retrieveContext } from "@/features/chat/rag"
+import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -186,7 +187,7 @@ export const useChat = () => {
         : contextText
     }
 
-    // RAG & Context Injection
+    // RAG & Context Injection with Adaptive Retrieval
     let fileContext = ""
 
     const useRag =
@@ -196,26 +197,59 @@ export const useChat = () => {
 
     if (useRag) {
       try {
-        // Determine scope: specific files or global
-        const fileIds =
-          files && files.length > 0
-            ? (files.map((f) => f.metadata.fileId).filter(Boolean) as string[])
-            : undefined // undefined means search all files
+        // ===== NEW: Query Classification =====
+        // Get recent chat history for context
+        const recentHistory = messages.slice(-5).map((m) => ({
+          role: m.role,
+          content: m.content
+        }))
 
-        logger.verbose("RAG searching for context", "useChat", {
-          scope: fileIds ? "Specific Files" : "Global"
+        const queryClassification = classifyQuery(rawInput || "", recentHistory)
+
+        logger.verbose("Query classified", "useChat", {
+          intent: queryClassification.intent,
+          confidence: queryClassification.confidence,
+          shouldUseRAG: queryClassification.shouldUseRAG
         })
 
-        const context = await retrieveContext(rawInput || "summary", fileIds, {
-          mode: "similarity",
-          topK: 5
-        })
+        // Skip RAG for casual conversational queries without context
+        if (!queryClassification.shouldUseRAG) {
+          logger.info("Skipping RAG for conversational query", "useChat")
+          // Continue without RAG context
+        } else {
+          // ===== END Query Classification =====
 
-        if (context.documents.length > 0) {
-          logger.info("RAG found relevant chunks", "useChat", {
-            chunkCount: context.documents.length
+          // Determine scope: specific files or global
+          const fileIds =
+            files && files.length > 0
+              ? (files
+                  .map((f) => f.metadata.fileId)
+                  .filter(Boolean) as string[])
+              : undefined // undefined means search all files
+
+          logger.verbose("RAG searching for context", "useChat", {
+            scope: fileIds ? "Specific Files" : "Global",
+            suggestedTopK: queryClassification.suggestedTopK,
+            suggestedMode: queryClassification.suggestedMode
           })
-          fileContext = context.formattedContext
+
+          // Use adaptive retrieval parameters from classification
+          const context = await retrieveContext(
+            rawInput || "summary",
+            fileIds,
+            {
+              mode: queryClassification.suggestedMode,
+              topK: queryClassification.suggestedTopK,
+              useReranking: true // Enable enhanced pipeline with re-ranking
+            }
+          )
+
+          if (context.documents.length > 0) {
+            logger.info("RAG found relevant chunks", "useChat", {
+              chunkCount: context.documents.length
+            })
+            fileContext = context.formattedContext
+          }
         }
       } catch (e) {
         logger.error("RAG error", "useChat", { error: e })

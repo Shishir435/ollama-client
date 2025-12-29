@@ -359,7 +359,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Erweiterte Abrufeinstellungen",
+      "reranking_label": "Re-Ranking aktivieren (Transformers.js)",
+      "reranking_description": "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
+      "hybrid_search_label": "Hybrid-Suche aktivieren",
+      "hybrid_search_description": "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",
+      "keyword_weight_label": "Stichwort-Gewichtung",
+      "keyword_weight_description": "Balance zwischen Stichwort (BM25) und semantischer Suche.",
+      "diversity_settings_title": "Diversitätseinstellungen",
+      "mmr_label": "MMR-Diversität aktivieren",
+      "mmr_description": "Maximal Marginal Relevance reduziert Redundanz in den Suchergebnissen.",
+      "diversity_lambda_label": "Diversitäts-Lambda",
+      "diversity_lambda_description": "Niedrigere Werte priorisieren Diversität, höhere Werte priorisieren Relevanz.",
+      "quality_settings_title": "Filterung der Inhaltsqualität",
+      "exclude_casual_label": "Beiläufige Nachrichten ausschließen",
+      "exclude_casual_description": "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
+      "min_quality_score_label": "Mindest-Qualitätsfaktor",
+      "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten."
     }
   },
   "prompts": {

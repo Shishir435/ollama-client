@@ -359,7 +359,24 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Paramètres de récupération avancés",
+      "reranking_label": "Activer le ré-classement (Transformers.js)",
+      "reranking_description": "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
+      "hybrid_search_label": "Activer la recherche hybride",
+      "hybrid_search_description": "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",
+      "keyword_weight_label": "Poids du mot-clé",
+      "keyword_weight_description": "Équilibre entre mot-clé (BM25) et recherche sémantique.",
+      "diversity_settings_title": "Paramètres de diversité",
+      "mmr_label": "Activer la diversité MMR",
+      "mmr_description": "La pertinence marginale maximale réduit la redondance dans les résultats de recherche.",
+      "diversity_lambda_label": "Lambda de diversité",
+      "diversity_lambda_description": "Les valeurs inférieures privilégient la diversité, les valeurs supérieures privilégient la pertinence.",
+      "quality_settings_title": "Filtrage de la qualité du contenu",
+      "exclude_casual_label": "Exclure les messages occasionnels",
+      "exclude_casual_description": "Filtrez les salutations, les réponses courtes et les messages à faible information.",
+      "min_quality_score_label": "Score de qualité minimum",
+      "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu."
     }
   },
   "prompts": {

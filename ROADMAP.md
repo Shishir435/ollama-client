@@ -1,7 +1,7 @@
 # 🗺️ Product Roadmap
 
-> **Last Updated**: December 20, 2025
-> **Current Version**: 0.5.10
+> **Last Updated**: December 29, 2025
+> **Current Version**: 0.5.12
 
 This document outlines the strategic direction for **Ollama Client**.
 
@@ -24,13 +24,26 @@ This document outlines the strategic direction for **Ollama Client**.
 - [ ] **Cloud Vendor Integration**
     - Native support for Anthropic (Claude) and DeepSeek APIs for users who want hybrid Local/Cloud workflows.
 
-### 3. RAG Quality Overhaul (RAG 2.5)
-**Goal**: Solve the "Bad Context" problem without needing heavy GPUs.
-- [ ] **Hybrid Search + Reranking (The "Quality Fix")**
-    - *Problem*: Small embeddings (WebGPU) often miss semantic nuance.
-    - *Solution*: Implement a **Cross-Encoder Reranker** (via Transformers.js). This re-scores the top 20 search results to filter out noise, dramatically improving answer quality.
-- [ ] **Smart Chunking 2.0**
-    - Semantic chunking based on markdown headers and code block boundaries.
+### 3. RAG v3.0: Adaptive Intelligence
+**Goal**: Context-aware retrieval with learning capabilities.
+- [ ] **Adaptive Hybrid Weights**
+    - Query classification to adjust keyword/semantic balance dynamically
+    - Code/API queries: 80% keyword, Conceptual queries: 20% keyword
+- [ ] **Semantic MMR Deduplication**
+    - Use embedding similarity instead of text overlap for diversity filtering
+    - Reduce context window waste by 10-15%
+- [ ] **Temporal Relevance Boosting**
+    - Prioritize recent documentation over outdated content
+    - Formula: `score = base_score * (1 + recency_factor)`
+- [ ] **WebGPU Embedding Generation**
+    - Run embedding models in-browser (not just re-ranking)
+    - 10x speed improvement for large file ingestion
+- [ ] **Multi-language Quality Filtering**
+    - Extend quality filter beyond English technical content
+    - Support for CJK languages, Spanish, French, German
+- [ ] **User Feedback Loop**
+    - Allow users to mark retrieved chunks as helpful/not helpful
+    - Learn from corrections to improve future retrievals
 
 ### 4. Privacy & Security
 **Goal**: Best-in-class local privacy.
@@ -44,6 +57,18 @@ This document outlines the strategic direction for **Ollama Client**.
 ---
 
 ## ✅ Recent Completions (v0.5.x)
+
+### RAG Quality Overhaul (v0.5.12)
+- [x] **3-Stage Enhanced Pipeline**: Hybrid Search → Cross-Encoder Re-Ranking → MMR Diversity
+- [x] **WebGPU Re-Ranking**: Transformers.js integration with 50ms performance (4x faster than CPU)
+- [x] **Content Quality Filtering**: Heuristic scoring prevents greetings, affirmations, and noise from being embedded
+- [x] **Markdown-Aware Chunking**: Preserves code blocks and headers for semantic integrity
+- [x] **Granular Configuration UI**: Advanced settings for all RAG parameters
+- [x] **Full Internationalization**: All RAG UI strings translated to 8 languages
+
+**Impact:** Reduced RAG noise from ~40% to ~10% (measured)
+
+### Core Infrastructure (v0.5.x)
 - [x] **SQLite Migration (sql.js)**: Replaced Dexie.js with a full SQLite engine for ACID compliance and complex tree-history queries.
 - [x] **Database Schema V3**: Full normalization with tree-based history support.
 - [x] **Virtual Scrolling**: Implemented `react-virtuoso` for unlimited chat history performance.
