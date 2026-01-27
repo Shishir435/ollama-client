@@ -17,11 +17,14 @@ export interface RetrievedContext {
   documents: VectorDocument[]
   formattedContext: string
   sources: Array<{
+    id: string | number
     title: string
-    type: string
+    content: string
+    score: number
+    source?: string
     chunkIndex?: number
     fileId?: string
-    score?: number
+    type?: string
   }>
 }
 

@@ -8,6 +8,8 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { CopyButton } from "@/features/chat/components/copy-button"
+import { FeedbackButtons } from "@/features/chat/components/feedback-buttons"
+import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import {
@@ -89,6 +91,14 @@ export const ChatMessageFooter = ({
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
+
+        {/* RAG Sources Button - Show for messages with RAG context */}
+        {msg.metrics?.ragSources && msg.metrics.ragSources.length > 0 && (
+          <RAGSourcesButton
+            sources={msg.metrics.ragSources}
+            query={msg.metrics.ragQuery}
+          />
+        )}
 
         {onEdit && (
           <Button

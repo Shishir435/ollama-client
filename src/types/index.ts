@@ -62,6 +62,17 @@ export interface ChatMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    ragQuery?: string
+    ragSources?: Array<{
+      id: number | string
+      title: string
+      content: string
+      score: number
+      source?: string
+      chunkIndex?: number
+      fileId?: string
+      type?: string
+    }>
   }
   parentId?: number
   childrenIds?: number[]

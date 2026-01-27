@@ -53,6 +53,7 @@ export const useChat = () => {
   const { embedMessages } = useAutoEmbedMessages()
 
   const currentStreamingMessageId = useRef<number | null>(null)
+  const ragSourcesRef = useRef<{ sources: any[]; query: string } | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const debouncedDbUpdate = (id: number, content: string) => {
@@ -140,8 +141,17 @@ export const useChat = () => {
     const assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
-      model: customModel || selectedModel
+      model: customModel || selectedModel,
+      metrics: ragSourcesRef.current
+        ? {
+            ragSources: ragSourcesRef.current.sources,
+            ragQuery: ragSourcesRef.current.query
+          }
+        : undefined
     }
+    // Clear sources after using
+    ragSourcesRef.current = null
+
     const assistantId = await addMessage(sessionId, assistantMessage)
     currentStreamingMessageId.current = assistantId
 
@@ -178,106 +188,13 @@ export const useChat = () => {
     const includeContext =
       !customInput && selectedTabIds.length > 0 && contextText?.trim()
 
-    // Build content with file attachments
-    let contentWithContext = rawInput || ""
+    // Build initial user message content (without RAG context yet)
+    let userContent = rawInput || ""
 
     if (includeContext) {
-      contentWithContext = contentWithContext
-        ? `${contentWithContext}\n\n---\n\n${contextText}`
+      userContent = userContent
+        ? `${userContent}\n\n---\n\n${contextText}`
         : contextText
-    }
-
-    // RAG & Context Injection with Adaptive Retrieval
-    let fileContext = ""
-
-    const useRag =
-      (await plasmoGlobalStorage.get<boolean>(
-        STORAGE_KEYS.EMBEDDINGS.USE_RAG
-      )) ?? true
-
-    if (useRag) {
-      try {
-        // ===== NEW: Query Classification =====
-        // Get recent chat history for context
-        const recentHistory = messages.slice(-5).map((m) => ({
-          role: m.role,
-          content: m.content
-        }))
-
-        const queryClassification = classifyQuery(rawInput || "", recentHistory)
-
-        logger.verbose("Query classified", "useChat", {
-          intent: queryClassification.intent,
-          confidence: queryClassification.confidence,
-          shouldUseRAG: queryClassification.shouldUseRAG
-        })
-
-        // Skip RAG for casual conversational queries without context
-        if (!queryClassification.shouldUseRAG) {
-          logger.info("Skipping RAG for conversational query", "useChat")
-          // Continue without RAG context
-        } else {
-          // ===== END Query Classification =====
-
-          // Determine scope: specific files or global
-          const fileIds =
-            files && files.length > 0
-              ? (files
-                  .map((f) => f.metadata.fileId)
-                  .filter(Boolean) as string[])
-              : undefined // undefined means search all files
-
-          logger.verbose("RAG searching for context", "useChat", {
-            scope: fileIds ? "Specific Files" : "Global",
-            suggestedTopK: queryClassification.suggestedTopK,
-            suggestedMode: queryClassification.suggestedMode
-          })
-
-          // Use adaptive retrieval parameters from classification
-          const context = await retrieveContext(
-            rawInput || "summary",
-            fileIds,
-            {
-              mode: queryClassification.suggestedMode,
-              topK: queryClassification.suggestedTopK,
-              useReranking: true // Enable enhanced pipeline with re-ranking
-            }
-          )
-
-          if (context.documents.length > 0) {
-            logger.info("RAG found relevant chunks", "useChat", {
-              chunkCount: context.documents.length
-            })
-            fileContext = context.formattedContext
-          }
-        }
-      } catch (e) {
-        logger.error("RAG error", "useChat", { error: e })
-        toast({
-          variant: "destructive",
-          title: "RAG Warning",
-          description:
-            "Failed to retrieve context from files. Searching without context."
-        })
-      }
-    }
-
-    // Fallback to full text ONLY if specific files attached AND no RAG context found
-    if (!fileContext && files && files.length > 0) {
-      fileContext = files
-        .map(
-          (file) =>
-            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
-              file.text.length > 10000 ? "\n... (truncated)" : ""
-            }`
-        )
-        .join("\n\n---\n\n")
-    }
-
-    if (fileContext) {
-      contentWithContext = contentWithContext
-        ? `${contentWithContext}\n\n---\n\n${fileContext}`
-        : fileContext
     }
 
     // Create file attachments metadata
@@ -294,25 +211,119 @@ export const useChat = () => {
           }))
         : undefined
 
-    // 1. Add User Message
+    // ✅ 1. Display user message IMMEDIATELY (instant feedback)
     const userMessage: ChatMessage = {
       role: "user",
-      content: contentWithContext,
+      content: userContent,
       attachments
     }
-    // Optimistic UI update? No, addMessage updates store.
     await addMessage(currentSessionId, userMessage)
 
-    // 2. Add Assistant Msg and Stream
-    const newMessages = [...messages, userMessage] // History + New User Msg
+    // Clear input immediately for better UX
+    if (!customInput) setInput("")
 
     // Rename session title if it's still "New Chat"
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
     await autoRenameSession(sessionId, titleContent)
 
-    if (!customInput) setInput("")
+    // 🔄 2. Calculate RAG context asynchronously (in background)
+    let contentWithRAG = userContent
+    const useRag =
+      (await plasmoGlobalStorage.get<boolean>(
+        STORAGE_KEYS.EMBEDDINGS.USE_RAG
+      )) ?? true
 
-    await generateResponse(customModel, sessionId, newMessages)
+    if (useRag) {
+      try {
+        // Get recent chat history for context
+        const recentHistory = messages.slice(-5).map((m) => ({
+          role: m.role,
+          content: m.content
+        }))
+
+        const queryClassification = classifyQuery(rawInput || "", recentHistory)
+
+        logger.verbose("Query classified", "useChat", {
+          intent: queryClassification.intent,
+          confidence: queryClassification.confidence,
+          shouldUseRAG: queryClassification.shouldUseRAG
+        })
+
+        // Skip RAG for casual conversational queries
+        if (!queryClassification.shouldUseRAG) {
+          logger.info("Skipping RAG for conversational query", "useChat")
+        } else {
+          // Determine scope: specific files or global
+          const fileIds =
+            files && files.length > 0
+              ? (files
+                  .map((f) => f.metadata.fileId)
+                  .filter(Boolean) as string[])
+              : undefined
+
+          logger.verbose("RAG searching for context", "useChat", {
+            scope: fileIds ? "Specific Files" : "Global",
+            suggestedTopK: queryClassification.suggestedTopK,
+            suggestedMode: queryClassification.suggestedMode
+          })
+
+          // Retrieve RAG context
+          const context = await retrieveContext(
+            rawInput || "summary",
+            fileIds,
+            {
+              mode: queryClassification.suggestedMode,
+              topK: queryClassification.suggestedTopK,
+              useReranking: true
+            }
+          )
+
+          if (context.documents.length > 0) {
+            logger.info("RAG found relevant chunks", "useChat", {
+              chunkCount: context.documents.length
+            })
+            const fileContext = context.formattedContext
+            // Store sources for display in "i" button
+            ragSourcesRef.current = {
+              sources: context.sources,
+              query: rawInput || "summary"
+            }
+            // Append RAG context to user message for LLM
+            contentWithRAG = `${contentWithRAG}\n\n---\n\n${fileContext}`
+          }
+        }
+      } catch (e) {
+        logger.error("RAG error", "useChat", { error: e })
+        toast({
+          variant: "destructive",
+          title: "RAG Warning",
+          description:
+            "Failed to retrieve context from files. Continuing without RAG."
+        })
+      }
+    }
+
+    // Fallback to full text ONLY if specific files attached AND no RAG context found
+    if (contentWithRAG === userContent && files && files.length > 0) {
+      const fullTextContext = files
+        .map(
+          (file) =>
+            `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
+              file.text.length > 10000 ? "\n... (truncated)" : ""
+            }`
+        )
+        .join("\n\n---\n\n")
+      contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
+    }
+
+    // 3. Send to LLM with RAG-enhanced context
+    // Create a new messages array with the RAG-enhanced user message
+    const messagesForLLM = [
+      ...messages,
+      { ...userMessage, content: contentWithRAG }
+    ]
+
+    await generateResponse(customModel, sessionId, messagesForLLM)
   }
 
   return {
