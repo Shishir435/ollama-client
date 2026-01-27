@@ -116,10 +116,11 @@ Chunk 2: "## Next Section\The following code block demonstrates:\n```python\ndef
    - Software docs become outdated fast
    - **Impact:** High for versioned documentation
 
-5. **WebGPU Dependency for Performance**
-   - Re-ranking on CPU is 4x slower (~200ms vs ~50ms)
-   - Older devices or browsers without WebGPU support will experience lag
-   - **Impact:** UX degradation on 20-30% of devices
+5. **CSP Constraint Blocks WebGPU Embedding Generation**
+   - Chrome Extension CSP prevents loading WASM modules required for Transformers.js embedding models
+   - Re-ranking via WebGPU *does* work (implemented in v0.5.12), but embedding generation must use Ollama
+   - **Impact:** Large file ingestion (100-page PDFs) remains slow (~2 min vs theoretical 20 sec with WebGPU)
+   - **Workaround:** Users must ensure Ollama is running; no offline in-browser embedding generation possible
 
 #### Metric: "Is RAG injecting less noise or exact content?"
 
@@ -181,19 +182,28 @@ To move from "Excellent Extension" to "Enterprise-Grade Platform", the following
 *   **Solution**: Use embedding similarity for MMR instead of word overlap.
 *   **Impact**: Reduce context window waste by ~10-15%.
 
-### 4.4. Temporal Relevance Boosting
-*   **Problem**: Old documentation ranks equally with new if semantically similar.
-*   **Solution**: Add recency boost: `final_score = base_score * (1 + recency_factor)`
-*   **Impact**: Critical for software documentation where APIs/syntax change frequently.
+### 4.4. Adaptive RAG Pipeline (v3.0)
+- **Status**: ✅ **COMPLETED**
+- **Adaptive Hybrid Weights**: Automatically classifies queries (Code/API vs Conceptual) and adjusts keyword/semantic balance (80/20 vs 30/70).
+- **Temporal Relevance**: Boosts recent documentation using exponential decay scoring (90-day half-life).
+- **Semantic MMR**: Uses embedding cosine similarity for diversity filtering, reducing redundant context.
+- **Impact**: significantly improved precision for technical documentation and API queries.
 
 ### 4.5. WebGPU Embedding Acceleration
-*   **Status**: ✅ **COMPLETED for Re-Ranking** (using Transformers.js with WebGPU)
-*   **Next Step**: Use WebGPU for embedding generation (not just re-ranking)
-*   **Problem**: Generating embeddings via CPU (Ollama) is slow for large files.
-*   **Solution**: Run a small embedding model (like `nomic-embed-text-tiny`) directly in the browser's GPU.
-*   **Impact**:
-    *   Embedding a 100-page PDF could drop from **2 minutes** to **20 seconds**.
-    *   Reduces load on the user's Ollama instance.
+- **Status**: ✅ **COMPLETED for Re-Ranking** | ❌ **BLOCKED for Embedding Generation**
+- **Re-Ranking Success:** WebGPU cross-encoder via Transformers.js works (50ms vs 200ms CPU)
+- **Embedding Generation BLOCKED by CSP:**
+  - Transformers.js requires dynamic WASM loading from CDN
+  - Chrome Extension CSP `script-src` and `worker-src` directives prohibit this
+  - **Workarounds Investigated:**
+    1. ❌ Bundle WASM/models locally (exceeds 100MB+ extension size limits)
+    2. ❌ Service worker proxy (even stricter CSP)
+    3. ⚠️ Relaxed CSP with `wasm-unsafe-eval` (security risk, likely rejected by Chrome Web Store)
+  - **Current Solution:** Ollama-only embedding generation (reliable, high quality, but slower for large files)
+  - **Future Possibilities:**
+    - CSP policy relaxation for WebAssembly in Chrome Extensions
+    - Server-side embedding API option for users who want speed
+    - Alternative in-browser ML frameworks compatible with CSP
 
 ### 4.6. Unified Sync Layer
 

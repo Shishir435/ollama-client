@@ -26,18 +26,20 @@ This document outlines the strategic direction for **Ollama Client**.
 
 ### 3. RAG v3.0: Adaptive Intelligence
 **Goal**: Context-aware retrieval with learning capabilities.
-- [ ] **Adaptive Hybrid Weights**
+- [x] **Adaptive Hybrid Weights**
     - Query classification to adjust keyword/semantic balance dynamically
-    - Code/API queries: 80% keyword, Conceptual queries: 20% keyword
-- [ ] **Semantic MMR Deduplication**
-    - Use embedding similarity instead of text overlap for diversity filtering
-    - Reduce context window waste by 10-15%
-- [ ] **Temporal Relevance Boosting**
+    - Code/API queries: 80% keyword, Conceptual queries: 30% keyword
+- [x] **Semantic MMR Deduplication**
+    - Use embedding similarity (cosine) instead of text overlap for diversity filtering
+    - Reduces context window waste by 10-15%
+- [x] **Temporal Relevance Boosting**
     - Prioritize recent documentation over outdated content
-    - Formula: `score = base_score * (1 + recency_factor)`
-- [ ] **WebGPU Embedding Generation**
-    - Run embedding models in-browser (not just re-ranking)
-    - 10x speed improvement for large file ingestion
+    - Formula: `score = base_score * (1 + recency_factor)` (Exponential decay)
+- [ ] **WebGPU Embedding Generation** ⚠️ **BLOCKED: CSP Constraint**
+    - Chrome Extension CSP prevents WASM module loading required by Transformers.js
+    - Workarounds (bundling models locally, relaxed CSP with `wasm-unsafe-eval`) are not viable
+    - **Note:** WebGPU re-ranking *does* work and is implemented in v0.5.12
+    - **Potential Future Solutions:** Server-side embedding API, CSP policy changes, or alternative in-browser ML frameworks
 - [ ] **Multi-language Quality Filtering**
     - Extend quality filter beyond English technical content
     - Support for CJK languages, Spanish, French, German
