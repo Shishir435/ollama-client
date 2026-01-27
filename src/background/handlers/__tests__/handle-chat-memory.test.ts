@@ -37,6 +37,11 @@ vi.mock("@/background/lib/memory-manager", () => ({
   }
 }))
 
+vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn(),
+  formatEnhancedResults: vi.fn()
+}))
+
 describe("handleChatWithModel - Contextual Memory", () => {
   let mockPort: ReturnType<typeof createMockPort>
   let mockIsPortClosed: ReturnType<typeof createMockIsPortClosed>
@@ -51,7 +56,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should inject context when memory is enabled", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContext } = await import("@/lib/embeddings/vector-store")
+    const { retrieveContextEnhanced, formatEnhancedResults } = await import("@/features/chat/rag/rag-pipeline")
     
     // Mock Memory Enabled
     vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
@@ -60,10 +65,14 @@ describe("handleChatWithModel - Contextual Memory", () => {
     })
 
     // Mock Context Retrieval
-    vi.mocked(retrieveContext).mockResolvedValue([
-      "User likes pizza",
-      "User lives in New York"
-    ])
+    vi.mocked(retrieveContextEnhanced).mockResolvedValue([
+      { document: { content: "User likes pizza", metadata: {} }, score: 0.9 },
+      { document: { content: "User lives in New York", metadata: {} }, score: 0.8 }
+    ] as any)
+    vi.mocked(formatEnhancedResults).mockReturnValue({
+      formattedContext: "- User likes pizza\n- User lives in New York",
+      sources: []
+    } as any)
 
     const mockResponse = new Response(new ReadableStream(), { status: 200 })
     vi.mocked(fetch).mockResolvedValue(mockResponse)
@@ -92,7 +101,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should NOT inject context when memory is disabled", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContext } = await import("@/lib/embeddings/vector-store")
+    const { retrieveContextEnhanced } = await import("@/features/chat/rag/rag-pipeline")
     
     // Mock Memory Disabled
     vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
@@ -114,7 +123,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
     await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-    expect(retrieveContext).not.toHaveBeenCalled()
+    expect(retrieveContextEnhanced).not.toHaveBeenCalled()
     
     const callArgs = vi.mocked(fetch).mock.calls[0]
     const requestBody = JSON.parse(callArgs[1]?.body as string)

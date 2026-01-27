@@ -5,8 +5,11 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { memoryManager } from "@/background/lib/memory-manager"
 import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
+import {
+  formatEnhancedResults,
+  retrieveContextEnhanced
+} from "@/features/chat/rag/rag-pipeline"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
-import { retrieveContext } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
@@ -66,24 +69,48 @@ export const handleChatWithModel = async (
     if (isMemoryEnabled && messages.length > 0) {
       const lastUserMessage = messages[messages.length - 1]
       if (lastUserMessage.role === "user") {
-        const context = await retrieveContext(
+        const enhancedResults = await retrieveContextEnhanced(
           lastUserMessage.content,
-          sessionId || "unknown"
+          {
+            // You might need to pass fileId if you want to restrict search to current session files
+            // For now, we search all files or let the pipeline handle defaults
+          }
         )
 
-        if (context.length > 0) {
+        const { formattedContext, sources } =
+          formatEnhancedResults(enhancedResults)
+
+        if (enhancedResults.length > 0) {
           logger.info(
-            `Injected ${context.length} past context items`,
+            `Injected ${enhancedResults.length} past context items`,
             "handleChatWithModel",
             {
-              contextCount: context.length
+              contextCount: enhancedResults.length
             }
           )
-          const contextString = context.map((c) => `- ${c}`).join("\n")
+
+          // Send RAG sources to frontend for feedback UI
+          // We use a custom message type that the frontend store needs to handle
+          try {
+            port.postMessage({
+              type: "rag_sources",
+              payload: {
+                sources,
+                query: lastUserMessage.content
+              }
+            })
+          } catch (e) {
+            logger.warn(
+              "Failed to send RAG sources to frontend",
+              "handleChatWithModel",
+              { error: e }
+            )
+          }
+
           const systemContext = `
 
 IMPORTANT: You have access to context from previous conversations with this user:
-${contextString}
+${formattedContext}
 
 Use this information to provide personalized and contextually aware responses. When the user asks about past conversations or information they've shared, refer to this context.`
 

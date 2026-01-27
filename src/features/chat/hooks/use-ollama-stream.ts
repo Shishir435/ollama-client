@@ -57,10 +57,19 @@ export const useOllamaStream = ({
 
     let firstChunk = true
 
-    const listener = (msg: ChatStreamMessage) => {
+    const listener = (msg: any) => {
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false
+      }
+
+      if (msg.type === "rag_sources" && msg.payload?.sources) {
+        assistantMessage.metrics = {
+          ...assistantMessage.metrics,
+          ragSources: msg.payload.sources,
+          ragQuery: msg.payload.query
+        }
+        return
       }
 
       if (msg.delta !== undefined) {
@@ -100,7 +109,11 @@ export const useOllamaStream = ({
         } else {
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
-            { ...assistantMessage, metrics: msg.metrics, done: true }
+            {
+              ...assistantMessage,
+              metrics: { ...assistantMessage.metrics, ...msg.metrics },
+              done: true
+            }
           ]
         }
 

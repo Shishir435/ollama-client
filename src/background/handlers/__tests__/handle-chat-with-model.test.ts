@@ -37,6 +37,11 @@ vi.mock("@/background/lib/memory-manager", () => ({
   }
 }))
 
+vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn().mockResolvedValue([]),
+  formatEnhancedResults: vi.fn().mockReturnValue({ formattedContext: "", sources: [] })
+}))
+
 describe("handleChatWithModel", () => {
   let mockPort: ReturnType<typeof createMockPort>
   let mockIsPortClosed: ReturnType<typeof createMockIsPortClosed>
