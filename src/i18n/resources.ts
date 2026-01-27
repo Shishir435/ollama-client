@@ -416,6 +416,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "Erweiterte Abrufeinstellungen",
+          adaptive_weights_label: "Adaptive Hybrid-Gewichtung",
+          adaptive_weights_description:
+            "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
+          temporal_boosting_label: "Zeitliche Relevanzverstärkung",
+          temporal_boosting_description:
+            "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
           reranking_label: "Re-Ranking aktivieren (Transformers.js)",
           reranking_description:
             "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
@@ -1529,6 +1535,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "Advanced Retrieval Settings",
+          adaptive_weights_label: "Adaptive Hybrid Weights",
+          adaptive_weights_description:
+            "Automatically adjust keyword vs. semantic search based on query type (e.g., code vs. concepts)",
+          temporal_boosting_label: "Temporal Relevance Boosting",
+          temporal_boosting_description:
+            "Prioritize newer documentation using exponential decay scoring",
           reranking_label: "Enable Re-Ranking (Transformers.js)",
           reranking_description:
             "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
@@ -1551,7 +1563,27 @@ export const resources = {
             "Filter out greetings, short responses, and low-information messages.",
           min_quality_score_label: "Min Quality Score",
           min_quality_score_description:
-            "Minimum quality score (0-1) required to embed content."
+            "Minimum quality threshold for embedding content (0-1). Higher values filter more aggressively.",
+          embedding_source_label: "Embedding Generation Source",
+          embedding_source_description:
+            "Embeddings are generated using your local Ollama server",
+          embedding_source_ollama: "Ollama (Local Server)",
+          feedback_learning_title: "User Feedback Learning",
+          feedback_learning_description:
+            "Improve search quality by learning from your feedback",
+          feedback_enable_label: "Enable Feedback Collection",
+          feedback_enable_description:
+            "Remember which chunks were helpful to improve future retrieval",
+          feedback_show_chunks_label: "Show Retrieved Chunks",
+          feedback_show_chunks_description:
+            "Display source chunks in chat with feedback buttons",
+          feedback_blend_weight_label: "Feedback Learning Weight",
+          feedback_blend_weight_description:
+            "How much to trust learned feedback vs model scores (0-1)",
+          feedback_export_button: "Export Feedback Data",
+          feedback_clear_button: "Clear All Feedback",
+          feedback_privacy_note:
+            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
         }
       },
       prompts: {
@@ -2633,6 +2665,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "Configuración avanzada de recuperación",
+          adaptive_weights_label: "Pesos Híbridos Adaptativos",
+          adaptive_weights_description:
+            "Ajuste automático de búsqueda por palabras clave frente a semántica según el tipo de consulta (p. ej., código frente a conceptos)",
+          temporal_boosting_label: "Impulso de Relevancia Temporal",
+          temporal_boosting_description:
+            "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
           reranking_label: "Habilitar Re-Ranking (Transformers.js)",
           reranking_description:
             "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
@@ -3741,6 +3779,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "Paramètres de récupération avancés",
+          adaptive_weights_label: "Poids Hybrides Adaptatifs",
+          adaptive_weights_description:
+            "Ajustement automatique de la recherche par mots-clés vs sémantique selon le type de requête (ex: code vs concepts)",
+          temporal_boosting_label: "Renforcement de la Pertinence Temporelle",
+          temporal_boosting_description:
+            "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
           reranking_label: "Activer le ré-classement (Transformers.js)",
           reranking_description:
             "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
@@ -4842,6 +4886,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "उन्नत पुनर्प्राप्ति सेटिंग्स",
+          adaptive_weights_label: "अनुकूली हाइब्रिड भार",
+          adaptive_weights_description:
+            "क्वेरी प्रकार (जैसे, कोड बनाम अवधारणाएं) के आधार पर कीवर्ड बनाम शब्दार्थ खोज को स्वचालित रूप से समायोजित करें",
+          temporal_boosting_label: "कालिक प्रासंगिकता बढ़ावा",
+          temporal_boosting_description:
+            "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
           reranking_label: "री-रैंकिंग सक्षम करें (Transformers.js)",
           reranking_description:
             "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
@@ -5933,7 +5983,13 @@ export const resources = {
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
-          advanced_retrieval_title: "Impostazioni avanzate di recupero",
+          advanced_retrieval_title: "Impostazioni di Recupero Avanzate",
+          adaptive_weights_label: "Pesi Ibridi Adattivi",
+          adaptive_weights_description:
+            "Regolazione automatica della ricerca per parole chiave vs semantica in base al tipo di query (es. codice vs concetti)",
+          temporal_boosting_label: "Potenziamento Rilevanza Temporale",
+          temporal_boosting_description:
+            "Priorità alla documentazione più recente utilizzando il punteggio di decadimento esponenziale",
           reranking_label: "Abilita Re-Ranking (Transformers.js)",
           reranking_description:
             "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
@@ -7043,6 +7099,12 @@ export const resources = {
           rag_system_prompt_description:
             "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
           advanced_retrieval_title: "高度な検索設定",
+          adaptive_weights_label: "適応型ハイブリッド重み付け",
+          adaptive_weights_description:
+            "クエリタイプ（例：コード対概念）に基づいて、キーワード検索とセマンティック検索を自動的に調整します",
+          temporal_boosting_label: "時間的関連性の向上",
+          temporal_boosting_description:
+            "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
           reranking_label: "再ランク付けを有効にする (Transformers.js)",
           reranking_description:
             "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
@@ -8133,6 +8195,12 @@ export const resources = {
           rag_system_prompt_description:
             "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя.",
           advanced_retrieval_title: "Расширенные настройки поиска",
+          adaptive_weights_label: "Адаптивные Гибридные Веса",
+          adaptive_weights_description:
+            "Автоматическая настройка поиска по ключевым словам и семантического поиска в зависимости от типа запроса (например, код или концепции)",
+          temporal_boosting_label: "Усиление Временной Релевантности",
+          temporal_boosting_description:
+            "Приоритет более новой документации с использованием оценки экспоненциального затухания",
           reranking_label: "Включить переранжирование (Transformers.js)",
           reranking_description:
             "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
@@ -9211,6 +9279,11 @@ export const resources = {
           rag_system_prompt_description:
             "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。",
           advanced_retrieval_title: "高级检索设置",
+          adaptive_weights_label: "自适应混合权重",
+          adaptive_weights_description:
+            "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
+          temporal_boosting_label: "时间相关性增强",
+          temporal_boosting_description: "使用指数衰减评分优先考虑较新的文档",
           reranking_label: "启用重新排序 (Transformers.js)",
           reranking_description:
             "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
