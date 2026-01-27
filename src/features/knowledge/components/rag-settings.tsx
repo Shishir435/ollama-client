@@ -17,6 +17,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { FeedbackSettings } from "./feedback-settings"
 
 export const RAGSettings = () => {
   const { t } = useTranslation()
@@ -99,13 +100,44 @@ export const RAGSettings = () => {
           </AccordionTrigger>
           <AccordionContent className="space-y-6 pt-4">
             <SettingsSwitch
+              label={t("model.embedding_config.adaptive_weights_label")}
+              description={t(
+                "model.embedding_config.adaptive_weights_description"
+              )}
+              checked={config.useAdaptiveWeights ?? true}
+              onCheckedChange={(val) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  useAdaptiveWeights: val
+                }))
+              }
+            />
+
+            <SettingsSwitch
+              label={t("model.embedding_config.temporal_boosting_label")}
+              description={t(
+                "model.embedding_config.temporal_boosting_description"
+              )}
+              checked={config.useTemporalBoosting ?? true}
+              onCheckedChange={(val) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  useTemporalBoosting: val
+                }))
+              }
+            />
+
+            <SettingsSwitch
               label={t("model.embedding_config.reranking_label")}
               description={t("model.embedding_config.reranking_description")}
               checked={
                 config.useReranking ?? DEFAULT_EMBEDDING_CONFIG.useReranking
               }
-              onCheckedChange={(checked) =>
-                setConfig((prev) => ({ ...prev, useReranking: checked }))
+              onCheckedChange={(val) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  useReranking: val
+                }))
               }
             />
 
@@ -238,6 +270,9 @@ export const RAGSettings = () => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {/* User Feedback Learning */}
+      <FeedbackSettings />
 
       <SettingsFormField
         label={t("model.embedding_config.rag_system_prompt_label")}

@@ -1,18 +1,26 @@
-import { pipeline, type TextClassificationPipeline } from "@xenova/transformers"
+import {
+  env,
+  pipeline,
+  type TextClassificationPipeline
+} from "@xenova/transformers"
 import { logger } from "@/lib/logger"
+
+// Configure transformers.js to use CDN models
+env.allowLocalModels = false
+env.allowRemoteModels = true
 
 /**
  * Re-ranker service using transformers.js cross-encoder models
  *
- * Uses jina-reranker-v1-tiny-en (30MB) with WebGPU acceleration
- * Falls back to CPU if WebGPU unavailable
- * Model is lazily loaded and cached in browser
+ * ⚠️ DISABLED BY DEFAULT in Chrome extensions due to CSP constraints
+ * Transformers.js requires worker blob URLs which violate extension CSP
+ * Falls back to similarity-only scoring
  */
 class RerankerService {
   private model: TextClassificationPipeline | null = null
   private loading: Promise<TextClassificationPipeline> | null = null
-  private enabled: boolean = true
-  private modelName = "Xenova/jina-reranker-v1-tiny-en"
+  private enabled: boolean = false // DISABLED: CSP prevents transformers.js in extensions
+  private modelName = "Xenova/bge-reranker-base"
 
   /**
    * Get or load the re-ranker model (lazy loading)

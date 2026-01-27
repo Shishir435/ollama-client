@@ -52,6 +52,22 @@ export interface EmbeddingConfig {
   // Diversity Settings
   diversityEnabled: boolean // Enable MMR diversity (default: true)
   diversityLambda: number // MMR lambda 0-1 (default: 0.7)
+
+  // Re-ranking Quality
+  minRerankScore: number // Minimum re-ranking confidence threshold 0-1 (default: 0.6)
+
+  // Adaptive Search (RAG v3.0)
+  useAdaptiveWeights: boolean // Enable adaptive hybrid weights based on query type (default: true)
+
+  // Temporal Relevance (RAG v3.0)
+  useTemporalBoosting: boolean // Enable recency boost for time-sensitive content (default: true)
+  temporalBoostWeight: number // Max boost multiplier 0-1 (default: 0.3 = 30% max boost)
+  temporalHalfLife: number // Days for 50% decay (default: 90)
+
+  // User Feedback Learning
+  feedbackEnabled: boolean // Enable user feedback collection (default: true)
+  showRetrievedChunks: boolean // Show retrieved chunks in chat UI (default: true)
+  feedbackBlendWeight: number // Weight for learned scores 0-1 (default: 0.2)
 }
 
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
@@ -79,14 +95,28 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: true,
+  useReranking: false, // DISABLED: transformers.js incompatible with Chrome extension CSP
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
   minQualityScore: 0.4,
   excludeGreetings: true,
   diversityEnabled: true,
-  diversityLambda: 0.7
+  diversityLambda: 0.7,
+  minRerankScore: 0.6, // Prevent low-confidence results
+
+  // Adaptive Search (RAG v3.0)
+  useAdaptiveWeights: true,
+
+  // Temporal Relevance (RAG v3.0)
+  useTemporalBoosting: true,
+  temporalBoostWeight: 0.3, // 30% max boost for recent content
+  temporalHalfLife: 90, // 3 months half-life
+
+  // User Feedback Learning
+  feedbackEnabled: true,
+  showRetrievedChunks: true,
+  feedbackBlendWeight: 0.2
 }
 
 export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
