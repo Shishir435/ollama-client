@@ -59,9 +59,6 @@ Reranker note:
 - Keyword index: local keyword index manager
 - ANN-like search path: local in-memory index manager + brute-force fallback
 
-### Planned / documented upgrade path
-
-- `docs/HNSW_WASM_UPGRADE.md` describes an offscreen/WASM upgrade path for faster ANN search.
 
 ### Not currently implemented as runtime default
 
