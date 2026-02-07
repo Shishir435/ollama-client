@@ -1,72 +1,52 @@
-# Contributor Covenant Code of Conduct
+# Code of Conduct
 
-## Our Pledge
+This project follows the Contributor Covenant Code of Conduct (v2.1).
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
+## Our Commitment
 
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
+We are committed to making participation in this project respectful, inclusive, and harassment-free for everyone, regardless of background, identity, or experience level.
 
-## Our Standards
+## Expected Behavior
 
-Examples of behavior that contributes to a positive environment for our
-community include:
+- Be respectful and professional in issues, PRs, reviews, and discussions.
+- Give constructive feedback focused on code and outcomes.
+- Assume good intent, and ask clarifying questions before escalating.
+- Accept feedback and correct mistakes quickly.
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
-* Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing to those affected by our mistakes,
-  and learning from the experience
-* Focusing on what is best not just for us as individuals, but for the
-  overall community
+## Unacceptable Behavior
 
-Examples of unacceptable behavior include:
-
-* The use of sexualized language or imagery, and sexual attention or
-  advances of any kind
-* Trolling, insulting or derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or email
-  address, without their explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
-
-## Enforcement Responsibilities
-
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
-
-Community leaders have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will communicate reasons for moderation
-decisions when appropriate.
+- Harassment, hate speech, threats, or personal attacks.
+- Doxxing or sharing private information without permission.
+- Repeated disruptive behavior after moderation requests.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
+This Code of Conduct applies to all project spaces, including:
+
+- GitHub issues, pull requests, reviews, and discussions
+- Project docs and communication channels
+- Any public space where a person is representing this project
+
+## Reporting
+
+To report violations, email:
+
+- `shishirchaurasiya435@gmail.com`
+
+Please include links, screenshots, timestamps, and any context that helps review.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement.
-All complaints will be reviewed and investigated promptly and fairly.
+Project maintainers will review reports and may take actions including:
+
+1. Warning and request for behavior change
+2. Temporary participation restrictions
+3. Permanent removal from project spaces
+
+Maintainers will handle reports as promptly and confidentially as possible.
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.1, available at
-[https://www.contributor-covenant.org/version/2/1/code_of_conduct.html][v2.1].
+Adapted from the Contributor Covenant, version 2.1:
 
-[homepage]: https://www.contributor-covenant.org
-[v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
+- <https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>

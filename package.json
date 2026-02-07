@@ -2,47 +2,23 @@
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
   "version": "0.6.0",
-  "description": "Privacy-first Ollama Chrome extension to chat with local AI models like LLaMA, Mistral, Gemma — fully offline.",
+  "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
+    "local llm chrome extension",
     "ollama client",
-    "ollama",
-    "ollama ui",
-    "ollama chrome extension",
-    "ollama desktop alternative",
+    "offline ai assistant",
     "ollama browser extension",
-    "local llm",
-    "local ai",
-    "offline ai chat",
-    "offline chatbot",
+    "lm studio integration",
+    "llama.cpp browser integration",
+    "rag with local llms",
     "privacy-first ai",
-    "local ai models",
-    "llama",
-    "llama 2",
-    "llama 3",
-    "llama 4",
-    "mistral",
-    "gemma",
-    "qwen",
-    "deepseek",
-    "deepseek r1",
-    "openai alternative",
-    "gpt-oss",
-    "claude",
-    "local chatbot",
-    "chrome extension ai",
-    "ai extension",
-    "open-source ai",
+    "local ai chat",
+    "offline ai chat",
     "self-hosted ai",
     "private ai chat",
-    "offline gpt",
-    "local gpt",
-    "run ai locally",
-    "local model chat",
-    "browser ai",
-    "ai in browser",
-    "no cloud ai",
-    "personal ai assistant"
+    "open-source ai",
+    "browser ai assistant"
   ],
   "license": "MIT",
   "repository": {
@@ -51,7 +27,7 @@
   },
   "homepage": "https://ollama-client.shishirchaurasiya.in",
   "bugs": {
-    "url": "https://github.com/shishir435/ollama-client/issues"
+    "url": "https://github.com/Shishir435/ollama-client/issues"
   },
   "scripts": {
     "dev": "plasmo dev",
@@ -205,5 +181,8 @@
       }
     }
   },
-  "packageManager": "pnpm@10.15.0"
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=18"
+  }
 }

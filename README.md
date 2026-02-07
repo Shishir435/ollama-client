@@ -4,7 +4,7 @@ A local-first, privacy-first browser extension for running chat workflows with l
 
 ## What This Project Is
 
-Ollama Client is a sidepanel-based AI chat extension for Chromium browsers (and experimental Firefox support) that lets you run LLM conversations against provider endpoints you control.
+Ollama Client is a sidepanel-based AI chat extension for Chromium browsers (and supports Firefox ) that lets you run LLM conversations against provider endpoints you control.
 
 It started as an Ollama client and now includes multi-provider routing and local RAG features added in `v0.6.0`.
 
@@ -48,6 +48,7 @@ Most browser AI tools are cloud-first. This project is intentionally local-first
 - Message/session export and import
 - Prompt templates and text-to-speech controls
 - Content extraction from pages/tabs with site overrides
+- Chat branching/forking
 
 ## Architecture Overview (High Level)
 
@@ -104,7 +105,7 @@ CSP constraint note:
 ### For users
 
 1. Install extension from Chrome Web Store:
-   - https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl
+   - [Ollama Client](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
 2. Start a provider endpoint:
    - Ollama default: `http://localhost:11434`
    - LM Studio default profile: `http://localhost:1234/v1`
@@ -130,7 +131,7 @@ pnpm build
 pnpm package
 ```
 
-Firefox (experimental):
+Firefox:
 
 ```bash
 pnpm dev:firefox
@@ -157,7 +158,7 @@ pnpm package:firefox
 
 ### Parameter tuning
 
-Per-model parameters are stored locally (temperature/top_p/top_k/etc.).
+Per-model parameters are stored locally (`temperature/top_p/top_k/etc.`).
 Use conservative defaults first, then tune for task-specific behavior.
 
 ### RAG and embedding controls
@@ -189,7 +190,7 @@ Near-term focus:
 
 ## Contributing (Summary)
 
-- Read `/docs/contributing.md` before opening a PR.
+- Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
 - Keep changes scoped and testable.
 - Include reproduction steps for bug fixes.
 - Update docs in the same PR when behavior changes.
@@ -214,13 +215,13 @@ If your local provider is misconfigured, overloaded, or offline, extension UX wi
 
 ## License
 
-MIT License (`/LICENCE`).
+MIT License [LICENCE](./LICENCE).
 
 ## Documentation Map
 
 - [Architecture Guide](./docs/architecture.md)
 - [Provider Support](./docs/providers.md)
 - [RAG & Search Guide](./docs/rag.md)
-- [Contributing Guide](./docs/contributing.md)
-- [Ollama Setup Guide](./docs/ollama-setup-guide.html)
-- [Privacy Policy](./docs/privacy-policy.html)
+- [Contributing Guide](./CONTRIBUTING.md)
+- [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
+- [Privacy Policy](https://ollama-client.shishirchaurasiya.in/privacy-policy)

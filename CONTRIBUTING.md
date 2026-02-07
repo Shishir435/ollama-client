@@ -1,124 +1,141 @@
-# Contributing to Ollama Client
+# Contributing Guide
 
-First off, thanks for taking the time to contribute! ❤️
+This guide is focused on practical contributor workflow for this repository.
 
-All types of contributions are encouraged and valued. See the [Table of Contents](#table-of-contents) for different ways to help and details about how this project handles them.
-
-## Table of Contents
-
-- [I Have a Question](#i-have-a-question)
-- [I Want To Contribute](#i-want-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Enhancements](#suggesting-enhancements)
-  - [Your First Code Contribution](#your-first-code-contribution)
-- [Development Workflow](#development-workflow)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Development Server](#development-server)
-  - [Code Quality (Linting & Formatting)](#code-quality-linting--formatting)
-  - [Testing](#testing)
-
-## I Have a Question
-
-> If you want to ask a question, we assume that you have read the available [Documentation](https://github.com/Shishir435/ollama-client#readme).
-
-Before you ask a question, it is best to search for existing [Issues](https://github.com/Shishir435/ollama-client/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
-
-## I Want To Contribute
-
-### Reporting Bugs
-
-- **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/Shishir435/ollama-client/issues).
-- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/Shishir435/ollama-client/issues/new). Be sure to include a **title and clear description**, as many relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
-
-### Suggesting Enhancements
-
-- Open a new issue and choose "Feature Request".
-- Detailed descriptions are helpful: **What** do you want to achieve? **Why** do you need it? **How** do you imagine it working?
-
-### Your First Code Contribution
-
-Unsure where to begin contributing? You can start by looking through these `good-first-issue` and `help-wanted` issues:
-
-- [Good First Issues](https://github.com/Shishir435/ollama-client/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
-- [Help Wanted](https://github.com/Shishir435/ollama-client/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
-
-## Development Workflow
+## 1) Local Development Setup
 
 ### Prerequisites
 
-- **Node.js**: Version 20 or higher (LTS recommended).
-- **pnpm**: This project uses `pnpm` for package management.
+- Node.js 18+
+- `pnpm`
+- One local provider runtime (Ollama recommended for full feature coverage)
+
+### Install and run
 
 ```bash
-npm install -g pnpm
+git clone https://github.com/Shishir435/ollama-client.git
+cd ollama-client
+pnpm install
+pnpm dev
 ```
 
-### Installation
-
-1. Fork the repository.
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/<your-username>/ollama-client.git
-   cd ollama-client
-   ```
-3. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-
-### Development Server
-
-This project is built with [Plasmo](https://docs.plasmo.com/). To start the development server with live reloading:
+Firefox (experimental):
 
 ```bash
-# For Chrome
-pnpm dev
-
-# For Firefox
 pnpm dev:firefox
 ```
 
-This will generate the extension in `build/chrome-mv3-dev` (or `build/firefox-mv2-dev`). You can load this unpacked extension into your browser.
+## 2) Codebase Structure Overview
 
-### Code Quality (Linting & Formatting)
+Top-level execution layers:
 
-We use [Biome](https://biomejs.dev/) for fast linting and formatting.
+- `src/sidepanel/*` - chat UI app
+- `src/options/*` - settings UI app
+- `src/background/*` - worker handlers/orchestration
+- `src/contents/*` - in-page scripts
 
-- **Check for issues:**
-  ```bash
-  pnpm lint
-  ```
-- **Fix auto-fixable issues:**
-  ```bash
-  pnpm lint:fix
-  ```
-- **Format code:**
-  ```bash
-  pnpm format
-  ```
+Feature modules:
 
-Please ensuring all checks pass before submitting a PR.
+- `src/features/chat/*`
+- `src/features/model/*`
+- `src/features/sessions/*`
+- `src/features/file-upload/*`
+- `src/features/tabs/*`
 
-### Testing
+Shared internals:
 
-We use [Vitest](https://vitest.dev/) for unit and integration testing.
+- `src/lib/providers/*` - provider abstraction
+- `src/lib/embeddings/*` - retrieval/embedding internals
+- `src/lib/db.ts` - Dexie chat store
+- `src/lib/sqlite/*` - migration/auxiliary SQLite path
 
-- **Run tests:**
-  ```bash
-  pnpm test
-  ```
-- **Run tests with UI:**
-  ```bash
-  pnpm test:ui
-  ```
-- **Check coverage:**
-  ```bash
-  pnpm test:coverage
-  ```
+## 3) Where to Add Features
 
----
+### New chat UX behavior
 
-## Attribution
+- UI components: `src/features/chat/components/*`
+- State/hooks: `src/features/chat/hooks/*`
+- Session behavior: `src/features/sessions/stores/chat-session-store.ts`
 
-This guide is based on the **contributing-gen**. [Make your own](https://github.com/bttger/contributing-gen)!
+### Provider improvements
+
+- Provider interfaces/types: `src/lib/providers/types.ts`
+- Provider implementations: `src/lib/providers/*.ts`
+- Factory/manager wiring: `src/lib/providers/factory.ts`, `src/lib/providers/manager.ts`
+
+### RAG/retrieval changes
+
+- Pipeline/retriever: `src/features/chat/rag/*`
+- Search/index/storage internals: `src/lib/embeddings/*`
+
+### Model management handlers
+
+- Background endpoints: `src/background/handlers/*`
+
+## 4) Quality Gates Before PR
+
+Run before opening PR:
+
+```bash
+pnpm lint:check
+pnpm test:run
+```
+
+If behavior changes, update docs in the same PR.
+
+## 5) PR Structure Expectations
+
+A good PR should include:
+
+1. Problem statement
+2. Scope and non-goals
+3. Implementation summary
+4. Test evidence (commands + outcomes)
+5. Screenshots/GIFs for UI changes
+6. Risk notes and rollback strategy (if relevant)
+
+Keep PRs focused; avoid mixing unrelated refactors with functional changes.
+
+## 6) Coding Expectations
+
+- Prefer explicit, readable code over clever one-liners.
+- Preserve local-first and privacy-first assumptions.
+- Avoid hidden network calls or silent telemetry additions.
+- Keep backward compatibility for storage keys unless migration is included.
+- Use feature-local modules instead of spreading logic across unrelated folders.
+
+## 7) Provider-Related Contribution Rules
+
+When changing provider logic:
+
+- Validate routing in both UI and background paths.
+- Avoid assuming Ollama-only behavior unless file is explicitly Ollama-specific.
+- Update support matrix [docs](./docs/providers.md) when behavior changes.
+
+## 8) RAG-Related Contribution Rules
+
+When changing retrieval/embedding:
+
+- Validate retrieval quality with realistic local data.
+- Document config defaults and behavior changes.
+- Call out CSP constraints if introducing transformer/WASM-based components.
+- Prefer measurable tradeoffs (latency/quality/memory), not generic claims.
+
+## 9) Security and Privacy Expectations
+
+- Do not introduce analytics/tracking dependencies.
+- Keep endpoint usage explicit and user-configurable.
+- Treat local data safety as product behavior, not optional enhancement.
+
+## 10) Good First Contribution Areas
+
+- Provider naming cleanup (`ollama-*` legacy key paths)
+- Error message consistency across handlers
+- Retrieval debug UX improvements
+- Documentation parity updates for feature changes
+
+## 11) Getting Help
+
+- Search existing issues before opening new ones.
+- Open focused issues with reproduction details.
+- Link code references and expected behavior, not only screenshots.

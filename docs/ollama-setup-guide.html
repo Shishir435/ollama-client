@@ -3,41 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Setup Guide - Ollama Chrome Extension</title>
+    <title>Setup Guide - Ollama Client (Ollama, LM Studio, llama.cpp)</title>
     <meta
       name="description"
-      content="Step-by-step guide to installing and setting up Ollama Client — a powerful, privacy-first AI chat Chrome extension." />
+      content="Setup guide for Ollama Client: configure Ollama, LM Studio, or llama.cpp local providers and start private browser-side AI chat." />
     <meta
       name="keywords"
-      content="Ollama Client, Setup Guide, install Ollama, Chrome extension setup, local AI, AI chat configuration" />
+      content="Ollama setup guide, LM Studio integration, llama.cpp browser integration, local llm chrome extension" />
     <meta name="author" content="Shishir Chaurasiya" />
+    <meta name="theme-color" content="#6366f1" />
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta
-      property="og:url"
-      content="https://ollama-client.shishirchaurasiya.in/ollama-setup-guide" />
-    <meta property="og:title" content="Ollama Client - Setup Guide" />
-    <meta
-      property="og:description"
-      content="Follow our quick setup guide to start using Ollama Client for private, local AI chat." />
-    <meta
-      property="og:image"
-      content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
-
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:url"
-      content="https://ollama-client.shishirchaurasiya.in/ollama-setup-guide" />
-    <meta name="twitter:title" content="Ollama Client - Setup Guide" />
-    <meta
-      name="twitter:description"
-      content="Get started with Ollama Client in minutes. This guide covers installation, configuration, and first use." />
-    <meta
-      name="twitter:image"
-      content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
-
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet" />
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -52,1052 +30,172 @@
       type="image/png"
       sizes="16x16"
       href="https://ollama-client.shishirchaurasiya.in/assets/favicon-16x16.png" />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          sans-serif;
-        line-height: 1.7;
-        color: #2d3748;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-      }
-
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-      }
-
-      .hero {
-        text-align: center;
-        margin-bottom: 3rem;
-        padding: 3rem 0;
-      }
-
-      .hero h1 {
-        font-size: clamp(2.5rem, 5vw, 4rem);
-        font-weight: 800;
-        color: white;
-        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        margin-bottom: 1rem;
-        background: linear-gradient(45deg, #fff, #e2e8f0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .hero p {
-        font-size: 1.25rem;
-        color: rgba(255, 255, 255, 0.9);
-        max-width: 600px;
-        margin: 0 auto;
-      }
-
-      .content-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        transition:
-          transform 0.3s ease,
-          box-shadow 0.3s ease;
-      }
-
-      .content-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-      }
-
-      .section-header {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #e2e8f0;
-      }
-
-      .section-header h2 {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #1a202c;
-        margin: 0;
-      }
-
-      .emoji {
-        font-size: 2rem;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-      }
-
-      .code-block {
-        background: #1a202c;
-        color: #e2e8f0;
-        padding: 1rem;
-        border-radius: 12px;
-        font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "Courier New",
-          monospace;
-        font-size: 0.9rem;
-        overflow-x: auto;
-        margin: 0.5rem 0;
-        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
-        border: 1px solid #2d3748;
-        white-space: pre;
-        line-height: 1.6;
-        position: relative;
-      }
-
-      .code-block pre {
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        border: none;
-        color: inherit;
-        font-family: inherit;
-        white-space: pre;
-        overflow-wrap: normal;
-        word-wrap: normal;
-      }
-
-      .copy-button {
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-        background: rgba(102, 126, 234, 0.2);
-        border: 1px solid rgba(102, 126, 234, 0.4);
-        color: #cbd5e0;
-        padding: 0.4rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          sans-serif;
-        backdrop-filter: blur(10px);
-      }
-
-      .copy-button:hover {
-        background: rgba(102, 126, 234, 0.3);
-        border-color: rgba(102, 126, 234, 0.6);
-        color: #fff;
-        transform: translateY(-1px);
-      }
-
-      .copy-button:active {
-        transform: translateY(0);
-      }
-
-      .copy-button.copied {
-        background: rgba(68, 217, 145, 0.2);
-        border-color: rgba(68, 217, 145, 0.4);
-        color: #68d391;
-      }
-
-      .inline-code {
-        background: #f7fafc;
-        color: #2d3748;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
-        font-size: 0.85em;
-        border: 1px solid #e2e8f0;
-      }
-
-      .download-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: linear-gradient(135deg, #4299e1, #3182ce);
-        color: white;
-        text-decoration: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
-      }
-
-      .download-link:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
-      }
-
-      .platform-tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-      }
-
-      .tab-button {
-        padding: 0.75rem 1.5rem;
-        border: 2px solid #e2e8f0;
-        background: white;
-        color: #4a5568;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-
-      .tab-button.active {
-        background: #667eea;
-        color: white;
-        border-color: #667eea;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-      }
-
-      .tab-button:hover:not(.active) {
-        border-color: #cbd5e0;
-        background: #f7fafc;
-      }
-
-      .tab-content {
-        display: none;
-      }
-
-      .tab-content.active {
-        display: block;
-      }
-
-      .details-card {
-        background: #f8fafc;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        margin: 1.5rem 0;
-        overflow: hidden;
-        transition: all 0.3s ease;
-      }
-
-      .details-summary {
-        padding: 1.5rem;
-        background: #e2e8f0;
-        cursor: pointer;
-        font-weight: 600;
-        color: #2d3748;
-        user-select: none;
-        transition: background 0.3s ease;
-      }
-
-      .details-summary:hover {
-        background: #cbd5e0;
-      }
-
-      .details-content {
-        padding: 0;
-        max-height: 0;
-        overflow: hidden;
-        transition: all 0.3s ease;
-      }
-
-      .details-content.open {
-        padding: 1.5rem;
-        max-height: 1000px;
-      }
-
-      .warning-box {
-        background: #fed7d7;
-        border: 2px solid #fc8181;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-        color: #742a2a;
-      }
-
-      .success-box {
-        background: #c6f6d5;
-        border: 2px solid #68d391;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-        color: #22543d;
-      }
-
-      .info-box {
-        background: #e6f2ff;
-        border: 2px solid #4299e1;
-        border-radius: 12px;
-        padding: 1.25rem;
-        margin: 1rem 0;
-        color: #2c5282;
-        box-shadow: 0 2px 8px rgba(66, 153, 225, 0.1);
-      }
-
-      .grid {
-        display: grid;
-        gap: 1.5rem;
-        margin-top: 2rem;
-      }
-
-      .grid-2 {
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      }
-
-      .grid-3 {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      }
-
-      .footer {
-        text-align: center;
-        margin-top: 4rem;
-        padding: 2rem;
-        color: rgba(255, 255, 255, 0.8);
-      }
-
-      .footer a {
-        color: white;
-        text-decoration: none;
-        font-weight: 600;
-        transition: color 0.3s ease;
-      }
-
-      .footer a:hover {
-        color: #cbd5e0;
-      }
-
-      @media (max-width: 768px) {
-        .container {
-          padding: 1rem 0.5rem;
-        }
-
-        .content-card {
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          border-radius: 15px;
-        }
-
-        .hero {
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-        }
-
-        .section-header {
-          flex-direction: column;
-          text-align: center;
-          gap: 0.5rem;
-        }
-
-        .platform-tabs {
-          justify-content: center;
-        }
-
-        .tab-button {
-          padding: 0.6rem 1rem;
-          font-size: 0.8rem;
-        }
-
-        .code-block {
-          font-size: 0.8rem;
-          padding: 1rem;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .hero h1 {
-          font-size: 2rem;
-        }
-
-        .hero p {
-          font-size: 1rem;
-        }
-
-        .content-card {
-          padding: 1rem;
-          border-radius: 12px;
-        }
-
-        .section-header h2 {
-          font-size: 1.5rem;
-        }
-
-        .emoji {
-          font-size: 1.5rem;
-        }
-      }
-
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(30px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .content-card {
-        animation: fadeInUp 0.6s ease forwards;
-      }
-
-      .content-card:nth-child(2) {
-        animation-delay: 0.1s;
-      }
-      .content-card:nth-child(3) {
-        animation-delay: 0.2s;
-      }
-      .content-card:nth-child(4) {
-        animation-delay: 0.3s;
-      }
-      .content-card:nth-child(5) {
-        animation-delay: 0.4s;
-      }
-    </style>
+    <link rel="stylesheet" href="assets/docs-theme.css" />
   </head>
   <body>
-    <div class="container">
-      <div class="hero">
-        <h1>🧠 Ollama Setup Guide</h1>
-        <p>Complete guide to set up Ollama backend for the Chrome Extension</p>
+    <header class="hero">
+      <div class="hero-inner">
+        <nav class="top-nav" aria-label="Documentation Navigation">
+          <a href="https://ollama-client.shishirchaurasiya.in/">Overview</a>
+          <a href="https://ollama-client.shishirchaurasiya.in/ollama-setup-guide" aria-current="page">Setup Guide</a>
+          <a href="https://ollama-client.shishirchaurasiya.in/privacy-policy">Privacy</a>
+          <a href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <h1>Provider Setup Guide</h1>
+        <p>
+          Recommended setup for Ollama (primary), plus LM Studio and llama.cpp local endpoints.
+          This guide reflects current multi-provider behavior in v0.6.0.
+        </p>
       </div>
+    </header>
 
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">✅</span>
-          <h2>1. Install Ollama</h2>
-        </div>
-        <p style="margin-bottom: 2rem; font-size: 1.05rem; color: #4a5568">
-          Download Ollama from the official website:
-          <a href="https://ollama.com" target="_blank"> Download Ollama </a>
-        </p>
-        <div class="info-box" style="margin-top: 0">
-          <div style="display: flex; align-items: flex-start; gap: 1rem">
-            <span style="font-size: 1.5rem; flex-shrink: 0; line-height: 1.2"
-              >💡</span
-            >
-            <div style="flex: 1">
-              <strong
-                style="display: block; margin-bottom: 0.5rem; font-size: 1rem"
-                >Keep Ollama Running</strong
-              >
-              <p style="margin: 0; line-height: 1.6">
-                Ollama must be running while using the extension. The helper
-                script in the next section will start it automatically for you.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">⚡</span>
-          <h2>2. Quick Start: Use Helper Script (Recommended)</h2>
-        </div>
-        <p style="margin-bottom: 1rem">
-          <strong>The easiest way to set up Ollama</strong> with automatic CORS
-          configuration and LAN access! This script works on macOS, Linux, and
-          Windows.
-        </p>
-
-        <div class="success-box" style="margin-bottom: 1.5rem">
-          <h4 style="margin-bottom: 0.5rem">🎯 What This Script Does</h4>
-          <ul style="margin-left: 1.5rem; margin-bottom: 0">
-            <li>✅ Automatically detects your OS</li>
-            <li>✅ Configures Ollama for LAN and Localhost access</li>
-            <li>✅ Sets up CORS for browser extensions (Firefox only)</li>
-            <li>✅ Shows your local IP address</li>
-            <li>✅ Starts Ollama in the background</li>
-          </ul>
-        </div>
-
-        <p style="margin-bottom: 0.5rem">
-          <strong>Step 1:</strong> Create the script file
-          <span class="inline-code">ollama-env.sh</span>:
-        </p>
-        <div
-          class="code-block"
-          style="
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
-            max-height: 500px;
-            overflow-y: auto;
-            white-space: pre;
-            font-size: 0.85rem;
-            line-height: 1.6;
-          ">
-          <pre
-            style="
-              margin: 0;
-              padding: 0;
-              background: transparent;
-              border: none;
-              color: inherit;
-              font-family: inherit;
-              white-space: pre;
-            ">
-#!/bin/bash
-
-# Cross-platform Ollama environment setup script
-# Starts Ollama with proper CORS configuration for browser extensions
-# Works on macOS, Linux, and Windows (with Git Bash/WSL)
-
-MODE=$1
-
-# Detect OS
-OS="$(uname -s)"
-case "${OS}" in
-  Linux*)     OS_TYPE="linux" ;;
-  Darwin*)    OS_TYPE="macos" ;;
-  MINGW*|MSYS*|CYGWIN*) OS_TYPE="windows" ;;
-  *)          OS_TYPE="unknown" ;;
-esac
-
-# Kill existing Ollama processes
-if [ "$OS_TYPE" = "windows" ]; then
-  taskkill //F //IM ollama.exe 2>/dev/null || true
-else
-  pkill -f "ollama serve" 2>/dev/null || true
-fi
-
-sleep 1
-
-# Set host to 0.0.0.0 so LAN devices can access it
-export OLLAMA_HOST="0.0.0.0"
-
-# Get local IP address (cross-platform)
-get_local_ip() {
-  if [ "$OS_TYPE" = "macos" ]; then
-    ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo ""
-  elif [ "$OS_TYPE" = "linux" ]; then
-    hostname -I 2>/dev/null | awk '{print $1}' || \
-    ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1 2>/dev/null || echo ""
-  elif [ "$OS_TYPE" = "windows" ]; then
-    ipconfig 2>/dev/null | grep -i "IPv4" | head -1 | grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1 || echo ""
-  else
-    echo ""
-  fi
-}
-
-# Start Ollama based on mode
-if [ "$MODE" = "firefox" ]; then
-  export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
-  nohup ollama serve > ~/.ollama-firefox.log 2>&1 &
-  echo "✅ Ollama started with Firefox CORS + LAN access"
-else
-  nohup ollama serve > ~/.ollama-chrome.log 2>&1 &
-  echo "✅ Ollama started with LAN access"
-fi
-
-sleep 2
-
-LOCAL_IP=$(get_local_ip)
-
-echo ""
-echo "🌍 Access URLs:"
-echo "   • http://localhost:11434"
-if [ -n "$LOCAL_IP" ]; then
-  echo "   • http://$LOCAL_IP:11434"
-fi
-echo ""
-
-if [ "$OS_TYPE" = "windows" ]; then
-  echo "💡 Tip: Ollama is running. To stop it, run:"
-  echo "   taskkill //F //IM ollama.exe"
-else
-  echo "💡 Tip: Ollama is running in the background. To stop it, run:"
-  echo "   pkill -f \"ollama serve\""
-fi
-echo ""</pre
+    <main class="page">
+      <section class="card">
+        <h2>1. Install the Extension</h2>
+        <p>
+          Install from Chrome Web Store:
+          <a
+            href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+            target="_blank"
+            rel="noopener"
+            >Ollama Client</a
           >
-        </div>
-        <p style="margin-bottom: 0.5rem; margin-top: 0.5rem">
-          <strong>Step 2:</strong> Make it executable and run:
         </p>
-        <div
-          class="code-block"
-          style="margin-top: 0.5rem; margin-bottom: 0.5rem">
-          # Make executable chmod +x ollama-env.sh # Run (macOS/Linux/Windows
-          Git Bash/WSL) ./ollama-env.sh firefox # Firefox with CORS + LAN access
-          ./ollama-env.sh chrome # Chrome with LAN access # Windows PowerShell
-          bash ollama-env.sh firefox
-        </div>
-        <div class="success-box" style="margin-top: 1rem">
-          <strong>✨ Done!</strong> Ollama is now configured and running. You
-          can skip to section 4 to verify it's working, or continue to section 3
-          to pull a model.
-        </div>
-      </div>
+      </section>
 
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">🤖</span>
-          <h2>3. Pull a Model (e.g. Gemma 3B)</h2>
+      <section class="card">
+        <h2>2. Choose a Provider</h2>
+        <div class="provider-grid">
+          <div class="provider-item">
+            <h3>Ollama (recommended baseline)</h3>
+            <p class="provider-label">Default endpoint:</p>
+            <code class="provider-chip">http://localhost:11434</code>
+          </div>
+          <div class="provider-item">
+            <h3>LM Studio</h3>
+            <p class="provider-label">Default profile endpoint:</p>
+            <code class="provider-chip">http://localhost:1234/v1</code>
+          </div>
+          <div class="provider-item">
+            <h3>llama.cpp server</h3>
+            <p class="provider-label">Default profile endpoint:</p>
+            <code class="provider-chip">http://localhost:8000/v1</code>
+          </div>
         </div>
-        <p>After installation, run a model of your choice:</p>
-        <div class="code-block">ollama run gemma3:1b</div>
-        <p>Once downloaded, you're ready to chat!</p>
-        <div class="success-box">
-          💡 Replace <span class="inline-code">gemma3:1b</span> with other
-          models like <span class="inline-code">llama3</span>,
-          <span class="inline-code">mistral</span>, etc.
-        </div>
-      </div>
+      </section>
 
-      <div class="grid-2 grid">
-        <div class="content-card">
-          <div class="section-header">
-            <span class="emoji">🔍</span>
-            <h2>4. Verify Ollama</h2>
-          </div>
-          <p style="margin-bottom: 0.5rem">Open this in your browser:</p>
-          <div
-            class="code-block"
-            style="margin-top: 0.5rem; margin-bottom: 1.25rem">
-            http://localhost:11434
-          </div>
-          <p style="margin-bottom: 0.5rem">Or use curl:</p>
-          <div class="code-block" style="margin-top: 0.5rem">
-            curl http://localhost:11434/api/tags
-          </div>
-          <div
-            class="success-box"
-            style="margin-top: 1.25rem; margin-bottom: 0">
-            You should see a JSON response with available models.
-          </div>
-        </div>
-
-        <div class="content-card">
-          <div class="section-header">
-            <span class="emoji">⚙️</span>
-            <h2>5. Configure Extension</h2>
-          </div>
-          <p>
-            <strong>1.</strong> Click the <strong>⚙️ Settings</strong> icon in
-            the extension popup.
-          </p>
-          <p><strong>2.</strong> You can configure:</p>
-          <ul style="margin-left: 1.5rem; margin-top: 0.5rem">
-            <li>
-              Base URL (<span class="inline-code">http://localhost:11434</span>)
-            </li>
-            <li>
-              Default model (<span class="inline-code">gemma:3b</span>,
-              <span class="inline-code">llama3</span>, etc.)
-            </li>
-            <li>Theme and other preferences</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">🔐</span>
-          <h2>Understanding CORS (Optional Reading)</h2>
-        </div>
-        <p style="margin-bottom: 1rem">
-          <strong>Skip this section if the helper script worked!</strong> This
-          section explains when and why CORS configuration is needed. Only read
-          if you're troubleshooting or prefer manual setup.
+      <section class="card">
+        <h2>3. Start Ollama (primary path)</h2>
+        <p>
+          Install Ollama from
+          <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a>,
+          then start it:
         </p>
-
-        <div class="details-card">
-          <div class="details-summary" onclick="toggleDetails(this)">
-            Do you need to set up CORS? (Click to expand)
-          </div>
-          <div class="details-content">
-            <p>Whether you need to configure CORS depends on your browser:</p>
-
-            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">
-              ✅ Chrome / Chromium (e.g., Brave, Edge)
-            </h3>
-            <p>
-              If you're using <strong>Chrome-based browsers</strong> and
-              extension version <strong>0.1.3 or later</strong>, you likely
-              <strong>do not need to set any CORS headers</strong>.
-            </p>
-            <p>
-              Ollama Client uses
-              <strong>Chrome's Declarative Net Request (DNR)</strong> API to
-              rewrite <span class="inline-code">Origin</span> headers in
-              requests to <span class="inline-code">localhost</span>, which lets
-              it <strong>bypass CORS errors without backend changes</strong>.
-            </p>
-
-            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">🦊 Firefox</h3>
-            <p>
-              Firefox does <strong>not support Chrome's DNR API</strong>, so
-              <strong>manual configuration is required</strong>. This is why the
-              helper script sets
-              <span class="inline-code">OLLAMA_ORIGINS</span> automatically.
-            </p>
-
-            <h3 style="margin: 1.5rem 0 1rem 0; color: #2d3748">
-              When should you manually set OLLAMA_ORIGINS?
-            </h3>
-            <ul style="margin-left: 1.5rem; margin-bottom: 1rem">
-              <li>You're using <strong>Firefox</strong></li>
-              <li>You're on <strong>extension version &lt; 0.1.3</strong></li>
-              <li>
-                You're calling from <strong>localhost:3000</strong> or another
-                frontend
-              </li>
-              <li>
-                You're still getting ❌
-                <span class="inline-code">403 Forbidden</span> errors
-              </li>
-            </ul>
-
-            <p>To cover both Chrome and Firefox, you can combine origins:</p>
-            <div class="code-block">
-              OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*
-            </div>
-          </div>
+        <pre><button class="copy" type="button">Copy</button><code>ollama serve</code></pre>
+        <p>Pull at least one chat model:</p>
+        <pre><button class="copy" type="button">Copy</button><code>ollama pull qwen2.5:3b</code></pre>
+        <div class="callout ok">
+          Optional helper script in this repo:
+          <code><a href="https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh">tools/ollama-env.sh</a></code>
+          (helps with LAN and Firefox origin setup).
         </div>
-      </div>
+      </section>
 
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">🔧</span>
-          <h2>Manual CORS Setup (Advanced)</h2>
-        </div>
-        <p style="margin-bottom: 1rem">
-          <strong
-            >Only use this if the helper script didn't work for you.</strong
-          >
-          Follow these platform-specific instructions to manually set
-          <span class="inline-code">OLLAMA_ORIGINS</span>:
+      <section class="card">
+        <h2>4. Configure Providers in Extension</h2>
+        <ol>
+          <li>Open extension settings.</li>
+          <li>Go to <strong>Providers</strong> tab.</li>
+          <li>Enable provider(s) you want.</li>
+          <li>Set base URL and run connection test.</li>
+          <li>Select a model from model menu in chat.</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>5. Verify Endpoints</h2>
+        <h3>Ollama check</h3>
+        <pre><button class="copy" type="button">Copy</button><code>curl http://localhost:11434/api/tags</code></pre>
+        <h3>LM Studio check</h3>
+        <pre><button class="copy" type="button">Copy</button><code>curl http://localhost:1234/v1/models</code></pre>
+        <h3>llama.cpp check</h3>
+        <pre><button class="copy" type="button">Copy</button><code>curl http://localhost:8000/v1/models</code></pre>
+      </section>
+
+      <section class="card">
+        <h2>6. Important Reality Checks</h2>
+        <ul>
+          <li>Chat generation is provider-routed.</li>
+          <li>Model pull/delete/unload/version features are currently Ollama-focused.</li>
+          <li>Embedding and RAG indexing currently depend on Ollama embedding APIs.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>7. CORS and Browser Notes</h2>
+        <p>
+          Chrome-based browsers use DNR-based request handling in extension flow.
+          Firefox has different extension API behavior.
         </p>
-
-        <div class="platform-tabs">
-          <button class="tab-button active" onclick="switchTab(event, 'macos')">
-            🖥️ macOS
-          </button>
-          <button class="tab-button" onclick="switchTab(event, 'linux')">
-            🐧 Linux
-          </button>
-          <button class="tab-button" onclick="switchTab(event, 'windows')">
-            🪟 Windows
-          </button>
+        <div class="callout warn">
+          For Firefox and strict environments, you may need explicit
+          <code>OLLAMA_ORIGINS</code> setup when using Ollama.
         </div>
+      </section>
 
-        <div id="macos" class="tab-content active">
-          <h3
-            style="color: #2d3748; margin-bottom: 1.25rem; font-size: 1.25rem">
-            macOS (Launch Agent)
-          </h3>
-          <p style="margin-bottom: 0.5rem">
-            <strong>1.</strong> Edit the plist file:
-          </p>
-          <div
-            class="code-block"
-            style="margin-top: 0.5rem; margin-bottom: 1.25rem">
-            nano ~/Library/LaunchAgents/com.ollama.server.plist
-          </div>
+      <section class="card">
+        <h2>8. Troubleshooting</h2>
+        <ul>
+          <li>Confirm provider process is running.</li>
+          <li>Confirm endpoint URL in provider settings exactly matches runtime URL.</li>
+          <li>Use provider connection test before debugging model behavior.</li>
+          <li>Check extension background console for streaming/provider errors.</li>
+        </ul>
+      </section>
 
-          <p style="margin-bottom: 0.5rem">
-            <strong>2.</strong> Add inside
-            <span class="inline-code"
-              >&lt;key&gt;EnvironmentVariables&lt;/key&gt;</span
-            >:
-          </p>
-          <div
-            class="code-block"
-            style="margin-top: 0.5rem; margin-bottom: 1.25rem">
-            &lt;key&gt;OLLAMA_ORIGINS&lt;/key&gt;
-            &lt;string&gt;chrome-extension://*,moz-extension://*&lt;/string&gt;
-          </div>
-
-          <p style="margin-bottom: 0.5rem">
-            <strong>3.</strong> Reload the agent:
-          </p>
-          <div class="code-block" style="margin-top: 0.5rem">
-            # Restart the LaunchAgent (modern macOS) launchctl kickstart -k
-            gui/$(id -u)/com.ollama.server # Or if not loaded, bootstrap first:
-            launchctl bootstrap gui/$(id -u)
-            ~/Library/LaunchAgents/com.ollama.server.plist launchctl kickstart
-            -k gui/$(id -u)/com.ollama.server
-          </div>
-        </div>
-
-        <div id="linux" class="tab-content">
-          <h3
-            style="color: #2d3748; margin-bottom: 1.25rem; font-size: 1.25rem">
-            Linux (systemd)
-          </h3>
-          <p style="margin-bottom: 0.5rem">
-            <strong>1.</strong> Edit the service file:
-          </p>
-          <div
-            class="code-block"
-            style="margin-top: 0.5rem; margin-bottom: 1.25rem">
-            sudo systemctl edit --full ollama.service
-          </div>
-
-          <p style="margin-bottom: 0.5rem">
-            <strong>2.</strong> Add under
-            <span class="inline-code">[Service]</span>:
-          </p>
-          <div
-            class="code-block"
-            style="margin-top: 0.5rem; margin-bottom: 1.25rem">
-            Environment="OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*"
-          </div>
-
-          <p style="margin-bottom: 0.5rem">
-            <strong>3.</strong> Reload and restart:
-          </p>
-          <div class="code-block" style="margin-top: 0.5rem">
-            sudo systemctl daemon-reload sudo systemctl restart ollama
-          </div>
-        </div>
-
-        <div id="windows" class="tab-content">
-          <h3
-            style="color: #2d3748; margin-bottom: 1.25rem; font-size: 1.25rem">
-            Windows
-          </h3>
-          <p style="margin-bottom: 0.75rem">
-            <strong>1.</strong> Press <span class="inline-code">Win + R</span>,
-            type <span class="inline-code">sysdm.cpl</span>, press Enter.
-          </p>
-          <p style="margin-bottom: 0.75rem">
-            <strong>2.</strong> Go to <strong>Advanced</strong> →
-            <strong>Environment Variables</strong>.
-          </p>
-          <p style="margin-bottom: 0.5rem">
-            <strong>3.</strong> Add a new <strong>User variable</strong>:
-          </p>
-          <ul
-            style="
-              margin-left: 1.5rem;
-              margin-bottom: 1.25rem;
-              margin-top: 0.5rem;
-            ">
-            <li style="margin-bottom: 0.5rem">
-              Name: <span class="inline-code">OLLAMA_ORIGINS</span>
-            </li>
-            <li>
-              Value:
-              <span class="inline-code"
-                >chrome-extension://*,moz-extension://*</span
-              >
-            </li>
-          </ul>
-          <p style="margin-bottom: 0"><strong>4.</strong> Restart Ollama.</p>
-        </div>
-
-        <div class="info-box" style="margin-top: 2rem">
-          <h4 style="margin-bottom: 0.75rem; font-size: 1rem">
-            💡 Multiple Origins Support
-          </h4>
-          <p style="margin-bottom: 0.5rem">
-            You can also allow local web apps like this:
-          </p>
-          <div class="code-block" style="margin-top: 0.5rem; margin-bottom: 0">
-            OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
-          </div>
-        </div>
-      </div>
-
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">🧯</span>
-          <h2>Troubleshooting</h2>
-        </div>
-        <div class="grid-2 grid">
-          <div>
-            <h4 style="color: #2d3748; margin-bottom: 0.5rem">
-              Common Issues:
-            </h4>
-            <ul style="margin-left: 1.5rem">
-              <li>
-                Ensure <span class="inline-code">ollama serve</span> is running
-              </li>
-              <li>
-                Make sure your model is pulled:
-                <span class="inline-code">ollama pull &lt;model&gt;</span>
-              </li>
-              <li>
-                Avoid firewalls/VPNs that block
-                <span class="inline-code">localhost</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 style="color: #2d3748; margin-bottom: 0.5rem">
-              Still Having Issues?
-            </h4>
-            <ul style="margin-left: 1.5rem">
-              <li>
-                Verify your <span class="inline-code">OLLAMA_ORIGINS</span> is
-                correctly set
-              </li>
-              <li>Check browser console for error messages</li>
-              <li>Restart Ollama service after config changes</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="content-card">
-        <div class="section-header">
-          <span class="emoji">📎</span>
-          <h2>Helpful Links</h2>
-        </div>
-        <div class="grid-3 grid">
-          <div style="text-align: center">
-            <h4 style="margin-bottom: 1rem">🌐 Documentation</h4>
-            <a href="https://ollama.com" class="download-link" target="_blank"
-              >Ollama Docs</a
-            >
-          </div>
-          <div style="text-align: center">
-            <h4 style="margin-bottom: 1rem">🧩 Extension</h4>
-            <a
-              href="https://chromewebstore.google.com/detail/Ollama%20client/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-              class="download-link"
-              target="_blank"
-              >Chrome Store</a
-            >
-          </div>
-          <div style="text-align: center">
-            <h4 style="margin-bottom: 1rem">💻 Source Code</h4>
-            <a
-              href="https://github.com/shishir435/ollama-client"
-              class="download-link"
-              target="_blank"
-              >GitHub</a
-            >
-          </div>
-        </div>
-      </div>
+      <section class="card">
+        <h2>9. Related Docs</h2>
+        <ul>
+          <li><a href="https://ollama-client.shishirchaurasiya.in/">Project overview</a></li>
+          <li><a href="https://ollama-client.shishirchaurasiya.in/privacy-policy">Privacy policy</a></li>
+          <li><a href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">GitHub repository</a></li>
+        </ul>
+      </section>
 
       <footer class="footer">
-        <div class="container">
-          <p>
-            &copy; 2025 Ollama Client Extension. All rights reserved. | Built
-            with privacy in mind.
-          </p>
-        </div>
+        <p>
+          © <span id="copyright-year">2026</span> Ollama Client. Local-first workflow, with provider endpoint
+          responsibility left to the operator.
+        </p>
       </footer>
-    </div>
+    </main>
 
     <script>
-      function switchTab(event, tabName) {
-        const tabContents = document.querySelectorAll(".tab-content")
-        tabContents.forEach((content) => {
-          content.classList.remove("active")
-        })
-
-        const tabButtons = document.querySelectorAll(".tab-button")
-        tabButtons.forEach((button) => {
-          button.classList.remove("active")
-        })
-
-        document.getElementById(tabName).classList.add("active")
-
-        event.target.classList.add("active")
-      }
-
-      function toggleDetails(element) {
-        const content = element.nextElementSibling
-        content.classList.toggle("open")
-
-        const isOpen = content.classList.contains("open")
-        element.style.background = isOpen ? "#cbd5e0" : "#e2e8f0"
-      }
-
-      function addCopyButtons() {
-        const codeBlocks = document.querySelectorAll(".code-block")
-        codeBlocks.forEach((block) => {
-          // Skip if already has copy button
-          if (block.querySelector(".copy-button")) return
-
-          const button = document.createElement("button")
-          button.className = "copy-button"
-          button.textContent = "Copy"
-          button.setAttribute("aria-label", "Copy code to clipboard")
-
-          // Get text content - handle both direct text and pre tags
-          const getCodeText = () => {
-            const pre = block.querySelector("pre")
-            if (pre) {
-              return pre.textContent || pre.innerText
-            }
-            return block.textContent || block.innerText
+      document.querySelectorAll(".copy").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const code = button.parentElement.querySelector("code")
+          if (!code) return
+          const text = code.textContent || ""
+          try {
+            await navigator.clipboard.writeText(text)
+            const old = button.textContent
+            button.textContent = "Copied"
+            setTimeout(() => {
+              button.textContent = old
+            }, 1200)
+          } catch {
+            button.textContent = "Failed"
+            setTimeout(() => {
+              button.textContent = "Copy"
+            }, 1200)
           }
-
-          button.addEventListener("click", async () => {
-            const text = getCodeText()
-            try {
-              await navigator.clipboard.writeText(text)
-              button.textContent = "Copied!"
-              button.classList.add("copied")
-              setTimeout(() => {
-                button.textContent = "Copy"
-                button.classList.remove("copied")
-              }, 2000)
-            } catch (err) {
-              // Fallback for older browsers
-              const textArea = document.createElement("textarea")
-              textArea.value = text
-              textArea.style.position = "fixed"
-              textArea.style.opacity = "0"
-              document.body.appendChild(textArea)
-              textArea.select()
-              try {
-                document.execCommand("copy")
-                button.textContent = "Copied!"
-                button.classList.add("copied")
-                setTimeout(() => {
-                  button.textContent = "Copy"
-                  button.classList.remove("copied")
-                }, 2000)
-              } catch (fallbackErr) {
-                button.textContent = "Failed"
-                setTimeout(() => {
-                  button.textContent = "Copy"
-                }, 2000)
-              }
-              document.body.removeChild(textArea)
-            }
-          })
-
-          block.style.position = "relative"
-          block.appendChild(button)
-        })
-      }
-
-      document.addEventListener("DOMContentLoaded", function () {
-        // Add copy buttons to all code blocks
-        addCopyButtons()
-
-        // Handle anchor links
-        const links = document.querySelectorAll('a[href^="#"]')
-        links.forEach((link) => {
-          link.addEventListener("click", function (e) {
-            e.preventDefault()
-            const target = document.querySelector(this.getAttribute("href"))
-            if (target) {
-              target.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-              })
-            }
-          })
         })
       })
+
+      const yearElement = document.getElementById("copyright-year")
+      if (yearElement) {
+        yearElement.textContent = new Date().getFullYear().toString()
+      }
     </script>
   </body>
 </html>
