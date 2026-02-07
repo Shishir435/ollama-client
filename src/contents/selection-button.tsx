@@ -1,8 +1,6 @@
-import cssText from "data-text:~globals.css"
 import "@/i18n/config"
 
 import { useStorage } from "@plasmohq/storage/hook"
-import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -16,20 +14,6 @@ import {
 import { Quote } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ContentExtractionConfig } from "@/types"
-
-export const config: PlasmoCSConfig = {
-  matches: ["<all_urls>"],
-  all_frames: true
-}
-
-export const getStyle: PlasmoGetStyle = () => {
-  const style = document.createElement("style")
-  style.textContent = cssText
-  // Fix for :root variables in Shadow DOM
-  // Replace :root with :host to ensure variables apply within the shadow tree
-  style.textContent = style.textContent.replace(/:root/g, ":host")
-  return style
-}
 
 const SelectionButton = () => {
   useLanguageSync()
