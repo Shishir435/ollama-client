@@ -1,15 +1,41 @@
 import { useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { useToast } from "@/hooks/use-toast"
 
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
-import type { ChatMessage, ChatStreamMessage } from "@/types"
+import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
   model: string
   messages: ChatMessage[]
   sessionId?: string
   generatedMessage?: ChatMessage
+}
+
+interface StreamMessage {
+  type?: string
+  payload?: {
+    sources?: Array<{
+      id: string | number
+      title: string
+      content: string
+      score: number
+      source?: string
+      chunkIndex?: number
+      fileId?: string
+      type?: string
+    }>
+    query?: string
+  }
+  delta?: string
+  done?: boolean
+  error?: {
+    status: number
+    message: string
+  }
+  aborted?: boolean
+  metrics?: Record<string, unknown>
 }
 
 interface UseOllamaStreamProps {
@@ -25,6 +51,7 @@ export const useOllamaStream = ({
   setIsStreaming,
   onToken
 }: UseOllamaStreamProps) => {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
@@ -41,7 +68,6 @@ export const useOllamaStream = ({
     })
     portRef.current = port
 
-    // Now set loading state - port exists, so stop will work
     setIsLoading(true)
     setIsStreaming(false)
 
@@ -57,7 +83,7 @@ export const useOllamaStream = ({
 
     let firstChunk = true
 
-    const listener = (msg: any) => {
+    const listener = (msg: StreamMessage) => {
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false
@@ -78,7 +104,6 @@ export const useOllamaStream = ({
         }
 
         assistantMessage.content += msg.delta
-        // Replace the last message (assistant) with updated content
         const updated = [
           ...currentMessagesRef.current.slice(0, -1),
           { ...assistantMessage }
@@ -96,22 +121,28 @@ export const useOllamaStream = ({
         if (msg.error) {
           const errMsg =
             ERROR_MESSAGES[msg.error.status] ??
-            `❌ Unknown error: ${msg.error.message || "No message"}`
+            t("chat.errors.unknown_error", {
+              message: msg.error.message || t("chat.errors.no_message")
+            })
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
             { role: "assistant", content: errMsg, done: true }
           ]
           toast({
             variant: "destructive",
-            title: "Response Generation Failed",
-            description: msg.error.message || "An unknown error occurred"
+            title: t("chat.errors.response_failed_title"),
+            description:
+              msg.error.message || t("chat.errors.unknown_error_description")
           })
         } else {
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
             {
               ...assistantMessage,
-              metrics: { ...assistantMessage.metrics, ...msg.metrics },
+              metrics: {
+                ...assistantMessage.metrics,
+                ...msg.metrics
+              },
               done: true
             }
           ]

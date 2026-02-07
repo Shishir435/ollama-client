@@ -1,10 +1,7 @@
-import { handleChatStream } from "@/background/handlers/handle-chat-stream"
-import {
-  clearAbortController,
-  setAbortController
-} from "@/background/lib/abort-controller-registry"
+import { setAbortController } from "@/background/lib/abort-controller-registry"
+import { withErrorContext } from "@/background/lib/error-handler"
 import { memoryManager } from "@/background/lib/memory-manager"
-import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
+import { safePostMessage } from "@/background/lib/utils"
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
@@ -12,15 +9,8 @@ import {
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type {
-  ChatMessage,
-  ChatWithModelMessage,
-  ChromePort,
-  ModelConfigMap,
-  NetworkError,
-  OllamaChatRequest,
-  PortStatusFunction
-} from "@/types"
+import { ProviderFactory } from "@/lib/providers/factory"
+import type { ChatMessage, ChatWithModelMessage, ModelConfigMap } from "@/types"
 
 const limitMessagesForModel = (
   model: string,
@@ -32,143 +22,101 @@ const limitMessagesForModel = (
   return messages
 }
 
-export const handleChatWithModel = async (
-  msg: ChatWithModelMessage,
-  port: ChromePort,
-  isPortClosed: PortStatusFunction
-): Promise<void> => {
-  const { model, messages, sessionId, chatId } = msg.payload
-  const baseUrl = await getBaseUrl()
+export const handleChatWithModel = withErrorContext(
+  async (msg: ChatWithModelMessage, port, isPortClosed) => {
+    const { model, messages, sessionId, chatId } = msg.payload
 
-  // Always create a fresh AbortController
-  const ac = new AbortController()
+    const ac = new AbortController()
+    setAbortController(port.name, ac)
 
-  setAbortController(port.name, ac)
+    const modelConfigMap =
+      (await plasmoGlobalStorage.get<ModelConfigMap>(
+        STORAGE_KEYS.OLLAMA.MODEL_CONFIGS
+      )) ?? {}
+    const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
 
-  const modelConfigMap =
-    (await plasmoGlobalStorage.get<ModelConfigMap>(
-      STORAGE_KEYS.OLLAMA.MODEL_CONFIGS
-    )) ?? {}
-  const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
-
-  try {
     const limitedMessages = limitMessagesForModel(model, messages)
+    const preparedMessages = [...limitedMessages]
 
-    let preparedMessages = [...limitedMessages]
-
-    // --- Contextual Memory Injection ---
+    // --- System Prompt & Context Injection ---
     const isMemoryEnabled = await plasmoGlobalStorage.get<boolean>(
       STORAGE_KEYS.MEMORY.ENABLED
     )
-
-    logger.verbose("Memory status check", "handleChatWithModel", {
-      isMemoryEnabled,
-      messageCount: messages.length
-    })
+    const systemPrompt = modelParams.system || "You are a helpful AI assistant."
+    let contextHeader = ""
 
     if (isMemoryEnabled && messages.length > 0) {
       const lastUserMessage = messages[messages.length - 1]
       if (lastUserMessage.role === "user") {
         const enhancedResults = await retrieveContextEnhanced(
           lastUserMessage.content,
-          {
-            // You might need to pass fileId if you want to restrict search to current session files
-            // For now, we search all files or let the pipeline handle defaults
-          }
+          {}
         )
-
-        const { formattedContext, sources } =
-          formatEnhancedResults(enhancedResults)
-
         if (enhancedResults.length > 0) {
+          const { formattedContext, sources } =
+            formatEnhancedResults(enhancedResults)
           logger.info(
             `Injected ${enhancedResults.length} past context items`,
-            "handleChatWithModel",
-            {
-              contextCount: enhancedResults.length
-            }
+            "handleChatWithModel"
           )
 
-          // Send RAG sources to frontend for feedback UI
-          // We use a custom message type that the frontend store needs to handle
           try {
             port.postMessage({
               type: "rag_sources",
-              payload: {
-                sources,
-                query: lastUserMessage.content
-              }
+              payload: { sources, query: lastUserMessage.content }
             })
           } catch (e) {
-            logger.warn(
-              "Failed to send RAG sources to frontend",
-              "handleChatWithModel",
-              { error: e }
-            )
-          }
-
-          const systemContext = `
-
-IMPORTANT: You have access to context from previous conversations with this user:
-${formattedContext}
-
-Use this information to provide personalized and contextually aware responses. When the user asks about past conversations or information they've shared, refer to this context.`
-
-          // Inject into system message if exists, or create one
-          const systemMsgIndex = preparedMessages.findIndex(
-            (m) => m.role === "system"
-          )
-          if (systemMsgIndex !== -1) {
-            preparedMessages[systemMsgIndex] = {
-              ...preparedMessages[systemMsgIndex],
-              content: preparedMessages[systemMsgIndex].content + systemContext
-            }
-          } else {
-            preparedMessages.unshift({
-              role: "system",
-              content:
-                (modelParams.system || "You are a helpful AI assistant.") +
-                systemContext
+            logger.warn("Failed to send RAG sources", "handleChatWithModel", {
+              error: e
             })
           }
+          contextHeader = `\n\nIMPORTANT: You have access to context from previous conversations:\n${formattedContext}\n\nUse this context to provide personalized responses.`
         }
       }
     }
+
+    const systemMsgIndex = preparedMessages.findIndex(
+      (m) => m.role === "system"
+    )
+    if (systemMsgIndex !== -1) {
+      if (contextHeader) {
+        preparedMessages[systemMsgIndex] = {
+          ...preparedMessages[systemMsgIndex],
+          content: preparedMessages[systemMsgIndex].content + contextHeader
+        }
+      }
+    } else {
+      preparedMessages.unshift({
+        role: "system",
+        content: systemPrompt + contextHeader
+      })
+    }
     // -----------------------------------
 
-    const hasSystemMessage = preparedMessages.some(
-      (msg) => msg.role === "system"
+    // Get Provider
+    const provider = await ProviderFactory.getProviderForModel(model)
+
+    let fullResponse = ""
+
+    await provider.streamChat(
+      {
+        model,
+        messages: preparedMessages,
+        temperature: modelParams.temperature
+        // provider handles system prompt if needed, but we already injected it into messages
+        // so we pass the prepared messages
+      },
+      (chunk) => {
+        if (isPortClosed()) return
+
+        if (chunk.delta) {
+          fullResponse += chunk.delta
+        }
+
+        safePostMessage(port, chunk)
+      },
+      ac.signal
     )
-
-    if (modelParams.system && !hasSystemMessage) {
-      preparedMessages = [
-        { role: "system" as const, content: modelParams.system },
-        ...preparedMessages
-      ]
-    }
-
-    const requestBody: OllamaChatRequest = {
-      model,
-      messages: preparedMessages,
-      stream: true,
-      ...modelParams
-    }
-
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-      signal: ac.signal
-    })
-
-    if (!response.ok) {
-      safePostMessage(port, {
-        error: { status: response.status, message: response.statusText }
-      })
-      return
-    }
-
-    const fullResponse = await handleChatStream(response, port, isPortClosed)
 
     // --- Save to Memory ---
     if (isMemoryEnabled && fullResponse && messages.length > 0) {
@@ -182,24 +130,9 @@ Use this information to provide personalized and contextually aware responses. W
         })
       }
     }
-    // ----------------------
-  } catch (err) {
-    const error = err as NetworkError
-
-    if (error.name === "AbortError") {
-      if (!isPortClosed()) {
-        safePostMessage(port, { done: true, aborted: true })
-      }
-    } else {
-      safePostMessage(port, {
-        error: {
-          status: error.status ?? 0,
-          message: error.message || "Unknown error occurred - try regenerating"
-        }
-      })
-    }
-  } finally {
-    // Always clear the controller after request completes or fails
-    clearAbortController(port.name)
+  },
+  {
+    handler: "handleChatWithModel",
+    operation: "streaming chat"
   }
-}
+)

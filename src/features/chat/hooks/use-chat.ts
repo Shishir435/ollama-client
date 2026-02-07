@@ -53,7 +53,19 @@ export const useChat = () => {
   const { embedMessages } = useAutoEmbedMessages()
 
   const currentStreamingMessageId = useRef<number | null>(null)
-  const ragSourcesRef = useRef<{ sources: any[]; query: string } | null>(null)
+  const ragSourcesRef = useRef<{
+    sources: Array<{
+      id: string | number
+      title: string
+      content: string
+      score: number
+      source?: string
+      chunkIndex?: number
+      fileId?: string
+      type?: string
+    }>
+    query: string
+  } | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const debouncedDbUpdate = (id: number, content: string) => {

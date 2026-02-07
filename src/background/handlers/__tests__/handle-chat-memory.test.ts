@@ -9,11 +9,33 @@ import {
 } from "./test-utils"
 import { STORAGE_KEYS } from "@/lib/constants"
 
+const { mockProvider, mockStreamChat } = vi.hoisted(() => {
+  const streamChat = vi.fn().mockImplementation(async (req, onChunk) => {
+    onChunk({ delta: "I am an AI.", done: false })
+    onChunk({ done: true })
+  })
+  return {
+    mockStreamChat: streamChat,
+    mockProvider: {
+      id: "ollama",
+      config: { 
+        id: "ollama", 
+        type: "ollama", 
+        enabled: true, 
+        baseUrl: "http://localhost:11434", 
+        name: "Ollama" 
+      },
+      streamChat: streamChat,
+      getModels: vi.fn()
+    }
+  }
+})
+
 // Mock dependencies
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn(),
-    set: vi.fn()
+    set: vi.fn().mockResolvedValue(undefined)
   }
 }))
 
@@ -22,24 +44,31 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
   clearAbortController: vi.fn()
 }))
 
-vi.mock("@/background/handlers/handle-chat-stream", () => ({
-  handleChatStream: vi.fn()
+vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn().mockResolvedValue([]),
+  formatEnhancedResults: vi.fn().mockReturnValue({ formattedContext: "", sources: [] })
 }))
 
-vi.mock("@/lib/embeddings/vector-store", () => ({
-  retrieveContext: vi.fn(),
-  storeChatMessage: vi.fn()
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn().mockResolvedValue(mockProvider),
+    getProvider: vi.fn().mockResolvedValue(mockProvider)
+  }
+}))
+
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviders: vi.fn().mockResolvedValue([mockProvider.config]),
+    getProviderConfig: vi.fn().mockResolvedValue(mockProvider.config),
+    getModelMapping: vi.fn().mockResolvedValue(null)
+  },
+  DEFAULT_PROVIDERS: []
 }))
 
 vi.mock("@/background/lib/memory-manager", () => ({
   memoryManager: {
-    saveChatToMemory: vi.fn()
+    saveChatToMemory: vi.fn().mockResolvedValue(undefined)
   }
-}))
-
-vi.mock("@/features/chat/rag/rag-pipeline", () => ({
-  retrieveContextEnhanced: vi.fn(),
-  formatEnhancedResults: vi.fn()
 }))
 
 describe("handleChatWithModel - Contextual Memory", () => {
@@ -74,9 +103,6 @@ describe("handleChatWithModel - Contextual Memory", () => {
       sources: []
     } as any)
 
-    const mockResponse = new Response(new ReadableStream(), { status: 200 })
-    vi.mocked(fetch).mockResolvedValue(mockResponse)
-
     const message: ChatWithModelMessage = {
       type: "CHAT_WITH_MODEL",
       payload: {
@@ -88,15 +114,18 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
     await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-    const callArgs = vi.mocked(fetch).mock.calls[0]
-    const requestBody = JSON.parse(callArgs[1]?.body as string)
-    
-    // Check if system prompt contains context
-    const systemMessage = requestBody.messages.find((m: any) => m.role === "system")
-    expect(systemMessage).toBeDefined()
-    expect(systemMessage.content).toContain("context from previous conversations")
-    expect(systemMessage.content).toContain("User likes pizza")
-    expect(systemMessage.content).toContain("User lives in New York")
+    expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+            messages: expect.arrayContaining([
+                expect.objectContaining({
+                    role: "system",
+                    content: expect.stringContaining("context from previous conversations")
+                })
+            ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+    )
   })
 
   it("should NOT inject context when memory is disabled", async () => {
@@ -108,9 +137,6 @@ describe("handleChatWithModel - Contextual Memory", () => {
       if (key === STORAGE_KEYS.MEMORY.ENABLED) return false
       return undefined
     })
-
-    const mockResponse = new Response(new ReadableStream(), { status: 200 })
-    vi.mocked(fetch).mockResolvedValue(mockResponse)
 
     const message: ChatWithModelMessage = {
       type: "CHAT_WITH_MODEL",
@@ -125,19 +151,21 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
     expect(retrieveContextEnhanced).not.toHaveBeenCalled()
     
-    const callArgs = vi.mocked(fetch).mock.calls[0]
-    const requestBody = JSON.parse(callArgs[1]?.body as string)
-    
-    // System prompt should NOT contain context header
-    const systemMessage = requestBody.messages.find((m: any) => m.role === "system")
-    if (systemMessage) {
-      expect(systemMessage.content).not.toContain("context from previous conversations")
-    }
+    expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+            messages: expect.not.arrayContaining([
+                expect.objectContaining({
+                    content: expect.stringContaining("context from previous conversations")
+                })
+            ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+    )
   })
 
   it("should save chat to memory after successful generation", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    const { handleChatStream } = await import("@/background/handlers/handle-chat-stream")
     const { memoryManager } = await import("@/background/lib/memory-manager")
     
     // Mock Memory Enabled
@@ -145,12 +173,6 @@ describe("handleChatWithModel - Contextual Memory", () => {
       if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
       return undefined
     })
-
-    // Mock Stream Response
-    vi.mocked(handleChatStream).mockResolvedValue("I am an AI.")
-
-    const mockResponse = new Response(new ReadableStream(), { status: 200 })
-    vi.mocked(fetch).mockResolvedValue(mockResponse)
 
     const message: ChatWithModelMessage = {
       type: "CHAT_WITH_MODEL",

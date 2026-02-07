@@ -513,7 +513,12 @@ describe("useChat", () => {
           }
         ],
         formattedContext: "[Document 1] test.txt\nRelevant chunk",
-        sources: [{ title: "test.txt", type: "file", fileId: "file-1" }]
+        sources: [{
+          title: "test.txt", type: "file", fileId: "file-1",
+          id: "",
+          content: "",
+          score: 0
+        }]
       })
 
       const { result } = renderHook(() => useChat())
