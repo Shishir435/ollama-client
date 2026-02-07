@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -207,8 +208,17 @@ export const ProviderSettings = () => {
           </div>
 
           <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>Base URL</Label>
+            <SettingsFormField
+              label="Base URL"
+              description={
+                <>
+                  Default:{" "}
+                  {
+                    DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
+                      ?.baseUrl
+                  }
+                </>
+              }>
               <Input
                 value={activeConfig.baseUrl || ""}
                 onChange={(e) => {
@@ -220,22 +230,14 @@ export const ProviderSettings = () => {
                 }}
                 placeholder="https://api.example.com/v1"
               />
-              <p className="text-xs text-muted-foreground">
-                Default:{" "}
-                {
-                  DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
-                    ?.baseUrl
-                }
-              </p>
-            </div>
+            </SettingsFormField>
 
             {![
               ProviderId.OLLAMA,
               ProviderId.LM_STUDIO,
               ProviderId.LLAMA_CPP
             ].includes(activeConfig.id as ProviderId) && (
-              <div className="grid gap-2">
-                <Label>API Key</Label>
+              <SettingsFormField label="API Key">
                 <Input
                   type="password"
                   value={activeConfig.apiKey || ""}
@@ -247,7 +249,7 @@ export const ProviderSettings = () => {
                   }}
                   placeholder="sk-..."
                 />
-              </div>
+              </SettingsFormField>
             )}
 
             {![
@@ -255,8 +257,10 @@ export const ProviderSettings = () => {
               ProviderId.LM_STUDIO,
               ProviderId.LLAMA_CPP
             ].includes(activeConfig.id as ProviderId) && (
-              <div className="grid gap-2 pt-2">
-                <Label>Custom Models</Label>
+              <SettingsFormField
+                label="Custom Models"
+                description="Add models manually if they don't appear in the auto-discovered list."
+                className="pt-2">
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g. google/gemini-pro"
@@ -336,11 +340,7 @@ export const ProviderSettings = () => {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Add models manually if they don't appear in the
-                  auto-discovered list.
-                </p>
-              </div>
+              </SettingsFormField>
             )}
           </div>
 

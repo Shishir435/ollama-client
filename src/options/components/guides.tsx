@@ -12,7 +12,7 @@ export const Guides = () => {
   const { t } = useTranslation()
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto space-y-4">
       <SettingsCard
         icon={Notebook}
         title={t("guides.title")}
