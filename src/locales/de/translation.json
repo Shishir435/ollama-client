@@ -655,24 +655,6 @@
         "saved": "Gespeichert"
       }
     },
-    "model_pull": {
-      "title": "Modellbibliothek",
-      "description": "Durchsuchen und laden Sie KI-Modelle für Ihre Projekte herunter.",
-      "search_placeholder": "Nach Modellen nach Name oder Beschreibung suchen...",
-      "status": {
-        "cancelled": "Abgebrochen",
-        "downloading": "Modell wird heruntergeladen",
-        "loading_models": "Modelle werden geladen...",
-        "no_models": "Keine Modelle gefunden",
-        "adjust_search": "Passen Sie Ihre Suchbegriffe an."
-      },
-      "button": {
-        "variants": "Varianten",
-        "loading": "Lädt",
-        "pulling": "Lade herunter"
-      },
-      "variants_label": "Verfügbare Varianten"
-    },
     "model_list": {
       "unknown_size": "Unbekannte Größe",
       "invalid_size": "Ungültige Größe",

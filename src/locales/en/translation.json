@@ -669,24 +669,6 @@
         "saved": "Saved"
       }
     },
-    "model_pull": {
-      "title": "Model Library",
-      "description": "Browse and download AI models for your projects.",
-      "search_placeholder": "Search for models by name or description...",
-      "status": {
-        "cancelled": "Cancelled",
-        "downloading": "Downloading model",
-        "loading_models": "Loading models...",
-        "no_models": "No models found",
-        "adjust_search": "Adjust your search terms."
-      },
-      "button": {
-        "variants": "Variants",
-        "loading": "Loading",
-        "pulling": "Pulling"
-      },
-      "variants_label": "Available Variants"
-    },
     "model_list": {
       "unknown_size": "Unknown size",
       "invalid_size": "Invalid size",

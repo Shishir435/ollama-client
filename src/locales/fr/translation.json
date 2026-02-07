@@ -655,24 +655,6 @@
         "saved": "Sauvegardé"
       }
     },
-    "model_pull": {
-      "title": "Bibliothèque de Modèles",
-      "description": "Parcourez et téléchargez des modèles d'IA pour vos projets.",
-      "search_placeholder": "Rechercher des modèles par nom ou description...",
-      "status": {
-        "cancelled": "Annulé",
-        "downloading": "Téléchargement du modèle",
-        "loading_models": "Chargement des modèles...",
-        "no_models": "Aucun modèle trouvé",
-        "adjust_search": "Ajustez vos termes de recherche."
-      },
-      "button": {
-        "variants": "Variantes",
-        "loading": "Chargement",
-        "pulling": "Téléchargement en cours"
-      },
-      "variants_label": "Variantes Disponibles"
-    },
     "model_list": {
       "unknown_size": "Taille inconnue",
       "invalid_size": "Taille non valide",

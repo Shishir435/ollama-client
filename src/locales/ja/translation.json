@@ -654,24 +654,6 @@
         "saved": "保存済み"
       }
     },
-    "model_pull": {
-      "title": "モデルライブラリ",
-      "description": "プロジェクト用のAIモデルを閲覧してダウンロードします。",
-      "search_placeholder": "名前または説明でモデルを検索...",
-      "status": {
-        "cancelled": "キャンセル済み",
-        "downloading": "モデルをダウンロード中",
-        "loading_models": "モデルを読み込み中...",
-        "no_models": "モデルが見つかりません",
-        "adjust_search": "検索語句を調整してください。"
-      },
-      "button": {
-        "variants": "バリアント",
-        "loading": "読み込み中",
-        "pulling": "Pull中"
-      },
-      "variants_label": "利用可能なバリアント"
-    },
     "model_list": {
       "unknown_size": "不明なサイズ",
       "invalid_size": "無効なサイズ",

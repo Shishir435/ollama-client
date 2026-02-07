@@ -740,26 +740,6 @@ export const resources = {
             saved: "Gespeichert"
           }
         },
-        model_pull: {
-          title: "Modellbibliothek",
-          description:
-            "Durchsuchen und laden Sie KI-Modelle für Ihre Projekte herunter.",
-          search_placeholder:
-            "Nach Modellen nach Name oder Beschreibung suchen...",
-          status: {
-            cancelled: "Abgebrochen",
-            downloading: "Modell wird heruntergeladen",
-            loading_models: "Modelle werden geladen...",
-            no_models: "Keine Modelle gefunden",
-            adjust_search: "Passen Sie Ihre Suchbegriffe an."
-          },
-          button: {
-            variants: "Varianten",
-            loading: "Lädt",
-            pulling: "Lade herunter"
-          },
-          variants_label: "Verfügbare Varianten"
-        },
         model_list: {
           unknown_size: "Unbekannte Größe",
           invalid_size: "Ungültige Größe",
@@ -1881,24 +1861,6 @@ export const resources = {
             saved: "Saved"
           }
         },
-        model_pull: {
-          title: "Model Library",
-          description: "Browse and download AI models for your projects.",
-          search_placeholder: "Search for models by name or description...",
-          status: {
-            cancelled: "Cancelled",
-            downloading: "Downloading model",
-            loading_models: "Loading models...",
-            no_models: "No models found",
-            adjust_search: "Adjust your search terms."
-          },
-          button: {
-            variants: "Variants",
-            loading: "Loading",
-            pulling: "Pulling"
-          },
-          variants_label: "Available Variants"
-        },
         model_list: {
           unknown_size: "Unknown size",
           invalid_size: "Invalid size",
@@ -3013,24 +2975,6 @@ export const resources = {
             saved: "Guardado"
           }
         },
-        model_pull: {
-          title: "Biblioteca de Modelos",
-          description: "Explora y descarga modelos de IA para tus proyectos.",
-          search_placeholder: "Buscar modelos por nombre o descripción...",
-          status: {
-            cancelled: "Cancelado",
-            downloading: "Descargando modelo",
-            loading_models: "Cargando modelos...",
-            no_models: "No se encontraron modelos",
-            adjust_search: "Ajusta tus términos de búsqueda."
-          },
-          button: {
-            variants: "Variantes",
-            loading: "Cargando",
-            pulling: "Descargando"
-          },
-          variants_label: "Variantes Disponibles"
-        },
         model_list: {
           unknown_size: "Tamaño desconocido",
           invalid_size: "Tamaño no válido",
@@ -4140,26 +4084,6 @@ export const resources = {
             saved: "Sauvegardé"
           }
         },
-        model_pull: {
-          title: "Bibliothèque de Modèles",
-          description:
-            "Parcourez et téléchargez des modèles d'IA pour vos projets.",
-          search_placeholder:
-            "Rechercher des modèles par nom ou description...",
-          status: {
-            cancelled: "Annulé",
-            downloading: "Téléchargement du modèle",
-            loading_models: "Chargement des modèles...",
-            no_models: "Aucun modèle trouvé",
-            adjust_search: "Ajustez vos termes de recherche."
-          },
-          button: {
-            variants: "Variantes",
-            loading: "Chargement",
-            pulling: "Téléchargement en cours"
-          },
-          variants_label: "Variantes Disponibles"
-        },
         model_list: {
           unknown_size: "Taille inconnue",
           invalid_size: "Taille non valide",
@@ -5243,24 +5167,6 @@ export const resources = {
             saving: "सेव कर रहा है",
             saved: "सेव किया गया"
           }
-        },
-        model_pull: {
-          title: "मॉडल लाइब्रेरी",
-          description: "अपनी परियोजनाओं के लिए AI मॉडल ब्राउज़ करें और डाउनलोड करें।",
-          search_placeholder: "नाम या विवरण द्वारा मॉडल खोजें...",
-          status: {
-            cancelled: "रद्द किया गया",
-            downloading: "मॉडल डाउनलोड हो रहा है",
-            loading_models: "मॉडल लोड हो रहे हैं...",
-            no_models: "कोई मॉडल नहीं मिला",
-            adjust_search: "अपने खोज शब्दों को समायोजित करें।"
-          },
-          button: {
-            variants: "वेरिएंट",
-            loading: "लोड हो रहा है",
-            pulling: "पुल कर रहा है"
-          },
-          variants_label: "उपलब्ध वेरिएंट"
         },
         model_list: {
           unknown_size: "अज्ञात साइज़",
@@ -6365,24 +6271,6 @@ export const resources = {
             saved: "Salvato"
           }
         },
-        model_pull: {
-          title: "Libreria Modelli",
-          description: "Sfoglia e scarica modelli IA per i tuoi progetti.",
-          search_placeholder: "Cerca modelli per nome o descrizione...",
-          status: {
-            cancelled: "Annullato",
-            downloading: "Scaricamento modello in corso",
-            loading_models: "Caricamento modelli in corso...",
-            no_models: "Nessun modello trovato",
-            adjust_search: "Regola i tuoi termini di ricerca."
-          },
-          button: {
-            variants: "Varianti",
-            loading: "Caricamento",
-            pulling: "Scaricamento in corso"
-          },
-          variants_label: "Varianti Disponibili"
-        },
         model_list: {
           unknown_size: "Dimensione sconosciuta",
           invalid_size: "Dimensione non valida",
@@ -7484,24 +7372,6 @@ export const resources = {
             saved: "保存済み"
           }
         },
-        model_pull: {
-          title: "モデルライブラリ",
-          description: "プロジェクト用のAIモデルを閲覧してダウンロードします。",
-          search_placeholder: "名前または説明でモデルを検索...",
-          status: {
-            cancelled: "キャンセル済み",
-            downloading: "モデルをダウンロード中",
-            loading_models: "モデルを読み込み中...",
-            no_models: "モデルが見つかりません",
-            adjust_search: "検索語句を調整してください。"
-          },
-          button: {
-            variants: "バリアント",
-            loading: "読み込み中",
-            pulling: "Pull中"
-          },
-          variants_label: "利用可能なバリアント"
-        },
         model_list: {
           unknown_size: "不明なサイズ",
           invalid_size: "無効なサイズ",
@@ -8592,25 +8462,6 @@ export const resources = {
             saved: "Сохранено"
           }
         },
-        model_pull: {
-          title: "Библиотека моделей",
-          description:
-            "Просматривайте и загружайте ИИ модели для ваших проектов.",
-          search_placeholder: "Поиск моделей по названию или описанию...",
-          status: {
-            cancelled: "Отменено",
-            downloading: "Загрузка модели",
-            loading_models: "Загрузка моделей...",
-            no_models: "Модели не найдены",
-            adjust_search: "Скорректируйте условия поиска."
-          },
-          button: {
-            variants: "Варианты",
-            loading: "Загрузка",
-            pulling: "Скачивание"
-          },
-          variants_label: "Доступные варианты"
-        },
         model_list: {
           unknown_size: "Неизвестный размер",
           invalid_size: "Неверный размер",
@@ -9667,24 +9518,6 @@ export const resources = {
             saving: "正在保存",
             saved: "已保存"
           }
-        },
-        model_pull: {
-          title: "模型库",
-          description: "浏览和下载您的 AI 模型。",
-          search_placeholder: "按名称或描述搜索模型...",
-          status: {
-            cancelled: "已取消",
-            downloading: "正在下载模型",
-            loading_models: "正在加载模型...",
-            no_models: "未找到模型",
-            adjust_search: "调整您的搜索词。"
-          },
-          button: {
-            variants: "变体",
-            loading: "正在加载",
-            pulling: "正在拉取"
-          },
-          variants_label: "可用变体"
         },
         model_list: {
           unknown_size: "未知大小",

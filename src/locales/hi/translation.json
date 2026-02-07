@@ -654,24 +654,6 @@
         "saved": "सेव किया गया"
       }
     },
-    "model_pull": {
-      "title": "मॉडल लाइब्रेरी",
-      "description": "अपनी परियोजनाओं के लिए AI मॉडल ब्राउज़ करें और डाउनलोड करें।",
-      "search_placeholder": "नाम या विवरण द्वारा मॉडल खोजें...",
-      "status": {
-        "cancelled": "रद्द किया गया",
-        "downloading": "मॉडल डाउनलोड हो रहा है",
-        "loading_models": "मॉडल लोड हो रहे हैं...",
-        "no_models": "कोई मॉडल नहीं मिला",
-        "adjust_search": "अपने खोज शब्दों को समायोजित करें।"
-      },
-      "button": {
-        "variants": "वेरिएंट",
-        "loading": "लोड हो रहा है",
-        "pulling": "पुल कर रहा है"
-      },
-      "variants_label": "उपलब्ध वेरिएंट"
-    },
     "model_list": {
       "unknown_size": "अज्ञात साइज़",
       "invalid_size": "अवैध साइज़",

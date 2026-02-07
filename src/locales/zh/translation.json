@@ -656,24 +656,6 @@
         "saved": "已保存"
       }
     },
-    "model_pull": {
-      "title": "模型库",
-      "description": "浏览和下载您的 AI 模型。",
-      "search_placeholder": "按名称或描述搜索模型...",
-      "status": {
-        "cancelled": "已取消",
-        "downloading": "正在下载模型",
-        "loading_models": "正在加载模型...",
-        "no_models": "未找到模型",
-        "adjust_search": "调整您的搜索词。"
-      },
-      "button": {
-        "variants": "变体",
-        "loading": "正在加载",
-        "pulling": "正在拉取"
-      },
-      "variants_label": "可用变体"
-    },
     "model_list": {
       "unknown_size": "未知大小",
       "invalid_size": "无效大小",
