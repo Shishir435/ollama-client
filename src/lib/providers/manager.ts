@@ -58,7 +58,25 @@ export const ProviderManager = {
 
   async getProviderConfig(id: string): Promise<ProviderConfig | undefined> {
     const providers = await ProviderManager.getProviders()
-    return providers.find((p) => p.id === id)
+    const config = providers.find((p) => p.id === id)
+
+    // Sync legacy Ollama base URL for backwards compatibility
+    if (config && id === ProviderId.OLLAMA) {
+      try {
+        const { STORAGE_KEYS } = await import("@/lib/constants")
+        const legacyUrl = await plasmoGlobalStorage.get<string>(
+          STORAGE_KEYS.OLLAMA.BASE_URL
+        )
+        if (legacyUrl && legacyUrl !== config.baseUrl) {
+          // Return config with the legacy URL
+          return { ...config, baseUrl: legacyUrl }
+        }
+      } catch (e) {
+        console.warn("Failed to check legacy Ollama URL", e)
+      }
+    }
+
+    return config
   },
 
   async saveProviders(providers: ProviderConfig[]): Promise<void> {
