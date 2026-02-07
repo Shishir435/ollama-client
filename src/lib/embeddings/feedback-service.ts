@@ -24,6 +24,22 @@ export interface AggregatedScore {
   avgScore: number
 }
 
+interface FeedbackRow {
+  id: number
+  chunk_vector_id: string
+  query_hash: string
+  was_helpful: number
+  timestamp: number
+  session_id: string | null
+}
+
+interface FeedbackStatsRow {
+  total: number
+  helpful: number
+  unique_chunks: number
+  unique_queries: number
+}
+
 class FeedbackService {
   /**
    * Record user feedback for a chunk
@@ -107,13 +123,26 @@ class FeedbackService {
     try {
       const db = await initSQLite()
 
-      const result = await new Promise<any>((resolve, reject) => {
+      const result = await new Promise<{
+        chunk_vector_id: string
+        total_feedback: number
+        helpful_count: number
+        avg_score: number
+      } | null>((resolve, reject) => {
         db.get(
           `SELECT * FROM chunk_quality_scores WHERE chunk_vector_id = ?`,
           [chunkVectorId],
-          (err: any, row: any) => {
+          (err: Error | null, row: unknown) => {
             if (err) reject(err)
-            else resolve(row)
+            else
+              resolve(
+                row as {
+                  chunk_vector_id: string
+                  total_feedback: number
+                  helpful_count: number
+                  avg_score: number
+                } | null
+              )
           }
         )
       })
@@ -143,13 +172,13 @@ class FeedbackService {
     try {
       const db = await initSQLite()
 
-      const rows = await new Promise<any[]>((resolve, reject) => {
+      const rows = await new Promise<FeedbackRow[]>((resolve, reject) => {
         db.all(
           `SELECT id, chunk_vector_id, query_hash, was_helpful, timestamp, session_id
            FROM chunk_feedback
            ORDER BY timestamp DESC`,
           [],
-          (err: any, rows: any[]) => {
+          (err: Error | null, rows: FeedbackRow[]) => {
             if (err) reject(err)
             else resolve(rows || [])
           }
@@ -178,7 +207,7 @@ class FeedbackService {
       const db = await initSQLite()
 
       await new Promise<void>((resolve, reject) => {
-        db.run(`DELETE FROM chunk_feedback`, [], (err: any) => {
+        db.run(`DELETE FROM chunk_feedback`, [], (err: Error | null) => {
           if (err) reject(err)
           else resolve()
         })
@@ -202,7 +231,7 @@ class FeedbackService {
         db.run(
           `DELETE FROM chunk_feedback WHERE chunk_vector_id = ?`,
           [chunkVectorId],
-          (err: any) => {
+          (err: Error | null) => {
             if (err) reject(err)
             else resolve()
           }
@@ -244,7 +273,7 @@ class FeedbackService {
     try {
       const db = await initSQLite()
 
-      const stats = await new Promise<any>((resolve, reject) => {
+      const stats = await new Promise<FeedbackStatsRow>((resolve, reject) => {
         db.get(
           `SELECT 
             COUNT(*) as total,
@@ -253,9 +282,9 @@ class FeedbackService {
             COUNT(DISTINCT query_hash) as unique_queries
            FROM chunk_feedback`,
           [],
-          (err: any, row: any) => {
+          (err: Error | null, row: unknown) => {
             if (err) reject(err)
-            else resolve(row)
+            else resolve(row as FeedbackStatsRow)
           }
         )
       })

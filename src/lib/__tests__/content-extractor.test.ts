@@ -11,16 +11,17 @@ import type { ContentExtractionConfig } from "@/types"
 
 describe("Content Extractor", () => {
   const defaultConfig: ContentExtractionConfig = {
-      enabled: true,
-      scrollStrategy: "none",
-      scrollDepth: 1,
-      scrollDelay: 100,
-      mutationObserverTimeout: 0,
-      networkIdleTimeout: 0,
-      siteOverrides: {},
-      contentScraper: "auto",
-      excludedUrlPatterns: [],
-      maxWaitTime: 0
+    enabled: true,
+    scrollStrategy: "none",
+    scrollDepth: 1,
+    scrollDelay: 100,
+    mutationObserverTimeout: 0,
+    networkIdleTimeout: 0,
+    siteOverrides: {},
+    contentScraper: "auto",
+    excludedUrlPatterns: [],
+    maxWaitTime: 0,
+    showSelectionButton: false
   }
 
   describe("extractDomain", () => {

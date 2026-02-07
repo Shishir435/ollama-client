@@ -6,6 +6,8 @@ export type OllamaModel = {
   modified_at: string
   size: number
   digest: string
+  providerId?: string
+  providerName?: string
   details: {
     parent_model: string
     format: string
@@ -126,6 +128,8 @@ export interface ChromeResponse {
   error?: {
     status: number
     message: string
+    context?: string
+    providerId?: string
   }
   tabs?: browser.Tabs.Tab[]
   html?: string
@@ -142,17 +146,20 @@ export interface OllamaChatRequest {
   model: string
   messages: ChatMessage[]
   stream?: boolean
-  temperature?: number
-  top_k?: number
-  top_p?: number
-  repeat_penalty?: number
-  stop?: string[]
-  system?: string
-  num_ctx?: number
-  repeat_last_n?: number
-  seed?: number
-  num_predict?: number
-  min_p?: number
+  format?: string
+  keep_alive?: string | number
+  options?: {
+    temperature?: number
+    top_k?: number
+    top_p?: number
+    repeat_penalty?: number
+    stop?: string[]
+    num_ctx?: number
+    repeat_last_n?: number
+    seed?: number
+    num_predict?: number
+    min_p?: number
+  }
 }
 
 export interface OllamaPullRequest {
@@ -183,6 +190,8 @@ export interface OllamaChatResponse {
   prompt_eval_duration?: number
   eval_count?: number
   eval_duration?: number
+  sample_count?: number
+  sample_duration?: number
   context?: number[]
 }
 
@@ -229,6 +238,8 @@ export interface ChatStreamMessage {
   error?: {
     status: number
     message: string
+    context?: string
+    providerId?: string
   }
   metrics?: {
     total_duration?: number
@@ -237,6 +248,8 @@ export interface ChatStreamMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    sample_count?: number
+    sample_duration?: number
   }
 }
 
@@ -249,6 +262,8 @@ export interface PullStreamMessage {
     | {
         status: number
         message: string
+        context?: string
+        providerId?: string
       }
 }
 

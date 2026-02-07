@@ -40,9 +40,11 @@ GROUP BY chunk_vector_id;
 /**
  * Apply chunk feedback migration
  */
-export async function applyChunkFeedbackMigration(db: any): Promise<void> {
+export async function applyChunkFeedbackMigration(db: {
+  exec: (sql: string, callback?: (err: Error | null) => void) => void
+}): Promise<void> {
   return new Promise((resolve, reject) => {
-    db.exec(CHUNK_FEEDBACK_MIGRATION, (err: any) => {
+    db.exec(CHUNK_FEEDBACK_MIGRATION, (err: Error | null) => {
       if (err) {
         reject(err)
       } else {
