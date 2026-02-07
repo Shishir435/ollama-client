@@ -33,7 +33,6 @@ import type { ChromeResponse } from "@/types"
 import { EmbeddingConfigSettings } from "./embedding-config-settings"
 import { EmbeddingIndexControls } from "./embedding-index-controls"
 import { EmbeddingInfo } from "./embedding-info"
-import { EmbeddingModelStatus } from "./embedding-model-status"
 import { EmbeddingTestTools } from "./embedding-test-tools"
 
 export const EmbeddingSettings = () => {
@@ -58,7 +57,6 @@ export const EmbeddingSettings = () => {
   const [modelExists, setModelExists] = useState<boolean>(false)
 
   // We need to check model existence here to pass to children
-  // This duplicates some logic from EmbeddingModelStatus but is cleaner than lifting all state
   useEffect(() => {
     const checkModel = async () => {
       try {
@@ -104,8 +102,6 @@ export const EmbeddingSettings = () => {
         description={t("settings.embeddings.description")}
         badge="Beta">
         <div className="space-y-4">
-          <EmbeddingModelStatus selectedModel={selectedModel} />
-
           {modelExists && (
             <>
               <EmbeddingTestTools modelExists={modelExists} />
