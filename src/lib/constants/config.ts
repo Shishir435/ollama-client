@@ -1,5 +1,10 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
-import { DEFAULT_EXCLUDE_URLS, FILE_UPLOAD } from "./defaults"
+import {
+  CANONICAL_EMBEDDING_MODEL,
+  DEFAULT_EXCLUDE_URLS,
+  DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
+  FILE_UPLOAD
+} from "./defaults"
 
 export type ChunkingStrategy = "fixed" | "semantic" | "hybrid" | "markdown"
 
@@ -13,6 +18,10 @@ export interface EmbeddingConfig {
   // Embedding generation settings
   batchSize: number // Number of texts to embed in parallel (default: 5)
   maxEmbeddingsPerFile: number // Limit embeddings per file (default: 1000, 0 = unlimited)
+  embeddingStrategy: "auto" | "provider-native" | "shared-model" | "ollama-only" // Embedding routing strategy (default: auto)
+  sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-MiniLM-L6-v2)
+  sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: ollama)
+  warmupEmbeddingsInBackground: boolean // Best-effort background model preparation (default: true)
 
   // Performance settings
   useWebWorker: boolean // Use Web Worker for embedding generation (default: true)
@@ -77,6 +86,10 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   useEnhancedChunking: true, // Enable enhanced chunking by default for better RAG quality
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
+  embeddingStrategy: "auto",
+  sharedEmbeddingModel: CANONICAL_EMBEDDING_MODEL,
+  sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
+  warmupEmbeddingsInBackground: true,
   useWebWorker: true, // Offload to worker thread
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,

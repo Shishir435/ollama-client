@@ -47,6 +47,12 @@ export interface ChatRequest {
   stream?: boolean
 }
 
+export interface EmbeddingSupport {
+  supported: boolean
+  mode: "native" | "openai-compatible" | "none"
+  notes?: string
+}
+
 export interface LLMProvider {
   id: string
   config: ProviderConfig
@@ -59,6 +65,7 @@ export interface LLMProvider {
 
   getModels(): Promise<string[]>
   getModelDetails?(model: string): Promise<OllamaShowResponse | null>
+  getEmbeddingSupport?(): Promise<EmbeddingSupport>
   embed?(text: string, model?: string): Promise<number[]>
   embedBatch?(texts: string[], model?: string): Promise<number[][]>
 }

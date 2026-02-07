@@ -6,6 +6,7 @@ import type {
 } from "@/types"
 import {
   type ChatRequest,
+  type EmbeddingSupport,
   type LLMProvider,
   type ProviderConfig,
   ProviderId
@@ -130,22 +131,55 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
+  async getEmbeddingSupport(): Promise<EmbeddingSupport> {
+    return {
+      supported: true,
+      mode: "native",
+      notes: "Uses Ollama embedding endpoints (/api/embed or /api/embeddings)."
+    }
+  }
+
   async embed(text: string, model?: string): Promise<number[]> {
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
     const targetModel = model || this.config.modelId || "nomic-embed-text"
 
-    const response = await fetch(`${baseUrl}/api/embeddings`, {
+    // Prefer current endpoint and fall back to legacy endpoint for compatibility.
+    try {
+      const response = await fetch(`${baseUrl}/api/embed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: targetModel, input: text })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const vector = Array.isArray(data.embeddings)
+          ? data.embeddings[0]
+          : data.embedding
+
+        if (Array.isArray(vector) && vector.length > 0) {
+          return vector
+        }
+      }
+    } catch (_error) {
+      // Continue to legacy fallback.
+    }
+
+    const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: targetModel, prompt: text })
     })
 
-    if (!response.ok) {
-      throw new Error(`Ollama Embedding Error: ${response.status}`)
+    if (!legacyResponse.ok) {
+      throw new Error(`Ollama Embedding Error: ${legacyResponse.status}`)
     }
 
-    const data = await response.json()
-    return data.embedding
+    const legacyData = await legacyResponse.json()
+    if (!Array.isArray(legacyData.embedding)) {
+      throw new Error("Ollama Embedding Error: invalid embedding response")
+    }
+    return legacyData.embedding
   }
 
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {

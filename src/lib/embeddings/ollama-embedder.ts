@@ -1,21 +1,16 @@
 import {
   DEFAULT_EMBEDDING_CONFIG,
-  DEFAULT_EMBEDDING_MODEL,
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
-/**
- * Gets the Ollama base URL from storage
- * Can be used in any context (background, content script, options, etc.)
- */
-const getBaseUrl = async (): Promise<string> => {
-  return (
-    ((await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) as string) ??
-    "http://localhost:11434"
-  )
-}
+import {
+  type EmbeddingStrategyCapabilities,
+  type EmbeddingStrategyReadiness,
+  ensureEmbeddingStrategyReady,
+  generateEmbeddingWithStrategy,
+  getEmbeddingCapabilities
+} from "./embedding-strategy"
 
 export interface EmbeddingResult {
   embedding: number[]
@@ -31,6 +26,7 @@ export interface EmbeddingError {
 interface CacheEntry {
   embedding: number[]
   timestamp: number
+  modelKey: string
 }
 
 const embeddingCache = new Map<string, CacheEntry>()
@@ -88,27 +84,42 @@ const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
   }
 }
 
+const getCacheModelKey = async (modelName?: string): Promise<string> => {
+  if (modelName) {
+    return modelName
+  }
+
+  const stored = await plasmoGlobalStorage.get<string>(
+    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
+  )
+  return stored || "default"
+}
+
 /**
- * Generates embeddings for text using Ollama embedding models
- * Optimized with caching and batch processing support
+ * Generates embeddings for text using the browser-safe embedding strategy chain.
+ * Optimized with caching and batch processing support.
  */
 export const generateEmbedding = async (
   text: string,
   modelName?: string
 ): Promise<EmbeddingResult | EmbeddingError> => {
   const config = await getEmbeddingConfig()
+  const modelKey = await getCacheModelKey(modelName)
 
   // Check cache if enabled
   if (config.enableCaching) {
-    const contentHash = hashContent(text)
+    const contentHash = `${hashContent(text)}:${modelKey}`
     const cached = embeddingCache.get(contentHash)
     if (cached) {
       // Check if cache entry is still valid (not expired)
       const now = Date.now()
-      if (now - cached.timestamp < CACHE_TTL_MS) {
+      if (
+        now - cached.timestamp < CACHE_TTL_MS &&
+        cached.modelKey === modelKey
+      ) {
         return {
           embedding: cached.embedding,
-          model: modelName || DEFAULT_EMBEDDING_MODEL
+          model: modelName || modelKey
         }
       } else {
         // Remove expired entry
@@ -117,31 +128,12 @@ export const generateEmbedding = async (
     }
   }
   try {
-    const _baseUrl = await getBaseUrl()
-    const selectedModel =
-      modelName ||
-      ((await plasmoGlobalStorage.get<string>(
-        STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
-      )) as string) ||
-      DEFAULT_EMBEDDING_MODEL
-
-    const { ProviderFactory } = await import("@/lib/providers/factory")
-    const { ProviderId } = await import("@/lib/providers/types")
-
-    // Enforce Ollama for embeddings regardless of what the model mapping says
-    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
-
-    if (!provider.embed) {
-      throw new Error(
-        `Provider for ${selectedModel} does not support embeddings`
-      )
-    }
-
-    const embedding = await provider.embed(text, selectedModel)
+    const resolved = await generateEmbeddingWithStrategy(text, modelName)
+    const embedding = resolved.embedding
 
     // Cache if enabled
     if (config.enableCaching) {
-      const contentHash = hashContent(text)
+      const contentHash = `${hashContent(text)}:${modelKey}`
       const now = Date.now()
 
       // Clean expired entries periodically (every 10th insertion)
@@ -169,13 +161,14 @@ export const generateEmbedding = async (
 
       embeddingCache.set(contentHash, {
         embedding,
-        timestamp: now
+        timestamp: now,
+        modelKey
       })
     }
 
     return {
       embedding,
-      model: selectedModel
+      model: resolved.model
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -303,3 +296,19 @@ export const getCacheStats = (): { size: number; maxSize: number } => {
     maxSize: CACHE_MAX_SIZE
   }
 }
+
+/**
+ * Embedding strategy capability snapshot for diagnostics.
+ */
+export const getEmbeddingRouteCapabilities =
+  async (): Promise<EmbeddingStrategyCapabilities> => {
+    return getEmbeddingCapabilities()
+  }
+
+/**
+ * Trigger best-effort strategy warmup without blocking chat/file workflows.
+ */
+export const ensureEmbeddingRouteReady =
+  async (): Promise<EmbeddingStrategyReadiness> => {
+    return ensureEmbeddingStrategyReady()
+  }

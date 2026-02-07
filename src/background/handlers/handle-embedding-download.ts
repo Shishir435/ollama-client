@@ -1,8 +1,13 @@
 import { getBaseUrl } from "@/background/lib/utils"
-import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { OllamaPullRequest } from "@/types"
+import { ProviderId } from "@/lib/providers/types"
+import type { ChromeResponse, OllamaPullRequest } from "@/types"
 
 /**
  * Checks if the embedding model is already downloaded
@@ -197,5 +202,76 @@ export const downloadEmbeddingModelSilently = async (
       success: false,
       error: errorMessage
     }
+  }
+}
+
+interface PrepareEmbeddingPayload {
+  model?: string
+  providerId?: string
+}
+
+/**
+ * Best-effort embedding model preparation.
+ * Keeps behavior non-blocking and only performs model pull for Ollama provider.
+ */
+export const prepareEmbeddingModel = async (
+  payload: PrepareEmbeddingPayload = {}
+): Promise<{ ready: boolean; prepared: boolean; error?: string }> => {
+  const providerId = payload.providerId || ProviderId.OLLAMA
+  const modelName = payload.model || DEFAULT_EMBEDDING_MODEL
+
+  // Only Ollama supports model pull in current runtime.
+  if (providerId !== ProviderId.OLLAMA) {
+    return { ready: true, prepared: false }
+  }
+
+  const existsResult = await checkEmbeddingModelExists(modelName)
+  if (existsResult.exists) {
+    return { ready: true, prepared: false }
+  }
+
+  const downloadResult = await downloadEmbeddingModelSilently(modelName)
+  if (downloadResult.success) {
+    return { ready: true, prepared: true }
+  }
+
+  return {
+    ready: false,
+    prepared: false,
+    error: downloadResult.error
+  }
+}
+
+/**
+ * Runtime message handler used by the embedding fallback chain.
+ */
+export const handlePrepareEmbeddingModel = async (
+  payload: unknown,
+  sendResponse: (response: ChromeResponse) => void
+) => {
+  try {
+    const prepared = await prepareEmbeddingModel(
+      (payload as PrepareEmbeddingPayload) || {}
+    )
+
+    sendResponse({
+      success: true,
+      data: prepared
+    })
+  } catch (error) {
+    logger.error(
+      "Failed to prepare embedding model",
+      MESSAGE_KEYS.OLLAMA.PREPARE_EMBEDDING_MODEL,
+      {
+        error
+      }
+    )
+    sendResponse({
+      success: false,
+      error: {
+        status: 0,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    })
   }
 }

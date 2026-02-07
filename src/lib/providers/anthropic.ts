@@ -1,5 +1,6 @@
 import type {
   ChatRequest,
+  EmbeddingSupport,
   LLMProvider,
   ProviderConfig
 } from "@/lib/providers/types"
@@ -74,6 +75,14 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     await this.processEventStream(response, onChunk)
+  }
+
+  async getEmbeddingSupport(): Promise<EmbeddingSupport> {
+    return {
+      supported: false,
+      mode: "none",
+      notes: "Anthropic chat API does not provide embedding generation here."
+    }
   }
 
   private async processEventStream(

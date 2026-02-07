@@ -9,7 +9,8 @@ import {
 } from "@/background/handlers/handle-embed-chunks"
 import {
   checkEmbeddingModelExists,
-  downloadEmbeddingModelSilently
+  downloadEmbeddingModelSilently,
+  handlePrepareEmbeddingModel
 } from "@/background/handlers/handle-embedding-download"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
@@ -281,6 +282,11 @@ browser.runtime.onMessage.addListener(
               })
             })
         }
+        return true
+      }
+
+      case MESSAGE_KEYS.OLLAMA.PREPARE_EMBEDDING_MODEL: {
+        handlePrepareEmbeddingModel(message.payload, sendResponse)
         return true
       }
 

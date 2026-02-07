@@ -1,4 +1,5 @@
 import { OpenAIProvider } from "./openai"
+import type { EmbeddingSupport } from "./types"
 import { ProviderId } from "./types"
 
 /**
@@ -6,6 +7,15 @@ import { ProviderId } from "./types"
  */
 export class LMStudioProvider extends OpenAIProvider {
   id = ProviderId.LM_STUDIO
+
+  async getEmbeddingSupport(): Promise<EmbeddingSupport> {
+    return {
+      supported: true,
+      mode: "openai-compatible",
+      notes:
+        "Depends on loaded model and server compatibility with /v1/embeddings."
+    }
+  }
 
   async getModels(): Promise<string[]> {
     const baseUrl = this.config.baseUrl || "http://localhost:1234/v1"

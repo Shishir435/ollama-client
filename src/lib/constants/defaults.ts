@@ -2,6 +2,15 @@ import type { ModelConfig } from "@/types"
 
 // Default embedding model - use `mxbai-embed-large` for improved semantics
 export const DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
+export const CANONICAL_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+export const CANONICAL_OLLAMA_EMBEDDING_MODEL = "all-minilm"
+export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = "ollama"
+
+export const RECOMMENDED_EMBEDDING_MODELS = [
+  CANONICAL_EMBEDDING_MODEL,
+  "mxbai-embed-large",
+  "nomic-embed-text"
+] as const
 
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-ollama-client"
 

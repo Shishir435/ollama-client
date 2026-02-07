@@ -22,6 +22,7 @@ import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
   MESSAGE_KEYS,
+  RECOMMENDED_EMBEDDING_MODELS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { Database } from "@/lib/lucide-icon"
@@ -89,6 +90,10 @@ export const EmbeddingSettings = () => {
     return () => clearInterval(interval)
   }, [selectedModel])
 
+  const recommendedModelSet = new Set(
+    RECOMMENDED_EMBEDDING_MODELS.map((m) => m.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
       <SettingsCard
@@ -141,13 +146,14 @@ export const EmbeddingSettings = () => {
                     <SelectLabel>
                       {t("settings.embeddings.model_select.recommended_group")}
                     </SelectLabel>
-                    <SelectItem value="mxbai-embed-large">
-                      mxbai-embed-large (
-                      {t("settings.content_extraction.badges.recommended")})
-                    </SelectItem>
-                    <SelectItem value="nomic-embed-text">
-                      nomic-embed-text
-                    </SelectItem>
+                    {RECOMMENDED_EMBEDDING_MODELS.map((modelName) => (
+                      <SelectItem key={modelName} value={modelName}>
+                        {modelName}
+                        {modelName === DEFAULT_EMBEDDING_MODEL
+                          ? ` (${t("settings.content_extraction.badges.recommended")})`
+                          : ""}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
 
                   {models.length > 0 && (
@@ -157,10 +163,7 @@ export const EmbeddingSettings = () => {
                       </SelectLabel>
                       {models
                         .filter(
-                          (m) =>
-                            !["mxbai-embed-large", "nomic-embed-text"].includes(
-                              m.name
-                            ) && m.providerId === "ollama"
+                          (m) => !recommendedModelSet.has(m.name.toLowerCase())
                         )
                         .map((model) => (
                           <SelectItem

@@ -14,6 +14,7 @@ export const MESSAGE_KEYS = {
     DELETE_MODEL: "delete-model",
     GET_OLLAMA_VERSION: "get-ollama-version",
     CHECK_EMBEDDING_MODEL: "check-embedding-model",
+    PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
     EMBED_FILE_CHUNKS: "embed-file-chunks"
   },
   BROWSER: {

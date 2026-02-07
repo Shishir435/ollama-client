@@ -80,7 +80,7 @@ describe("Ollama Embedder", () => {
     })
 
     it("should handle API errors", async () => {
-      mockEmbed.mockRejectedValueOnce(new Error("500 Internal Server Error"))
+      mockEmbed.mockRejectedValue(new Error("500 Internal Server Error"))
 
       const result = await generateEmbedding("test")
 
@@ -91,7 +91,7 @@ describe("Ollama Embedder", () => {
     })
 
     it("should handle network errors", async () => {
-      mockEmbed.mockRejectedValueOnce(new Error("Network error"))
+      mockEmbed.mockRejectedValue(new Error("Network error"))
 
       const result = await generateEmbedding("test")
 
@@ -108,7 +108,7 @@ describe("Ollama Embedder", () => {
     })
 
     it("should return error when provider embed fails", async () => {
-      mockEmbed.mockRejectedValueOnce(new Error("Provider error"))
+      mockEmbed.mockRejectedValue(new Error("Provider error"))
 
       const result = await generateEmbedding("test")
 
@@ -116,6 +116,17 @@ describe("Ollama Embedder", () => {
       if ("error" in result) {
         expect(result.error).toContain("Provider error")
       }
+    })
+
+    it("should recover using fallback route when first attempt fails", async () => {
+      mockEmbed
+        .mockRejectedValueOnce(new Error("temporary failure"))
+        .mockResolvedValue([0.2, 0.3, 0.4])
+
+      const result = await generateEmbedding("fallback-test")
+
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+      expect("embedding" in result).toBe(true)
     })
   })
 
