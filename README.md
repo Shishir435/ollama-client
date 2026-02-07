@@ -85,6 +85,11 @@ Key directories:
 - `src/lib/providers/*`
 - `src/lib/embeddings/*`
 
+Build/runtime notes:
+
+- Extension framework: WXT (`wxt` CLI)
+- Settings hooks/storage wrapper: `@plasmohq/storage` (`plasmoGlobalStorage`)
+
 ## Supported Providers
 
 Default provider profiles:
