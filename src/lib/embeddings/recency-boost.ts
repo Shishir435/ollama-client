@@ -19,9 +19,9 @@ export function calculateRecencyBoost(
   // Prevent future dates from breaking calculation
   if (ageInDays < 0) return 1
 
-  // Exponential decay: e^(-0.693 * age / halfLife)
-  // 0.693 is ln(2), making the half-life exactly 50%
-  const lambda = 0.693 / Math.max(1, halfLife)
+  // Exponential decay: e^(-Math.LN2 * age / halfLife)
+  // Math.LN2 is ln(2), making the half-life exactly 50%
+  const lambda = Math.LN2 / Math.max(1, halfLife)
   const recencyFactor = Math.exp(-lambda * ageInDays)
 
   return Math.max(0, Math.min(1, recencyFactor))

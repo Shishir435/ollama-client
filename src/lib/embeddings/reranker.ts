@@ -22,10 +22,25 @@ class RerankerService {
   private enabled: boolean = false // DISABLED: CSP prevents transformers.js in extensions
   private modelName = "Xenova/bge-reranker-base"
 
+  private disposeTimeout: NodeJS.Timeout | null = null
+  private readonly DISPOSE_DELAY = 5 * 60 * 1000 // 5 minutes
+
+  private updateAccess() {
+    if (this.disposeTimeout) {
+      clearTimeout(this.disposeTimeout)
+    }
+
+    this.disposeTimeout = setTimeout(() => {
+      this.dispose()
+    }, this.DISPOSE_DELAY)
+  }
+
   /**
    * Get or load the re-ranker model (lazy loading)
    */
   async getModel(): Promise<TextClassificationPipeline> {
+    this.updateAccess()
+
     if (this.model) return this.model
     if (this.loading) return this.loading
 
@@ -60,6 +75,31 @@ class RerankerService {
   }
 
   /**
+   * Dispose the model to free memory
+   */
+  async dispose() {
+    if (!this.model && !this.loading) return
+
+    logger.info("Auto-disposing unused re-ranker model...", "RerankerService")
+
+    // Clear references
+    this.model = null
+    this.loading = null
+
+    // Explicitly try to dispose if the library supports it
+    try {
+      // This is a best-effort attempt to clear memory in the underlying engine
+      if (env.backends?.onnx?.sessions) {
+        // Placeholder for deep cleanup if needed
+      }
+    } catch (_e) {
+      // ignore
+    }
+
+    logger.info("Re-ranker disposed (memory freed)", "RerankerService")
+  }
+
+  /**
    * Re-rank documents using cross-encoder relevance scoring
    *
    * @param query - User query
@@ -69,9 +109,17 @@ class RerankerService {
    */
   async rerank(
     query: string,
-    documents: Array<{ content: string; metadata?: any }>,
+    documents: Array<{ content: string; metadata?: Record<string, unknown> }>,
     topK: number
-  ): Promise<Array<{ content: string; score: number; metadata?: any }>> {
+  ): Promise<
+    Array<{
+      content: string
+      score: number
+      metadata?: Record<string, unknown>
+    }>
+  > {
+    this.updateAccess()
+
     if (!this.enabled || documents.length === 0) {
       return documents.map((d) => ({ ...d, score: 0.5 }))
     }
@@ -147,9 +195,7 @@ class RerankerService {
    * Clear cached model (for testing or debugging)
    */
   clearCache() {
-    this.model = null
-    this.loading = null
-    logger.info("Re-ranker cache cleared", "RerankerService")
+    this.dispose()
   }
 }
 

@@ -1,9 +1,6 @@
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import {
   getAllDocuments,
-  searchHybrid,
-  similaritySearchWithScore,
   type VectorDocument
 } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
@@ -45,7 +42,7 @@ export async function retrieveContext(
     useReranking?: boolean
   } = {}
 ): Promise<RetrievedContext> {
-  const { mode = "similarity", topK, maxTokens, useReranking = false } = options
+  const { mode = "similarity", topK, maxTokens } = options
 
   let results: EnhancedSearchResult[] = []
 

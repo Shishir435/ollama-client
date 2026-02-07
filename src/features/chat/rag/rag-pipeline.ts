@@ -128,7 +128,7 @@ export async function retrieveContextEnhanced(
 
   // Convert to EnhancedSearchResult format
   const rerankedResults: EnhancedSearchResult[] = confidentResults.map(
-    (r, idx) => {
+    (r, _idx) => {
       const originalCandidate = candidates.find(
         (c) => c.document.content === r.content
       )

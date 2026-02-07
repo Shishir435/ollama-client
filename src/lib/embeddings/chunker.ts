@@ -283,7 +283,7 @@ function markdownChunking(
     // Restore code blocks
     section = section.replace(
       /__CODE_BLOCK_(\d+)__/g,
-      (_, id) => codeBlocks[parseInt(id)]
+      (_, id) => codeBlocks[parseInt(id, 10)]
     )
 
     // If section is huge (e.g. long content between headers), fall back to semantic/hybrid splitting for it

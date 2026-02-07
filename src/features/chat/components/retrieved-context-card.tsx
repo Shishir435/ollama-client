@@ -31,7 +31,6 @@ interface RetrievedContextCardProps {
 export function RetrievedContextCard({
   chunk,
   query,
-  index,
   sessionId
 }: RetrievedContextCardProps) {
   const [feedback, setFeedback] = useState<boolean | null>(null)

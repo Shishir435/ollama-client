@@ -11,11 +11,10 @@
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { retrieveContextEnhanced } from "@/features/chat/rag/rag-pipeline"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
-import { logger } from "@/lib/logger"
 
 // Mock dependencies
-const mockQuery = "How do I configure RAG settings?"
-const mockDocs = [
+const _mockQuery = "How do I configure RAG settings?"
+const _mockDocs = [
   {
     content:
       "To configure RAG settings, go to the options page and select 'Knowledge Base'. You can adjust chunk size and overlap.",
