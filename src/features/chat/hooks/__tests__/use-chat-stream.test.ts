@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, act } from "@testing-library/react"
-import { useOllamaStream } from "../use-ollama-stream"
+import { useChatStream } from "../use-chat-stream"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 
@@ -13,7 +13,7 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
-describe("useOllamaStream", () => {
+describe("useChatStream", () => {
   let mockPort: any
   let setMessages: ReturnType<typeof vi.fn>
   let setIsLoading: ReturnType<typeof vi.fn>
@@ -43,7 +43,7 @@ describe("useOllamaStream", () => {
 
   it("should initialize streaming correctly", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -56,7 +56,7 @@ describe("useOllamaStream", () => {
 
   it("should start stream and set loading state", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -70,7 +70,7 @@ describe("useOllamaStream", () => {
     })
 
     expect(browser.runtime.connect).toHaveBeenCalledWith({
-      name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
+      name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
     })
     expect(setIsLoading).toHaveBeenCalledWith(true)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
@@ -78,7 +78,7 @@ describe("useOllamaStream", () => {
 
   it("should handle streaming chunks", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -112,7 +112,7 @@ describe("useOllamaStream", () => {
 
   it("should handle stream completion", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -139,7 +139,7 @@ describe("useOllamaStream", () => {
 
   it("should handle stream errors", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -167,7 +167,7 @@ describe("useOllamaStream", () => {
 
   it("should stop stream correctly", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -185,7 +185,7 @@ describe("useOllamaStream", () => {
     })
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
-      type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+      type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION
     })
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
@@ -193,7 +193,7 @@ describe("useOllamaStream", () => {
 
   it("should handle stop when port not created", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -217,7 +217,7 @@ describe("useOllamaStream", () => {
 
   it("should handle stop message failure", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming
@@ -250,7 +250,7 @@ describe("useOllamaStream", () => {
 
   it("should handle aborted stream", () => {
     const { result } = renderHook(() =>
-      useOllamaStream({
+      useChatStream({
         setMessages,
         setIsLoading,
         setIsStreaming

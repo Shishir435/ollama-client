@@ -17,16 +17,18 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
   MESSAGE_KEYS,
   RECOMMENDED_EMBEDDING_MODELS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { Database } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChromeResponse } from "@/types"
 import { EmbeddingConfigSettings } from "./embedding-config-settings"
 import { EmbeddingIndexControls } from "./embedding-index-controls"
@@ -43,7 +45,7 @@ export const EmbeddingSettings = () => {
     },
     DEFAULT_EMBEDDING_MODEL
   )
-  const { models } = useOllamaModels()
+  const { models } = useProviderModels()
 
   const [useRag, setUseRag] = useStorage<boolean>(
     {
@@ -62,7 +64,7 @@ export const EmbeddingSettings = () => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
         const response = (await browser.runtime.sendMessage({
-          type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
+          type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
           payload: currentModel
         })) as ChromeResponse & { data?: { exists?: boolean; debug?: object } }
 
@@ -169,7 +171,10 @@ export const EmbeddingSettings = () => {
                           <SelectItem
                             key={`${model.providerId}-${model.name}`}
                             value={model.name}>
-                            {model.name} ({model.providerName || "Ollama"})
+                            {model.name} (
+                            {model.providerName ||
+                              getProviderDisplayName(DEFAULT_PROVIDER_ID)}
+                            )
                           </SelectItem>
                         ))}
                     </SelectGroup>

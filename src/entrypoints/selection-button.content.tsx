@@ -11,7 +11,7 @@ export default defineContentScript({
   cssInjectionMode: "ui",
   async main(ctx) {
     const ui = await createShadowRootUi(ctx, {
-      name: "ollama-selection-button",
+      name: "provider-selection-button",
       position: "inline",
       anchor: "body",
       append: "last",

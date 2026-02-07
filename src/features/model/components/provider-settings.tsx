@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 
 import { toast } from "@/hooks/use-toast"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { DEFAULT_PROVIDERS, ProviderManager } from "@/lib/providers/manager"
 import { type ProviderConfig, ProviderId } from "@/lib/providers/types"
@@ -29,7 +30,7 @@ export const ProviderSettings = () => {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderConfig[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string>(ProviderId.OLLAMA)
+  const [selectedId, setSelectedId] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<{
     success: boolean

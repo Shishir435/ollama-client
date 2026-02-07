@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import {
   BookOpen,
   Bug,
@@ -109,7 +110,7 @@ export const GUIDES = [
   },
   {
     labelKey: "guides.items.library.label",
-    href: "https://ollama.com/library",
+    href: `${DEFAULT_MODEL_LIBRARY_BASE_URL}/library`,
     icon: Library,
     descriptionKey: "guides.items.library.description",
     badgeKey: "guides.items.library.badge"

@@ -5,8 +5,8 @@ import { logger } from "@/lib/logger"
 
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
+import { generateEmbedding } from "./embedding-client"
 import { normalizeVector } from "./math"
-import { generateEmbedding } from "./ollama-embedder"
 import type { VectorDocument } from "./types"
 
 /**

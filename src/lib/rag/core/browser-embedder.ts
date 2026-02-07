@@ -34,7 +34,7 @@ export class BrowserEmbedder implements Embedder {
     return {
       nativeEmbeddingsAvailable: capabilities.providerNativeAvailable,
       sharedModelAvailable: capabilities.sharedProviderAvailable,
-      fallbackAvailable: capabilities.ollamaFallbackAvailable
+      fallbackAvailable: capabilities.defaultFallbackAvailable
     }
   }
 

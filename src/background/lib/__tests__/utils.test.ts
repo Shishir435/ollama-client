@@ -109,7 +109,7 @@ describe("Background Utils", () => {
       const url = await getBaseUrl()
 
       expect(url).toBe("http://custom:11434")
-      expect(plasmoGlobalStorage.get).toHaveBeenCalledWith(STORAGE_KEYS.OLLAMA.BASE_URL)
+      expect(plasmoGlobalStorage.get).toHaveBeenCalledWith(STORAGE_KEYS.PROVIDER.BASE_URL)
     })
 
     it("should return default URL if not stored", async () => {

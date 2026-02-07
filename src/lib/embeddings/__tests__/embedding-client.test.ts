@@ -6,7 +6,7 @@ import {
   getCacheStats,
   getCacheSize,
   cosineSimilarity
-} from "../ollama-embedder"
+} from "../embedding-client"
 
 // Use vi.hoisted to ensure mockEmbed is defined before vi.mock runs
 const { mockEmbed } = vi.hoisted(() => ({
@@ -37,7 +37,7 @@ vi.mock("@/lib/providers/factory", () => ({
   }
 }))
 
-describe("Ollama Embedder", () => {
+describe("Embedding Client", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     clearEmbeddingCache()

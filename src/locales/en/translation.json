@@ -36,21 +36,21 @@
     "save": "Save"
   },
   "selection_button": {
-    "label": "Ask Ollama client",
-    "tooltip": "Add to Ollama Client"
+    "label": "Ask Local LLM",
+    "tooltip": "Add to Local LLM Client"
   },
   "welcome": {
-    "title": "Welcome to Ollama Chat",
+    "title": "Welcome to Local LLM Chat",
     "subtitle": "Local AI conversations made simple",
     "start_chatting": "Start Chatting",
     "status": {
       "connecting": {
         "title": "Connecting...",
-        "message": "Establishing connection to Ollama server"
+        "message": "Establishing connection to local provider"
       },
       "connection_failed": {
         "title": "Connection Failed",
-        "message": "Failed to connect to Ollama. Is the server running?"
+        "message": "Failed to connect to provider. Is the server running?"
       },
       "no_models": {
         "title": "No Models Found",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "Ready to Chat",
-        "message": "Ollama is connected and ready to use"
+        "message": "Provider is connected and ready to use"
       }
     },
     "setup_guide": {
       "intro": "Before you start, follow these quick steps:",
-      "step1": "Install <code>ollama</code> on your system",
-      "step2": "Run <code>ollama run llama3</code> or any model",
+      "step1": "Install a local provider (Ollama recommended)",
+      "step2": "Pull a model (e.g. <code>ollama run llama3</code>)",
       "step3": "Return here and click <b>Refresh</b>",
       "full_guide_link": "Full Setup Guide"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ Performance Notice",
-      "message": "This extension is a user interface for your local Ollama server. Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
+      "message": "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
     }
   },
   "chat": {
@@ -236,12 +236,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Checking Ollama status...",
-      "error": "Ollama not reachable",
-      "empty": "No models found",
-      "ready": "Ollama is ready"
-    },
     "embedding_status": {
       "checking": "Checking status...",
       "downloading": "Downloading {{model}}... {{progress}}",
@@ -260,7 +254,7 @@
       "no_model_found": "No model found."
     },
     "version": {
-      "tooltip": "Ollama version: {{version}}"
+      "tooltip": "Provider version: {{version}}"
     },
     "site_overrides": {
       "title": "Site-Specific Overrides",
@@ -390,8 +384,8 @@
       "min_quality_score_label": "Min Quality Score",
       "min_quality_score_description": "Minimum quality threshold for embedding content (0-1). Higher values filter more aggressively.",
       "embedding_source_label": "Embedding Generation Source",
-      "embedding_source_description": "Embeddings are generated using your local Ollama server",
-      "embedding_source_ollama": "Ollama (Local Server)",
+      "embedding_source_description": "Embeddings are generated using your local provider (Ollama by default)",
+      "embedding_source_default_provider": "Default provider (Ollama)",
       "feedback_learning_title": "User Feedback Learning",
       "feedback_learning_description": "Improve search quality by learning from your feedback",
       "feedback_enable_label": "Enable Feedback Collection",
@@ -403,6 +397,12 @@
       "feedback_export_button": "Export Feedback Data",
       "feedback_clear_button": "Clear All Feedback",
       "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+    },
+    "provider_status": {
+      "checking": "Checking Provider status...",
+      "error": "Provider not reachable",
+      "empty": "No models found",
+      "ready": "Provider is ready"
     }
   },
   "prompts": {
@@ -532,7 +532,7 @@
         "description": "Enable enhanced content extraction with lazy loading support"
       },
       "selection_button": {
-        "label": "Show \"Ask Ollama Client\" button after selection",
+        "label": "Show \"Ask Local LLM\" button after selection",
         "description": "Show a floating action button when selecting text to speed up adding it to chat"
       },
       "scraper": {
@@ -653,9 +653,9 @@
       }
     },
     "base_url": {
-      "title": "Ollama Base URL",
-      "description": "Configure the server endpoint for your Ollama installation.",
-      "label": "Ollama API Server Endpoint",
+      "title": "Provider Base URL",
+      "description": "Configure the server endpoint for your Provider installation.",
+      "label": "Provider API Server Endpoint",
       "error_invalid_url": "Please enter a valid URL.",
       "status_local": "Local server connection",
       "status_remote": "Remote server connection",
@@ -832,7 +832,6 @@
         "close": "Close"
       }
     },
-
     "embeddings": {
       "title": "Vector Embeddings",
       "beta_badge": "Beta",
@@ -961,9 +960,6 @@
         "cancel": "Cancel"
       },
       "modules": {
-        "ollama": {
-          "description": "Model settings & configurations"
-        },
         "theme": {
           "description": "UI appearance preferences"
         },
@@ -978,6 +974,9 @@
         },
         "default": {
           "description": "Module settings"
+        },
+        "provider": {
+          "description": "Model settings & configurations"
         }
       },
       "item_count": "{{count}} item",

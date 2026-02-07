@@ -12,7 +12,7 @@ import {
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { getCacheStats } from "@/lib/embeddings/ollama-embedder"
+import { getCacheStats } from "@/lib/embeddings/embedding-client"
 import {
   clearAllVectors,
   getStorageStats,

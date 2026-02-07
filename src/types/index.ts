@@ -1,6 +1,6 @@
 import type browser from "webextension-polyfill"
 
-export type OllamaModel = {
+export type ProviderModel = {
   name: string
   model: string
   modified_at: string
@@ -17,6 +17,9 @@ export type OllamaModel = {
     quantization_level: string
   }
 }
+
+// Legacy alias for provider-agnostic model metadata
+export type OllamaModel = ProviderModel
 
 export type ModelConfig = {
   temperature: number
@@ -162,18 +165,27 @@ export interface OllamaChatRequest {
   }
 }
 
+// Provider-agnostic aliases for default provider payloads (currently Ollama).
+export type DefaultProviderChatRequest = OllamaChatRequest
+
 export interface OllamaPullRequest {
   name: string
   insecure?: boolean
   stream?: boolean
 }
 
+export type DefaultProviderPullRequest = OllamaPullRequest
+
 export interface OllamaShowRequest {
   name: string
   verbose?: boolean
 }
 
+export type DefaultProviderShowRequest = OllamaShowRequest
+
 export type OllamaTagsRequest = Record<string, never>
+
+export type DefaultProviderTagsRequest = OllamaTagsRequest
 
 export interface OllamaChatResponse {
   model: string
@@ -195,6 +207,8 @@ export interface OllamaChatResponse {
   context?: number[]
 }
 
+export type DefaultProviderChatResponse = OllamaChatResponse
+
 export interface OllamaPullResponse {
   status: string
   digest?: string
@@ -202,6 +216,8 @@ export interface OllamaPullResponse {
   completed?: number
   error?: string
 }
+
+export type DefaultProviderPullResponse = OllamaPullResponse
 
 export interface OllamaShowResponse {
   license?: string
@@ -222,13 +238,22 @@ export interface OllamaShowResponse {
   }
 }
 
+export type DefaultProviderShowResponse = OllamaShowResponse
+
 export interface OllamaTagsResponse {
   models: OllamaModel[]
 }
 
+export type DefaultProviderTagsResponse = OllamaTagsResponse
+
 export interface OllamaErrorResponse {
   error: string
 }
+
+export type DefaultProviderErrorResponse = OllamaErrorResponse
+
+export type ProviderModelDetails = DefaultProviderShowResponse
+export type ProviderModelListResponse = DefaultProviderTagsResponse
 
 export interface ChatStreamMessage {
   delta?: string

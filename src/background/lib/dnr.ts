@@ -1,11 +1,11 @@
 import { isChromiumBased } from "@/lib/browser-api"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const updateDNRRules = async (): Promise<void> => {
   if (!isChromiumBased()) {
     console.warn(
-      "DNR not available: Firefox requires OLLAMA_ORIGINS configuration"
+      "DNR not available: Firefox requires local provider origin configuration"
     )
     return
   }
@@ -13,8 +13,12 @@ export const updateDNRRules = async (): Promise<void> => {
   try {
     const baseUrl =
       ((await plasmoGlobalStorage.get(
-        STORAGE_KEYS.OLLAMA.BASE_URL
-      )) as string) ?? "http://localhost:11434"
+        STORAGE_KEYS.PROVIDER.BASE_URL
+      )) as string) ||
+      ((await plasmoGlobalStorage.get(
+        LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
+      )) as string) ||
+      "http://localhost:11434"
 
     const origin = new URL(baseUrl).origin
 

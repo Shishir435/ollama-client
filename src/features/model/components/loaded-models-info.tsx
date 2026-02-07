@@ -67,7 +67,7 @@ export const LoadedModelsInfo = () => {
 
     try {
       const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS
+        type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS
       })) as ChromeResponse & {
         data?: { models?: LoadedModel[] }
       }
@@ -90,7 +90,7 @@ export const LoadedModelsInfo = () => {
     setUnloading(modelName)
     try {
       const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL,
+        type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL,
         payload: modelName
       })) as ChromeResponse
       if (res?.success) {

@@ -36,21 +36,21 @@
     "save": "保存"
   },
   "selection_button": {
-    "label": "Ollama Clientに尋ねる",
-    "tooltip": "Ollama Clientに追加"
+    "label": "ローカルLLMに聞く",
+    "tooltip": "ローカルLLMクライアントに追加"
   },
   "welcome": {
-    "title": "Ollama Chatへようこそ",
+    "title": "ローカルLLMチャットへようこそ",
     "subtitle": "ローカルAIとの会話をシンプルに",
     "start_chatting": "チャットを開始",
     "status": {
       "connecting": {
         "title": "接続中...",
-        "message": "Ollamaサーバーへの接続を確立しています"
+        "message": "ローカルプロバイダーへの接続を確立しています"
       },
       "connection_failed": {
         "title": "接続失敗",
-        "message": "Ollamaへの接続に失敗しました。サーバーは実行中ですか？"
+        "message": "プロバイダーに接続できません。サーバーは実行中ですか？"
       },
       "no_models": {
         "title": "モデルが見つかりません",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "チャット準備完了",
-        "message": "Ollamaが接続され、使用準備が整いました"
+        "message": "プロバイダーは接続され使用可能です"
       }
     },
     "setup_guide": {
       "intro": "開始する前に、以下の簡単な手順に従ってください：",
-      "step1": "システムに <code>ollama</code> をインストールする",
-      "step2": "<code>ollama run llama3</code> または任意のモデルを実行する",
+      "step1": "ローカルプロバイダーをインストールします（Ollama推奨）",
+      "step2": "モデルを取得します（例: <code>ollama run llama3</code>）",
       "step3": "ここに戻って <b>更新</b> をクリックする",
       "full_guide_link": "完全なセットアップガイド"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ パフォーマンスに関する注意",
-      "message": "この拡張機能は、ローカルOllamaサーバーのユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用している特定のモデルに完全に依存します。拡張機能自体による処理は行われません。"
+      "message": "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
     }
   },
   "chat": {
@@ -235,12 +235,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Ollamaの状態を確認中...",
-      "error": "Ollamaに接続できません",
-      "empty": "モデルが見つかりません",
-      "ready": "Ollamaは準備完了です"
-    },
     "embedding_status": {
       "checking": "状態を確認中...",
       "downloading": "{{model}} をダウンロード中... {{progress}}",
@@ -259,7 +253,7 @@
       "no_model_found": "モデルが見つかりません。"
     },
     "version": {
-      "tooltip": "Ollamaバージョン: {{version}}"
+      "tooltip": "Providerバージョン: {{version}}"
     },
     "site_overrides": {
       "title": "サイト固有の上書き設定",
@@ -385,7 +379,15 @@
       "exclude_casual_label": "カジュアルなメッセージを除外",
       "exclude_casual_description": "挨拶、短い応答、情報の少ないメッセージを除外します。",
       "min_quality_score_label": "最小品質スコア",
-      "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。"
+      "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
+      "embedding_source_description": "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
+      "embedding_source_default_provider": "既定のプロバイダー（Ollama）"
+    },
+    "provider_status": {
+      "checking": "Providerの状態を確認中...",
+      "error": "Providerに接続できません",
+      "empty": "モデルが見つかりません",
+      "ready": "Providerは準備完了です"
     }
   },
   "prompts": {
@@ -515,7 +517,7 @@
         "description": "遅延読み込みをサポートする拡張コンテンツ抽出を有効にする"
       },
       "selection_button": {
-        "label": "選択後に「Ollama Clientに尋ねる」ボタンを表示",
+        "label": "選択後に「ローカルLLMに聞く」ボタンを表示",
         "description": "テキスト選択時にフローティングアクションボタンを表示し、チャットへの追加を迅速化します"
       },
       "scraper": {
@@ -636,9 +638,9 @@
       }
     },
     "base_url": {
-      "title": "OllamaベースURL",
-      "description": "Ollamaインストールのサーバーエンドポイントを設定します。",
-      "label": "Ollama API サーバーエンドポイント",
+      "title": "ProviderベースURL",
+      "description": "Providerインストールのサーバーエンドポイントを設定します。",
+      "label": "Provider API サーバーエンドポイント",
       "error_invalid_url": "有効なURLを入力してください。",
       "status_local": "ローカルサーバー接続",
       "status_remote": "リモートサーバー接続",
@@ -930,9 +932,6 @@
         "cancel": "キャンセル"
       },
       "modules": {
-        "ollama": {
-          "description": "モデル設定と構成"
-        },
         "theme": {
           "description": "UIの外観設定"
         },
@@ -947,6 +946,9 @@
         },
         "default": {
           "description": "モジュール設定"
+        },
+        "provider": {
+          "description": "モデル設定と構成"
         }
       },
       "item_count": "{{count}} 項目",

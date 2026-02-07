@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, act } from "@testing-library/react"
-import { useOllamaPull } from "../use-ollama-pull"
+import { useModelPull } from "../use-model-pull"
 import { browser } from "@/lib/browser-api"
 
 // Mock browser API
@@ -12,7 +12,7 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
-describe("useOllamaPull", () => {
+describe("useModelPull", () => {
   let mockPort: any
 
   beforeEach(() => {
@@ -30,14 +30,14 @@ describe("useOllamaPull", () => {
   })
 
   it("should initialize with null state", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     expect(result.current.pullingModel).toBeNull()
     expect(result.current.progress).toBeNull()
   })
 
   it("should start pulling a model", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     act(() => {
       result.current.pullModel("llama2")
@@ -49,7 +49,7 @@ describe("useOllamaPull", () => {
   })
 
   it("should handle progress updates", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     act(() => {
       result.current.pullModel("llama2")
@@ -65,7 +65,7 @@ describe("useOllamaPull", () => {
   })
 
   it("should handle pull completion", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     act(() => {
       result.current.pullModel("llama2")
@@ -83,7 +83,7 @@ describe("useOllamaPull", () => {
   })
 
   it("should handle pull errors", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     act(() => {
       result.current.pullModel("llama2")
@@ -100,7 +100,7 @@ describe("useOllamaPull", () => {
   })
 
   it("should cancel pull", () => {
-    const { result } = renderHook(() => useOllamaPull())
+    const { result } = renderHook(() => useModelPull())
 
     act(() => {
       result.current.pullModel("llama2")

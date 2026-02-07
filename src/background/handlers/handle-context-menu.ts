@@ -1,6 +1,7 @@
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTEXT_MENU_ID,
+  LEGACY_CONTEXT_MENU_ID,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -9,10 +10,30 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeSidePanel } from "@/types"
 
 export const initializeContextMenu = () => {
+  try {
+    browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID, () => {
+      if (browser.runtime.lastError) {
+        logger.debug(
+          "Legacy context menu cleanup failed",
+          "initializeContextMenu",
+          { error: browser.runtime.lastError.message }
+        )
+      }
+    })
+  } catch (error) {
+    logger.debug(
+      "Legacy context menu cleanup skipped",
+      "initializeContextMenu",
+      {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    )
+  }
+
   browser.contextMenus.create(
     {
       id: DEFAULT_CONTEXT_MENU_ID,
-      title: "Ask Ollama Client",
+      title: "Ask Local LLM",
       contexts: ["selection"]
     },
     () => {
@@ -29,7 +50,11 @@ export const initializeContextMenu = () => {
   )
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
-    if (info.menuItemId === DEFAULT_CONTEXT_MENU_ID && info.selectionText) {
+    if (
+      (info.menuItemId === DEFAULT_CONTEXT_MENU_ID ||
+        info.menuItemId === LEGACY_CONTEXT_MENU_ID) &&
+      info.selectionText
+    ) {
       // 1. Persist selection to storage (so sidepanel can pick it up on mount)
       await plasmoGlobalStorage.set(
         STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,

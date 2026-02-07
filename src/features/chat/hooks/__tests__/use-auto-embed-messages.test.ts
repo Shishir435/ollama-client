@@ -7,7 +7,7 @@ vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn()
 }))
 
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -49,7 +49,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed a user message", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { storeVector } = await import("@/lib/embeddings/vector-store")
     
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -71,7 +71,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip system messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     const { result } = renderHook(() => useAutoEmbedMessages())
 
@@ -84,7 +84,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip short messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     const { result } = renderHook(() => useAutoEmbedMessages())
 
@@ -97,7 +97,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip incomplete assistant messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     const { result } = renderHook(() => useAutoEmbedMessages())
 
@@ -110,7 +110,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed complete assistant messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { storeVector } = await import("@/lib/embeddings/vector-store")
     
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -132,7 +132,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should handle embedding errors gracefully", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding failed"
@@ -163,7 +163,7 @@ describe("useAutoEmbedMessages", () => {
       isLoading: false
     }])
 
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     const { result } = renderHook(() => useAutoEmbedMessages())
 
@@ -176,7 +176,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed multiple messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
@@ -198,7 +198,7 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip embedding when streaming", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     
     const { result } = renderHook(() => useAutoEmbedMessages())
 

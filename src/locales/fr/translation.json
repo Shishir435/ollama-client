@@ -36,21 +36,21 @@
     "save": "Enregistrer"
   },
   "selection_button": {
-    "label": "Demander au client Ollama",
-    "tooltip": "Ajouter à Ollama Client"
+    "label": "Demander au LLM local",
+    "tooltip": "Ajouter au client LLM local"
   },
   "welcome": {
-    "title": "Bienvenue sur Ollama Chat",
+    "title": "Bienvenue sur le chat LLM local",
     "subtitle": "Conversations IA locales simplifiées",
     "start_chatting": "Commencer à Chatter",
     "status": {
       "connecting": {
         "title": "Connexion...",
-        "message": "Établissement de la connexion au serveur Ollama"
+        "message": "Connexion au fournisseur local en cours"
       },
       "connection_failed": {
         "title": "Échec de la Connexion",
-        "message": "Échec de la connexion à Ollama. Le serveur est-il en cours d'exécution ?"
+        "message": "Échec de la connexion au fournisseur. Le serveur est-il en cours d’exécution ?"
       },
       "no_models": {
         "title": "Aucun Modèle Trouvé",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "Prêt à Chatter",
-        "message": "Ollama est connecté et prêt à être utilisé"
+        "message": "Le fournisseur est connecté et prêt"
       }
     },
     "setup_guide": {
       "intro": "Avant de commencer, suivez ces étapes rapides :",
-      "step1": "Installez <code>ollama</code> sur votre système",
-      "step2": "Exécutez <code>ollama run llama3</code> ou tout autre modèle",
+      "step1": "Installez un fournisseur local (Ollama recommandé)",
+      "step2": "Téléchargez un modèle (ex. <code>ollama run llama3</code>)",
       "step3": "Revenez ici et cliquez sur <b>Actualiser</b>",
       "full_guide_link": "Guide de Configuration Complet"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ Avis de Performance",
-      "message": "Cette extension est une interface utilisateur pour votre serveur Ollama local. Le temps de réponse et la qualité de sortie du modèle dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle spécifique que vous utilisez. Aucun traitement n'est effectué par l'extension elle-même."
+      "message": "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
     }
   },
   "chat": {
@@ -236,12 +236,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Vérification du statut d'Ollama...",
-      "error": "Ollama n'est pas accessible",
-      "empty": "Aucun modèle trouvé",
-      "ready": "Ollama est prêt"
-    },
     "embedding_status": {
       "checking": "Vérification du statut...",
       "downloading": "Téléchargement de {{model}}... {{progress}}",
@@ -260,7 +254,7 @@
       "no_model_found": "Aucun modèle trouvé."
     },
     "version": {
-      "tooltip": "Version d'Ollama : {{version}}"
+      "tooltip": "Version d'Provider : {{version}}"
     },
     "site_overrides": {
       "title": "Priorités Spécifiques au Site",
@@ -386,7 +380,15 @@
       "exclude_casual_label": "Exclure les messages occasionnels",
       "exclude_casual_description": "Filtrez les salutations, les réponses courtes et les messages à faible information.",
       "min_quality_score_label": "Score de qualité minimum",
-      "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu."
+      "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
+      "embedding_source_description": "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
+      "embedding_source_default_provider": "Fournisseur par défaut (Ollama)"
+    },
+    "provider_status": {
+      "checking": "Vérification du statut d'Provider...",
+      "error": "Provider n'est pas accessible",
+      "empty": "Aucun modèle trouvé",
+      "ready": "Provider est prêt"
     }
   },
   "prompts": {
@@ -516,7 +518,7 @@
         "description": "Activer l'extraction de contenu améliorée avec prise en charge du chargement différé (lazy loading)"
       },
       "selection_button": {
-        "label": "Afficher le bouton \"Demander au client Ollama\" après la sélection",
+        "label": "Afficher le bouton « Demander au LLM local » après la sélection",
         "description": "Afficher un bouton d'action flottant lors de la sélection de texte pour accélérer son ajout au chat"
       },
       "scraper": {
@@ -637,9 +639,9 @@
       }
     },
     "base_url": {
-      "title": "URL de Base d'Ollama",
-      "description": "Configure le point de terminaison du serveur pour votre installation Ollama.",
-      "label": "Point de Terminaison du Serveur API Ollama",
+      "title": "URL de Base d'Provider",
+      "description": "Configure le point de terminaison du serveur pour votre installation Provider.",
+      "label": "Point de Terminaison du Serveur API Provider",
       "error_invalid_url": "Veuillez entrer une URL valide.",
       "status_local": "Connexion au serveur local",
       "status_remote": "Connexion au serveur distant",
@@ -931,9 +933,6 @@
         "button": "Tout Réinitialiser"
       },
       "modules": {
-        "ollama": {
-          "description": "Paramètres et configurations du modèle"
-        },
         "theme": {
           "description": "Préférences d'apparence de l'interface utilisateur"
         },
@@ -948,6 +947,9 @@
         },
         "default": {
           "description": "Paramètres du module"
+        },
+        "provider": {
+          "description": "Paramètres et configurations du modèle"
         }
       },
       "item_count": "{{count}} élément",

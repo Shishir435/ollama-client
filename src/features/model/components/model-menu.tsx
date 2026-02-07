@@ -21,10 +21,11 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 
 interface ModelMenuProps {
@@ -43,11 +44,14 @@ export const ModelMenu = ({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [selectedModel, setSelectedModel] = useStorage<string>(
-    { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
+      instance: plasmoGlobalStorage
+    },
     ""
   )
 
-  const { status, models, refresh, isLoading } = useOllamaModels()
+  const { status, models, refresh, isLoading } = useProviderModels()
 
   useEffect(() => {
     if (status === "ready" && models.length > 0 && !selectedModel) {
@@ -138,8 +142,9 @@ export const ModelMenu = ({
                 })
                 .reduce(
                   (groups, model) => {
-                    const providerId = model.providerId || "ollama"
-                    const providerName = model.providerName || "Ollama"
+                    const providerId = model.providerId || DEFAULT_PROVIDER_ID
+                    const providerName =
+                      model.providerName || getProviderDisplayName(providerId)
                     if (!groups[providerId]) {
                       groups[providerId] = { name: providerName, models: [] }
                     }

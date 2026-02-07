@@ -26,7 +26,7 @@ import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
 import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
-export const OllamaOptions = () => {
+export const SettingsPage = () => {
   const { t } = useTranslation()
 
   const tabSections = {

@@ -14,7 +14,7 @@ import {
 } from "@/background/handlers/handle-embedding-download"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { handleGetOllamaVersion } from "@/background/handlers/handle-get-ollama-version"
+import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
@@ -31,6 +31,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import type {
   ChatWithModelMessage,
   ChromeMessage,
@@ -40,7 +41,7 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-const openOllamaClient = () => {
+const openClientWindow = () => {
   browser.windows.create({
     url: browser.runtime.getURL("sidepanel.html"),
     type: "popup",
@@ -53,6 +54,8 @@ const actionAPI =
   browser.action ||
   (browser as unknown as { browserAction?: typeof browser.action })
     .browserAction
+
+void migrateLegacyProviderStorage()
 
 if (isChromiumBased() && "sidePanel" in browser) {
   // Type assertion for Chrome-specific sidePanel API
@@ -72,7 +75,7 @@ if (isChromiumBased() && "sidePanel" in browser) {
     actionAPI.onClicked.addListener((tab) => {
       const windowId = tab.windowId
       if (!windowId) {
-        openOllamaClient()
+        openClientWindow()
         return
       }
 
@@ -86,14 +89,14 @@ if (isChromiumBased() && "sidePanel" in browser) {
             "Failed to open side panel, falling back to popup:",
             error
           )
-          openOllamaClient()
+          openClientWindow()
         })
     })
   }
 } else {
   if (actionAPI) {
     actionAPI.onClicked.addListener(() => {
-      openOllamaClient()
+      openClientWindow()
     })
   }
 }
@@ -154,7 +157,10 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
   })
 
   port.onMessage.addListener(async (msg: ChromeMessage) => {
-    if (msg.type === MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL) {
+    if (
+      msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL ||
+      msg.type === MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL
+    ) {
       await handleChatWithModel(
         msg as ChatWithModelMessage,
         port,
@@ -162,19 +168,28 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
       )
     }
 
-    if (msg.type === MESSAGE_KEYS.OLLAMA.STOP_GENERATION) {
+    if (
+      msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION ||
+      msg.type === MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+    ) {
       console.log("Stop generation requested")
       abortAndClearController(port.name) // Reset the controller
     }
   })
 
-  if (port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL) {
+  if (
+    port.name === MESSAGE_KEYS.PROVIDER.PULL_MODEL ||
+    port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
+  ) {
     port.onMessage.addListener(async (msg: ChromeMessage) => {
       await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
     })
   }
 
-  if (port.name === MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS) {
+  if (
+    port.name === MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS ||
+    port.name === MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS
+  ) {
     // Use streaming port handler to receive chunk batches and send progress back
     try {
       handleEmbedFileChunksPort(port)
@@ -195,11 +210,13 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
 browser.runtime.onMessage.addListener(
   (message: ChromeMessage, _sender, sendResponse) => {
     switch (message.type) {
+      case MESSAGE_KEYS.PROVIDER.GET_MODELS:
       case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
         handleGetModels(sendResponse)
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS:
       case MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS: {
         if (typeof message.payload === "string") {
           handleShowModelDetails(message.payload, sendResponse)
@@ -215,6 +232,7 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL:
       case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL: {
         if (message.query && typeof message.query === "string") {
           handleScrapeModel(message.query, sendResponse)
@@ -223,6 +241,7 @@ browser.runtime.onMessage.addListener(
         break
       }
 
+      case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS:
       case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS: {
         if (message.name && typeof message.name === "string") {
           handleScrapeModelVariants(message.name, sendResponse)
@@ -231,17 +250,20 @@ browser.runtime.onMessage.addListener(
         break
       }
 
+      case MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL:
       case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
         if (typeof message.payload === "string")
           handleUpdateBaseUrl(message.payload, sendResponse)
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS:
       case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
         handleGetLoadedModels(sendResponse)
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL:
       case MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL: {
         if (typeof message.payload === "string") {
           handleUnloadModel(message.payload, sendResponse)
@@ -249,6 +271,7 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.DELETE_MODEL:
       case MESSAGE_KEYS.OLLAMA.DELETE_MODEL: {
         if (typeof message.payload === "string") {
           handleDeleteModel(message.payload, sendResponse)
@@ -256,11 +279,13 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION:
       case MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION: {
-        handleGetOllamaVersion(sendResponse)
+        handleGetProviderVersion(sendResponse)
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL:
       case MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL: {
         if (typeof message.payload === "string") {
           // Handle async operation separately to maintain correct return type
@@ -285,11 +310,13 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL:
       case MESSAGE_KEYS.OLLAMA.PREPARE_EMBEDDING_MODEL: {
         handlePrepareEmbeddingModel(message.payload, sendResponse)
         return true
       }
 
+      case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS:
       case MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS: {
         handleEmbedFileChunks(message, sendResponse).catch((err) => {
           safeSendResponse(sendResponse, {

@@ -4,7 +4,7 @@ import {
   generateEmbedding,
   generateEmbeddingsBatch,
   getEmbeddingRouteCapabilities
-} from "./ollama-embedder"
+} from "./embedding-client"
 
 /**
  * Unified embedding generation factory
@@ -27,7 +27,7 @@ export interface EmbeddingFactoryCapabilities {
   sharedProviderId: string
   sharedModel: string
   sharedProviderAvailable: boolean
-  ollamaFallbackAvailable: boolean
+  defaultFallbackAvailable: boolean
 }
 
 /**

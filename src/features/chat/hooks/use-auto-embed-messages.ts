@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react"
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"

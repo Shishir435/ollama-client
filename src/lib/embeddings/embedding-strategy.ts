@@ -1,7 +1,9 @@
 import { browser } from "@/lib/browser-api"
 import {
-  CANONICAL_OLLAMA_EMBEDDING_MODEL,
+  CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL,
+  CANONICAL_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   MESSAGE_KEYS,
   STORAGE_KEYS
@@ -9,14 +11,14 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
-import { type LLMProvider, ProviderId } from "@/lib/providers/types"
+import type { LLMProvider } from "@/lib/providers/types"
 import { getEmbeddingConfig } from "./config"
 
 export type EmbeddingRoute =
   | "provider-native"
   | "shared-model"
   | "shared-model-warmup"
-  | "ollama-fallback"
+  | "default-provider-fallback"
 
 export interface EmbeddingStrategyResult {
   embedding: number[]
@@ -32,7 +34,7 @@ export interface EmbeddingStrategyCapabilities {
   sharedProviderId: string
   sharedModel: string
   sharedProviderAvailable: boolean
-  ollamaFallbackAvailable: boolean
+  defaultFallbackAvailable: boolean
 }
 
 export interface EmbeddingStrategyReadiness {
@@ -56,17 +58,15 @@ const normalizeModelForProvider = (
 ): string => {
   const normalized = model.trim()
 
-  if (providerId === ProviderId.OLLAMA) {
-    if (
-      normalized.toLowerCase() ===
-      CANONICAL_OLLAMA_EMBEDDING_MODEL.toLowerCase()
-    ) {
-      return CANONICAL_OLLAMA_EMBEDDING_MODEL
+  if (providerId === DEFAULT_PROVIDER_ID) {
+    if (normalized.toLowerCase() === CANONICAL_EMBEDDING_MODEL.toLowerCase()) {
+      return CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL
     }
   } else if (
-    normalized.toLowerCase() === CANONICAL_OLLAMA_EMBEDDING_MODEL.toLowerCase()
+    normalized.toLowerCase() ===
+    CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL.toLowerCase()
   ) {
-    return CANONICAL_OLLAMA_EMBEDDING_MODEL
+    return CANONICAL_EMBEDDING_MODEL
   }
 
   return normalized
@@ -75,7 +75,7 @@ const normalizeModelForProvider = (
 const getActiveProvider = async (): Promise<LLMProvider | null> => {
   try {
     const selectedChatModel = await plasmoGlobalStorage.get<string>(
-      STORAGE_KEYS.OLLAMA.SELECTED_MODEL
+      STORAGE_KEYS.PROVIDER.SELECTED_MODEL
     )
 
     if (!selectedChatModel) {
@@ -126,8 +126,8 @@ const scheduleSharedModelWarmup = async (
   providerId: string,
   model: string
 ): Promise<void> => {
-  // Current runtime can only pull models through Ollama handlers.
-  if (providerId !== ProviderId.OLLAMA) {
+  // Current runtime can only pull models through default-provider handlers.
+  if (providerId !== DEFAULT_PROVIDER_ID) {
     return
   }
 
@@ -148,7 +148,7 @@ const scheduleSharedModelWarmup = async (
   try {
     void sendMessage
       .call(browser.runtime, {
-        type: MESSAGE_KEYS.OLLAMA.PREPARE_EMBEDDING_MODEL,
+        type: MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL,
         payload: {
           providerId,
           model
@@ -180,14 +180,13 @@ const buildAttempts = async (
   const activeProvider = await getActiveProvider()
   const sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-  const sharedModel =
-    config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
+  const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
 
   const providerNativeModel = normalizeModelForProvider(
-    activeProvider?.id || ProviderId.OLLAMA,
+    activeProvider?.id || DEFAULT_PROVIDER_ID,
     requestedModel ||
-      (activeProvider?.id === ProviderId.OLLAMA
+      (activeProvider?.id === DEFAULT_PROVIDER_ID
         ? storedEmbeddingModel
         : sharedModel)
   )
@@ -195,8 +194,8 @@ const buildAttempts = async (
     sharedProviderId,
     requestedModel || sharedModel
   )
-  const ollamaFallbackModel = normalizeModelForProvider(
-    ProviderId.OLLAMA,
+  const defaultProviderFallbackModel = normalizeModelForProvider(
+    DEFAULT_PROVIDER_ID,
     requestedModel || storedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
   )
 
@@ -213,10 +212,10 @@ const buildAttempts = async (
     route: "shared-model",
     model: sharedModelResolved
   }
-  const ollamaAttempt: EmbedAttempt = {
-    providerId: ProviderId.OLLAMA,
-    route: "ollama-fallback",
-    model: ollamaFallbackModel
+  const defaultProviderAttempt: EmbedAttempt = {
+    providerId: DEFAULT_PROVIDER_ID,
+    route: "default-provider-fallback",
+    model: defaultProviderFallbackModel
   }
 
   switch (config.embeddingStrategy) {
@@ -224,19 +223,20 @@ const buildAttempts = async (
       if (providerNativeAttempt) {
         baseAttempts.push(providerNativeAttempt)
       }
-      baseAttempts.push(ollamaAttempt)
+      baseAttempts.push(defaultProviderAttempt)
       break
     case "shared-model":
-      baseAttempts.push(sharedAttempt, ollamaAttempt)
+      baseAttempts.push(sharedAttempt, defaultProviderAttempt)
       break
+    case "default-provider-only":
     case "ollama-only":
-      baseAttempts.push(ollamaAttempt)
+      baseAttempts.push(defaultProviderAttempt)
       break
     default:
       if (providerNativeAttempt) {
         baseAttempts.push(providerNativeAttempt)
       }
-      baseAttempts.push(sharedAttempt, ollamaAttempt)
+      baseAttempts.push(sharedAttempt, defaultProviderAttempt)
       break
   }
 
@@ -252,8 +252,7 @@ export const getEmbeddingCapabilities =
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-    const sharedModel =
-      config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
+    const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
 
     let sharedProviderAvailable = false
     try {
@@ -269,7 +268,7 @@ export const getEmbeddingCapabilities =
       sharedProviderId,
       sharedModel,
       sharedProviderAvailable,
-      ollamaFallbackAvailable: true
+      defaultFallbackAvailable: true
     }
   }
 
@@ -332,7 +331,7 @@ export const ensureEmbeddingStrategyReady =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
     const sharedModel = normalizeModelForProvider(
       sharedProviderId,
-      config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
+      config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
     )
 
     if (!config.warmupEmbeddingsInBackground) {

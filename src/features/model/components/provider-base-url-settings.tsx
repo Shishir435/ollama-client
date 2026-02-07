@@ -5,39 +5,39 @@ import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 
-export const BaseUrlSettings = () => {
+export const ProviderBaseUrlSettings = () => {
   const { t } = useTranslation()
   const [storageUrl, setStorageUrl] = useStorage<string>(
-    { key: STORAGE_KEYS.OLLAMA.BASE_URL, instance: plasmoGlobalStorage },
+    { key: STORAGE_KEYS.PROVIDER.BASE_URL, instance: plasmoGlobalStorage },
     "http://localhost:11434"
   )
   // Local state for input to prevent cursor jumping
-  const [ollamaUrl, setOllamaUrl] = useState(storageUrl)
-  const { refresh } = useOllamaModels()
+  const [providerUrl, setProviderUrl] = useState(storageUrl)
+  const { refresh } = useProviderModels()
   const [isLoading, setIsLoading] = useState(false)
 
   const [saved, setSaved] = useState(false)
 
   // Sync local state with storage when it changes externally
   useEffect(() => {
-    setOllamaUrl(storageUrl)
+    setProviderUrl(storageUrl)
   }, [storageUrl])
 
   const handleSave = async () => {
     setIsLoading(true)
     try {
       // Update storage first
-      await setStorageUrl(ollamaUrl)
+      await setStorageUrl(providerUrl)
       await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL,
-        payload: ollamaUrl
+        type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL,
+        payload: providerUrl
       })
       setSaved(true)
       refresh()
@@ -65,10 +65,10 @@ export const BaseUrlSettings = () => {
     }
   }
 
-  const urlIsValid = isValidUrl(ollamaUrl)
+  const urlIsValid = isValidUrl(providerUrl)
   const isLocalhost =
-    ollamaUrl.includes("localhost") || ollamaUrl.includes("127.0.0.1")
-  const isDefault = ollamaUrl === "http://localhost:11434"
+    providerUrl.includes("localhost") || providerUrl.includes("127.0.0.1")
+  const isDefault = providerUrl === "http://localhost:11434"
 
   return (
     <div className="mx-auto space-y-4">
@@ -95,11 +95,11 @@ export const BaseUrlSettings = () => {
         }>
         <div className="space-y-2">
           <SettingsFormField
-            htmlFor="ollama-url"
+            htmlFor="provider-url"
             label={
               <div className="flex items-center justify-between w-full">
                 <div className="text-sm">{t("settings.base_url.label")}</div>
-                {!urlIsValid && ollamaUrl && (
+                {!urlIsValid && providerUrl && (
                   <p className="flex items-center gap-1 text-xs text-destructive">
                     <span className="inline-block h-1 w-1 rounded-full bg-destructive" />
                     {t("settings.base_url.error_invalid_url")}
@@ -119,14 +119,14 @@ export const BaseUrlSettings = () => {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
-                  id="ollama-url"
+                  id="provider-url"
                   type="text"
-                  value={ollamaUrl}
-                  onChange={(e) => setOllamaUrl(e.target.value)}
+                  value={providerUrl}
+                  onChange={(e) => setProviderUrl(e.target.value)}
                   placeholder="http://localhost:11434"
                   className={cn(
                     "pr-8 font-mono text-sm",
-                    !urlIsValid && ollamaUrl && "border-destructive",
+                    !urlIsValid && providerUrl && "border-destructive",
                     saved && "border-green-600 bg-green-50/50"
                   )}
                   disabled={isLoading}

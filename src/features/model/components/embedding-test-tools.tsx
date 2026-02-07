@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import {
   getStorageStats,
   type SearchResult,

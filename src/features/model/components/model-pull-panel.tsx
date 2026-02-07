@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { ModelList } from "@/features/model/components/model-list"
-import { useOllamaModelSearch } from "@/features/model/hooks/use-ollama-model-search"
-import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
+import { useModelLibrarySearch } from "@/features/model/hooks/use-model-library-search"
+import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useDebounce } from "@/hooks/use-debounce"
 import {
   Download,
@@ -39,8 +39,8 @@ export const ModelPullPanel = () => {
   )
 
   const { models, setSearchQuery, loading, loadVariants } =
-    useOllamaModelSearch()
-  const { pullModel, progress, pullingModel, cancelPull } = useOllamaPull()
+    useModelLibrarySearch()
+  const { pullModel, progress, pullingModel, cancelPull } = useModelPull()
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 

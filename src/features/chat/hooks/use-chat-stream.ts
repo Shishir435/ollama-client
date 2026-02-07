@@ -38,19 +38,19 @@ interface StreamMessage {
   metrics?: Record<string, unknown>
 }
 
-interface UseOllamaStreamProps {
+interface UseChatStreamProps {
   setMessages: (messages: ChatMessage[]) => void
   setIsLoading: (v: boolean) => void
   setIsStreaming: (v: boolean) => void
   onToken?: (token: string) => void
 }
 
-export const useOllamaStream = ({
+export const useChatStream = ({
   setMessages,
   setIsLoading,
   setIsStreaming,
   onToken
-}: UseOllamaStreamProps) => {
+}: UseChatStreamProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
@@ -64,7 +64,7 @@ export const useOllamaStream = ({
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     const port = browser.runtime.connect({
-      name: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
+      name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
     })
     portRef.current = port
 
@@ -160,7 +160,7 @@ export const useOllamaStream = ({
     port.onMessage.addListener(listener)
 
     port.postMessage({
-      type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL,
+      type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
       payload: {
         model,
         messages,
@@ -180,7 +180,7 @@ export const useOllamaStream = ({
 
     try {
       portRef.current.postMessage({
-        type: MESSAGE_KEYS.OLLAMA.STOP_GENERATION
+        type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION
       })
     } catch (error) {
       console.error("Failed to send stop message:", error)

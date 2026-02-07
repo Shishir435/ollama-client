@@ -2,7 +2,7 @@ import { useCallback, useState } from "react"
 
 import type { EmbeddingConfig } from "@/lib/constants"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"

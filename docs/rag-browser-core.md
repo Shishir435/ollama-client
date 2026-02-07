@@ -51,7 +51,7 @@ This dual path is functional but increases maintenance risk and config drift.
 
 Embedding calls are routed through:
 
-- `src/lib/embeddings/ollama-embedder.ts`
+- `src/lib/embeddings/embedding-client.ts`
 - `src/lib/embeddings/embedder-factory.ts`
 
 Important current behavior:
@@ -216,7 +216,7 @@ Canonical shared model target:
 Implemented code path:
 
 - `src/lib/embeddings/embedding-strategy.ts`
-- called by `src/lib/embeddings/ollama-embedder.ts`
+- called by `src/lib/embeddings/embedding-client.ts`
 - diagnostics via `getEmbeddingCapabilitiesUnified` in `src/lib/embeddings/embedder-factory.ts`
 
 ### 4.1 Local HTTP embeddings (recommended default)

@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
-import { useOllamaStream } from "@/features/chat/hooks/use-ollama-stream"
+import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
 import { retrieveContext } from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
@@ -20,7 +20,7 @@ import type { ChatMessage, FileAttachment } from "@/types"
 export const useChat = () => {
   const [selectedModel] = useStorage<string>(
     {
-      key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
       instance: plasmoGlobalStorage
     },
     ""
@@ -77,7 +77,7 @@ export const useChat = () => {
     }, 1000) // 1 second debounce
   }
 
-  const { startStream, stopStream } = useOllamaStream({
+  const { startStream, stopStream } = useChatStream({
     setMessages: async (newMessages) => {
       // Logic to update UI state immediately (skip DB)
       if (currentStreamingMessageId.current && newMessages.length > 0) {

@@ -6,7 +6,7 @@ import {
 import { logger } from "@/lib/logger"
 import type {
   ChromePort,
-  OllamaPullResponse,
+  DefaultProviderPullResponse,
   PortStatusFunction
 } from "@/types"
 
@@ -47,7 +47,7 @@ export const handlePullStream = async (
         if (!trimmedLine) continue
 
         try {
-          const data: OllamaPullResponse = JSON.parse(trimmedLine)
+          const data: DefaultProviderPullResponse = JSON.parse(trimmedLine)
 
           if (data.status) {
             safePostMessage(port, { status: data.status })
@@ -83,7 +83,7 @@ export const handlePullStream = async (
 
     if (buffer.trim() && !isPortClosed()) {
       try {
-        const data: OllamaPullResponse = JSON.parse(buffer.trim())
+        const data: DefaultProviderPullResponse = JSON.parse(buffer.trim())
         if (data.status === "success") {
           safePostMessage(port, { done: true })
         }

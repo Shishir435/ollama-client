@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { handleGetOllamaVersion } from "../handle-get-ollama-version"
+import { handleGetProviderVersion } from "../handle-get-provider-version"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 
 vi.mock("@/background/lib/utils", () => ({
@@ -9,13 +9,13 @@ vi.mock("@/background/lib/utils", () => ({
 
 global.fetch = vi.fn()
 
-describe("handleGetOllamaVersion", () => {
+describe("handleGetProviderVersion", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getBaseUrl).mockResolvedValue("http://localhost:11434")
   })
 
-  it("should get Ollama version successfully", async () => {
+  it("should get provider version successfully", async () => {
     const mockData = { version: "0.1.17" }
     
     vi.mocked(fetch).mockResolvedValue({
@@ -24,7 +24,7 @@ describe("handleGetOllamaVersion", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetOllamaVersion(sendResponse)
+    await handleGetProviderVersion(sendResponse)
 
     expect(fetch).toHaveBeenCalledWith("http://localhost:11434/api/version")
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
@@ -41,7 +41,7 @@ describe("handleGetOllamaVersion", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetOllamaVersion(sendResponse)
+    await handleGetProviderVersion(sendResponse)
 
     expect(fetch).toHaveBeenCalledWith("http://custom:8080/api/version")
   })
@@ -54,7 +54,7 @@ describe("handleGetOllamaVersion", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetOllamaVersion(sendResponse)
+    await handleGetProviderVersion(sendResponse)
 
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: false,
@@ -66,7 +66,7 @@ describe("handleGetOllamaVersion", () => {
     vi.mocked(fetch).mockRejectedValue(new Error("Connection refused"))
 
     const sendResponse = vi.fn()
-    await handleGetOllamaVersion(sendResponse)
+    await handleGetProviderVersion(sendResponse)
 
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: false,

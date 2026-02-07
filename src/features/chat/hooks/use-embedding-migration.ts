@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 
 import { db } from "@/lib/db"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import type { Role } from "@/types"

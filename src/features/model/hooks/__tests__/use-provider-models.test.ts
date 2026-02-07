@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useOllamaModels } from "../use-ollama-models"
+import { useProviderModels } from "../use-provider-models"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
 
 const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
@@ -62,7 +62,7 @@ vi.mock("@/lib/browser-api", () => ({
 // Mock fetch globally
 global.fetch = vi.fn()
 
-describe("useOllamaModels", () => {
+describe("useProviderModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(fetch).mockImplementation(async (url) => {
@@ -82,7 +82,7 @@ describe("useOllamaModels", () => {
 
   describe("fetchModels", () => {
     it("should fetch models successfully", async () => {
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       // Wait for loading to finish
       await waitFor(() => {
@@ -97,7 +97,7 @@ describe("useOllamaModels", () => {
     it("should handle empty models list", async () => {
       vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([])
 
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -110,7 +110,7 @@ describe("useOllamaModels", () => {
     it("should handle fetch errors", async () => {
       vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(new Error("API Error"))
 
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -122,7 +122,7 @@ describe("useOllamaModels", () => {
 
   describe("deleteModel", () => {
     it("should delete model successfully", async () => {
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -140,9 +140,9 @@ describe("useOllamaModels", () => {
     })
   })
 
-  describe("fetchOllamaVersion", () => {
+  describe("fetchProviderVersion", () => {
     it("should fetch version successfully", async () => {
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.version).toBe("0.1.23")
@@ -157,7 +157,7 @@ describe("useOllamaModels", () => {
         return { ok: true, json: async () => ({}) } as Response
       })
 
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.versionError).toBeTruthy()
@@ -167,7 +167,7 @@ describe("useOllamaModels", () => {
 
   describe("refresh", () => {
     it("should refetch models when refresh is called", async () => {
-      const { result } = renderHook(() => useOllamaModels())
+      const { result } = renderHook(() => useProviderModels())
 
       await waitFor(() => {
         expect(result.current.status).toBe("ready")

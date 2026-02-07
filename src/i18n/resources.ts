@@ -43,21 +43,21 @@ export const resources = {
         save: "Speichern"
       },
       selection_button: {
-        label: "Ollama Client fragen",
-        tooltip: "Zu Ollama Client hinzufügen"
+        label: "Lokalen LLM fragen",
+        tooltip: "Zum Local LLM Client hinzufügen"
       },
       welcome: {
-        title: "Willkommen bei Ollama Chat",
+        title: "Willkommen beim Local LLM Chat",
         subtitle: "Lokale KI-Gespräche leicht gemacht",
         start_chatting: "Mit dem Chatten beginnen",
         status: {
           connecting: {
             title: "Verbinde...",
-            message: "Stelle Verbindung zum Ollama-Server her"
+            message: "Verbindung zum lokalen Provider wird hergestellt"
           },
           connection_failed: {
             title: "Verbindung fehlgeschlagen",
-            message: "Verbindung zu Ollama fehlgeschlagen. Läuft der Server?"
+            message: "Verbindung zum Provider fehlgeschlagen. Läuft der Server?"
           },
           no_models: {
             title: "Keine Modelle gefunden",
@@ -65,14 +65,13 @@ export const resources = {
           },
           ready: {
             title: "Bereit zum Chatten",
-            message: "Ollama ist verbunden und einsatzbereit"
+            message: "Provider ist verbunden und einsatzbereit"
           }
         },
         setup_guide: {
           intro: "Bevor Sie beginnen, folgen Sie diesen schnellen Schritten:",
-          step1: "Installieren Sie <code>ollama</code> auf Ihrem System",
-          step2:
-            "Führen Sie <code>ollama run llama3</code> oder ein beliebiges Modell aus",
+          step1: "Installieren Sie einen lokalen Provider (Ollama empfohlen)",
+          step2: "Ziehen Sie ein Modell (z. B. <code>ollama run llama3</code>)",
           step3:
             "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
           full_guide_link: "Vollständige Einrichtungsanleitung"
@@ -98,7 +97,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Leistungshinweis",
           message:
-            "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Ollama-Server. Die Reaktionszeit und die Ausgabequalität des Modells hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem spezifischen von Ihnen verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
+            "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
         }
       },
       chat: {
@@ -257,12 +256,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Ollama-Status wird geprüft...",
-          error: "Ollama nicht erreichbar",
-          empty: "Keine Modelle gefunden",
-          ready: "Ollama ist bereit"
-        },
         embedding_status: {
           checking: "Status wird geprüft...",
           downloading: "Lade {{model}} herunter... {{progress}}",
@@ -282,7 +275,7 @@ export const resources = {
           no_model_found: "Kein Modell gefunden."
         },
         version: {
-          tooltip: "Ollama-Version: {{version}}"
+          tooltip: "Provider-Version: {{version}}"
         },
         site_overrides: {
           title: "Site-spezifische Überschreibungen",
@@ -450,7 +443,16 @@ export const resources = {
             "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
           min_quality_score_label: "Mindest-Qualitätsfaktor",
           min_quality_score_description:
-            "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten."
+            "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
+          embedding_source_description:
+            "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
+          embedding_source_default_provider: "Standard-Provider (Ollama)"
+        },
+        provider_status: {
+          checking: "Provider-Status wird geprüft...",
+          error: "Provider nicht erreichbar",
+          empty: "Keine Modelle gefunden",
+          ready: "Provider ist bereit"
         }
       },
       prompts: {
@@ -590,7 +592,7 @@ export const resources = {
               "Erweiterte Inhaltsextraktion mit Lazy-Loading-Unterstützung aktivieren"
           },
           selection_button: {
-            label: 'Schaltfläche "Ollama Client fragen" nach Auswahl anzeigen',
+            label: "Schaltfläche „Lokalen LLM fragen“ nach Auswahl anzeigen",
             description:
               "Zeigt eine schwebende Aktionsschaltfläche an, wenn Text ausgewählt wird, um das Hinzufügen zum Chat zu beschleunigen"
           },
@@ -721,10 +723,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "Ollama Basis-URL",
+          title: "Provider Basis-URL",
           description:
-            "Konfigurieren Sie den Server-Endpunkt für Ihre Ollama-Installation.",
-          label: "Ollama API-Server-Endpunkt",
+            "Konfigurieren Sie den Server-Endpunkt für Ihre Provider-Installation.",
+          label: "Provider API-Server-Endpunkt",
           error_invalid_url: "Bitte geben Sie eine gültige URL ein.",
           status_local: "Lokale Serververbindung",
           status_remote: "Entfernte Serververbindung",
@@ -1066,9 +1068,6 @@ export const resources = {
             cancel: "Abbrechen"
           },
           modules: {
-            ollama: {
-              description: "Modelleinstellungen und Konfigurationen"
-            },
             theme: {
               description: "UI-Erscheinungspräferenzen"
             },
@@ -1083,6 +1082,9 @@ export const resources = {
             },
             default: {
               description: "Moduleinstellungen"
+            },
+            provider: {
+              description: "Modelleinstellungen und Konfigurationen"
             }
           },
           item_count: "{{count}} Element",
@@ -1176,21 +1178,21 @@ export const resources = {
         save: "Save"
       },
       selection_button: {
-        label: "Ask Ollama client",
-        tooltip: "Add to Ollama Client"
+        label: "Ask Local LLM",
+        tooltip: "Add to Local LLM Client"
       },
       welcome: {
-        title: "Welcome to Ollama Chat",
+        title: "Welcome to Local LLM Chat",
         subtitle: "Local AI conversations made simple",
         start_chatting: "Start Chatting",
         status: {
           connecting: {
             title: "Connecting...",
-            message: "Establishing connection to Ollama server"
+            message: "Establishing connection to local provider"
           },
           connection_failed: {
             title: "Connection Failed",
-            message: "Failed to connect to Ollama. Is the server running?"
+            message: "Failed to connect to provider. Is the server running?"
           },
           no_models: {
             title: "No Models Found",
@@ -1198,13 +1200,13 @@ export const resources = {
           },
           ready: {
             title: "Ready to Chat",
-            message: "Ollama is connected and ready to use"
+            message: "Provider is connected and ready to use"
           }
         },
         setup_guide: {
           intro: "Before you start, follow these quick steps:",
-          step1: "Install <code>ollama</code> on your system",
-          step2: "Run <code>ollama run llama3</code> or any model",
+          step1: "Install a local provider (Ollama recommended)",
+          step2: "Pull a model (e.g. <code>ollama run llama3</code>)",
           step3: "Return here and click <b>Refresh</b>",
           full_guide_link: "Full Setup Guide"
         },
@@ -1229,7 +1231,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Performance Notice",
           message:
-            "This extension is a user interface for your local Ollama server. Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
+            "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
         }
       },
       chat: {
@@ -1385,12 +1387,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Checking Ollama status...",
-          error: "Ollama not reachable",
-          empty: "No models found",
-          ready: "Ollama is ready"
-        },
         embedding_status: {
           checking: "Checking status...",
           downloading: "Downloading {{model}}... {{progress}}",
@@ -1409,7 +1405,7 @@ export const resources = {
           no_model_found: "No model found."
         },
         version: {
-          tooltip: "Ollama version: {{version}}"
+          tooltip: "Provider version: {{version}}"
         },
         site_overrides: {
           title: "Site-Specific Overrides",
@@ -1580,8 +1576,8 @@ export const resources = {
             "Minimum quality threshold for embedding content (0-1). Higher values filter more aggressively.",
           embedding_source_label: "Embedding Generation Source",
           embedding_source_description:
-            "Embeddings are generated using your local Ollama server",
-          embedding_source_ollama: "Ollama (Local Server)",
+            "Embeddings are generated using your local provider (Ollama by default)",
+          embedding_source_default_provider: "Default provider (Ollama)",
           feedback_learning_title: "User Feedback Learning",
           feedback_learning_description:
             "Improve search quality by learning from your feedback",
@@ -1598,6 +1594,12 @@ export const resources = {
           feedback_clear_button: "Clear All Feedback",
           feedback_privacy_note:
             "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+        },
+        provider_status: {
+          checking: "Checking Provider status...",
+          error: "Provider not reachable",
+          empty: "No models found",
+          ready: "Provider is ready"
         }
       },
       prompts: {
@@ -1733,7 +1735,7 @@ export const resources = {
               "Enable enhanced content extraction with lazy loading support"
           },
           selection_button: {
-            label: 'Show "Ask Ollama Client" button after selection',
+            label: 'Show "Ask Local LLM" button after selection',
             description:
               "Show a floating action button when selecting text to speed up adding it to chat"
           },
@@ -1862,10 +1864,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "Ollama Base URL",
+          title: "Provider Base URL",
           description:
-            "Configure the server endpoint for your Ollama installation.",
-          label: "Ollama API Server Endpoint",
+            "Configure the server endpoint for your Provider installation.",
+          label: "Provider API Server Endpoint",
           error_invalid_url: "Please enter a valid URL.",
           status_local: "Local server connection",
           status_remote: "Remote server connection",
@@ -2198,9 +2200,6 @@ export const resources = {
             cancel: "Cancel"
           },
           modules: {
-            ollama: {
-              description: "Model settings & configurations"
-            },
             theme: {
               description: "UI appearance preferences"
             },
@@ -2215,6 +2214,9 @@ export const resources = {
             },
             default: {
               description: "Module settings"
+            },
+            provider: {
+              description: "Model settings & configurations"
             }
           },
           item_count: "{{count}} item",
@@ -2313,22 +2315,22 @@ export const resources = {
         save: "Guardar"
       },
       selection_button: {
-        label: "Preguntar al cliente Ollama",
-        tooltip: "Añadir a Ollama Client"
+        label: "Preguntar al LLM local",
+        tooltip: "Añadir al cliente LLM local"
       },
       welcome: {
-        title: "Bienvenido a Ollama Chat",
+        title: "Bienvenido al chat de LLM local",
         subtitle: "Conversaciones con IA local de forma sencilla",
         start_chatting: "Empezar a Chatear",
         status: {
           connecting: {
             title: "Conectando...",
-            message: "Estableciendo conexión con el servidor Ollama"
+            message: "Estableciendo conexión con el proveedor local"
           },
           connection_failed: {
             title: "Conexión Fallida",
             message:
-              "Fallo al conectar con Ollama. ¿Está el servidor en funcionamiento?"
+              "No se pudo conectar con el proveedor. ¿Está el servidor en ejecución?"
           },
           no_models: {
             title: "No se Encontraron Modelos",
@@ -2336,13 +2338,13 @@ export const resources = {
           },
           ready: {
             title: "Listo para Chatear",
-            message: "Ollama está conectado y listo para usar"
+            message: "El proveedor está conectado y listo para usar"
           }
         },
         setup_guide: {
           intro: "Antes de empezar, sigue estos pasos rápidos:",
-          step1: "Instala <code>ollama</code> en tu sistema",
-          step2: "Ejecuta <code>ollama run llama3</code> o cualquier modelo",
+          step1: "Instala un proveedor local (Ollama recomendado)",
+          step2: "Descarga un modelo (p. ej., <code>ollama run llama3</code>)",
           step3: "Vuelve aquí y haz clic en <b>Actualizar</b>",
           full_guide_link: "Guía Completa de Configuración"
         },
@@ -2367,7 +2369,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Aviso de Rendimiento",
           message:
-            "Esta extensión es una interfaz de usuario para tu servidor Ollama local. El tiempo de respuesta y la calidad de la salida del modelo dependen enteramente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que estés utilizando. La extensión no realiza ningún procesamiento por sí misma."
+            "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
         }
       },
       chat: {
@@ -2524,12 +2526,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Comprobando estado de Ollama...",
-          error: "Ollama no está accesible",
-          empty: "No se encontraron modelos",
-          ready: "Ollama está listo"
-        },
         embedding_status: {
           checking: "Comprobando estado...",
           downloading: "Descargando {{model}}... {{progress}}",
@@ -2549,7 +2545,7 @@ export const resources = {
           no_model_found: "No se encontró ningún modelo."
         },
         version: {
-          tooltip: "Versión de Ollama: {{version}}"
+          tooltip: "Versión de Provider: {{version}}"
         },
         site_overrides: {
           title: "Anulaciones Específicas del Sitio",
@@ -2718,7 +2714,16 @@ export const resources = {
             "Filtre saludos, respuestas cortas y mensajes de baja información.",
           min_quality_score_label: "Puntuación de calidad mínima",
           min_quality_score_description:
-            "Puntuación de calidad mínima (0-1) requerida para incrustar contenido."
+            "Puntuación de calidad mínima (0-1) requerida para incrustar contenido.",
+          embedding_source_description:
+            "Las incrustaciones se generan usando tu proveedor local (Ollama por defecto)",
+          embedding_source_default_provider: "Proveedor predeterminado (Ollama)"
+        },
+        provider_status: {
+          checking: "Comprobando estado de Provider...",
+          error: "Provider no está accesible",
+          empty: "No se encontraron modelos",
+          ready: "Provider está listo"
         }
       },
       prompts: {
@@ -2858,7 +2863,7 @@ export const resources = {
           },
           selection_button: {
             label:
-              'Mostrar botón "Preguntar al cliente Ollama" después de la selección',
+              'Mostrar el botón "Preguntar al LLM local" después de la selección',
             description:
               "Mostrar un botón de acción flotante al seleccionar texto para acelerar su adición al chat"
           },
@@ -2991,10 +2996,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "URL Base de Ollama",
+          title: "URL Base de Provider",
           description:
-            "Configura el punto final del servidor para tu instalación de Ollama.",
-          label: "Punto Final del Servidor API de Ollama",
+            "Configura el punto final del servidor para tu instalación de Provider.",
+          label: "Punto Final del Servidor API de Provider",
           error_invalid_url: "Por favor, introduce una URL válida.",
           status_local: "Conexión de servidor local",
           status_remote: "Conexión de servidor remoto",
@@ -3322,9 +3327,6 @@ export const resources = {
             button: "Restablecer Todo"
           },
           modules: {
-            ollama: {
-              description: "Ajustes y configuraciones del modelo"
-            },
             theme: {
               description:
                 "Preferencias de apariencia de la interfaz de usuario"
@@ -3340,6 +3342,9 @@ export const resources = {
             },
             default: {
               description: "Ajustes del módulo"
+            },
+            provider: {
+              description: "Ajustes y configuraciones del modelo"
             }
           },
           item_count: "{{count}} elemento",
@@ -3433,22 +3438,22 @@ export const resources = {
         save: "Enregistrer"
       },
       selection_button: {
-        label: "Demander au client Ollama",
-        tooltip: "Ajouter à Ollama Client"
+        label: "Demander au LLM local",
+        tooltip: "Ajouter au client LLM local"
       },
       welcome: {
-        title: "Bienvenue sur Ollama Chat",
+        title: "Bienvenue sur le chat LLM local",
         subtitle: "Conversations IA locales simplifiées",
         start_chatting: "Commencer à Chatter",
         status: {
           connecting: {
             title: "Connexion...",
-            message: "Établissement de la connexion au serveur Ollama"
+            message: "Connexion au fournisseur local en cours"
           },
           connection_failed: {
             title: "Échec de la Connexion",
             message:
-              "Échec de la connexion à Ollama. Le serveur est-il en cours d'exécution ?"
+              "Échec de la connexion au fournisseur. Le serveur est-il en cours d’exécution ?"
           },
           no_models: {
             title: "Aucun Modèle Trouvé",
@@ -3456,13 +3461,13 @@ export const resources = {
           },
           ready: {
             title: "Prêt à Chatter",
-            message: "Ollama est connecté et prêt à être utilisé"
+            message: "Le fournisseur est connecté et prêt"
           }
         },
         setup_guide: {
           intro: "Avant de commencer, suivez ces étapes rapides :",
-          step1: "Installez <code>ollama</code> sur votre système",
-          step2: "Exécutez <code>ollama run llama3</code> ou tout autre modèle",
+          step1: "Installez un fournisseur local (Ollama recommandé)",
+          step2: "Téléchargez un modèle (ex. <code>ollama run llama3</code>)",
           step3: "Revenez ici et cliquez sur <b>Actualiser</b>",
           full_guide_link: "Guide de Configuration Complet"
         },
@@ -3487,7 +3492,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Avis de Performance",
           message:
-            "Cette extension est une interface utilisateur pour votre serveur Ollama local. Le temps de réponse et la qualité de sortie du modèle dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle spécifique que vous utilisez. Aucun traitement n'est effectué par l'extension elle-même."
+            "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
         }
       },
       chat: {
@@ -3646,12 +3651,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Vérification du statut d'Ollama...",
-          error: "Ollama n'est pas accessible",
-          empty: "Aucun modèle trouvé",
-          ready: "Ollama est prêt"
-        },
         embedding_status: {
           checking: "Vérification du statut...",
           downloading: "Téléchargement de {{model}}... {{progress}}",
@@ -3671,7 +3670,7 @@ export const resources = {
           no_model_found: "Aucun modèle trouvé."
         },
         version: {
-          tooltip: "Version d'Ollama : {{version}}"
+          tooltip: "Version d'Provider : {{version}}"
         },
         site_overrides: {
           title: "Priorités Spécifiques au Site",
@@ -3840,7 +3839,16 @@ export const resources = {
             "Filtrez les salutations, les réponses courtes et les messages à faible information.",
           min_quality_score_label: "Score de qualité minimum",
           min_quality_score_description:
-            "Score de qualité minimum (0-1) requis pour intégrer le contenu."
+            "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
+          embedding_source_description:
+            "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
+          embedding_source_default_provider: "Fournisseur par défaut (Ollama)"
+        },
+        provider_status: {
+          checking: "Vérification du statut d'Provider...",
+          error: "Provider n'est pas accessible",
+          empty: "Aucun modèle trouvé",
+          ready: "Provider est prêt"
         }
       },
       prompts: {
@@ -3982,7 +3990,7 @@ export const resources = {
           },
           selection_button: {
             label:
-              'Afficher le bouton "Demander au client Ollama" après la sélection',
+              "Afficher le bouton « Demander au LLM local » après la sélection",
             description:
               "Afficher un bouton d'action flottant lors de la sélection de texte pour accélérer son ajout au chat"
           },
@@ -4115,10 +4123,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "URL de Base d'Ollama",
+          title: "URL de Base d'Provider",
           description:
-            "Configure le point de terminaison du serveur pour votre installation Ollama.",
-          label: "Point de Terminaison du Serveur API Ollama",
+            "Configure le point de terminaison du serveur pour votre installation Provider.",
+          label: "Point de Terminaison du Serveur API Provider",
           error_invalid_url: "Veuillez entrer une URL valide.",
           status_local: "Connexion au serveur local",
           status_remote: "Connexion au serveur distant",
@@ -4452,9 +4460,6 @@ export const resources = {
             button: "Tout Réinitialiser"
           },
           modules: {
-            ollama: {
-              description: "Paramètres et configurations du modèle"
-            },
             theme: {
               description: "Préférences d'apparence de l'interface utilisateur"
             },
@@ -4469,6 +4474,9 @@ export const resources = {
             },
             default: {
               description: "Paramètres du module"
+            },
+            provider: {
+              description: "Paramètres et configurations du modèle"
             }
           },
           item_count: "{{count}} élément",
@@ -4561,21 +4569,21 @@ export const resources = {
         save: "सहेजें"
       },
       selection_button: {
-        label: "Ollama क्लाइंट से पूछें",
-        tooltip: "Ollama क्लाइंट में जोड़ें"
+        label: "स्थानीय LLM से पूछें",
+        tooltip: "स्थानीय LLM क्लाइंट में जोड़ें"
       },
       welcome: {
-        title: "Ollama चैट में आपका स्वागत है",
+        title: "स्थानीय LLM चैट में आपका स्वागत है",
         subtitle: "स्थानीय AI बातचीत हुई आसान",
         start_chatting: "बातचीत शुरू करें",
         status: {
           connecting: {
             title: "कनेक्ट हो रहा है...",
-            message: "Ollama सर्वर से कनेक्शन स्थापित कर रहा है"
+            message: "स्थानीय प्रदाता से कनेक्शन स्थापित किया जा रहा है"
           },
           connection_failed: {
             title: "कनेक्शन विफल",
-            message: "Ollama से कनेक्ट होने में विफल। क्या सर्वर चल रहा है?"
+            message: "प्रदाता से कनेक्ट नहीं हो सका। क्या सर्वर चल रहा है?"
           },
           no_models: {
             title: "कोई मॉडल नहीं मिला",
@@ -4583,13 +4591,13 @@ export const resources = {
           },
           ready: {
             title: "चैट के लिए तैयार",
-            message: "Ollama कनेक्टेड है और उपयोग के लिए तैयार है"
+            message: "प्रदाता कनेक्ट है और उपयोग के लिए तैयार है"
           }
         },
         setup_guide: {
           intro: "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
-          step1: "अपने सिस्टम पर <code>ollama</code> इंस्टॉल करें",
-          step2: "<code>ollama run llama3</code> या कोई भी मॉडल चलाएँ",
+          step1: "एक स्थानीय प्रदाता इंस्टॉल करें (Ollama अनुशंसित)",
+          step2: "एक मॉडल डाउनलोड करें (उदा. <code>ollama run llama3</code>)",
           step3: "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
           full_guide_link: "संपूर्ण सेटअप गाइड"
         },
@@ -4614,7 +4622,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ परफॉर्मेंस नोटिस",
           message:
-            "यह एक्सटेंशन आपके स्थानीय Ollama सर्वर के लिए एक यूज़र इंटरफ़ेस है। प्रतिक्रिया समय और मॉडल आउटपुट गुणवत्ता पूरी तरह से आपके डिवाइस के हार्डवेयर (CPU, RAM, GPU) और आपके द्वारा उपयोग किए जा रहे विशिष्ट मॉडल पर निर्भर करती है। एक्सटेंशन द्वारा स्वयं कोई प्रोसेसिंग नहीं की जाती है।"
+            "यह एक्सटेंशन आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) के लिए एक यूज़र इंटरफ़ेस है। प्रतिक्रिया समय और मॉडल आउटपुट गुणवत्ता पूरी तरह से आपके डिवाइस के हार्डवेयर (CPU, RAM, GPU) और उपयोग किए गए मॉडल पर निर्भर करती है। एक्सटेंशन स्वयं कोई प्रोसेसिंग नहीं करता।"
         }
       },
       chat: {
@@ -4769,12 +4777,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Ollama स्थिति जाँच रहा है...",
-          error: "Ollama पहुंच योग्य नहीं है",
-          empty: "कोई मॉडल नहीं मिला",
-          ready: "Ollama तैयार है"
-        },
         embedding_status: {
           checking: "स्थिति जाँच रहा है...",
           downloading: "{{model}} डाउनलोड हो रहा है... {{progress}}",
@@ -4793,7 +4795,7 @@ export const resources = {
           no_model_found: "कोई मॉडल नहीं मिला।"
         },
         version: {
-          tooltip: "Ollama संस्करण: {{version}}"
+          tooltip: "Provider संस्करण: {{version}}"
         },
         site_overrides: {
           title: "साइट-विशिष्ट ओवरराइड",
@@ -4954,7 +4956,16 @@ export const resources = {
             "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
           min_quality_score_label: "न्यूनतम गुणवत्ता स्कोर",
           min_quality_score_description:
-            "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।"
+            "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
+          embedding_source_description:
+            "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
+          embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)"
+        },
+        provider_status: {
+          checking: "Provider स्थिति जाँच रहा है...",
+          error: "Provider पहुंच योग्य नहीं है",
+          empty: "कोई मॉडल नहीं मिला",
+          ready: "Provider तैयार है"
         }
       },
       prompts: {
@@ -5088,7 +5099,7 @@ export const resources = {
             description: "लेज़ी लोडिंग समर्थन के साथ उन्नत सामग्री निष्कर्षण सक्षम करें"
           },
           selection_button: {
-            label: 'चयन के बाद "Ollama क्लाइंट से पूछें" बटन दिखाएँ',
+            label: 'चयन के बाद "स्थानीय LLM से पूछें" बटन दिखाएँ',
             description:
               "चैट में टेक्स्ट को तेज़ी से जोड़ने के लिए टेक्स्ट का चयन करते समय एक फ़्लोटिंग एक्शन बटन दिखाएँ"
           },
@@ -5217,9 +5228,9 @@ export const resources = {
           }
         },
         base_url: {
-          title: "Ollama बेस URL",
-          description: "अपने Ollama इंस्टॉलेशन के लिए सर्वर एंडपॉइंट कॉन्फ़िगर करें।",
-          label: "Ollama API सर्वर एंडपॉइंट",
+          title: "Provider बेस URL",
+          description: "अपने Provider इंस्टॉलेशन के लिए सर्वर एंडपॉइंट कॉन्फ़िगर करें।",
+          label: "Provider API सर्वर एंडपॉइंट",
           error_invalid_url: "कृपया एक वैध URL दर्ज करें।",
           status_local: "स्थानीय सर्वर कनेक्शन",
           status_remote: "रिमोट सर्वर कनेक्शन",
@@ -5547,9 +5558,6 @@ export const resources = {
             cancel: "रद्द करें"
           },
           modules: {
-            ollama: {
-              description: "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
-            },
             theme: {
               description: "UI स्वरूपण प्राथमिकताएँ"
             },
@@ -5564,6 +5572,9 @@ export const resources = {
             },
             default: {
               description: "मॉड्यूल सेटिंग्स"
+            },
+            provider: {
+              description: "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
             }
           },
           item_count: "{{count}} आइटम",
@@ -5655,22 +5666,22 @@ export const resources = {
         save: "Salva"
       },
       selection_button: {
-        label: "Chiedi a Ollama client",
-        tooltip: "Aggiungi a Ollama Client"
+        label: "Chiedi al LLM locale",
+        tooltip: "Aggiungi al client LLM locale"
       },
       welcome: {
-        title: "Benvenuto in Ollama Chat",
+        title: "Benvenuto nel chat LLM locale",
         subtitle: "Conversazioni IA locali rese semplici",
         start_chatting: "Inizia a Chiacchierare",
         status: {
           connecting: {
             title: "Connessione in corso...",
-            message: "Stabilimento della connessione al server Ollama"
+            message: "Connessione al provider locale in corso"
           },
           connection_failed: {
             title: "Connessione Fallita",
             message:
-              "Impossibile connettersi a Ollama. Il server è in esecuzione?"
+              "Impossibile connettersi al provider. Il server è in esecuzione?"
           },
           no_models: {
             title: "Nessun Modello Trovato",
@@ -5678,14 +5689,13 @@ export const resources = {
           },
           ready: {
             title: "Pronto per la Chat",
-            message: "Ollama è connesso e pronto all'uso"
+            message: "Il provider è connesso e pronto all'uso"
           }
         },
         setup_guide: {
           intro: "Prima di iniziare, segui questi semplici passaggi:",
-          step1: "Installa <code>ollama</code> sul tuo sistema",
-          step2:
-            "Esegui <code>ollama run llama3</code> o qualsiasi altro modello",
+          step1: "Installa un provider locale (Ollama consigliato)",
+          step2: "Scarica un modello (es. <code>ollama run llama3</code>)",
           step3: "Torna qui e clicca su <b>Aggiorna</b>",
           full_guide_link: "Guida Completa all'Installazione"
         },
@@ -5710,7 +5720,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Avviso di Prestazioni",
           message:
-            "Questa estensione è un'interfaccia utente per il tuo server Ollama locale. Il tempo di risposta e la qualità dell'output del modello dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico che stai utilizzando. Nessuna elaborazione viene eseguita dall'estensione stessa."
+            "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
         }
       },
       chat: {
@@ -5867,12 +5877,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Verifica stato Ollama in corso...",
-          error: "Ollama non raggiungibile",
-          empty: "Nessun modello trovato",
-          ready: "Ollama è pronto"
-        },
         embedding_status: {
           checking: "Verifica stato in corso...",
           downloading: "Scaricamento {{model}}... {{progress}}",
@@ -5892,7 +5896,7 @@ export const resources = {
           no_model_found: "Nessun modello trovato."
         },
         version: {
-          tooltip: "Versione Ollama: {{version}}"
+          tooltip: "Versione Provider: {{version}}"
         },
         site_overrides: {
           title: "Override Specifici del Sito",
@@ -6061,7 +6065,16 @@ export const resources = {
             "Filtra saluti, risposte brevi e messaggi con poche informazioni.",
           min_quality_score_label: "Punteggio qualità minimo",
           min_quality_score_description:
-            "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto."
+            "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto.",
+          embedding_source_description:
+            "Gli embedding vengono generati usando il tuo provider locale (Ollama per impostazione predefinita)",
+          embedding_source_default_provider: "Provider predefinito (Ollama)"
+        },
+        provider_status: {
+          checking: "Verifica stato Provider in corso...",
+          error: "Provider non raggiungibile",
+          empty: "Nessun modello trovato",
+          ready: "Provider è pronto"
         }
       },
       prompts: {
@@ -6203,7 +6216,7 @@ export const resources = {
           },
           selection_button: {
             label:
-              'Mostra il pulsante "Chiedi a Ollama Client" dopo la selezione',
+              'Mostra il pulsante "Chiedi al LLM locale" dopo la selezione',
             description:
               "Mostra un pulsante di azione mobile quando si seleziona il testo per velocizzarne l'aggiunta alla chat"
           },
@@ -6335,10 +6348,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "URL Base Ollama",
+          title: "URL Base Provider",
           description:
-            "Configura l'endpoint del server per la tua installazione Ollama.",
-          label: "Endpoint Server API Ollama",
+            "Configura l'endpoint del server per la tua installazione Provider.",
+          label: "Endpoint Server API Provider",
           error_invalid_url: "Inserisci un URL valido.",
           status_local: "Connessione server locale",
           status_remote: "Connessione server remoto",
@@ -6675,9 +6688,6 @@ export const resources = {
             cancel: "Annulla"
           },
           modules: {
-            ollama: {
-              description: "Impostazioni e configurazioni del modello"
-            },
             theme: {
               description: "Preferenze di aspetto dell'interfaccia utente"
             },
@@ -6692,6 +6702,9 @@ export const resources = {
             },
             default: {
               description: "Impostazioni modulo"
+            },
+            provider: {
+              description: "Impostazioni e configurazioni del modello"
             }
           },
           item_count: "{{count}} elemento",
@@ -6785,21 +6798,21 @@ export const resources = {
         save: "保存"
       },
       selection_button: {
-        label: "Ollama Clientに尋ねる",
-        tooltip: "Ollama Clientに追加"
+        label: "ローカルLLMに聞く",
+        tooltip: "ローカルLLMクライアントに追加"
       },
       welcome: {
-        title: "Ollama Chatへようこそ",
+        title: "ローカルLLMチャットへようこそ",
         subtitle: "ローカルAIとの会話をシンプルに",
         start_chatting: "チャットを開始",
         status: {
           connecting: {
             title: "接続中...",
-            message: "Ollamaサーバーへの接続を確立しています"
+            message: "ローカルプロバイダーへの接続を確立しています"
           },
           connection_failed: {
             title: "接続失敗",
-            message: "Ollamaへの接続に失敗しました。サーバーは実行中ですか？"
+            message: "プロバイダーに接続できません。サーバーは実行中ですか？"
           },
           no_models: {
             title: "モデルが見つかりません",
@@ -6807,13 +6820,13 @@ export const resources = {
           },
           ready: {
             title: "チャット準備完了",
-            message: "Ollamaが接続され、使用準備が整いました"
+            message: "プロバイダーは接続され使用可能です"
           }
         },
         setup_guide: {
           intro: "開始する前に、以下の簡単な手順に従ってください：",
-          step1: "システムに <code>ollama</code> をインストールする",
-          step2: "<code>ollama run llama3</code> または任意のモデルを実行する",
+          step1: "ローカルプロバイダーをインストールします（Ollama推奨）",
+          step2: "モデルを取得します（例: <code>ollama run llama3</code>）",
           step3: "ここに戻って <b>更新</b> をクリックする",
           full_guide_link: "完全なセットアップガイド"
         },
@@ -6838,7 +6851,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ パフォーマンスに関する注意",
           message:
-            "この拡張機能は、ローカルOllamaサーバーのユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用している特定のモデルに完全に依存します。拡張機能自体による処理は行われません。"
+            "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
         }
       },
       chat: {
@@ -6992,12 +7005,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Ollamaの状態を確認中...",
-          error: "Ollamaに接続できません",
-          empty: "モデルが見つかりません",
-          ready: "Ollamaは準備完了です"
-        },
         embedding_status: {
           checking: "状態を確認中...",
           downloading: "{{model}} をダウンロード中... {{progress}}",
@@ -7016,7 +7023,7 @@ export const resources = {
           no_model_found: "モデルが見つかりません。"
         },
         version: {
-          tooltip: "Ollamaバージョン: {{version}}"
+          tooltip: "Providerバージョン: {{version}}"
         },
         site_overrides: {
           title: "サイト固有の上書き設定",
@@ -7184,7 +7191,16 @@ export const resources = {
             "挨拶、短い応答、情報の少ないメッセージを除外します。",
           min_quality_score_label: "最小品質スコア",
           min_quality_score_description:
-            "コンテンツの埋め込みに必要な最小品質スコア (0-1)。"
+            "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
+          embedding_source_description:
+            "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
+          embedding_source_default_provider: "既定のプロバイダー（Ollama）"
+        },
+        provider_status: {
+          checking: "Providerの状態を確認中...",
+          error: "Providerに接続できません",
+          empty: "モデルが見つかりません",
+          ready: "Providerは準備完了です"
         }
       },
       prompts: {
@@ -7322,7 +7338,7 @@ export const resources = {
               "遅延読み込みをサポートする拡張コンテンツ抽出を有効にする"
           },
           selection_button: {
-            label: "選択後に「Ollama Clientに尋ねる」ボタンを表示",
+            label: "選択後に「ローカルLLMに聞く」ボタンを表示",
             description:
               "テキスト選択時にフローティングアクションボタンを表示し、チャットへの追加を迅速化します"
           },
@@ -7451,10 +7467,10 @@ export const resources = {
           }
         },
         base_url: {
-          title: "OllamaベースURL",
+          title: "ProviderベースURL",
           description:
-            "Ollamaインストールのサーバーエンドポイントを設定します。",
-          label: "Ollama API サーバーエンドポイント",
+            "Providerインストールのサーバーエンドポイントを設定します。",
+          label: "Provider API サーバーエンドポイント",
           error_invalid_url: "有効なURLを入力してください。",
           status_local: "ローカルサーバー接続",
           status_remote: "リモートサーバー接続",
@@ -7777,9 +7793,6 @@ export const resources = {
             cancel: "キャンセル"
           },
           modules: {
-            ollama: {
-              description: "モデル設定と構成"
-            },
             theme: {
               description: "UIの外観設定"
             },
@@ -7794,6 +7807,9 @@ export const resources = {
             },
             default: {
               description: "モジュール設定"
+            },
+            provider: {
+              description: "モデル設定と構成"
             }
           },
           item_count: "{{count}} 項目",
@@ -7885,21 +7901,21 @@ export const resources = {
         save: "Сохранить"
       },
       selection_button: {
-        label: "Спросить Ollama client",
-        tooltip: "Добавить в Ollama Client"
+        label: "Спросить локальный LLM",
+        tooltip: "Добавить в локальный LLM клиент"
       },
       welcome: {
-        title: "Добро пожаловать в Ollama Chat",
+        title: "Добро пожаловать в чат локального LLM",
         subtitle: "Локальные диалоги с ИИ — это просто",
         start_chatting: "Начать чат",
         status: {
           connecting: {
             title: "Подключение...",
-            message: "Установка соединения с сервером Ollama"
+            message: "Устанавливается соединение с локальным провайдером"
           },
           connection_failed: {
             title: "Ошибка подключения",
-            message: "Не удалось подключиться к Ollama. Сервер запущен?"
+            message: "Не удалось подключиться к провайдеру. Сервер запущен?"
           },
           no_models: {
             title: "Модели не найдены",
@@ -7907,14 +7923,13 @@ export const resources = {
           },
           ready: {
             title: "Готово к общению",
-            message: "Ollama подключена и готова к использованию"
+            message: "Провайдер подключен и готов к использованию"
           }
         },
         setup_guide: {
           intro: "Прежде чем начать, выполните эти быстрые шаги:",
-          step1: "Установите <code>ollama</code> на вашу систему",
-          step2:
-            "Запустите <code>ollama run llama3</code> или любую другую модель",
+          step1: "Установите локального провайдера (рекомендуется Ollama)",
+          step2: "Скачайте модель (например, <code>ollama run llama3</code>)",
           step3: "Вернитесь сюда и нажмите <b>Обновить</b>",
           full_guide_link: "Полное руководство по установке"
         },
@@ -7939,7 +7954,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ Уведомление о производительности",
           message:
-            "Это расширение — пользовательский интерфейс для вашего локального сервера Ollama. Время ответа и качество работы модели полностью зависят от оборудования вашего устройства (CPU, RAM, GPU) и конкретной используемой модели. Расширение не выполняет обработку данных самостоятельно."
+            "Это расширение — пользовательский интерфейс для вашего локального провайдера (по умолчанию Ollama). Время ответа и качество вывода модели полностью зависят от оборудования вашего устройства (CPU, RAM, GPU) и выбранной модели. Расширение само по себе не выполняет обработку."
         }
       },
       chat: {
@@ -8094,12 +8109,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "Проверка статуса Ollama...",
-          error: "Ollama недоступна",
-          empty: "Модели не найдены",
-          ready: "Ollama готова"
-        },
         embedding_status: {
           checking: "Проверка статуса...",
           downloading: "Загрузка {{model}}... {{progress}}",
@@ -8118,7 +8127,7 @@ export const resources = {
           no_model_found: "Модель не найдена."
         },
         version: {
-          tooltip: "Версия Ollama: {{version}}"
+          tooltip: "Версия Provider: {{version}}"
         },
         site_overrides: {
           title: "Настройки для конкретных сайтов",
@@ -8288,7 +8297,16 @@ export const resources = {
             "Отфильтровывать приветствия, короткие ответы и малоинформативные сообщения.",
           min_quality_score_label: "Минимальная оценка качества",
           min_quality_score_description:
-            "Минимальная оценка качества (0-1), необходимая для встраивания контента."
+            "Минимальная оценка качества (0-1), необходимая для встраивания контента.",
+          embedding_source_description:
+            "Эмбеддинги генерируются с помощью вашего локального провайдера (по умолчанию Ollama)",
+          embedding_source_default_provider: "Провайдер по умолчанию (Ollama)"
+        },
+        provider_status: {
+          checking: "Проверка статуса Provider...",
+          error: "Provider недоступна",
+          empty: "Модели не найдены",
+          ready: "Provider готова"
         }
       },
       prompts: {
@@ -8427,7 +8445,7 @@ export const resources = {
               "Включить улучшенное извлечение контента с поддержкой ленивой загрузки (lazy loading)"
           },
           selection_button: {
-            label: 'Показывать кнопку "Спросить Ollama Client" при выделении',
+            label: "Показывать кнопку «Спросить локальный LLM» при выделении",
             description:
               "Показывать плавающую кнопку действий при выделении текста для быстрого добавления в чат"
           },
@@ -8558,9 +8576,9 @@ export const resources = {
           }
         },
         base_url: {
-          title: "Базовый URL Ollama",
-          description: "Настройте адрес сервера для вашей установки Ollama.",
-          label: "Адрес сервера API Ollama",
+          title: "Базовый URL Provider",
+          description: "Настройте адрес сервера для вашей установки Provider.",
+          label: "Адрес сервера API Provider",
           error_invalid_url: "Пожалуйста, введите корректный URL.",
           status_local: "Подключение к локальному серверу",
           status_remote: "Подключение к удаленному серверу",
@@ -8893,9 +8911,6 @@ export const resources = {
             cancel: "Отмена"
           },
           modules: {
-            ollama: {
-              description: "Настройки моделей и конфигурации"
-            },
             theme: {
               description: "Настройки внешнего вида UI"
             },
@@ -8910,6 +8925,9 @@ export const resources = {
             },
             default: {
               description: "Настройки модуля"
+            },
+            provider: {
+              description: "Настройки моделей и конфигурации"
             }
           },
           item_count: "{{count}} элемент",
@@ -9000,21 +9018,21 @@ export const resources = {
         save: "保存"
       },
       selection_button: {
-        label: "询问 Ollama 客户端",
-        tooltip: "添加到 Ollama 客户端"
+        label: "询问本地 LLM",
+        tooltip: "添加到本地 LLM 客户端"
       },
       welcome: {
-        title: "欢迎使用 Ollama Chat",
+        title: "欢迎使用本地 LLM 聊天",
         subtitle: "本地 AI 对话，简单易行",
         start_chatting: "开始聊天",
         status: {
           connecting: {
             title: "正在连接...",
-            message: "正在建立与 Ollama 服务器的连接"
+            message: "正在建立与本地提供方的连接"
           },
           connection_failed: {
             title: "连接失败",
-            message: "连接 Ollama 失败。服务器是否正在运行？"
+            message: "连接提供方失败。服务器是否正在运行？"
           },
           no_models: {
             title: "未找到模型",
@@ -9022,13 +9040,13 @@ export const resources = {
           },
           ready: {
             title: "准备就绪",
-            message: "Ollama 已连接，可开始聊天"
+            message: "提供方已连接，可开始使用"
           }
         },
         setup_guide: {
           intro: "开始之前，请遵循以下快速步骤：",
-          step1: "在您的系统上安装 <code>ollama</code>",
-          step2: "运行 <code>ollama run llama3</code> 或任何其他模型",
+          step1: "安装本地提供方（推荐 Ollama）",
+          step2: "拉取模型（例如 <code>ollama run llama3</code>）",
           step3: "返回此处并点击<b>刷新</b>",
           full_guide_link: "完整设置指南"
         },
@@ -9053,7 +9071,7 @@ export const resources = {
         performance_notice: {
           title: "⚠️ 性能提示",
           message:
-            "此扩展是您本地 Ollama 服务器的用户界面。响应时间和模型输出质量完全取决于您的设备硬件（CPU、RAM、GPU）以及您使用的特定模型。扩展本身不进行任何处理。"
+            "此扩展是本地提供方（默认 Ollama）的用户界面。响应时间和模型输出质量完全取决于设备硬件（CPU、RAM、GPU）以及所使用的模型。扩展本身不进行任何处理。"
         }
       },
       chat: {
@@ -9202,12 +9220,6 @@ export const resources = {
         }
       },
       model: {
-        ollama_status: {
-          checking: "正在检查 Ollama 状态...",
-          error: "Ollama 无法连接",
-          empty: "未找到模型",
-          ready: "Ollama 已准备就绪"
-        },
         embedding_status: {
           checking: "正在检查状态...",
           downloading: "正在下载 {{model}}... {{progress}}",
@@ -9226,7 +9238,7 @@ export const resources = {
           no_model_found: "未找到模型。"
         },
         version: {
-          tooltip: "Ollama 版本: {{version}}"
+          tooltip: "Provider 版本: {{version}}"
         },
         site_overrides: {
           title: "特定站点覆盖设置",
@@ -9376,7 +9388,15 @@ export const resources = {
           exclude_casual_description:
             "过滤掉问候语、简短回复和低信息量的消息。",
           min_quality_score_label: "最低质量分数",
-          min_quality_score_description: "嵌入内容所需的最低质量分数 (0-1)。"
+          min_quality_score_description: "嵌入内容所需的最低质量分数 (0-1)。",
+          embedding_source_description: "嵌入由本地提供方生成（默认 Ollama）",
+          embedding_source_default_provider: "默认提供方（Ollama）"
+        },
+        provider_status: {
+          checking: "正在检查 Provider 状态...",
+          error: "Provider 无法连接",
+          empty: "未找到模型",
+          ready: "Provider 已准备就绪"
         }
       },
       prompts: {
@@ -9508,7 +9528,7 @@ export const resources = {
             description: "启用支持懒加载的增强内容提取"
           },
           selection_button: {
-            label: "选中文字后显示“询问 Ollama 客户端”按钮",
+            label: "选中文字后显示“询问本地 LLM”按钮",
             description:
               "选中文字时显示浮动操作按钮，以加快将其添加到聊天的速度"
           },
@@ -9632,9 +9652,9 @@ export const resources = {
           }
         },
         base_url: {
-          title: "Ollama 基础 URL",
-          description: "配置您的 Ollama 安装服务器端点。",
-          label: "Ollama API 服务器端点",
+          title: "Provider 基础 URL",
+          description: "配置您的 Provider 安装服务器端点。",
+          label: "Provider API 服务器端点",
           error_invalid_url: "请输入有效的 URL。",
           status_local: "本地服务器连接",
           status_remote: "远程服务器连接",
@@ -9945,9 +9965,6 @@ export const resources = {
             cancel: "取消"
           },
           modules: {
-            ollama: {
-              description: "模型设置和配置"
-            },
             theme: {
               description: "UI 外观偏好设置"
             },
@@ -9962,6 +9979,9 @@ export const resources = {
             },
             default: {
               description: "模块设置"
+            },
+            provider: {
+              description: "模型设置和配置"
             }
           },
           item_count: "{{count}} 个项目",

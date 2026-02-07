@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useChat } from "../use-chat"
 import { db } from "@/lib/db"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { STORAGE_KEYS } from "@/lib/constants"
@@ -26,7 +26,7 @@ vi.mock("@/lib/db", () => ({
   }
 }))
 
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -54,8 +54,8 @@ vi.mock("@/features/chat/hooks/use-auto-embed-messages", () => ({
   }))
 }))
 
-vi.mock("@/features/chat/hooks/use-ollama-stream", () => ({
-  useOllamaStream: vi.fn(() => ({
+vi.mock("@/features/chat/hooks/use-chat-stream", () => ({
+  useChatStream: vi.fn(() => ({
     startStream: vi.fn(),
     stopStream: vi.fn()
   }))
@@ -130,9 +130,9 @@ describe("useChat", () => {
   })
 
   it("should not send empty message", async () => {
-    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
     const startStream = vi.fn()
-    vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
 
     const { result } = renderHook(() => useChat())
 
@@ -144,12 +144,12 @@ describe("useChat", () => {
   })
 
   it("should send message with text", async () => {
-    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
     const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
     const startStream = vi.fn()
     const updateMessages = vi.fn().mockResolvedValue(undefined)
     
-    vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
     vi.mocked(useChatSessions).mockReturnValue({
         currentSessionId: "session-1",
         sessions: [{
@@ -271,7 +271,7 @@ describe("useChat", () => {
     })
 
     // Should return early and not send message
-    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
     // We need to get the mock to check calls
     // But since we can't easily access the internal startStream mock from here without re-mocking,
     // we rely on the fact that if sessionId is null, it returns early.
@@ -282,7 +282,7 @@ describe("useChat", () => {
     // sendMessage checks if sessionId is null and returns.
     
     // Let's verify startStream is NOT called
-    // We need to ensure useOllamaStream mock is set up for this test if not global
+    // We need to ensure useChatStream mock is set up for this test if not global
     // It is global, but we can spy on it or re-mock it.
   })
 
@@ -364,11 +364,11 @@ describe("useChat", () => {
   it("should include context from tabs when enabled", async () => {
     const { useSelectedTabs } = await import("@/features/tabs/stores/selected-tabs-store")
     const { useTabContent } = await import("@/features/tabs/stores/tab-content-store")
-    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
     const { useChatInput } = await import("@/features/chat/stores/chat-input-store")
     
     const startStream = vi.fn()
-    vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -404,7 +404,7 @@ describe("useChat", () => {
 
   it("should handle error during message embedding", async () => {
     const { useAutoEmbedMessages } = await import("@/features/chat/hooks/use-auto-embed-messages")
-    const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
     const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
 
     const embedMessages = vi.fn().mockRejectedValue(new Error("Embedding failed"))
@@ -418,7 +418,7 @@ describe("useChat", () => {
     // Capture the setMessages callback
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let setMessagesCallback: ((messages: any[]) => Promise<void>) | null = null
-    vi.mocked(useOllamaStream).mockImplementation((config: any) => {
+    vi.mocked(useChatStream).mockImplementation((config: any) => {
       setMessagesCallback = config.setMessages
       return {
         startStream: vi.fn(),
@@ -476,9 +476,9 @@ describe("useChat", () => {
 
   describe("File attachments", () => {
     it("should send message with files only (no text)", async () => {
-      const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn()
-      vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
 
       const { result } = renderHook(() => useChat())
 
@@ -547,9 +547,9 @@ describe("useChat", () => {
 
     it("should fallback to full text when RAG fails", async () => {
       const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
-      const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn()
-      vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
       
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockRejectedValue(new Error("RAG Error"))
@@ -585,9 +585,9 @@ describe("useChat", () => {
 
     it("should fallback to full text when RAG finds no results", async () => {
       const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
-      const { useOllamaStream } = await import("@/features/chat/hooks/use-ollama-stream")
+      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn()
-      vi.mocked(useOllamaStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
       
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockResolvedValue({

@@ -14,7 +14,7 @@ vi.mock("@/lib/config/knowledge-config", () => ({
   }
 }))
 
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbedding: vi.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
 }))
 

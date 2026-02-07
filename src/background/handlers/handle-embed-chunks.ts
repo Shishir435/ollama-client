@@ -1,4 +1,4 @@
-import { generateEmbeddingsBatch } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
 import type { ChromeMessage, ChromePort, ChromeResponse } from "@/types"

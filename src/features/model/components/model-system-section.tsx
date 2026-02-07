@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import type { OllamaModelConfig } from "@/features/model/hooks/use-model-config"
+import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
 import { MessageSquare, StopCircle } from "@/lib/lucide-icon"
 
 interface ModelSystemSectionProps {
-  config: OllamaModelConfig
-  updateConfig: (updates: Partial<OllamaModelConfig>) => void
+  config: ProviderModelConfig
+  updateConfig: (updates: Partial<ProviderModelConfig>) => void
 }
 
 export const ModelSystemSection = ({

@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@/lib/constants"
+import { LEGACY_STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   type ProviderConfig,
@@ -49,21 +49,26 @@ export const ProviderManager = {
       (d) => !stored.find((s) => s.id === d.id)
     )
 
-    // Sync legacy Ollama URL if present
+    // Sync legacy provider URL if present (default provider legacy key)
     try {
       const legacyUrl = await plasmoGlobalStorage.get<string>(
-        STORAGE_KEYS.OLLAMA.BASE_URL
+        LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
       )
 
-      const ollamaIndex = stored.findIndex((p) => p.id === ProviderId.OLLAMA)
+      const defaultProviderIndex = stored.findIndex(
+        (p) => p.id === ProviderId.OLLAMA
+      )
       if (
-        ollamaIndex !== -1 &&
+        defaultProviderIndex !== -1 &&
         legacyUrl &&
-        legacyUrl !== stored[ollamaIndex].baseUrl
+        legacyUrl !== stored[defaultProviderIndex].baseUrl
       ) {
         // Create a new array to avoid mutating the original if we are just reading
         stored = [...stored]
-        stored[ollamaIndex] = { ...stored[ollamaIndex], baseUrl: legacyUrl }
+        stored[defaultProviderIndex] = {
+          ...stored[defaultProviderIndex],
+          baseUrl: legacyUrl
+        }
         // We could save it back here, but maybe better to just use it in memory for now
         // to avoid side effects during read? No, syncing IS a side effect we want.
         // But let's keep getProviders pure-ish regarding persistence for now
@@ -72,7 +77,7 @@ export const ProviderManager = {
         // But if we return the legacy URL, the UI will show it, and if user saves, it updates.
       }
     } catch (e) {
-      console.warn("Failed to check legacy Ollama URL in getProviders", e)
+      console.warn("Failed to check legacy provider URL in getProviders", e)
     }
 
     if (missing.length > 0) {
@@ -94,7 +99,7 @@ export const ProviderManager = {
   },
 
   /**
-   * Updates provider config and syncs legacy Ollama keys if needed.
+   * Updates provider config and syncs legacy provider keys if needed.
    */
   async updateProviderConfig(
     id: string,
@@ -109,13 +114,13 @@ export const ProviderManager = {
 
       if (id === ProviderId.OLLAMA && updates.baseUrl) {
         try {
-          const { STORAGE_KEYS } = await import("@/lib/constants")
+          const { LEGACY_STORAGE_KEYS } = await import("@/lib/constants")
           await plasmoGlobalStorage.set(
-            STORAGE_KEYS.OLLAMA.BASE_URL,
+            LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL,
             updates.baseUrl
           )
         } catch (e) {
-          console.warn("Failed to sync legacy Ollama URL", e)
+          console.warn("Failed to sync legacy provider URL", e)
         }
       }
     }

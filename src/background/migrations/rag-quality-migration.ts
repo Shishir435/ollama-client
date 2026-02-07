@@ -1,6 +1,6 @@
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
 import { vectorDb } from "@/lib/embeddings/db"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"

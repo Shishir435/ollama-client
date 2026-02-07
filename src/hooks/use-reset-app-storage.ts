@@ -7,7 +7,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 
-export const useResetOllamaStorage = () => {
+export const useResetAppStorage = () => {
   const reset = useCallback(async (key: ResetKey) => {
     try {
       const allKeys = getAllResetKeys()
@@ -29,13 +29,13 @@ export const useResetOllamaStorage = () => {
       }
 
       return key === "all"
-        ? "All Ollama Client data has been reset. Please reload the extension."
+        ? "All app data has been reset. Please reload the extension."
         : `${key} has been reset.`
     } catch (err) {
-      logger.error("Failed to reset Ollama Client", "useResetOllamaStorage", {
+      logger.error("Failed to reset app data", "useResetAppStorage", {
         error: err
       })
-      return "Failed to reset Ollama Client. Check console for details."
+      return "Failed to reset app data. Check console for details."
     }
   }, [])
 

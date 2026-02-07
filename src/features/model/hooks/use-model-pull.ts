@@ -5,18 +5,18 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { PullStreamMessage } from "@/types"
 
-export const useOllamaPull = () => {
+export const useModelPull = () => {
   const [progress, setProgress] = useState<string | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
   const portRef = useRef<browser.Runtime.Port | null>(null)
 
   const pullModel = (modelName: string) => {
-    logger.verbose("Pull model requested", "useOllamaPull", { modelName })
+    logger.verbose("Pull model requested", "useModelPull", { modelName })
     setPullingModel(modelName)
     setProgress("Starting...")
 
     const port = browser.runtime.connect({
-      name: MESSAGE_KEYS.OLLAMA.PULL_MODEL
+      name: MESSAGE_KEYS.PROVIDER.PULL_MODEL
     })
     portRef.current = port
 

@@ -1,6 +1,6 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
-  CANONICAL_OLLAMA_EMBEDDING_MODEL,
+  CANONICAL_EMBEDDING_MODEL,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   FILE_UPLOAD
@@ -18,9 +18,14 @@ export interface EmbeddingConfig {
   // Embedding generation settings
   batchSize: number // Number of texts to embed in parallel (default: 5)
   maxEmbeddingsPerFile: number // Limit embeddings per file (default: 1000, 0 = unlimited)
-  embeddingStrategy: "auto" | "provider-native" | "shared-model" | "ollama-only" // Embedding routing strategy (default: auto)
+  embeddingStrategy:
+    | "auto"
+    | "provider-native"
+    | "shared-model"
+    | "default-provider-only"
+    | "ollama-only" // Legacy value for compatibility
   sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-MiniLM-L6-v2)
-  sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: ollama)
+  sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: default provider)
   warmupEmbeddingsInBackground: boolean // Best-effort background model preparation (default: true)
 
   // Performance settings
@@ -87,7 +92,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   embeddingStrategy: "auto",
-  sharedEmbeddingModel: CANONICAL_OLLAMA_EMBEDDING_MODEL,
+  sharedEmbeddingModel: CANONICAL_EMBEDDING_MODEL,
   sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   warmupEmbeddingsInBackground: true,
   useWebWorker: true, // Offload to worker thread

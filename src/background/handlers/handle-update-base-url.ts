@@ -12,7 +12,7 @@ export const handleUpdateBaseUrl = async (
       error: {
         status: 0,
         message:
-          "Firefox requires manual OLLAMA_ORIGINS configuration. See settings for instructions."
+          "Firefox requires manual local provider origin configuration. See settings for instructions."
       }
     })
     return

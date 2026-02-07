@@ -1,6 +1,6 @@
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
 import { applyRecencyBoost } from "@/lib/embeddings/recency-boost"
 import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"

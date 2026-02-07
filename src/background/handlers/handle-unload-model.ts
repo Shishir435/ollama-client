@@ -6,10 +6,9 @@ export const handleUnloadModel = async (
   sendResponse: SendResponseFunction
 ): Promise<void> => {
   try {
-    const url = await getBaseUrl()
-    const OllamaBaseUrl = url ?? "http://localhost:11434"
+    const baseUrl = await getBaseUrl()
 
-    const res = await fetch(`${OllamaBaseUrl}/api/chat`, {
+    const res = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

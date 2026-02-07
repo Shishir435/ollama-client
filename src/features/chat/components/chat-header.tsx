@@ -1,6 +1,6 @@
 import { SemanticChatSearchButton } from "@/features/chat/components/semantic-chat-search-button"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
-import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
+import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -20,7 +20,7 @@ export const ChatHeader = () => {
       <div className="fixed right-2 top-2 z-50 flex items-center gap-2">
         {currentSessionId && <ChatExportButton sessionId={currentSessionId} />}
         <EmbeddingStatusIndicator />
-        <OllamaStatusIndicator />
+        <ProviderStatusIndicator />
       </div>
     </>
   )

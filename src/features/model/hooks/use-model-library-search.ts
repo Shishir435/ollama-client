@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL, MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChromeResponse } from "@/types"
 
@@ -16,7 +16,7 @@ interface ModelMeta {
 
 const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
   const res = (await browser.runtime.sendMessage({
-    type: MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL,
+    type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL,
     query
   })) as ChromeResponse & { html?: string }
 
@@ -35,7 +35,7 @@ const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
 
     const name = href.split("/").pop()
     if (!name) return
-    const fullUrl = `https://ollama.com${href}`
+    const fullUrl = `${DEFAULT_MODEL_LIBRARY_BASE_URL}${href}`
     const desc = el.querySelector("p")?.textContent?.trim() ?? ""
     const title = el.querySelector("h3")?.textContent?.trim() ?? ""
     const sizeMatch = desc.match(/(\d+\.?\d*\s?[kKmMgG][bB])/)
@@ -49,7 +49,7 @@ const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
 
 const fetchModelVariants = async (modelName: string): Promise<string[]> => {
   const res = (await browser.runtime.sendMessage({
-    type: MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS,
+    type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS,
     name: modelName
   })) as ChromeResponse & { html?: string }
 
@@ -89,7 +89,7 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
   return [...new Set(variants as string[])]
 }
 
-export const useOllamaModelSearch = () => {
+export const useModelLibrarySearch = () => {
   const [models, setModels] = useState<ModelMeta[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(false)
@@ -103,7 +103,7 @@ export const useOllamaModelSearch = () => {
         const scraped = await fetchSearchResults(searchQuery)
         setModels(scraped)
       } catch (err) {
-        logger.error("Model search scrape failed", "useOllamaModelSearch", {
+        logger.error("Model search scrape failed", "useModelLibrarySearch", {
           error: err
         })
         setModels([])
@@ -122,7 +122,7 @@ export const useOllamaModelSearch = () => {
         prev.map((m) => (m.name === modelName ? { ...m, variants } : m))
       )
     } catch (err) {
-      logger.error("Failed to load variants", "useOllamaModelSearch", {
+      logger.error("Failed to load variants", "useModelLibrarySearch", {
         modelName,
         error: err
       })

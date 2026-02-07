@@ -10,8 +10,8 @@ import {
 } from "./cache"
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
+import { generateEmbedding } from "./embedding-client"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
-import { generateEmbedding } from "./ollama-embedder"
 import type { SearchResult, VectorDocument } from "./types"
 
 /**

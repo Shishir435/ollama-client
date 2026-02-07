@@ -1,6 +1,10 @@
 import { safePostMessage } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
-import type { ChromePort, OllamaChatResponse, StreamChunkResult } from "@/types"
+import type {
+  ChromePort,
+  DefaultProviderChatResponse,
+  StreamChunkResult
+} from "@/types"
 
 export const processStreamChunk = (
   value: Uint8Array,
@@ -18,7 +22,7 @@ export const processStreamChunk = (
     if (!trimmedLine) continue
 
     try {
-      const data: OllamaChatResponse = JSON.parse(trimmedLine)
+      const data: DefaultProviderChatResponse = JSON.parse(trimmedLine)
 
       if (data.message?.content) {
         const delta = data.message.content
@@ -68,7 +72,7 @@ export const processRemainingMetricsBuffer = (
   port: ChromePort
 ): void => {
   try {
-    const data: OllamaChatResponse = JSON.parse(buffer.trim())
+    const data: DefaultProviderChatResponse = JSON.parse(buffer.trim())
     if (data.done === true) {
       logger.verbose(
         "Final completion from buffer",

@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   AlertTriangle,
   CheckCircle,
@@ -23,15 +23,15 @@ const iconMap = {
   ready: <CheckCircle className="h-4 w-4 text-green-600" />
 }
 
-export const OllamaStatusIndicator = () => {
+export const ProviderStatusIndicator = () => {
   const { t } = useTranslation()
-  const { status, refresh, error } = useOllamaModels()
+  const { status, refresh, error } = useProviderModels()
 
   const getLabelMap = () => ({
-    loading: t("model.ollama_status.checking"),
-    error: t("model.ollama_status.error"),
-    empty: t("model.ollama_status.empty"),
-    ready: t("model.ollama_status.ready")
+    loading: t("model.provider_status.checking"),
+    error: t("model.provider_status.error"),
+    empty: t("model.provider_status.empty"),
+    ready: t("model.provider_status.ready")
   })
 
   useEffect(() => {

@@ -22,7 +22,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import {
   Calendar,
   ChevronDown,
@@ -32,7 +33,8 @@ import {
   RefreshCw,
   Trash2
 } from "@/lib/lucide-icon"
-import type { OllamaModel } from "@/types"
+import { getProviderDisplayName } from "@/lib/providers/registry"
+import type { ProviderModel } from "@/types"
 
 const formatFileSize = (
   bytes: number | string,
@@ -97,7 +99,7 @@ const getModelIcon = (modelName: string): string => {
 
 export const ModelList = (): JSX.Element => {
   const { t } = useTranslation()
-  const { models, isLoading, error, deleteModel, refresh } = useOllamaModels()
+  const { models, isLoading, error, deleteModel, refresh } = useProviderModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -227,7 +229,7 @@ export const ModelList = (): JSX.Element => {
           <div className="border-t">
             <ScrollArea className="h-64">
               <div className="flex flex-wrap justify-center gap-1 space-y-1 p-2">
-                {models.map((model: OllamaModel) => (
+                {models.map((model: ProviderModel) => (
                   <Card
                     key={model.name}
                     className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
@@ -254,7 +256,10 @@ export const ModelList = (): JSX.Element => {
                             </div>
 
                             <div className="flex items-center gap-1 text-xs text-muted-foreground rounded-full bg-secondary px-2 py-0.5">
-                              <span>{model.providerName || "Ollama"}</span>
+                              <span>
+                                {model.providerName ||
+                                  getProviderDisplayName(DEFAULT_PROVIDER_ID)}
+                              </span>
                             </div>
                           </div>
                         </div>

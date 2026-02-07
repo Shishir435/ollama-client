@@ -2,18 +2,18 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
-import type { OllamaModel } from "@/types"
+import type { ProviderModel } from "@/types"
 
-export const useOllamaModels = () => {
+export const useProviderModels = () => {
   const { t } = useTranslation()
   const [selectedModel, setSelectedModel] = useStorage<string>(
     {
-      key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
       instance: plasmoGlobalStorage
     },
     ""
@@ -27,7 +27,7 @@ export const useOllamaModels = () => {
     []
   )
 
-  const [models, setModels] = useState<OllamaModel[]>([])
+  const [models, setModels] = useState<ProviderModel[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState<string | null>(null)
@@ -41,16 +41,16 @@ export const useOllamaModels = () => {
       const providers = await ProviderManager.getProviders()
       const enabledProviders = providers.filter((p) => p.enabled)
       console.log(
-        `[useOllamaModels] Enabled providers:`,
+        `[useProviderModels] Enabled providers:`,
         enabledProviders.map((p) => p.id)
       )
 
-      const allModels: OllamaModel[] = []
+      const allModels: ProviderModel[] = []
 
       await Promise.all(
         enabledProviders.map(async (config) => {
           try {
-            console.log(`[useOllamaModels] Fetching for ${config.id}...`)
+            console.log(`[useProviderModels] Fetching for ${config.id}...`)
             // Get provider instance (might trigger creation)
             const provider = await ProviderFactory.getProvider(config.id)
             const providerModels = await provider.getModels() // string[]
@@ -89,7 +89,7 @@ export const useOllamaModels = () => {
       // Persist mappings for background script (critical for routing)
       const mappings: Record<string, string> = {}
       allModels.forEach((m) => {
-        if (m.providerId && m.providerId !== "ollama") {
+        if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
           mappings[m.name] = m.providerId
         }
       })
@@ -98,7 +98,7 @@ export const useOllamaModels = () => {
         await ProviderManager.saveModelMappings(mappings)
       }
 
-      // Sort: Ollama first, then others
+      // Sort: stable alpha (default provider still tends to be first by mapping)
       allModels.sort((a, b) => a.name.localeCompare(b.name))
 
       setModels(allModels)
@@ -114,7 +114,8 @@ export const useOllamaModels = () => {
 
   const fetchVersion = useCallback(async () => {
     try {
-      const config = await ProviderManager.getProviderConfig("ollama")
+      const config =
+        await ProviderManager.getProviderConfig(DEFAULT_PROVIDER_ID)
       const baseUrl = config?.baseUrl || "http://localhost:11434"
 
       const response = await fetch(`${baseUrl}/api/version`)
@@ -126,7 +127,7 @@ export const useOllamaModels = () => {
         setVersionError("Failed to fetch version")
       }
     } catch (err) {
-      setVersionError("Failed to connect to Ollama")
+      setVersionError("Failed to connect to provider")
       console.error(err)
     }
   }, [])
@@ -134,7 +135,8 @@ export const useOllamaModels = () => {
   const deleteModel = useCallback(
     async (modelName: string) => {
       try {
-        const config = await ProviderManager.getProviderConfig("ollama")
+        const config =
+          await ProviderManager.getProviderConfig(DEFAULT_PROVIDER_ID)
         const baseUrl = config?.baseUrl || "http://localhost:11434"
 
         const response = await fetch(`${baseUrl}/api/delete`, {

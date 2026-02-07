@@ -210,7 +210,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
               // Stream chunks to background via a dedicated port to avoid sending one large message
               const port = browser.runtime.connect({
-                name: MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS
+                name: MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS
               })
 
               // Send init metadata

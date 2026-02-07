@@ -6,11 +6,11 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 
-export const OllamaVersion = () => {
+export const ProviderVersion = () => {
   const { t } = useTranslation()
-  const { version, versionError } = useOllamaModels()
+  const { version, versionError } = useProviderModels()
   if (versionError || !version) return null
   return (
     <div>

@@ -7,7 +7,7 @@ import type { PromptTemplate } from "@/types"
 export const usePromptTemplates = () => {
   const [templates, setTemplates] = useStorage<PromptTemplate[]>(
     {
-      key: STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES,
+      key: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
       instance: plasmoGlobalStorage
     },
     DEFAULT_PROMPT_TEMPLATES

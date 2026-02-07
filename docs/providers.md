@@ -70,7 +70,7 @@ Defaults currently provisioned:
 1. UI fetches models from all enabled providers.
 2. Extension stores model -> provider mappings.
 3. Background resolves provider at stream time using model mapping.
-4. If no mapping exists, provider defaults to Ollama.
+4. If no mapping exists, provider defaults to the default provider (Ollama).
 
 Implication:
 
@@ -128,7 +128,18 @@ Minimal implementation checklist:
 - Chat provider abstraction advanced faster than management abstraction.
 - Embeddings favor reliability by keeping Ollama fallback, even when native provider routes fail.
 
-## 10) Provider Roadmap Priorities
+## 10) Provider Identity Registry
+
+Provider display names and icons are centralized in:
+
+- `src/lib/providers/registry.ts`
+
+Notes:
+
+- Icons are for identity only; no UI overhaul yet.
+- Fallback icon and sizes are defined there for consistent usage.
+
+## 11) Provider Roadmap Priorities
 
 1. Extend provider parity for model-management handlers.
 2. Reduce naming debt to provider-agnostic key/message names.

@@ -36,21 +36,21 @@
     "save": "Salva"
   },
   "selection_button": {
-    "label": "Chiedi a Ollama client",
-    "tooltip": "Aggiungi a Ollama Client"
+    "label": "Chiedi al LLM locale",
+    "tooltip": "Aggiungi al client LLM locale"
   },
   "welcome": {
-    "title": "Benvenuto in Ollama Chat",
+    "title": "Benvenuto nel chat LLM locale",
     "subtitle": "Conversazioni IA locali rese semplici",
     "start_chatting": "Inizia a Chiacchierare",
     "status": {
       "connecting": {
         "title": "Connessione in corso...",
-        "message": "Stabilimento della connessione al server Ollama"
+        "message": "Connessione al provider locale in corso"
       },
       "connection_failed": {
         "title": "Connessione Fallita",
-        "message": "Impossibile connettersi a Ollama. Il server è in esecuzione?"
+        "message": "Impossibile connettersi al provider. Il server è in esecuzione?"
       },
       "no_models": {
         "title": "Nessun Modello Trovato",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "Pronto per la Chat",
-        "message": "Ollama è connesso e pronto all'uso"
+        "message": "Il provider è connesso e pronto all'uso"
       }
     },
     "setup_guide": {
       "intro": "Prima di iniziare, segui questi semplici passaggi:",
-      "step1": "Installa <code>ollama</code> sul tuo sistema",
-      "step2": "Esegui <code>ollama run llama3</code> o qualsiasi altro modello",
+      "step1": "Installa un provider locale (Ollama consigliato)",
+      "step2": "Scarica un modello (es. <code>ollama run llama3</code>)",
       "step3": "Torna qui e clicca su <b>Aggiorna</b>",
       "full_guide_link": "Guida Completa all'Installazione"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ Avviso di Prestazioni",
-      "message": "Questa estensione è un'interfaccia utente per il tuo server Ollama locale. Il tempo di risposta e la qualità dell'output del modello dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico che stai utilizzando. Nessuna elaborazione viene eseguita dall'estensione stessa."
+      "message": "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
     }
   },
   "chat": {
@@ -236,12 +236,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Verifica stato Ollama in corso...",
-      "error": "Ollama non raggiungibile",
-      "empty": "Nessun modello trovato",
-      "ready": "Ollama è pronto"
-    },
     "embedding_status": {
       "checking": "Verifica stato in corso...",
       "downloading": "Scaricamento {{model}}... {{progress}}",
@@ -260,7 +254,7 @@
       "no_model_found": "Nessun modello trovato."
     },
     "version": {
-      "tooltip": "Versione Ollama: {{version}}"
+      "tooltip": "Versione Provider: {{version}}"
     },
     "site_overrides": {
       "title": "Override Specifici del Sito",
@@ -386,7 +380,15 @@
       "exclude_casual_label": "Escludi messaggi casuali",
       "exclude_casual_description": "Filtra saluti, risposte brevi e messaggi con poche informazioni.",
       "min_quality_score_label": "Punteggio qualità minimo",
-      "min_quality_score_description": "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto."
+      "min_quality_score_description": "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto.",
+      "embedding_source_description": "Gli embedding vengono generati usando il tuo provider locale (Ollama per impostazione predefinita)",
+      "embedding_source_default_provider": "Provider predefinito (Ollama)"
+    },
+    "provider_status": {
+      "checking": "Verifica stato Provider in corso...",
+      "error": "Provider non raggiungibile",
+      "empty": "Nessun modello trovato",
+      "ready": "Provider è pronto"
     }
   },
   "prompts": {
@@ -516,7 +518,7 @@
         "description": "Abilita l'estrazione avanzata del contenuto con supporto per il caricamento ritardato (lazy loading)"
       },
       "selection_button": {
-        "label": "Mostra il pulsante \"Chiedi a Ollama Client\" dopo la selezione",
+        "label": "Mostra il pulsante \"Chiedi al LLM locale\" dopo la selezione",
         "description": "Mostra un pulsante di azione mobile quando si seleziona il testo per velocizzarne l'aggiunta alla chat"
       },
       "scraper": {
@@ -637,9 +639,9 @@
       }
     },
     "base_url": {
-      "title": "URL Base Ollama",
-      "description": "Configura l'endpoint del server per la tua installazione Ollama.",
-      "label": "Endpoint Server API Ollama",
+      "title": "URL Base Provider",
+      "description": "Configura l'endpoint del server per la tua installazione Provider.",
+      "label": "Endpoint Server API Provider",
       "error_invalid_url": "Inserisci un URL valido.",
       "status_local": "Connessione server locale",
       "status_remote": "Connessione server remoto",
@@ -938,9 +940,6 @@
         "cancel": "Annulla"
       },
       "modules": {
-        "ollama": {
-          "description": "Impostazioni e configurazioni del modello"
-        },
         "theme": {
           "description": "Preferenze di aspetto dell'interfaccia utente"
         },
@@ -955,6 +954,9 @@
         },
         "default": {
           "description": "Impostazioni modulo"
+        },
+        "provider": {
+          "description": "Impostazioni e configurazioni del modello"
         }
       },
       "item_count": "{{count}} elemento",

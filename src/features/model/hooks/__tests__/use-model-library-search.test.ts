@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
-import { useOllamaModelSearch } from "../use-ollama-model-search"
+import { useModelLibrarySearch } from "../use-model-library-search"
 import { browser } from "@/lib/browser-api"
 
 // Mock browser API
@@ -12,20 +12,20 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
-describe("useOllamaModelSearch", () => {
+describe("useModelLibrarySearch", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it("should initialize with empty state", () => {
-    const { result } = renderHook(() => useOllamaModelSearch())
+    const { result } = renderHook(() => useModelLibrarySearch())
 
     expect(result.current.models).toEqual([])
     expect(result.current.loading).toBe(false)
   })
 
   it("should not search with empty query", () => {
-    renderHook(() => useOllamaModelSearch())
+    renderHook(() => useModelLibrarySearch())
 
     expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
   })
@@ -36,7 +36,7 @@ describe("useOllamaModelSearch", () => {
       html: "<html></html>" // Empty HTML for simple test
     })
 
-    const { result } = renderHook(() => useOllamaModelSearch())
+    const { result } = renderHook(() => useModelLibrarySearch())
 
     result.current.setSearchQuery("llama")
 
@@ -56,7 +56,7 @@ describe("useOllamaModelSearch", () => {
       error: { message: "Failed to scrape" }
     })
 
-    const { result } = renderHook(() => useOllamaModelSearch())
+    const { result } = renderHook(() => useModelLibrarySearch())
 
     result.current.setSearchQuery("test")
 
@@ -84,7 +84,7 @@ describe("useOllamaModelSearch", () => {
       html: mockSearchHtml
     })
 
-    const { result } = renderHook(() => useOllamaModelSearch())
+    const { result } = renderHook(() => useModelLibrarySearch())
     
     result.current.setSearchQuery("llama")
 

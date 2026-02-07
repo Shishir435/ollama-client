@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 // Use vi.hoisted to create mocks
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
+  remove: vi.fn(),
   addListener: vi.fn(),
   sendMessage: vi.fn().mockResolvedValue(undefined),
   openSidePanel: vi.fn().mockResolvedValue(undefined)
@@ -13,6 +14,7 @@ vi.mock("@/lib/browser-api", () => ({
   browser: {
     contextMenus: {
       create: mocks.create,
+      remove: mocks.remove,
       onClicked: {
         addListener: mocks.addListener
       }
@@ -50,8 +52,8 @@ describe("handle-context-menu", () => {
   it("should create context menu with correct configuration", () => {
     expect(mocks.create).toHaveBeenCalledWith(
       {
-        id: "add-to-ollama-client",
-        title: "Ask Ollama Client",
+        id: "add-to-local-llm-client",
+        title: "Ask Local LLM",
         contexts: ["selection"]
       },
       expect.any(Function)
@@ -65,7 +67,7 @@ describe("handle-context-menu", () => {
 
   it("should handle context menu click with selection text", async () => {
     const mockInfo = {
-      menuItemId: "add-to-ollama-client",
+      menuItemId: "add-to-local-llm-client",
       selectionText: "test selection"
     }
 
@@ -97,7 +99,7 @@ describe("handle-context-menu", () => {
 
   it("should not process click if no selection text", async () => {
     const mockInfo = {
-      menuItemId: "add-to-ollama-client",
+      menuItemId: "add-to-local-llm-client",
       selectionText: ""
     }
 
@@ -109,7 +111,7 @@ describe("handle-context-menu", () => {
 
   it("should handle click without tab", async () => {
     const mockInfo = {
-      menuItemId: "add-to-ollama-client",
+      menuItemId: "add-to-local-llm-client",
       selectionText: "test selection"
     }
 
@@ -125,7 +127,7 @@ describe("handle-context-menu", () => {
 
   it("should handle click without windowId", async () => {
     const mockInfo = {
-      menuItemId: "add-to-ollama-client",
+      menuItemId: "add-to-local-llm-client",
       selectionText: "test selection"
     }
 
@@ -135,6 +137,22 @@ describe("handle-context-menu", () => {
     expect(mocks.sendMessage).toHaveBeenCalledWith({
       type: "add-selection-to-chat",
       payload: "test selection",
+      fromBackground: true
+    })
+  })
+
+  it("should accept legacy context menu id", async () => {
+    const mockInfo = {
+      menuItemId: "add-to-ollama-client",
+      selectionText: "legacy selection"
+    }
+
+    await clickListener(mockInfo, { windowId: 321 })
+
+    expect(mocks.openSidePanel).toHaveBeenCalledWith({ windowId: 321 })
+    expect(mocks.sendMessage).toHaveBeenCalledWith({
+      type: "add-selection-to-chat",
+      payload: "legacy selection",
       fromBackground: true
     })
   })

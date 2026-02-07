@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
+import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -24,7 +24,7 @@ export const EmbeddingModelStatus = ({
   const { t } = useTranslation()
   const [modelExists, setModelExists] = useState<boolean | null>(null)
   const [isChecking, setIsChecking] = useState(false)
-  const { pullingModel, progress, pullModel } = useOllamaPull()
+  const { pullingModel, progress, pullModel } = useModelPull()
   const [wasDownloading, setWasDownloading] = useState(false)
   const [autoDownloaded, setAutoDownloaded] = useState(false)
 
@@ -49,7 +49,7 @@ export const EmbeddingModelStatus = ({
     setIsChecking(true)
     try {
       const response = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
+        type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
         payload: currentModel
       })) as ChromeResponse & { data?: { exists?: boolean } }
 
@@ -96,7 +96,7 @@ export const EmbeddingModelStatus = ({
       console.log(
         "[Embedding Settings] Download completed, re-checking model status..."
       )
-      // Wait a bit for Ollama to register the model
+      // Wait a bit for the default provider to register the model
       setTimeout(() => {
         checkModel()
         // Mark as auto-downloaded
