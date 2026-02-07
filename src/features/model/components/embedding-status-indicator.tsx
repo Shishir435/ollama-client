@@ -8,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { useOllamaPull } from "@/features/model/hooks/use-ollama-pull"
+import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -35,7 +35,7 @@ export const EmbeddingStatusIndicator = () => {
   const [modelExists, setModelExists] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const { pullingModel, progress, pullModel } = useOllamaPull()
+  const { pullingModel, progress, pullModel } = useModelPull()
   const isDownloading = pullingModel === modelName
 
   const [retryCount, setRetryCount] = useState(0)
@@ -47,7 +47,7 @@ export const EmbeddingStatusIndicator = () => {
     setError(null)
     try {
       const resp = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
+        type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
         payload: modelName
       })) as ModelCheckResponse
 

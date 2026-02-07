@@ -11,7 +11,7 @@ interface ChatMessageListProps {
   onRegenerate: (message: ChatMessage, model?: string) => void
   onUpdateMessage: (message: ChatMessage, content: string) => void
   onDeleteMessage: (message: ChatMessage) => void
-  onNavigate?: (nodeId: number) => void
+  onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
   onLoadMore: () => void
 }

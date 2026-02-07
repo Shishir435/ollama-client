@@ -1,5 +1,5 @@
 import { browser } from "@/lib/browser-api"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatStreamMessage,
@@ -62,10 +62,18 @@ export const safeSendResponse = (
 }
 
 export const getBaseUrl = async (): Promise<string> => {
-  return (
-    ((await plasmoGlobalStorage.get(STORAGE_KEYS.OLLAMA.BASE_URL)) as string) ??
-    "http://localhost:11434"
-  )
+  const providerUrl = (await plasmoGlobalStorage.get(
+    STORAGE_KEYS.PROVIDER.BASE_URL
+  )) as string | undefined
+  if (providerUrl) {
+    return providerUrl
+  }
+
+  const legacyUrl = (await plasmoGlobalStorage.get(
+    LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
+  )) as string | undefined
+
+  return legacyUrl || "http://localhost:11434"
 }
 
 export const getPullAbortControllerKey = (

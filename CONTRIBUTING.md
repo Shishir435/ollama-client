@@ -19,6 +19,8 @@ pnpm install
 pnpm dev
 ```
 
+This project uses WXT as the extension build/dev framework.
+
 Firefox (experimental):
 
 ```bash

@@ -5,8 +5,8 @@ import { logger } from "@/lib/logger"
 
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
+import { generateEmbedding } from "./embedding-client"
 import { normalizeVector } from "./math"
-import { generateEmbedding } from "./ollama-embedder"
 import type { VectorDocument } from "./types"
 
 /**
@@ -444,6 +444,7 @@ export const storeChatMessage = async (
   metadata: {
     role: "user" | "assistant" | "system"
     sessionId: string
+    chatId?: string
     title?: string
     messageId?: number
   }

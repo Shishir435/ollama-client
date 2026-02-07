@@ -1,8 +1,13 @@
 import { getBaseUrl } from "@/background/lib/utils"
-import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { OllamaPullRequest } from "@/types"
+import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
 
 /**
  * Checks if the embedding model is already downloaded
@@ -15,10 +20,8 @@ export const checkEmbeddingModelExists = async (
   // Try High-Level Provider Check
   try {
     const { ProviderFactory } = await import("@/lib/providers/factory")
-    const { ProviderId } = await import("@/lib/providers/types")
-
-    // Enforce Ollama for embedding checks
-    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
+    // Default provider handles embedding checks in current runtime
+    const provider = await ProviderFactory.getProvider(DEFAULT_PROVIDER_ID)
 
     if (provider) {
       const models = await provider.getModels()
@@ -70,7 +73,7 @@ export const checkEmbeddingModelExists = async (
     providerDebug = { error, method: "provider-error" }
   }
 
-  // Fallback/Legacy: If provider check didn't find it, or failed, try direct Ollama check
+  // Fallback/Legacy: If provider check didn't find it, or failed, try direct default-provider check
   try {
     const baseUrl = await getBaseUrl()
     const res = await fetch(`${baseUrl}/api/tags`)
@@ -86,12 +89,12 @@ export const checkEmbeddingModelExists = async (
     }
 
     const data = await res.json()
-    const ollamaModels = data.models || []
+    const providerModels = data.models || []
 
     const normalizeModelName = (name: string): string => name.split(":")[0]
     const normalizedSearchName = normalizeModelName(modelName)
 
-    const found = ollamaModels.some((model: { name: string }) => {
+    const found = providerModels.some((model: { name: string }) => {
       const normalizedModelName = normalizeModelName(model.name)
       return (
         model.name === modelName ||
@@ -107,7 +110,7 @@ export const checkEmbeddingModelExists = async (
         ...providerDebug,
         fallback: {
           found,
-          models: ollamaModels.map((m: { name: string }) => m.name),
+          models: providerModels.map((m: { name: string }) => m.name),
           method: "fallback"
         }
       }
@@ -146,7 +149,7 @@ export const downloadEmbeddingModelSilently = async (
     }
 
     const baseUrl = await getBaseUrl()
-    const requestBody: OllamaPullRequest = {
+    const requestBody: DefaultProviderPullRequest = {
       name: modelName,
       stream: false // Don't stream for silent download
     }
@@ -197,5 +200,76 @@ export const downloadEmbeddingModelSilently = async (
       success: false,
       error: errorMessage
     }
+  }
+}
+
+interface PrepareEmbeddingPayload {
+  model?: string
+  providerId?: string
+}
+
+/**
+ * Best-effort embedding model preparation.
+ * Keeps behavior non-blocking and only performs model pull for the default provider.
+ */
+export const prepareEmbeddingModel = async (
+  payload: PrepareEmbeddingPayload = {}
+): Promise<{ ready: boolean; prepared: boolean; error?: string }> => {
+  const providerId = payload.providerId || DEFAULT_PROVIDER_ID
+  const modelName = payload.model || DEFAULT_EMBEDDING_MODEL
+
+  // Only the default provider supports model pull in current runtime.
+  if (providerId !== DEFAULT_PROVIDER_ID) {
+    return { ready: true, prepared: false }
+  }
+
+  const existsResult = await checkEmbeddingModelExists(modelName)
+  if (existsResult.exists) {
+    return { ready: true, prepared: false }
+  }
+
+  const downloadResult = await downloadEmbeddingModelSilently(modelName)
+  if (downloadResult.success) {
+    return { ready: true, prepared: true }
+  }
+
+  return {
+    ready: false,
+    prepared: false,
+    error: downloadResult.error
+  }
+}
+
+/**
+ * Runtime message handler used by the embedding fallback chain.
+ */
+export const handlePrepareEmbeddingModel = async (
+  payload: unknown,
+  sendResponse: (response: ChromeResponse) => void
+) => {
+  try {
+    const prepared = await prepareEmbeddingModel(
+      (payload as PrepareEmbeddingPayload) || {}
+    )
+
+    sendResponse({
+      success: true,
+      data: prepared
+    })
+  } catch (error) {
+    logger.error(
+      "Failed to prepare embedding model",
+      MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL,
+      {
+        error
+      }
+    )
+    sendResponse({
+      success: false,
+      error: {
+        status: 0,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    })
   }
 }

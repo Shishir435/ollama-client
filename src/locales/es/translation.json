@@ -36,21 +36,21 @@
     "save": "Guardar"
   },
   "selection_button": {
-    "label": "Preguntar al cliente Ollama",
-    "tooltip": "Añadir a Ollama Client"
+    "label": "Preguntar al LLM local",
+    "tooltip": "Añadir al cliente LLM local"
   },
   "welcome": {
-    "title": "Bienvenido a Ollama Chat",
+    "title": "Bienvenido al chat de LLM local",
     "subtitle": "Conversaciones con IA local de forma sencilla",
     "start_chatting": "Empezar a Chatear",
     "status": {
       "connecting": {
         "title": "Conectando...",
-        "message": "Estableciendo conexión con el servidor Ollama"
+        "message": "Estableciendo conexión con el proveedor local"
       },
       "connection_failed": {
         "title": "Conexión Fallida",
-        "message": "Fallo al conectar con Ollama. ¿Está el servidor en funcionamiento?"
+        "message": "No se pudo conectar con el proveedor. ¿Está el servidor en ejecución?"
       },
       "no_models": {
         "title": "No se Encontraron Modelos",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "Listo para Chatear",
-        "message": "Ollama está conectado y listo para usar"
+        "message": "El proveedor está conectado y listo para usar"
       }
     },
     "setup_guide": {
       "intro": "Antes de empezar, sigue estos pasos rápidos:",
-      "step1": "Instala <code>ollama</code> en tu sistema",
-      "step2": "Ejecuta <code>ollama run llama3</code> o cualquier modelo",
+      "step1": "Instala un proveedor local (Ollama recomendado)",
+      "step2": "Descarga un modelo (p. ej., <code>ollama run llama3</code>)",
       "step3": "Vuelve aquí y haz clic en <b>Actualizar</b>",
       "full_guide_link": "Guía Completa de Configuración"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ Aviso de Rendimiento",
-      "message": "Esta extensión es una interfaz de usuario para tu servidor Ollama local. El tiempo de respuesta y la calidad de la salida del modelo dependen enteramente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que estés utilizando. La extensión no realiza ningún procesamiento por sí misma."
+      "message": "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
     }
   },
   "chat": {
@@ -235,12 +235,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Comprobando estado de Ollama...",
-      "error": "Ollama no está accesible",
-      "empty": "No se encontraron modelos",
-      "ready": "Ollama está listo"
-    },
     "embedding_status": {
       "checking": "Comprobando estado...",
       "downloading": "Descargando {{model}}... {{progress}}",
@@ -259,7 +253,7 @@
       "no_model_found": "No se encontró ningún modelo."
     },
     "version": {
-      "tooltip": "Versión de Ollama: {{version}}"
+      "tooltip": "Versión de Provider: {{version}}"
     },
     "site_overrides": {
       "title": "Anulaciones Específicas del Sitio",
@@ -385,7 +379,15 @@
       "exclude_casual_label": "Excluir mensajes casuales",
       "exclude_casual_description": "Filtre saludos, respuestas cortas y mensajes de baja información.",
       "min_quality_score_label": "Puntuación de calidad mínima",
-      "min_quality_score_description": "Puntuación de calidad mínima (0-1) requerida para incrustar contenido."
+      "min_quality_score_description": "Puntuación de calidad mínima (0-1) requerida para incrustar contenido.",
+      "embedding_source_description": "Las incrustaciones se generan usando tu proveedor local (Ollama por defecto)",
+      "embedding_source_default_provider": "Proveedor predeterminado (Ollama)"
+    },
+    "provider_status": {
+      "checking": "Comprobando estado de Provider...",
+      "error": "Provider no está accesible",
+      "empty": "No se encontraron modelos",
+      "ready": "Provider está listo"
     }
   },
   "prompts": {
@@ -515,7 +517,7 @@
         "description": "Habilitar la extracción de contenido mejorada con soporte para carga diferida (lazy loading)"
       },
       "selection_button": {
-        "label": "Mostrar botón \"Preguntar al cliente Ollama\" después de la selección",
+        "label": "Mostrar el botón \"Preguntar al LLM local\" después de la selección",
         "description": "Mostrar un botón de acción flotante al seleccionar texto para acelerar su adición al chat"
       },
       "scraper": {
@@ -636,9 +638,9 @@
       }
     },
     "base_url": {
-      "title": "URL Base de Ollama",
-      "description": "Configura el punto final del servidor para tu instalación de Ollama.",
-      "label": "Punto Final del Servidor API de Ollama",
+      "title": "URL Base de Provider",
+      "description": "Configura el punto final del servidor para tu instalación de Provider.",
+      "label": "Punto Final del Servidor API de Provider",
       "error_invalid_url": "Por favor, introduce una URL válida.",
       "status_local": "Conexión de servidor local",
       "status_remote": "Conexión de servidor remoto",
@@ -651,24 +653,6 @@
         "saving": "Guardando",
         "saved": "Guardado"
       }
-    },
-    "model_pull": {
-      "title": "Biblioteca de Modelos",
-      "description": "Explora y descarga modelos de IA para tus proyectos.",
-      "search_placeholder": "Buscar modelos por nombre o descripción...",
-      "status": {
-        "cancelled": "Cancelado",
-        "downloading": "Descargando modelo",
-        "loading_models": "Cargando modelos...",
-        "no_models": "No se encontraron modelos",
-        "adjust_search": "Ajusta tus términos de búsqueda."
-      },
-      "button": {
-        "variants": "Variantes",
-        "loading": "Cargando",
-        "pulling": "Descargando"
-      },
-      "variants_label": "Variantes Disponibles"
     },
     "model_list": {
       "unknown_size": "Tamaño desconocido",
@@ -719,33 +703,11 @@
       "extraction": "Extracción",
       "embeddings": "Incrustaciones",
       "voices": "Voces",
-      "developer": "Desarrollador",
       "reset": "Restablecer",
       "guides": "Guías",
       "memory": "Memoria",
-      "shortcuts": "Atajos"
-    },
-    "developer": {
-      "title": "Configuración de Desarrollador",
-      "description": "Configurar opciones de registro y depuración",
-      "logLevel": "Nivel de Registro",
-      "logLevelDescription": "Establecer el nivel mínimo de registros a capturar.",
-      "enableLogger": "Habilitar Registro",
-      "enableLoggerDescription": "Desactivar para mejorar el rendimiento si es necesario",
-      "persistLogs": "Persistir registros en IndexedDB",
-      "persistLogsDescription": "Almacenar registros para persistencia (recomendado)",
-      "viewLogs": "Ver Registros",
-      "exportLogs": "Exportar Registros",
-      "clearLogs": "Borrar Registros",
-      "confirmClear": "¿Estás seguro de que quieres borrar todos los registros?",
-      "bufferSize": "Búfer: {{current}} / {{max}}",
-      "troubleshooting": {
-        "title": "¿Necesitas ayuda?",
-        "description": "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
-      },
-      "crashApp": "Colgar App (Prueba)",
-      "confirmCrash": "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
-      "manualCrashError": "Prueba de bloqueo manual desde configuración de desarrollador"
+      "shortcuts": "Atajos",
+      "providers": "Proveedores"
     },
     "errorBoundary": {
       "title": "Algo salió mal",
@@ -930,9 +892,6 @@
         "button": "Restablecer Todo"
       },
       "modules": {
-        "ollama": {
-          "description": "Ajustes y configuraciones del modelo"
-        },
         "theme": {
           "description": "Preferencias de apariencia de la interfaz de usuario"
         },
@@ -947,11 +906,25 @@
         },
         "default": {
           "description": "Ajustes del módulo"
+        },
+        "provider": {
+          "description": "Ajustes y configuraciones del modelo"
         }
       },
       "item_count": "{{count}} elemento",
       "item_count_plural": "{{count}} elementos",
       "reset_button": "Restablecer"
+    },
+    "sections": {
+      "app": "Aplicación",
+      "ai_models": "IA y Modelos",
+      "customize": "Personalizar",
+      "system": "Sistema"
+    },
+    "providers": {
+      "default": "Predeterminado",
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado"
     }
   },
   "guides": {

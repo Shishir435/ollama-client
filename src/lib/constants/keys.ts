@@ -1,21 +1,44 @@
+export const PROVIDER_MESSAGE_KEYS = {
+  GET_MODELS: "get-provider-models",
+  CHAT_WITH_MODEL: "chat-with-model",
+  STREAM_RESPONSE: "provider-stream-response",
+  STOP_GENERATION: "stop-generation",
+  SHOW_MODEL_DETAILS: "show-model-details",
+  PULL_MODEL: "PROVIDER.PULL_MODEL",
+  SCRAPE_MODEL: "scrape-model-library",
+  SCRAPE_MODEL_VARIANTS: "scrape-model-library-variant",
+  UPDATE_BASE_URL: "provider-update-base-url",
+  GET_LOADED_MODELS: "get-loaded-models",
+  UNLOAD_MODEL: "unload-model",
+  DELETE_MODEL: "delete-model",
+  GET_PROVIDER_VERSION: "get-provider-version",
+  CHECK_EMBEDDING_MODEL: "check-embedding-model",
+  PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
+  EMBED_FILE_CHUNKS: "embed-file-chunks"
+}
+
+export const LEGACY_OLLAMA_MESSAGE_KEYS = {
+  GET_MODELS: "get-ollama-models",
+  CHAT_WITH_MODEL: "chat-with-model",
+  STREAM_RESPONSE: "ollama-stream-response",
+  STOP_GENERATION: "stop-generation",
+  SHOW_MODEL_DETAILS: "show-model-details",
+  PULL_MODEL: "OLLAMA.PULL_MODEL",
+  SCRAPE_MODEL: "scrape-ollama-model",
+  SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
+  UPDATE_BASE_URL: "ollama-update-base-url",
+  GET_LOADED_MODELS: "get-loaded-model",
+  UNLOAD_MODEL: "unload-model",
+  DELETE_MODEL: "delete-model",
+  GET_OLLAMA_VERSION: "get-ollama-version",
+  CHECK_EMBEDDING_MODEL: "check-embedding-model",
+  PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
+  EMBED_FILE_CHUNKS: "embed-file-chunks"
+}
+
 export const MESSAGE_KEYS = {
-  OLLAMA: {
-    GET_MODELS: "get-ollama-models",
-    CHAT_WITH_MODEL: "chat-with-model",
-    STREAM_RESPONSE: "ollama-stream-response",
-    STOP_GENERATION: "stop-generation",
-    SHOW_MODEL_DETAILS: "show-model-details",
-    PULL_MODEL: "OLLAMA.PULL_MODEL",
-    SCRAPE_MODEL: "scrape-ollama-model",
-    SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
-    UPDATE_BASE_URL: "ollama-update-base-url",
-    GET_LOADED_MODELS: "get-loaded-model",
-    UNLOAD_MODEL: "unload-model",
-    DELETE_MODEL: "delete-model",
-    GET_OLLAMA_VERSION: "get-ollama-version",
-    CHECK_EMBEDDING_MODEL: "check-embedding-model",
-    EMBED_FILE_CHUNKS: "embed-file-chunks"
-  },
+  PROVIDER: PROVIDER_MESSAGE_KEYS,
+  OLLAMA: LEGACY_OLLAMA_MESSAGE_KEYS,
   BROWSER: {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
@@ -23,12 +46,21 @@ export const MESSAGE_KEYS = {
   }
 }
 
-export const STORAGE_KEYS = {
+export const LEGACY_STORAGE_KEYS = {
   OLLAMA: {
     BASE_URL: "ollama-base-url",
     SELECTED_MODEL: "selected-ollama-model",
     PROMPT_TEMPLATES: "ollama-prompt-templates",
     MODEL_CONFIGS: "ollama-model-config"
+  }
+}
+
+export const STORAGE_KEYS = {
+  PROVIDER: {
+    BASE_URL: "provider-base-url",
+    SELECTED_MODEL: "provider-selected-model",
+    PROMPT_TEMPLATES: "provider-prompt-templates",
+    MODEL_CONFIGS: "provider-model-config"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
@@ -64,9 +96,5 @@ export const STORAGE_KEYS = {
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics"
   },
-  SHORTCUTS: "keyboard-shortcuts",
-  LOGGER: {
-    LEVEL: "logger-level",
-    BUFFER_SIZE: "logger-buffer-size"
-  }
+  SHORTCUTS: "keyboard-shortcuts"
 }

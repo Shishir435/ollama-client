@@ -142,7 +142,7 @@ This script automatically:
 export const ERROR_MESSAGES: Record<number, string> = {
   403: `### ❌ 403 Forbidden: CORS Error
 
-  Your Ollama server is **blocking requests** from this browser extension.
+  Your local provider server is **blocking requests** from this browser extension.
 
 ---
 
@@ -154,9 +154,10 @@ In **Chromium-based browsers** (Chrome, Brave, Edge, etc.), the extension uses D
 
 ---
 
-### 🛠️ Fix it: Configure Ollama to Allow Extension Requests
+### 🛠️ Fix it: Configure your local provider to Allow Extension Requests
 
-You must manually allow requests from browser extensions by setting \`OLLAMA_ORIGINS\`.
+If you're using Ollama, manually allow requests from browser extensions by setting \`OLLAMA_ORIGINS\`.  
+If you're using another provider, consult its CORS/origin configuration docs and update the base URL accordingly.
 
 > ✅ Recommended value:  
 > \`OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\`
@@ -261,13 +262,15 @@ OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
 🔗 Official docs: [https://ollama.com](https://ollama.com)
 `,
 
-  0: `### ⚠️ Unable to Reach Ollama
+  0: `### ⚠️ Unable to Reach Local Provider
 
-This extension couldn't connect to your **Ollama server**. It might not be running, or the base URL is incorrect.
+This extension couldn't connect to your **local provider server**. It might not be running, or the base URL is incorrect.
+
+If you're using Ollama, follow the steps below. For other providers, verify their server is running and double-check the base URL.
 
 ---
 
-### ✅ Make Sure Ollama is Installed and Running
+### ✅ If You're Using Ollama: Make Sure It Is Installed and Running
 
 If you haven't already:
 
@@ -275,7 +278,7 @@ If you haven't already:
 
 ---
 
-### ⚡ Quick Setup: Use Helper Script (Recommended)
+### ⚡ Ollama Quick Setup: Use Helper Script (Recommended)
 
 **The easiest way to start Ollama** with proper configuration:
 
@@ -283,7 +286,7 @@ ${OLLAMA_ENV_SCRIPT_INSTRUCTIONS}
 
 ---
 
-### 🔧 Alternative: Start Ollama Manually
+### 🔧 Ollama Alternative: Start Manually
 
 **Start the server manually:**
 

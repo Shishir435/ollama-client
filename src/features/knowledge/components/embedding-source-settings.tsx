@@ -24,13 +24,13 @@ export function EmbeddingSourceSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Ollama Info */}
+        {/* Default provider info */}
         <div className="flex items-center space-x-3 rounded-md border p-4 bg-muted/50">
           <ServerIcon className="h-5 w-5 text-primary" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <div className="font-medium">
-                {t("model.embedding_config.embedding_source_ollama")}
+                {t("model.embedding_config.embedding_source_default_provider")}
               </div>
               <Badge variant="secondary">Active</Badge>
             </div>
@@ -46,8 +46,9 @@ export function EmbeddingSourceSettings() {
           <AlertDescription className="text-xs">
             <strong>WebGPU embedding generation is unavailable</strong> due to
             Chrome Extension Content Security Policy constraints. WebGPU
-            re-ranking is still active and working. All embedding generation
-            uses Ollama for compatibility and quality.
+            re-ranking is still active and working. Embeddings are generated via
+            the provider fallback chain, using the default provider when native
+            support is unavailable.
           </AlertDescription>
         </Alert>
 
@@ -55,10 +56,10 @@ export function EmbeddingSourceSettings() {
         <div className="rounded-md bg-muted p-3 space-y-2">
           <div className="text-xs font-medium">Performance</div>
           <div className="text-xs text-muted-foreground">
-            Ollama embedding generation: ~500ms per chunk
+            Default provider embedding generation: ~500ms per chunk
           </div>
           <div className="text-xs text-muted-foreground">
-            Ensure Ollama is running at localhost:11434 for embedding operations
+            Ensure your local provider is running (default: localhost:11434)
           </div>
         </div>
       </CardContent>

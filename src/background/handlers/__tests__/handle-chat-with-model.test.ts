@@ -136,7 +136,7 @@ describe("handleChatWithModel", () => {
     it("should inject system prompt from model config", async () => {
       const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
       vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.OLLAMA.MODEL_CONFIGS) {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
             "llama3:latest": {
               system: "You are a helpful assistant",
@@ -175,7 +175,7 @@ describe("handleChatWithModel", () => {
     it("should not inject system prompt if one already exists", async () => {
       const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
       vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.OLLAMA.MODEL_CONFIGS) {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
            return {
             "llama3:latest": {
               system: "Default system prompt"

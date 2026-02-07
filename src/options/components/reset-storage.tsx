@@ -14,14 +14,14 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { useResetOllamaStorage } from "@/hooks/use-reset-ollama-storage"
+import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { CircleCheck, RefreshCcw } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ResetStorage = () => {
   const { t } = useTranslation()
-  const reset = useResetOllamaStorage()
+  const reset = useResetAppStorage()
   const keysByModule = getAllResetKeys()
   const [open, setOpen] = useState(false)
 
@@ -32,8 +32,8 @@ export const ResetStorage = () => {
 
   const getModuleIcon = (module: string) => {
     switch (module) {
-      case "OLLAMA":
-        return "🤖"
+      case "PROVIDER":
+        return "🔌"
       case "THEME":
         return "🎨"
       case "BROWSER":
@@ -49,8 +49,8 @@ export const ResetStorage = () => {
 
   const getModuleDescription = (module: string) => {
     switch (module) {
-      case "OLLAMA":
-        return t("settings.reset.modules.ollama.description")
+      case "PROVIDER":
+        return t("settings.reset.modules.provider.description")
       case "THEME":
         return t("settings.reset.modules.theme.description")
       case "BROWSER":

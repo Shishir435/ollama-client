@@ -10,9 +10,9 @@ import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersSection } from "@/features/model/components/model-parameters-section"
 import { ModelSystemSection } from "@/features/model/components/model-system-section"
-import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
-import { OllamaVersion } from "@/features/model/components/ollama-version"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
+import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
+import { ProviderVersion } from "@/features/model/components/provider-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 import {
   type FormValues,
@@ -27,7 +27,10 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 export const ModelSettingsForm = () => {
   const { t } = useTranslation()
   const [selectedModel] = useStorage<string>(
-    { key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL, instance: plasmoGlobalStorage },
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
+      instance: plasmoGlobalStorage
+    },
     ""
   )
 
@@ -181,14 +184,13 @@ export const ModelSettingsForm = () => {
                 tooltipTextContent={t("settings.model.switch_model")}
               />
               <ThemeToggle />
-              <OllamaStatusIndicator />
-              <OllamaVersion />
+              <ProviderStatusIndicator />
+              <ProviderVersion />
             </>
           }>
           <ModelInfo selectedModel={selectedModel} />
           <LoadedModelsInfo />
         </SettingsCard>
-        <ProviderSettings />
         <ModelSystemSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
       </div>

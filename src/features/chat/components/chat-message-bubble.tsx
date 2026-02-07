@@ -19,7 +19,7 @@ export const ChatMessageBubble = ({
   isLoading?: boolean
   onUpdate?: (content: string) => void
   onDelete?: () => void
-  onNavigate?: (nodeId: number) => void
+  onNavigate?: (nodeId: number | string) => void
 }) => {
   const [isEditing, setIsEditing] = useState(false)
   const isUser = msg.role === "user"

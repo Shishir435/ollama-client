@@ -1,6 +1,6 @@
 import type browser from "webextension-polyfill"
 
-export type OllamaModel = {
+export type ProviderModel = {
   name: string
   model: string
   modified_at: string
@@ -17,6 +17,9 @@ export type OllamaModel = {
     quantization_level: string
   }
 }
+
+// Legacy alias for provider-agnostic model metadata
+export type OllamaModel = ProviderModel
 
 export type ModelConfig = {
   temperature: number
@@ -50,7 +53,7 @@ export interface FileAttachment {
 }
 
 export interface ChatMessage {
-  id?: number
+  id?: number | string
   role: Role
   content: string
   done?: boolean
@@ -76,9 +79,9 @@ export interface ChatMessage {
       type?: string
     }>
   }
-  parentId?: number
-  childrenIds?: number[]
-  siblingIds?: number[]
+  parentId?: number | string
+  childrenIds?: Array<number | string>
+  siblingIds?: Array<number | string>
 }
 
 export interface ChatSession {
@@ -88,7 +91,7 @@ export interface ChatSession {
   updatedAt: number
   modelId?: string
   messages?: ChatMessage[]
-  currentLeafId?: number
+  currentLeafId?: number | string
 }
 
 export interface ChromePort extends browser.Runtime.Port {
@@ -162,18 +165,27 @@ export interface OllamaChatRequest {
   }
 }
 
+// Provider-agnostic aliases for default provider payloads (currently Ollama).
+export type DefaultProviderChatRequest = OllamaChatRequest
+
 export interface OllamaPullRequest {
   name: string
   insecure?: boolean
   stream?: boolean
 }
 
+export type DefaultProviderPullRequest = OllamaPullRequest
+
 export interface OllamaShowRequest {
   name: string
   verbose?: boolean
 }
 
+export type DefaultProviderShowRequest = OllamaShowRequest
+
 export type OllamaTagsRequest = Record<string, never>
+
+export type DefaultProviderTagsRequest = OllamaTagsRequest
 
 export interface OllamaChatResponse {
   model: string
@@ -195,6 +207,8 @@ export interface OllamaChatResponse {
   context?: number[]
 }
 
+export type DefaultProviderChatResponse = OllamaChatResponse
+
 export interface OllamaPullResponse {
   status: string
   digest?: string
@@ -202,6 +216,8 @@ export interface OllamaPullResponse {
   completed?: number
   error?: string
 }
+
+export type DefaultProviderPullResponse = OllamaPullResponse
 
 export interface OllamaShowResponse {
   license?: string
@@ -222,13 +238,22 @@ export interface OllamaShowResponse {
   }
 }
 
+export type DefaultProviderShowResponse = OllamaShowResponse
+
 export interface OllamaTagsResponse {
   models: OllamaModel[]
 }
 
+export type DefaultProviderTagsResponse = OllamaTagsResponse
+
 export interface OllamaErrorResponse {
   error: string
 }
+
+export type DefaultProviderErrorResponse = OllamaErrorResponse
+
+export type ProviderModelDetails = DefaultProviderShowResponse
+export type ProviderModelListResponse = DefaultProviderTagsResponse
 
 export interface ChatStreamMessage {
   delta?: string
@@ -349,7 +374,7 @@ export interface ChatSessionState {
   ensureMessageLoaded: (
     sessionId: string,
     timestamp: number,
-    messageId?: number
+    messageId?: number | string
   ) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
@@ -369,7 +394,7 @@ export interface ChatSessionState {
   ) => Promise<number | undefined>
   navigateToNode: (
     sessionId: string,
-    nodeId: number,
+    nodeId: number | string,
     exact?: boolean
   ) => Promise<void>
 }

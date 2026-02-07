@@ -37,12 +37,18 @@ export class RecursiveCharacterTextSplitter implements TextSplitter {
     // Start with the text as a single piece
     const pieces = [text]
 
+    let processed = 0
     for (const piece of pieces) {
       if (this.lengthFunction(piece) <= this.chunkSize) {
         finalChunks.push(piece)
       } else {
         const newChunks = await this.splitTextRecursive(piece, this.separators)
         finalChunks.push(...newChunks)
+      }
+
+      processed++
+      if (processed % 20 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
       }
     }
 
@@ -81,6 +87,7 @@ export class RecursiveCharacterTextSplitter implements TextSplitter {
     // Merge splits into chunks
     let currentChunk: string[] = []
     let currentLength = 0
+    let processed = 0
 
     for (const split of splits) {
       const splitLength = this.lengthFunction(split)
@@ -139,6 +146,11 @@ export class RecursiveCharacterTextSplitter implements TextSplitter {
       currentLength = this.lengthFunction(
         this.joinSplits(currentChunk, separator)
       )
+
+      processed++
+      if (processed % 200 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      }
     }
 
     // Add final chunk
@@ -190,6 +202,10 @@ export class RecursiveCharacterTextSplitter implements TextSplitter {
             totalChunks: chunks.length
           }
         })
+      }
+
+      if ((i + 1) % 5 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
       }
     }
 

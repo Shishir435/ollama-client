@@ -3,10 +3,10 @@ import { useCallback, useEffect, useState } from "react"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import type { ChromeResponse, OllamaShowResponse } from "@/types"
+import type { ChromeResponse, ProviderModelDetails } from "@/types"
 
 export const useModelInfo = (model: string) => {
-  const [modelInfo, setModelInfo] = useState<OllamaShowResponse | null>(null)
+  const [modelInfo, setModelInfo] = useState<ProviderModelDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,9 +17,9 @@ export const useModelInfo = (model: string) => {
 
     try {
       const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS,
+        type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
         payload: model
-      })) as ChromeResponse & { data?: OllamaShowResponse }
+      })) as ChromeResponse & { data?: ProviderModelDetails }
       if (res?.success) {
         setModelInfo(res.data ?? null)
       } else {

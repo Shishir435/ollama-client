@@ -97,6 +97,8 @@ export const Chat = () => {
 
     if (message.role === "user") {
       if (currentSessionId) {
+        if (typeof message.id !== "number") return
+
         /*
          * Forking Logic
          * 1. Fork the message (creates new branch)
@@ -126,6 +128,7 @@ export const Chat = () => {
       }
     } else {
       // Assistant or System: just update content
+      if (typeof message.id !== "number") return
       await updateMessage(message.id, { content })
       if (currentSessionId) {
         const updatedMsg = { ...message, content }
@@ -136,10 +139,11 @@ export const Chat = () => {
 
   const handleDeleteMessage = async (message: ChatMessage) => {
     if (!message.id) return
+    if (typeof message.id !== "number") return
     await deleteMessage(message.id)
   }
 
-  const handleNavigateBranch = async (nodeId: number) => {
+  const handleNavigateBranch = async (nodeId: number | string) => {
     if (currentSessionId) {
       await navigateToNode(currentSessionId, nodeId)
     }

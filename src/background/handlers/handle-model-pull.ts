@@ -11,9 +11,9 @@ import {
 } from "@/background/lib/utils"
 import type {
   ChromePort,
+  DefaultProviderPullRequest,
   ModelPullMessage,
   NetworkError,
-  OllamaPullRequest,
   PortStatusFunction
 } from "@/types"
 
@@ -35,7 +35,7 @@ export const handleModelPull = async (
   setAbortController(controllerKey, controller)
 
   try {
-    const requestBody: OllamaPullRequest = {
+    const requestBody: DefaultProviderPullRequest = {
       name: modelName
     }
 

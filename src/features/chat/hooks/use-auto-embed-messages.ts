@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react"
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -96,6 +96,7 @@ export const useAutoEmbedMessages = () => {
 
       // Create a unique key for this message
       const messageKey = `${sessionId}:${content}`
+      const messageId = typeof message.id === "number" ? message.id : undefined
 
       // Skip if already processing this message
       if (processingMessagesRef.current.has(messageKey)) {
@@ -106,7 +107,7 @@ export const useAutoEmbedMessages = () => {
       const isDuplicate = await checkDuplicateEmbedding(
         content,
         sessionId,
-        message.id
+        messageId
       )
       if (isDuplicate) {
         return // Skip if already embedded
@@ -138,7 +139,7 @@ export const useAutoEmbedMessages = () => {
           timestamp: Date.now(),
           title:
             message.role === "user" ? "User message" : "Assistant response",
-          messageId: message.id,
+          messageId,
           role: message.role,
           qualityScore: qualityAssessment.score,
           qualityReasons: qualityAssessment.reasons.join(", ")

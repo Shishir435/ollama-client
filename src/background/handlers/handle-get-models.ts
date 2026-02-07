@@ -1,14 +1,13 @@
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
-import type { OllamaTagsResponse, SendResponseFunction } from "@/types"
+import type { ProviderModelListResponse, SendResponseFunction } from "@/types"
 
 export const handleGetModels = async (
   sendResponse: SendResponseFunction
 ): Promise<void> => {
   try {
-    const url = await getBaseUrl()
-    const OllamaBaseUrl = url ?? "http://localhost:11434"
+    const baseUrl = await getBaseUrl()
 
-    const res = await fetch(`${OllamaBaseUrl}/api/tags`)
+    const res = await fetch(`${baseUrl}/api/tags`)
     if (!res.ok) {
       safeSendResponse(sendResponse, {
         success: false,
@@ -17,7 +16,7 @@ export const handleGetModels = async (
       return
     }
 
-    const data: OllamaTagsResponse = await res.json()
+    const data: ProviderModelListResponse = await res.json()
     safeSendResponse(sendResponse, { success: true, data })
   } catch (err) {
     const error = err as Error

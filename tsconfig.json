@@ -1,13 +1,27 @@
 {
-  "extends": "plasmo/templates/tsconfig.base",
-  "exclude": ["node_modules"],
-  "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "build",
+    ".plasmo",
+    ".wxt",
+    ".output",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx"
+  ],
+  "include": [".wxt/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "wxt.config.ts"],
   "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"],
-      "~/*": ["./src/*"]
-    },
     "baseUrl": ".",
-    "moduleResolution": "bundler"
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["chrome"],
+    "skipLibCheck": true
   }
 }

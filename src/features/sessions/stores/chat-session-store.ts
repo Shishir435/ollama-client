@@ -14,6 +14,14 @@ import type {
   FileAttachment
 } from "@/types"
 
+const compareMessages = (a: ChatMessage, b: ChatMessage) => {
+  const tsA = a.timestamp ?? 0
+  const tsB = b.timestamp ?? 0
+  if (tsA !== tsB) return tsA - tsB
+
+  return String(a.id ?? "").localeCompare(String(b.id ?? ""))
+}
+
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
   currentSessionId: null,
@@ -94,20 +102,24 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
     // Ensure siblings are sorted (by ID or timestamp)
     for (const list of siblingsMap.values()) {
-      list.sort((a, b) => (a.id || 0) - (b.id || 0))
+      list.sort(compareMessages)
     }
 
     // 3. Traverse UP from Leaf to Root to build Active Path
     const path: ChatMessage[] = []
     let currentId = leafId
     // Use a Map for O(1) lookup during traversal
-    const msgMap = new Map(allMessages.map((m) => [m.id, m]))
+    const msgMap = new Map(
+      allMessages
+        .filter((m) => m.id !== undefined)
+        .map((m) => [String(m.id), m] as const)
+    )
 
     const LIMIT = CHAT_PAGINATION_LIMIT
     let iterations = 0
 
     while (currentId !== undefined && iterations < LIMIT) {
-      const msg = msgMap.get(currentId)
+      const msg = msgMap.get(String(currentId))
       if (!msg) break
       path.unshift(msg)
       currentId = msg.parentId
@@ -117,8 +129,13 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     const hasMore = currentId !== undefined // If we stopped before root
 
     // 4. Load Attachments
-    const messageIds = path.map((m) => m.id as number)
-    const files = await db.files.where("messageId").anyOf(messageIds).toArray()
+    const messageIds = path
+      .map((m) => m.id)
+      .filter((id): id is number => typeof id === "number")
+    const files =
+      messageIds.length > 0
+        ? await db.files.where("messageId").anyOf(messageIds).toArray()
+        : []
     const filesByMessageId = new Map<number, FileAttachment[]>()
     for (const file of files) {
       if (file.messageId) {
@@ -131,11 +148,14 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // 5. Enrich Messages with Attachments and Sibling Data
     const messagesWithData = path.map((msg) => {
       const siblings = siblingsMap.get(msg.parentId ?? "root") || [msg]
-      const siblingIds = siblings.map((s) => s.id as number)
+      const siblingIds = siblings
+        .map((s) => s.id)
+        .filter((id): id is number | string => id !== undefined)
 
       return {
         ...msg,
-        attachments: (msg.id && filesByMessageId.get(msg.id)) || [],
+        attachments:
+          (typeof msg.id === "number" && filesByMessageId.get(msg.id)) || [],
         siblingIds: siblingIds.length > 1 ? siblingIds : undefined
       }
     })
@@ -180,8 +200,13 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
     const hasMore = currentId !== undefined
 
-    const messageIds = path.map((m) => m.id as number)
-    const files = await db.files.where("messageId").anyOf(messageIds).toArray()
+    const messageIds = path
+      .map((m) => m.id)
+      .filter((id): id is number => typeof id === "number")
+    const files =
+      messageIds.length > 0
+        ? await db.files.where("messageId").anyOf(messageIds).toArray()
+        : []
     const filesByMessageId = new Map<number, FileAttachment[]>()
     // ... (same file logic)
     for (const file of files) {
@@ -195,7 +220,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // 3b. Siblings (Context for Forks)
     const parentIds = path
       .map((m) => m.parentId)
-      .filter((id) => id !== undefined) as number[]
+      .filter((id): id is number | string => id !== undefined)
     let siblingCandidates: ChatMessage[] = []
     if (parentIds.length > 0) {
       siblingCandidates = await db.messages
@@ -220,15 +245,18 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       siblingsByParent.set(key, list)
     }
     for (const list of siblingsByParent.values()) {
-      list.sort((a, b) => (a.id || 0) - (b.id || 0))
+      list.sort(compareMessages)
     }
 
     const messagesWithData = path.map((msg) => {
       const siblings = siblingsByParent.get(msg.parentId ?? "root") || [msg]
-      const siblingIds = siblings.map((s) => s.id as number)
+      const siblingIds = siblings
+        .map((s) => s.id)
+        .filter((id): id is number | string => id !== undefined)
       return {
         ...msg,
-        attachments: msg.id ? filesByMessageId.get(msg.id) || [] : [],
+        attachments:
+          typeof msg.id === "number" ? filesByMessageId.get(msg.id) || [] : [],
         siblingIds: siblingIds.length > 1 ? siblingIds : undefined
       }
     })
@@ -246,7 +274,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   ensureMessageLoaded: async (
     sessionId: string,
     timestamp: number,
-    messageId?: number
+    messageId?: number | string
   ) => {
     // If messageId is provided, we can strictly navigate to the branch containing it.
     if (messageId) {
@@ -361,8 +389,9 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
     // 2. Add to DB
     const timestamp = message.timestamp || Date.now()
+    const { id: _messageId, ...messageWithoutId } = message
     const msgWithSession = {
-      ...message,
+      ...messageWithoutId,
       sessionId,
       timestamp,
       parentId
@@ -405,7 +434,8 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     skipDb = false
   ) => {
     if (!skipDb) {
-      await db.messages.update(messageId, updates)
+      const { id: _ignoredId, ...safeUpdates } = updates
+      await db.messages.update(messageId, safeUpdates)
       if (updates.content) {
         deleteVectors({ messageId }).catch((error) => {
           logger.error(
@@ -453,8 +483,9 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
      */
 
     const timestamp = Date.now()
+    const { id: _newMessageId, ...newMessageWithoutId } = newMessage
     const msgToSave = {
-      ...newMessage,
+      ...newMessageWithoutId,
       sessionId,
       timestamp
     }
@@ -487,31 +518,53 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
    * If I switch to a node that has children, which child do I pick?
    * Strategy: "Latest Child".
    */
-  navigateToNode: async (sessionId: string, nodeId: number, exact = false) => {
+  navigateToNode: async (
+    sessionId: string,
+    nodeId: number | string,
+    exact = false
+  ) => {
     // Logic: Navigate to the LATEST leaf that descends from this node.
     // If exact is true, we strictly set the currentLeafId to this node (cutting off any existing children from view, essentially preparing to fork or view just this point).
 
     let currentId = nodeId
 
     if (!exact) {
+      // parentId is not indexed in Dexie schema, so we resolve descendants
+      // from the session graph in-memory.
+      const allMessages = await db.messages
+        .where("sessionId")
+        .equals(sessionId)
+        .sortBy("timestamp")
+
+      const childrenByParent = new Map<string, ChatMessage[]>()
+      for (const msg of allMessages) {
+        if (msg.id === undefined) continue
+        if (msg.parentId === undefined) continue
+        const key = String(msg.parentId)
+        const list = childrenByParent.get(key) || []
+        list.push(msg)
+        childrenByParent.set(key, list)
+      }
+
+      for (const list of childrenByParent.values()) {
+        list.sort(compareMessages)
+      }
+
       let iterations = 0
-      const LIMIT = 100 // Prevent infinite loops
+      const LIMIT = Math.max(allMessages.length, 1)
 
       while (iterations < LIMIT) {
-        // Find children of currentId
-        // We need to query DB. "parentId" index.
-        const children = await db.messages
-          .where("parentId")
-          .equals(currentId)
-          .sortBy("timestamp")
-
+        const children = childrenByParent.get(String(currentId)) || []
         if (children.length === 0) {
-          // It is a leaf.
           break
         }
 
-        // Pick the last child (most recent)
-        currentId = children[children.length - 1].id
+        const nextId = children[children.length - 1]?.id
+        if (nextId === undefined || String(nextId) === String(currentId)) {
+          break
+        }
+
+        currentId = nextId
         iterations++
       }
     }
@@ -539,7 +592,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // Build Parent -> Children map
     const childrenMap = new Map<number, number[]>()
     for (const msg of allMessages) {
-      if (msg.parentId && msg.id !== undefined) {
+      if (typeof msg.parentId === "number" && typeof msg.id === "number") {
         const list = childrenMap.get(msg.parentId) || []
         list.push(msg.id)
         childrenMap.set(msg.parentId, list)
@@ -571,7 +624,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // If the current leaf is one of the deleted messages, we must revert leaf to the target's parent.
     const session = await db.sessions.get(sessionId)
     if (
-      session?.currentLeafId !== undefined &&
+      typeof session?.currentLeafId === "number" &&
       toDeleteIds.has(session.currentLeafId)
     ) {
       /*
@@ -613,10 +666,10 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
           ? {
               ...s,
               messages: s.messages?.filter(
-                (m) => m.id !== undefined && !toDeleteIds.has(m.id)
+                (m) => !(typeof m.id === "number" && toDeleteIds.has(m.id))
               ),
               currentLeafId:
-                s.currentLeafId !== undefined &&
+                typeof s.currentLeafId === "number" &&
                 toDeleteIds.has(s.currentLeafId)
                   ? targetParentId
                   : s.currentLeafId

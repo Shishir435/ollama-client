@@ -31,7 +31,7 @@ export const handleChatWithModel = withErrorContext(
 
     const modelConfigMap =
       (await plasmoGlobalStorage.get<ModelConfigMap>(
-        STORAGE_KEYS.OLLAMA.MODEL_CONFIGS
+        STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
       )) ?? {}
     const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
 

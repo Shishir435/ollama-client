@@ -3,7 +3,7 @@ import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
-import browser from "@/lib/browser-api"
+import { openOptionsInTab } from "@/lib/browser-api"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import { useThemeStore } from "@/stores/theme"
 import type { ChatMessage } from "@/types"
@@ -43,7 +43,7 @@ export const useChatKeyboardShortcuts = ({
     },
     settings: (e) => {
       e.preventDefault()
-      browser.runtime.openOptionsPage()
+      void openOptionsInTab()
     },
     toggleTheme: (e) => {
       e.preventDefault()

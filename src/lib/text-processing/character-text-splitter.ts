@@ -60,6 +60,10 @@ export class CharacterTextSplitter implements TextSplitter {
           }
         })
       }
+
+      if ((i + 1) % 5 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      }
     }
 
     return documents
@@ -68,10 +72,14 @@ export class CharacterTextSplitter implements TextSplitter {
   /**
    * Merge splits into chunks of appropriate size
    */
-  private mergeSplits(splits: string[], separator: string): string[] {
+  private async mergeSplits(
+    splits: string[],
+    separator: string
+  ): Promise<string[]> {
     const chunks: string[] = []
     const currentChunk: string[] = []
     let currentLength = 0
+    let processed = 0
 
     for (const split of splits) {
       const splitLength = this.lengthFunction(split)
@@ -100,6 +108,11 @@ export class CharacterTextSplitter implements TextSplitter {
 
       currentChunk.push(split)
       currentLength = this.lengthFunction(currentChunk.join(separator))
+
+      processed++
+      if (processed % 200 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      }
     }
 
     // Add final chunk

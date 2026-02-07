@@ -7,9 +7,8 @@ export const handleDeleteModel = async (
 ): Promise<void> => {
   try {
     const baseUrl = await getBaseUrl()
-    const ollamaUrl = baseUrl ?? "http://localhost:11434"
 
-    const res = await fetch(`${ollamaUrl}/api/delete`, {
+    const res = await fetch(`${baseUrl}/api/delete`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json"

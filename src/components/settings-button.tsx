@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import browser from "@/lib/browser-api"
+import { openOptionsInTab } from "@/lib/browser-api"
 import { Settings } from "@/lib/lucide-icon"
 
 export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
@@ -18,7 +18,7 @@ export const SettingsButton = ({ showText = true }: { showText?: boolean }) => {
           variant="link"
           size="sm"
           onClick={() => {
-            browser.runtime.openOptionsPage()
+            void openOptionsInTab()
           }}
           aria-label={t("common.settings.aria_label")}>
           <Settings size="16" className="opacity-80" />

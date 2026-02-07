@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -89,20 +89,21 @@ export const SpeechSettings = () => {
         </div>
 
         {/* Rate Control */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="rate-slider" className="text-sm font-medium">
-              {t("settings.speech.rate_label")}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono text-xs">
-                {rate.toFixed(1)}x
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {getRateDescription(rate, t)}
-              </span>
+        <SettingsFormField
+          label={
+            <div className="flex items-center justify-between w-full">
+              <span>{t("settings.speech.rate_label")}</span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {rate.toFixed(1)}x
+                </Badge>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {getRateDescription(rate, t)}
+                </span>
+              </div>
             </div>
-          </div>
+          }
+          className="space-y-3">
           <div className="px-1">
             <Slider
               id="rate-slider"
@@ -119,23 +120,24 @@ export const SpeechSettings = () => {
               <span>2.0x</span>
             </div>
           </div>
-        </div>
+        </SettingsFormField>
 
         {/* Pitch Control */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="pitch-slider" className="text-sm font-medium">
-              {t("settings.speech.pitch_label")}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono text-xs">
-                {pitch.toFixed(1)}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {getPitchDescription(pitch, t)}
-              </span>
+        <SettingsFormField
+          label={
+            <div className="flex items-center justify-between w-full">
+              <span>{t("settings.speech.pitch_label")}</span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {pitch.toFixed(1)}
+                </Badge>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {getPitchDescription(pitch, t)}
+                </span>
+              </div>
             </div>
-          </div>
+          }
+          className="space-y-3">
           <div className="px-1">
             <Slider
               id="pitch-slider"
@@ -152,7 +154,7 @@ export const SpeechSettings = () => {
               <span>2.0</span>
             </div>
           </div>
-        </div>
+        </SettingsFormField>
 
         <div className="border-t pt-4">
           <div className="flex items-center justify-between mb-3">

@@ -1,5 +1,10 @@
 import { logger } from "@/lib/logger"
-import { generateEmbedding, generateEmbeddingsBatch } from "./ollama-embedder"
+import {
+  ensureEmbeddingRouteReady,
+  generateEmbedding,
+  generateEmbeddingsBatch,
+  getEmbeddingRouteCapabilities
+} from "./embedding-client"
 
 /**
  * Unified embedding generation factory
@@ -14,6 +19,15 @@ export interface EmbeddingResult {
 
 export interface EmbeddingError {
   error: string
+}
+
+export interface EmbeddingFactoryCapabilities {
+  activeProviderId?: string
+  providerNativeAvailable: boolean
+  sharedProviderId: string
+  sharedModel: string
+  sharedProviderAvailable: boolean
+  defaultFallbackAvailable: boolean
 }
 
 /**
@@ -62,4 +76,22 @@ export async function generateBatchEmbeddingsUnified(
   }
 
   return processed
+}
+
+/**
+ * Get embedding strategy capabilities for diagnostics and readiness checks.
+ */
+export async function getEmbeddingCapabilitiesUnified(): Promise<EmbeddingFactoryCapabilities> {
+  return getEmbeddingRouteCapabilities()
+}
+
+/**
+ * Trigger best-effort background warmup for embedding routes.
+ */
+export async function ensureEmbeddingReadyUnified(): Promise<{
+  ready: boolean
+  warmingUp: boolean
+  details?: string
+}> {
+  return ensureEmbeddingRouteReady()
 }

@@ -36,21 +36,21 @@
     "save": "Speichern"
   },
   "selection_button": {
-    "label": "Ollama Client fragen",
-    "tooltip": "Zu Ollama Client hinzufügen"
+    "label": "Lokalen LLM fragen",
+    "tooltip": "Zum Local LLM Client hinzufügen"
   },
   "welcome": {
-    "title": "Willkommen bei Ollama Chat",
+    "title": "Willkommen beim Local LLM Chat",
     "subtitle": "Lokale KI-Gespräche leicht gemacht",
     "start_chatting": "Mit dem Chatten beginnen",
     "status": {
       "connecting": {
         "title": "Verbinde...",
-        "message": "Stelle Verbindung zum Ollama-Server her"
+        "message": "Verbindung zum lokalen Provider wird hergestellt"
       },
       "connection_failed": {
         "title": "Verbindung fehlgeschlagen",
-        "message": "Verbindung zu Ollama fehlgeschlagen. Läuft der Server?"
+        "message": "Verbindung zum Provider fehlgeschlagen. Läuft der Server?"
       },
       "no_models": {
         "title": "Keine Modelle gefunden",
@@ -58,13 +58,13 @@
       },
       "ready": {
         "title": "Bereit zum Chatten",
-        "message": "Ollama ist verbunden und einsatzbereit"
+        "message": "Provider ist verbunden und einsatzbereit"
       }
     },
     "setup_guide": {
       "intro": "Bevor Sie beginnen, folgen Sie diesen schnellen Schritten:",
-      "step1": "Installieren Sie <code>ollama</code> auf Ihrem System",
-      "step2": "Führen Sie <code>ollama run llama3</code> oder ein beliebiges Modell aus",
+      "step1": "Installieren Sie einen lokalen Provider (Ollama empfohlen)",
+      "step2": "Ziehen Sie ein Modell (z. B. <code>ollama run llama3</code>)",
       "step3": "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
       "full_guide_link": "Vollständige Einrichtungsanleitung"
     },
@@ -88,7 +88,7 @@
     },
     "performance_notice": {
       "title": "⚠️ Leistungshinweis",
-      "message": "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Ollama-Server. Die Reaktionszeit und die Ausgabequalität des Modells hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem spezifischen von Ihnen verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
+      "message": "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
     }
   },
   "chat": {
@@ -236,12 +236,6 @@
     }
   },
   "model": {
-    "ollama_status": {
-      "checking": "Ollama-Status wird geprüft...",
-      "error": "Ollama nicht erreichbar",
-      "empty": "Keine Modelle gefunden",
-      "ready": "Ollama ist bereit"
-    },
     "embedding_status": {
       "checking": "Status wird geprüft...",
       "downloading": "Lade {{model}} herunter... {{progress}}",
@@ -260,7 +254,7 @@
       "no_model_found": "Kein Modell gefunden."
     },
     "version": {
-      "tooltip": "Ollama-Version: {{version}}"
+      "tooltip": "Provider-Version: {{version}}"
     },
     "site_overrides": {
       "title": "Site-spezifische Überschreibungen",
@@ -386,7 +380,15 @@
       "exclude_casual_label": "Beiläufige Nachrichten ausschließen",
       "exclude_casual_description": "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
       "min_quality_score_label": "Mindest-Qualitätsfaktor",
-      "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten."
+      "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
+      "embedding_source_description": "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
+      "embedding_source_default_provider": "Standard-Provider (Ollama)"
+    },
+    "provider_status": {
+      "checking": "Provider-Status wird geprüft...",
+      "error": "Provider nicht erreichbar",
+      "empty": "Keine Modelle gefunden",
+      "ready": "Provider ist bereit"
     }
   },
   "prompts": {
@@ -516,7 +518,7 @@
         "description": "Erweiterte Inhaltsextraktion mit Lazy-Loading-Unterstützung aktivieren"
       },
       "selection_button": {
-        "label": "Schaltfläche \"Ollama Client fragen\" nach Auswahl anzeigen",
+        "label": "Schaltfläche „Lokalen LLM fragen“ nach Auswahl anzeigen",
         "description": "Zeigt eine schwebende Aktionsschaltfläche an, wenn Text ausgewählt wird, um das Hinzufügen zum Chat zu beschleunigen"
       },
       "scraper": {
@@ -637,9 +639,9 @@
       }
     },
     "base_url": {
-      "title": "Ollama Basis-URL",
-      "description": "Konfigurieren Sie den Server-Endpunkt für Ihre Ollama-Installation.",
-      "label": "Ollama API-Server-Endpunkt",
+      "title": "Provider Basis-URL",
+      "description": "Konfigurieren Sie den Server-Endpunkt für Ihre Provider-Installation.",
+      "label": "Provider API-Server-Endpunkt",
       "error_invalid_url": "Bitte geben Sie eine gültige URL ein.",
       "status_local": "Lokale Serververbindung",
       "status_remote": "Entfernte Serververbindung",
@@ -652,24 +654,6 @@
         "saving": "Speichere",
         "saved": "Gespeichert"
       }
-    },
-    "model_pull": {
-      "title": "Modellbibliothek",
-      "description": "Durchsuchen und laden Sie KI-Modelle für Ihre Projekte herunter.",
-      "search_placeholder": "Nach Modellen nach Name oder Beschreibung suchen...",
-      "status": {
-        "cancelled": "Abgebrochen",
-        "downloading": "Modell wird heruntergeladen",
-        "loading_models": "Modelle werden geladen...",
-        "no_models": "Keine Modelle gefunden",
-        "adjust_search": "Passen Sie Ihre Suchbegriffe an."
-      },
-      "button": {
-        "variants": "Varianten",
-        "loading": "Lädt",
-        "pulling": "Lade herunter"
-      },
-      "variants_label": "Verfügbare Varianten"
     },
     "model_list": {
       "unknown_size": "Unbekannte Größe",
@@ -720,11 +704,11 @@
       "extraction": "Extraktion",
       "embeddings": "Embeddings",
       "voices": "Sprachausgaben",
-      "developer": "Entwickler",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
-      "shortcuts": "Tastaturkürzel"
+      "shortcuts": "Tastaturkürzel",
+      "providers": "Anbieter"
     },
     "memory": {
       "title": "Kontextuelles Gedächtnis",
@@ -776,35 +760,6 @@
         "high": "Hoch",
         "very_high": "Sehr hoch"
       }
-    },
-    "developer": {
-      "title": "Entwicklereinstellungen",
-      "description": "Konfigurieren Sie Protokollierungs- und Debugging-Optionen",
-      "logLevel": "Protokollierungsgrad",
-      "logLevelDescription": "Legen Sie das Mindestniveau der zu erfassenden Protokolle fest. Niedrigere Stufen zeigen mehr Details.",
-      "enableLogger": "Protokollierung aktivieren",
-      "enableLoggerDescription": "Schalten Sie die Protokollierung aus, um die Leistung zu verbessern, wenn Probleme auftreten",
-      "persistLogs": "Protokolle in IndexedDB speichern",
-      "persistLogsDescription": "Speichern Sie Protokolle in IndexedDB für Persistenz über Browser-Neustarts hinweg (empfohlen)",
-      "levels": {
-        "error": "Nur Fehler",
-        "warn": "Warnung",
-        "info": "Info (Standard)",
-        "verbose": "Ausführlich",
-        "debug": "Debug (Alle)"
-      },
-      "viewLogs": "Protokolle anzeigen",
-      "exportLogs": "Protokolle exportieren",
-      "clearLogs": "Protokolle löschen",
-      "confirmClear": "Sind Sie sicher, dass Sie alle Protokolle löschen möchten?",
-      "bufferSize": "Protokollpuffer: {{current}} / {{max}} Einträge",
-      "troubleshooting": {
-        "title": "Brauchen Sie Hilfe?",
-        "description": "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
-      },
-      "crashApp": "App abstürzen lassen (Test)",
-      "confirmCrash": "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
-      "manualCrashError": "Manueller Absturztest aus den Entwicklereinstellungen"
     },
     "errorBoundary": {
       "title": "Etwas ist schiefgelaufen",
@@ -938,9 +893,6 @@
         "cancel": "Abbrechen"
       },
       "modules": {
-        "ollama": {
-          "description": "Modelleinstellungen und Konfigurationen"
-        },
         "theme": {
           "description": "UI-Erscheinungspräferenzen"
         },
@@ -955,11 +907,25 @@
         },
         "default": {
           "description": "Moduleinstellungen"
+        },
+        "provider": {
+          "description": "Modelleinstellungen und Konfigurationen"
         }
       },
       "item_count": "{{count}} Element",
       "item_count_plural": "{{count}} Elemente",
       "reset_button": "Zurücksetzen"
+    },
+    "sections": {
+      "app": "App",
+      "ai_models": "KI & Modelle",
+      "customize": "Anpassen",
+      "system": "System"
+    },
+    "providers": {
+      "default": "Standard",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert"
     }
   },
   "guides": {

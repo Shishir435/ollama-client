@@ -1,108 +1,79 @@
-# RAG in Ollama Client
+# RAG (Current Browser Runtime)
 
-This document explains what Retrieval-Augmented Generation (RAG) means in this project today.
+This document describes RAG behavior that exists today in the browser extension runtime.
 
-## 1) What "RAG" Means Here
+For full audit + redesign guidance, see:
 
-In this codebase, RAG is a local retrieval workflow that:
+- [Browser-First RAG Core (Audit + Design)](./rag-browser-core.md)
 
-1. Converts file/chat content into embeddings.
-2. Stores embeddings and metadata in local vector storage.
-3. Retrieves relevant chunks for new prompts.
-4. Injects retrieved context into generation input.
+## 1) Runtime Scope
 
-It is not a hosted vector service and not a server-side enterprise retrieval stack.
+Current runtime assumptions:
 
-## 2) Current RAG Data Flow
+- Chrome extension pages + background service worker
+- IndexedDB + in-memory cache/index state
+- HTTP-accessible model endpoints
 
-### Ingestion flow
+Not assumed:
 
-1. User uploads file or generates chat content.
-2. Text is chunked (fixed/semantic/hybrid/markdown strategies).
-3. Embeddings are generated (currently Ollama-backed).
-4. Chunks + embeddings + metadata are stored in local vector DB.
+- Node.js runtime APIs
+- native binaries
+- server-side vector database
 
-### Query flow
+## 2) What Works Today
 
-1. User sends prompt.
-2. Query classification determines retrieval strategy.
-3. Hybrid retrieval runs (keyword + semantic).
-4. Optional post-processing applies recency/diversity/feedback scoring.
-5. Formatted context is appended to prompt history sent to model.
+- local file/chat ingestion into embeddings
+- Dexie-backed vector persistence
+- hybrid retrieval (keyword + semantic)
+- metadata filtering (file/session/type)
+- context source display in chat UI
+- retrieval fallback behavior when context is unavailable
+- non-blocking embedding fallback chain:
+  provider-native -> shared MiniLM -> background warmup -> Ollama fallback
 
-## 3) Retrieval Pipeline Components
+## 2.1 Embedding Strategy Defaults
 
-Primary files:
+- Default reliability anchor: Ollama fallback remains available.
+- Shared canonical target model: `all-MiniLM-L6-v2` (mapped as needed per provider).
+- Background warmup runs silently and is throttled to avoid UI disruption.
 
-- `src/features/chat/rag/rag-retriever.ts`
-- `src/features/chat/rag/rag-pipeline.ts`
-- `src/lib/embeddings/search.ts`
-- `src/lib/embeddings/storage.ts`
+What users should not expect:
 
-Implemented features include:
+- perfect embedding parity across local providers
+- tokenizer-accurate budgeting in every model/runtime
+- immediate warmup completion before first retrieval
 
-- Adaptive hybrid weighting by query type
-- Similarity thresholds
-- MMR-style diversity filtering
-- Recency score boost
-- Feedback score blending hooks
+## 3) Current Limitations (Important)
 
-Reranker note:
+1. Runtime fallback reliability still depends on Ollama availability when provider-native/shared routes are unavailable.
+2. Reranker path exists but is disabled by default for extension constraints.
+3. Prompt/context assembly is split across UI/background paths and can duplicate logic.
+4. Token budgeting is approximate (`chars / 4`) and provider context windows vary.
+5. Dual chunking pipelines exist (legacy + enhanced splitters).
+6. Provider embedding endpoints are conditional for some local runtimes (LM Studio, llama.cpp).
 
-- `rerankerService` exists (`transformers.js`) but is disabled by default due extension CSP constraints.
+## 4) Core Improvement Direction
 
-## 4) Vector Storage and Indexing
+A provider-agnostic browser-first module contract is now defined at:
 
-### Supported now
+- `src/lib/rag/core/interfaces.ts`
+- `src/lib/rag/core/*` browser adapters for each core module
 
-- Vector storage: Dexie/IndexedDB (`VectorDatabase`)
-- Keyword index: local keyword index manager
-- ANN-like search path: local in-memory index manager + brute-force fallback
+Contract modules:
 
+1. `DocumentSource`
+2. `Chunker`
+3. `Embedder`
+4. `VectorStore`
+5. `Retriever`
+6. `PromptAssembler`
 
-### Not currently implemented as runtime default
+These adapters are additive and non-breaking; current runtime behavior remains intentionally unchanged.
 
-- Dedicated external vector DB service
-- sqlite-vec as main retrieval backend
+## 5) Future Direction Policy
 
-## 5) Example Usage
+Potential desktop/helper expansion is discussed in docs only.
 
-1. Enable RAG in settings.
-2. Upload technical documents (PDF/DOCX/Markdown/etc.).
-3. Ask a question tied to uploaded material.
-4. Inspect retrieval sources in the message UI.
-5. Tune chunk size, similarity threshold, and topK if results are noisy.
-
-## 6) Configuration Surfaces
-
-RAG-related controls live in embedding/settings surfaces and storage-backed config keys:
-
-- chunking strategy/size/overlap
-- search limits and similarity thresholds
-- adaptive weighting toggles
-- diversity/recency/feedback tuning
-- auto-embed behavior
-
-## 7) Constraints and Limitations
-
-Important limitations today:
-
-1. Embeddings currently depend on Ollama even for non-Ollama chat providers.
-2. Reranker path is disabled by default due CSP restrictions.
-3. Retrieval quality depends heavily on chunking and threshold tuning.
-4. Heuristic quality filtering may underperform on non-technical or non-English content.
-5. Large corpora may require ANN/index tuning beyond defaults.
-
-## 8) Practical Debugging Tips
-
-- If retrieval returns irrelevant chunks: raise min similarity and lower topK.
-- If retrieval misses exact terms: increase keyword weight or test query phrasing.
-- If retrieval is too sparse: lower threshold and increase topK incrementally.
-- If indexing feels slow: reduce chunk volume or disable aggressive auto-embedding.
-
-## 9) Roadmap Priorities for RAG
-
-1. Better provider-agnostic embedding strategy.
-2. Clear reranker enablement path under extension constraints.
-3. Stronger retrieval diagnostics in UI.
-4. Scalable indexing strategy for large local corpora.
+- It is not implemented.
+- Browser-only mode remains first-class.
+- Core runtime must not assume helper availability.

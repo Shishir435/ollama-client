@@ -427,19 +427,30 @@ export const extractContentWithLoading = async (
       }
     })
 
-    // Store log entry for feedback (can be accessed via window.__ollamaExtractionLogs)
+    // Store log entry for feedback (can be accessed via window.__providerExtractionLogs)
     if (typeof window !== "undefined") {
       const logs =
-        (window as unknown as { __ollamaExtractionLogs?: ExtractionLogEntry[] })
-          .__ollamaExtractionLogs || []
+        (
+          window as unknown as {
+            __providerExtractionLogs?: ExtractionLogEntry[]
+            __ollamaExtractionLogs?: ExtractionLogEntry[]
+          }
+        ).__providerExtractionLogs ||
+        (
+          window as unknown as {
+            __providerExtractionLogs?: ExtractionLogEntry[]
+            __ollamaExtractionLogs?: ExtractionLogEntry[]
+          }
+        ).__ollamaExtractionLogs ||
+        []
       logs.push(logEntry)
       // Keep only last 50 entries //page 2 make this configurable
       if (logs.length > 50) {
         logs.shift()
       }
       ;(
-        window as unknown as { __ollamaExtractionLogs?: ExtractionLogEntry[] }
-      ).__ollamaExtractionLogs = logs
+        window as unknown as { __providerExtractionLogs?: ExtractionLogEntry[] }
+      ).__providerExtractionLogs = logs
     }
 
     return {

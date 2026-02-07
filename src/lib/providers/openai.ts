@@ -1,6 +1,7 @@
 import type { ChatStreamMessage } from "@/types"
 import {
   type ChatRequest,
+  type EmbeddingSupport,
   type LLMProvider,
   type ProviderConfig,
   ProviderId
@@ -155,6 +156,15 @@ export class OpenAIProvider implements LLMProvider {
   }
   async getModelDetails(_model: string): Promise<null> {
     return null
+  }
+
+  async getEmbeddingSupport(): Promise<EmbeddingSupport> {
+    return {
+      supported: true,
+      mode: "openai-compatible",
+      notes:
+        "Uses /v1/embeddings for OpenAI-compatible providers when supported."
+    }
   }
 
   async embed(text: string, model?: string): Promise<number[]> {

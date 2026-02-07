@@ -3,7 +3,7 @@ import { PerformanceWarning } from "@/components/performance-warning"
 import { SettingsButton } from "@/components/settings-button"
 import { SocialHandles } from "@/components/social-handles"
 import { Button } from "@/components/ui/button"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import {
   AlertTriangle,
@@ -18,7 +18,7 @@ import {
 } from "@/lib/lucide-icon"
 
 export const WelcomeScreen = () => {
-  const { status, refresh } = useOllamaModels()
+  const { status, refresh } = useProviderModels()
   const { createSession } = useChatSessions()
   const { t } = useTranslation()
 
@@ -171,14 +171,13 @@ export const WelcomeScreen = () => {
                   <ol className="list-inside list-decimal space-y-1">
                     <li>
                       <Trans i18nKey="welcome.setup_guide.step1">
-                        Install <code className="font-mono">ollama</code> on
-                        your system
+                        Install a local provider (Ollama recommended)
                       </Trans>
                     </li>
                     <li>
                       <Trans i18nKey="welcome.setup_guide.step2">
-                        Run <code className="font-mono">ollama run llama3</code>{" "}
-                        or any model
+                        Pull a model (e.g.{" "}
+                        <code className="font-mono">ollama run llama3</code>)
                       </Trans>
                     </li>
                     <li>

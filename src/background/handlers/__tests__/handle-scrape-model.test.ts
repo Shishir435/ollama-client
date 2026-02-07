@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleScrapeModel } from "../handle-scrape-model"
 import { safeSendResponse } from "@/background/lib/utils"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 
 vi.mock("@/background/lib/utils", () => ({
   safeSendResponse: vi.fn()
@@ -23,7 +24,7 @@ describe("handleScrapeModel", () => {
     await handleScrapeModel("llama", sendResponse)
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://ollama.com/search?q=llama"
+      `${DEFAULT_MODEL_LIBRARY_BASE_URL}/search?q=llama`
     )
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: true,
@@ -40,7 +41,7 @@ describe("handleScrapeModel", () => {
     await handleScrapeModel("llama 2 chat", sendResponse)
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://ollama.com/search?q=llama%202%20chat"
+      `${DEFAULT_MODEL_LIBRARY_BASE_URL}/search?q=llama%202%20chat`
     )
   })
 

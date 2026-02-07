@@ -7,7 +7,7 @@
  */
 
 import { logger } from "@/lib/logger"
-import { generateEmbedding } from "./ollama-embedder"
+import { generateEmbedding } from "./embedding-client"
 import { storeVector } from "./vector-store"
 
 /**
@@ -87,7 +87,7 @@ export const testBatchEmbeddingGeneration = async (
       "testBatchEmbeddingGeneration"
     )
 
-    const { generateEmbeddingsBatch } = await import("./ollama-embedder")
+    const { generateEmbeddingsBatch } = await import("./embedding-client")
 
     const results = await generateEmbeddingsBatch(
       texts,

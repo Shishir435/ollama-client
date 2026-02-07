@@ -1,4 +1,5 @@
 import { safeSendResponse } from "@/background/lib/utils"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import type { SendResponseFunction } from "@/types"
 
 export const handleScrapeModel = async (
@@ -7,7 +8,7 @@ export const handleScrapeModel = async (
 ): Promise<void> => {
   try {
     const res = await fetch(
-      `https://ollama.com/search?q=${encodeURIComponent(query)}`
+      `${DEFAULT_MODEL_LIBRARY_BASE_URL}/search?q=${encodeURIComponent(query)}`
     )
     const html = await res.text()
     safeSendResponse(sendResponse, { success: true, html })

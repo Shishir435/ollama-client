@@ -17,20 +17,22 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
-import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
   MESSAGE_KEYS,
+  RECOMMENDED_EMBEDDING_MODELS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { Database } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChromeResponse } from "@/types"
 import { EmbeddingConfigSettings } from "./embedding-config-settings"
 import { EmbeddingIndexControls } from "./embedding-index-controls"
 import { EmbeddingInfo } from "./embedding-info"
-import { EmbeddingModelStatus } from "./embedding-model-status"
 import { EmbeddingTestTools } from "./embedding-test-tools"
 
 export const EmbeddingSettings = () => {
@@ -42,7 +44,7 @@ export const EmbeddingSettings = () => {
     },
     DEFAULT_EMBEDDING_MODEL
   )
-  const { models } = useOllamaModels()
+  const { models } = useProviderModels()
 
   const [useRag, setUseRag] = useStorage<boolean>(
     {
@@ -55,13 +57,12 @@ export const EmbeddingSettings = () => {
   const [modelExists, setModelExists] = useState<boolean>(false)
 
   // We need to check model existence here to pass to children
-  // This duplicates some logic from EmbeddingModelStatus but is cleaner than lifting all state
   useEffect(() => {
     const checkModel = async () => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
         const response = (await browser.runtime.sendMessage({
-          type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
+          type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
           payload: currentModel
         })) as ChromeResponse & { data?: { exists?: boolean; debug?: object } }
 
@@ -89,6 +90,10 @@ export const EmbeddingSettings = () => {
     return () => clearInterval(interval)
   }, [selectedModel])
 
+  const recommendedModelSet = new Set(
+    RECOMMENDED_EMBEDDING_MODELS.map((m) => m.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
       <SettingsCard
@@ -97,8 +102,6 @@ export const EmbeddingSettings = () => {
         description={t("settings.embeddings.description")}
         badge="Beta">
         <div className="space-y-4">
-          <EmbeddingModelStatus selectedModel={selectedModel} />
-
           {modelExists && (
             <>
               <EmbeddingTestTools modelExists={modelExists} />
@@ -141,13 +144,14 @@ export const EmbeddingSettings = () => {
                     <SelectLabel>
                       {t("settings.embeddings.model_select.recommended_group")}
                     </SelectLabel>
-                    <SelectItem value="mxbai-embed-large">
-                      mxbai-embed-large (
-                      {t("settings.content_extraction.badges.recommended")})
-                    </SelectItem>
-                    <SelectItem value="nomic-embed-text">
-                      nomic-embed-text
-                    </SelectItem>
+                    {RECOMMENDED_EMBEDDING_MODELS.map((modelName) => (
+                      <SelectItem key={modelName} value={modelName}>
+                        {modelName}
+                        {modelName === DEFAULT_EMBEDDING_MODEL
+                          ? ` (${t("settings.content_extraction.badges.recommended")})`
+                          : ""}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
 
                   {models.length > 0 && (
@@ -157,16 +161,16 @@ export const EmbeddingSettings = () => {
                       </SelectLabel>
                       {models
                         .filter(
-                          (m) =>
-                            !["mxbai-embed-large", "nomic-embed-text"].includes(
-                              m.name
-                            ) && m.providerId === "ollama"
+                          (m) => !recommendedModelSet.has(m.name.toLowerCase())
                         )
                         .map((model) => (
                           <SelectItem
                             key={`${model.providerId}-${model.name}`}
                             value={model.name}>
-                            {model.name} ({model.providerName || "Ollama"})
+                            {model.name} (
+                            {model.providerName ||
+                              getProviderDisplayName(DEFAULT_PROVIDER_ID)}
+                            )
                           </SelectItem>
                         ))}
                     </SelectGroup>

@@ -4,19 +4,21 @@ import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { OllamaOptions } from "@/options/components/ollama-options"
+import { SettingsPage } from "@/options/components/settings-page"
 import "../globals.css"
 import "@/i18n/config"
 
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useLanguageSync } from "@/hooks/use-language-sync"
+import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
 import { useThemeStore } from "@/stores/theme"
 
 export const OptionsIndex = () => {
   useThemeWatcher()
   useLanguageSync()
+  useProviderStorageMigration()
 
   const [showSessionMetrics, setShowSessionMetrics] =
     useSessionMetricsPreference()
@@ -67,7 +69,7 @@ export const OptionsIndex = () => {
   return (
     <ErrorBoundary>
       <TooltipProvider>
-        <OllamaOptions />
+        <SettingsPage />
         <Toaster />
       </TooltipProvider>
     </ErrorBoundary>

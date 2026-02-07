@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { LlamaCppProvider } from "./llama-cpp"
 import { LMStudioProvider } from "./lm-studio"
 import { ProviderManager } from "./manager"
@@ -18,7 +19,7 @@ export const ProviderFactory = {
     if (mapping) {
       return ProviderFactory.getProvider(mapping.providerId)
     }
-    return ProviderFactory.getProvider(ProviderId.OLLAMA)
+    return ProviderFactory.getProvider(DEFAULT_PROVIDER_ID)
   },
 
   async getProvider(providerId: string): Promise<LLMProvider> {

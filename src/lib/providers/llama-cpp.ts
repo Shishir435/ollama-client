@@ -1,4 +1,5 @@
 import { OpenAIProvider } from "./openai"
+import type { EmbeddingSupport } from "./types"
 import { ProviderId } from "./types"
 
 /**
@@ -6,6 +7,15 @@ import { ProviderId } from "./types"
  */
 export class LlamaCppProvider extends OpenAIProvider {
   id = ProviderId.LLAMA_CPP
+
+  async getEmbeddingSupport(): Promise<EmbeddingSupport> {
+    return {
+      supported: true,
+      mode: "openai-compatible",
+      notes:
+        "Requires llama.cpp server started with embeddings support and compatible pooling."
+    }
+  }
 
   async getModels(): Promise<string[]> {
     const baseUrl = this.config.baseUrl || "http://localhost:8080/v1"

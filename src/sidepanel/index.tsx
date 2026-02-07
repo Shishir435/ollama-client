@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Chat } from "@/features/chat/components/chat"
 import { useEmbeddingMigration } from "@/features/chat/hooks/use-embedding-migration"
 import { useLanguageSync } from "@/hooks/use-language-sync"
+import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useSQLiteMigration } from "@/hooks/use-sqlite-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
 
@@ -14,6 +15,7 @@ const IndexSidePanel = () => {
   useThemeWatcher()
   useLanguageSync()
   useEmbeddingMigration()
+  useProviderStorageMigration()
   useSQLiteMigration() // Automatic SQLite migration
   return (
     <ErrorBoundary>

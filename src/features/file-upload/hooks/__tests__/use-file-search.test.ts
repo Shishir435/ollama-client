@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react"
 import { useFileSearch } from "../use-file-search"
 
 // Mock dependencies
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -17,7 +17,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   }
 }))
 
-import { generateEmbedding } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 

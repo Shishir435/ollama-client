@@ -52,6 +52,13 @@ const isExcludedUrl = async (url: string): Promise<boolean> => {
 
 // Make sure content script is loaded - add to window for debugging
 ;(
+  window as unknown as {
+    __providerContentScript?: boolean
+    __ollamaContentScript?: boolean
+  }
+).__providerContentScript = true
+// Legacy marker for backward compatibility with older debug tooling.
+;(
   window as unknown as { __ollamaContentScript?: boolean }
 ).__ollamaContentScript = true
 
@@ -63,13 +70,13 @@ const initYouTubeFeatures = () => {
   const addIndicator = () => {
     if (document.body) {
       // Remove existing indicator if any
-      const existing = document.getElementById(
-        "ollama-content-script-indicator"
-      )
+      const existing =
+        document.getElementById("provider-content-script-indicator") ||
+        document.getElementById("ollama-content-script-indicator")
       if (existing) existing.remove()
 
       const indicator = document.createElement("div")
-      indicator.id = "ollama-content-script-indicator"
+      indicator.id = "provider-content-script-indicator"
       indicator.style.cssText = `
         position: fixed;
         top: 10px;
@@ -100,6 +107,7 @@ const initYouTubeFeatures = () => {
   // Add test function to window for manual testing
   ;(
     window as unknown as {
+      __providerContentScript?: boolean
       __ollamaContentScript?: boolean
       __testTranscript?: () => Promise<void>
       __testExtraction?: () => Promise<void>
@@ -128,6 +136,7 @@ const initYouTubeFeatures = () => {
   // Add test function for content extraction
   ;(
     window as unknown as {
+      __providerContentScript?: boolean
       __ollamaContentScript?: boolean
       __testTranscript?: () => Promise<void>
       __testExtraction?: () => Promise<void>
@@ -158,6 +167,7 @@ const initYouTubeFeatures = () => {
   // Add function to get extraction logs for feedback
   ;(
     window as unknown as {
+      __providerContentScript?: boolean
       __ollamaContentScript?: boolean
       __testTranscript?: () => Promise<void>
       __testExtraction?: () => Promise<void>
@@ -165,8 +175,11 @@ const initYouTubeFeatures = () => {
     }
   ).__getExtractionLogs = () => {
     const logs =
+      (window as unknown as { __providerExtractionLogs?: unknown[] })
+        .__providerExtractionLogs ||
       (window as unknown as { __ollamaExtractionLogs?: unknown[] })
-        .__ollamaExtractionLogs || []
+        .__ollamaExtractionLogs ||
+      []
     console.log("[Content Script] Extraction logs:", logs)
     return logs
   }
@@ -462,9 +475,9 @@ browser.runtime.onMessage.addListener(
               finalContentLength: readableText.length
             })
 
-            // Log entry is already stored in window.__ollamaExtractionLogs for feedback
+            // Log entry is already stored in window.__providerExtractionLogs for feedback
             console.log(
-              "[Content Script] Extraction log available via window.__ollamaExtractionLogs"
+              "[Content Script] Extraction log available via window.__providerExtractionLogs"
             )
           }
 

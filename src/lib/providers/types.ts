@@ -1,7 +1,7 @@
 import type {
   ChatMessage,
   ChatStreamMessage,
-  OllamaShowResponse
+  ProviderModelDetails
 } from "@/types"
 
 export enum ProviderType {
@@ -47,6 +47,12 @@ export interface ChatRequest {
   stream?: boolean
 }
 
+export interface EmbeddingSupport {
+  supported: boolean
+  mode: "native" | "openai-compatible" | "none"
+  notes?: string
+}
+
 export interface LLMProvider {
   id: string
   config: ProviderConfig
@@ -58,7 +64,8 @@ export interface LLMProvider {
   ): Promise<void>
 
   getModels(): Promise<string[]>
-  getModelDetails?(model: string): Promise<OllamaShowResponse | null>
+  getModelDetails?(model: string): Promise<ProviderModelDetails | null>
+  getEmbeddingSupport?(): Promise<EmbeddingSupport>
   embed?(text: string, model?: string): Promise<number[]>
   embedBatch?(texts: string[], model?: string): Promise<number[][]>
 }

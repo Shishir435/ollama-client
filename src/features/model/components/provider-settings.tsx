@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Circle,
   Loader2,
   Plus,
   Save,
@@ -8,9 +9,11 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import {
   Select,
   SelectContent,
@@ -19,17 +22,18 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-
 import { toast } from "@/hooks/use-toast"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { DEFAULT_PROVIDERS, ProviderManager } from "@/lib/providers/manager"
 import { type ProviderConfig, ProviderId } from "@/lib/providers/types"
+import { cn } from "@/lib/utils"
 
 export const ProviderSettings = () => {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderConfig[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string>(ProviderId.OLLAMA)
+  const [selectedId, setSelectedId] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<{
     success: boolean
@@ -138,7 +142,18 @@ export const ProviderSettings = () => {
           <SelectContent>
             {providers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.name} {p.enabled ? " (On)" : ""}
+                <span className="inline-flex items-center gap-2">
+                  <Circle
+                    className={cn(
+                      "h-2 w-2 fill-current",
+                      p.enabled ? "text-green-500" : "text-muted-foreground/40"
+                    )}
+                  />
+                  {p.name}
+                  {p.id === DEFAULT_PROVIDER_ID && (
+                    <MiniBadge text={t("settings.providers.default")} />
+                  )}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -146,13 +161,30 @@ export const ProviderSettings = () => {
       </div>
 
       {activeConfig && (
-        <div className="border rounded-md p-4 space-y-4 bg-card">
+        <div className="border rounded-lg p-5 space-y-4 bg-card">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-lg">
-              {activeConfig.name} Configuration
-            </h3>
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full ring-2 ring-offset-2 ring-offset-background transition-colors",
+                  activeConfig.enabled
+                    ? "bg-green-500 ring-green-500/30"
+                    : "bg-muted-foreground/40 ring-muted-foreground/20"
+                )}
+              />
+              <h3 className="font-medium text-lg">{activeConfig.name}</h3>
+              {activeConfig.id === DEFAULT_PROVIDER_ID && (
+                <MiniBadge text={t("settings.providers.default")} />
+              )}
+            </div>
             <div className="flex items-center space-x-2">
-              <Label htmlFor="enabled-switch">Enable</Label>
+              <Label
+                htmlFor="enabled-switch"
+                className="text-sm text-muted-foreground">
+                {activeConfig.enabled
+                  ? t("settings.providers.enabled")
+                  : t("settings.providers.disabled")}
+              </Label>
               <Switch
                 id="enabled-switch"
                 checked={activeConfig.enabled}
@@ -176,8 +208,17 @@ export const ProviderSettings = () => {
           </div>
 
           <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>Base URL</Label>
+            <SettingsFormField
+              label="Base URL"
+              description={
+                <>
+                  Default:{" "}
+                  {
+                    DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
+                      ?.baseUrl
+                  }
+                </>
+              }>
               <Input
                 value={activeConfig.baseUrl || ""}
                 onChange={(e) => {
@@ -189,22 +230,14 @@ export const ProviderSettings = () => {
                 }}
                 placeholder="https://api.example.com/v1"
               />
-              <p className="text-xs text-muted-foreground">
-                Default:{" "}
-                {
-                  DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
-                    ?.baseUrl
-                }
-              </p>
-            </div>
+            </SettingsFormField>
 
             {![
               ProviderId.OLLAMA,
               ProviderId.LM_STUDIO,
               ProviderId.LLAMA_CPP
             ].includes(activeConfig.id as ProviderId) && (
-              <div className="grid gap-2">
-                <Label>API Key</Label>
+              <SettingsFormField label="API Key">
                 <Input
                   type="password"
                   value={activeConfig.apiKey || ""}
@@ -216,7 +249,7 @@ export const ProviderSettings = () => {
                   }}
                   placeholder="sk-..."
                 />
-              </div>
+              </SettingsFormField>
             )}
 
             {![
@@ -224,8 +257,10 @@ export const ProviderSettings = () => {
               ProviderId.LM_STUDIO,
               ProviderId.LLAMA_CPP
             ].includes(activeConfig.id as ProviderId) && (
-              <div className="grid gap-2 pt-2">
-                <Label>Custom Models</Label>
+              <SettingsFormField
+                label="Custom Models"
+                description="Add models manually if they don't appear in the auto-discovered list."
+                className="pt-2">
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g. google/gemini-pro"
@@ -305,21 +340,22 @@ export const ProviderSettings = () => {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Add models manually if they don't appear in the
-                  auto-discovered list.
-                </p>
-              </div>
+              </SettingsFormField>
             )}
           </div>
 
           {connectionStatus && (
             <div
-              className={`text-sm flex items-center gap-2 ${connectionStatus.success ? "text-green-600" : "text-destructive"}`}>
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                connectionStatus.success
+                  ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                  : "bg-destructive/10 text-destructive dark:text-red-400"
+              )}>
               {connectionStatus.success ? (
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
               ) : (
-                <XCircle className="h-4 w-4" />
+                <XCircle className="h-4 w-4 shrink-0" />
               )}
               {connectionStatus.message}
             </div>

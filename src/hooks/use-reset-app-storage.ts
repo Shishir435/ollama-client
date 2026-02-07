@@ -1,0 +1,43 @@
+import { useCallback } from "react"
+
+import { db } from "@/lib/db"
+import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+import { logger } from "@/lib/logger"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+
+export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
+
+export const useResetAppStorage = () => {
+  const reset = useCallback(async (key: ResetKey) => {
+    try {
+      const allKeys = getAllResetKeys()
+
+      if (key === "all" || key === "CHAT_SESSIONS") {
+        await db.delete()
+      }
+
+      if (key === "all") {
+        await plasmoGlobalStorage.clear()
+        sessionStorage.clear()
+      } else if (key !== "CHAT_SESSIONS") {
+        const keysToRemove = allKeys[key] || []
+        if (keysToRemove.length > 0) {
+          await Promise.all(
+            keysToRemove.map((key) => plasmoGlobalStorage.remove(key))
+          )
+        }
+      }
+
+      return key === "all"
+        ? "All app data has been reset. Please reload the extension."
+        : `${key} has been reset.`
+    } catch (err) {
+      logger.error("Failed to reset app data", "useResetAppStorage", {
+        error: err
+      })
+      return "Failed to reset app data. Check console for details."
+    }
+  }, [])
+
+  return reset
+}

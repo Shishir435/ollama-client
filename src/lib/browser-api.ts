@@ -8,19 +8,21 @@ export const isChromiumBased = (): boolean => {
     return false
   }
 
-  if (typeof chrome.declarativeNetRequest === "undefined") {
+  const ua = globalThis.navigator?.userAgent ?? ""
+  if (/firefox/i.test(ua)) {
     return false
   }
 
-  // Firefox polyfill might create chrome.declarativeNetRequest as an empty object
-  // So we need to check if the actual API properties we use exist
   try {
-    return (
-      typeof chrome.declarativeNetRequest.RuleActionType !== "undefined" &&
-      typeof chrome.declarativeNetRequest.HeaderOperation !== "undefined" &&
-      typeof chrome.declarativeNetRequest.ResourceType !== "undefined" &&
-      typeof chrome.declarativeNetRequest.updateDynamicRules === "function"
-    )
+    // Prefer concrete runtime API checks over enum presence to avoid false negatives
+    // across Chromium versions and polyfill differences.
+    if (
+      typeof chrome.declarativeNetRequest?.updateDynamicRules === "function"
+    ) {
+      return true
+    }
+
+    return typeof chrome.sidePanel !== "undefined"
   } catch {
     return false
   }
@@ -28,6 +30,21 @@ export const isChromiumBased = (): boolean => {
 
 export const isFirefox = (): boolean => {
   return !isChromiumBased()
+}
+
+export const openOptionsInTab = async (): Promise<void> => {
+  const optionsUrl = runtime.getURL("options.html")
+
+  try {
+    if (browser.tabs?.create) {
+      await browser.tabs.create({ url: optionsUrl })
+      return
+    }
+  } catch {
+    // Fallback to runtime API below.
+  }
+
+  await runtime.openOptionsPage()
 }
 
 // Type-safe browser runtime API

@@ -54,7 +54,7 @@ vi.mock("@/background/handlers/handle-embedding-download", () => ({
 }))
 vi.mock("@/background/handlers/handle-get-loaded-model", () => ({ handleGetLoadedModels: vi.fn() }))
 vi.mock("@/background/handlers/handle-get-models", () => ({ handleGetModels: vi.fn() }))
-vi.mock("@/background/handlers/handle-get-ollama-version", () => ({ handleGetOllamaVersion: vi.fn() }))
+vi.mock("@/background/handlers/handle-get-provider-version", () => ({ handleGetProviderVersion: vi.fn() }))
 vi.mock("@/background/handlers/handle-model-pull", () => ({ handleModelPull: vi.fn() }))
 vi.mock("@/background/handlers/handle-scrape-model", () => ({ handleScrapeModel: vi.fn() }))
 vi.mock("@/background/handlers/handle-scrape-model-variants", () => ({ handleScrapeModelVariants: vi.fn() }))
@@ -79,7 +79,7 @@ import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-ur
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { handleGetOllamaVersion } from "@/background/handlers/handle-get-ollama-version"
+import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
 import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
 import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
 
@@ -98,7 +98,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       const sendResponse = vi.fn()
       
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.GET_MODELS }, {}, sendResponse)
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.GET_MODELS }, {}, sendResponse)
       
       expect(handleGetModels).toHaveBeenCalledWith(sendResponse)
     })
@@ -116,7 +116,7 @@ describe("Background Script Entry Point", () => {
       // Get the message listener registered on the port
       const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
       
-      const msg = { type: MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL }
+      const msg = { type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL }
       portMessageListener(msg)
       
       expect(handleChatWithModel).toHaveBeenCalled()
@@ -125,7 +125,7 @@ describe("Background Script Entry Point", () => {
     it("should route PULL_MODEL via named port", () => {
       const onConnect = listeners.onConnect[0]
       const port = {
-        name: MESSAGE_KEYS.OLLAMA.PULL_MODEL,
+        name: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
         onMessage: { addListener: vi.fn() },
         onDisconnect: { addListener: vi.fn() }
       }
@@ -145,61 +145,65 @@ describe("Background Script Entry Point", () => {
 
     it("should route SHOW_MODEL_DETAILS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS, payload: "model" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS, payload: "model" }, {}, vi.fn())
       expect(handleShowModelDetails).toHaveBeenCalled()
     })
 
     it("should route SCRAPE_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL, query: "q" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, query: "q" }, {}, vi.fn())
       expect(handleScrapeModel).toHaveBeenCalled()
     })
 
     it("should route SCRAPE_MODEL_VARIANTS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS, name: "m" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS, name: "m" }, {}, vi.fn())
       expect(handleScrapeModelVariants).toHaveBeenCalled()
     })
 
     it("should route UPDATE_BASE_URL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL, payload: "url" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, payload: "url" }, {}, vi.fn())
       expect(handleUpdateBaseUrl).toHaveBeenCalled()
     })
 
     it("should route GET_LOADED_MODELS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS }, {}, vi.fn())
       expect(handleGetLoadedModels).toHaveBeenCalled()
     })
 
     it("should route UNLOAD_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" }, {}, vi.fn())
       expect(handleUnloadModel).toHaveBeenCalled()
     })
 
     it("should route DELETE_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.DELETE_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "m" }, {}, vi.fn())
       expect(handleDeleteModel).toHaveBeenCalled()
     })
 
-    it("should route GET_OLLAMA_VERSION", () => {
+    it("should route GET_PROVIDER_VERSION", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION }, {}, vi.fn())
-      expect(handleGetOllamaVersion).toHaveBeenCalled()
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION },
+        {},
+        vi.fn()
+      )
+      expect(handleGetProviderVersion).toHaveBeenCalled()
     })
 
     it("should route CHECK_EMBEDDING_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, payload: "m" }, {}, vi.fn())
       expect(checkEmbeddingModelExists).toHaveBeenCalled()
     })
 
     it("should route EMBED_FILE_CHUNKS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS }, {}, vi.fn())
+      onMessage({ type: MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS }, {}, vi.fn())
       expect(handleEmbedFileChunks).toHaveBeenCalled()
     })
   })

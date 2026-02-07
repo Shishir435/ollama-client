@@ -11,7 +11,7 @@ vi.mock("@plasmohq/storage/hook", () => ({
   ])
 }))
 
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -45,7 +45,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should perform search with results", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -82,7 +82,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should handle search errors", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding failed"
@@ -99,7 +99,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should set searching state during search", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     let resolveEmbedding: any
@@ -132,7 +132,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should filter by session ID", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -155,7 +155,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should use custom limit and similarity", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -178,7 +178,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should identify assistant messages correctly", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -213,7 +213,7 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should handle keyword index build failure gracefully", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/ollama-embedder")
+    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
     const { ensureKeywordIndexBuilt } = await import("@/lib/embeddings/auto-index")
 

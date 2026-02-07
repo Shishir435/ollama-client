@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { handleEmbedFileChunks, handleEmbedFileChunksPort } from "../handle-embed-chunks"
-import { generateEmbeddingsBatch } from "@/lib/embeddings/ollama-embedder"
+import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import type { ChromeMessage } from "@/types"
 
 // Mock dependencies
-vi.mock("@/lib/embeddings/ollama-embedder", () => ({
+vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbeddingsBatch: vi.fn()
 }))
 

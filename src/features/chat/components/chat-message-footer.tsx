@@ -39,7 +39,7 @@ export const ChatMessageFooter = ({
   onEdit?: () => void
   onDelete?: () => void
   onExport?: (format: "json" | "pdf" | "markdown" | "text") => void
-  onNavigate?: (nodeId: number) => void
+  onNavigate?: (nodeId: number | string) => void
 }) => {
   const { t } = useTranslation()
   const siblingIds = msg.siblingIds ?? []
@@ -51,10 +51,8 @@ export const ChatMessageFooter = ({
     siblingIds.length > 1 && msg.id != null && siblingIndex !== -1
 
   const navigateToSibling = (targetIndex: number) => {
-    const rawId = siblingIds[targetIndex]
-    const targetNodeId = Number(rawId)
-
-    if (!Number.isFinite(targetNodeId)) return
+    const targetNodeId = siblingIds[targetIndex]
+    if (targetNodeId === undefined) return
     onNavigate?.(targetNodeId)
   }
 
