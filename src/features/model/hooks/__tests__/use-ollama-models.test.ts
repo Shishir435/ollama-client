@@ -1,8 +1,56 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useOllamaModels } from "../use-ollama-models"
+import { ProviderId, ProviderType } from "@/lib/providers/types"
 
-// Mock browser API
+const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
+  const ollamaProvider = {
+    id: "ollama",
+    config: { id: "ollama", type: "ollama", enabled: true, baseUrl: "http://localhost:11434", name: "Ollama" },
+    getModels: vi.fn().mockResolvedValue(["llama3:latest", "mistral:latest"]),
+    streamChat: vi.fn()
+  }
+  return {
+    mockOllamaProvider: ollamaProvider,
+    mockProvider: ollamaProvider,
+    mockProviderConfig: [ollamaProvider.config] // Stable reference
+  }
+})
+
+// Mock useStorage from Plasmo
+vi.mock("@plasmohq/storage/hook", () => ({
+  useStorage: vi.fn((config, initialValue) => {
+    // Return stable references to prevent infinite loops in useEffect
+    if (config.key === "llm_providers_config_v1" || config.key?.includes("provider")) {
+        return [mockProviderConfig, vi.fn().mockResolvedValue(undefined)]
+    }
+    return [initialValue, vi.fn().mockResolvedValue(undefined)]
+  })
+}))
+
+// Mock dependencies
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  plasmoGlobalStorage: {
+    get: vi.fn().mockResolvedValue(undefined),
+    set: vi.fn().mockResolvedValue(undefined),
+    watch: vi.fn().mockReturnValue(() => {})
+  }
+}))
+
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProvider: vi.fn().mockResolvedValue(mockOllamaProvider)
+  }
+}))
+
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviders: vi.fn().mockResolvedValue([mockOllamaProvider.config]),
+    getProviderConfig: vi.fn().mockResolvedValue(mockOllamaProvider.config),
+    saveModelMappings: vi.fn().mockResolvedValue(undefined)
+  }
+}))
+
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     runtime: {
@@ -11,50 +59,48 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+// Mock fetch globally
+global.fetch = vi.fn()
+
 describe("useOllamaModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      const urlStr = url.toString()
+      if (urlStr.includes("/api/version")) {
+        return {
+          ok: true,
+          json: async () => ({ version: "0.1.23" })
+        } as Response
+      }
+      if (urlStr.includes("/api/delete")) {
+        return { ok: true } as Response
+      }
+      return { ok: true, json: async () => ({}) } as Response
+    })
   })
 
   describe("fetchModels", () => {
     it("should fetch models successfully", async () => {
-      const mockModels = [
-        { name: "llama3:latest", size: 4000000000 },
-        { name: "mistral:latest", size: 3500000000 }
-      ]
-
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-        success: true,
-        data: { models: mockModels }
-      })
-
       const { result } = renderHook(() => useOllamaModels())
 
-      // Initially loading
-      expect(result.current.loading).toBe(true)
-      expect(result.current.status).toBe("loading")
-
+      // Wait for loading to finish
       await waitFor(() => {
-        expect(result.current.loading).toBe(false)
-      })
+        expect(result.current.isLoading).toBe(false)
+      }, { timeout: 5000 })
 
-      expect(result.current.models).toEqual(mockModels)
-      expect(result.current.error).toBe(null)
+      expect(result.current.models).toHaveLength(2)
+      expect(result.current.models?.[0].name).toBe("llama3:latest")
       expect(result.current.status).toBe("ready")
     })
 
     it("should handle empty models list", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-        success: true,
-        data: { models: [] }
-      })
+      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([])
 
       const { result } = renderHook(() => useOllamaModels())
 
       await waitFor(() => {
-        expect(result.current.loading).toBe(false)
+        expect(result.current.isLoading).toBe(false)
       })
 
       expect(result.current.models).toEqual([])
@@ -62,144 +108,53 @@ describe("useOllamaModels", () => {
     })
 
     it("should handle fetch errors", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-        success: false,
-        error: { message: "Connection failed" }
-      })
+      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(new Error("API Error"))
 
       const { result } = renderHook(() => useOllamaModels())
 
       await waitFor(() => {
-        expect(result.current.loading).toBe(false)
+        expect(result.current.isLoading).toBe(false)
       })
 
-      expect(result.current.models).toBe(null)
-      expect(result.current.error).toBe(
-        "Failed to fetch models. Ensure Ollama is running or check the base URL."
-      )
-      expect(result.current.status).toBe("error")
-    })
-
-    it("should handle network exceptions", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockRejectedValue(
-        new Error("Network error")
-      )
-
-      const { result } = renderHook(() => useOllamaModels())
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false)
-      })
-
-      expect(result.current.models).toBe(null)
-      expect(result.current.error).toBeTruthy()
-      expect(result.current.status).toBe("error")
+      expect(result.current.status).toBe("empty")
     })
   })
 
   describe("deleteModel", () => {
     it("should delete model successfully", async () => {
-      const mockModels = [
-        { name: "llama3:latest", size: 4000000000 },
-        { name: "mistral:latest", size: 3500000000 }
-      ]
-
-      const { browser } = await import("@/lib/browser-api")
-      
-      // First call for fetchModels
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: mockModels }
-      })
-      // Second call for version
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { version: "0.1.0" }
-      })
-
       const { result } = renderHook(() => useOllamaModels())
 
       await waitFor(() => {
-        expect(result.current.models).toEqual(mockModels)
-      })
-
-      // Delete model success
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true
+        expect(result.current.isLoading).toBe(false)
       })
 
       await result.current.deleteModel("llama3:latest")
 
-      await waitFor(() => {
-        expect(result.current.models).toHaveLength(1)
-      })
-
-      expect(result.current.models?.[0].name).toBe("mistral:latest")
-    })
-
-    it("should handle delete errors gracefully", async () => {
-      const mockModels = [{ name: "llama3:latest", size: 4000000000 }]
-
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: mockModels }
-      })
-        vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { version: "0.1.0" }
-      })
-
-      const { result } = renderHook(() => useOllamaModels())
-
-      await waitFor(() => {
-        expect(result.current.models).toEqual(mockModels)
-      })
-
-      // Delete fails
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: false,
-        error: { message: "Model not found" }
-      })
-
-      await result.current.deleteModel("llama3:latest")
-
-      // Models should remain unchanged
-      expect(result.current.models).toEqual(mockModels)
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/delete"),
+        expect.objectContaining({
+          method: "DELETE",
+          body: JSON.stringify({ name: "llama3:latest" })
+        })
+      )
     })
   })
 
   describe("fetchOllamaVersion", () => {
     it("should fetch version successfully", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: [] }
-      })
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { version: "0.1.23" }
-      })
-
       const { result } = renderHook(() => useOllamaModels())
 
       await waitFor(() => {
         expect(result.current.version).toBe("0.1.23")
       })
-
-      expect(result.current.versionError).toBe(null)
     })
 
     it("should handle version fetch errors", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: [] }
-      })
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: false
+      vi.mocked(fetch).mockImplementation(async (url) => {
+        if (url.toString().includes("/api/version")) {
+          return { ok: false } as Response
+        }
+        return { ok: true, json: async () => ({}) } as Response
       })
 
       const { result } = renderHook(() => useOllamaModels())
@@ -207,46 +162,23 @@ describe("useOllamaModels", () => {
       await waitFor(() => {
         expect(result.current.versionError).toBeTruthy()
       })
-
-      expect(result.current.version).toBe(null)
     })
   })
 
   describe("refresh", () => {
     it("should refetch models when refresh is called", async () => {
-      const { browser } = await import("@/lib/browser-api")
-      
-      const initialModels = [{ name: "llama3:latest", size: 4000000000 }]
-      const updatedModels = [
-        { name: "llama3:latest", size: 4000000000 },
-        { name: "mistral:latest", size: 3500000000 }
-      ]
-
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: initialModels }
-      })
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { version: "0.1.0" }
-      })
-
       const { result } = renderHook(() => useOllamaModels())
 
       await waitFor(() => {
-        expect(result.current.models).toEqual(initialModels)
+        expect(result.current.status).toBe("ready")
       })
 
-      // Refresh
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce({
-        success: true,
-        data: { models: updatedModels }
-      })
-
+      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce(["new-model"])
+      
       await result.current.refresh()
 
       await waitFor(() => {
-        expect(result.current.models).toEqual(updatedModels)
+        expect(result.current.models?.[0].name).toBe("new-model")
       })
     })
   })

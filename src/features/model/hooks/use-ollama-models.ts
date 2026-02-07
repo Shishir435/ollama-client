@@ -1,112 +1,186 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
-import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
-import { logger } from "@/lib/logger"
-import type { ChromeResponse, OllamaModel } from "@/types"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
+import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
+import type { OllamaModel } from "@/types"
 
 export const useOllamaModels = () => {
-  const [models, setModels] = useState<OllamaModel[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
+  const { t } = useTranslation()
+  const [selectedModel, setSelectedModel] = useStorage<string>(
+    {
+      key: STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
+      instance: plasmoGlobalStorage
+    },
+    ""
+  )
 
+  const [providerConfig] = useStorage<ProviderConfig[]>(
+    {
+      key: ProviderStorageKey.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    []
+  )
+
+  const [models, setModels] = useState<OllamaModel[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState<string | null>(null)
   const [versionError, setVersionError] = useState<string | null>(null)
 
   const fetchModels = useCallback(async () => {
-    setLoading(true)
+    setIsLoading(true)
+    setError(null)
+
     try {
-      const response = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.GET_MODELS
-      })) as ChromeResponse & { data?: { models?: OllamaModel[] } }
-      if (response?.success) {
-        setModels(response.data?.models ?? [])
-        setError(null)
-      } else {
-        setError(
-          "Failed to fetch models. Ensure Ollama is running or check the base URL."
-        )
-        setModels(null)
-      }
-    } catch (error) {
-      logger.error("Failed to fetch models", "useOllamaModels", { error })
-      setError(
-        "Failed to fetch models. Ensure Ollama is running or check the base URL."
+      const providers = await ProviderManager.getProviders()
+      const enabledProviders = providers.filter((p) => p.enabled)
+      console.log(
+        `[useOllamaModels] Enabled providers:`,
+        enabledProviders.map((p) => p.id)
       )
-      setModels(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
-  const deleteModel = async (modelName: string) => {
-    try {
-      const response = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.DELETE_MODEL,
-        payload: modelName
-      })) as ChromeResponse
-      if (response?.success) {
-        // Optimistically update local state
-        setModels((prev) =>
-          prev ? prev.filter((model) => model.name !== modelName) : null
-        )
-      } else {
-        logger.error("Failed to delete model", "useOllamaModels", {
-          modelName,
-          error: response?.error?.message
+      const allModels: OllamaModel[] = []
+
+      await Promise.all(
+        enabledProviders.map(async (config) => {
+          try {
+            console.log(`[useOllamaModels] Fetching for ${config.id}...`)
+            // Get provider instance (might trigger creation)
+            const provider = await ProviderFactory.getProvider(config.id)
+            const providerModels = await provider.getModels() // string[]
+
+            // Add custom models if any
+            const customs = config.customModels || []
+            const combined = Array.from(
+              new Set([...providerModels, ...customs])
+            )
+
+            combined.forEach((modelName) => {
+              allModels.push({
+                name: modelName,
+                model: modelName,
+                modified_at: new Date().toISOString(), // Mock
+                size: 0,
+                digest: config.id,
+                providerId: config.id,
+                providerName: config.name,
+                details: {
+                  parent_model: "",
+                  format: "gguf",
+                  family: config.type,
+                  families: [],
+                  parameter_size: "",
+                  quantization_level: ""
+                }
+              })
+            })
+          } catch (e) {
+            console.error(`Failed to fetch models for ${config.id}`, e)
+          }
         })
-      }
-    } catch (error) {
-      logger.error("Failed to delete model", "useOllamaModels", {
-        modelName,
-        error
-      })
-    }
-  }
+      )
 
-  const fetchOllamaVersion = useCallback(async () => {
+      // Persist mappings for background script (critical for routing)
+      const mappings: Record<string, string> = {}
+      allModels.forEach((m) => {
+        if (m.providerId && m.providerId !== "ollama") {
+          mappings[m.name] = m.providerId
+        }
+      })
+
+      if (Object.keys(mappings).length > 0) {
+        await ProviderManager.saveModelMappings(mappings)
+      }
+
+      // Sort: Ollama first, then others
+      allModels.sort((a, b) => a.name.localeCompare(b.name))
+
+      setModels(allModels)
+
+      // Removed auto-select logic to prevent overwriting stored selection during race conditions
+    } catch (err) {
+      setError(t("errors.failed_to_fetch_models"))
+      console.error(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [t])
+
+  const fetchVersion = useCallback(async () => {
     try {
-      const response = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION
-      })) as ChromeResponse & { data?: { version?: string } }
-      if (response?.success) {
-        setVersion(response.data?.version ?? null)
+      const config = await ProviderManager.getProviderConfig("ollama")
+      const baseUrl = config?.baseUrl || "http://localhost:11434"
+
+      const response = await fetch(`${baseUrl}/api/version`)
+      if (response.ok) {
+        const data = await response.json()
+        setVersion(data.version)
         setVersionError(null)
       } else {
-        setVersionError("Failed to fetch Ollama version.")
-        setVersion(null)
+        setVersionError("Failed to fetch version")
       }
-    } catch (error) {
-      logger.error("Failed to fetch Ollama version", "useOllamaModels", {
-        error
-      })
-      setVersionError("Failed to fetch Ollama version.")
-      setVersion(null)
+    } catch (err) {
+      setVersionError("Failed to connect to Ollama")
+      console.error(err)
     }
   }, [])
 
+  const deleteModel = useCallback(
+    async (modelName: string) => {
+      try {
+        const config = await ProviderManager.getProviderConfig("ollama")
+        const baseUrl = config?.baseUrl || "http://localhost:11434"
+
+        const response = await fetch(`${baseUrl}/api/delete`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: modelName })
+        })
+
+        if (response.ok) {
+          await fetchModels() // Refresh the list
+        } else {
+          throw new Error("Failed to delete model")
+        }
+      } catch (err) {
+        console.error("Error deleting model:", err)
+        setError(t("errors.failed_to_delete_model"))
+      }
+    },
+    [fetchModels, t]
+  )
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We want to refetch models/version whenever the provider configuration changes
   useEffect(() => {
     fetchModels()
-    fetchOllamaVersion()
-  }, [fetchModels, fetchOllamaVersion])
+    fetchVersion()
+  }, [providerConfig, fetchModels, fetchVersion])
 
-  const status: "loading" | "error" | "empty" | "ready" = loading
+  // Compute status from current state
+  const status = isLoading
     ? "loading"
     : error
       ? "error"
-      : !models || models.length === 0
+      : models.length === 0
         ? "empty"
         : "ready"
 
   return {
     models,
+    selectedModel,
+    setSelectedModel,
+    isLoading,
     error,
-    loading,
-    status,
     refresh: fetchModels,
-    deleteModel,
+    status,
     version,
     versionError,
-    fetchOllamaVersion
+    deleteModel
   }
 }

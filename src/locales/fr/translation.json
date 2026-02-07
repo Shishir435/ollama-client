@@ -204,6 +204,12 @@
     },
     "message": {
       "loading": "Chargement..."
+    },
+    "errors": {
+      "unknown_error": "❌ Erreur inconnue : {{message}}",
+      "no_message": "Aucun message",
+      "response_failed_title": "Échec de la génération de la réponse",
+      "unknown_error_description": "Une erreur inconnue est survenue"
     }
   },
   "file_upload": {
@@ -694,7 +700,9 @@
       "refresh_tooltip": "Actualiser les détails du modèle",
       "capabilities": "Capacités",
       "technical_details": "Détails Techniques",
-      "unknown_file_type": "Inconnu"
+      "unknown_file_type": "Inconnu",
+      "params_label": "Param.",
+      "context_label": "Ctx"
     },
     "loaded_models": {
       "title": "Modèles Chargés",

@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "加载中..."
+    },
+    "errors": {
+      "unknown_error": "❌ 未知错误: {{message}}",
+      "no_message": "无消息",
+      "response_failed_title": "响应生成失败",
+      "unknown_error_description": "发生未知错误"
     }
   },
   "file_upload": {
@@ -695,7 +701,9 @@
       "refresh_tooltip": "刷新模型详细信息",
       "capabilities": "功能",
       "technical_details": "技术详情",
-      "unknown_file_type": "未知"
+      "unknown_file_type": "未知",
+      "params_label": "参数",
+      "context_label": "上下文"
     },
     "loaded_models": {
       "title": "已加载模型",

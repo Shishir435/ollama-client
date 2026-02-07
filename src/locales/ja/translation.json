@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "読み込み中..."
+    },
+    "errors": {
+      "unknown_error": "❌ 不明なエラー: {{message}}",
+      "no_message": "メッセージなし",
+      "response_failed_title": "応答の生成に失敗しました",
+      "unknown_error_description": "不明なエラーが発生しました"
     }
   },
   "file_upload": {
@@ -693,7 +699,9 @@
       "refresh_tooltip": "モデル詳細を更新",
       "capabilities": "機能",
       "technical_details": "技術詳細",
-      "unknown_file_type": "不明"
+      "unknown_file_type": "不明",
+      "params_label": "パラメータ",
+      "context_label": "コンテキスト"
     },
     "loaded_models": {
       "title": "ロードされたモデル",

@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "Загрузка..."
+    },
+    "errors": {
+      "unknown_error": "❌ Неизвестная ошибка: {{message}}",
+      "no_message": "Нет сообщения",
+      "response_failed_title": "Ошибка генерации ответа",
+      "unknown_error_description": "Произошла неизвестная ошибка"
     }
   },
   "file_upload": {
@@ -695,7 +701,9 @@
       "refresh_tooltip": "Обновить детали модели",
       "capabilities": "Возможности",
       "technical_details": "Технические детали",
-      "unknown_file_type": "Неизвестно"
+      "unknown_file_type": "Неизвестно",
+      "params_label": "Параметры",
+      "context_label": "Контекст"
     },
     "loaded_models": {
       "title": "Загруженные модели",

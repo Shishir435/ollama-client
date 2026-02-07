@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "लोड हो रहा है..."
+    },
+    "errors": {
+      "unknown_error": "❌ अज्ञात त्रुटि: {{message}}",
+      "no_message": "कोई संदेश नहीं",
+      "response_failed_title": "प्रतिक्रिया जनरेशन विफल",
+      "unknown_error_description": "एक अज्ञात त्रुटि उत्पन्न हुई"
     }
   },
   "file_upload": {
@@ -693,7 +699,9 @@
       "refresh_tooltip": "मॉडल विवरण रिफ्रेश करें",
       "capabilities": "क्षमताएँ",
       "technical_details": "तकनीकी विवरण",
-      "unknown_file_type": "अज्ञात"
+      "unknown_file_type": "अज्ञात",
+      "params_label": "पैरामीटर्स",
+      "context_label": "संदर्भ"
     },
     "loaded_models": {
       "title": "लोड किए गए मॉडल",

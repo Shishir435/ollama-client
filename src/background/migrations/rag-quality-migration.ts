@@ -14,7 +14,7 @@ interface VectorRecord {
     role?: string
     sessionId?: string
     timestamp: number
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -134,7 +134,7 @@ export async function runRAGQualityMigration(): Promise<void> {
                 | "assistant"
                 | "system"
                 | undefined,
-              source: vector.metadata.source || "chat",
+              source: (vector.metadata.source as string) || "chat",
               qualityScore: quality.score,
               qualityReasons: quality.reasons.join(", ")
             })
@@ -209,7 +209,7 @@ async function getAllChatVectors(): Promise<VectorRecord[]> {
     return vectors.map(
       (v) =>
         ({
-          id: v.id!,
+          id: v.id ?? 0,
           content: v.content,
           embedding: v.embedding,
           metadata: v.metadata

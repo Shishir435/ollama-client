@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "Cargando..."
+    },
+    "errors": {
+      "unknown_error": "❌ Error desconocido: {{message}}",
+      "no_message": "Sin mensaje",
+      "response_failed_title": "Generación de respuesta fallida",
+      "unknown_error_description": "Ocurrió un error desconocido"
     }
   },
   "file_upload": {
@@ -693,7 +699,9 @@
       "refresh_tooltip": "Actualizar detalles del modelo",
       "capabilities": "Capacidades",
       "technical_details": "Detalles Técnicos",
-      "unknown_file_type": "Desconocido"
+      "unknown_file_type": "Desconocido",
+      "params_label": "Parám.",
+      "context_label": "Cont."
     },
     "loaded_models": {
       "title": "Modelos Cargados",
