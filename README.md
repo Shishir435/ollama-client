@@ -60,7 +60,7 @@ This project focuses on local-first usage:
 | Multi-provider chat | Route chat to Ollama, LM Studio, llama.cpp | Routing defaults to Ollama if model mapping is missing |
 | Model management | Pull/delete/unload/version support for Ollama | Equivalent management actions are not yet implemented for LM Studio/llama.cpp |
 | Streaming | Token streaming via runtime port with cancel support | Message keys and some hook names still use legacy `ollama-*` naming |
-| RAG with local LLMs | Local chunking, embedding, hybrid retrieval, context injection | Embeddings currently use Ollama embedding APIs |
+| RAG with local LLMs | Local chunking, embedding, hybrid retrieval, context injection | Embeddings use provider-native/shared routes with Ollama fallback for reliability |
 | File ingestion | TXT/MD/PDF/DOCX/CSV/TSV/PSV/HTML processing | Quality depends on file quality and chunking config |
 | Persistence | Chat/session/files and vectors stored in Dexie/IndexedDB | SQLite exists as migration/auxiliary path, not primary runtime store |
 | Browser support | Chromium workflow and Firefox workflow are supported | Firefox may need explicit origin/CORS setup |
@@ -116,6 +116,28 @@ Clarifying example:
 
 - Upload a local API spec PDF, then ask: `What headers are required for createUser?`
 - Retrieved chunks from that PDF are included in prompt context before model response.
+
+### Browser-Only RAG Runtime Constraints
+
+Current RAG runtime is intentionally browser-first:
+
+- extension context only (UI + background worker)
+- IndexedDB + in-memory index/cache
+- HTTP-based model/embedding access
+- graceful fallback over hard failure
+
+Embedding strategy defaults:
+
+- provider-native embeddings when available
+- shared canonical target: `all-MiniLM-L6-v2`
+- silent background warmup
+- Ollama fallback for reliability
+
+RAG implementation details and module boundaries:
+
+- Current behavior guide: [docs/rag.md](./docs/rag.md)
+- Full audit and redesign: [docs/rag-browser-core.md](./docs/rag-browser-core.md)
+- Browser-first RAG contracts (TypeScript interfaces): `src/lib/rag/core/interfaces.ts`
 
 ## Installation
 
@@ -188,7 +210,7 @@ pnpm package:firefox
 ## Limitations and Known Issues
 
 - Legacy key/message naming (`ollama-*`) remains in parts of multi-provider code.
-- Embeddings are currently Ollama-dependent.
+- Embedding support varies by provider; fallback keeps Ollama as reliability anchor.
 - Reranker exists but is disabled by default due extension CSP constraints.
 - Provider parity is incomplete for model management actions.
 - Runtime persistence is Dexie-first while SQLite migration path still exists.
@@ -205,6 +227,16 @@ pnpm package:firefox
 2. Clear single-source persistence strategy.
 3. Better provider parity for management actions.
 4. Better retrieval diagnostics.
+
+## Future Direction (Documentation Only)
+
+Potential future architecture may include a desktop helper/local companion for heavier retrieval workloads.
+
+Important constraints:
+
+- this is not implemented
+- browser-only mode remains first-class
+- core runtime does not depend on helper availability
 
 ## Contributing (Summary)
 
@@ -236,6 +268,7 @@ MIT License: [LICENCE](./LICENCE)
 - [Architecture Guide](./docs/architecture.md)
 - [Provider Support](./docs/providers.md)
 - [RAG Guide](./docs/rag.md)
+- [Browser-First RAG Core (Audit + Design)](./docs/rag-browser-core.md)
 - [Contributing Guide](./CONTRIBUTING.md)
 - [Setup Guide (Web)](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
 - [Privacy Policy (Web)](https://ollama-client.shishirchaurasiya.in/privacy-policy)

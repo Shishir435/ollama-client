@@ -6,8 +6,8 @@ This document describes the current implementation as of `v0.6.0` and highlights
 
 Primary runtime entry points:
 
-- Sidepanel app: `src/sidepanel/index.tsx`
-- Options app: `src/options/index.tsx`
+- Sidepanel app: `sidepanel.tsx` -> `src/sidepanel/app.tsx`
+- Options app: `options.tsx` -> `src/options/app.tsx`
 - Background service worker: `src/background/index.ts`
 - Content scripts: `src/contents/index.ts`, `src/contents/selection-button.tsx`
 
@@ -65,7 +65,7 @@ flowchart LR
     H --> I["UI Stream State Update"]
     I --> J["Dexie Chat Store (IndexedDB)"]
     I --> K["Optional RAG Pipeline"]
-    K --> L["Embedding Generation (current: Ollama path)"]
+    K --> L["Embedding Strategy Chain"]
     L --> M["Vector DB (Dexie IndexedDB)"]
 ```
 
@@ -116,10 +116,15 @@ Tradeoff:
 
 ## 7) RAG/Embedding Architecture (Current)
 
-- Embeddings are generated via Ollama embedding endpoint abstraction.
+- Embeddings are generated via a browser-safe strategy chain.
 - Content is chunked and stored in vector Dexie DB.
 - Query-time retrieval uses hybrid search with optional adaptive weighting.
 - Pipeline includes diversity filtering and recency/feedback score hooks.
+- Browser-first module contracts for next-step refactor are documented in:
+  `src/lib/rag/core/interfaces.ts` and `docs/rag-browser-core.md`.
+- Embeddings now use a fallback chain:
+  provider-native -> shared model -> background warmup -> Ollama fallback.
+- Background model preparation currently performs pull operations only through Ollama handlers.
 
 Important constraint:
 

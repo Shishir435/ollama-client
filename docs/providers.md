@@ -7,14 +7,29 @@ This project uses a provider abstraction layer so chat generation can route to d
 | Provider | Chat Stream | Model Discovery | Model Details | Pull/Delete/Unload | Embeddings |
 |---|---:|---:|---:|---:|---:|
 | Ollama | Yes | Yes | Yes | Yes | Yes |
-| LM Studio | Yes | Yes | Limited | No | No (chat path) |
-| llama.cpp server | Yes | Yes | Limited | No | No (chat path) |
+| LM Studio | Yes | Yes | Limited | No | Conditional (`/v1/embeddings`) |
+| llama.cpp server | Yes | Yes | Limited | No | Conditional (`/embedding` and `/v1/embeddings`) |
 
 Notes:
 
 - Multi-provider routing is active for chat generation.
 - Model management operations in background handlers are still mostly Ollama endpoints.
-- Embedding generation currently routes through Ollama provider functionality.
+- Embedding generation now uses a non-blocking fallback chain:
+  provider-native -> shared model -> background warmup -> Ollama fallback.
+
+## 1.1 Embedding Capability Reference
+
+| Provider | Embedding Supported | How | Limitations |
+|---|---|---|---|
+| Ollama | Yes | `/api/embed` (current) and `/api/embeddings` (legacy compatibility) | Requires an installed embedding model; defaults remain Ollama-first for reliability |
+| LM Studio | Conditional | OpenAI-compatible `/v1/embeddings` when server/model supports embeddings | Depends on loaded model/runtime; not guaranteed for every setup |
+| llama.cpp server | Conditional | Native `/embedding` and OpenAI-compatible `/v1/embeddings` | Server must be started with `--embeddings`; pooling cannot be `none` |
+
+Primary references:
+
+- Ollama API docs: [Embedding endpoint overview](https://ollama.com/blog/embedding-models), [API specification](https://github.com/ollama/ollama/blob/main/docs/api.md)
+- LM Studio docs (OpenAI compatibility): [LM Studio REST API](https://lmstudio.ai/docs/app/api/endpoints/openai)
+- llama.cpp server docs: [examples/server/README.md](https://raw.githubusercontent.com/ggml-org/llama.cpp/master/examples/server/README.md)
 
 ## 2) Provider Abstraction Philosophy
 
@@ -111,7 +126,7 @@ Minimal implementation checklist:
 
 - Legacy key names (`ollama-*`) remain for compatibility.
 - Chat provider abstraction advanced faster than management abstraction.
-- Embeddings are intentionally centralized to one provider path for reliability.
+- Embeddings favor reliability by keeping Ollama fallback, even when native provider routes fail.
 
 ## 10) Provider Roadmap Priorities
 
