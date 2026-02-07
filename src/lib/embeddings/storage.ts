@@ -444,6 +444,7 @@ export const storeChatMessage = async (
   metadata: {
     role: "user" | "assistant" | "system"
     sessionId: string
+    chatId?: string
     title?: string
     messageId?: number
   }

@@ -50,7 +50,7 @@ export interface FileAttachment {
 }
 
 export interface ChatMessage {
-  id?: number
+  id?: number | string
   role: Role
   content: string
   done?: boolean
@@ -76,9 +76,9 @@ export interface ChatMessage {
       type?: string
     }>
   }
-  parentId?: number
-  childrenIds?: number[]
-  siblingIds?: number[]
+  parentId?: number | string
+  childrenIds?: Array<number | string>
+  siblingIds?: Array<number | string>
 }
 
 export interface ChatSession {
@@ -88,7 +88,7 @@ export interface ChatSession {
   updatedAt: number
   modelId?: string
   messages?: ChatMessage[]
-  currentLeafId?: number
+  currentLeafId?: number | string
 }
 
 export interface ChromePort extends browser.Runtime.Port {
@@ -349,7 +349,7 @@ export interface ChatSessionState {
   ensureMessageLoaded: (
     sessionId: string,
     timestamp: number,
-    messageId?: number
+    messageId?: number | string
   ) => Promise<void>
   highlightedMessage: { role: Role; content: string } | null
   setHighlightedMessage: (
@@ -369,7 +369,7 @@ export interface ChatSessionState {
   ) => Promise<number | undefined>
   navigateToNode: (
     sessionId: string,
-    nodeId: number,
+    nodeId: number | string,
     exact?: boolean
   ) => Promise<void>
 }

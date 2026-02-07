@@ -30,12 +30,12 @@
     "url": "https://github.com/Shishir435/ollama-client/issues"
   },
   "scripts": {
-    "dev": "plasmo dev",
-    "build": "plasmo build",
-    "package": "plasmo package",
-    "dev:firefox": "plasmo dev --target=firefox & ./tools/post-firefox-manifest.sh --watch",
-    "build:firefox": "plasmo build --target=firefox && ./tools/post-firefox-manifest.sh",
-    "package:firefox": "plasmo package --target=firefox",
+    "dev": "wxt",
+    "build": "wxt build && node tools/normalize-build-encoding.mjs",
+    "package": "wxt zip",
+    "dev:firefox": "wxt -b firefox",
+    "build:firefox": "wxt build -b firefox && node tools/normalize-build-encoding.mjs",
+    "package:firefox": "wxt zip -b firefox",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -47,7 +47,7 @@
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
-    "clean": "rm -rf build .plasmo",
+    "clean": "rm -rf build .plasmo .wxt .output",
     "prepare": "husky",
     "generate:resources": "npx tsx tools/generate-i18n-resources.ts"
   },
@@ -99,7 +99,6 @@
     "markdown-it-task-lists": "^2.1.1",
     "minisearch": "^7.2.0",
     "pdfjs-dist": "^4.0.379",
-    "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.66.0",
@@ -141,8 +140,9 @@
     "lint-staged": "^16.0.0",
     "postcss": "8.4.33",
     "tailwindcss": "3.4.1",
-    "typescript": "5.3.3",
-    "vitest": "^4.0.14"
+    "typescript": "5.9.3",
+    "vitest": "^4.0.14",
+    "wxt": "^0.20.14"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json}": [

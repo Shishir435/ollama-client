@@ -5,5 +5,4 @@
 
 export * from "./csv-loader"
 export * from "./html-loader"
-export * from "./image-loader"
 export * from "./types"

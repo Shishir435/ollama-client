@@ -48,25 +48,48 @@ const openOllamaClient = () => {
   })
 }
 
+const actionAPI =
+  browser.action ||
+  (browser as unknown as { browserAction?: typeof browser.action })
+    .browserAction
+
 if (isChromiumBased() && "sidePanel" in browser) {
   // Type assertion for Chrome-specific sidePanel API
-  ;(
+  const sidePanel = (
     browser as unknown as {
-      sidePanel: {
-        setPanelBehavior: (options: {
-          openPanelOnActionClick: boolean
-        }) => Promise<void>
-      }
+      sidePanel: ChromeSidePanel
     }
   ).sidePanel
+
+  sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error: Error) => console.error("SidePanel error:", error))
+
+  // Explicit action handler to avoid browser/version quirks where panel behavior
+  // is not applied consistently.
+  if (actionAPI) {
+    actionAPI.onClicked.addListener((tab) => {
+      const windowId = tab.windowId
+      if (!windowId) {
+        openOllamaClient()
+        return
+      }
+
+      sidePanel
+        .open({
+          windowId,
+          tabId: tab.id
+        })
+        .catch((error) => {
+          console.warn(
+            "Failed to open side panel, falling back to popup:",
+            error
+          )
+          openOllamaClient()
+        })
+    })
+  }
 } else {
-  // Firefox uses browserAction, Chrome uses action (polyfill handles both)
-  const actionAPI =
-    browser.action ||
-    (browser as unknown as { browserAction?: typeof browser.action })
-      .browserAction
   if (actionAPI) {
     actionAPI.onClicked.addListener(() => {
       openOllamaClient()
@@ -116,8 +139,8 @@ if (isChromiumBased()) {
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
-// Note: Content scripts are injected automatically by Plasmo
-// The youtube.ts content script should inject on YouTube pages automatically
+// Note: Content scripts are registered from src/entrypoints/content.ts and
+// src/entrypoints/selection-button.content.tsx
 
 browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
