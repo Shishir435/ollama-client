@@ -706,7 +706,8 @@
       "reset": "Restablecer",
       "guides": "Guías",
       "memory": "Memoria",
-      "shortcuts": "Atajos"
+      "shortcuts": "Atajos",
+      "providers": "Proveedores"
     },
     "errorBoundary": {
       "title": "Algo salió mal",
@@ -919,6 +920,11 @@
       "ai_models": "IA y Modelos",
       "customize": "Personalizar",
       "system": "Sistema"
+    },
+    "providers": {
+      "default": "Predeterminado",
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado"
     }
   },
   "guides": {

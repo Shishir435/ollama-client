@@ -931,6 +931,11 @@
       "item_count": "{{count}} item",
       "item_count_plural": "{{count}} items",
       "reset_button": "Reset"
+    },
+    "providers": {
+      "default": "Default",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
     }
   },
   "guides": {

@@ -708,7 +708,8 @@
       "reset": "重置",
       "guides": "指南",
       "memory": "记忆",
-      "shortcuts": "快捷键"
+      "shortcuts": "快捷键",
+      "providers": "服务商"
     },
     "memory": {
       "title": "上下文记忆",
@@ -921,6 +922,11 @@
       "ai_models": "AI 和模型",
       "customize": "自定义",
       "system": "系统"
+    },
+    "providers": {
+      "default": "默认",
+      "enabled": "已启用",
+      "disabled": "已禁用"
     }
   },
   "guides": {

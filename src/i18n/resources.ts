@@ -791,7 +791,6 @@ export const resources = {
           extraction: "Extraktion",
           embeddings: "Embeddings",
           voices: "Sprachausgaben",
-          developer: "Entwickler",
           reset: "Zurücksetzen",
           guides: "Anleitungen",
           memory: "Gedächtnis",
@@ -855,43 +854,6 @@ export const resources = {
             high: "Hoch",
             very_high: "Sehr hoch"
           }
-        },
-        developer: {
-          title: "Entwicklereinstellungen",
-          description:
-            "Konfigurieren Sie Protokollierungs- und Debugging-Optionen",
-          logLevel: "Protokollierungsgrad",
-          logLevelDescription:
-            "Legen Sie das Mindestniveau der zu erfassenden Protokolle fest. Niedrigere Stufen zeigen mehr Details.",
-          enableLogger: "Protokollierung aktivieren",
-          enableLoggerDescription:
-            "Schalten Sie die Protokollierung aus, um die Leistung zu verbessern, wenn Probleme auftreten",
-          persistLogs: "Protokolle in IndexedDB speichern",
-          persistLogsDescription:
-            "Speichern Sie Protokolle in IndexedDB für Persistenz über Browser-Neustarts hinweg (empfohlen)",
-          levels: {
-            error: "Nur Fehler",
-            warn: "Warnung",
-            info: "Info (Standard)",
-            verbose: "Ausführlich",
-            debug: "Debug (Alle)"
-          },
-          viewLogs: "Protokolle anzeigen",
-          exportLogs: "Protokolle exportieren",
-          clearLogs: "Protokolle löschen",
-          confirmClear:
-            "Sind Sie sicher, dass Sie alle Protokolle löschen möchten?",
-          bufferSize: "Protokollpuffer: {{current}} / {{max}} Einträge",
-          troubleshooting: {
-            title: "Brauchen Sie Hilfe?",
-            description:
-              "Wenn Sie Probleme haben, exportieren Sie Protokolle und fügen Sie sie Ihrem Fehlerbericht bei. Dies hilft uns, Ihr Problem schneller zu debuggen."
-          },
-          crashApp: "App abstürzen lassen (Test)",
-          confirmCrash:
-            "Dies wird die Anwendung abstürzen lassen, um den Error Boundary zu testen. Sind Sie sicher?",
-          manualCrashError:
-            "Manueller Absturztest aus den Entwicklereinstellungen"
         },
         errorBoundary: {
           title: "Etwas ist schiefgelaufen",
@@ -1070,6 +1032,12 @@ export const resources = {
           item_count: "{{count}} Element",
           item_count_plural: "{{count}} Elemente",
           reset_button: "Zurücksetzen"
+        },
+        sections: {
+          app: "App",
+          ai_models: "KI & Modelle",
+          customize: "Anpassen",
+          system: "System"
         }
       },
       guides: {
@@ -1912,7 +1880,6 @@ export const resources = {
           embeddings: "Embeddings",
           providers: "Providers",
           voices: "Voices",
-          developer: "Developer",
           reset: "Reset",
           guides: "Guides",
           memory: "Memory",
@@ -1945,6 +1912,12 @@ export const resources = {
           description:
             "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Guides tab."
         },
+        sections: {
+          app: "App",
+          ai_models: "AI & Models",
+          customize: "Customize",
+          system: "System"
+        },
         speech: {
           title: "Speech Settings",
           description:
@@ -1972,49 +1945,6 @@ export const resources = {
             normal: "Normal",
             high: "High",
             very_high: "Very High"
-          }
-        },
-        developer: {
-          title: "Developer Settings",
-          description: "Configure logging and debugging options",
-          logLevel: "Log Level",
-          logLevelDescription:
-            "Set the minimum level of logs to capture. Lower levels show more detail.",
-          enableLogger: "Enable Logging",
-          enableLoggerDescription:
-            "Turn off logging to improve performance if experiencing issues",
-          persistLogs: "Persist Logs to IndexedDB",
-          persistLogsDescription:
-            "Store logs in IndexedDB for persistence across browser restarts (recommended)",
-          levels: {
-            error: "Error Only",
-            warn: "Warning",
-            info: "Info (Default)",
-            verbose: "Verbose",
-            debug: "Debug (All)"
-          },
-          viewLogs: "View Logs",
-          exportLogs: "Export Logs",
-          clearLogs: "Clear Logs",
-          confirmClear: "Are you sure you want to clear all logs?",
-          bufferSize: "Log buffer: {{current}} / {{max}} entries",
-          troubleshooting: {
-            title: "Need Help?",
-            description:
-              "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
-          },
-          crashApp: "Crash App (Test)",
-          confirmCrash:
-            "This will crash the application to test the Error Boundary. Are you sure?",
-          manualCrashError: "Manual Crash Test from Developer Settings",
-          logViewer: {
-            title: "Log Viewer",
-            description: "Showing {{count}} of {{total}} logs",
-            search: "Search logs...",
-            allLevels: "All Levels",
-            noLogs: "No logs to display",
-            showData: "Show additional data",
-            close: "Close"
           }
         },
         embeddings: {
@@ -2232,7 +2162,6 @@ export const resources = {
         title: "Something went wrong",
         description:
           "An unexpected error occurred. We've logged this issue internally.",
-        exportLogs: "Export Logs",
         reload: "Reload"
       }
     }
@@ -3026,40 +2955,10 @@ export const resources = {
           extraction: "Extracción",
           embeddings: "Incrustaciones",
           voices: "Voces",
-          developer: "Desarrollador",
           reset: "Restablecer",
           guides: "Guías",
           memory: "Memoria",
           shortcuts: "Atajos"
-        },
-        developer: {
-          title: "Configuración de Desarrollador",
-          description: "Configurar opciones de registro y depuración",
-          logLevel: "Nivel de Registro",
-          logLevelDescription:
-            "Establecer el nivel mínimo de registros a capturar.",
-          enableLogger: "Habilitar Registro",
-          enableLoggerDescription:
-            "Desactivar para mejorar el rendimiento si es necesario",
-          persistLogs: "Persistir registros en IndexedDB",
-          persistLogsDescription:
-            "Almacenar registros para persistencia (recomendado)",
-          viewLogs: "Ver Registros",
-          exportLogs: "Exportar Registros",
-          clearLogs: "Borrar Registros",
-          confirmClear:
-            "¿Estás seguro de que quieres borrar todos los registros?",
-          bufferSize: "Búfer: {{current}} / {{max}}",
-          troubleshooting: {
-            title: "¿Necesitas ayuda?",
-            description:
-              "Si experimentas problemas, exporta los registros e inclúyelos en tu informe de errores. Esto nos ayuda a depurar tu problema más rápido."
-          },
-          crashApp: "Colgar App (Prueba)",
-          confirmCrash:
-            "Esto hará que la aplicación se cuelgue para probar el Error Boundary. ¿Estás seguro?",
-          manualCrashError:
-            "Prueba de bloqueo manual desde configuración de desarrollador"
         },
         errorBoundary: {
           title: "Algo salió mal",
@@ -3294,6 +3193,12 @@ export const resources = {
           item_count: "{{count}} elemento",
           item_count_plural: "{{count}} elementos",
           reset_button: "Restablecer"
+        },
+        sections: {
+          app: "Aplicación",
+          ai_models: "IA y Modelos",
+          customize: "Personalizar",
+          system: "Sistema"
         }
       },
       guides: {
@@ -4136,40 +4041,10 @@ export const resources = {
           extraction: "Extraction",
           embeddings: "Incrustations",
           voices: "Voix",
-          developer: "Développeur",
           reset: "Réinitialiser",
           guides: "Guides",
           memory: "Mémoire",
           shortcuts: "Raccourcis"
-        },
-        developer: {
-          title: "Paramètres Développeur",
-          description:
-            "Configurer les options de journalisation et de débogage",
-          logLevel: "Niveau de Journalisation",
-          logLevelDescription:
-            "Définir le niveau minimum de journaux à capturer.",
-          enableLogger: "Activer la Journalisation",
-          enableLoggerDescription:
-            "Désactiver pour améliorer les performances si nécessaire",
-          persistLogs: "Persister les journaux dans IndexedDB",
-          persistLogsDescription:
-            "Stockez les journaux pour la persistance (recommandé)",
-          viewLogs: "Voir les Logs",
-          exportLogs: "Exporter les Logs",
-          clearLogs: "Effacer les Logs",
-          confirmClear: "Êtes-vous sûr de vouloir effacer tous les journaux ?",
-          bufferSize: "Tampon: {{current}} / {{max}}",
-          troubleshooting: {
-            title: "Besoin d'aide ?",
-            description:
-              "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
-          },
-          crashApp: "Planter l'app (Test)",
-          confirmCrash:
-            "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
-          manualCrashError:
-            "Test de plantage manuel depuis les paramètres développeur"
         },
         errorBoundary: {
           title: "Une erreur est survenue",
@@ -4406,6 +4281,12 @@ export const resources = {
           item_count: "{{count}} élément",
           item_count_plural: "{{count}} éléments",
           reset_button: "Réinitialiser"
+        },
+        sections: {
+          app: "Application",
+          ai_models: "IA et Modèles",
+          customize: "Personnaliser",
+          system: "Système"
         }
       },
       guides: {
@@ -5218,7 +5099,6 @@ export const resources = {
           extraction: "निष्कर्षण",
           embeddings: "एम्बेडिंग",
           voices: "वॉयस",
-          developer: "डेवलपर",
           reset: "रीसेट करें",
           guides: "गाइड",
           memory: "मेमोरी",
@@ -5279,40 +5159,6 @@ export const resources = {
             high: "उच्च",
             very_high: "बहुत उच्च"
           }
-        },
-        developer: {
-          title: "डेवलपर सेटिंग्स",
-          description: "लॉगिंग और डिबगिंग विकल्प कॉन्फ़िगर करें",
-          logLevel: "लॉग स्तर",
-          logLevelDescription:
-            "कैप्चर करने के लिए न्यूनतम लॉग स्तर सेट करें। निचले स्तर अधिक विवरण दिखाते हैं।",
-          enableLogger: "लॉगिंग सक्षम करें",
-          enableLoggerDescription:
-            "समस्याओं का अनुभव होने पर प्रदर्शन बेहतर बनाने के लिए लॉगिंग बंद करें",
-          persistLogs: "लॉग को IndexedDB में सहेजें",
-          persistLogsDescription:
-            "ब्राउज़र पुनरारंभ होने पर बने रहने के लिए लॉग को IndexedDB में संग्रहीत करें (अनुशंसित)",
-          levels: {
-            error: "केवल त्रुटि",
-            warn: "चेतावनी",
-            info: "जानकारी (डिफ़ॉल्ट)",
-            verbose: "विस्तृत",
-            debug: "डिबग (सभी)"
-          },
-          viewLogs: "लॉग देखें",
-          exportLogs: "लॉग निर्यात करें",
-          clearLogs: "लॉग साफ़ करें",
-          confirmClear: "क्या आप वाकई सभी लॉग साफ़ करना चाहते हैं?",
-          bufferSize: "लॉग बफ़र: {{current}} / {{max}} प्रविष्टियाँ",
-          troubleshooting: {
-            title: "मदद चाहिए?",
-            description:
-              "यदि आप समस्याओं का अनुभव कर रहे हैं, तो लॉग निर्यात करें और उन्हें अपनी बग रिपोर्ट में शामिल करें। इससे हमें आपकी समस्या को तेज़ी से डीबग करने में मदद मिलती है।"
-          },
-          crashApp: "ऐप क्रैश करें (टेस्ट)",
-          confirmCrash:
-            "यह Error Boundary का परीक्षण करने के लिए एप्लिकेशन को क्रैश कर देगा। क्या आप सुनिश्चित हैं?",
-          manualCrashError: "डेवलपर सेटिंग्स से मैनुअल क्रैश टेस्ट"
         },
         errorBoundary: {
           title: "कुछ गड़बड़ हो गई",
@@ -5486,6 +5332,12 @@ export const resources = {
           item_count: "{{count}} आइटम",
           item_count_plural: "{{count}} आइटम",
           reset_button: "रीसेट करें"
+        },
+        sections: {
+          app: "ऐप",
+          ai_models: "AI और मॉडल",
+          customize: "अनुकूलित करें",
+          system: "सिस्टम"
         }
       },
       guides: {
@@ -6322,7 +6174,6 @@ export const resources = {
           extraction: "Estrazione",
           embeddings: "Embeddings",
           voices: "Voci",
-          developer: "Sviluppatore",
           reset: "Reset",
           guides: "Guide",
           memory: "Memoria",
@@ -6386,41 +6237,6 @@ export const resources = {
             high: "Alto",
             very_high: "Molto Alto"
           }
-        },
-        developer: {
-          title: "Impostazioni sviluppatore",
-          description: "Configura le opzioni di logging e debug",
-          logLevel: "Livello di logging",
-          logLevelDescription:
-            "Imposta il livello minimo di log da catturare. I livelli più bassi mostrano più dettagli.",
-          enableLogger: "Abilita logging",
-          enableLoggerDescription:
-            "Disattiva il logging per migliorare le prestazioni in caso di problemi",
-          persistLogs: "Salva log su IndexedDB",
-          persistLogsDescription:
-            "Salva i log su IndexedDB per la persistenza tra i riavvii del browser (consigliato)",
-          levels: {
-            error: "Solo errori",
-            warn: "Avviso",
-            info: "Info (Predefinito)",
-            verbose: "Prolisso",
-            debug: "Debug (Tutto)"
-          },
-          viewLogs: "Visualizza log",
-          exportLogs: "Esporta log",
-          clearLogs: "Cancella log",
-          confirmClear: "Sei sicuro di voler cancellare tutti i log?",
-          bufferSize: "Buffer log: {{current}} / {{max}} voci",
-          troubleshooting: {
-            title: "Serve aiuto?",
-            description:
-              "Se riscontri problemi, esporta i log e includili nella tua segnalazione di bug. Questo ci aiuta a risolvere il problema più velocemente."
-          },
-          crashApp: "Arresta App (Test)",
-          confirmCrash:
-            "Questo farà arrestare l'applicazione per testare l'Error Boundary. Sei sicuro?",
-          manualCrashError:
-            "Test di arresto manuale dalle impostazioni sviluppatore"
         },
         errorBoundary: {
           title: "Qualcosa è andato storto",
@@ -6598,6 +6414,12 @@ export const resources = {
           item_count: "{{count}} elemento",
           item_count_plural: "{{count}} elementi",
           reset_button: "Ripristina"
+        },
+        sections: {
+          app: "App",
+          ai_models: "IA e Modelli",
+          customize: "Personalizza",
+          system: "Sistema"
         }
       },
       guides: {
@@ -7422,37 +7244,10 @@ export const resources = {
           extraction: "抽出",
           embeddings: "エンベディング",
           voices: "音声",
-          developer: "開発者",
           reset: "リセット",
           guides: "ガイド",
           memory: "メモリ",
           shortcuts: "ショートカット"
-        },
-        developer: {
-          title: "開発者設定",
-          description: "ログ記録とデバッグオプションを構成します",
-          logLevel: "ログレベル",
-          logLevelDescription: "記録するログの最小レベルを設定します。",
-          enableLogger: "ログ記録を有効にする",
-          enableLoggerDescription:
-            "パフォーマンスを向上させるために、必要に応じてログ記録を無効にします",
-          persistLogs: "IndexedDBにログを保存",
-          persistLogsDescription:
-            "再起動後もログを保持するためにIndexedDBに保存します（推奨）",
-          viewLogs: "ログを表示",
-          exportLogs: "ログをエクスポート",
-          clearLogs: "ログを消去",
-          confirmClear: "すべてのログを消去してもよろしいですか？",
-          bufferSize: "バッファ: {{current}} / {{max}}",
-          troubleshooting: {
-            title: "助けが必要ですか？",
-            description:
-              "問題が発生した場合は、ログをエクスポートしてバグレポートに含めてください。これにより、問題をより迅速にデバッグできます。"
-          },
-          crashApp: "アプリをクラッシュ (テスト)",
-          confirmCrash:
-            "これはエラー境界をテストするためにアプリケーションをクラッシュさせます。よろしいですか？",
-          manualCrashError: "開発者設定からの手動クラッシュテスト"
         },
         errorBoundary: {
           title: "問題が発生しました",
@@ -7685,6 +7480,12 @@ export const resources = {
           item_count: "{{count}} 項目",
           item_count_plural: "{{count}} 項目",
           reset_button: "リセット"
+        },
+        sections: {
+          app: "アプリ",
+          ai_models: "AI・モデル",
+          customize: "カスタマイズ",
+          system: "システム"
         }
       },
       guides: {
@@ -8512,7 +8313,6 @@ export const resources = {
           extraction: "Извлечение",
           embeddings: "Эмбеддинги",
           voices: "Голоса",
-          developer: "Разработчик",
           reset: "Сброс",
           guides: "Руководства",
           memory: "Память",
@@ -8575,40 +8375,6 @@ export const resources = {
             high: "Высоко",
             very_high: "Очень высоко"
           }
-        },
-        developer: {
-          title: "Настройки разработчика",
-          description: "Настройка параметров логирования и отладки",
-          logLevel: "Уровень логирования",
-          logLevelDescription:
-            "Установите минимальный уровень логов для захвата. Более низкие уровни показывают больше деталей.",
-          enableLogger: "Включить логирование",
-          enableLoggerDescription:
-            "Отключите логирование для улучшения производительности при возникновении проблем",
-          persistLogs: "Сохранять логи в IndexedDB",
-          persistLogsDescription:
-            "Сохранять логи в IndexedDB для сохранения после перезапуска браузера (рекомендуется)",
-          levels: {
-            error: "Только ошибки",
-            warn: "Предупреждение",
-            info: "Инфо (По умолчанию)",
-            verbose: "Подробно",
-            debug: "Отладка (Все)"
-          },
-          viewLogs: "Просмотреть логи",
-          exportLogs: "Экспорт логов",
-          clearLogs: "Очистить логи",
-          confirmClear: "Вы уверены, что хотите очистить все логи?",
-          bufferSize: "Буфер логов: {{current}} / {{max}} записей",
-          troubleshooting: {
-            title: "Нужна помощь?",
-            description:
-              "Если вы столкнулись с проблемами, экспортируйте логи и приложите их к отчету об ошибке. Это поможет нам быстрее решить проблему."
-          },
-          crashApp: "Сбой приложения (Тест)",
-          confirmCrash:
-            "Это вызовет сбой приложения для проверки Error Boundary. Вы уверены?",
-          manualCrashError: "Ручной тест сбоя из настроек разработчика"
         },
         errorBoundary: {
           title: "Что-то пошло не так",
@@ -8784,6 +8550,12 @@ export const resources = {
           item_count: "{{count}} элемент",
           item_count_plural: "{{count}} элементов",
           reset_button: "Сброс"
+        },
+        sections: {
+          app: "Приложение",
+          ai_models: "ИИ и Модели",
+          customize: "Настройки",
+          system: "Система"
         }
       },
       guides: {
@@ -9568,7 +9340,6 @@ export const resources = {
           extraction: "提取",
           embeddings: "嵌入",
           voices: "声音",
-          developer: "开发者",
           reset: "重置",
           guides: "指南",
           memory: "记忆",
@@ -9625,39 +9396,6 @@ export const resources = {
             high: "高",
             very_high: "非常高"
           }
-        },
-        developer: {
-          title: "开发者设置",
-          description: "配置日志记录和调试选项",
-          logLevel: "日志级别",
-          logLevelDescription:
-            "设置要捕获的最低日志级别。较低的级别显示更多详细信息。",
-          enableLogger: "启用日志记录",
-          enableLoggerDescription:
-            "如果在遇到问题时，可以关闭日志记录以提高性能",
-          persistLogs: "将日志保存到 IndexedDB",
-          persistLogsDescription:
-            "将日志存储在 IndexedDB 中，以便在浏览器重新启动后仍然保留（推荐）",
-          levels: {
-            error: "仅错误",
-            warn: "警告",
-            info: "信息 (默认)",
-            verbose: "详细",
-            debug: "调试 (所有)"
-          },
-          viewLogs: "查看日志",
-          exportLogs: "导出日志",
-          clearLogs: "清除日志",
-          confirmClear: "您确定要清除所有日志吗？",
-          bufferSize: "日志缓冲区: {{current}} / {{max}} 条目",
-          troubleshooting: {
-            title: "需要帮助？",
-            description:
-              "如果您遇到问题，请导出日志并将其包含在您的错误报告中。这有助于我们更快地调试您的问题。"
-          },
-          crashApp: "崩溃应用 (测试)",
-          confirmCrash: "这将导致应用程序崩溃以测试错误边界。您确定吗？",
-          manualCrashError: "来自开发者设置的手动崩溃测试"
         },
         errorBoundary: {
           title: "出错了",
@@ -9820,6 +9558,12 @@ export const resources = {
           item_count: "{{count}} 个项目",
           item_count_plural: "{{count}} 个项目",
           reset_button: "重置"
+        },
+        sections: {
+          app: "应用",
+          ai_models: "AI 和模型",
+          customize: "自定义",
+          system: "系统"
         }
       },
       guides: {

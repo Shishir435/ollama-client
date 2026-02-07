@@ -706,7 +706,8 @@
       "reset": "リセット",
       "guides": "ガイド",
       "memory": "メモリ",
-      "shortcuts": "ショートカット"
+      "shortcuts": "ショートカット",
+      "providers": "プロバイダー"
     },
     "errorBoundary": {
       "title": "問題が発生しました",
@@ -919,6 +920,11 @@
       "ai_models": "AI・モデル",
       "customize": "カスタマイズ",
       "system": "システム"
+    },
+    "providers": {
+      "default": "デフォルト",
+      "enabled": "有効",
+      "disabled": "無効"
     }
   },
   "guides": {

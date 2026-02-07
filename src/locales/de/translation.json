@@ -707,7 +707,8 @@
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
-      "shortcuts": "Tastaturkürzel"
+      "shortcuts": "Tastaturkürzel",
+      "providers": "Anbieter"
     },
     "memory": {
       "title": "Kontextuelles Gedächtnis",
@@ -920,6 +921,11 @@
       "ai_models": "KI & Modelle",
       "customize": "Anpassen",
       "system": "System"
+    },
+    "providers": {
+      "default": "Standard",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert"
     }
   },
   "guides": {

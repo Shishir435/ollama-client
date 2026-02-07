@@ -707,7 +707,8 @@
       "reset": "Réinitialiser",
       "guides": "Guides",
       "memory": "Mémoire",
-      "shortcuts": "Raccourcis"
+      "shortcuts": "Raccourcis",
+      "providers": "Fournisseurs"
     },
     "errorBoundary": {
       "title": "Une erreur est survenue",
@@ -920,6 +921,11 @@
       "ai_models": "IA et Modèles",
       "customize": "Personnaliser",
       "system": "Système"
+    },
+    "providers": {
+      "default": "Par défaut",
+      "enabled": "Activé",
+      "disabled": "Désactivé"
     }
   },
   "guides": {

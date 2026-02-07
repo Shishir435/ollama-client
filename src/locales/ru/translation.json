@@ -708,7 +708,8 @@
       "reset": "Сброс",
       "guides": "Руководства",
       "memory": "Память",
-      "shortcuts": "Горячие клавиши"
+      "shortcuts": "Горячие клавиши",
+      "providers": "Провайдеры"
     },
     "memory": {
       "title": "Контекстная память",
@@ -921,6 +922,11 @@
       "ai_models": "ИИ и Модели",
       "customize": "Настройки",
       "system": "Система"
+    },
+    "providers": {
+      "default": "По умолчанию",
+      "enabled": "Включено",
+      "disabled": "Отключено"
     }
   },
   "guides": {

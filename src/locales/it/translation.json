@@ -707,7 +707,8 @@
       "reset": "Reset",
       "guides": "Guide",
       "memory": "Memoria",
-      "shortcuts": "Scorciatoie"
+      "shortcuts": "Scorciatoie",
+      "providers": "Provider"
     },
     "memory": {
       "title": "Memoria Contestuale",
@@ -920,6 +921,11 @@
       "ai_models": "IA e Modelli",
       "customize": "Personalizza",
       "system": "Sistema"
+    },
+    "providers": {
+      "default": "Predefinito",
+      "enabled": "Abilitato",
+      "disabled": "Disabilitato"
     }
   },
   "guides": {

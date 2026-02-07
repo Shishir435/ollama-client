@@ -706,7 +706,8 @@
       "reset": "रीसेट करें",
       "guides": "गाइड",
       "memory": "मेमोरी",
-      "shortcuts": "शॉर्टकट"
+      "shortcuts": "शॉर्टकट",
+      "providers": "प्रदाता"
     },
     "memory": {
       "title": "प्रासंगिक मेमोरी",
@@ -919,6 +920,11 @@
       "ai_models": "AI और मॉडल",
       "customize": "अनुकूलित करें",
       "system": "सिस्टम"
+    },
+    "providers": {
+      "default": "डिफ़ॉल्ट",
+      "enabled": "सक्रिय",
+      "disabled": "निष्क्रिय"
     }
   },
   "guides": {
