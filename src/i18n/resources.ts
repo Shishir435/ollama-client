@@ -2080,7 +2080,12 @@ export const resources = {
             confirm: "Delete"
           },
           created_at: "Created {{date}}",
-          used_times: "Used {{count}} times"
+          used_times: "Used {{count}} times",
+          empty_state: {
+            title: "No templates found",
+            description: "Try adjusting your search or filter criteria"
+          },
+          no_description: "No description"
         },
         reset: {
           title: "Reset Settings",

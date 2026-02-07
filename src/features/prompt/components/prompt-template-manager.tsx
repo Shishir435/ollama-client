@@ -1,6 +1,12 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
+import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -9,10 +15,13 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
-import { FileText, Search } from "@/lib/lucide-icon"
+import { ChevronDown, FileText, Plus, Search } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateActions } from "./prompt-template-actions"
+import { PromptTemplateForm } from "./prompt-template-form"
 import { PromptTemplateList } from "./prompt-template-list"
 
 export const PromptTemplateManager = () => {
@@ -28,7 +37,8 @@ export const PromptTemplateManager = () => {
     getCategories
   } = usePromptTemplates()
 
-  const [activeTab, setActiveTab] = useState("new")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "alphabetical">(
@@ -68,7 +78,22 @@ export const PromptTemplateManager = () => {
     template: Omit<PromptTemplate, "createdAt" | "usageCount">
   ) => {
     addTemplate(template)
-    setActiveTab(template.id)
+    setShowCreateForm(false)
+    setExpandedId(template.id)
+  }
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id))
+    if (showCreateForm) {
+      setShowCreateForm(false)
+    }
+  }
+
+  const handleToggleCreateForm = () => {
+    setShowCreateForm((prev) => !prev)
+    if (expandedId) {
+      setExpandedId(null)
+    }
   }
 
   const handleExport = () => {
@@ -90,15 +115,48 @@ export const PromptTemplateManager = () => {
         title={t("settings.prompts.title")}
         description={t("settings.prompts.description", {
           count: templates?.length || 0
-        })}>
-        <div className="-mt-2 flex justify-end">
-          <PromptTemplateActions
-            onExport={handleExport}
-            onImport={importTemplates}
-            onReset={resetToDefaults}
-          />
-        </div>
-        <div className="mt-4 flex gap-4">
+        })}
+        headerActions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showCreateForm ? "secondary" : "default"}
+              size="sm"
+              onClick={handleToggleCreateForm}
+              className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              {t("settings.prompts.new_template")}
+            </Button>
+            <PromptTemplateActions
+              onExport={handleExport}
+              onImport={importTemplates}
+              onReset={resetToDefaults}
+            />
+          </div>
+        }>
+        {/* Create Form Collapsible */}
+        <Collapsible open={showCreateForm} onOpenChange={setShowCreateForm}>
+          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <div className="rounded-lg border border-primary/20 bg-accent/5 p-4">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="mb-4 flex w-full items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      showCreateForm && "rotate-180"
+                    )}
+                  />
+                  {t("settings.prompts.new_template")}
+                </button>
+              </CollapsibleTrigger>
+              <PromptTemplateForm onSubmit={handleAddTemplate} />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Toolbar */}
+        <div className="flex gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
             <Input
@@ -149,14 +207,28 @@ export const PromptTemplateManager = () => {
           </Select>
         </div>
 
-        <PromptTemplateList
-          templates={filteredTemplates}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onAddTemplate={handleAddTemplate}
-          onUpdateTemplate={updateTemplate}
-          onDeleteTemplate={deleteTemplate}
-        />
+        <Separator />
+
+        {/* Template List or Empty State */}
+        {filteredTemplates.length > 0 ? (
+          <PromptTemplateList
+            templates={filteredTemplates}
+            expandedId={expandedId}
+            onToggleExpand={handleToggleExpand}
+            onUpdateTemplate={updateTemplate}
+            onDeleteTemplate={deleteTemplate}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              {t("settings.prompts.empty_state.title")}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/60">
+              {t("settings.prompts.empty_state.description")}
+            </p>
+          </div>
+        )}
       </SettingsCard>
     </div>
   )
