@@ -2,10 +2,9 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, ToggleRow } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
@@ -63,19 +62,13 @@ export const MemorySettings = () => {
       description={t("settings.memory.description")}
       badge={t("settings.memory.beta_badge")}
       contentClassName="space-y-6">
-      <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="memory-toggle" className="flex flex-col space-y-1">
-          <span>{t("settings.memory.enable.label")}</span>
-          <span className="font-normal text-xs text-muted-foreground">
-            {t("settings.memory.enable.description")}
-          </span>
-        </Label>
-        <Switch
-          id="memory-toggle"
-          checked={isEnabled}
-          onCheckedChange={setIsEnabled}
-        />
-      </div>
+      <ToggleRow
+        id="memory-toggle"
+        label={t("settings.memory.enable.label")}
+        description={t("settings.memory.enable.description")}
+        checked={isEnabled}
+        onCheckedChange={setIsEnabled}
+      />
 
       <div className="flex items-center justify-between border-t pt-4">
         <div className="space-y-1">

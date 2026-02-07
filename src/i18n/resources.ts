@@ -794,7 +794,8 @@ export const resources = {
           reset: "Zurücksetzen",
           guides: "Anleitungen",
           memory: "Gedächtnis",
-          shortcuts: "Tastaturkürzel"
+          shortcuts: "Tastaturkürzel",
+          providers: "Anbieter"
         },
         memory: {
           title: "Kontextuelles Gedächtnis",
@@ -1038,6 +1039,11 @@ export const resources = {
           ai_models: "KI & Modelle",
           customize: "Anpassen",
           system: "System"
+        },
+        providers: {
+          default: "Standard",
+          enabled: "Aktiviert",
+          disabled: "Deaktiviert"
         }
       },
       guides: {
@@ -2114,6 +2120,11 @@ export const resources = {
           item_count: "{{count}} item",
           item_count_plural: "{{count}} items",
           reset_button: "Reset"
+        },
+        providers: {
+          default: "Default",
+          enabled: "Enabled",
+          disabled: "Disabled"
         }
       },
       guides: {
@@ -2958,7 +2969,8 @@ export const resources = {
           reset: "Restablecer",
           guides: "Guías",
           memory: "Memoria",
-          shortcuts: "Atajos"
+          shortcuts: "Atajos",
+          providers: "Proveedores"
         },
         errorBoundary: {
           title: "Algo salió mal",
@@ -3199,6 +3211,11 @@ export const resources = {
           ai_models: "IA y Modelos",
           customize: "Personalizar",
           system: "Sistema"
+        },
+        providers: {
+          default: "Predeterminado",
+          enabled: "Habilitado",
+          disabled: "Deshabilitado"
         }
       },
       guides: {
@@ -4044,7 +4061,8 @@ export const resources = {
           reset: "Réinitialiser",
           guides: "Guides",
           memory: "Mémoire",
-          shortcuts: "Raccourcis"
+          shortcuts: "Raccourcis",
+          providers: "Fournisseurs"
         },
         errorBoundary: {
           title: "Une erreur est survenue",
@@ -4287,6 +4305,11 @@ export const resources = {
           ai_models: "IA et Modèles",
           customize: "Personnaliser",
           system: "Système"
+        },
+        providers: {
+          default: "Par défaut",
+          enabled: "Activé",
+          disabled: "Désactivé"
         }
       },
       guides: {
@@ -5102,7 +5125,8 @@ export const resources = {
           reset: "रीसेट करें",
           guides: "गाइड",
           memory: "मेमोरी",
-          shortcuts: "शॉर्टकट"
+          shortcuts: "शॉर्टकट",
+          providers: "प्रदाता"
         },
         memory: {
           title: "प्रासंगिक मेमोरी",
@@ -5338,6 +5362,11 @@ export const resources = {
           ai_models: "AI और मॉडल",
           customize: "अनुकूलित करें",
           system: "सिस्टम"
+        },
+        providers: {
+          default: "डिफ़ॉल्ट",
+          enabled: "सक्रिय",
+          disabled: "निष्क्रिय"
         }
       },
       guides: {
@@ -6177,7 +6206,8 @@ export const resources = {
           reset: "Reset",
           guides: "Guide",
           memory: "Memoria",
-          shortcuts: "Scorciatoie"
+          shortcuts: "Scorciatoie",
+          providers: "Provider"
         },
         memory: {
           title: "Memoria Contestuale",
@@ -6420,6 +6450,11 @@ export const resources = {
           ai_models: "IA e Modelli",
           customize: "Personalizza",
           system: "Sistema"
+        },
+        providers: {
+          default: "Predefinito",
+          enabled: "Abilitato",
+          disabled: "Disabilitato"
         }
       },
       guides: {
@@ -7247,7 +7282,8 @@ export const resources = {
           reset: "リセット",
           guides: "ガイド",
           memory: "メモリ",
-          shortcuts: "ショートカット"
+          shortcuts: "ショートカット",
+          providers: "プロバイダー"
         },
         errorBoundary: {
           title: "問題が発生しました",
@@ -7486,6 +7522,11 @@ export const resources = {
           ai_models: "AI・モデル",
           customize: "カスタマイズ",
           system: "システム"
+        },
+        providers: {
+          default: "デフォルト",
+          enabled: "有効",
+          disabled: "無効"
         }
       },
       guides: {
@@ -8316,7 +8357,8 @@ export const resources = {
           reset: "Сброс",
           guides: "Руководства",
           memory: "Память",
-          shortcuts: "Горячие клавиши"
+          shortcuts: "Горячие клавиши",
+          providers: "Провайдеры"
         },
         memory: {
           title: "Контекстная память",
@@ -8556,6 +8598,11 @@ export const resources = {
           ai_models: "ИИ и Модели",
           customize: "Настройки",
           system: "Система"
+        },
+        providers: {
+          default: "По умолчанию",
+          enabled: "Включено",
+          disabled: "Отключено"
         }
       },
       guides: {
@@ -9343,7 +9390,8 @@ export const resources = {
           reset: "重置",
           guides: "指南",
           memory: "记忆",
-          shortcuts: "快捷键"
+          shortcuts: "快捷键",
+          providers: "服务商"
         },
         memory: {
           title: "上下文记忆",
@@ -9564,6 +9612,11 @@ export const resources = {
           ai_models: "AI 和模型",
           customize: "自定义",
           system: "系统"
+        },
+        providers: {
+          default: "默认",
+          enabled: "已启用",
+          disabled: "已禁用"
         }
       },
       guides: {
