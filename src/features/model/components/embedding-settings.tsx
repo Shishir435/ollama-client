@@ -63,7 +63,14 @@ export const EmbeddingSettings = () => {
         const response = (await browser.runtime.sendMessage({
           type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
           payload: currentModel
-        })) as ChromeResponse & { data?: { exists?: boolean } }
+        })) as ChromeResponse & { data?: { exists?: boolean; debug?: any } }
+
+        if (response?.data?.debug) {
+          console.log(
+            `[EmbeddingSettings] Check debug for ${currentModel}:`,
+            response.data.debug
+          )
+        }
 
         if (response?.success === true && response.data?.exists === true) {
           setModelExists(true)
