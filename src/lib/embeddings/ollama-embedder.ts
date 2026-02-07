@@ -126,7 +126,10 @@ export const generateEmbedding = async (
       DEFAULT_EMBEDDING_MODEL
 
     const { ProviderFactory } = await import("@/lib/providers/factory")
-    const provider = await ProviderFactory.getProviderForModel(selectedModel)
+    const { ProviderId } = await import("@/lib/providers/types")
+
+    // Enforce Ollama for embeddings regardless of what the model mapping says
+    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
 
     if (!provider.embed) {
       throw new Error(

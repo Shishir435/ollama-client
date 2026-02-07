@@ -28,6 +28,11 @@ vi.mock("@/lib/providers/factory", () => ({
       Promise.resolve({
         embed: (...args: unknown[]) => mockEmbed(...args)
       })
+    ),
+    getProvider: vi.fn(() =>
+      Promise.resolve({
+        embed: (...args: unknown[]) => mockEmbed(...args)
+      })
     )
   }
 }))

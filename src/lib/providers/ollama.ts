@@ -17,9 +17,14 @@ export class OllamaProvider implements LLMProvider {
   constructor(public config: ProviderConfig) {}
 
   async getModels(): Promise<string[]> {
-    const baseUrl = this.config.baseUrl || "http://localhost:11434"
     try {
-      const response = await fetch(`${baseUrl}/api/tags`)
+      if (!this.config.baseUrl) {
+        return []
+      }
+      console.log(
+        `[OllamaProvider] Fetching models from ${this.config.baseUrl}`
+      )
+      const response = await fetch(`${this.config.baseUrl}/api/tags`)
       if (!response.ok) return []
       const data = await response.json()
       return (data.models as { name: string }[])?.map((m) => m.name) || []

@@ -63,7 +63,7 @@ export const EmbeddingSettings = () => {
         const response = (await browser.runtime.sendMessage({
           type: MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL,
           payload: currentModel
-        })) as ChromeResponse & { data?: { exists?: boolean; debug?: any } }
+        })) as ChromeResponse & { data?: { exists?: boolean; debug?: object } }
 
         if (response?.data?.debug) {
           console.log(
@@ -160,7 +160,7 @@ export const EmbeddingSettings = () => {
                           (m) =>
                             !["mxbai-embed-large", "nomic-embed-text"].includes(
                               m.name
-                            )
+                            ) && m.providerId === "ollama"
                         )
                         .map((model) => (
                           <SelectItem

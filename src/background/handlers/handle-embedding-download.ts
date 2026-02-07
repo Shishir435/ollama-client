@@ -9,13 +9,16 @@ import type { OllamaPullRequest } from "@/types"
  */
 export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
-): Promise<{ exists: boolean; debug?: any }> => {
-  let providerDebug: any = null
+): Promise<{ exists: boolean; debug?: object }> => {
+  let providerDebug: object | null = null
 
   // Try High-Level Provider Check
   try {
     const { ProviderFactory } = await import("@/lib/providers/factory")
-    const provider = await ProviderFactory.getProviderForModel(modelName)
+    const { ProviderId } = await import("@/lib/providers/types")
+
+    // Enforce Ollama for embedding checks
+    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
 
     if (provider) {
       const models = await provider.getModels()
@@ -104,7 +107,7 @@ export const checkEmbeddingModelExists = async (
         ...providerDebug,
         fallback: {
           found,
-          models: ollamaModels.map((m: any) => m.name),
+          models: ollamaModels.map((m: { name: string }) => m.name),
           method: "fallback"
         }
       }

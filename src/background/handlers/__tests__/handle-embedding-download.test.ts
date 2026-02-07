@@ -23,6 +23,10 @@ vi.mock("@/lib/providers/factory", () => ({
     getProviderForModel: vi.fn().mockResolvedValue({
       getModels: mockGetModels,
       config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
+    }),
+    getProvider: vi.fn().mockResolvedValue({
+      getModels: mockGetModels,
+      config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
     })
   }
 }))
