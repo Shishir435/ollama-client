@@ -704,33 +704,10 @@
       "extraction": "Extraction",
       "embeddings": "Incrustations",
       "voices": "Voix",
-      "developer": "Développeur",
       "reset": "Réinitialiser",
       "guides": "Guides",
       "memory": "Mémoire",
       "shortcuts": "Raccourcis"
-    },
-    "developer": {
-      "title": "Paramètres Développeur",
-      "description": "Configurer les options de journalisation et de débogage",
-      "logLevel": "Niveau de Journalisation",
-      "logLevelDescription": "Définir le niveau minimum de journaux à capturer.",
-      "enableLogger": "Activer la Journalisation",
-      "enableLoggerDescription": "Désactiver pour améliorer les performances si nécessaire",
-      "persistLogs": "Persister les journaux dans IndexedDB",
-      "persistLogsDescription": "Stockez les journaux pour la persistance (recommandé)",
-      "viewLogs": "Voir les Logs",
-      "exportLogs": "Exporter les Logs",
-      "clearLogs": "Effacer les Logs",
-      "confirmClear": "Êtes-vous sûr de vouloir effacer tous les journaux ?",
-      "bufferSize": "Tampon: {{current}} / {{max}}",
-      "troubleshooting": {
-        "title": "Besoin d'aide ?",
-        "description": "Si vous rencontrez des problèmes, exportez les journaux et incluez-les dans votre rapport de bogue. Cela nous aide à déboguer votre problème plus rapidement."
-      },
-      "crashApp": "Planter l'app (Test)",
-      "confirmCrash": "Ceci fera planter l'application pour tester la gestion des erreurs via Error Boundary. Êtes-vous sûr ?",
-      "manualCrashError": "Test de plantage manuel depuis les paramètres développeur"
     },
     "errorBoundary": {
       "title": "Une erreur est survenue",
@@ -937,6 +914,12 @@
       "item_count": "{{count}} élément",
       "item_count_plural": "{{count}} éléments",
       "reset_button": "Réinitialiser"
+    },
+    "sections": {
+      "app": "Application",
+      "ai_models": "IA et Modèles",
+      "customize": "Personnaliser",
+      "system": "Système"
     }
   },
   "guides": {

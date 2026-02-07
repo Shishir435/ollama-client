@@ -191,7 +191,6 @@ export const ModelSettingsForm = () => {
           <ModelInfo selectedModel={selectedModel} />
           <LoadedModelsInfo />
         </SettingsCard>
-        <ProviderSettings />
         <ModelSystemSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
       </div>

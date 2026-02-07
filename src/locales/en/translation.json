@@ -719,7 +719,6 @@
       "embeddings": "Embeddings",
       "providers": "Providers",
       "voices": "Voices",
-      "developer": "Developer",
       "reset": "Reset",
       "guides": "Guides",
       "memory": "Memory",
@@ -748,6 +747,12 @@
       "title": "Ollama Client Settings",
       "description": "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Guides tab."
     },
+    "sections": {
+      "app": "App",
+      "ai_models": "AI & Models",
+      "customize": "Customize",
+      "system": "System"
+    },
     "speech": {
       "title": "Speech Settings",
       "description": "Configure your text-to-speech voice, speed, and tone settings.",
@@ -774,44 +779,6 @@
         "normal": "Normal",
         "high": "High",
         "very_high": "Very High"
-      }
-    },
-    "developer": {
-      "title": "Developer Settings",
-      "description": "Configure logging and debugging options",
-      "logLevel": "Log Level",
-      "logLevelDescription": "Set the minimum level of logs to capture. Lower levels show more detail.",
-      "enableLogger": "Enable Logging",
-      "enableLoggerDescription": "Turn off logging to improve performance if experiencing issues",
-      "persistLogs": "Persist Logs to IndexedDB",
-      "persistLogsDescription": "Store logs in IndexedDB for persistence across browser restarts (recommended)",
-      "levels": {
-        "error": "Error Only",
-        "warn": "Warning",
-        "info": "Info (Default)",
-        "verbose": "Verbose",
-        "debug": "Debug (All)"
-      },
-      "viewLogs": "View Logs",
-      "exportLogs": "Export Logs",
-      "clearLogs": "Clear Logs",
-      "confirmClear": "Are you sure you want to clear all logs?",
-      "bufferSize": "Log buffer: {{current}} / {{max}} entries",
-      "troubleshooting": {
-        "title": "Need Help?",
-        "description": "If you're experiencing issues, export logs and include them in your bug report. This helps us debug your problem faster."
-      },
-      "crashApp": "Crash App (Test)",
-      "confirmCrash": "This will crash the application to test the Error Boundary. Are you sure?",
-      "manualCrashError": "Manual Crash Test from Developer Settings",
-      "logViewer": {
-        "title": "Log Viewer",
-        "description": "Showing {{count}} of {{total}} logs",
-        "search": "Search logs...",
-        "allLevels": "All Levels",
-        "noLogs": "No logs to display",
-        "showData": "Show additional data",
-        "close": "Close"
       }
     },
     "embeddings": {
@@ -1008,7 +975,6 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred. We've logged this issue internally.",
-    "exportLogs": "Export Logs",
     "reload": "Reload"
   }
 }

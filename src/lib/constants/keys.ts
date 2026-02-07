@@ -96,9 +96,5 @@ export const STORAGE_KEYS = {
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics"
   },
-  SHORTCUTS: "keyboard-shortcuts",
-  LOGGER: {
-    LEVEL: "logger-level",
-    BUFFER_SIZE: "logger-buffer-size"
-  }
+  SHORTCUTS: "keyboard-shortcuts"
 }

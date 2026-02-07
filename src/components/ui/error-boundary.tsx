@@ -1,4 +1,4 @@
-import { AlertCircle, Download, RefreshCw } from "lucide-react"
+import { AlertCircle, RefreshCw } from "lucide-react"
 import React, { Component, type ReactNode } from "react"
 import { type WithTranslation, withTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -41,25 +41,6 @@ class ErrorBoundaryBase extends Component<Props, State> {
     window.location.reload()
   }
 
-  private handleExportLogs = async () => {
-    try {
-      const logs = await logger.exportLogs()
-      const blob = new Blob([JSON.stringify(logs, null, 2)], {
-        type: "application/json"
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `ollama-client-crash-logs-${new Date().toISOString()}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (e) {
-      console.error("Failed to export logs from error boundary", e)
-    }
-  }
-
   public render() {
     const { t } = this.props
 
@@ -83,14 +64,7 @@ class ErrorBoundaryBase extends Component<Props, State> {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={this.handleExportLogs}>
-                <Download className="w-4 h-4 mr-2" />
-                {t("errorBoundary.exportLogs")}
-              </Button>
+            <CardFooter>
               <Button
                 variant="default"
                 className="w-full sm:w-auto"
