@@ -1946,6 +1946,7 @@ export const resources = {
           models: "Models",
           extraction: "Extraction",
           embeddings: "Embeddings",
+          providers: "Providers",
           voices: "Voices",
           developer: "Developer",
           reset: "Reset",
