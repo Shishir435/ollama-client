@@ -18,7 +18,6 @@ import { SpeechSettings } from "@/features/chat/components/speech-settings"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
-import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
@@ -49,10 +48,6 @@ export const SettingsPage = () => {
     templates: {
       label: t("settings.tabs.prompts"),
       content: <PromptTemplateManager />
-    },
-    modelPull: {
-      label: t("settings.tabs.models"),
-      content: <ModelPullPanel />
     },
     contentExtraction: {
       label: t("settings.tabs.extraction"),
