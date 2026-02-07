@@ -1,6 +1,6 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
-  CANONICAL_EMBEDDING_MODEL,
+  CANONICAL_OLLAMA_EMBEDDING_MODEL,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   FILE_UPLOAD
@@ -87,7 +87,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   embeddingStrategy: "auto",
-  sharedEmbeddingModel: CANONICAL_EMBEDDING_MODEL,
+  sharedEmbeddingModel: CANONICAL_OLLAMA_EMBEDDING_MODEL,
   sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   warmupEmbeddingsInBackground: true,
   useWebWorker: true, // Offload to worker thread

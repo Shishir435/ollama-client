@@ -1,6 +1,5 @@
 import { browser } from "@/lib/browser-api"
 import {
-  CANONICAL_EMBEDDING_MODEL,
   CANONICAL_OLLAMA_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
@@ -58,13 +57,16 @@ const normalizeModelForProvider = (
   const normalized = model.trim()
 
   if (providerId === ProviderId.OLLAMA) {
-    if (normalized.toLowerCase() === CANONICAL_EMBEDDING_MODEL.toLowerCase()) {
+    if (
+      normalized.toLowerCase() ===
+      CANONICAL_OLLAMA_EMBEDDING_MODEL.toLowerCase()
+    ) {
       return CANONICAL_OLLAMA_EMBEDDING_MODEL
     }
   } else if (
     normalized.toLowerCase() === CANONICAL_OLLAMA_EMBEDDING_MODEL.toLowerCase()
   ) {
-    return CANONICAL_EMBEDDING_MODEL
+    return CANONICAL_OLLAMA_EMBEDDING_MODEL
   }
 
   return normalized
@@ -178,7 +180,8 @@ const buildAttempts = async (
   const activeProvider = await getActiveProvider()
   const sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-  const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+  const sharedModel =
+    config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
 
   const providerNativeModel = normalizeModelForProvider(
@@ -249,7 +252,8 @@ export const getEmbeddingCapabilities =
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-    const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+    const sharedModel =
+      config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
 
     let sharedProviderAvailable = false
     try {
@@ -328,7 +332,7 @@ export const ensureEmbeddingStrategyReady =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
     const sharedModel = normalizeModelForProvider(
       sharedProviderId,
-      config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+      config.sharedEmbeddingModel || CANONICAL_OLLAMA_EMBEDDING_MODEL
     )
 
     if (!config.warmupEmbeddingsInBackground) {
