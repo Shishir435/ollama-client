@@ -224,6 +224,12 @@ export const resources = {
         },
         message: {
           loading: "Lädt..."
+        },
+        errors: {
+          unknown_error: "❌ Unbekannter Fehler: {{message}}",
+          no_message: "Keine Nachricht",
+          response_failed_title: "Antwortgenerierung fehlgeschlagen",
+          unknown_error_description: "Ein unbekannter Fehler ist aufgetreten"
         }
       },
       file_upload: {
@@ -414,7 +420,37 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "Erweiterte Abrufeinstellungen",
+          adaptive_weights_label: "Adaptive Hybrid-Gewichtung",
+          adaptive_weights_description:
+            "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
+          temporal_boosting_label: "Zeitliche Relevanzverstärkung",
+          temporal_boosting_description:
+            "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
+          reranking_label: "Re-Ranking aktivieren (Transformers.js)",
+          reranking_description:
+            "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
+          hybrid_search_label: "Hybrid-Suche aktivieren",
+          hybrid_search_description:
+            "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",
+          keyword_weight_label: "Stichwort-Gewichtung",
+          keyword_weight_description:
+            "Balance zwischen Stichwort (BM25) und semantischer Suche.",
+          diversity_settings_title: "Diversitätseinstellungen",
+          mmr_label: "MMR-Diversität aktivieren",
+          mmr_description:
+            "Maximal Marginal Relevance reduziert Redundanz in den Suchergebnissen.",
+          diversity_lambda_label: "Diversitäts-Lambda",
+          diversity_lambda_description:
+            "Niedrigere Werte priorisieren Diversität, höhere Werte priorisieren Relevanz.",
+          quality_settings_title: "Filterung der Inhaltsqualität",
+          exclude_casual_label: "Beiläufige Nachrichten ausschließen",
+          exclude_casual_description:
+            "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
+          min_quality_score_label: "Mindest-Qualitätsfaktor",
+          min_quality_score_description:
+            "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten."
         }
       },
       prompts: {
@@ -752,7 +788,9 @@ export const resources = {
           refresh_tooltip: "Modelldetails aktualisieren",
           capabilities: "Funktionen",
           technical_details: "Technische Details",
-          unknown_file_type: "Unbekannt"
+          unknown_file_type: "Unbekannt",
+          params_label: "Params",
+          context_label: "Kontext"
         },
         loaded_models: {
           title: "Geladene Modelle",
@@ -1314,6 +1352,12 @@ export const resources = {
         },
         message: {
           loading: "Loading..."
+        },
+        errors: {
+          unknown_error: "❌ Unknown error: {{message}}",
+          no_message: "No message",
+          response_failed_title: "Response Generation Failed",
+          unknown_error_description: "An unknown error occurred"
         }
       },
       file_upload: {
@@ -1503,7 +1547,57 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "Advanced Retrieval Settings",
+          adaptive_weights_label: "Adaptive Hybrid Weights",
+          adaptive_weights_description:
+            "Automatically adjust keyword vs. semantic search based on query type (e.g., code vs. concepts)",
+          temporal_boosting_label: "Temporal Relevance Boosting",
+          temporal_boosting_description:
+            "Prioritize newer documentation using exponential decay scoring",
+          reranking_label: "Enable Re-Ranking (Transformers.js)",
+          reranking_description:
+            "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+          hybrid_search_label: "Enable Hybrid Search",
+          hybrid_search_description:
+            "Combine keyword search (BM25) with semantic search for better recall.",
+          keyword_weight_label: "Keyword Weight",
+          keyword_weight_description:
+            "Balance between keyword (BM25) and semantic search.",
+          diversity_settings_title: "Diversity Settings",
+          mmr_label: "Enable MMR Diversity",
+          mmr_description:
+            "Maximal Marginal Relevance reduces redundancy in search results.",
+          diversity_lambda_label: "Diversity Lambda",
+          diversity_lambda_description:
+            "Lower values prioritize diversity, higher values prioritize relevance.",
+          quality_settings_title: "Content Quality Filtering",
+          exclude_casual_label: "Exclude Casual Messages",
+          exclude_casual_description:
+            "Filter out greetings, short responses, and low-information messages.",
+          min_quality_score_label: "Min Quality Score",
+          min_quality_score_description:
+            "Minimum quality threshold for embedding content (0-1). Higher values filter more aggressively.",
+          embedding_source_label: "Embedding Generation Source",
+          embedding_source_description:
+            "Embeddings are generated using your local Ollama server",
+          embedding_source_ollama: "Ollama (Local Server)",
+          feedback_learning_title: "User Feedback Learning",
+          feedback_learning_description:
+            "Improve search quality by learning from your feedback",
+          feedback_enable_label: "Enable Feedback Collection",
+          feedback_enable_description:
+            "Remember which chunks were helpful to improve future retrieval",
+          feedback_show_chunks_label: "Show Retrieved Chunks",
+          feedback_show_chunks_description:
+            "Display source chunks in chat with feedback buttons",
+          feedback_blend_weight_label: "Feedback Learning Weight",
+          feedback_blend_weight_description:
+            "How much to trust learned feedback vs model scores (0-1)",
+          feedback_export_button: "Export Feedback Data",
+          feedback_clear_button: "Clear All Feedback",
+          feedback_privacy_note:
+            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
         }
       },
       prompts: {
@@ -1833,7 +1927,9 @@ export const resources = {
           refresh_tooltip: "Refresh model details",
           capabilities: "Capabilities",
           technical_details: "Technical Details",
-          unknown_file_type: "Unknown"
+          unknown_file_type: "Unknown",
+          params_label: "Params",
+          context_label: "Ctx"
         },
         loaded_models: {
           title: "Loaded Models",
@@ -1850,6 +1946,7 @@ export const resources = {
           models: "Models",
           extraction: "Extraction",
           embeddings: "Embeddings",
+          providers: "Providers",
           voices: "Voices",
           developer: "Developer",
           reset: "Reset",
@@ -2033,7 +2130,9 @@ export const resources = {
             label: "Embedding Model",
             placeholder: "Select a model",
             description:
-              "Choose a model to generate embeddings. You may need to download it first."
+              "Choose a model to generate embeddings. You may need to download it first.",
+            recommended_group: "Recommended Models",
+            all_models_group: "All Models"
           }
         },
         prompts: {
@@ -2392,6 +2491,12 @@ export const resources = {
         },
         message: {
           loading: "Cargando..."
+        },
+        errors: {
+          unknown_error: "❌ Error desconocido: {{message}}",
+          no_message: "Sin mensaje",
+          response_failed_title: "Generación de respuesta fallida",
+          unknown_error_description: "Ocurrió un error desconocido"
         }
       },
       file_upload: {
@@ -2583,7 +2688,37 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "Configuración avanzada de recuperación",
+          adaptive_weights_label: "Pesos Híbridos Adaptativos",
+          adaptive_weights_description:
+            "Ajuste automático de búsqueda por palabras clave frente a semántica según el tipo de consulta (p. ej., código frente a conceptos)",
+          temporal_boosting_label: "Impulso de Relevancia Temporal",
+          temporal_boosting_description:
+            "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
+          reranking_label: "Habilitar Re-Ranking (Transformers.js)",
+          reranking_description:
+            "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
+          hybrid_search_label: "Habilitar búsqueda híbrida",
+          hybrid_search_description:
+            "Combine la búsqueda por palabras clave (BM25) con la búsqueda semántica para una mejor recuperación.",
+          keyword_weight_label: "Peso de palabra clave",
+          keyword_weight_description:
+            "Equilibrio entre palabra clave (BM25) y búsqueda semántica.",
+          diversity_settings_title: "Configuración de diversidad",
+          mmr_label: "Habilitar diversidad MMR",
+          mmr_description:
+            "La Relevancia Marginal Máxima reduce la redundancia en los resultados de búsqueda.",
+          diversity_lambda_label: "Lambda de diversidad",
+          diversity_lambda_description:
+            "Los valores más bajos priorizan la diversidad, los valores más altos priorizan la relevancia.",
+          quality_settings_title: "Filtrado de calidad de contenido",
+          exclude_casual_label: "Excluir mensajes casuales",
+          exclude_casual_description:
+            "Filtre saludos, respuestas cortas y mensajes de baja información.",
+          min_quality_score_label: "Puntuación de calidad mínima",
+          min_quality_score_description:
+            "Puntuación de calidad mínima (0-1) requerida para incrustar contenido."
         }
       },
       prompts: {
@@ -2921,7 +3056,9 @@ export const resources = {
           refresh_tooltip: "Actualizar detalles del modelo",
           capabilities: "Capacidades",
           technical_details: "Detalles Técnicos",
-          unknown_file_type: "Desconocido"
+          unknown_file_type: "Desconocido",
+          params_label: "Parám.",
+          context_label: "Cont."
         },
         loaded_models: {
           title: "Modelos Cargados",
@@ -3476,6 +3613,12 @@ export const resources = {
         },
         message: {
           loading: "Chargement..."
+        },
+        errors: {
+          unknown_error: "❌ Erreur inconnue : {{message}}",
+          no_message: "Aucun message",
+          response_failed_title: "Échec de la génération de la réponse",
+          unknown_error_description: "Une erreur inconnue est survenue"
         }
       },
       file_upload: {
@@ -3667,7 +3810,37 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "Paramètres de récupération avancés",
+          adaptive_weights_label: "Poids Hybrides Adaptatifs",
+          adaptive_weights_description:
+            "Ajustement automatique de la recherche par mots-clés vs sémantique selon le type de requête (ex: code vs concepts)",
+          temporal_boosting_label: "Renforcement de la Pertinence Temporelle",
+          temporal_boosting_description:
+            "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
+          reranking_label: "Activer le ré-classement (Transformers.js)",
+          reranking_description:
+            "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
+          hybrid_search_label: "Activer la recherche hybride",
+          hybrid_search_description:
+            "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",
+          keyword_weight_label: "Poids du mot-clé",
+          keyword_weight_description:
+            "Équilibre entre mot-clé (BM25) et recherche sémantique.",
+          diversity_settings_title: "Paramètres de diversité",
+          mmr_label: "Activer la diversité MMR",
+          mmr_description:
+            "La pertinence marginale maximale réduit la redondance dans les résultats de recherche.",
+          diversity_lambda_label: "Lambda de diversité",
+          diversity_lambda_description:
+            "Les valeurs inférieures privilégient la diversité, les valeurs supérieures privilégient la pertinence.",
+          quality_settings_title: "Filtrage de la qualité du contenu",
+          exclude_casual_label: "Exclure les messages occasionnels",
+          exclude_casual_description:
+            "Filtrez les salutations, les réponses courtes et les messages à faible information.",
+          min_quality_score_label: "Score de qualité minimum",
+          min_quality_score_description:
+            "Score de qualité minimum (0-1) requis pour intégrer le contenu."
         }
       },
       prompts: {
@@ -4010,7 +4183,9 @@ export const resources = {
           refresh_tooltip: "Actualiser les détails du modèle",
           capabilities: "Capacités",
           technical_details: "Détails Techniques",
-          unknown_file_type: "Inconnu"
+          unknown_file_type: "Inconnu",
+          params_label: "Param.",
+          context_label: "Ctx"
         },
         loaded_models: {
           title: "Modèles Chargés",
@@ -4561,6 +4736,12 @@ export const resources = {
         },
         message: {
           loading: "लोड हो रहा है..."
+        },
+        errors: {
+          unknown_error: "❌ अज्ञात त्रुटि: {{message}}",
+          no_message: "कोई संदेश नहीं",
+          response_failed_title: "प्रतिक्रिया जनरेशन विफल",
+          unknown_error_description: "एक अज्ञात त्रुटि उत्पन्न हुई"
         }
       },
       file_upload: {
@@ -4744,7 +4925,36 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "उन्नत पुनर्प्राप्ति सेटिंग्स",
+          adaptive_weights_label: "अनुकूली हाइब्रिड भार",
+          adaptive_weights_description:
+            "क्वेरी प्रकार (जैसे, कोड बनाम अवधारणाएं) के आधार पर कीवर्ड बनाम शब्दार्थ खोज को स्वचालित रूप से समायोजित करें",
+          temporal_boosting_label: "कालिक प्रासंगिकता बढ़ावा",
+          temporal_boosting_description:
+            "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
+          reranking_label: "री-रैंकिंग सक्षम करें (Transformers.js)",
+          reranking_description:
+            "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
+          hybrid_search_label: "हाइब्रिड खोज सक्षम करें",
+          hybrid_search_description:
+            "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
+          keyword_weight_label: "कीवर्ड भार",
+          keyword_weight_description: "कीवर्ड (BM25) और सिमेंटिक खोज के बीच संतुलन।",
+          diversity_settings_title: "विविधता सेटिंग्स",
+          mmr_label: "MMR विविधता सक्षम करें",
+          mmr_description:
+            "अधिकतम सीमांत प्रासंगिकता (MMR) खोज परिणामों में अतिरेक को कम करती है।",
+          diversity_lambda_label: "विविधता लैम्ब्डा",
+          diversity_lambda_description:
+            "कम मान विविधता को प्राथमिकता देते हैं, उच्च मान प्रासंगिकता को प्राथमिकता देते हैं।",
+          quality_settings_title: "सामग्री गुणवत्ता फ़िल्टरिंग",
+          exclude_casual_label: "आकस्मिक संदेशों को बाहर निकालें",
+          exclude_casual_description:
+            "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
+          min_quality_score_label: "न्यूनतम गुणवत्ता स्कोर",
+          min_quality_score_description:
+            "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।"
         }
       },
       prompts: {
@@ -5071,7 +5281,9 @@ export const resources = {
           refresh_tooltip: "मॉडल विवरण रिफ्रेश करें",
           capabilities: "क्षमताएँ",
           technical_details: "तकनीकी विवरण",
-          unknown_file_type: "अज्ञात"
+          unknown_file_type: "अज्ञात",
+          params_label: "पैरामीटर्स",
+          context_label: "संदर्भ"
         },
         loaded_models: {
           title: "लोड किए गए मॉडल",
@@ -5622,6 +5834,12 @@ export const resources = {
         },
         message: {
           loading: "Caricamento..."
+        },
+        errors: {
+          unknown_error: "❌ Errore sconosciuto: {{message}}",
+          no_message: "Nessun messaggio",
+          response_failed_title: "Generazione della risposta fallita",
+          unknown_error_description: "Si è verificato un errore sconosciuto"
         }
       },
       file_upload: {
@@ -5813,7 +6031,37 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "Impostazioni di Recupero Avanzate",
+          adaptive_weights_label: "Pesi Ibridi Adattivi",
+          adaptive_weights_description:
+            "Regolazione automatica della ricerca per parole chiave vs semantica in base al tipo di query (es. codice vs concetti)",
+          temporal_boosting_label: "Potenziamento Rilevanza Temporale",
+          temporal_boosting_description:
+            "Priorità alla documentazione più recente utilizzando il punteggio di decadimento esponenziale",
+          reranking_label: "Abilita Re-Ranking (Transformers.js)",
+          reranking_description:
+            "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
+          hybrid_search_label: "Abilita ricerca ibrida",
+          hybrid_search_description:
+            "Combina la ricerca per parole chiave (BM25) con la ricerca semantica per un miglior richiamo.",
+          keyword_weight_label: "Peso parola chiave",
+          keyword_weight_description:
+            "Bilanciamento tra parola chiave (BM25) e ricerca semantica.",
+          diversity_settings_title: "Impostazioni diversità",
+          mmr_label: "Abilita diversità MMR",
+          mmr_description:
+            "La Rilevanza Marginale Massima riduce la ridondanza nei risultati di ricerca.",
+          diversity_lambda_label: "Lambda diversità",
+          diversity_lambda_description:
+            "Valori più bassi privilegiano la diversità, valori più alti privilegiano la rilevanza.",
+          quality_settings_title: "Filtro qualità contenuto",
+          exclude_casual_label: "Escludi messaggi casuali",
+          exclude_casual_description:
+            "Filtra saluti, risposte brevi e messaggi con poche informazioni.",
+          min_quality_score_label: "Punteggio qualità minimo",
+          min_quality_score_description:
+            "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto."
         }
       },
       prompts: {
@@ -6152,7 +6400,9 @@ export const resources = {
           refresh_tooltip: "Aggiorna dettagli modello",
           capabilities: "Capacità",
           technical_details: "Dettagli Tecnici",
-          unknown_file_type: "Sconosciuto"
+          unknown_file_type: "Sconosciuto",
+          params_label: "Param.",
+          context_label: "Cont."
         },
         loaded_models: {
           title: "Modelli Caricati",
@@ -6709,6 +6959,12 @@ export const resources = {
         },
         message: {
           loading: "読み込み中..."
+        },
+        errors: {
+          unknown_error: "❌ 不明なエラー: {{message}}",
+          no_message: "メッセージなし",
+          response_failed_title: "応答の生成に失敗しました",
+          unknown_error_description: "不明なエラーが発生しました"
         }
       },
       file_upload: {
@@ -6898,7 +7154,37 @@ export const resources = {
             "Use retrieved context to answer questions about your files",
           rag_system_prompt_label: "RAG System Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+          advanced_retrieval_title: "高度な検索設定",
+          adaptive_weights_label: "適応型ハイブリッド重み付け",
+          adaptive_weights_description:
+            "クエリタイプ（例：コード対概念）に基づいて、キーワード検索とセマンティック検索を自動的に調整します",
+          temporal_boosting_label: "時間的関連性の向上",
+          temporal_boosting_description:
+            "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
+          reranking_label: "再ランク付けを有効にする (Transformers.js)",
+          reranking_description:
+            "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
+          hybrid_search_label: "ハイブリッド検索を有効にする",
+          hybrid_search_description:
+            "キーワード検索 (BM25) とセマンティック検索を組み合わせて、再現率を向上させます。",
+          keyword_weight_label: "キーワードの重み",
+          keyword_weight_description:
+            "キーワード (BM25) とセマンティック検索のバランス。",
+          diversity_settings_title: "多様性設定",
+          mmr_label: "MMR 多様性を有効にする",
+          mmr_description:
+            "最大限界関連性 (MMR) は、検索結果の冗長性を減らします。",
+          diversity_lambda_label: "多様性ラムダ",
+          diversity_lambda_description:
+            "低い値は多様性を優先し、高い値は関連性を優先します。",
+          quality_settings_title: "コンテンツ品質フィルタリング",
+          exclude_casual_label: "カジュアルなメッセージを除外",
+          exclude_casual_description:
+            "挨拶、短い応答、情報の少ないメッセージを除外します。",
+          min_quality_score_label: "最小品質スコア",
+          min_quality_score_description:
+            "コンテンツの埋め込みに必要な最小品質スコア (0-1)。"
         }
       },
       prompts: {
@@ -7230,7 +7516,9 @@ export const resources = {
           refresh_tooltip: "モデル詳細を更新",
           capabilities: "機能",
           technical_details: "技術詳細",
-          unknown_file_type: "不明"
+          unknown_file_type: "不明",
+          params_label: "パラメータ",
+          context_label: "コンテキスト"
         },
         loaded_models: {
           title: "ロードされたモデル",
@@ -7773,6 +8061,12 @@ export const resources = {
         },
         message: {
           loading: "Загрузка..."
+        },
+        errors: {
+          unknown_error: "❌ Неизвестная ошибка: {{message}}",
+          no_message: "Нет сообщения",
+          response_failed_title: "Ошибка генерации ответа",
+          unknown_error_description: "Произошла неизвестная ошибка"
         }
       },
       file_upload: {
@@ -7964,7 +8258,37 @@ export const resources = {
             "Использовать извлеченный контекст для ответов на вопросы о ваших файлах",
           rag_system_prompt_label: "Системный промпт RAG",
           rag_system_prompt_description:
-            "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя."
+            "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя.",
+          advanced_retrieval_title: "Расширенные настройки поиска",
+          adaptive_weights_label: "Адаптивные Гибридные Веса",
+          adaptive_weights_description:
+            "Автоматическая настройка поиска по ключевым словам и семантического поиска в зависимости от типа запроса (например, код или концепции)",
+          temporal_boosting_label: "Усиление Временной Релевантности",
+          temporal_boosting_description:
+            "Приоритет более новой документации с использованием оценки экспоненциального затухания",
+          reranking_label: "Включить переранжирование (Transformers.js)",
+          reranking_description:
+            "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
+          hybrid_search_label: "Включить гибридный поиск",
+          hybrid_search_description:
+            "Сочетание поиска по ключевым словам (BM25) и семантического поиска для лучшего охвата.",
+          keyword_weight_label: "Вес ключевых слов",
+          keyword_weight_description:
+            "Баланс между поиском по ключевым словам (BM25) и семантическим поиском.",
+          diversity_settings_title: "Настройки разнообразия",
+          mmr_label: "Включить разнообразие MMR",
+          mmr_description:
+            "Максимальная маржинальная релевантность (MMR) уменьшает избыточность в результатах поиска.",
+          diversity_lambda_label: "Лямбда разнообразия",
+          diversity_lambda_description:
+            "Более низкие значения отдают приоритет разнообразию, более высокие - релевантности.",
+          quality_settings_title: "Фильтрация качества контента",
+          exclude_casual_label: "Исключить обычные сообщения",
+          exclude_casual_description:
+            "Отфильтровывать приветствия, короткие ответы и малоинформативные сообщения.",
+          min_quality_score_label: "Минимальная оценка качества",
+          min_quality_score_description:
+            "Минимальная оценка качества (0-1), необходимая для встраивания контента."
         }
       },
       prompts: {
@@ -8299,7 +8623,9 @@ export const resources = {
           refresh_tooltip: "Обновить детали модели",
           capabilities: "Возможности",
           technical_details: "Технические детали",
-          unknown_file_type: "Неизвестно"
+          unknown_file_type: "Неизвестно",
+          params_label: "Параметры",
+          context_label: "Контекст"
         },
         loaded_models: {
           title: "Загруженные модели",
@@ -8843,6 +9169,12 @@ export const resources = {
         },
         message: {
           loading: "加载中..."
+        },
+        errors: {
+          unknown_error: "❌ 未知错误: {{message}}",
+          no_message: "无消息",
+          response_failed_title: "响应生成失败",
+          unknown_error_description: "发生未知错误"
         }
       },
       file_upload: {
@@ -9018,7 +9350,33 @@ export const resources = {
           rag_enable_description: "使用检索上下文来回答有关您文件的问题",
           rag_system_prompt_label: "RAG 系统提示",
           rag_system_prompt_description:
-            "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。"
+            "系统提示模板。使用 {context} 表示检索的文本，{question} 表示用户查询。",
+          advanced_retrieval_title: "高级检索设置",
+          adaptive_weights_label: "自适应混合权重",
+          adaptive_weights_description:
+            "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
+          temporal_boosting_label: "时间相关性增强",
+          temporal_boosting_description: "使用指数衰减评分优先考虑较新的文档",
+          reranking_label: "启用重新排序 (Transformers.js)",
+          reranking_description:
+            "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
+          hybrid_search_label: "启用混合搜索",
+          hybrid_search_description:
+            "将关键字搜索 (BM25) 与语义搜索相结合，以获得更好的召回率。",
+          keyword_weight_label: "关键字权重",
+          keyword_weight_description: "关键字 (BM25) 和语义搜索之间的平衡。",
+          diversity_settings_title: "多样性设置",
+          mmr_label: "启用 MMR 多样性",
+          mmr_description: "最大边际相关性 (MMR) 可减少搜索结果中的冗余。",
+          diversity_lambda_label: "多样性 Lambda",
+          diversity_lambda_description:
+            "较低的值优先考虑多样性，较高的值优先考虑相关性。",
+          quality_settings_title: "内容质量过滤",
+          exclude_casual_label: "排除闲聊消息",
+          exclude_casual_description:
+            "过滤掉问候语、简短回复和低信息量的消息。",
+          min_quality_score_label: "最低质量分数",
+          min_quality_score_description: "嵌入内容所需的最低质量分数 (0-1)。"
         }
       },
       prompts: {
@@ -9337,7 +9695,9 @@ export const resources = {
           refresh_tooltip: "刷新模型详细信息",
           capabilities: "功能",
           technical_details: "技术详情",
-          unknown_file_type: "未知"
+          unknown_file_type: "未知",
+          params_label: "参数",
+          context_label: "上下文"
         },
         loaded_models: {
           title: "已加载模型",

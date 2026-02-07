@@ -1,398 +1,236 @@
-# 🧠 Ollama Client — Chat with Local LLMs in Your Browser
+# Ollama Client: Local LLM Chrome Extension for Private AI Chat
 
-**Ollama Client** is a powerful, privacy-first Chrome extension that lets you chat with locally hosted LLMs using [Ollama](https://ollama.com) — no cloud, no tracking. It’s lightweight, open source, and designed for fast, offline-friendly AI conversations.
+A local-first browser extension for chat with local LLM providers (Ollama, LM Studio, llama.cpp) from the browser sidepanel.
 
----
-
-  <!-- Browser Support Badges -->
-<div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
-  <img src="https://img.shields.io/badge/Chrome-Supported-brightgreen?logo=googlechrome&style=for-the-badge" alt="Chrome Supported" />
-  <img src="https://img.shields.io/badge/Chromium-Supported-blue?logo=googlechrome&style=for-the-badge" alt="Chromium Supported" />
-  <img src="https://img.shields.io/badge/Brave-Supported-orange?logo=brave&style=for-the-badge" alt="Brave Supported" />
-  <img src="https://img.shields.io/badge/Edge-Supported-blue?logo=microsoftedge&style=for-the-badge" alt="Edge Supported" />
-  <img src="https://img.shields.io/badge/Opera-Supported-red?logo=opera&style=for-the-badge" alt="Opera Supported" />
-  <img src="https://img.shields.io/badge/Firefox-Supported-lightgrey?logo=firefox-browser&style=for-the-badge" alt="Firefox Supported" />
-</div>
-
----
-
-## 🚀 Get Started — Install Now
-
-<div align="center">
-  <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank">
-    <img src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Install%20Ollama%20Client&logo=googlechrome&style=for-the-badge&color=4F46E5&labelColor=000" />
+<p>
+  <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
+    <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
-  
-</div>
+  <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
+  <img alt="Providers" src="https://img.shields.io/badge/Providers-Ollama%20%7C%20LM%20Studio%20%7C%20llama.cpp-1d4ed8?style=for-the-badge" />
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
+</p>
 
----
+**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://ollama-client.shishirchaurasiya.in/) · [Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide) · [Privacy](https://ollama-client.shishirchaurasiya.in/privacy-policy) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
-## ❤️ Upvote Us on Product Hunt!
+## What This Project Is
 
-<div align="center">
-<a href="https://www.producthunt.com/products/ollama-client?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-ollama&#0045;client" target="_blank">
-  <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=975260&theme=light&t=1749488134483" alt="Ollama&#0032;Client - Chat&#0032;with&#0032;local&#0032;LLMs&#0032;—&#0032;right&#0032;inside&#0032;your&#0032;browser | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" />
-</a>
-</div>
+Ollama Client is a sidepanel chat extension for Chromium browsers, with Firefox support.
 
-## 🌐 Explore More
+It is a local LLM Chrome extension where you choose provider endpoints and models.
 
-<div align="center">
-<a href="https://ollama-client.shishirchaurasiya.in/" target="_blank"> <img src="https://img.shields.io/badge/View%20Docs-Landing%20Page-blue?style=for-the-badge&logo=readthedocs" alt="Landing Page Documentation" /> </a>
-</div>
+Version `v0.6.0` introduced multi-provider chat routing and local RAG workflows.
 
----
+## Who This Is For (and Who It Is Not For)
 
-## ✨ Features
+### This is for
 
-### 🤖 Model Management
-- 🔌 **Local Ollama Integration** – Connect to a local Ollama server (no API keys required)
-- 🌐 **LAN/Local Network Support** – Connect to Ollama servers on your local network using IP addresses (e.g., `http://192.168.x.x:11434`)
-- 🔄 **Model Switcher** – Switch between models in real time with a beautiful UI
-- 🔍 **Model Search & Pull** – Search and pull models directly from Ollama.com in the UI (with progress indicator)
-- 🗑️ **Model Deletion** – Clean up unused models with confirmation dialogs
-- 🧳 **Load/Unload Models** – Manage Ollama memory footprint efficiently
-- 📦 **Model Version Display** – View and compare model versions easily
-- 🎛️ **Advanced Parameter Tuning** – Per-model configuration: temperature, top_k, top_p, repeat penalty, stop sequences, system prompts
+- Developers who want an Ollama client directly in the browser UI.
+- Users who want an offline AI assistant workflow with local storage by default.
+- Users running local provider servers (Ollama, LM Studio, llama.cpp).
+- Contributors interested in browser extension + local model architecture.
 
-### 💬 Chat & Conversations
-- 💬 **Beautiful Chat UI** – Modern, polished interface built with Shadcn UI
-- 🗂️ **Multi-Chat Sessions** – Create, manage, and switch between multiple chat sessions
-- 📤 **Export Chat Sessions** – Export single or all chat sessions as **PDF**, **JSON**, **Markdown**, or **Text**
-- 📥 **Import Chat Sessions** – Import single or multiple chat sessions from JSON files
-- 📋 **Copy & Regenerate** – Quickly rerun or copy AI responses
-- ⚡ **Streaming Responses** – Real-time streaming with typing indicators
-- 🗑️ **Message Deletion** – Delete individual messages with cascading cleanup (v0.5.10)
-- 📎 **Export Individual Messages** – Export single messages in PDF, Markdown, JSON, or Text formats (v0.5.10)
-- 🌿 **Conversation Branching** – Fork conversations by editing messages and explore alternate paths
+### This is not for
 
-### 🧠 Embeddings & Semantic Search (Beta v0.3.0)
-- 🔍 **Semantic Chat Search** – Search chat history by meaning, not just keywords
-- 📊 **Vector Database** – IndexedDB-based vector storage with optimized cosine similarity
-- 🎯 **Smart Chunking** – 3 strategies: fixed, semantic, hybrid (configurable)
-- 🚀 **Optimized Search** – Pre-normalized vectors, caching, early termination
-- 🔧 **Configurable** – Chunk size, overlap, similarity threshold, search limits
-- 📁 **Context-Aware** – Search across all chats or within current session
+- Users expecting cloud-SaaS reliability without running local infrastructure.
+- Teams requiring centralized cloud sync, SSO, and org admin controls.
+- Users who do not want to manage provider endpoints.
 
-### 📎 File Upload & Processing (Beta v0.3.0+)
-- 📄 **Text Files** – Support for .txt, .md and text based files
-- 📁 **PDF Support** – Extract and process text from PDF documents
-- 📘 **DOCX Support** – Extract text from Word documents
-- 📊 **CSV Support** – Parse CSV, TSV, PSV with custom delimiters and column extraction (Beta v0.5.0)
-- 🌐 **HTML Support** – Convert HTML to Markdown for clean text extraction (Beta v0.5.0)
-with 50+ language support (Beta v0.5.0)
-- ⚙️ **Auto-Embedding** – Automatic embedding generation for uploaded files
-- 📊 **Progress Tracking** – Real-time progress indicators during processing
-- 🎛️ **Configurable Limits** – User-defined max file size in settings
+## What Problem It Solves
 
+Most AI browser tools assume hosted providers and account-based workflows.
 
-### 🌐 Webpage Integration
-- 🧠 **Enhanced Content Extraction** – Advanced extraction with multiple scroll strategies (none, instant, gradual, smart)
-- 🔄 **Lazy Loading Support** – Automatically waits for dynamic content to load
-- 📄 **Site-Specific Overrides** – Configure extraction settings per domain (scroll strategies, delays, timeouts)
-- 🎯 **Defuddle Integration** – Smart content extraction with Defuddle fallback
-- 📖 **Mozilla Readability** – Fallback extraction using Mozilla Readability
-- 🎬 **YouTube Transcripts** – Automated YouTube transcript extraction
-- 📊 **Extraction Metrics** – View scroll steps, mutations detected, and content length
+This project focuses on local-first usage:
 
-### ⚙️ Customization & Settings
-- 🎨 **Professional UI** – Modern design system with glassmorphism effects, gradients, and smooth animations
-- 🌓 **Dark Mode** – Beautiful dark theme with smooth transitions
-- 📝 **Prompt Templates** – Create, manage, and use custom prompt templates (Ctrl+/)
-- 🔊 **Advanced Text-to-Speech** – Searchable voice selector with adjustable speech rate & pitch
-- 🌍 **Internationalization (i18n)** – Full multi-language support with 9 languages: English, Hindi, Spanish, French, German, Italian, Chinese (Simplified), Japanese, Russian
-- 🎚️ **Cross-Browser Compatibility** – Works with Chrome, Brave, Edge, Opera, Firefox
-- 🧪 **Voice Testing** – Test voices before using them
+- You configure the model endpoint.
+- Chat/session data is stored locally.
+- There is no built-in telemetry pipeline.
 
-### 🔒 Privacy & Performance
-- 🛡️ **100% Local and Private** – All storage and inference happen on your device
-- 🧯 **Declarative Net Request (DNR)** – Automatic CORS handling
-- 💾 **IndexedDB Storage** – Efficient local storage for chat sessions
-- ⚡ **Performance Optimized** – Lazy loading, debounced operations, optimized re-renders
-- 🔄 **State Management** – Clean Zustand-based state management
+## How It Differs From Alternatives
 
----
+- Sidepanel-native browser UX instead of a separate desktop app.
+- Multi-provider routing in one UI.
+- Built-in local retrieval flow (RAG with local LLMs).
+- Source-visible behavior for auditing and contribution.
 
-## 🧩 Tech Stack
+## Feature Coverage and Limits
 
-Built with **React 18**, **TypeScript**, **Plasmo**, **Shadcn UI**, **Zustand**, **Dexie.js** and **Tailwind CSS**.
+| Major feature | What works now | Current limitation |
+|---|---|---|
+| Multi-provider chat | Route chat to Ollama, LM Studio, llama.cpp | Routing defaults to Ollama if model mapping is missing |
+| Model management | Pull/delete/unload/version support for Ollama | Equivalent management actions are not yet implemented for LM Studio/llama.cpp |
+| Streaming | Token streaming via runtime port with cancel support | Message keys and some hook names still use legacy `ollama-*` naming |
+| RAG with local LLMs | Local chunking, embedding, hybrid retrieval, context injection | Embeddings currently use Ollama embedding APIs |
+| File ingestion | TXT/MD/PDF/DOCX/CSV/TSV/PSV/HTML processing | Quality depends on file quality and chunking config |
+| Persistence | Chat/session/files and vectors stored in Dexie/IndexedDB | SQLite exists as migration/auxiliary path, not primary runtime store |
+| Browser support | Chromium workflow and Firefox workflow are supported | Firefox may need explicit origin/CORS setup |
 
-> For a deep dive into the code structure and design patterns, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+## Architecture Overview
 
----
+High-level flow:
 
-## 🛠️ Quick Setup
+1. Sidepanel/options UI collects prompt and settings.
+2. UI opens runtime port to background.
+3. Background resolves provider by selected model mapping.
+4. Provider stream is relayed back to UI in chunks.
+5. UI updates message state and persists chat data.
+6. Optional RAG pipeline retrieves local context and appends it to prompt input.
 
-### ✅ 1. Install the Extension
+Key directories:
 
-👉 [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+- `src/sidepanel/*`
+- `src/options/*`
+- `src/background/*`
+- `src/contents/*`
+- `src/lib/providers/*`
+- `src/lib/embeddings/*`
 
-### ✅ 2. Install Ollama on Your Machine
+## Supported Providers
 
-```bash
-brew install ollama  # macOS
-# or visit https://ollama.com for Windows/Linux installers
+Default provider profiles:
 
-ollama serve         # starts at http://localhost:11434
-```
+- Ollama (`http://localhost:11434`)
+- LM Studio (`http://localhost:1234/v1`)
+- llama.cpp server (`http://localhost:8000/v1`)
 
-**💡 Quick Setup Script** (Cross-platform):
+Clarifying examples:
 
-For easier setup with LAN access and Firefox CORS support:
+- If both Ollama and LM Studio expose `llama3`, mapping decides which backend handles chat.
+- If mapping is absent for a model ID, fallback provider is Ollama.
 
-```bash
-# Cross-platform bash script (macOS/Linux/Windows with Git Bash)
-./tools/ollama-env.sh firefox   # Firefox with CORS + LAN access
-./tools/ollama-env.sh chrome    # Chrome with LAN access
-```
+## RAG With Local LLMs
 
-📄 **Script file:** [`tools/ollama-env.sh`](https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh)
+In this project, RAG means local retrieval before generation:
 
-This script automatically:
+1. Uploaded or chat text is chunked.
+2. Chunks are embedded and stored in local vector storage.
+3. Query-time retrieval selects relevant chunks.
+4. Retrieved snippets are appended to generation context.
 
-- Configures Ollama for LAN access (`0.0.0.0`)
-- Sets up CORS for Firefox extensions (if needed)
-- Shows your local IP address for network access
-- Detects your OS (macOS, Linux, Windows) automatically
-- Stops any running Ollama instances before starting
+Clarifying example:
 
-If you don't have the script file, you can [download it directly](https://raw.githubusercontent.com/Shishir435/ollama-client/main/tools/ollama-env.sh) or see the full setup guide: [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
+- Upload a local API spec PDF, then ask: `What headers are required for createUser?`
+- Retrieved chunks from that PDF are included in prompt context before model response.
 
-More info: [https://ollama.com](https://ollama.com)
+## Installation
 
-### ✅ 3. Pull a Model
+### For users
 
-```bash
-ollama pull gemma3:1b
-```
+1. Install extension from the Chrome Web Store.
+2. Start at least one provider endpoint.
+3. Configure provider URL in settings.
+4. Select a model and start chatting in the sidepanel.
 
-Other options: `mistral`, `llama3:8b`, `codellama`, etc.
+Common endpoint examples:
 
-### ⚙️ 4. Configure the Extension
+- `http://localhost:11434` (Ollama)
+- `http://localhost:1234/v1` (LM Studio)
+- `http://localhost:8000/v1` (llama.cpp server)
 
-- Click the **Ollama Client** icon
-- Open ⚙️ **Settings**
-- Set your:
-
-  - **Base URL**: `http://localhost:11434` (default) or your local network IP (e.g., `http://192.168.1.100:11434`)
-  - Default model (e.g. `gemma:2b`)
-  - Theme & appearance
-  - Model parameters
-  - Prompt templates
-
-> 💡 **Tip**: You can use Ollama on a local network server by entering its IP address (e.g., `http://192.168.x.x:11434`) in the Base URL field. Make sure Ollama is configured with `OLLAMA_HOST=0.0.0.0` for LAN access.
-
-> Advanced parameters like system prompts and stop sequences are available per model.
-
----
-
-## 🛠️ Local Development Setup
-
-Want to contribute or customize? You can run and modify the Ollama Client extension locally using Plasmo.
-
-### ⚙️ Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- [pnpm](https://pnpm.io/) (recommended) or npm
-- [Ollama](https://ollama.com) installed locally
-
----
-
-### 📦 1. Clone the Repo
+### For contributors
 
 ```bash
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
-```
-
----
-
-### 📥 2. Install Dependencies
-
-Using **pnpm** (recommended):
-
-```bash
 pnpm install
-```
-
-Or with **npm**:
-
-```bash
-npm install
-```
-
----
-
-### 🧪 3. Run the Extension (Dev Mode)
-
-Start development mode with hot reload:
-
-```bash
 pnpm dev
 ```
 
-Or with npm:
+Common commands:
 
 ```bash
-npm run dev
-```
-
-This launches the Plasmo dev server and gives instructions for loading the unpacked extension in Chrome:
-
-- Open `chrome://extensions`
-- Enable **Developer mode**
-- Click **Load unpacked**
-- Select the `dist/` folder generated by Plasmo
-
----
-
-### 🛠 4. Build for Production
-
-```bash
+pnpm lint:check
+pnpm test:run
 pnpm build
-```
-
----
-
-### ⛓️ 5. Package for Production
-
-```bash
 pnpm package
 ```
 
----
-
-### 🧪 6. Run, build and package in Firefox (Experimental)
-
-**Setup Ollama for Firefox:**
-
-Firefox requires manual CORS configuration. Use the helper script:
+Firefox commands:
 
 ```bash
-# Cross-platform bash script (macOS/Linux/Windows with Git Bash)
-./tools/ollama-env.sh firefox
+pnpm dev:firefox
+pnpm build:firefox
+pnpm package:firefox
 ```
 
-This configures `OLLAMA_ORIGINS` for Firefox extension support.
+## Basic Usage Flow
 
-**Build and run:**
+1. Start provider service.
+2. Open extension settings and verify connection.
+3. Select model.
+4. Send prompt and monitor stream.
+5. Optionally upload files for retrieval context.
+6. Fork conversation by editing earlier user messages.
 
-```bash
-pnpm dev --target=firefox
-```
+## Advanced Usage
 
-```bash
-pnpm build --target=firefox
-```
+### Provider and model control
 
-```bash
-pnpm package --target=firefox
-```
+- Enable only providers you need.
+- Keep model names unique when possible.
+- Re-check mappings after model list changes.
 
-Or with npm:
+### Parameter tuning
 
-```bash
-npm run dev -- --target=firefox
-```
+- Per-model parameters are stored locally (`temperature`, `top_p`, `top_k`, etc.).
+- Start with defaults, then tune one variable at a time.
 
-Load as a [temporary extension](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+### RAG tuning
 
----
+- Adjust chunk size/overlap and retrieval thresholds.
+- Narrow retrieval scope when debugging noisy answers.
 
-### 📁 Code Structure
+## Limitations and Known Issues
 
-```
-src/
-├── background/        # Background service worker & API handlers
-├── sidepanel/         # Main chat UI
-├── options/           # Settings page
-├── features/          # Feature modules
-│   ├── chat/          # Chat components, hooks, semantic search
-│   ├── model/         # Model management & settings
-│   ├── sessions/      # Chat session management
-│   ├── prompt/        # Prompt templates
-│   └── tabs/          # Browser tab integration
-├── lib/               # Shared utilities
-│   └── embeddings/    # Vector embeddings & semantic search
-├── components/        # Shared UI components (Shadcn)
-└── hooks/             # Shared React hooks
-```
+- Legacy key/message naming (`ollama-*`) remains in parts of multi-provider code.
+- Embeddings are currently Ollama-dependent.
+- Reranker exists but is disabled by default due extension CSP constraints.
+- Provider parity is incomplete for model management actions.
+- Runtime persistence is Dexie-first while SQLite migration path still exists.
 
-**Architecture**: Feature-based organization with separation of concerns (components, hooks, stores). Zustand for global state, React hooks for local state.
+## Security and Privacy Notes
 
----
+- Privacy depends on endpoint choice.
+- If you configure a remote endpoint, prompts/responses are sent to that endpoint.
+- Do not expose provider APIs publicly without access controls.
 
-### ✅ Tips
+## Roadmap (Short and Realistic)
 
-- Change manifest settings in `package.json`
-- PRs welcome! Check [issues](https://github.com/Shishir435/ollama-client/issues) for open tasks
+1. Provider-agnostic naming cleanup.
+2. Clear single-source persistence strategy.
+3. Better provider parity for management actions.
+4. Better retrieval diagnostics.
 
-## 💡 Recommended Models by Device
+## Contributing (Summary)
 
-| System Specs                 | Suggested Models            |
-| ---------------------------- | --------------------------- |
-| 💻 8GB RAM (no GPU)          | `gemma:2b`, `mistral:7b-q4` |
-| 💻 16GB RAM (no GPU)         | `gemma:3b-q4`, `mistral`    |
-| 🎮 16GB+ with GPU (6GB VRAM) | `llama3:8b-q4`, `gemma:3b`  |
-| 🔥 RTX 3090+ or Apple M3 Max | `llama3:70b`, `mixtral`     |
+- Read [CONTRIBUTING.md](./CONTRIBUTING.md).
+- Keep PRs scoped and testable.
+- Include reproduction details for bug fixes.
+- Update docs when behavior changes.
 
-📦 Prefer **quantized models** (`q4_0`, `q5_1`, etc.) for better performance.
+## Philosophy and Non-Goals
 
-Explore: [Ollama Model Library](https://ollama.com/library)
+Philosophy:
 
----
+- Local-first operation.
+- Explicit behavior over hidden automation.
+- User control of endpoint and model settings.
 
-## 🧪 Firefox Support
+Non-goals:
 
-Ollama Client is a Chrome Manifest V3 extension. To use in Firefox:
+- Managed cloud LLM platform behavior.
+- Hidden telemetry for growth metrics.
+- Abstracting away all local infrastructure responsibility.
 
-1. Go to `about:debugging`
-2. Click "Load Temporary Add-on"
-3. Select the `manifest.json` from the extension folder
-4. Manually allow CORS access (see [setup guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide))
+## License
 
----
+MIT License: [LICENCE](./LICENCE)
 
-## 🐛 Known Issues
+## Documentation Map
 
-- [ ] "Stop Pull" during model downloads may glitch
-- [ ] Large chat histories in IndexedDB can impact performance
-
----
-
-## 🗺️ Roadmap
-
-See [ROADMAP.md](./ROADMAP.md) for planned features and upcoming releases.
-
----
-
-## 🔗 Useful Links
-
-- 🌐 **Install Extension:** [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl)
-- 📘 **Docs & Landing Page:** [ollama-client](https://ollama-client.shishirchaurasiya.in/)
-- 🐙 **GitHub Repo:** [Github Repo](https://github.com/Shishir435/ollama-client)
-- 📖 **Setup Guide:** [Ollama Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
-- 🔒 **Privacy Policy** [Privacy Policy](https://ollama-client.shishirchaurasiya.in/privacy-policy)
-- 🐞 **Issue Tracker:** [Report a Bug](https://github.com/Shishir435/ollama-client/issues)
-- 🙋‍♂️ **Portfolio:** [shishirchaurasiya.in](https://www.shishirchaurasiya.in)
-- 💡 **Feature Requests:** [Email Me](mailto:shishirchaurasiya435@gmail.com)
-
-### 📚 For Developers & Contributors
-
-- 🏗️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Technical architecture, design patterns, and implementation details
-- 🗺️ **[ROADMAP.md](./ROADMAP.md)** - Planned features and development timeline
-- 📊 **[PROJECT_ANALYSIS.md](./PROJECT_ANALYSIS.md)** - Comprehensive code quality analysis
-- 🤝 **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Guidelines for contributing to the project
-
-
----
-
-## 📢 Spread the Word!
-
-If you find Ollama Client helpful, please consider:
-
-- ⭐ Starring the repo
-- 📝 Leaving a review on the Chrome Web Store
-- 💬 Sharing on socials (tag `#OllamaClient`)
-
-> Built with ❤️ by [@Shishir435](https://www.shishirchaurasiya.in)
+- [Architecture Guide](./docs/architecture.md)
+- [Provider Support](./docs/providers.md)
+- [RAG Guide](./docs/rag.md)
+- [Contributing Guide](./CONTRIBUTING.md)
+- [Setup Guide (Web)](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
+- [Privacy Policy (Web)](https://ollama-client.shishirchaurasiya.in/privacy-policy)

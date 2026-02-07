@@ -10,9 +10,9 @@ import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersSection } from "@/features/model/components/model-parameters-section"
 import { ModelSystemSection } from "@/features/model/components/model-system-section"
-import { BaseUrlSettings } from "@/features/model/components/ollama-base-url-settings"
 import { OllamaStatusIndicator } from "@/features/model/components/ollama-status-indicator"
 import { OllamaVersion } from "@/features/model/components/ollama-version"
+import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 import {
   type FormValues,
@@ -160,7 +160,7 @@ export const ModelSettingsForm = () => {
           description={t("settings.model.configuration_description")}>
           <div className="space-y-4">
             <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
-            <BaseUrlSettings />
+            <ProviderSettings />
           </div>
         </SettingsCard>
       </div>
@@ -188,7 +188,7 @@ export const ModelSettingsForm = () => {
           <ModelInfo selectedModel={selectedModel} />
           <LoadedModelsInfo />
         </SettingsCard>
-        <BaseUrlSettings />
+        <ProviderSettings />
         <ModelSystemSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
       </div>

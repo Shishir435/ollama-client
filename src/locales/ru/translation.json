@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "Загрузка..."
+    },
+    "errors": {
+      "unknown_error": "❌ Неизвестная ошибка: {{message}}",
+      "no_message": "Нет сообщения",
+      "response_failed_title": "Ошибка генерации ответа",
+      "unknown_error_description": "Произошла неизвестная ошибка"
     }
   },
   "file_upload": {
@@ -360,7 +366,28 @@
       "rag_enable_label": "Включить RAG",
       "rag_enable_description": "Использовать извлеченный контекст для ответов на вопросы о ваших файлах",
       "rag_system_prompt_label": "Системный промпт RAG",
-      "rag_system_prompt_description": "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя."
+      "rag_system_prompt_description": "Шаблон для системного промпта. Используйте {context} для извлеченного текста и {question} для запроса пользователя.",
+      "advanced_retrieval_title": "Расширенные настройки поиска",
+      "adaptive_weights_label": "Адаптивные Гибридные Веса",
+      "adaptive_weights_description": "Автоматическая настройка поиска по ключевым словам и семантического поиска в зависимости от типа запроса (например, код или концепции)",
+      "temporal_boosting_label": "Усиление Временной Релевантности",
+      "temporal_boosting_description": "Приоритет более новой документации с использованием оценки экспоненциального затухания",
+      "reranking_label": "Включить переранжирование (Transformers.js)",
+      "reranking_description": "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
+      "hybrid_search_label": "Включить гибридный поиск",
+      "hybrid_search_description": "Сочетание поиска по ключевым словам (BM25) и семантического поиска для лучшего охвата.",
+      "keyword_weight_label": "Вес ключевых слов",
+      "keyword_weight_description": "Баланс между поиском по ключевым словам (BM25) и семантическим поиском.",
+      "diversity_settings_title": "Настройки разнообразия",
+      "mmr_label": "Включить разнообразие MMR",
+      "mmr_description": "Максимальная маржинальная релевантность (MMR) уменьшает избыточность в результатах поиска.",
+      "diversity_lambda_label": "Лямбда разнообразия",
+      "diversity_lambda_description": "Более низкие значения отдают приоритет разнообразию, более высокие - релевантности.",
+      "quality_settings_title": "Фильтрация качества контента",
+      "exclude_casual_label": "Исключить обычные сообщения",
+      "exclude_casual_description": "Отфильтровывать приветствия, короткие ответы и малоинформативные сообщения.",
+      "min_quality_score_label": "Минимальная оценка качества",
+      "min_quality_score_description": "Минимальная оценка качества (0-1), необходимая для встраивания контента."
     }
   },
   "prompts": {
@@ -674,7 +701,9 @@
       "refresh_tooltip": "Обновить детали модели",
       "capabilities": "Возможности",
       "technical_details": "Технические детали",
-      "unknown_file_type": "Неизвестно"
+      "unknown_file_type": "Неизвестно",
+      "params_label": "Параметры",
+      "context_label": "Контекст"
     },
     "loaded_models": {
       "title": "Загруженные модели",

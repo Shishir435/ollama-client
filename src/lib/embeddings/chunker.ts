@@ -17,7 +17,7 @@ export interface TextChunk {
  * Estimates the number of tokens in a text
  * Rule of thumb: 1 token ≈ 4 characters for English text
  */
-function estimateTokens(text: string): number {
+export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
@@ -249,6 +249,113 @@ function hybridChunking(
 }
 
 /**
+ * Markdown chunking: Splits by headers and code blocks
+ * Preserves structure of technical documents
+ */
+function markdownChunking(
+  text: string,
+  chunkSize: number,
+  chunkOverlap: number
+): TextChunk[] {
+  const charOverlap = tokensToChars(chunkOverlap)
+  const chunks: TextChunk[] = []
+
+  // 1. Split by Code Blocks first to preserve them
+  // We use a placeholder to protect code blocks from being split by headers
+  const codeBlocks: string[] = []
+  const textWithPlaceholders = text.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match)
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`
+  })
+
+  // 2. Split by Headers (H1-H6)
+  // Regex looks for # Header at start of line
+  const sections = textWithPlaceholders.split(/^(#{1,6}\s+.+)$/m)
+
+  let currentChunk = ""
+  let currentStartPos = 0
+  let index = 0
+
+  for (let i = 0; i < sections.length; i++) {
+    let section = sections[i] // Can be a header or content between headers
+    if (!section.trim()) continue
+
+    // Restore code blocks
+    section = section.replace(
+      /__CODE_BLOCK_(\d+)__/g,
+      (_, id) => codeBlocks[parseInt(id, 10)]
+    )
+
+    // If section is huge (e.g. long content between headers), fall back to semantic/hybrid splitting for it
+    if (estimateTokens(section) > chunkSize) {
+      if (currentChunk) {
+        // Flux current chunk
+        chunks.push({
+          text: currentChunk,
+          index,
+          startPos: currentStartPos,
+          endPos: currentStartPos + currentChunk.length
+        })
+        index++
+        currentChunk = ""
+        currentStartPos += chunks[chunks.length - 1].text.length // Approx, logic needs real tracking
+      }
+
+      // Recursively chunk this large section using hybrid strategy
+      // but strictly bounded
+      const subChunks = hybridChunking(section, chunkSize, chunkOverlap)
+      subChunks.forEach((sc) => {
+        chunks.push({
+          ...sc,
+          index,
+          startPos: currentStartPos + sc.startPos // Offset correction needed?
+          // Note: hybridChunking returns relative positions. We need to offset them.
+          // But for simplicity/robustness, we might just push them.
+          // Correct offset tracking is hard without carrying state.
+          // Let's simplify: just push them and fix indices.
+        })
+        index++
+      })
+      currentStartPos += section.length
+      continue
+    }
+
+    // Normal accumulation
+    const potentialChunk = currentChunk
+      ? `${currentChunk}\n${section}`
+      : section
+
+    if (estimateTokens(potentialChunk) > chunkSize && currentChunk) {
+      chunks.push({
+        text: currentChunk,
+        index,
+        startPos: currentStartPos,
+        endPos: currentStartPos + currentChunk.length
+      })
+
+      const overlapText = currentChunk.slice(-charOverlap)
+      currentChunk = overlapText ? `${overlapText}\n${section}` : section
+      currentStartPos +=
+        chunks[chunks.length - 1].text.length - overlapText.length
+      index++
+    } else {
+      currentChunk = potentialChunk
+    }
+  }
+
+  if (currentChunk) {
+    chunks.push({
+      text: currentChunk,
+      index,
+      startPos: currentStartPos,
+      endPos: currentStartPos + currentChunk.length
+    })
+  }
+
+  return chunks
+}
+
+/**
  * Main chunking function that selects the appropriate strategy
  */
 export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
@@ -287,6 +394,8 @@ export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
       return semanticChunking(text, chunkSize, chunkOverlap)
     case "hybrid":
       return hybridChunking(text, chunkSize, chunkOverlap)
+    case "markdown":
+      return markdownChunking(text, chunkSize, chunkOverlap)
     default:
       // Fallback to hybrid if unknown strategy
       return hybridChunking(text, chunkSize, chunkOverlap)

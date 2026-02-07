@@ -204,6 +204,12 @@
     },
     "message": {
       "loading": "Loading..."
+    },
+    "errors": {
+      "unknown_error": "❌ Unknown error: {{message}}",
+      "no_message": "No message",
+      "response_failed_title": "Response Generation Failed",
+      "unknown_error_description": "An unknown error occurred"
     }
   },
   "file_upload": {
@@ -361,7 +367,42 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Advanced Retrieval Settings",
+      "adaptive_weights_label": "Adaptive Hybrid Weights",
+      "adaptive_weights_description": "Automatically adjust keyword vs. semantic search based on query type (e.g., code vs. concepts)",
+      "temporal_boosting_label": "Temporal Relevance Boosting",
+      "temporal_boosting_description": "Prioritize newer documentation using exponential decay scoring",
+      "reranking_label": "Enable Re-Ranking (Transformers.js)",
+      "reranking_description": "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+      "hybrid_search_label": "Enable Hybrid Search",
+      "hybrid_search_description": "Combine keyword search (BM25) with semantic search for better recall.",
+      "keyword_weight_label": "Keyword Weight",
+      "keyword_weight_description": "Balance between keyword (BM25) and semantic search.",
+      "diversity_settings_title": "Diversity Settings",
+      "mmr_label": "Enable MMR Diversity",
+      "mmr_description": "Maximal Marginal Relevance reduces redundancy in search results.",
+      "diversity_lambda_label": "Diversity Lambda",
+      "diversity_lambda_description": "Lower values prioritize diversity, higher values prioritize relevance.",
+      "quality_settings_title": "Content Quality Filtering",
+      "exclude_casual_label": "Exclude Casual Messages",
+      "exclude_casual_description": "Filter out greetings, short responses, and low-information messages.",
+      "min_quality_score_label": "Min Quality Score",
+      "min_quality_score_description": "Minimum quality threshold for embedding content (0-1). Higher values filter more aggressively.",
+      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_description": "Embeddings are generated using your local Ollama server",
+      "embedding_source_ollama": "Ollama (Local Server)",
+      "feedback_learning_title": "User Feedback Learning",
+      "feedback_learning_description": "Improve search quality by learning from your feedback",
+      "feedback_enable_label": "Enable Feedback Collection",
+      "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
+      "feedback_show_chunks_label": "Show Retrieved Chunks",
+      "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
+      "feedback_blend_weight_label": "Feedback Learning Weight",
+      "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
+      "feedback_export_button": "Export Feedback Data",
+      "feedback_clear_button": "Clear All Feedback",
+      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
     }
   },
   "prompts": {
@@ -675,7 +716,9 @@
       "refresh_tooltip": "Refresh model details",
       "capabilities": "Capabilities",
       "technical_details": "Technical Details",
-      "unknown_file_type": "Unknown"
+      "unknown_file_type": "Unknown",
+      "params_label": "Params",
+      "context_label": "Ctx"
     },
     "loaded_models": {
       "title": "Loaded Models",
@@ -692,6 +735,7 @@
       "models": "Models",
       "extraction": "Extraction",
       "embeddings": "Embeddings",
+      "providers": "Providers",
       "voices": "Voices",
       "developer": "Developer",
       "reset": "Reset",
@@ -853,7 +897,9 @@
       "model_select": {
         "label": "Embedding Model",
         "placeholder": "Select a model",
-        "description": "Choose a model to generate embeddings. You may need to download it first."
+        "description": "Choose a model to generate embeddings. You may need to download it first.",
+        "recommended_group": "Recommended Models",
+        "all_models_group": "All Models"
       }
     },
     "prompts": {

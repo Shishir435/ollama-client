@@ -1,39 +1,23 @@
-import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
-import type {
-  OllamaShowRequest,
-  OllamaShowResponse,
-  SendResponseFunction
-} from "@/types"
+import { ProviderFactory } from "@/lib/providers/factory"
+import type { SendResponseFunction } from "@/types"
 
 export const handleShowModelDetails = async (
   model: string,
   sendResponse: SendResponseFunction
 ): Promise<void> => {
   try {
-    const url = await getBaseUrl()
-    const baseUrl = url ?? "http://localhost:11434"
+    const provider = await ProviderFactory.getProviderForModel(model)
 
-    const requestBody: OllamaShowRequest = { name: model }
-
-    const res = await fetch(`${baseUrl}/api/show`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
-    })
-
-    if (!res.ok) {
-      safeSendResponse(sendResponse, {
-        success: false,
-        error: { status: res.status, message: res.statusText }
-      })
+    if (!provider.getModelDetails) {
+      sendResponse({ success: true, data: null })
       return
     }
 
-    const data: OllamaShowResponse = await res.json()
-    safeSendResponse(sendResponse, { success: true, data })
+    const data = await provider.getModelDetails(model)
+    sendResponse({ success: true, data })
   } catch (err) {
     const error = err as Error
-    safeSendResponse(sendResponse, {
+    sendResponse({
       success: false,
       error: { status: 0, message: error.message }
     })

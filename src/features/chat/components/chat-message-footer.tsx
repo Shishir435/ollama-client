@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { CopyButton } from "@/features/chat/components/copy-button"
+import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import {
@@ -41,6 +42,21 @@ export const ChatMessageFooter = ({
   onNavigate?: (nodeId: number) => void
 }) => {
   const { t } = useTranslation()
+  const siblingIds = msg.siblingIds ?? []
+  const siblingIndex =
+    msg.id != null
+      ? siblingIds.findIndex((id) => String(id) === String(msg.id))
+      : -1
+  const canShowBranchNavigation =
+    siblingIds.length > 1 && msg.id != null && siblingIndex !== -1
+
+  const navigateToSibling = (targetIndex: number) => {
+    const rawId = siblingIds[targetIndex]
+    const targetNodeId = Number(rawId)
+
+    if (!Number.isFinite(targetNodeId)) return
+    onNavigate?.(targetNodeId)
+  }
 
   return (
     <div
@@ -49,35 +65,29 @@ export const ChatMessageFooter = ({
         (isUser ? "flex-row-reverse" : "flex-row")
       }>
       {/* Branch Navigation */}
-      {msg.siblingIds && msg.siblingIds.length > 1 && msg.id && (
+      {canShowBranchNavigation && (
         <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
             className="h-5 w-5 rounded-full"
-            disabled={msg.siblingIds.indexOf(msg.id) <= 0}
+            disabled={siblingIndex <= 0}
             onClick={() => {
-              if (!msg.id || !msg.siblingIds) return
-              const idx = msg.siblingIds.indexOf(msg.id)
-              if (idx > 0) onNavigate?.(msg.siblingIds[idx - 1])
+              if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
             }}>
             <ChevronLeft className="h-3 w-3" />
           </Button>
           <span className="min-w-[1.5rem] text-center text-[10px] font-medium text-muted-foreground">
-            {msg.siblingIds.indexOf(msg.id) + 1} / {msg.siblingIds.length}
+            {siblingIndex + 1} / {siblingIds.length}
           </span>
           <Button
             variant="ghost"
             size="icon"
             className="h-5 w-5 rounded-full"
-            disabled={
-              msg.siblingIds.indexOf(msg.id) >= msg.siblingIds.length - 1
-            }
+            disabled={siblingIndex >= siblingIds.length - 1}
             onClick={() => {
-              if (!msg.id || !msg.siblingIds) return
-              const idx = msg.siblingIds.indexOf(msg.id)
-              if (idx < msg.siblingIds.length - 1)
-                onNavigate?.(msg.siblingIds[idx + 1])
+              if (siblingIndex < siblingIds.length - 1)
+                navigateToSibling(siblingIndex + 1)
             }}>
             <ChevronRight className="h-3 w-3" />
           </Button>
@@ -89,6 +99,14 @@ export const ChatMessageFooter = ({
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
+
+        {/* RAG Sources Button - Show for messages with RAG context */}
+        {msg.metrics?.ragSources && msg.metrics.ragSources.length > 0 && (
+          <RAGSourcesButton
+            sources={msg.metrics.ragSources}
+            query={msg.metrics.ragQuery}
+          />
+        )}
 
         {onEdit && (
           <Button

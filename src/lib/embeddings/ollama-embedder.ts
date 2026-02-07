@@ -117,7 +117,7 @@ export const generateEmbedding = async (
     }
   }
   try {
-    const baseUrl = await getBaseUrl()
+    const _baseUrl = await getBaseUrl()
     const selectedModel =
       modelName ||
       ((await plasmoGlobalStorage.get<string>(
@@ -125,33 +125,19 @@ export const generateEmbedding = async (
       )) as string) ||
       DEFAULT_EMBEDDING_MODEL
 
-    const response = await fetch(`${baseUrl}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: selectedModel,
-        prompt: text
-      })
-    })
+    const { ProviderFactory } = await import("@/lib/providers/factory")
+    const { ProviderId } = await import("@/lib/providers/types")
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText)
-      return {
-        error: `Failed to generate embedding: ${response.status} ${errorText}`,
-        code: `HTTP_${response.status}`
-      }
+    // Enforce Ollama for embeddings regardless of what the model mapping says
+    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
+
+    if (!provider.embed) {
+      throw new Error(
+        `Provider for ${selectedModel} does not support embeddings`
+      )
     }
 
-    const data = await response.json()
-
-    if (!data.embedding || !Array.isArray(data.embedding)) {
-      return {
-        error: "Invalid embedding response format",
-        code: "INVALID_RESPONSE"
-      }
-    }
-
-    const embedding = data.embedding
+    const embedding = await provider.embed(text, selectedModel)
 
     // Cache if enabled
     if (config.enableCaching) {

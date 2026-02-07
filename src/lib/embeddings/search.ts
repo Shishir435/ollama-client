@@ -227,8 +227,11 @@ export const searchSimilarVectors = async (
   return results
 }
 
+import { classifyQuery, getWeightsForQueryType } from "./query-classifier"
+
 /**
  * Hybrid search combining keyword and semantic search
+ * With adaptive weights based on query type (v3.0)
  */
 export const searchHybrid = async (
   queryText: string,
@@ -238,19 +241,37 @@ export const searchHybrid = async (
     minSimilarity?: number
     keywordWeight?: number
     semanticWeight?: number
+    adaptiveWeights?: boolean
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
     fileId?: string | string[]
   } = {}
 ): Promise<SearchResult[]> => {
+  const config = await getEmbeddingConfig()
   const {
     limit = 10,
-    keywordWeight = 0.7,
-    semanticWeight = 0.3,
+    adaptiveWeights = config.useAdaptiveWeights ?? true,
     ...searchOptions
   } = options
 
   const startTime = performance.now()
+
+  // Determine weights (adaptive or manual)
+  let keywordWeight = options.keywordWeight ?? 0.7
+  let semanticWeight = options.semanticWeight ?? 0.3
+
+  if (adaptiveWeights && !options.keywordWeight && !options.semanticWeight) {
+    // Use query classification for dynamic weights
+    const queryType = classifyQuery(queryText)
+    const weights = getWeightsForQueryType(queryType)
+    keywordWeight = weights.keywordWeight
+    semanticWeight = weights.semanticWeight
+
+    logger.verbose(`Adaptive weights: ${queryType} query`, "searchHybrid", {
+      keywordWeight,
+      semanticWeight
+    })
+  }
 
   // 1. Keyword search (fast, exact)
   const keywordResults = keywordIndexManager.search(queryText, {

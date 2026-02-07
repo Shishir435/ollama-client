@@ -96,7 +96,9 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
     deleteMessage: vi.fn().mockResolvedValue(undefined),
     ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
     loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-    hasMoreMessages: false
+    hasMoreMessages: false,
+    forkMessage: vi.fn().mockResolvedValue(undefined),
+    navigateToNode: vi.fn().mockResolvedValue(undefined)
   }))
 }))
 
@@ -170,7 +172,9 @@ describe("useChat", () => {
         deleteMessage: vi.fn().mockResolvedValue(undefined),
         ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
         loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false
+        hasMoreMessages: false,
+        forkMessage: vi.fn().mockResolvedValue(undefined),
+        navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -215,7 +219,9 @@ describe("useChat", () => {
       deleteMessage: vi.fn().mockResolvedValue(undefined),
       ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-      hasMoreMessages: false
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -250,7 +256,9 @@ describe("useChat", () => {
       deleteMessage: vi.fn().mockResolvedValue(undefined),
       ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-      hasMoreMessages: false
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     // Mock db to return null for latest session
@@ -300,7 +308,9 @@ describe("useChat", () => {
         deleteMessage: vi.fn().mockResolvedValue(undefined),
         ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
         loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false
+        hasMoreMessages: false,
+        forkMessage: vi.fn().mockResolvedValue(undefined),
+        navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -337,7 +347,9 @@ describe("useChat", () => {
         deleteMessage: vi.fn().mockResolvedValue(undefined),
         ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
         loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false
+        hasMoreMessages: false,
+        forkMessage: vi.fn().mockResolvedValue(undefined),
+        navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -433,7 +445,9 @@ describe("useChat", () => {
         deleteMessage: vi.fn().mockResolvedValue(undefined),
         ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
         loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false
+        hasMoreMessages: false,
+        forkMessage: vi.fn().mockResolvedValue(undefined),
+        navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -499,7 +513,12 @@ describe("useChat", () => {
           }
         ],
         formattedContext: "[Document 1] test.txt\nRelevant chunk",
-        sources: [{ title: "test.txt", type: "file", fileId: "file-1" }]
+        sources: [{
+          title: "test.txt", type: "file", fileId: "file-1",
+          id: "",
+          content: "",
+          score: 0
+        }]
       })
 
       const { result } = renderHook(() => useChat())
@@ -521,7 +540,8 @@ describe("useChat", () => {
 
       expect(retrieveContext).toHaveBeenCalledWith("Summarize", ["file-1"], {
         mode: "similarity",
-        topK: 5
+        topK: 5,
+        useReranking: true
       })
     })
 

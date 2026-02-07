@@ -15,11 +15,29 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   }
 }))
 
+// Mock ProviderFactory - returns a provider that doesn't find the model
+// This forces the fallback to Ollama direct check
+const mockGetModels = vi.fn()
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn().mockResolvedValue({
+      getModels: mockGetModels,
+      config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
+    }),
+    getProvider: vi.fn().mockResolvedValue({
+      getModels: mockGetModels,
+      config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
+    })
+  }
+}))
+
 global.fetch = vi.fn()
 
 describe("Handle Embedding Download", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // By default, provider doesn't find the model
+    mockGetModels.mockResolvedValue([])
   })
 
   describe("checkEmbeddingModelExists", () => {
@@ -31,8 +49,8 @@ describe("Handle Embedding Download", () => {
         })
       } as any)
 
-      const exists = await checkEmbeddingModelExists("nomic-embed-text")
-      expect(exists).toBe(true)
+      const result = await checkEmbeddingModelExists("nomic-embed-text")
+      expect(result.exists).toBe(true)
     })
 
     it("should return true if model exists with tag match", async () => {
@@ -43,8 +61,8 @@ describe("Handle Embedding Download", () => {
         })
       } as any)
 
-      const exists = await checkEmbeddingModelExists("nomic-embed-text:latest")
-      expect(exists).toBe(true)
+      const result = await checkEmbeddingModelExists("nomic-embed-text:latest")
+      expect(result.exists).toBe(true)
     })
 
     it("should return false if model not found", async () => {
@@ -55,8 +73,8 @@ describe("Handle Embedding Download", () => {
         })
       } as any)
 
-      const exists = await checkEmbeddingModelExists("nomic-embed-text")
-      expect(exists).toBe(false)
+      const result = await checkEmbeddingModelExists("nomic-embed-text")
+      expect(result.exists).toBe(false)
     })
 
     it("should return false on API error", async () => {
@@ -65,15 +83,15 @@ describe("Handle Embedding Download", () => {
         statusText: "Server Error"
       } as any)
 
-      const exists = await checkEmbeddingModelExists("nomic-embed-text")
-      expect(exists).toBe(false)
+      const result = await checkEmbeddingModelExists("nomic-embed-text")
+      expect(result.exists).toBe(false)
     })
 
     it("should return false on network error", async () => {
       vi.mocked(fetch).mockRejectedValue(new Error("Network Error"))
 
-      const exists = await checkEmbeddingModelExists("nomic-embed-text")
-      expect(exists).toBe(false)
+      const result = await checkEmbeddingModelExists("nomic-embed-text")
+      expect(result.exists).toBe(false)
     })
   })
 

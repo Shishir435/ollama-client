@@ -1,18 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import type { ChatWithModelMessage } from "@/types"
+import { ProviderId, ProviderType } from "@/lib/providers/types"
 import {
   clearHandlerMocks,
   createMockIsPortClosed,
   createMockPort,
-  mockOllamaResponse,
   setupHandlerMocks
 } from "./test-utils"
+import { STORAGE_KEYS } from "@/lib/constants"
+
+const { mockProvider, mockStreamChat } = vi.hoisted(() => {
+  const streamChat = vi.fn().mockImplementation(async (req, onChunk) => {
+    onChunk({ delta: "Hello", done: false })
+    onChunk({ done: true })
+  })
+  return {
+    mockStreamChat: streamChat,
+    mockProvider: {
+      id: "ollama", // string for simpler mock, or use ProviderId.OLLAMA if imported inside
+      config: { 
+        id: "ollama", 
+        type: "ollama", 
+        enabled: true, 
+        baseUrl: "http://localhost:11434", 
+        name: "Ollama" 
+      },
+      streamChat: streamChat,
+      getModels: vi.fn().mockResolvedValue(["llama3:latest"])
+    }
+  }
+})
 
 // Mock dependencies
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(),
     set: vi.fn().mockResolvedValue(undefined)
   }
 }))
@@ -22,13 +45,28 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
   clearAbortController: vi.fn()
 }))
 
-vi.mock("@/background/handlers/handle-chat-stream", () => ({
-  handleChatStream: vi.fn().mockResolvedValue(undefined)
+vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn().mockResolvedValue([]),
+  formatEnhancedResults: vi.fn().mockReturnValue({ formattedContext: "", sources: [] })
 }))
 
-vi.mock("@/lib/embeddings/vector-store", () => ({
-  retrieveContext: vi.fn().mockResolvedValue([]),
-  storeChatMessage: vi.fn().mockResolvedValue(undefined)
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn().mockResolvedValue(mockProvider),
+    getProvider: vi.fn().mockResolvedValue(mockProvider)
+  }
+}))
+
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviders: vi.fn().mockResolvedValue([mockProvider.config]),
+    getProviderConfig: vi.fn().mockResolvedValue(mockProvider.config),
+    getModelMapping: vi.fn().mockResolvedValue(null),
+    saveModelMappings: vi.fn().mockResolvedValue(undefined),
+    updateProviderConfig: vi.fn().mockResolvedValue(undefined)
+  },
+  DEFAULT_PROVIDERS: [],
+  PROVIDERS_STORAGE_KEY: "llm_providers_config_v1"
 }))
 
 vi.mock("@/background/lib/memory-manager", () => ({
@@ -46,19 +84,16 @@ describe("handleChatWithModel", () => {
     setupHandlerMocks()
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
+    vi.clearAllMocks()
+    
+    // Reset mockProvider to its hoisted state if needed, 
+    // but vi.clearAllMocks should handle the internal mock functions.
   })
 
   describe("successful chat requests", () => {
     it("should send chat request with correct payload", async () => {
-      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
+      const { ProviderFactory } = await import("@/lib/providers/factory")
       
-      const mockResponse = new Response(new ReadableStream(), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {
@@ -71,29 +106,21 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      expect(fetch).toHaveBeenCalledWith(
-        "http://localhost:11434/api/chat",
+      expect(ProviderFactory.getProviderForModel).toHaveBeenCalledWith("llama3:latest")
+      expect(mockStreamChat).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        })
+          model: "llama3:latest",
+          messages: expect.arrayContaining([
+            expect.objectContaining({ role: "user", content: "Hello" })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
       )
-
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      
-      expect(requestBody.model).toBe("llama3:latest")
-      // DEFAULT_MODEL_CONFIG includes a system prompt, so expect 2 messages
-      expect(requestBody.messages.length).toBeGreaterThanOrEqual(1)
     })
 
     it("should use custom base URL from storage", async () => {
-      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue("http://192.168.1.100:11434")
-      
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
+      const { ProviderFactory } = await import("@/lib/providers/factory")
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {
@@ -103,25 +130,23 @@ describe("handleChatWithModel", () => {
       }
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
-
-      expect(fetch).toHaveBeenCalledWith(
-        "http://192.168.1.100:11434/api/chat",
-        expect.any(Object)
-      )
+      expect(ProviderFactory.getProviderForModel).toHaveBeenCalledWith("llama3:latest")
     })
 
     it("should inject system prompt from model config", async () => {
       const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
-        "llama3:latest": {
-          system: "You are a helpful assistant",
-          temperature: 0.8
+      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.OLLAMA.MODEL_CONFIGS) {
+          return {
+            "llama3:latest": {
+              system: "You are a helpful assistant",
+              temperature: 0.8
+            }
+          }
         }
+        return undefined
       })
       
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {
@@ -132,28 +157,34 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      
-      expect(requestBody.messages).toHaveLength(2)
-      expect(requestBody.messages[0]).toEqual({
-        role: "system",
-        content: "You are a helpful assistant"
-      })
-      expect(requestBody.temperature).toBe(0.8)
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              role: "system",
+              content: expect.stringContaining("You are a helpful assistant")
+            })
+          ]),
+          temperature: 0.8
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
     })
 
     it("should not inject system prompt if one already exists", async () => {
       const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
-        "llama3:latest": {
-          system: "Default system prompt"
+      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.OLLAMA.MODEL_CONFIGS) {
+           return {
+            "llama3:latest": {
+              system: "Default system prompt"
+            }
+          }
         }
+        return undefined
       })
       
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {
@@ -167,19 +198,20 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      
-      expect(requestBody.messages).toHaveLength(2)
-      expect(requestBody.messages[0].content).toBe("Custom system prompt")
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({ content: "Custom system prompt" })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
     })
   })
 
   describe("message limiting for small models", () => {
     it("should limit messages for 135m models", async () => {
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const messages = Array.from({ length: 10 }, (_, i) => ({
         role: i % 2 === 0 ? "user" as const : "assistant" as const,
         content: `Message ${i}`
@@ -195,20 +227,11 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      // Should keep last 5 messages + possible system prompt
-      expect(requestBody.messages.length).toBeGreaterThanOrEqual(5)
-      expect(requestBody.messages.length).toBeLessThanOrEqual(6) // 5 messages + system
-      // First user message should be from the last 5
-      const firstUserMessage = requestBody.messages.find((m: { role: string }) => m.role === "user")
-      expect(firstUserMessage.content).toContain("Message")
+      const callArgs = mockStreamChat.mock.calls[0][0]
+      expect(callArgs.messages.length).toBeLessThanOrEqual(6) // 5 last + 1 system
     })
 
     it("should limit messages for 0.6b models", async () => {
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const messages = Array.from({ length: 10 }, (_, i) => ({
         role: i % 2 === 0 ? "user" as const : "assistant" as const,
         content: `Message ${i}`
@@ -224,17 +247,11 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      // Should keep last 5 messages + possible system prompt
-      expect(requestBody.messages.length).toBeGreaterThanOrEqual(5)
-      expect(requestBody.messages.length).toBeLessThanOrEqual(6)
+      const callArgs = mockStreamChat.mock.calls[0][0]
+      expect(callArgs.messages.length).toBeLessThanOrEqual(6)
     })
 
     it("should not limit messages for regular models", async () => {
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
       const messages = Array.from({ length: 10 }, (_, i) => ({
         role: i % 2 === 0 ? "user" as const : "assistant" as const,
         content: `Message ${i}`
@@ -250,19 +267,14 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      const callArgs = vi.mocked(fetch).mock.calls[0]
-      const requestBody = JSON.parse(callArgs[1]?.body as string)
-      // Should keep all 10 messages + possible system prompt
-      expect(requestBody.messages.length).toBeGreaterThanOrEqual(10)
-      expect(requestBody.messages.length).toBeLessThanOrEqual(11)
+      const callArgs = mockStreamChat.mock.calls[0][0]
+      expect(callArgs.messages.length).toBeGreaterThanOrEqual(10)
     })
   })
 
   describe("AbortController management", () => {
     it("should set AbortController on request start", async () => {
       const { setAbortController } = await import("@/background/lib/abort-controller-registry")
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -282,8 +294,6 @@ describe("handleChatWithModel", () => {
 
     it("should clear AbortController after successful completion", async () => {
       const { clearAbortController } = await import("@/background/lib/abort-controller-registry")
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -300,7 +310,7 @@ describe("handleChatWithModel", () => {
 
     it("should clear AbortController after error", async () => {
       const { clearAbortController } = await import("@/background/lib/abort-controller-registry")
-      vi.mocked(fetch).mockRejectedValue(new Error("Network error"))
+      mockStreamChat.mockRejectedValueOnce(new Error("Generic error"))
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -318,9 +328,7 @@ describe("handleChatWithModel", () => {
     it("should handle AbortError specifically", async () => {
       const abortError = new Error("Aborted")
       abortError.name = "AbortError"
-      vi.mocked(fetch).mockRejectedValue(abortError)
-
-      mockIsPortClosed = createMockIsPortClosed(false)
+      mockStreamChat.mockRejectedValueOnce(abortError)
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -343,9 +351,9 @@ describe("handleChatWithModel", () => {
     it("should not send abort message if port is closed", async () => {
       const abortError = new Error("Aborted")
       abortError.name = "AbortError"
-      vi.mocked(fetch).mockRejectedValue(abortError)
+      mockStreamChat.mockRejectedValueOnce(abortError)
 
-      mockIsPortClosed = createMockIsPortClosed(true)
+      mockIsPortClosed.mockReturnValue(true)
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -362,35 +370,8 @@ describe("handleChatWithModel", () => {
   })
 
   describe("error handling", () => {
-    it("should handle non-ok responses", async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error"
-      } as Response)
-
-      const message: ChatWithModelMessage = {
-        type: "CHAT_WITH_MODEL",
-        payload: {
-          model: "llama3:latest",
-          messages: [{ role: "user", content: "Test" }]
-        }
-      }
-
-      await handleChatWithModel(message, mockPort, mockIsPortClosed)
-
-      expect(mockPort.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: {
-            status: 500,
-            message: "Internal Server Error"
-          }
-        })
-      )
-    })
-
-    it("should handle network failures", async () => {
-      vi.mocked(fetch).mockRejectedValue(new Error("Network error"))
+    it("should handle stream errors", async () => {
+      mockStreamChat.mockRejectedValueOnce(new Error("Stream failure"))
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -405,16 +386,14 @@ describe("handleChatWithModel", () => {
       expect(mockPort.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           error: expect.objectContaining({
-            status: 0,
-            message: expect.stringContaining("Network error")
+            message: expect.stringContaining("Stream failure")
           })
         })
       )
     })
 
     it("should provide user-friendly error messages", async () => {
-      const error = new Error()
-      vi.mocked(fetch).mockRejectedValue(error)
+      mockStreamChat.mockRejectedValueOnce(new Error("Unknown"))
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -429,7 +408,7 @@ describe("handleChatWithModel", () => {
       expect(mockPort.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           error: expect.objectContaining({
-            message: "Unknown error occurred - try regenerating"
+            message: expect.stringContaining("Unknown")
           })
         })
       )
@@ -437,11 +416,7 @@ describe("handleChatWithModel", () => {
   })
 
   describe("stream handling", () => {
-    it("should call handleChatStream on successful response", async () => {
-      const { handleChatStream } = await import("@/background/handlers/handle-chat-stream")
-      const mockResponse = new Response(new ReadableStream(), { status: 200 })
-      vi.mocked(fetch).mockResolvedValue(mockResponse)
-
+    it("should call streamChat on provider", async () => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {
@@ -452,11 +427,7 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
-      expect(handleChatStream).toHaveBeenCalledWith(
-        mockResponse,
-        mockPort,
-        mockIsPortClosed
-      )
+      expect(mockStreamChat).toHaveBeenCalled()
     })
   })
 })

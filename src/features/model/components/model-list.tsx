@@ -97,7 +97,7 @@ const getModelIcon = (modelName: string): string => {
 
 export const ModelList = (): JSX.Element => {
   const { t } = useTranslation()
-  const { models, loading, error, deleteModel, refresh } = useOllamaModels()
+  const { models, isLoading, error, deleteModel, refresh } = useOllamaModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -107,7 +107,7 @@ export const ModelList = (): JSX.Element => {
     setRefreshing(false)
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
@@ -251,6 +251,10 @@ export const ModelList = (): JSX.Element => {
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3" />
                               <span>{formatDate(model.modified_at, t)}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground rounded-full bg-secondary px-2 py-0.5">
+                              <span>{model.providerName || "Ollama"}</span>
                             </div>
                           </div>
                         </div>

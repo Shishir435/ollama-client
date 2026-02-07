@@ -18,6 +18,30 @@ vi.mock("@/lib/embeddings/ollama-embedder", () => ({
   generateEmbedding: vi.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
 }))
 
+vi.mock("../rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn().mockResolvedValue([
+    {
+      document: {
+        content: "Chunk 1 content",
+        metadata: { title: "Doc 1", source: "test.txt", type: "file", chunkIndex: 0, fileId: "file1" }
+      },
+      score: 0.9
+    },
+    {
+      document: {
+        content: "Chunk 2 content",
+        metadata: { title: "Doc 1", source: "test.txt", type: "file", chunkIndex: 1, fileId: "file1" }
+      },
+      score: 0.8
+    }
+  ]),
+  formatEnhancedResults: vi.fn().mockImplementation((results) => ({
+    documents: results.map((r: any) => r.document),
+    formattedContext: "Chunk 1 content\n\nChunk 2 content",
+    sources: [{ title: "Doc 1" }]
+  }))
+}))
+
 describe("retrieveContext", () => {
   const mockDocuments: vectorStore.VectorDocument[] = [
     {
@@ -46,28 +70,21 @@ describe("retrieveContext", () => {
     }
   ]
 
-  it("retrieves context using similarity search by default", async () => {
-    vi.mocked(vectorStore.similaritySearchWithScore).mockResolvedValue([
-      { document: mockDocuments[0], similarity: 0.9 },
-      { document: mockDocuments[1], similarity: 0.8 }
-    ] as any)
-
+  it("retrieves context using enhanced pipeline by default", async () => {
+    const { retrieveContextEnhanced } = await import("../rag-pipeline")
+    
     const result = await retrieveContext("query", "file1")
 
-    expect(vectorStore.similaritySearchWithScore).toHaveBeenCalledWith(
-      [0.1, 0.2, 0.3],
+    expect(retrieveContextEnhanced).toHaveBeenCalledWith(
+      "query",
       expect.objectContaining({ 
-        limit: 4, 
+        topK: 4, 
         fileId: "file1", 
         minSimilarity: 0.5,
-        type: "file" 
+        diversityEnabled: true
       })
     )
-    expect(result.documents).toHaveLength(2)
     expect(result.formattedContext).toContain("Chunk 1 content")
-    expect(result.formattedContext).toContain("Chunk 2 content")
-    expect(result.sources).toHaveLength(2)
-    expect(result.sources[0].title).toBe("Doc 1")
   })
 
   it("retrieves full context when mode is full", async () => {

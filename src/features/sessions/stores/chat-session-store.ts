@@ -539,9 +539,9 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // Build Parent -> Children map
     const childrenMap = new Map<number, number[]>()
     for (const msg of allMessages) {
-      if (msg.parentId) {
+      if (msg.parentId && msg.id !== undefined) {
         const list = childrenMap.get(msg.parentId) || []
-        list.push(msg.id!)
+        list.push(msg.id)
         childrenMap.set(msg.parentId, list)
       }
     }
@@ -551,7 +551,9 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     const queue = [messageId]
 
     while (queue.length > 0) {
-      const current = queue.shift()!
+      const current = queue.shift()
+      if (current === undefined) continue
+
       const children = childrenMap.get(current)
       if (children) {
         for (const childId of children) {
@@ -569,8 +571,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     // If the current leaf is one of the deleted messages, we must revert leaf to the target's parent.
     const session = await db.sessions.get(sessionId)
     if (
-      session &&
-      session.currentLeafId &&
+      session?.currentLeafId !== undefined &&
       toDeleteIds.has(session.currentLeafId)
     ) {
       /*
@@ -611,10 +612,14 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
         s.id === sessionId
           ? {
               ...s,
-              messages: s.messages?.filter((m) => !toDeleteIds.has(m.id!)),
-              currentLeafId: toDeleteIds.has(s.currentLeafId!)
-                ? targetParentId
-                : s.currentLeafId
+              messages: s.messages?.filter(
+                (m) => m.id !== undefined && !toDeleteIds.has(m.id)
+              ),
+              currentLeafId:
+                s.currentLeafId !== undefined &&
+                toDeleteIds.has(s.currentLeafId)
+                  ? targetParentId
+                  : s.currentLeafId
             }
           : s
       )

@@ -241,10 +241,10 @@ browser.runtime.onMessage.addListener(
         if (typeof message.payload === "string") {
           // Handle async operation separately to maintain correct return type
           checkEmbeddingModelExists(message.payload as string)
-            .then((exists) => {
+            .then((result) => {
               safeSendResponse(sendResponse, {
                 success: true,
-                data: { exists }
+                data: result
               })
             })
             .catch((error) => {

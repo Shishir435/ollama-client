@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>
-      Ollama Client - Ollama Chrome Extension for Local AI Chat | Privacy-First
+      Ollama Client - Multi-Provider Local AI Chat Extension | Privacy-First
       Browser Extension
     </title>
     <meta
@@ -14,10 +14,10 @@
     <meta name="theme-color" content="#6366f1" />
     <meta
       name="description"
-      content="Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpy-oss and more — directly in your browser. Features enhanced content extraction with lazy loading, advanced text-to-speech, site-specific overrides, YouTube transcript automation, and more. No cloud APIs, fully offline AI chat." />
+      content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search. No mandatory cloud backend." />
     <meta
       name="keywords"
-      content="ollama client, ollama chrome extension, ollama browser extension, ollama web ui alternative, local ai model, offline ai chat, local private llm interface, open-source ai model enthusiasts, frontend interface for ollama, ollama chat ui, ollama local ai, ollama gemma chat, ollama llama3 chat, privacy first ai chat, local ai assistant chrome, ollama mistral chat, local ai without cloud, ollama local models ui, text to speech, TTS browser extension, speech synthesis chrome extension, voice selector, ai chat with voice, content extraction, lazy loading, defuddle, youtube transcript extraction, site-specific overrides, github content extraction" />
+      content="ollama client, local ai extension, offline ai chat, ollama extension, lm studio extension, llama.cpp extension, local llm chat, privacy first ai, browser ai assistant, semantic search, rag extension" />
     <meta name="author" content="Shishir Chaurasiya" />
     <link
       rel="apple-touch-icon"
@@ -41,10 +41,10 @@
     <meta property="og:type" content="website" />
     <meta
       property="og:title"
-      content="Ollama Client - Ollama Chrome Extension for Local AI Chat" />
+      content="Ollama Client - Multi-Provider Local AI Chat Extension" />
     <meta
       property="og:description"
-      content="Privacy-first Chrome extension to chat with local AI models like LLaMA, Mistral directly from any tab. Features enhanced content extraction with lazy loading, advanced text-to-speech, site-specific overrides, YouTube transcript automation, and more. No cloud APIs required." />
+      content="Privacy-first extension for local AI chat with Ollama, LM Studio, and llama.cpp. Includes semantic search, content extraction, and voice features with local-first workflows." />
     <meta
       property="og:url"
       content="https://ollama-client.shishirchaurasiya.in/" />
@@ -56,10 +56,10 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="Ollama Client - Ollama Chrome Extension for Local AI Chat" />
+      content="Ollama Client - Multi-Provider Local AI Chat Extension" />
     <meta
       name="twitter:description"
-      content="Privacy-first Ollama Chrome extension to chat with local AI models without sending your data to the cloud. Features enhanced content extraction, advanced text-to-speech, site-specific overrides, and YouTube transcript automation." />
+      content="Privacy-first local AI chat extension supporting Ollama, LM Studio, and llama.cpp with semantic search and advanced browser content extraction." />
     <meta
       name="twitter:image"
       content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
@@ -74,7 +74,7 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Ollama Client",
-        "description": "Ollama Client is a privacy-first Ollama Chrome extension and Ollama UI alternative that lets you chat with local AI models like LLaMA, Mistral, Gemma, gpt-oss and more — directly in your browser. Features enhanced content extraction with lazy loading support and site-specific overrides, advanced text-to-speech with searchable voice selection, automated YouTube transcript extraction, GitHub content extraction, and more. No cloud APIs, fully offline AI chat",
+        "description": "Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. It includes enhanced content extraction, voice features, and semantic retrieval workflows directly in your browser.",
         "applicationCategory": "BrowserApplication",
         "operatingSystem": "Chrome",
         "author": {
@@ -874,15 +874,12 @@
       <div class="hero-content fade-in-up">
         <h1>Chat with Local LLM Models<br />Right in Your Browser</h1>
         <p class="hero-subtitle">
-          Privacy-first <strong>Ollama Chrome extension</strong> and
-          <strong>Ollama UI alternative</strong> that brings any
-          <strong>local AI model</strong> directly to your browser tabs. Choose
-          from hundreds of models &mdash; LLaMA, Mistral, Gemma, Qwen, GPT-OSS,
-          and more. Features <strong>enhanced content extraction</strong> with
-          lazy loading, <strong>advanced text-to-speech</strong>, site-specific
-          overrides, YouTube transcript automation, and more. Enjoy
-          <strong>offline AI chat</strong> with no cloud APIs and zero data
-          sharing
+          Privacy-first extension for <strong>local AI chat</strong> with
+          <strong>multi-provider support</strong>. Connect Ollama, LM Studio, or
+          llama.cpp and run conversations directly in your browser. Includes
+          <strong>enhanced content extraction</strong>, semantic retrieval, and
+          <strong>advanced text-to-speech</strong> workflows with local-first
+          data handling.
         </p>
 
         <div class="cta-buttons">
@@ -915,18 +912,22 @@
 
         <div class="stats">
           <div class="stat">
-            <span class="stat-number">100%</span>
-            <span class="stat-label">Privacy</span>
+            <span class="stat-number">Local-First</span>
+            <span class="stat-label">Privacy Model</span>
           </div>
           <div class="stat">
             <span class="stat-number">∞</span>
             <span class="stat-label">AI Models</span>
           </div>
           <div class="stat">
-            <span class="stat-number">0</span>
-            <span class="stat-label">Cloud APIs</span>
+            <span class="stat-number">0*</span>
+            <span class="stat-label">Mandatory Cloud APIs</span>
           </div>
         </div>
+        <p class="hero-subtitle" style="margin-top: 1rem; margin-bottom: 2rem">
+          *You control the endpoint. If you configure a remote provider, your
+          data will go to that provider.
+        </p>
 
         <!-- Enhanced Browser Support -->
         <div class="browser-support">
@@ -961,22 +962,21 @@
           <h2 class="section-title">Powerful Features</h2>
           <p class="section-subtitle">
             Everything you need for productive AI conversations, all running
-            locally on your machine
+            with local-first defaults and user-controlled endpoints
           </p>
         </div>
 
         <div class="features-grid">
           <div class="feature-card scroll-animate">
             <div class="feature-icon">🤖</div>
-            <h3 class="feature-title">Any Ollama Model</h3>
+            <h3 class="feature-title">Multi-Provider Local Models</h3>
             <p class="feature-description">
-              Use any AI model available in the Ollama library - from
-              lightweight models to the most powerful ones. Your choice, your
-              hardware.
+              Use local models through Ollama, LM Studio, or llama.cpp. Route
+              models by provider while keeping a single chat experience.
             </p>
             <ul class="feature-list">
-              <li>Complete Ollama model library</li>
-              <li>Model selection menu</li>
+              <li>Ollama, LM Studio, llama.cpp support</li>
+              <li>Provider-aware model selection</li>
               <li>Streaming responses</li>
               <li>Stop generation control</li>
             </ul>
@@ -1072,7 +1072,7 @@
               options.
             </p>
             <ul class="feature-list">
-              <li>Ollama API parameter exposure</li>
+              <li>Provider base URL and model controls</li>
               <li>Excluded URLs (regex support)</li>
               <li>Model-specific settings</li>
               <li>Debug logging</li>
@@ -1083,11 +1083,12 @@
             <div class="feature-icon">🔒</div>
             <h3 class="feature-title">Privacy First</h3>
             <p class="feature-description">
-              Your conversations never leave your machine. Complete privacy and
-              data ownership.
+              Local-first by default with full endpoint control. If you point to
+              a remote provider, prompts are sent to that provider.
             </p>
             <ul class="feature-list">
-              <li>No cloud API calls</li>
+              <li>No mandatory cloud API calls</li>
+              <li>User-controlled provider endpoints</li>
               <li>Local data storage</li>
               <li>No telemetry</li>
               <li>Open source code</li>
@@ -1152,11 +1153,10 @@
         <div class="install-steps">
           <div class="install-step scroll-animate">
             <div class="step-number">1</div>
-            <h3 class="step-title">Install Ollama</h3>
+            <h3 class="step-title">Start a Local Provider</h3>
             <p class="step-description">
-              Download and install Ollama on your system, then pull any AI model
-              from their extensive library - from efficient 7B models to
-              powerful 70B+ models.
+              Run Ollama, LM Studio, or llama.cpp with a local API endpoint.
+              Configure the matching provider URL in extension settings.
             </p>
           </div>
 
@@ -1236,7 +1236,7 @@
 
         <div class="footer-bottom">
           <p>
-            &copy; 2025 Ollama Client. Built with ❤️ by
+            &copy; <span id="copyright-year">2026</span> Ollama Client. Built with ❤️ by
             <a
               href="https://www.shishirchaurasiya.in/"
               target="_blank"
@@ -1246,7 +1246,7 @@
             >
           </p>
           <p style="margin-top: 0.5rem; font-size: 0.9rem">
-            Open source • Privacy-first • Powered by Ollama
+            Open source • Privacy-first • Multi-provider local AI
           </p>
         </div>
       </div>
@@ -1276,6 +1276,12 @@
         featureCards.forEach((card, index) => {
           card.style.animationDelay = `${index * 0.1}s`
         })
+
+        // Update copyright year
+        const yearElement = document.getElementById("copyright-year")
+        if (yearElement) {
+          yearElement.textContent = new Date().getFullYear().toString()
+        }
       })
 
       // Button click tracking (optional analytics)

@@ -218,14 +218,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   }
 
   if (!modelInfo) {
-    return (
-      <div className="rounded-lg border bg-card p-3">
-        <div className="flex items-center justify-center text-xs text-muted-foreground">
-          <Database className="mr-2 h-4 w-4 text-muted-foreground" />
-          {t("settings.model_info.no_data")}
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (
@@ -251,11 +244,11 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
                       <span className="font-mono text-xs">
                         {key.includes("parameter")
                           ? typeof val === "number"
-                            ? `${formatCompactNumber(val)} Params`
+                            ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
                             : String(val)
                           : key.includes("context")
                             ? typeof val === "number"
-                              ? `${formatCompactNumber(val)} Ctx`
+                              ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
                               : String(val)
                             : key.includes("file_type") &&
                                 typeof val === "number"

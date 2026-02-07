@@ -47,7 +47,7 @@ export const ModelMenu = ({
     ""
   )
 
-  const { status, models, refresh, loading } = useOllamaModels()
+  const { status, models, refresh, isLoading } = useOllamaModels()
 
   useEffect(() => {
     if (status === "ready" && models.length > 0 && !selectedModel) {
@@ -103,7 +103,7 @@ export const ModelMenu = ({
                 <RotateCcw
                   className={cn(
                     "transition-transform",
-                    loading && "animate-spin"
+                    isLoading && "animate-spin"
                   )}
                   size={8}
                 />
@@ -121,29 +121,38 @@ export const ModelMenu = ({
           />
           <CommandList>
             <CommandEmpty>{t("model.menu.no_model_found")}</CommandEmpty>
-            <CommandGroup>
-              {models
+
+            {/* Group models by provider */}
+            {Object.entries(
+              models
                 .filter((model) => {
                   // Filter out embedding models
-                  // Check 1: Families often contain "bert" for embedding models
                   if (
-                    model.details?.families?.some(
-                      (f) =>
-                        f === "bert" ||
-                        f === "nomic-bert" ||
-                        f === "xlm-roberta"
+                    model.details?.families?.some((f) =>
+                      ["bert", "nomic-bert", "xlm-roberta"].includes(f)
                     )
                   )
                     return false
-
-                  // Check 2: Name conventions (fallback)
                   if (model.name.includes("embed")) return false
-
                   return true
                 })
-                .map((model) => (
+                .reduce(
+                  (groups, model) => {
+                    const providerId = model.providerId || "ollama"
+                    const providerName = model.providerName || "Ollama"
+                    if (!groups[providerId]) {
+                      groups[providerId] = { name: providerName, models: [] }
+                    }
+                    groups[providerId].models.push(model)
+                    return groups
+                  },
+                  {} as Record<string, { name: string; models: typeof models }>
+                )
+            ).map(([providerId, group]) => (
+              <CommandGroup key={providerId} heading={group.name}>
+                {group.models.map((model) => (
                   <CommandItem
-                    key={model.name}
+                    key={`${providerId}-${model.name}`}
                     value={model.name}
                     onSelect={() => handleSelect(model.name)}
                     className="capitalize">
@@ -158,7 +167,8 @@ export const ModelMenu = ({
                     />
                   </CommandItem>
                 ))}
-            </CommandGroup>
+              </CommandGroup>
+            ))}
           </CommandList>
         </Command>
       </PopoverContent>

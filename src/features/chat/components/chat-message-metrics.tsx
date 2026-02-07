@@ -16,7 +16,7 @@ export const ChatMessageMetrics = ({
 
   return (
     <div className="mt-2 flex flex-wrap gap-1 justify-around">
-      {metrics.total_duration && (
+      {!!metrics.total_duration && (
         <MetricCard
           icon={Clock}
           tooltip={t("chat.metrics.total_time")}
@@ -25,7 +25,7 @@ export const ChatMessageMetrics = ({
         />
       )}
 
-      {metrics.eval_count && metrics.eval_duration && (
+      {!!(metrics.eval_count && metrics.eval_duration) && (
         <MetricCard
           icon={Zap}
           tooltip={t("chat.metrics.generation_speed")}
@@ -37,7 +37,7 @@ export const ChatMessageMetrics = ({
         />
       )}
 
-      {metrics.eval_count && (
+      {!!metrics.eval_count && (
         <MetricCard
           icon={FileText}
           tooltip={t("chat.metrics.generated_tokens")}
@@ -46,7 +46,7 @@ export const ChatMessageMetrics = ({
         />
       )}
 
-      {metrics.prompt_eval_count && (
+      {!!metrics.prompt_eval_count && (
         <MetricCard
           icon={Database}
           tooltip={t("chat.metrics.prompt_tokens")}
@@ -55,7 +55,7 @@ export const ChatMessageMetrics = ({
         />
       )}
 
-      {metrics.load_duration && (
+      {!!metrics.load_duration && (
         <MetricCard
           icon={Loader2}
           tooltip={t("chat.metrics.load_time")}
@@ -64,7 +64,7 @@ export const ChatMessageMetrics = ({
         />
       )}
 
-      {metrics.prompt_eval_duration && (
+      {!!metrics.prompt_eval_duration && (
         <MetricCard
           icon={Cpu}
           tooltip={t("chat.metrics.prompt_eval_time")}

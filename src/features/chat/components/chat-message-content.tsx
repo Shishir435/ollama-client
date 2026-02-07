@@ -1,6 +1,7 @@
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
 import { ChatMessageMetrics } from "@/features/chat/components/chat-message-metrics"
+import { FileAttachmentDisplay } from "@/features/chat/components/file-attachment-display"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
@@ -26,6 +27,10 @@ export const ChatMessageContent = ({
           ? "border-gray-300 dark:border-gray-600"
           : "border-gray-200 dark:border-gray-700"
       )}>
+      {/* File Attachments */}
+      {msg.attachments && msg.attachments.length > 0 && (
+        <FileAttachmentDisplay attachments={msg.attachments} />
+      )}
       <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
         <MarkdownRenderer content={msg.content} />
         {isLoading && !isUser && (

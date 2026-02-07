@@ -9,34 +9,90 @@ import type { OllamaPullRequest } from "@/types"
  */
 export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
-): Promise<boolean> => {
+): Promise<{ exists: boolean; debug?: object }> => {
+  let providerDebug: object | null = null
+
+  // Try High-Level Provider Check
+  try {
+    const { ProviderFactory } = await import("@/lib/providers/factory")
+    const { ProviderId } = await import("@/lib/providers/types")
+
+    // Enforce Ollama for embedding checks
+    const provider = await ProviderFactory.getProvider(ProviderId.OLLAMA)
+
+    if (provider) {
+      const models = await provider.getModels()
+      console.log(
+        `[checkEmbeddingModelExists] Checking '${modelName}' against provider models:`,
+        models
+      )
+
+      // Normalize model names for comparison (remove tags)
+      const normalizeModelName = (name: string): string => name.split(":")[0]
+      const normalizedSearchName = normalizeModelName(modelName)
+
+      const found = models.some((m: string) => {
+        const normalizedModelName = normalizeModelName(m)
+        const isMatch =
+          m === modelName ||
+          normalizedModelName === normalizedSearchName ||
+          m.startsWith(`${modelName}:`) ||
+          m.startsWith(`${normalizedSearchName}:`)
+        if (isMatch) {
+          console.log(
+            `[checkEmbeddingModelExists] Found match: '${m}' matches '${modelName}'`
+          )
+        }
+        return isMatch
+      })
+
+      if (found) {
+        return {
+          exists: true,
+          debug: { provider: provider.config.id, models, method: "provider" }
+        }
+      }
+
+      providerDebug = {
+        provider: provider.config.id,
+        models,
+        method: "provider-failed-not-found"
+      }
+      console.warn(
+        `[checkEmbeddingModelExists] Model '${modelName}' NOT found in provider models.`
+      )
+    }
+  } catch (error) {
+    console.warn(
+      "[checkEmbeddingModelExists] Provider check failed, trying fallback",
+      error
+    )
+    providerDebug = { error, method: "provider-error" }
+  }
+
+  // Fallback/Legacy: If provider check didn't find it, or failed, try direct Ollama check
   try {
     const baseUrl = await getBaseUrl()
     const res = await fetch(`${baseUrl}/api/tags`)
 
     if (!res.ok) {
-      logger.warn(
-        "Failed to check for embedding model",
-        "checkEmbeddingModelExists",
-        { status: res.statusText }
-      )
-      return false
+      return {
+        exists: false,
+        debug: {
+          ...providerDebug,
+          fallback: { baseUrl, status: res.status, method: "fallback-failed" }
+        }
+      }
     }
 
     const data = await res.json()
-    const models = data.models || []
+    const ollamaModels = data.models || []
 
-    // Normalize model names for comparison (remove tags)
-    const normalizeModelName = (name: string): string => {
-      // Remove tag (e.g., "nomic-embed-text:latest" -> "nomic-embed-text")
-      return name.split(":")[0]
-    }
-
+    const normalizeModelName = (name: string): string => name.split(":")[0]
     const normalizedSearchName = normalizeModelName(modelName)
 
-    const found = models.some((model: { name: string }) => {
+    const found = ollamaModels.some((model: { name: string }) => {
       const normalizedModelName = normalizeModelName(model.name)
-      // Check exact match or normalized match
       return (
         model.name === modelName ||
         normalizedModelName === normalizedSearchName ||
@@ -45,24 +101,24 @@ export const checkEmbeddingModelExists = async (
       )
     })
 
-    logger.verbose(
-      "Embedding model search result",
-      "checkEmbeddingModelExists",
-      {
-        modelName,
-        normalizedSearchName,
-        found
+    return {
+      exists: found,
+      debug: {
+        ...providerDebug,
+        fallback: {
+          found,
+          models: ollamaModels.map((m: { name: string }) => m.name),
+          method: "fallback"
+        }
       }
-    )
-
-    return found
+    }
   } catch (error) {
     logger.error(
-      "Error checking embedding model",
+      "Error checking embedding model (fallback)",
       "checkEmbeddingModelExists",
       { error }
     )
-    return false
+    return { exists: false, debug: { ...providerDebug, fallbackError: error } }
   }
 }
 
@@ -75,8 +131,8 @@ export const downloadEmbeddingModelSilently = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     // Check if model already exists
-    const exists = await checkEmbeddingModelExists(modelName)
-    if (exists) {
+    const result = await checkEmbeddingModelExists(modelName)
+    if (result.exists) {
       logger.info(
         "Embedding model already exists",
         "downloadEmbeddingModelSilently",

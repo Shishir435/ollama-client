@@ -204,6 +204,12 @@
     },
     "message": {
       "loading": "Chargement..."
+    },
+    "errors": {
+      "unknown_error": "❌ Erreur inconnue : {{message}}",
+      "no_message": "Aucun message",
+      "response_failed_title": "Échec de la génération de la réponse",
+      "unknown_error_description": "Une erreur inconnue est survenue"
     }
   },
   "file_upload": {
@@ -359,7 +365,28 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Paramètres de récupération avancés",
+      "adaptive_weights_label": "Poids Hybrides Adaptatifs",
+      "adaptive_weights_description": "Ajustement automatique de la recherche par mots-clés vs sémantique selon le type de requête (ex: code vs concepts)",
+      "temporal_boosting_label": "Renforcement de la Pertinence Temporelle",
+      "temporal_boosting_description": "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
+      "reranking_label": "Activer le ré-classement (Transformers.js)",
+      "reranking_description": "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
+      "hybrid_search_label": "Activer la recherche hybride",
+      "hybrid_search_description": "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",
+      "keyword_weight_label": "Poids du mot-clé",
+      "keyword_weight_description": "Équilibre entre mot-clé (BM25) et recherche sémantique.",
+      "diversity_settings_title": "Paramètres de diversité",
+      "mmr_label": "Activer la diversité MMR",
+      "mmr_description": "La pertinence marginale maximale réduit la redondance dans les résultats de recherche.",
+      "diversity_lambda_label": "Lambda de diversité",
+      "diversity_lambda_description": "Les valeurs inférieures privilégient la diversité, les valeurs supérieures privilégient la pertinence.",
+      "quality_settings_title": "Filtrage de la qualité du contenu",
+      "exclude_casual_label": "Exclure les messages occasionnels",
+      "exclude_casual_description": "Filtrez les salutations, les réponses courtes et les messages à faible information.",
+      "min_quality_score_label": "Score de qualité minimum",
+      "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu."
     }
   },
   "prompts": {
@@ -673,7 +700,9 @@
       "refresh_tooltip": "Actualiser les détails du modèle",
       "capabilities": "Capacités",
       "technical_details": "Détails Techniques",
-      "unknown_file_type": "Inconnu"
+      "unknown_file_type": "Inconnu",
+      "params_label": "Param.",
+      "context_label": "Ctx"
     },
     "loaded_models": {
       "title": "Modèles Chargés",

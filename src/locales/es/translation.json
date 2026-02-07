@@ -203,6 +203,12 @@
     },
     "message": {
       "loading": "Cargando..."
+    },
+    "errors": {
+      "unknown_error": "❌ Error desconocido: {{message}}",
+      "no_message": "Sin mensaje",
+      "response_failed_title": "Generación de respuesta fallida",
+      "unknown_error_description": "Ocurrió un error desconocido"
     }
   },
   "file_upload": {
@@ -358,7 +364,28 @@
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query."
+      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "advanced_retrieval_title": "Configuración avanzada de recuperación",
+      "adaptive_weights_label": "Pesos Híbridos Adaptativos",
+      "adaptive_weights_description": "Ajuste automático de búsqueda por palabras clave frente a semántica según el tipo de consulta (p. ej., código frente a conceptos)",
+      "temporal_boosting_label": "Impulso de Relevancia Temporal",
+      "temporal_boosting_description": "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
+      "reranking_label": "Habilitar Re-Ranking (Transformers.js)",
+      "reranking_description": "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
+      "hybrid_search_label": "Habilitar búsqueda híbrida",
+      "hybrid_search_description": "Combine la búsqueda por palabras clave (BM25) con la búsqueda semántica para una mejor recuperación.",
+      "keyword_weight_label": "Peso de palabra clave",
+      "keyword_weight_description": "Equilibrio entre palabra clave (BM25) y búsqueda semántica.",
+      "diversity_settings_title": "Configuración de diversidad",
+      "mmr_label": "Habilitar diversidad MMR",
+      "mmr_description": "La Relevancia Marginal Máxima reduce la redundancia en los resultados de búsqueda.",
+      "diversity_lambda_label": "Lambda de diversidad",
+      "diversity_lambda_description": "Los valores más bajos priorizan la diversidad, los valores más altos priorizan la relevancia.",
+      "quality_settings_title": "Filtrado de calidad de contenido",
+      "exclude_casual_label": "Excluir mensajes casuales",
+      "exclude_casual_description": "Filtre saludos, respuestas cortas y mensajes de baja información.",
+      "min_quality_score_label": "Puntuación de calidad mínima",
+      "min_quality_score_description": "Puntuación de calidad mínima (0-1) requerida para incrustar contenido."
     }
   },
   "prompts": {
@@ -672,7 +699,9 @@
       "refresh_tooltip": "Actualizar detalles del modelo",
       "capabilities": "Capacidades",
       "technical_details": "Detalles Técnicos",
-      "unknown_file_type": "Desconocido"
+      "unknown_file_type": "Desconocido",
+      "params_label": "Parám.",
+      "context_label": "Cont."
     },
     "loaded_models": {
       "title": "Modelos Cargados",
