@@ -15,11 +15,24 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   }
 }))
 
+// Mock ProviderFactory - returns a provider that doesn't find the model
+// This forces the fallback to Ollama direct check
+const mockGetModels = vi.fn()
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn().mockResolvedValue({
+      getModels: mockGetModels
+    })
+  }
+}))
+
 global.fetch = vi.fn()
 
 describe("Handle Embedding Download", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // By default, provider doesn't find the model
+    mockGetModels.mockResolvedValue([])
   })
 
   describe("checkEmbeddingModelExists", () => {

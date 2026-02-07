@@ -1,9 +1,9 @@
 import { logger } from "@/lib/logger"
-import { generateEmbedding as generateOllamaEmbedding } from "./ollama-embedder"
+import { generateEmbedding, generateEmbeddingsBatch } from "./ollama-embedder"
 
 /**
  * Unified embedding generation factory
- * Currently uses Ollama-only due to CSP constraints with WebGPU WASM loading
+ * Uses the active provider and model to generate embeddings.
  */
 
 export interface EmbeddingResult {
@@ -17,7 +17,7 @@ export interface EmbeddingError {
 }
 
 /**
- * Generate embedding using Ollama
+ * Generate embedding using the current provider/model
  *
  * @param text - Text to embed
  * @returns Embedding result or error
@@ -25,70 +25,41 @@ export interface EmbeddingError {
 export async function generateEmbeddingUnified(
   text: string
 ): Promise<EmbeddingResult | EmbeddingError> {
-  logger.info("Generating embedding via Ollama", "EmbedderFactory", {
-    textLength: text.length
-  })
-
-  try {
-    return await generateViaOllama(text)
-  } catch (error) {
-    logger.error("Embedding generation failed", "EmbedderFactory", { error })
-    return {
-      error: error instanceof Error ? error.message : "Unknown error"
-    }
-  }
-}
-
-/**
- * Generate batch embeddings (more efficient than multiple single calls)
- */
-export async function generateBatchEmbeddingsUnified(
-  texts: string[]
-): Promise<EmbeddingResult[] | EmbeddingError> {
-  logger.info(
-    `Generating ${texts.length} embeddings via Ollama`,
-    "EmbedderFactory"
-  )
-
-  try {
-    const embeddings: EmbeddingResult[] = []
-    for (const text of texts) {
-      const result = await generateViaOllama(text)
-      if ("error" in result) {
-        return result
-      }
-      embeddings.push(result)
-    }
-    return embeddings
-  } catch (error) {
-    logger.error("Batch embedding generation failed", "EmbedderFactory", {
-      error
-    })
-    return {
-      error: error instanceof Error ? error.message : "Unknown error"
-    }
-  }
-}
-
-/**
- * Generate embedding via Ollama
- */
-async function generateViaOllama(
-  text: string
-): Promise<EmbeddingResult | EmbeddingError> {
-  const result = await generateOllamaEmbedding(text)
+  const result = await generateEmbedding(text)
 
   if ("error" in result) {
     return { error: result.error }
   }
 
-  // For Ollama embeddings, we don't track the specific model in results
-  // The model is configured separately in settings
-  const dimension = 768 // Default Ollama dimension (nomic-embed-text)
-
   return {
     embedding: result.embedding,
-    dimension,
-    model: result.model || "ollama" // Model configured separately in settings
+    dimension: result.embedding.length,
+    model: result.model
   }
+}
+
+/**
+ * Generate batch embeddings
+ */
+export async function generateBatchEmbeddingsUnified(
+  texts: string[]
+): Promise<EmbeddingResult[] | EmbeddingError> {
+  logger.info(
+    `Generating ${texts.length} embeddings via Provider`,
+    "EmbedderFactory"
+  )
+
+  const results = await generateEmbeddingsBatch(texts)
+
+  const processed: EmbeddingResult[] = []
+  for (const res of results) {
+    if ("error" in res) return res
+    processed.push({
+      embedding: res.embedding,
+      dimension: res.embedding.length,
+      model: res.model
+    })
+  }
+
+  return processed
 }

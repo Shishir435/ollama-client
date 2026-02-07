@@ -9,12 +9,15 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
+import { useOllamaModels } from "@/features/model/hooks/use-ollama-models"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -39,6 +42,7 @@ export const EmbeddingSettings = () => {
     },
     DEFAULT_EMBEDDING_MODEL
   )
+  const { models } = useOllamaModels()
 
   const [useRag, setUseRag] = useStorage<boolean>(
     {
@@ -126,17 +130,40 @@ export const EmbeddingSettings = () => {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mxbai-embed-large">
-                    mxbai-embed-large (
-                    {t("settings.content_extraction.badges.recommended")})
-                  </SelectItem>
-                  <SelectItem value="nomic-embed-text">
-                    nomic-embed-text
-                  </SelectItem>
-                  <SelectItem value="all-minilm">all-minilm</SelectItem>
-                  <SelectItem value="snowflake-arctic-embed">
-                    snowflake-arctic-embed
-                  </SelectItem>
+                  <SelectGroup>
+                    <SelectLabel>
+                      {t("settings.embeddings.model_select.recommended_group")}
+                    </SelectLabel>
+                    <SelectItem value="mxbai-embed-large">
+                      mxbai-embed-large (
+                      {t("settings.content_extraction.badges.recommended")})
+                    </SelectItem>
+                    <SelectItem value="nomic-embed-text">
+                      nomic-embed-text
+                    </SelectItem>
+                  </SelectGroup>
+
+                  {models.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>
+                        {t("settings.embeddings.model_select.all_models_group")}
+                      </SelectLabel>
+                      {models
+                        .filter(
+                          (m) =>
+                            !["mxbai-embed-large", "nomic-embed-text"].includes(
+                              m.name
+                            )
+                        )
+                        .map((model) => (
+                          <SelectItem
+                            key={`${model.providerId}-${model.name}`}
+                            value={model.name}>
+                            {model.name} ({model.providerName || "Ollama"})
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
             </SettingsFormField>

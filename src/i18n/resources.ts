@@ -224,6 +224,12 @@ export const resources = {
         },
         message: {
           loading: "Lädt..."
+        },
+        errors: {
+          unknown_error: "❌ Unbekannter Fehler: {{message}}",
+          no_message: "Keine Nachricht",
+          response_failed_title: "Antwortgenerierung fehlgeschlagen",
+          unknown_error_description: "Ein unbekannter Fehler ist aufgetreten"
         }
       },
       file_upload: {
@@ -782,7 +788,9 @@ export const resources = {
           refresh_tooltip: "Modelldetails aktualisieren",
           capabilities: "Funktionen",
           technical_details: "Technische Details",
-          unknown_file_type: "Unbekannt"
+          unknown_file_type: "Unbekannt",
+          params_label: "Params",
+          context_label: "Kontext"
         },
         loaded_models: {
           title: "Geladene Modelle",
@@ -1344,6 +1352,12 @@ export const resources = {
         },
         message: {
           loading: "Loading..."
+        },
+        errors: {
+          unknown_error: "❌ Unknown error: {{message}}",
+          no_message: "No message",
+          response_failed_title: "Response Generation Failed",
+          unknown_error_description: "An unknown error occurred"
         }
       },
       file_upload: {
@@ -1913,7 +1927,9 @@ export const resources = {
           refresh_tooltip: "Refresh model details",
           capabilities: "Capabilities",
           technical_details: "Technical Details",
-          unknown_file_type: "Unknown"
+          unknown_file_type: "Unknown",
+          params_label: "Params",
+          context_label: "Ctx"
         },
         loaded_models: {
           title: "Loaded Models",
@@ -2113,7 +2129,9 @@ export const resources = {
             label: "Embedding Model",
             placeholder: "Select a model",
             description:
-              "Choose a model to generate embeddings. You may need to download it first."
+              "Choose a model to generate embeddings. You may need to download it first.",
+            recommended_group: "Recommended Models",
+            all_models_group: "All Models"
           }
         },
         prompts: {
@@ -2472,6 +2490,12 @@ export const resources = {
         },
         message: {
           loading: "Cargando..."
+        },
+        errors: {
+          unknown_error: "❌ Error desconocido: {{message}}",
+          no_message: "Sin mensaje",
+          response_failed_title: "Generación de respuesta fallida",
+          unknown_error_description: "Ocurrió un error desconocido"
         }
       },
       file_upload: {
@@ -3031,7 +3055,9 @@ export const resources = {
           refresh_tooltip: "Actualizar detalles del modelo",
           capabilities: "Capacidades",
           technical_details: "Detalles Técnicos",
-          unknown_file_type: "Desconocido"
+          unknown_file_type: "Desconocido",
+          params_label: "Parám.",
+          context_label: "Cont."
         },
         loaded_models: {
           title: "Modelos Cargados",
@@ -3586,6 +3612,12 @@ export const resources = {
         },
         message: {
           loading: "Chargement..."
+        },
+        errors: {
+          unknown_error: "❌ Erreur inconnue : {{message}}",
+          no_message: "Aucun message",
+          response_failed_title: "Échec de la génération de la réponse",
+          unknown_error_description: "Une erreur inconnue est survenue"
         }
       },
       file_upload: {
@@ -4150,7 +4182,9 @@ export const resources = {
           refresh_tooltip: "Actualiser les détails du modèle",
           capabilities: "Capacités",
           technical_details: "Détails Techniques",
-          unknown_file_type: "Inconnu"
+          unknown_file_type: "Inconnu",
+          params_label: "Param.",
+          context_label: "Ctx"
         },
         loaded_models: {
           title: "Modèles Chargés",
@@ -4701,6 +4735,12 @@ export const resources = {
         },
         message: {
           loading: "लोड हो रहा है..."
+        },
+        errors: {
+          unknown_error: "❌ अज्ञात त्रुटि: {{message}}",
+          no_message: "कोई संदेश नहीं",
+          response_failed_title: "प्रतिक्रिया जनरेशन विफल",
+          unknown_error_description: "एक अज्ञात त्रुटि उत्पन्न हुई"
         }
       },
       file_upload: {
@@ -5240,7 +5280,9 @@ export const resources = {
           refresh_tooltip: "मॉडल विवरण रिफ्रेश करें",
           capabilities: "क्षमताएँ",
           technical_details: "तकनीकी विवरण",
-          unknown_file_type: "अज्ञात"
+          unknown_file_type: "अज्ञात",
+          params_label: "पैरामीटर्स",
+          context_label: "संदर्भ"
         },
         loaded_models: {
           title: "लोड किए गए मॉडल",
@@ -5791,6 +5833,12 @@ export const resources = {
         },
         message: {
           loading: "Caricamento..."
+        },
+        errors: {
+          unknown_error: "❌ Errore sconosciuto: {{message}}",
+          no_message: "Nessun messaggio",
+          response_failed_title: "Generazione della risposta fallita",
+          unknown_error_description: "Si è verificato un errore sconosciuto"
         }
       },
       file_upload: {
@@ -6351,7 +6399,9 @@ export const resources = {
           refresh_tooltip: "Aggiorna dettagli modello",
           capabilities: "Capacità",
           technical_details: "Dettagli Tecnici",
-          unknown_file_type: "Sconosciuto"
+          unknown_file_type: "Sconosciuto",
+          params_label: "Param.",
+          context_label: "Cont."
         },
         loaded_models: {
           title: "Modelli Caricati",
@@ -6908,6 +6958,12 @@ export const resources = {
         },
         message: {
           loading: "読み込み中..."
+        },
+        errors: {
+          unknown_error: "❌ 不明なエラー: {{message}}",
+          no_message: "メッセージなし",
+          response_failed_title: "応答の生成に失敗しました",
+          unknown_error_description: "不明なエラーが発生しました"
         }
       },
       file_upload: {
@@ -7459,7 +7515,9 @@ export const resources = {
           refresh_tooltip: "モデル詳細を更新",
           capabilities: "機能",
           technical_details: "技術詳細",
-          unknown_file_type: "不明"
+          unknown_file_type: "不明",
+          params_label: "パラメータ",
+          context_label: "コンテキスト"
         },
         loaded_models: {
           title: "ロードされたモデル",
@@ -8002,6 +8060,12 @@ export const resources = {
         },
         message: {
           loading: "Загрузка..."
+        },
+        errors: {
+          unknown_error: "❌ Неизвестная ошибка: {{message}}",
+          no_message: "Нет сообщения",
+          response_failed_title: "Ошибка генерации ответа",
+          unknown_error_description: "Произошла неизвестная ошибка"
         }
       },
       file_upload: {
@@ -8558,7 +8622,9 @@ export const resources = {
           refresh_tooltip: "Обновить детали модели",
           capabilities: "Возможности",
           technical_details: "Технические детали",
-          unknown_file_type: "Неизвестно"
+          unknown_file_type: "Неизвестно",
+          params_label: "Параметры",
+          context_label: "Контекст"
         },
         loaded_models: {
           title: "Загруженные модели",
@@ -9102,6 +9168,12 @@ export const resources = {
         },
         message: {
           loading: "加载中..."
+        },
+        errors: {
+          unknown_error: "❌ 未知错误: {{message}}",
+          no_message: "无消息",
+          response_failed_title: "响应生成失败",
+          unknown_error_description: "发生未知错误"
         }
       },
       file_upload: {
@@ -9622,7 +9694,9 @@ export const resources = {
           refresh_tooltip: "刷新模型详细信息",
           capabilities: "功能",
           technical_details: "技术详情",
-          unknown_file_type: "未知"
+          unknown_file_type: "未知",
+          params_label: "参数",
+          context_label: "上下文"
         },
         loaded_models: {
           title: "已加载模型",

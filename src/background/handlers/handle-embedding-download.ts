@@ -11,32 +11,47 @@ export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
 ): Promise<boolean> => {
   try {
+    const { ProviderFactory } = await import("@/lib/providers/factory")
+    const provider = await ProviderFactory.getProviderForModel(modelName)
+
+    if (provider) {
+      const models = await provider.getModels()
+
+      // Normalize model names for comparison (remove tags)
+      const normalizeModelName = (name: string): string => {
+        return name.split(":")[0]
+      }
+
+      const normalizedSearchName = normalizeModelName(modelName)
+
+      const found = models.some((m: string) => {
+        const normalizedModelName = normalizeModelName(m)
+        return (
+          m === modelName ||
+          normalizedModelName === normalizedSearchName ||
+          m.startsWith(`${modelName}:`) ||
+          m.startsWith(`${normalizedSearchName}:`)
+        )
+      })
+
+      if (found) return true
+    }
+
+    // Fallback/Legacy: If provider check didn't find it, or failed, try direct Ollama check
+    // This handles cases where ProviderFactory might be in a different context or uninitialized
     const baseUrl = await getBaseUrl()
     const res = await fetch(`${baseUrl}/api/tags`)
 
-    if (!res.ok) {
-      logger.warn(
-        "Failed to check for embedding model",
-        "checkEmbeddingModelExists",
-        { status: res.statusText }
-      )
-      return false
-    }
+    if (!res.ok) return false
 
     const data = await res.json()
-    const models = data.models || []
+    const ollamaModels = data.models || []
 
-    // Normalize model names for comparison (remove tags)
-    const normalizeModelName = (name: string): string => {
-      // Remove tag (e.g., "nomic-embed-text:latest" -> "nomic-embed-text")
-      return name.split(":")[0]
-    }
-
+    const normalizeModelName = (name: string): string => name.split(":")[0]
     const normalizedSearchName = normalizeModelName(modelName)
 
-    const found = models.some((model: { name: string }) => {
+    return ollamaModels.some((model: { name: string }) => {
       const normalizedModelName = normalizeModelName(model.name)
-      // Check exact match or normalized match
       return (
         model.name === modelName ||
         normalizedModelName === normalizedSearchName ||
@@ -44,23 +59,13 @@ export const checkEmbeddingModelExists = async (
         model.name.startsWith(`${normalizedSearchName}:`)
       )
     })
-
-    logger.verbose(
-      "Embedding model search result",
-      "checkEmbeddingModelExists",
-      {
-        modelName,
-        normalizedSearchName,
-        found
-      }
-    )
-
-    return found
   } catch (error) {
     logger.error(
       "Error checking embedding model",
       "checkEmbeddingModelExists",
-      { error }
+      {
+        error
+      }
     )
     return false
   }

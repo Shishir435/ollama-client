@@ -8,7 +8,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { CopyButton } from "@/features/chat/components/copy-button"
-import { FeedbackButtons } from "@/features/chat/components/feedback-buttons"
 import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
@@ -51,7 +50,7 @@ export const ChatMessageFooter = ({
         (isUser ? "flex-row-reverse" : "flex-row")
       }>
       {/* Branch Navigation */}
-      {msg.siblingIds && msg.siblingIds.length > 1 && msg.id && (
+      {msg.siblingIds && msg.siblingIds.length > 1 && msg.id !== undefined && (
         <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-sm">
           <Button
             variant="ghost"
@@ -59,7 +58,7 @@ export const ChatMessageFooter = ({
             className="h-5 w-5 rounded-full"
             disabled={msg.siblingIds.indexOf(msg.id) <= 0}
             onClick={() => {
-              if (!msg.id || !msg.siblingIds) return
+              if (msg.id === undefined || !msg.siblingIds) return
               const idx = msg.siblingIds.indexOf(msg.id)
               if (idx > 0) onNavigate?.(msg.siblingIds[idx - 1])
             }}>
@@ -76,9 +75,9 @@ export const ChatMessageFooter = ({
               msg.siblingIds.indexOf(msg.id) >= msg.siblingIds.length - 1
             }
             onClick={() => {
-              if (!msg.id || !msg.siblingIds) return
+              if (msg.id === undefined || !msg.siblingIds) return
               const idx = msg.siblingIds.indexOf(msg.id)
-              if (idx < msg.siblingIds.length - 1)
+              if (idx !== -1 && idx < msg.siblingIds.length - 1)
                 onNavigate?.(msg.siblingIds[idx + 1])
             }}>
             <ChevronRight className="h-3 w-3" />

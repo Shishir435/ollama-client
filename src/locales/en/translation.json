@@ -204,6 +204,12 @@
     },
     "message": {
       "loading": "Loading..."
+    },
+    "errors": {
+      "unknown_error": "❌ Unknown error: {{message}}",
+      "no_message": "No message",
+      "response_failed_title": "Response Generation Failed",
+      "unknown_error_description": "An unknown error occurred"
     }
   },
   "file_upload": {
@@ -710,7 +716,9 @@
       "refresh_tooltip": "Refresh model details",
       "capabilities": "Capabilities",
       "technical_details": "Technical Details",
-      "unknown_file_type": "Unknown"
+      "unknown_file_type": "Unknown",
+      "params_label": "Params",
+      "context_label": "Ctx"
     },
     "loaded_models": {
       "title": "Loaded Models",
@@ -888,7 +896,9 @@
       "model_select": {
         "label": "Embedding Model",
         "placeholder": "Select a model",
-        "description": "Choose a model to generate embeddings. You may need to download it first."
+        "description": "Choose a model to generate embeddings. You may need to download it first.",
+        "recommended_group": "Recommended Models",
+        "all_models_group": "All Models"
       }
     },
     "prompts": {
