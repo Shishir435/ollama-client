@@ -20,6 +20,7 @@ import { ContentExtractionSettings } from "@/features/model/components/content-e
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelPullPanel } from "@/features/model/components/model-pull-panel"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
+import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
@@ -40,6 +41,7 @@ export const OllamaOptions = () => {
         </div>
       )
     },
+
     shortcuts: {
       label: t("settings.tabs.shortcuts"),
       content: <ShortcutsSettings />
@@ -96,6 +98,15 @@ export const OllamaOptions = () => {
           <SocialHandles />
         </div>
       )
+    },
+    providers: {
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t("settings.tabs.providers") || "Providers"}
+          <MiniBadge text="New" />
+        </span>
+      ),
+      content: <ProviderSettings />
     }
   }
 
