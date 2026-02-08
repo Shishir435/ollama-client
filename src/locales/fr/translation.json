@@ -87,7 +87,7 @@
       }
     },
     "performance_notice": {
-      "title": "⚠️ Avis de Performance",
+      "title": "Avis de Performance",
       "message": "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
     }
   },

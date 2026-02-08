@@ -87,7 +87,7 @@
       }
     },
     "performance_notice": {
-      "title": "⚠️ Performance Notice",
+      "title": "Performance Notice",
       "message": "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
     }
   },

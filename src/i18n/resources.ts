@@ -95,7 +95,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Leistungshinweis",
+          title: "Leistungshinweis",
           message:
             "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
         }
@@ -1183,7 +1183,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Performance Notice",
+          title: "Performance Notice",
           message:
             "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
         }
@@ -2274,7 +2274,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Aviso de Rendimiento",
+          title: "Aviso de Rendimiento",
           message:
             "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
         }
@@ -3361,7 +3361,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Avis de Performance",
+          title: "Avis de Performance",
           message:
             "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
         }
@@ -4453,7 +4453,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ परफॉर्मेंस नोटिस",
+          title: "परफॉर्मेंस नोटिस",
           message:
             "यह एक्सटेंशन आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) के लिए एक यूज़र इंटरफ़ेस है। प्रतिक्रिया समय और मॉडल आउटपुट गुणवत्ता पूरी तरह से आपके डिवाइस के हार्डवेयर (CPU, RAM, GPU) और उपयोग किए गए मॉडल पर निर्भर करती है। एक्सटेंशन स्वयं कोई प्रोसेसिंग नहीं करता।"
         }
@@ -5510,7 +5510,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Avviso di Prestazioni",
+          title: "Avviso di Prestazioni",
           message:
             "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
         }
@@ -6599,7 +6599,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ パフォーマンスに関する注意",
+          title: "パフォーマンスに関する注意",
           message:
             "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
         }
@@ -7669,7 +7669,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Уведомление о производительности",
+          title: "Уведомление о производительности",
           message:
             "Это расширение — пользовательский интерфейс для вашего локального провайдера (по умолчанию Ollama). Время ответа и качество вывода модели полностью зависят от оборудования вашего устройства (CPU, RAM, GPU) и выбранной модели. Расширение само по себе не выполняет обработку."
         }
@@ -8744,7 +8744,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ 性能提示",
+          title: "性能提示",
           message:
             "此扩展是本地提供方（默认 Ollama）的用户界面。响应时间和模型输出质量完全取决于设备硬件（CPU、RAM、GPU）以及所使用的模型。扩展本身不进行任何处理。"
         }

@@ -87,7 +87,7 @@
       }
     },
     "performance_notice": {
-      "title": "⚠️ Leistungshinweis",
+      "title": "Leistungshinweis",
       "message": "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
     }
   },
