@@ -10,7 +10,6 @@ import {
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Separator } from "@/components/ui/separator"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
