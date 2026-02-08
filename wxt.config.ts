@@ -16,9 +16,6 @@ export default defineConfig({
     description:
       "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
     version: "0.6.0",
-    author: {
-      email: "shishirchaurasiya435@gmail.com"
-    },
     homepage_url: "https://ollama-client.shishirchaurasiya.in",
     icons: {
       16: "assets/icon.png",
