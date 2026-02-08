@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form"
+import { SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
@@ -29,11 +29,19 @@ export const FormSlider = ({
   const value = watch(name)
 
   return (
-    <div className="space-y-3">
-      <Label htmlFor={name} className="flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4" />}
-        {label}
-      </Label>
+    <SettingsFormField
+      htmlFor={name}
+      label={
+        Icon ? (
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4" />
+            <span>{label}</span>
+          </div>
+        ) : (
+          label
+        )
+      }
+      className="space-y-3">
       <Slider
         id={name}
         min={min}
@@ -52,6 +60,6 @@ export const FormSlider = ({
           <span>{rightLabel}</span>
         </div>
       )}
-    </div>
+    </SettingsFormField>
   )
 }

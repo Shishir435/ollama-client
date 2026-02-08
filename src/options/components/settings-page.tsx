@@ -3,10 +3,13 @@ import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
 import { PerformanceWarning } from "@/components/performance-warning"
+import {
+  type NavSection,
+  SettingsMobileNav,
+  SettingsSidebar
+} from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { MiniBadge } from "@/components/ui/mini-badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
@@ -16,7 +19,6 @@ import { EmbeddingSettings } from "@/features/model/components/embedding-setting
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import {
   BookOpen,
   Brain,
@@ -29,22 +31,9 @@ import {
   Volume2,
   Zap
 } from "@/lib/lucide-icon"
-import { cn } from "@/lib/utils"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
 import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
-
-interface NavItem {
-  key: string
-  label: string
-  icon: LucideIcon
-  badge?: string
-}
-
-interface NavSection {
-  title: string
-  items: NavItem[]
-}
 
 export const SettingsPage = () => {
   const { t } = useTranslation()
@@ -149,95 +138,16 @@ export const SettingsPage = () => {
       <Separator className="mb-6" />
 
       <div className="flex flex-col lg:flex-row lg:gap-10">
-        {/* Sidebar — Desktop */}
-        <aside className="hidden lg:block w-56 shrink-0">
-          <nav className="sticky top-8" aria-label="Settings navigation">
-            <ScrollArea className="h-[calc(100vh-12rem)]">
-              <div className="space-y-5 pr-2">
-                {navSections.map((section, idx) => (
-                  <div key={section.title}>
-                    {idx > 0 && <Separator className="mb-4" />}
-                    <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                      {section.title}
-                    </p>
-                    <div className="space-y-0.5">
-                      {section.items.map((item) => {
-                        const Icon = item.icon
-                        const isActive = activeTab === item.key
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setActiveTab(item.key)}
-                            aria-current={isActive ? "page" : undefined}
-                            className={cn(
-                              "group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150",
-                              isActive
-                                ? "bg-accent text-accent-foreground"
-                                : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-                            )}>
-                            <span
-                              className={cn(
-                                "absolute left-0.5 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full transition-all duration-200",
-                                isActive
-                                  ? "bg-primary opacity-100"
-                                  : "bg-transparent opacity-0 group-hover:opacity-40 group-hover:bg-primary"
-                              )}
-                            />
-                            <Icon
-                              className={cn(
-                                "h-4 w-4 shrink-0 transition-colors duration-150",
-                                isActive
-                                  ? "text-foreground"
-                                  : "text-muted-foreground/70 group-hover:text-foreground/80"
-                              )}
-                            />
-                            <span className="truncate">{item.label}</span>
-                            {item.badge && (
-                              <MiniBadge
-                                text={item.badge}
-                                className="ml-auto"
-                              />
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </nav>
-        </aside>
-
-        {/* Mobile Nav */}
-        <nav className="mb-6 lg:hidden" aria-label="Settings navigation">
-          <div className="flex gap-0.5 overflow-x-auto rounded-lg bg-muted/60 p-1 scrollbar-none">
-            {allNavItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeTab === item.key
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setActiveTab(item.key)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150",
-                    isActive
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                  )}>
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {item.label}
-                  {item.badge && <MiniBadge text={item.badge} />}
-                </button>
-              )
-            })}
-          </div>
-        </nav>
-
-        {/* Content */}
+        <SettingsSidebar
+          sections={navSections}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+        <SettingsMobileNav
+          items={allNavItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
         <main className="min-w-0 flex-1">
           <div key={activeTab}>{tabContent[activeTab]}</div>
         </main>

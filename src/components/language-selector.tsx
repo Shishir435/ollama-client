@@ -1,15 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { Trans, useTranslation } from "react-i18next"
 
-import { SettingsCard } from "@/components/settings"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
+import { SelectRow, SettingsCard } from "@/components/settings"
+import { SelectItem } from "@/components/ui/select"
 import { LANGUAGES } from "@/i18n/languages"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { Globe } from "@/lib/lucide-icon"
@@ -28,30 +21,22 @@ export const LanguageSelector = () => {
       title={t("common.language.label")}
       description={t("common.language.description")}
       badge={t("common.language.beta_badge")}>
-      <div className="space-y-3">
-        <Label htmlFor="language-select" className="text-sm font-medium">
-          {t("common.language.select_label")}
-        </Label>
-        <Select
-          value={i18n.language}
-          onValueChange={(value) => {
-            i18n.changeLanguage(value)
-            setStoredLanguage(value)
-          }}>
-          <SelectTrigger id="language-select">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LANGUAGES.map((lang) => (
-              <SelectItem key={lang.value} value={lang.value}>
-                {lang.label === lang.nativeLabel
-                  ? lang.label
-                  : `${lang.label} (${lang.nativeLabel})`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SelectRow
+        id="language-select"
+        label={t("common.language.select_label")}
+        value={i18n.language}
+        onValueChange={(value) => {
+          i18n.changeLanguage(value)
+          setStoredLanguage(value)
+        }}>
+        {LANGUAGES.map((lang) => (
+          <SelectItem key={lang.value} value={lang.value}>
+            {lang.label === lang.nativeLabel
+              ? lang.label
+              : `${lang.label} (${lang.nativeLabel})`}
+          </SelectItem>
+        ))}
+      </SelectRow>
 
       <p className="text-xs text-muted-foreground italic">
         <Trans

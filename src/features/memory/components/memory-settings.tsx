@@ -2,9 +2,12 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { SettingsCard, ToggleRow } from "@/components/settings"
+import {
+  SettingsCard,
+  SettingsFormField,
+  ToggleRow
+} from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
@@ -70,31 +73,35 @@ export const MemorySettings = () => {
         onCheckedChange={setIsEnabled}
       />
 
-      <div className="flex items-center justify-between border-t pt-4">
-        <div className="space-y-1">
-          <Label>{t("settings.memory.clear.label")}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t("settings.memory.clear.description")}
-            {stats && (
-              <span className="block mt-1">
-                {t("settings.memory.clear.usage", {
-                  count: stats.byType?.chat || 0,
-                  size: stats.totalSizeMB.toFixed(2)
-                })}
-              </span>
-            )}
-          </p>
+      <div className="border-t pt-4">
+        <div className="flex items-center justify-between">
+          <SettingsFormField
+            label={t("settings.memory.clear.label")}
+            description={
+              <>
+                {t("settings.memory.clear.description")}
+                {stats && (
+                  <span className="block mt-1">
+                    {t("settings.memory.clear.usage", {
+                      count: stats.byType?.chat || 0,
+                      size: stats.totalSizeMB.toFixed(2)
+                    })}
+                  </span>
+                )}
+              </>
+            }
+          />
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleClearMemory}
+            disabled={isClearing}>
+            <Trash2 className="size-4 mr-2" />
+            {isClearing
+              ? t("settings.memory.clear.button_clearing")
+              : t("settings.memory.clear.button")}
+          </Button>
         </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleClearMemory}
-          disabled={isClearing}>
-          <Trash2 className="size-4 mr-2" />
-          {isClearing
-            ? t("settings.memory.clear.button_clearing")
-            : t("settings.memory.clear.button")}
-        </Button>
       </div>
     </SettingsCard>
   )
