@@ -183,7 +183,7 @@ export const ChatMessageFooter = ({
               hour: "2-digit",
               minute: "2-digit"
             })
-          : msg.model?.slice(0, 12) + "..." || ""}
+          : `${msg.model?.slice(0, 12)}`}
       </div>
     </div>
   )

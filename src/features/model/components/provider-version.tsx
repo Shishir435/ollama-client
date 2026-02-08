@@ -18,7 +18,7 @@ export const ProviderVersion = () => {
         <TooltipTrigger asChild>
           <div>
             <Badge variant="outline" className="cursor-default px-4 py-2">
-              {version?.slice(0, 12) + "..."}
+              {version}
             </Badge>
           </div>
         </TooltipTrigger>

@@ -1,7 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useProviderModels } from "../use-provider-models"
-import { ProviderId, ProviderType } from "@/lib/providers/types"
 
 const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
   const ollamaProvider = {
