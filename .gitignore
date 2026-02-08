@@ -41,3 +41,6 @@ gptree_output.txt
 
 #zip files
 *.zip
+
+#bundle analyzer
+stats.html
