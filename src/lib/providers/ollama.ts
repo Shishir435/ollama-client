@@ -2,7 +2,8 @@ import type {
   ChatStreamMessage,
   OllamaChatRequest,
   OllamaShowRequest,
-  OllamaShowResponse
+  OllamaShowResponse,
+  ProviderModel
 } from "@/types"
 import {
   type ChatRequest,
@@ -17,7 +18,7 @@ export class OllamaProvider implements LLMProvider {
 
   constructor(public config: ProviderConfig) {}
 
-  async getModels(): Promise<string[]> {
+  async getModels(): Promise<ProviderModel[]> {
     try {
       if (!this.config.baseUrl) {
         return []
@@ -28,7 +29,7 @@ export class OllamaProvider implements LLMProvider {
       const response = await fetch(`${this.config.baseUrl}/api/tags`)
       if (!response.ok) return []
       const data = await response.json()
-      return (data.models as { name: string }[])?.map((m) => m.name) || []
+      return (data.models as ProviderModel[]) || []
     } catch (e) {
       console.error("Failed to fetch Ollama models", e)
       return []

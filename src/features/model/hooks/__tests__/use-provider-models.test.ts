@@ -7,7 +7,10 @@ const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() =
   const ollamaProvider = {
     id: "ollama",
     config: { id: "ollama", type: "ollama", enabled: true, baseUrl: "http://localhost:11434", name: "Ollama" },
-    getModels: vi.fn().mockResolvedValue(["llama3:latest", "mistral:latest"]),
+    getModels: vi.fn().mockResolvedValue([
+      { name: "llama3:latest", model: "llama3:latest", size: 0, details: { family: "llama" } },
+      { name: "mistral:latest", model: "mistral:latest", size: 0, details: { family: "mistral" } }
+    ]),
     streamChat: vi.fn()
   }
   return {
@@ -173,7 +176,9 @@ describe("useProviderModels", () => {
         expect(result.current.status).toBe("ready")
       })
 
-      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce(["new-model"])
+      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([
+        { name: "new-model", model: "new-model", size: 0, details: { family: "llama" } }
+      ])
       
       await result.current.refresh()
 

@@ -174,7 +174,7 @@ export const ModelSettingsForm = () => {
     <FormProvider {...methods}>
       <div className="mx-auto space-y-4">
         <SettingsCard
-          className="border-2 bg-gradient-to-r from-background to-muted/20"
+          className="border bg-gradient-to-r from-background to-muted/20"
           icon={Settings}
           title={t("settings.model.title")}
           description={t("settings.model.description")}

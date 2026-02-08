@@ -4,24 +4,40 @@ import type {
   LLMProvider,
   ProviderConfig
 } from "@/lib/providers/types"
-import type { ChatStreamMessage } from "@/types"
+import type { ChatStreamMessage, ProviderModel } from "@/types"
 
 export class AnthropicProvider implements LLMProvider {
   id = "anthropic"
 
   constructor(public config: ProviderConfig) {}
 
-  async getModels(): Promise<string[]> {
+  async getModels(): Promise<ProviderModel[]> {
     // Anthropic doesn't have a public models list endpoint that is easily CORS accessible
     // usually. But we can return a hardcoded list of popular models or try if they add one.
     // For now, hardcode the main ones.
-    return [
+    const models = [
       "claude-3-5-sonnet-20241022",
       "claude-3-5-haiku-20241022",
       "claude-3-opus-20240229",
       "claude-3-sonnet-20240229",
       "claude-3-haiku-20240307"
     ]
+
+    return models.map((m) => ({
+      name: m,
+      model: m,
+      modified_at: new Date().toISOString(),
+      size: 0,
+      digest: "",
+      details: {
+        parent_model: "",
+        format: "",
+        family: "anthropic",
+        families: [],
+        parameter_size: "",
+        quantization_level: ""
+      }
+    }))
   }
 
   async streamChat(

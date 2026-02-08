@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -27,6 +28,8 @@ import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
+
+import { formatFileSize, getModelIcon } from "../lib/model-utils"
 
 interface ModelMenuProps {
   trigger?: React.ReactNode
@@ -61,14 +64,39 @@ export const ModelMenu = ({
 
   const handleSelect = (modelName: string) => {
     if (_onSelectModel) {
-      _onSelectModel(modelName) // for chat message region
+      _onSelectModel(modelName)
     } else {
-      setSelectedModel(modelName) // for global selection
+      setSelectedModel(modelName)
     }
     setOpen(false)
   }
 
   if (!models) return null
+
+  const groupedModels = models
+    .filter((model) => {
+      if (
+        model.details?.families?.some((f) =>
+          ["bert", "nomic-bert", "xlm-roberta"].includes(f)
+        )
+      )
+        return false
+      if (model.name.includes("embed")) return false
+      return true
+    })
+    .reduce(
+      (groups, model) => {
+        const providerId = model.providerId || DEFAULT_PROVIDER_ID
+        const providerName =
+          model.providerName || getProviderDisplayName(providerId)
+        if (!groups[providerId]) {
+          groups[providerId] = { name: providerName, models: [] }
+        }
+        groups[providerId].models.push(model)
+        return groups
+      },
+      {} as Record<string, { name: string; models: typeof models }>
+    )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -76,40 +104,58 @@ export const ModelMenu = ({
         <TooltipTrigger asChild>
           <PopoverTrigger asChild aria-label={tooltipTextContent}>
             {trigger ?? (
-              <div
+              <Button
+                variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                tabIndex={0}
-                className="cursor-pointer justify-between">
-                <div className="flex items-center gap-2 capitalize">
-                  {selectedModel
-                    ? models.find((m) => m.name === selectedModel)?.name
-                    : t("model.menu.select_placeholder")}
-                  <ChevronDown className="opacity-50" size="16" />
-                </div>
-              </div>
+                className="h-8 justify-between gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-sm px-3 font-normal hover:bg-accent/50 hover:text-accent-foreground items-center">
+                {selectedModel ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg leading-none">
+                      {getModelIcon(selectedModel)}
+                    </span>
+                    <span className="truncate font-medium">
+                      {(() => {
+                        const name =
+                          models.find((m) => m.name === selectedModel)?.name ||
+                          selectedModel
+                        return name.length > 15
+                          ? `${name.slice(0, 15)}...`
+                          : name
+                      })()}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {t("model.menu.select_placeholder")}
+                  </span>
+                )}
+                <ChevronDown className="size-4 opacity-50" />
+              </Button>
             )}
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent>{tooltipTextContent}</TooltipContent>
       </Tooltip>
 
-      <PopoverContent className="w-[200px] p-0">
-        <div className="flex items-center justify-between border-b px-2 py-1 text-sm text-muted-foreground">
-          <span>{t("model.menu.models_label")}</span>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("model.menu.models_label")}
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={refresh}
-                variant="link"
-                size="sm"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
                 aria-label={t("model.menu.refresh_aria_label")}>
                 <RotateCcw
                   className={cn(
-                    "transition-transform",
+                    "h-3.5 w-3.5 transition-transform",
                     isLoading && "animate-spin"
                   )}
-                  size={8}
                 />
               </Button>
             </TooltipTrigger>
@@ -117,59 +163,63 @@ export const ModelMenu = ({
           </Tooltip>
         </div>
 
-        <Command>
-          <CommandInput
-            placeholder={t("model.menu.search_placeholder")}
-            className="h-9"
-            autoFocus
-          />
-          <CommandList>
-            <CommandEmpty>{t("model.menu.no_model_found")}</CommandEmpty>
+        <Command className="max-h-[400px]">
+          <div className="flex items-center border-b px-3">
+            <CommandInput
+              placeholder={t("model.menu.search_placeholder")}
+              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              autoFocus
+            />
+          </div>
+          <CommandList className="max-h-[300px] overflow-y-auto p-1">
+            <CommandEmpty className="py-6 text-center text-sm">
+              {t("model.menu.no_model_found")}
+            </CommandEmpty>
 
-            {/* Group models by provider */}
-            {Object.entries(
-              models
-                .filter((model) => {
-                  // Filter out embedding models
-                  if (
-                    model.details?.families?.some((f) =>
-                      ["bert", "nomic-bert", "xlm-roberta"].includes(f)
-                    )
-                  )
-                    return false
-                  if (model.name.includes("embed")) return false
-                  return true
-                })
-                .reduce(
-                  (groups, model) => {
-                    const providerId = model.providerId || DEFAULT_PROVIDER_ID
-                    const providerName =
-                      model.providerName || getProviderDisplayName(providerId)
-                    if (!groups[providerId]) {
-                      groups[providerId] = { name: providerName, models: [] }
-                    }
-                    groups[providerId].models.push(model)
-                    return groups
-                  },
-                  {} as Record<string, { name: string; models: typeof models }>
-                )
-            ).map(([providerId, group]) => (
+            {Object.entries(groupedModels).map(([providerId, group]) => (
               <CommandGroup key={providerId} heading={group.name}>
                 {group.models.map((model) => (
                   <CommandItem
                     key={`${providerId}-${model.name}`}
                     value={model.name}
                     onSelect={() => handleSelect(model.name)}
-                    className="capitalize">
-                    {model.name}
-                    <Check
-                      className={cn(
-                        "ml-auto",
-                        selectedModel === model.name
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
+                    className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
+                      {getModelIcon(model.name)}
+                    </div>
+
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium text-sm">
+                          {model.name}
+                        </span>
+                        {selectedModel === model.name && (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {model.details?.parameter_size && (
+                          <Badge
+                            variant="outline"
+                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                            {model.details.parameter_size}
+                          </Badge>
+                        )}
+                        {model.details?.quantization_level && (
+                          <Badge
+                            variant="outline"
+                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                            {model.details.quantization_level}
+                          </Badge>
+                        )}
+                        {model.size ? (
+                          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+                            {formatFileSize(model.size, t)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ChatStreamMessage,
+  ProviderModel,
   ProviderModelDetails
 } from "@/types"
 
@@ -63,7 +64,7 @@ export interface LLMProvider {
     signal?: AbortSignal
   ): Promise<void>
 
-  getModels(): Promise<string[]>
+  getModels(): Promise<ProviderModel[]>
   getModelDetails?(model: string): Promise<ProviderModelDetails | null>
   getEmbeddingSupport?(): Promise<EmbeddingSupport>
   embed?(text: string, model?: string): Promise<number[]>

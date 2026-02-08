@@ -106,3 +106,23 @@ Uses Biome (not ESLint/Prettier):
 - Firefox lacks Chrome DNR API behavior - requires explicit CORS setup
 - Provider model naming collisions can cause ambiguous routing
 - Token budgeting is approximate (`chars / 4`)
+
+## API Documentation Reference
+
+- **Llama.cpp**: [Server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
+  - `/v1/models`: OpenAI-compatible info (includes `meta` with `size`, `n_params`)
+  - `/v1/completions`: Text completions
+  - `/v1/chat/completions`: Chat completions
+
+  > llmaa.cpp model downlaod location  `~/Library/Caches/llama.cpp`
+  
+  ```bash
+  llama-server -m ~/Library/Caches/llama.cpp/ggml-org_gemma-3-1b-it-GGUF_gemma-3-1b-it-Q4_K_M.gguf --port 8000 --host 0.0.0.0
+  ```
+
+- **LM Studio**: [REST API Endpoints](https://lmstudio.ai/docs/developer/rest/endpoints)
+  - `/api/v0/models`: Rich model info (`quantization`, `max_context_length`)
+  - `/api/v0/chat/completions`: Chat
+  - Standard OpenAI-compatible endpoints also supported.
+
+- **Ollama**: [API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
