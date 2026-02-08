@@ -95,7 +95,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Leistungshinweis",
+          title: "Leistungshinweis",
           message:
             "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
         }
@@ -1043,7 +1043,30 @@ export const resources = {
         providers: {
           default: "Standard",
           enabled: "Aktiviert",
-          disabled: "Deaktiviert"
+          disabled: "Deaktiviert",
+          inactive: "Inaktiv",
+          connected: "Verbunden",
+          connection_failed: "Verbindung fehlgeschlagen",
+          not_tested: "Nicht getestet",
+          test: "Testen",
+          save: "Speichern",
+          saved: "Gespeichert",
+          base_url: "Basis-URL",
+          base_url_default: "Standard",
+          api_key: "API-Schlüssel",
+          custom_models: "Benutzerdefinierte Modelle",
+          custom_models_description:
+            "Modelle manuell hinzufügen, wenn sie nicht in der automatisch erkannten Liste erscheinen.",
+          test_connection: {
+            success_title: "Verbindung erfolgreich",
+            success_description:
+              "Erfolgreich mit {{name}} unter {{url}} verbunden ({{count}} Modelle)",
+            failed_title: "Verbindung fehlgeschlagen",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "Keine Modelle gefunden",
+            no_models_description:
+              "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
+          }
         }
       },
       guides: {
@@ -1183,7 +1206,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Performance Notice",
+          title: "Performance Notice",
           message:
             "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
         }
@@ -2129,7 +2152,30 @@ export const resources = {
         providers: {
           default: "Default",
           enabled: "Enabled",
-          disabled: "Disabled"
+          disabled: "Disabled",
+          inactive: "Inactive",
+          connected: "Connected",
+          connection_failed: "Connection Failed",
+          not_tested: "Not Tested",
+          test: "Test",
+          save: "Save",
+          saved: "Saved",
+          base_url: "Base URL",
+          base_url_default: "Default",
+          api_key: "API Key",
+          custom_models: "Custom Models",
+          custom_models_description:
+            "Add models manually if they don't appear in the auto-discovered list.",
+          test_connection: {
+            success_title: "Connection Successful",
+            success_description:
+              "Successfully connected to {{name}} at {{url}} ({{count}} models)",
+            failed_title: "Connection Failed",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "No Models Found",
+            no_models_description:
+              "Connected to {{url}} but no models were found. Check if the service is running correctly."
+          }
         }
       },
       guides: {
@@ -2274,7 +2320,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Aviso de Rendimiento",
+          title: "Aviso de Rendimiento",
           message:
             "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
         }
@@ -3220,7 +3266,30 @@ export const resources = {
         providers: {
           default: "Predeterminado",
           enabled: "Habilitado",
-          disabled: "Deshabilitado"
+          disabled: "Deshabilitado",
+          inactive: "Inactivo",
+          connected: "Conectado",
+          connection_failed: "Error de conexión",
+          not_tested: "No probado",
+          test: "Probar",
+          save: "Guardar",
+          saved: "Guardado",
+          base_url: "URL base",
+          base_url_default: "Predeterminado",
+          api_key: "Clave API",
+          custom_models: "Modelos personalizados",
+          custom_models_description:
+            "Añadir modelos manualmente si no aparecen en la lista descubierta automáticamente.",
+          test_connection: {
+            success_title: "Conexión exitosa",
+            success_description:
+              "Conectado exitosamente a {{name}} en {{url}} ({{count}} modelos)",
+            failed_title: "Error de conexión",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "No se encontraron modelos",
+            no_models_description:
+              "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
+          }
         }
       },
       guides: {
@@ -3361,7 +3430,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Avis de Performance",
+          title: "Avis de Performance",
           message:
             "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
         }
@@ -4314,7 +4383,30 @@ export const resources = {
         providers: {
           default: "Par défaut",
           enabled: "Activé",
-          disabled: "Désactivé"
+          disabled: "Désactivé",
+          inactive: "Inactif",
+          connected: "Connecté",
+          connection_failed: "Échec de la connexion",
+          not_tested: "Non testé",
+          test: "Tester",
+          save: "Enregistrer",
+          saved: "Enregistré",
+          base_url: "URL de base",
+          base_url_default: "Défaut",
+          api_key: "Clé API",
+          custom_models: "Modèles personnalisés",
+          custom_models_description:
+            "Ajoutez des modèles manuellement s'ils n'apparaissent pas dans la liste découverte automatiquement.",
+          test_connection: {
+            success_title: "Connexion réussie",
+            success_description:
+              "Connecté avec succès à {{name}} sur {{url}} ({{count}} modèles)",
+            failed_title: "Échec de la connexion",
+            failed_description: "{{url}} : {{error}}",
+            no_models_title: "Aucun modèle trouvé",
+            no_models_description:
+              "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement."
+          }
         }
       },
       guides: {
@@ -4453,7 +4545,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ परफॉर्मेंस नोटिस",
+          title: "परफॉर्मेंस नोटिस",
           message:
             "यह एक्सटेंशन आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) के लिए एक यूज़र इंटरफ़ेस है। प्रतिक्रिया समय और मॉडल आउटपुट गुणवत्ता पूरी तरह से आपके डिवाइस के हार्डवेयर (CPU, RAM, GPU) और उपयोग किए गए मॉडल पर निर्भर करती है। एक्सटेंशन स्वयं कोई प्रोसेसिंग नहीं करता।"
         }
@@ -5371,7 +5463,30 @@ export const resources = {
         providers: {
           default: "डिफ़ॉल्ट",
           enabled: "सक्रिय",
-          disabled: "निष्क्रिय"
+          disabled: "निष्क्रिय",
+          inactive: "अक्रियाशील",
+          connected: "जुड़ा हुआ",
+          connection_failed: "कनेक्शन विफल",
+          not_tested: "परीक्षण नहीं किया गया",
+          test: "परीक्षण",
+          save: "सहेजें",
+          saved: "सहेजा गया",
+          base_url: "आधार URL",
+          base_url_default: "डिफ़ॉल्ट",
+          api_key: "API कुंजी",
+          custom_models: "कस्टम मॉडल",
+          custom_models_description:
+            "यदि वे स्वचालित रूप से खोजी गई सूची में नहीं दिखाई देते हैं तो मैन्युअल रूप से मॉडल जोड़ें।",
+          test_connection: {
+            success_title: "कनेक्शन सफल",
+            success_description:
+              "{{url}} पर {{name}} से सफलतापूर्वक जुड़ा ({{count}} मॉडल)",
+            failed_title: "कनेक्शन विफल",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "कोई मॉडल नहीं मिला",
+            no_models_description:
+              "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+          }
         }
       },
       guides: {
@@ -5510,7 +5625,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Avviso di Prestazioni",
+          title: "Avviso di Prestazioni",
           message:
             "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
         }
@@ -6459,7 +6574,30 @@ export const resources = {
         providers: {
           default: "Predefinito",
           enabled: "Abilitato",
-          disabled: "Disabilitato"
+          disabled: "Disabilitato",
+          inactive: "Inattivo",
+          connected: "Connesso",
+          connection_failed: "Connessione fallita",
+          not_tested: "Non testato",
+          test: "Test",
+          save: "Salva",
+          saved: "Salvato",
+          base_url: "URL di base",
+          base_url_default: "Predefinito",
+          api_key: "Chiave API",
+          custom_models: "Modelli personalizzati",
+          custom_models_description:
+            "Aggiungi modelli manualmente se non appaiono nell'elenco rilevato automaticamente.",
+          test_connection: {
+            success_title: "Connessione riuscita",
+            success_description:
+              "Connesso con successo a {{name}} su {{url}} ({{count}} modelli)",
+            failed_title: "Connessione fallita",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "Nessun modello trovato",
+            no_models_description:
+              "Connesso a {{url}} ma nessun modello trovato. Controlla se il servizio è in esecuzione correttamente."
+          }
         }
       },
       guides: {
@@ -6599,7 +6737,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ パフォーマンスに関する注意",
+          title: "パフォーマンスに関する注意",
           message:
             "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
         }
@@ -7531,7 +7669,30 @@ export const resources = {
         providers: {
           default: "デフォルト",
           enabled: "有効",
-          disabled: "無効"
+          disabled: "無効",
+          inactive: "非アクティブ",
+          connected: "接続済み",
+          connection_failed: "接続失敗",
+          not_tested: "未テスト",
+          test: "テスト",
+          save: "保存",
+          saved: "保存済み",
+          base_url: "ベースURL",
+          base_url_default: "デフォルト",
+          api_key: "APIキー",
+          custom_models: "カスタムモデル",
+          custom_models_description:
+            "自動検出リストに表示されない場合は、モデルを手動で追加してください。",
+          test_connection: {
+            success_title: "接続成功",
+            success_description:
+              "{{url}} の {{name}} に正常に接続しました ({{count}} モデル)",
+            failed_title: "接続失敗",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "モデルが見つかりません",
+            no_models_description:
+              "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。"
+          }
         }
       },
       guides: {
@@ -7669,7 +7830,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ Уведомление о производительности",
+          title: "Уведомление о производительности",
           message:
             "Это расширение — пользовательский интерфейс для вашего локального провайдера (по умолчанию Ollama). Время ответа и качество вывода модели полностью зависят от оборудования вашего устройства (CPU, RAM, GPU) и выбранной модели. Расширение само по себе не выполняет обработку."
         }
@@ -8607,7 +8768,30 @@ export const resources = {
         providers: {
           default: "По умолчанию",
           enabled: "Включено",
-          disabled: "Отключено"
+          disabled: "Отключено",
+          inactive: "Неактивно",
+          connected: "Подключено",
+          connection_failed: "Ошибка подключения",
+          not_tested: "Не проверено",
+          test: "Тест",
+          save: "Сохранить",
+          saved: "Сохранено",
+          base_url: "Базовый URL",
+          base_url_default: "По умолчанию",
+          api_key: "API Ключ",
+          custom_models: "Пользовательские модели",
+          custom_models_description:
+            "Добавьте модели вручную, если они не появляются в автоматически обнаруженном списке.",
+          test_connection: {
+            success_title: "Успешное подключение",
+            success_description:
+              "Успешно подключено к {{name}} на {{url}} ({{count}} моделей)",
+            failed_title: "Ошибка подключения",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "Модели не найдены",
+            no_models_description:
+              "Подключено к {{url}}, но модели не найдены. Проверьте, правильно ли работает сервис."
+          }
         }
       },
       guides: {
@@ -8744,7 +8928,7 @@ export const resources = {
           }
         },
         performance_notice: {
-          title: "⚠️ 性能提示",
+          title: "性能提示",
           message:
             "此扩展是本地提供方（默认 Ollama）的用户界面。响应时间和模型输出质量完全取决于设备硬件（CPU、RAM、GPU）以及所使用的模型。扩展本身不进行任何处理。"
         }
@@ -9621,7 +9805,30 @@ export const resources = {
         providers: {
           default: "默认",
           enabled: "已启用",
-          disabled: "已禁用"
+          disabled: "已禁用",
+          inactive: "未激活",
+          connected: "已连接",
+          connection_failed: "连接失败",
+          not_tested: "未测试",
+          test: "测试",
+          save: "保存",
+          saved: "已保存",
+          base_url: "基本 URL",
+          base_url_default: "默认",
+          api_key: "API 密钥",
+          custom_models: "自定义模型",
+          custom_models_description:
+            "如果模型未出现在自动发现列表中，请手动添加。",
+          test_connection: {
+            success_title: "连接成功",
+            success_description:
+              "已成功连接到 {{url}} 上的 {{name}} ({{count}} 个模型)",
+            failed_title: "连接失败",
+            failed_description: "{{url}}: {{error}}",
+            no_models_title: "未找到模型",
+            no_models_description:
+              "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。"
+          }
         }
       },
       guides: {

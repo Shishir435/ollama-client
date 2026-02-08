@@ -36,6 +36,18 @@ export const openOptionsInTab = async (): Promise<void> => {
   const optionsUrl = runtime.getURL("options.html")
 
   try {
+    if (browser.tabs?.query) {
+      const tabs = await browser.tabs.query({ url: optionsUrl })
+      if (tabs.length > 0) {
+        const tab = tabs[0]
+        if (tab.id && tab.windowId) {
+          await browser.tabs.update(tab.id, { active: true })
+          await browser.windows.update(tab.windowId, { focused: true })
+          return
+        }
+      }
+    }
+
     if (browser.tabs?.create) {
       await browser.tabs.create({ url: optionsUrl })
       return

@@ -87,7 +87,7 @@
       }
     },
     "performance_notice": {
-      "title": "⚠️ Aviso de Rendimiento",
+      "title": "Aviso de Rendimiento",
       "message": "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
     }
   },
@@ -924,7 +924,27 @@
     "providers": {
       "default": "Predeterminado",
       "enabled": "Habilitado",
-      "disabled": "Deshabilitado"
+      "disabled": "Deshabilitado",
+      "inactive": "Inactivo",
+      "connected": "Conectado",
+      "connection_failed": "Error de conexión",
+      "not_tested": "No probado",
+      "test": "Probar",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "base_url": "URL base",
+      "base_url_default": "Predeterminado",
+      "api_key": "Clave API",
+      "custom_models": "Modelos personalizados",
+      "custom_models_description": "Añadir modelos manualmente si no aparecen en la lista descubierta automáticamente.",
+      "test_connection": {
+        "success_title": "Conexión exitosa",
+        "success_description": "Conectado exitosamente a {{name}} en {{url}} ({{count}} modelos)",
+        "failed_title": "Error de conexión",
+        "failed_description": "{{url}}: {{error}}",
+        "no_models_title": "No se encontraron modelos",
+        "no_models_description": "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
+      }
     }
   },
   "guides": {

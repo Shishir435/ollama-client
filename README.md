@@ -88,6 +88,7 @@ Key directories:
 Build/runtime notes:
 
 - Extension framework: WXT (`wxt` CLI)
+  > moved from Plasmo to WXT for more deterministic MV3 builds and explicit entrypoint/manifest control.
 - Settings hooks/storage wrapper: `@plasmohq/storage` (`plasmoGlobalStorage`)
 
 ## Supported Providers

@@ -1,7 +1,8 @@
 import type { RegisterOptions } from "react-hook-form"
 import { useFormContext } from "react-hook-form"
+
+import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 export type NumberInputValidation = Omit<
@@ -41,13 +42,19 @@ export const FormNumberInput = ({
   const fieldErrors = errors[name as keyof typeof errors]
 
   return (
-    <div className="space-y-2">
-      <Label
-        htmlFor={name}
-        className={Icon ? "flex items-center gap-2 text-sm" : "text-sm"}>
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
-      </Label>
+    <SettingsFormField
+      htmlFor={name}
+      label={
+        Icon ? (
+          <div className="flex items-center gap-2">
+            <Icon className="h-3 w-3" />
+            <span>{label}</span>
+          </div>
+        ) : (
+          label
+        )
+      }
+      error={fieldErrors ? (fieldErrors.message as string) : undefined}>
       <Input
         id={name}
         type="number"
@@ -60,9 +67,6 @@ export const FormNumberInput = ({
         } as RegisterOptions)}
         className={className}
       />
-      {fieldErrors && (
-        <p className="text-xs text-red-600">{fieldErrors.message as string}</p>
-      )}
-    </div>
+    </SettingsFormField>
   )
 }

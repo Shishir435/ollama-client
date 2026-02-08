@@ -35,26 +35,7 @@ import {
 } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ProviderModel } from "@/types"
-
-const formatFileSize = (
-  bytes: number | string,
-  t: (key: string) => string
-): string => {
-  if (!bytes) return t("settings.model_list.unknown_size")
-
-  const units = ["B", "KB", "MB", "GB", "TB"]
-  let size = typeof bytes === "string" ? parseInt(bytes, 10) : bytes
-  let unitIndex = 0
-
-  if (Number.isNaN(size)) return t("settings.model_list.invalid_size")
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex++
-  }
-
-  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`
-}
+import { formatFileSize, getModelIcon } from "../lib/model-utils"
 
 const formatDate = (
   dateString: string,
@@ -85,16 +66,6 @@ const formatDate = (
   } catch (_error) {
     return t("settings.model_list.invalid_date")
   }
-}
-
-const getModelIcon = (modelName: string): string => {
-  const name = modelName.toLowerCase()
-  if (name.includes("llama")) return "🦙"
-  if (name.includes("mistral")) return "🌪️"
-  if (name.includes("codellama")) return "💻"
-  if (name.includes("phi")) return "📐"
-  if (name.includes("gemma")) return "💎"
-  return "🤖"
 }
 
 export const ModelList = (): JSX.Element => {

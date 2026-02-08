@@ -1,7 +1,9 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-const buildDir = path.resolve(process.cwd(), "build")
+const targetDir = process.argv[2] || "build"
+const buildDir = path.resolve(process.cwd(), targetDir)
+console.log(`Normalizing build encoding in: ${buildDir}`)
 
 const toUnicodeEscape = (codePoint) => {
   if (codePoint <= 0xffff) {

@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react"
+import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig } from "wxt"
 
 type WxtViteFactory = NonNullable<Parameters<typeof defineConfig>[0]["vite"]>
@@ -7,7 +8,7 @@ type WxtViteConfig = ReturnType<WxtViteFactory>
 export default defineConfig({
   manifestVersion: 3,
   srcDir: "src",
-  outDir: "build",
+  outDir: process.env.WXT_OUTPUT_DIR || "build",
   outDirTemplate: "",
   publicDir: "public",
   manifest: {
@@ -62,6 +63,6 @@ export default defineConfig({
 
   vite: () =>
     ({
-      plugins: [react()]
+      plugins: [react(), visualizer({ open: false, filename: "stats.html" })]
     }) as unknown as WxtViteConfig
 })

@@ -53,32 +53,45 @@ export const useProviderModels = () => {
             console.log(`[useProviderModels] Fetching for ${config.id}...`)
             // Get provider instance (might trigger creation)
             const provider = await ProviderFactory.getProvider(config.id)
-            const providerModels = await provider.getModels() // string[]
+            const providerModels = await provider.getModels() // ProviderModel[]
 
             // Add custom models if any
             const customs = config.customModels || []
-            const combined = Array.from(
-              new Set([...providerModels, ...customs])
-            )
 
-            combined.forEach((modelName) => {
-              allModels.push({
-                name: modelName,
-                model: modelName,
-                modified_at: new Date().toISOString(), // Mock
-                size: 0,
-                digest: config.id,
-                providerId: config.id,
-                providerName: config.name,
-                details: {
-                  parent_model: "",
-                  format: "gguf",
-                  family: config.type,
-                  families: [],
-                  parameter_size: "",
-                  quantization_level: ""
-                }
-              })
+            // Create a map of existing models for easy lookup/merging
+            const modelMap = new Map<string, ProviderModel>()
+            providerModels.forEach((m) => {
+              modelMap.set(m.name, m)
+            })
+
+            // Add/Merge custom models
+            customs.forEach((name) => {
+              if (!modelMap.has(name)) {
+                modelMap.set(name, {
+                  name: name,
+                  model: name,
+                  modified_at: new Date().toISOString(),
+                  size: 0,
+                  digest: config.id,
+                  providerId: config.id,
+                  providerName: config.name,
+                  details: {
+                    parent_model: "",
+                    format: "gguf",
+                    family: config.type,
+                    families: [],
+                    parameter_size: "",
+                    quantization_level: ""
+                  }
+                })
+              }
+            })
+
+            modelMap.forEach((model) => {
+              // Ensure provider info is set correctly
+              if (!model.providerId) model.providerId = config.id
+              if (!model.providerName) model.providerName = config.name
+              allModels.push(model)
             })
           } catch (e) {
             console.error(`Failed to fetch models for ${config.id}`, e)
@@ -173,6 +186,13 @@ export const useProviderModels = () => {
         ? "empty"
         : "ready"
 
+  // Only show version if the selected model is from Ollama (or if no model is selected yet, defaulting to Ollama context)
+  const selectedModelData = models.find((m) => m.name === selectedModel)
+  const isOllama =
+    !selectedModel ||
+    !selectedModelData ||
+    selectedModelData.providerId === DEFAULT_PROVIDER_ID
+
   return {
     models,
     selectedModel,
@@ -181,7 +201,7 @@ export const useProviderModels = () => {
     error,
     refresh: fetchModels,
     status,
-    version,
+    version: isOllama ? version : null,
     versionError,
     deleteModel
   }

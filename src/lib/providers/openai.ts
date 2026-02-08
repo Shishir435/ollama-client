@@ -1,4 +1,4 @@
-import type { ChatStreamMessage } from "@/types"
+import type { ChatStreamMessage, ProviderModel } from "@/types"
 import {
   type ChatRequest,
   type EmbeddingSupport,
@@ -12,7 +12,7 @@ export class OpenAIProvider implements LLMProvider {
 
   constructor(public config: ProviderConfig) {}
 
-  async getModels(): Promise<string[]> {
+  async getModels(): Promise<ProviderModel[]> {
     const baseUrl = this.config.baseUrl || "https://api.openai.com/v1"
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
@@ -26,7 +26,23 @@ export class OpenAIProvider implements LLMProvider {
       const response = await fetch(`${baseUrl}/models`, { headers })
       if (!response.ok) return []
       const data = await response.json()
-      return (data.data as { id: string }[])?.map((m) => m.id) || []
+      return (
+        (data.data as { id: string }[])?.map((m) => ({
+          name: m.id,
+          model: m.id,
+          modified_at: new Date().toISOString(),
+          size: 0,
+          digest: "",
+          details: {
+            parent_model: "",
+            format: "",
+            family: "openai",
+            families: [],
+            parameter_size: "",
+            quantization_level: ""
+          }
+        })) || []
+      )
     } catch (e) {
       console.error("Failed to fetch OpenAI models", e)
       return []

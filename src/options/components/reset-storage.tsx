@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,6 @@ import { Separator } from "@/components/ui/separator"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { CircleCheck, RefreshCcw } from "@/lib/lucide-icon"
-import { cn } from "@/lib/utils"
 
 export const ResetStorage = () => {
   const { t } = useTranslation()
@@ -85,43 +84,37 @@ export const ResetStorage = () => {
 
         <Separator />
 
-        <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-          <div className="flex items-center gap-3">
-            <RefreshCcw className="h-4 w-4 flex-shrink-0 text-destructive" />
-            <div>
-              <h4 className="text-sm font-medium text-destructive">
-                {t("settings.reset.danger_zone.title")}
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.reset.danger_zone.description")}
-              </p>
-            </div>
-          </div>
-
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <span className={cn(buttonVariants({ variant: "destructive" }))}>
-                {t("settings.reset.danger_zone.button")}
-              </span>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t("settings.reset.dialog.title")}</DialogTitle>
-                <DialogDescription>
-                  {t("settings.reset.dialog.description")}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex flex-col gap-4">
-                <Button variant="destructive" onClick={handleResetAll}>
-                  {t("settings.reset.dialog.confirm")}
+        <StatusAlert
+          variant="destructive"
+          icon={RefreshCcw}
+          title={t("settings.reset.danger_zone.title")}
+          description={t("settings.reset.danger_zone.description")}
+          actions={
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="w-full sm:w-auto">
+                  {t("settings.reset.danger_zone.button")}
                 </Button>
-                <Button variant="secondary" onClick={() => setOpen(false)}>
-                  {t("settings.reset.dialog.cancel")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("settings.reset.dialog.title")}</DialogTitle>
+                  <DialogDescription>
+                    {t("settings.reset.dialog.description")}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="flex flex-col gap-4">
+                  <Button variant="destructive" onClick={handleResetAll}>
+                    {t("settings.reset.dialog.confirm")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => setOpen(false)}>
+                    {t("settings.reset.dialog.cancel")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          }
+        />
       </SettingsCard>
     </div>
   )

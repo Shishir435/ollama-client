@@ -1,11 +1,10 @@
 import { useState } from "react"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
@@ -41,25 +40,27 @@ export const ModelSystemSection = ({
       title={t("settings.model.system.title")}
       description={t("settings.model.system.description")}
       contentClassName="space-y-6">
-      <div className="space-y-3">
-        <Label htmlFor="system" className="text-base font-medium">
-          {t("settings.model.system.prompt_label")}
-        </Label>
+      <SettingsFormField
+        htmlFor="system"
+        label={t("settings.model.system.prompt_label")}
+        className="space-y-3">
         <Textarea
           id="system"
           placeholder={t("settings.model.system.prompt_placeholder")}
           {...register("system")}
           className="min-h-[100px] resize-none"
         />
-      </div>
+      </SettingsFormField>
       <Separator />
-      <div className="space-y-3">
-        <Label
-          htmlFor="stop-sequences"
-          className="flex items-center gap-2 text-base font-medium">
-          <StopCircle className="h-4 w-4" />
-          {t("settings.model.system.stop_sequences_label")}
-        </Label>
+      <SettingsFormField
+        htmlFor="stop-sequences"
+        label={
+          <div className="flex items-center gap-2">
+            <StopCircle className="h-4 w-4" />
+            <span>{t("settings.model.system.stop_sequences_label")}</span>
+          </div>
+        }
+        className="space-y-3">
         <div className="flex gap-2">
           <Input
             id="stop-sequences"
@@ -91,7 +92,7 @@ export const ModelSystemSection = ({
             ))}
           </div>
         )}
-      </div>
+      </SettingsFormField>
     </SettingsCard>
   )
 }

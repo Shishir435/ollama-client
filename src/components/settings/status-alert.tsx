@@ -36,17 +36,19 @@ export const StatusAlert = ({
         variantStyles[variant],
         className
       )}>
-      <div className="flex items-start gap-3">
-        {Icon && <Icon className="h-5 w-5 mt-0.5 shrink-0" />}
-        <div className="flex-1 space-y-2">
-          <p className="text-sm font-medium">{title}</p>
-          {description && (
-            <div className="text-xs text-muted-foreground opacity-90">
-              {description}
-            </div>
-          )}
-          {actions && <div className="pt-1">{actions}</div>}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {Icon && <Icon className="size-5 mt-0.5 sm:mt-0 shrink-0" />}
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{title}</p>
+            {description && (
+              <div className="text-xs text-muted-foreground opacity-90">
+                {description}
+              </div>
+            )}
+          </div>
         </div>
+        {actions && <div className="shrink-0">{actions}</div>}
       </div>
     </div>
   )

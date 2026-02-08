@@ -114,9 +114,9 @@ export const ChatMessageFooter = ({
             onClick={onEdit}
             title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}>
             {isUser ? (
-              <GitFork className="h-3.5 w-3.5" />
+              <GitFork className="size-3.5" />
             ) : (
-              <SquarePen className="h-3.5 w-3.5" />
+              <SquarePen className="size-3.5" />
             )}
           </Button>
         )}
@@ -133,8 +133,8 @@ export const ChatMessageFooter = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground">
-              <MoreHorizontal className="h-3.5 w-3.5" />
+              className="size-6 text-muted-foreground hover:text-foreground">
+              <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -146,19 +146,19 @@ export const ChatMessageFooter = ({
                   {t("chat.actions.export_as")}
                 </div>
                 <DropdownMenuItem onClick={() => onExport("markdown")}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
+                  <Download className="mr-2  size-3.5" />
                   Markdown
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onExport("pdf")}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
+                  <Download className="mr-2 size-3.5" />
                   PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onExport("json")}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
+                  <Download className="mr-2 size-3.5" />
                   JSON
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onExport("text")}>
-                  <Download className="mr-2 h-3.5 w-3.5" />
+                  <Download className="mr-2 size-3.5" />
                   Text
                 </DropdownMenuItem>
                 <div className="my-1 h-px bg-muted" />
@@ -169,7 +169,7 @@ export const ChatMessageFooter = ({
               <DropdownMenuItem
                 onClick={onDelete}
                 className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 size-3.5" />
                 {t("chat.actions.delete")}
               </DropdownMenuItem>
             )}
@@ -183,7 +183,7 @@ export const ChatMessageFooter = ({
               hour: "2-digit",
               minute: "2-digit"
             })
-          : msg.model || ""}
+          : `${msg.model?.slice(0, 25)}`}
       </div>
     </div>
   )
