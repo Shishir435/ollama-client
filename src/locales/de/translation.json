@@ -925,7 +925,27 @@
     "providers": {
       "default": "Standard",
       "enabled": "Aktiviert",
-      "disabled": "Deaktiviert"
+      "disabled": "Deaktiviert",
+      "inactive": "Inaktiv",
+      "connected": "Verbunden",
+      "connection_failed": "Verbindung fehlgeschlagen",
+      "not_tested": "Nicht getestet",
+      "test": "Testen",
+      "save": "Speichern",
+      "saved": "Gespeichert",
+      "base_url": "Basis-URL",
+      "base_url_default": "Standard",
+      "api_key": "API-Schlüssel",
+      "custom_models": "Benutzerdefinierte Modelle",
+      "custom_models_description": "Modelle manuell hinzufügen, wenn sie nicht in der automatisch erkannten Liste erscheinen.",
+      "test_connection": {
+        "success_title": "Verbindung erfolgreich",
+        "success_description": "Erfolgreich mit {{name}} unter {{url}} verbunden ({{count}} Modelle)",
+        "failed_title": "Verbindung fehlgeschlagen",
+        "failed_description": "{{url}}: {{error}}",
+        "no_models_title": "Keine Modelle gefunden",
+        "no_models_description": "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
+      }
     }
   },
   "guides": {

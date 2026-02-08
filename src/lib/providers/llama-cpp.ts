@@ -61,7 +61,9 @@ export class LlamaCppProvider extends OpenAIProvider {
 
     if (!response) {
       console.error("[LlamaCpp] All model fetch attempts failed.")
-      return []
+      throw new Error(
+        "Failed to connect to llama.cpp server. Check if the service is running and the URL is correct."
+      )
     }
 
     try {
@@ -115,7 +117,7 @@ export class LlamaCppProvider extends OpenAIProvider {
       })
     } catch (e) {
       console.error("[LlamaCpp] Model parse failed", e)
-      return []
+      throw new Error("Failed to parse response from llama.cpp server")
     }
   }
 }

@@ -924,7 +924,27 @@
     "providers": {
       "default": "डिफ़ॉल्ट",
       "enabled": "सक्रिय",
-      "disabled": "निष्क्रिय"
+      "disabled": "निष्क्रिय",
+      "inactive": "अक्रियाशील",
+      "connected": "जुड़ा हुआ",
+      "connection_failed": "कनेक्शन विफल",
+      "not_tested": "परीक्षण नहीं किया गया",
+      "test": "परीक्षण",
+      "save": "सहेजें",
+      "saved": "सहेजा गया",
+      "base_url": "आधार URL",
+      "base_url_default": "डिफ़ॉल्ट",
+      "api_key": "API कुंजी",
+      "custom_models": "कस्टम मॉडल",
+      "custom_models_description": "यदि वे स्वचालित रूप से खोजी गई सूची में नहीं दिखाई देते हैं तो मैन्युअल रूप से मॉडल जोड़ें।",
+      "test_connection": {
+        "success_title": "कनेक्शन सफल",
+        "success_description": "{{url}} पर {{name}} से सफलतापूर्वक जुड़ा ({{count}} मॉडल)",
+        "failed_title": "कनेक्शन विफल",
+        "failed_description": "{{url}}: {{error}}",
+        "no_models_title": "कोई मॉडल नहीं मिला",
+        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+      }
     }
   },
   "guides": {

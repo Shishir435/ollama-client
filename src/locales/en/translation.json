@@ -940,7 +940,27 @@
     "providers": {
       "default": "Default",
       "enabled": "Enabled",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "inactive": "Inactive",
+      "connected": "Connected",
+      "connection_failed": "Connection Failed",
+      "not_tested": "Not Tested",
+      "test": "Test",
+      "save": "Save",
+      "saved": "Saved",
+      "base_url": "Base URL",
+      "base_url_default": "Default",
+      "api_key": "API Key",
+      "custom_models": "Custom Models",
+      "custom_models_description": "Add models manually if they don't appear in the auto-discovered list.",
+      "test_connection": {
+        "success_title": "Connection Successful",
+        "success_description": "Successfully connected to {{name}} at {{url}} ({{count}} models)",
+        "failed_title": "Connection Failed",
+        "failed_description": "{{url}}: {{error}}",
+        "no_models_title": "No Models Found",
+        "no_models_description": "Connected to {{url}} but no models were found. Check if the service is running correctly."
+      }
     }
   },
   "guides": {

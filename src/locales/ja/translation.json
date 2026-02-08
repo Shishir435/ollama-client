@@ -924,7 +924,27 @@
     "providers": {
       "default": "デフォルト",
       "enabled": "有効",
-      "disabled": "無効"
+      "disabled": "無効",
+      "inactive": "非アクティブ",
+      "connected": "接続済み",
+      "connection_failed": "接続失敗",
+      "not_tested": "未テスト",
+      "test": "テスト",
+      "save": "保存",
+      "saved": "保存済み",
+      "base_url": "ベースURL",
+      "base_url_default": "デフォルト",
+      "api_key": "APIキー",
+      "custom_models": "カスタムモデル",
+      "custom_models_description": "自動検出リストに表示されない場合は、モデルを手動で追加してください。",
+      "test_connection": {
+        "success_title": "接続成功",
+        "success_description": "{{url}} の {{name}} に正常に接続しました ({{count}} モデル)",
+        "failed_title": "接続失敗",
+        "failed_description": "{{url}}: {{error}}",
+        "no_models_title": "モデルが見つかりません",
+        "no_models_description": "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。"
+      }
     }
   },
   "guides": {

@@ -925,7 +925,27 @@
     "providers": {
       "default": "Par défaut",
       "enabled": "Activé",
-      "disabled": "Désactivé"
+      "disabled": "Désactivé",
+      "inactive": "Inactif",
+      "connected": "Connecté",
+      "connection_failed": "Échec de la connexion",
+      "not_tested": "Non testé",
+      "test": "Tester",
+      "save": "Enregistrer",
+      "saved": "Enregistré",
+      "base_url": "URL de base",
+      "base_url_default": "Défaut",
+      "api_key": "Clé API",
+      "custom_models": "Modèles personnalisés",
+      "custom_models_description": "Ajoutez des modèles manuellement s'ils n'apparaissent pas dans la liste découverte automatiquement.",
+      "test_connection": {
+        "success_title": "Connexion réussie",
+        "success_description": "Connecté avec succès à {{name}} sur {{url}} ({{count}} modèles)",
+        "failed_title": "Échec de la connexion",
+        "failed_description": "{{url}} : {{error}}",
+        "no_models_title": "Aucun modèle trouvé",
+        "no_models_description": "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement."
+      }
     }
   },
   "guides": {
