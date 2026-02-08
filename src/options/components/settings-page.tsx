@@ -121,9 +121,9 @@ export const SettingsPage = () => {
   const allNavItems = navSections.flatMap((s) => s.items)
 
   return (
-    <div className="mx-auto max-w-8xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6">
-        <div className="flex items-center justify-between">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <header className="flex-none border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+        <div className="flex bg-background items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
@@ -136,22 +136,28 @@ export const SettingsPage = () => {
         </div>
       </header>
 
-      <Separator className="mb-6" />
-
-      <div className="flex flex-col lg:flex-row lg:gap-10">
-        <SettingsSidebar
-          sections={navSections}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-        <SettingsMobileNav
-          items={allNavItems}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-        <main className="min-w-0 flex-1">
-          <div key={activeTab}>{tabContent[activeTab]}</div>
-        </main>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="hidden lg:block w-64 flex-none border-r bg-muted/10">
+          <SettingsSidebar
+            sections={navSections}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            className="w-full p-4"
+          />
+        </div>
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <SettingsMobileNav
+            items={allNavItems}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            className="flex-none px-4 pt-4 sm:px-6"
+          />
+          <main className="flex-1 overflow-y-auto min-w-0">
+            <div className="container max-w-4xl py-6 lg:py-8 px-4 sm:px-6 lg:px-8 mx-auto">
+              <div key={activeTab}>{tabContent[activeTab]}</div>
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   )

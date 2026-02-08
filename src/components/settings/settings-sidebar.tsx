@@ -31,8 +31,8 @@ export const SettingsSidebar = ({
 }: SettingsSidebarProps) => {
   return (
     <aside className={cn("hidden lg:block w-56 shrink-0", className)}>
-      <nav className="sticky top-8" aria-label="Settings navigation">
-        <ScrollArea className="h-[calc(100vh-12rem)]">
+      <nav aria-label="Settings navigation" className="h-full">
+        <ScrollArea className="h-full">
           <div className="space-y-5 pr-2">
             {sections.map((section, idx) => (
               <div key={section.title}>
