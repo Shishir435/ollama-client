@@ -2,10 +2,11 @@ import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { memoryManager } from "@/background/lib/memory-manager"
 import { safePostMessage } from "@/background/lib/utils"
-import {
-  formatEnhancedResults,
-  retrieveContextEnhanced
-} from "@/features/chat/rag/rag-pipeline"
+// Dynamic import to reduce bundle size
+// import {
+//   formatEnhancedResults,
+//   retrieveContextEnhanced
+// } from "@/features/chat/rag/rag-pipeline"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -48,6 +49,11 @@ export const handleChatWithModel = withErrorContext(
     if (isMemoryEnabled && messages.length > 0) {
       const lastUserMessage = messages[messages.length - 1]
       if (lastUserMessage.role === "user") {
+        // Dynamic import to reduce bundle size
+        const { retrieveContextEnhanced, formatEnhancedResults } = await import(
+          "@/features/chat/rag/rag-pipeline"
+        )
+
         const enhancedResults = await retrieveContextEnhanced(
           lastUserMessage.content,
           {}

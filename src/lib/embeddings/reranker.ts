@@ -1,13 +1,10 @@
-import {
-  env,
-  pipeline,
-  type TextClassificationPipeline
-} from "@xenova/transformers"
+import type { TextClassificationPipeline } from "@xenova/transformers"
 import { logger } from "@/lib/logger"
 
 // Configure transformers.js to use CDN models
-env.allowLocalModels = false
-env.allowRemoteModels = true
+// Moved to loadModel to avoid top-level import side-effects
+// env.allowLocalModels = false
+// env.allowRemoteModels = true
 
 /**
  * Re-ranker service using transformers.js cross-encoder models
@@ -60,6 +57,12 @@ class RerankerService {
     )
 
     try {
+      const { env, pipeline } = await import("@xenova/transformers")
+
+      // Configure environment
+      env.allowLocalModels = false
+      env.allowRemoteModels = true
+
       // Load the model (transformers.js handles device selection automatically)
       // WebGPU is used automatically if available, otherwise falls back to WASM
       const model = await pipeline("text-classification", this.modelName)
@@ -87,8 +90,9 @@ class RerankerService {
     this.loading = null
 
     // Explicitly try to dispose if the library supports it
+    // Explicitly try to dispose if the library supports it
     try {
-      // This is a best-effort attempt to clear memory in the underlying engine
+      const { env } = await import("@xenova/transformers")
       if (env.backends?.onnx?.sessions) {
         // Placeholder for deep cleanup if needed
       }
