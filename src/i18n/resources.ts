@@ -234,7 +234,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Datei hochladen",
-          tooltip: "Datei hochladen (PDF, DOCX, Textdateien)"
+          tooltip: "Datei hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)"
         },
         preview: {
           remove_aria_label: "Datei entfernen",
@@ -243,7 +243,8 @@ export const resources = {
           processing_docx: "DOCX-Dokument wird verarbeitet...",
           processing_file: "Datei wird verarbeitet...",
           processing_csv: "CSV-Datei wird verarbeitet...",
-          processing_html: "HTML wird in Markdown konvertiert..."
+          processing_html: "HTML wird in Markdown konvertiert...",
+          processing_image: "Bild wird verarbeitet (OCR)..."
         },
         area: {
           files_ready: "{{count}} Datei bereit",
@@ -252,7 +253,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Maximale Dateigröße (MB)",
           max_file_size_description:
-            "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung."
+            "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung.",
+          ocr_enabled_label: "OCR für Bilder aktivieren",
+          ocr_enabled_description:
+            "Bilddateien lokal per OCR in Text umwandeln (nur Englisch).",
+          ocr_language_label: "OCR-Sprache (nur Englisch)",
+          ocr_language_description:
+            "Derzeit nur Englisch verfügbar. Weitere Sprachen folgen.",
+          ocr_language_placeholder: "Englisch"
         }
       },
       model: {
@@ -1342,7 +1350,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Upload file",
-          tooltip: "Upload file (PDF, DOCX, Text files)"
+          tooltip: "Upload file (PDF, DOCX, CSV, HTML, Text, Images)"
         },
         preview: {
           remove_aria_label: "Remove file",
@@ -1351,7 +1359,8 @@ export const resources = {
           processing_docx: "Processing DOCX document...",
           processing_file: "Processing file...",
           processing_csv: "Parsing CSV file...",
-          processing_html: "Converting HTML to Markdown..."
+          processing_html: "Converting HTML to Markdown...",
+          processing_image: "Processing image (OCR)..."
         },
         area: {
           files_ready: "{{count}} file ready",
@@ -1360,7 +1369,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Maximum File Size (MB)",
           max_file_size_description:
-            "Maximum allowed size for individual files. Larger files may take longer to process."
+            "Maximum allowed size for individual files. Larger files may take longer to process.",
+          ocr_enabled_label: "Enable OCR for Images",
+          ocr_enabled_description:
+            "Convert image files to text locally using OCR (English only).",
+          ocr_language_label: "OCR Language (English only)",
+          ocr_language_description:
+            "Currently limited to English. More languages will be added soon.",
+          ocr_language_placeholder: "English"
         }
       },
       model: {
@@ -2457,7 +2473,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Subir archivo",
-          tooltip: "Subir archivo (PDF, DOCX, archivos de texto)"
+          tooltip: "Subir archivo (PDF, DOCX, CSV, HTML, Texto, Imágenes)"
         },
         preview: {
           remove_aria_label: "Eliminar archivo",
@@ -2466,7 +2482,8 @@ export const resources = {
           processing_docx: "Procesando documento DOCX...",
           processing_file: "Procesando archivo...",
           processing_csv: "Procesando archivo CSV...",
-          processing_html: "Convirtiendo HTML a Markdown..."
+          processing_html: "Convirtiendo HTML a Markdown...",
+          processing_image: "Procesando imagen (OCR)..."
         },
         area: {
           files_ready: "{{count}} archivo listo",
@@ -2475,7 +2492,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Tamaño Máximo de Archivo (MB)",
           max_file_size_description:
-            "Tamaño máximo permitido para archivos individuales. Los archivos más grandes pueden tardar más en procesarse."
+            "Tamaño máximo permitido para archivos individuales. Los archivos más grandes pueden tardar más en procesarse.",
+          ocr_enabled_label: "Activar OCR para imágenes",
+          ocr_enabled_description:
+            "Convierte imágenes a texto localmente con OCR (solo inglés).",
+          ocr_language_label: "Idioma OCR (solo inglés)",
+          ocr_language_description:
+            "Actualmente limitado al inglés. Se agregarán más idiomas pronto.",
+          ocr_language_placeholder: "Inglés"
         }
       },
       model: {
@@ -3569,7 +3593,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Téléverser un fichier",
-          tooltip: "Téléverser un fichier (PDF, DOCX, fichiers texte)"
+          tooltip: "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte, Images)"
         },
         preview: {
           remove_aria_label: "Retirer le fichier",
@@ -3578,7 +3602,8 @@ export const resources = {
           processing_docx: "Traitement du document DOCX...",
           processing_file: "Traitement du fichier...",
           processing_csv: "Traitement du fichier CSV...",
-          processing_html: "Conversion HTML vers Markdown..."
+          processing_html: "Conversion HTML vers Markdown...",
+          processing_image: "Traitement de l'image (OCR)..."
         },
         area: {
           files_ready: "{{count}} fichier prêt",
@@ -3587,7 +3612,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Taille Maximale de Fichier (Mo)",
           max_file_size_description:
-            "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités."
+            "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
+          ocr_enabled_label: "Activer l'OCR pour les images",
+          ocr_enabled_description:
+            "Convertit localement les images en texte via OCR (anglais uniquement).",
+          ocr_language_label: "Langue OCR (anglais uniquement)",
+          ocr_language_description:
+            "Limité à l'anglais pour le moment. D'autres langues arrivent.",
+          ocr_language_placeholder: "Anglais"
         }
       },
       model: {
@@ -4680,7 +4712,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "फ़ाइल अपलोड करें",
-          tooltip: "फ़ाइल अपलोड करें (PDF, DOCX, टेक्स्ट फ़ाइलें)"
+          tooltip: "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट, चित्र)"
         },
         preview: {
           remove_aria_label: "फ़ाइल हटाएँ",
@@ -4689,7 +4721,8 @@ export const resources = {
           processing_docx: "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
           processing_file: "फ़ाइल प्रोसेस की जा रही है...",
           processing_csv: "CSV फ़ाइल प्रोसेस की जा रही है...",
-          processing_html: "HTML को Markdown में बदला जा रहा है..."
+          processing_html: "HTML को Markdown में बदला जा रहा है...",
+          processing_image: "चित्र प्रोसेस हो रहा है (OCR)..."
         },
         area: {
           files_ready: "{{count}} फ़ाइल तैयार",
@@ -4698,7 +4731,13 @@ export const resources = {
         settings: {
           max_file_size_label: "अधिकतम फ़ाइल साइज़ (MB)",
           max_file_size_description:
-            "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।"
+            "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।",
+          ocr_enabled_label: "छवियों के लिए OCR सक्षम करें",
+          ocr_enabled_description:
+            "छवि फ़ाइलों को स्थानीय रूप से OCR से टेक्स्ट में बदलें (केवल अंग्रेज़ी)।",
+          ocr_language_label: "OCR भाषा (केवल अंग्रेज़ी)",
+          ocr_language_description: "फिलहाल केवल अंग्रेज़ी। अन्य भाषाएँ जल्द आएँगी।",
+          ocr_language_placeholder: "अंग्रेज़ी"
         }
       },
       model: {
@@ -5762,7 +5801,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Carica file",
-          tooltip: "Carica file (PDF, DOCX, file di testo)"
+          tooltip: "Carica file (PDF, DOCX, CSV, HTML, Testo, Immagini)"
         },
         preview: {
           remove_aria_label: "Rimuovi file",
@@ -5771,7 +5810,8 @@ export const resources = {
           processing_docx: "Elaborazione documento DOCX in corso...",
           processing_file: "Elaborazione file in corso...",
           processing_csv: "Elaborazione file CSV...",
-          processing_html: "Conversione HTML in Markdown..."
+          processing_html: "Conversione HTML in Markdown...",
+          processing_image: "Elaborazione immagine (OCR)..."
         },
         area: {
           files_ready: "{{count}} file pronto",
@@ -5780,7 +5820,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Dimensione Massima File (MB)",
           max_file_size_description:
-            "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione."
+            "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione.",
+          ocr_enabled_label: "Abilita OCR per le immagini",
+          ocr_enabled_description:
+            "Converti le immagini in testo localmente tramite OCR (solo inglese).",
+          ocr_language_label: "Lingua OCR (solo inglese)",
+          ocr_language_description:
+            "Attualmente solo inglese. Altre lingue saranno aggiunte presto.",
+          ocr_language_placeholder: "Inglese"
         }
       },
       model: {
@@ -6871,7 +6918,8 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "ファイルをアップロード",
-          tooltip: "ファイルをアップロード (PDF, DOCX, テキストファイル)"
+          tooltip:
+            "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト、画像)"
         },
         preview: {
           remove_aria_label: "ファイルを削除",
@@ -6880,7 +6928,8 @@ export const resources = {
           processing_docx: "DOCXドキュメントを処理中...",
           processing_file: "ファイルを処理中...",
           processing_csv: "CSVファイルを処理中...",
-          processing_html: "HTMLをMarkdownに変換中..."
+          processing_html: "HTMLをMarkdownに変換中...",
+          processing_image: "画像を処理中（OCR）..."
         },
         area: {
           files_ready: "{{count}} ファイル準備完了",
@@ -6889,7 +6938,14 @@ export const resources = {
         settings: {
           max_file_size_label: "最大ファイルサイズ (MB)",
           max_file_size_description:
-            "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。"
+            "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。",
+          ocr_enabled_label: "画像のOCRを有効化",
+          ocr_enabled_description:
+            "画像ファイルをローカルでOCRしてテキスト化します（英語のみ）。",
+          ocr_language_label: "OCR言語（英語のみ）",
+          ocr_language_description:
+            "現在は英語のみ対応です。ほかの言語は今後追加予定です。",
+          ocr_language_placeholder: "英語"
         }
       },
       model: {
@@ -7965,7 +8021,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Загрузить файл",
-          tooltip: "Загрузить файл (PDF, DOCX, Text)"
+          tooltip: "Загрузить файл (PDF, DOCX, CSV, HTML, Текст, Изображения)"
         },
         preview: {
           remove_aria_label: "Удалить файл",
@@ -7974,7 +8030,8 @@ export const resources = {
           processing_docx: "Обработка документа DOCX...",
           processing_file: "Обработка файла...",
           processing_csv: "Обработка CSV файла...",
-          processing_html: "Конвертация HTML в Markdown..."
+          processing_html: "Конвертация HTML в Markdown...",
+          processing_image: "Обработка изображения (OCR)..."
         },
         area: {
           files_ready: "{{count}} файл готов",
@@ -7983,7 +8040,14 @@ export const resources = {
         settings: {
           max_file_size_label: "Макс. размер файла (МБ)",
           max_file_size_description:
-            "Максимально допустимый размер для отдельных файлов. Обработка больших файлов может занять больше времени."
+            "Максимально допустимый размер для отдельных файлов. Обработка больших файлов может занять больше времени.",
+          ocr_enabled_label: "Включить OCR для изображений",
+          ocr_enabled_description:
+            "Преобразует изображения в текст локально с помощью OCR (только английский).",
+          ocr_language_label: "Язык OCR (только английский)",
+          ocr_language_description:
+            "Пока доступен только английский. Другие языки будут добавлены позже.",
+          ocr_language_placeholder: "Английский"
         }
       },
       model: {
@@ -9057,7 +9121,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "上传文件",
-          tooltip: "上传文件 (PDF, DOCX, 文本文件)"
+          tooltip: "上传文件（PDF、DOCX、CSV、HTML、文本、图片）"
         },
         preview: {
           remove_aria_label: "移除文件",
@@ -9066,7 +9130,8 @@ export const resources = {
           processing_docx: "正在处理 DOCX 文档...",
           processing_file: "正在处理文件...",
           processing_csv: "正在处理 CSV 文件...",
-          processing_html: "正在将 HTML 转换为 Markdown..."
+          processing_html: "正在将 HTML 转换为 Markdown...",
+          processing_image: "正在处理图片（OCR）..."
         },
         area: {
           files_ready: "{{count}} 个文件已准备就绪",
@@ -9075,7 +9140,12 @@ export const resources = {
         settings: {
           max_file_size_label: "最大文件大小 (MB)",
           max_file_size_description:
-            "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。"
+            "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
+          ocr_enabled_label: "启用图片 OCR",
+          ocr_enabled_description: "使用本地 OCR 将图片转换为文本（仅英文）。",
+          ocr_language_label: "OCR 语言（仅英文）",
+          ocr_language_description: "目前仅支持英文，后续会添加更多语言。",
+          ocr_language_placeholder: "英文"
         }
       },
       model: {

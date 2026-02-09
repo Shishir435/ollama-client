@@ -134,6 +134,20 @@ export const ChatInputBox = ({
   }
 
   const handleSend = () => {
+    const hasPendingImageProcessing = processingStates.some(
+      (state) =>
+        state.status === "processing" && state.file.type?.startsWith("image/")
+    )
+
+    if (hasPendingImageProcessing) {
+      toast({
+        variant: "destructive",
+        title: "OCR in progress",
+        description: "Please wait for image OCR to finish before sending."
+      })
+      return
+    }
+
     const successfulFiles = processingStates
       .filter(
         (s): s is typeof s & { status: "success"; result: ProcessedFile } =>

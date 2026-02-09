@@ -53,6 +53,18 @@ vi.mock("@/features/file-upload/processors/docx-processor", () => ({
   }
 }))
 
+vi.mock("@/features/file-upload/processors/image-processor", () => ({
+  ImageProcessor: class {
+    canProcess = vi.fn().mockImplementation((file: File) =>
+      file.type.startsWith("image/") || file.name.endsWith(".png")
+    )
+    process = vi.fn().mockResolvedValue({
+      text: "OCR content",
+      metadata: { ocrLanguage: "eng" }
+    })
+  }
+}))
+
 describe("File Processors - Infrastructure", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -95,10 +107,11 @@ describe("File Processors - Infrastructure", () => {
       expect(processor?.constructor.name).toBe("DocxProcessor")
     })
 
-    it("should return false for image files (OCR disabled)", () => {
+    it("should return ImageProcessor for image files", () => {
       const file = new File([""], "test.png", { type: "image/png" })
       const processor = getProcessor(file)
-      expect(processor).toBeNull()
+      expect(processor).not.toBeNull()
+      expect(processor?.constructor.name).toBe("ImageProcessor")
     })
 
     it("should handle files by extension when MIME type is missing", () => {
@@ -236,9 +249,9 @@ describe("File Processors - Infrastructure", () => {
       expect(isFileTypeSupported(pyFile)).toBe(true)
     })
 
-    it("should return false for image files (OCR disabled)", () => {
+    it("should return true for image files", () => {
       const file = new File([""], "test.png", { type: "image/png" })
-      expect(isFileTypeSupported(file)).toBe(false)
+      expect(isFileTypeSupported(file)).toBe(true)
     })
 
     it("should return false for video files", () => {
@@ -288,12 +301,15 @@ describe("File Processors - Infrastructure", () => {
       expect(extensions).toContain("*")
     })
 
-    it("should NOT include image extensions (OCR disabled)", () => {
+    it("should include image extensions", () => {
       const extensions = getSupportedExtensions()
 
-      // Image extensions are now supported
-      expect(extensions).not.toContain(".png")
-      expect(extensions).not.toContain(".jpg")
+      expect(extensions).toContain(".png")
+      expect(extensions).toContain(".jpg")
+      expect(extensions).toContain(".jpeg")
+      expect(extensions).toContain(".webp")
+      expect(extensions).toContain(".gif")
+      expect(extensions).toContain(".bmp")
       // But video is still not supported
       expect(extensions).not.toContain(".mp4")
     })

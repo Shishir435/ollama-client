@@ -43,12 +43,13 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm"],
+        resources: ["assets/*.wasm", "ocr/*", "ocr/lang/*"],
         matches: ["<all_urls>"]
       }
     ],
     content_security_policy: {
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+      extension_pages:
+        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'self'"
     },
     browser_specific_settings: {
       gecko: {

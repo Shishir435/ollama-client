@@ -61,7 +61,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         // Check if file type is supported
         if (!isFileTypeSupported(file)) {
           const error = new Error(
-            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), and DOCX (.docx).`
+            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), DOCX (.docx), CSV/TSV (.csv, .tsv), HTML (.html), and images (.png, .jpg, .jpeg, .webp, .gif, .bmp).`
           )
           newStates.set(file, {
             file,
@@ -76,6 +76,19 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         if (file.size > maxFileSize) {
           const error = new Error(
             `File "${file.name}" exceeds maximum size of ${(maxFileSize / 1024 / 1024).toFixed(0)}MB`
+          )
+          newStates.set(file, {
+            file,
+            status: "error",
+            error: error.message
+          })
+          if (onError) onError(error)
+          continue
+        }
+
+        if (file.type.startsWith("image/") && !config.enableOcr) {
+          const error = new Error(
+            `OCR is disabled. Enable OCR in settings to upload image files (${file.name}).`
           )
           newStates.set(file, {
             file,

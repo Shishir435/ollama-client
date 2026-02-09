@@ -37,6 +37,7 @@ export {
   HardDrive,
   Hash,
   HelpCircle,
+  Image,
   Info,
   Instagram,
   Layers,

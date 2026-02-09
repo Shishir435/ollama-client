@@ -493,4 +493,6 @@ export interface FileUploadConfig {
   autoEmbedFiles: boolean // Auto-generate embeddings for uploaded files
   showEmbeddingProgress: boolean // Show progress during embedding generation
   embeddingBatchSize: number // Number of chunks to embed in parallel
+  enableOcr: boolean // Enable OCR for image uploads
+  ocrLanguage?: string // Default OCR language
 }
