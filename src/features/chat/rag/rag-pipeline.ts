@@ -312,6 +312,7 @@ export function formatEnhancedResults(
     score: number
     source?: string
     chunkIndex?: number
+    page?: number
     fileId?: string
     type?: string
   }>
@@ -346,12 +347,27 @@ export function formatEnhancedResults(
     .map((r, i) => {
       const source =
         r.document.metadata.title || r.document.metadata.source || "Unknown"
-      const scoreText = r.score
-        ? ` (relevance: ${(r.score * 100).toFixed(0)}%)`
-        : ""
-      return `[Document ${i + 1}] ${source}${scoreText}\n${r.document.content}`
+      const page = r.document.metadata.page
+      const chunkIndex = r.document.metadata.chunkIndex
+      const totalChunks = r.document.metadata.totalChunks
+      const chunkLabel =
+        chunkIndex !== undefined
+          ? `${chunkIndex + 1}${totalChunks ? `/${totalChunks}` : ""}`
+          : undefined
+
+      const attrs = [
+        `id="${i + 1}"`,
+        `source="${escapeAttribute(source)}"`,
+        page ? `page="${page}"` : undefined,
+        chunkLabel ? `chunk="${chunkLabel}"` : undefined,
+        r.score ? `score="${r.score.toFixed(3)}"` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
+
+      return `<doc ${attrs}>\n${r.document.content}\n</doc>`
     })
-    .join("\n\n---\n\n")
+    .join("\n\n")
 
   const sources = includedResults.map((r) => ({
     id: r.document.id || 0,
@@ -360,6 +376,7 @@ export function formatEnhancedResults(
     score: r.score,
     source: r.document.metadata.source,
     chunkIndex: r.document.metadata.chunkIndex,
+    page: r.document.metadata.page,
     fileId: r.document.metadata.fileId,
     type: r.document.metadata.type
   }))
@@ -369,4 +386,8 @@ export function formatEnhancedResults(
     formattedContext,
     sources
   }
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/"/g, "'").replace(/\s+/g, " ").trim()
 }

@@ -17,6 +17,7 @@ export interface VectorDocument {
     timestamp: number
     chunkIndex?: number
     totalChunks?: number
+    page?: number
     role?: "user" | "assistant" | "system"
     chatId?: string
     messageId?: number

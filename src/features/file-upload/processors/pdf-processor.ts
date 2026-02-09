@@ -43,6 +43,7 @@ export class PdfProcessor implements FileProcessor {
       const numPages = pdf.numPages
 
       const textParts: string[] = []
+      const pages: Array<{ pageNumber: number; text: string }> = []
 
       // Extract text from each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
@@ -58,6 +59,7 @@ export class PdfProcessor implements FileProcessor {
           .join(" ")
 
         if (pageText.trim()) {
+          pages.push({ pageNumber: pageNum, text: pageText })
           textParts.push(`--- Page ${pageNum} ---\n${pageText}`)
         }
       }
@@ -67,6 +69,7 @@ export class PdfProcessor implements FileProcessor {
 
       return {
         text: fullText,
+        pages,
         metadata: {
           fileName: file.name,
           fileType: file.type || "application/pdf",

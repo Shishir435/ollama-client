@@ -114,4 +114,21 @@ describe("retrieveContext", () => {
     expect(vectorStore.getAllDocuments).toHaveBeenCalledTimes(2)
     expect(result.documents).toHaveLength(2) // 1 from each call
   })
+
+  it("falls back to full context when enhanced retrieval returns no results", async () => {
+    const { retrieveContextEnhanced } = await import("../rag-pipeline")
+
+    vi.mocked(retrieveContextEnhanced).mockResolvedValueOnce([])
+    vi.mocked(vectorStore.getAllDocuments).mockResolvedValue({
+      documents: mockDocuments,
+      tokenCount: 100
+    })
+
+    const result = await retrieveContext("query", "file1")
+
+    expect(vectorStore.getAllDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: "file1", type: "file" })
+    )
+    expect(result.documents).toHaveLength(2)
+  })
 })

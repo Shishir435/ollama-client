@@ -512,7 +512,7 @@ describe("useChat", () => {
             metadata: { source: "test.txt", title: "test.txt", type: "file", timestamp: Date.now() }
           }
         ],
-        formattedContext: "[Document 1] test.txt\nRelevant chunk",
+        formattedContext: "<doc id=\"1\" source=\"test.txt\" score=\"0.900\">\nRelevant chunk\n</doc>",
         sources: [{
           title: "test.txt", type: "file", fileId: "file-1",
           id: "",

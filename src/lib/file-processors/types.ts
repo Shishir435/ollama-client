@@ -1,6 +1,7 @@
 export interface ProcessedFile {
   text: string
   chunks?: string[]
+  pages?: Array<{ pageNumber: number; text: string }>
   metadata: FileMetadata
 }
 

@@ -53,6 +53,7 @@ describe("PdfProcessor", () => {
     const result = await processor.process(file)
 
     expect(result.text).toContain("Page content")
+    expect(result.pages).toEqual([{ pageNumber: 1, text: "Page content" }])
     expect(result.metadata.pageCount).toBe(1)
   })
 

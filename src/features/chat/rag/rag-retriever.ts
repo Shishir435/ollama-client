@@ -20,6 +20,7 @@ export interface RetrievedContext {
     score: number
     source?: string
     chunkIndex?: number
+    page?: number
     fileId?: string
     type?: string
   }>
@@ -85,6 +86,35 @@ export async function retrieveContext(
       diversityEnabled: true,
       minSimilarity: await knowledgeConfig.getMinSimilarity()
     })
+  }
+
+  // Fallback: if no results found and a specific file scope was provided, return full context
+  if (results.length === 0 && fileId) {
+    const fallbackIds = Array.isArray(fileId) ? fileId : [fileId]
+    const maxContext = maxTokens || (await knowledgeConfig.getMaxContextSize())
+
+    logger.info(
+      "No RAG results found, falling back to full context",
+      "retrieveContext",
+      {
+        fileIds: fallbackIds
+      }
+    )
+
+    for (const id of fallbackIds) {
+      const result = await getAllDocuments({
+        fileId: id,
+        type: "file",
+        maxTokens: maxContext
+      })
+
+      results.push(
+        ...result.documents.map((doc) => ({
+          document: doc,
+          score: 1.0
+        }))
+      )
+    }
   }
 
   return formatEnhancedResults(

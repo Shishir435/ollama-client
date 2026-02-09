@@ -134,6 +134,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   fileId: result.metadata.fileId || file.name,
                   fileName: result.metadata.fileName,
                   content: result.text,
+                  pages: result.pages,
                   contentType: file.type || "text/plain",
                   onProgress: (progress) => {
                     if (

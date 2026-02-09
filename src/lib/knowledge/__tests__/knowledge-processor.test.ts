@@ -13,31 +13,33 @@ vi.mock("@/lib/text-processing")
 
 describe("processKnowledge", () => {
   const mockSplitter = {
-    splitDocuments: vi.fn().mockResolvedValue([
-      { pageContent: "chunk1", metadata: {} },
-      { pageContent: "chunk2", metadata: {} }
-    ])
+    splitDocuments: vi.fn().mockImplementation(async (docs: any[]) => {
+      return docs.map((doc) => ({
+        pageContent: "chunk1",
+        metadata: doc.metadata
+      }))
+    })
   }
 
   it("processes document successfully", async () => {
     vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
-      vectorIds: [1, 2],
-      documentCount: 0
-    })
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1, 2])
 
     const onProgress = vi.fn()
     const result = await processKnowledge({
       fileId: "file1",
       fileName: "test.txt",
       content: "content",
+      pages: [{ pageNumber: 2, text: "page content" }],
       contentType: "text/plain",
       onProgress
     })
 
     expect(result.success).toBe(true)
-    expect(result.chunkCount).toBe(2)
-    expect(mockSplitter.splitDocuments).toHaveBeenCalled()
+    expect(result.chunkCount).toBe(1)
+    expect(mockSplitter.splitDocuments).toHaveBeenCalledWith([
+      expect.objectContaining({ metadata: expect.objectContaining({ page: 2 }) })
+    ])
     expect(vectorStore.fromDocuments).toHaveBeenCalled()
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "processing" }))
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }))
@@ -70,10 +72,7 @@ describe("processKnowledgeBatch", () => {
       splitDocuments: vi.fn().mockResolvedValue([{ pageContent: "chunk", metadata: {} }])
     }
     vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
-      vectorIds: [1],
-      documentCount: 0
-    })
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1])
 
     const files = [
       { fileId: "f1", fileName: "1.txt", content: "c1", contentType: "txt" },
