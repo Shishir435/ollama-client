@@ -1,6 +1,6 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
-  CANONICAL_EMBEDDING_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   FILE_UPLOAD
@@ -24,12 +24,11 @@ export interface EmbeddingConfig {
     | "shared-model"
     | "default-provider-only"
     | "ollama-only" // Legacy value for compatibility
-  sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-MiniLM-L6-v2)
+  sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-minilm)
   sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: default provider)
   warmupEmbeddingsInBackground: boolean // Best-effort background model preparation (default: true)
 
   // Performance settings
-  useWebWorker: boolean // Use Web Worker for embedding generation (default: true)
   enableCaching: boolean // Cache embeddings for identical content (default: true)
 
   // Search settings
@@ -92,10 +91,9 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   embeddingStrategy: "auto",
-  sharedEmbeddingModel: CANONICAL_EMBEDDING_MODEL,
+  sharedEmbeddingModel: DEFAULT_EMBEDDING_MODEL,
   sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   warmupEmbeddingsInBackground: true,
-  useWebWorker: true, // Offload to worker thread
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision

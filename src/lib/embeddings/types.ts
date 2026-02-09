@@ -24,6 +24,8 @@ export interface VectorDocument {
     // Quality assessment metadata (added during migration/embedding)
     qualityScore?: number
     qualityReasons?: string
+    embeddingModel?: string
+    embeddingDim?: number
   }
 }
 

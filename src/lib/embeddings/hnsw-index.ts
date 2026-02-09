@@ -40,6 +40,10 @@ class LocalVectorIndex {
       this.dimension = embedding.length
     }
 
+    if (this.dimension !== embedding.length) {
+      return
+    }
+
     this.vectors.push({
       id,
       embedding: new Float32Array(embedding)
@@ -60,6 +64,10 @@ class LocalVectorIndex {
     minSimilarity: number = 0.0
   ): Array<{ id: number; distance: number }> {
     if (this.vectors.length === 0) {
+      return []
+    }
+
+    if (this.dimension && queryEmbedding.length !== this.dimension) {
       return []
     }
 
@@ -127,6 +135,10 @@ class LocalVectorIndex {
         (this.vectors.length * (this.dimension || 0) * 4) / (1024 * 1024)
     }
   }
+
+  getDimension(): number | null {
+    return this.dimension
+  }
 }
 
 /**
@@ -192,7 +204,8 @@ class HNSWIndexManager {
    * Build index from all vectors in the database
    */
   async buildIndex(
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
+    targetDimension?: number
   ): Promise<void> {
     if (this.isBuilding) {
       logger.warn("Vector Index build already in progress", "HNSWIndex")
@@ -207,22 +220,29 @@ class HNSWIndexManager {
       const startTime = performance.now()
 
       const allVectors = await vectorDb.vectors.toArray()
+      const filteredVectors =
+        targetDimension !== undefined
+          ? allVectors.filter(
+              (vector) => vector.embedding.length === targetDimension
+            )
+          : allVectors
 
-      if (allVectors.length === 0) {
+      if (filteredVectors.length === 0) {
         logger.info("No vectors to index", "HNSWIndex")
+        this.index.clear()
         this.isBuilding = false
         return
       }
 
-      const dimension = allVectors[0].embedding.length
+      const dimension = targetDimension ?? filteredVectors[0].embedding.length
       this.index.initialize(dimension)
 
       // Process in batches to avoid blocking
       const BATCH_SIZE = 100
       let processed = 0
 
-      for (let i = 0; i < allVectors.length; i += BATCH_SIZE) {
-        const batch = allVectors.slice(i, i + BATCH_SIZE)
+      for (let i = 0; i < filteredVectors.length; i += BATCH_SIZE) {
+        const batch = filteredVectors.slice(i, i + BATCH_SIZE)
 
         for (const vector of batch) {
           if (vector.id === undefined) continue
@@ -230,8 +250,8 @@ class HNSWIndexManager {
           processed++
         }
 
-        this.buildProgress = processed / allVectors.length
-        onProgress?.(processed, allVectors.length)
+        this.buildProgress = processed / filteredVectors.length
+        onProgress?.(processed, filteredVectors.length)
 
         // Yield to main thread
         await new Promise((resolve) => setTimeout(resolve, 0))
@@ -239,7 +259,9 @@ class HNSWIndexManager {
 
       const duration = performance.now() - startTime
       logger.info("Vector Index built successfully", "HNSWIndex", {
-        count: allVectors.length,
+        count: filteredVectors.length,
+        dimension,
+        targetDimension,
         duration: `${duration.toFixed(2)}ms`
       })
     } catch (error) {
@@ -319,6 +341,12 @@ class HNSWIndexManager {
     }
 
     return this.index.getCount() > 0
+  }
+
+  isCompatibleDimension(queryDimension: number): boolean {
+    const dimension = this.index.getDimension()
+    if (!dimension) return false
+    return dimension === queryDimension
   }
 }
 

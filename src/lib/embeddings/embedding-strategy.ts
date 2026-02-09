@@ -1,7 +1,5 @@
 import { browser } from "@/lib/browser-api"
 import {
-  CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL,
-  CANONICAL_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
@@ -53,20 +51,14 @@ const WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 const warmupThrottle = new Map<string, number>()
 
 const normalizeModelForProvider = (
-  providerId: string,
+  _providerId: string,
   model: string
 ): string => {
   const normalized = model.trim()
+  const baseModel = DEFAULT_EMBEDDING_MODEL.split(":")[0]?.toLowerCase()
 
-  if (providerId === DEFAULT_PROVIDER_ID) {
-    if (normalized.toLowerCase() === CANONICAL_EMBEDDING_MODEL.toLowerCase()) {
-      return CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL
-    }
-  } else if (
-    normalized.toLowerCase() ===
-    CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL.toLowerCase()
-  ) {
-    return CANONICAL_EMBEDDING_MODEL
+  if (baseModel && normalized.toLowerCase() === baseModel) {
+    return DEFAULT_EMBEDDING_MODEL
   }
 
   return normalized
@@ -180,7 +172,7 @@ const buildAttempts = async (
   const activeProvider = await getActiveProvider()
   const sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-  const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+  const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
 
   const providerNativeModel = normalizeModelForProvider(
@@ -252,7 +244,7 @@ export const getEmbeddingCapabilities =
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-    const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+    const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
 
     let sharedProviderAvailable = false
     try {
@@ -331,7 +323,7 @@ export const ensureEmbeddingStrategyReady =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
     const sharedModel = normalizeModelForProvider(
       sharedProviderId,
-      config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+      config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
     )
 
     if (!config.warmupEmbeddingsInBackground) {

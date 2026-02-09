@@ -14,6 +14,10 @@ import { generateEmbedding } from "./embedding-client"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
 import type { SearchResult, VectorDocument } from "./types"
 
+const HNSW_REBUILD_COOLDOWN_MS = 30000
+let lastHnswRebuildAttempt: { dimension: number; timestamp: number } | null =
+  null
+
 /**
  * Search using HNSW index
  */
@@ -77,6 +81,10 @@ async function searchBruteForce(
 
     for (const doc of chunk) {
       // Use optimized similarity calculation
+      if (doc.embedding.length !== queryNormalized.length) {
+        continue
+      }
+
       const similarity = cosineSimilarityOptimized(
         queryNormalized,
         queryNorm,
@@ -162,9 +170,38 @@ export const searchSimilarVectors = async (
   }
 
   const vectorCount = await vectorQuery.count()
+  const queryDimension = queryEmbedding.length
+
+  if (config.useHNSW && config.hnswAutoRebuild && vectorCount > 0) {
+    const stats = hnswIndexManager.getStats()
+    const needsRebuild =
+      !stats.isBuilding &&
+      (stats.numElements === 0 || stats.dimension !== queryDimension)
+
+    if (needsRebuild) {
+      const now = Date.now()
+      const sameDimension = lastHnswRebuildAttempt?.dimension === queryDimension
+      const withinCooldown =
+        lastHnswRebuildAttempt &&
+        now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
+
+      if (!sameDimension || !withinCooldown) {
+        lastHnswRebuildAttempt = { dimension: queryDimension, timestamp: now }
+        void hnswIndexManager
+          .buildIndex(undefined, queryDimension)
+          .catch((error) => {
+            logger.warn("HNSW auto-rebuild failed", "searchSimilarVectors", {
+              error
+            })
+          })
+      }
+    }
+  }
 
   // Decide search strategy
-  const useHNSW = await hnswIndexManager.shouldUseHNSW(vectorCount)
+  const useHNSW =
+    (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
+    hnswIndexManager.isCompatibleDimension(queryDimension)
 
   let results: SearchResult[]
 
@@ -280,6 +317,29 @@ export const searchHybrid = async (
     prefix: true,
     combineWith: "OR"
   })
+  const filteredKeywordResults = keywordResults.filter((result) => {
+    if (
+      searchOptions.type &&
+      result.document.metadata.type !== searchOptions.type
+    ) {
+      return false
+    }
+    if (
+      searchOptions.sessionId &&
+      result.document.metadata.sessionId !== searchOptions.sessionId
+    ) {
+      return false
+    }
+    if (searchOptions.fileId) {
+      if (Array.isArray(searchOptions.fileId)) {
+        return searchOptions.fileId.includes(
+          result.document.metadata.fileId || ""
+        )
+      }
+      return result.document.metadata.fileId === searchOptions.fileId
+    }
+    return true
+  })
 
   // 2. Semantic search (conceptual)
   const semanticResults = await searchSimilarVectors(queryEmbedding, {
@@ -292,10 +352,13 @@ export const searchHybrid = async (
   const docMap = new Map<number, VectorDocument>()
 
   // Normalize keyword scores (BM25 scores vary widely)
-  const maxKeywordScore = Math.max(...keywordResults.map((r) => r.score), 1)
+  const maxKeywordScore = Math.max(
+    ...filteredKeywordResults.map((r) => r.score),
+    1
+  )
 
   // Add keyword scores
-  for (const result of keywordResults) {
+  for (const result of filteredKeywordResults) {
     const normalizedScore = result.score / maxKeywordScore
     scoreMap.set(result.id, keywordWeight * normalizedScore)
     docMap.set(result.id, result.document)
@@ -330,7 +393,7 @@ export const searchHybrid = async (
   const duration = performance.now() - startTime
   logger.info("Hybrid search completed", "searchHybrid", {
     resultCount: fusedResults.length,
-    keywordCount: keywordResults.length,
+    keywordCount: filteredKeywordResults.length,
     semanticCount: semanticResults.length,
     duration: `${duration.toFixed(2)}ms`
   })

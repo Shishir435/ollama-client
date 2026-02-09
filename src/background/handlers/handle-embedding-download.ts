@@ -25,16 +25,28 @@ export const checkEmbeddingModelExists = async (
 
     if (provider) {
       const models = await provider.getModels()
+      const modelNames = models
+        .map((model: unknown) => {
+          if (typeof model === "string") return model
+          if (model && typeof model === "object") {
+            const maybeName = (model as { name?: string; model?: string }).name
+            const maybeModel = (model as { model?: string }).model
+            return maybeName || maybeModel || ""
+          }
+          return ""
+        })
+        .filter((name) => name.length > 0)
       console.log(
         `[checkEmbeddingModelExists] Checking '${modelName}' against provider models:`,
-        models
+        modelNames
       )
 
       // Normalize model names for comparison (remove tags)
-      const normalizeModelName = (name: string): string => name.split(":")[0]
+      const normalizeModelName = (name: string): string =>
+        name.split(":")[0] || name
       const normalizedSearchName = normalizeModelName(modelName)
 
-      const found = models.some((m: string) => {
+      const found = modelNames.some((m: string) => {
         const normalizedModelName = normalizeModelName(m)
         const isMatch =
           m === modelName ||
@@ -52,13 +64,17 @@ export const checkEmbeddingModelExists = async (
       if (found) {
         return {
           exists: true,
-          debug: { provider: provider.config.id, models, method: "provider" }
+          debug: {
+            provider: provider.config.id,
+            models: modelNames,
+            method: "provider"
+          }
         }
       }
 
       providerDebug = {
         provider: provider.config.id,
-        models,
+        models: modelNames,
         method: "provider-failed-not-found"
       }
       console.warn(
@@ -89,20 +105,32 @@ export const checkEmbeddingModelExists = async (
     }
 
     const data = await res.json()
-    const providerModels = data.models || []
+    const providerModels = Array.isArray(data.models) ? data.models : []
 
-    const normalizeModelName = (name: string): string => name.split(":")[0]
+    const normalizeModelName = (name: string): string =>
+      name.split(":")[0] || name
     const normalizedSearchName = normalizeModelName(modelName)
 
-    const found = providerModels.some((model: { name: string }) => {
-      const normalizedModelName = normalizeModelName(model.name)
-      return (
-        model.name === modelName ||
-        normalizedModelName === normalizedSearchName ||
-        model.name.startsWith(`${modelName}:`) ||
-        model.name.startsWith(`${normalizedSearchName}:`)
-      )
-    })
+    const found = providerModels
+      .map((model: unknown) => {
+        if (typeof model === "string") return model
+        if (model && typeof model === "object") {
+          const maybeName = (model as { name?: string; model?: string }).name
+          const maybeModel = (model as { model?: string }).model
+          return maybeName || maybeModel || ""
+        }
+        return ""
+      })
+      .filter((name) => name.length > 0)
+      .some((name) => {
+        const normalizedModelName = normalizeModelName(name)
+        return (
+          name === modelName ||
+          normalizedModelName === normalizedSearchName ||
+          name.startsWith(`${modelName}:`) ||
+          name.startsWith(`${normalizedSearchName}:`)
+        )
+      })
 
     return {
       exists: found,
@@ -110,7 +138,19 @@ export const checkEmbeddingModelExists = async (
         ...providerDebug,
         fallback: {
           found,
-          models: providerModels.map((m: { name: string }) => m.name),
+          models: providerModels
+            .map((model: unknown) => {
+              if (typeof model === "string") return model
+              if (model && typeof model === "object") {
+                return (
+                  (model as { name?: string; model?: string }).name ||
+                  (model as { model?: string }).model ||
+                  ""
+                )
+              }
+              return ""
+            })
+            .filter((name) => name.length > 0),
           method: "fallback"
         }
       }

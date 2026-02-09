@@ -22,9 +22,9 @@ export const memoryManager = {
     const { userMessage, aiResponse, sessionId, chatId } = payload
 
     // Check if memory is enabled
-    const isMemoryEnabled = await plasmoGlobalStorage.get<boolean>(
-      STORAGE_KEYS.MEMORY.ENABLED
-    )
+    const isMemoryEnabled =
+      (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
+      true
     if (!isMemoryEnabled) {
       return
     }

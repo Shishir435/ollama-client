@@ -106,17 +106,21 @@ export const storeVector = async (
   metadata: VectorDocument["metadata"]
 ): Promise<number> => {
   const config = await getEmbeddingConfig()
+  const resolvedMetadata: VectorDocument["metadata"] = {
+    ...metadata,
+    embeddingDim: metadata.embeddingDim ?? embedding.length
+  }
 
   // Check for duplicate content in the same context (sessionId/fileId/url)
   // This prevents storing the same content multiple times
-  if (metadata.sessionId) {
+  if (resolvedMetadata.sessionId) {
     const existing = await vectorDb.vectors
       .where("metadata.sessionId")
-      .equals(metadata.sessionId)
+      .equals(resolvedMetadata.sessionId)
       .filter((doc) => {
         // If messageId is provided, check that too
-        if (metadata.messageId && doc.metadata.messageId) {
-          return doc.metadata.messageId === metadata.messageId
+        if (resolvedMetadata.messageId && doc.metadata.messageId) {
+          return doc.metadata.messageId === resolvedMetadata.messageId
         }
         return doc.content === content
       })
@@ -125,11 +129,11 @@ export const storeVector = async (
     // Optimization: If messageId is present, we can query by it directly if we had a compound index or just check it first?
     // Current schema: messageId is indexed.
     // So we can do:
-    if (!existing && metadata.messageId) {
+    if (!existing && resolvedMetadata.messageId) {
       // Double check by messageId directly to be sure
       const existingById = await vectorDb.vectors
         .where("metadata.messageId")
-        .equals(metadata.messageId)
+        .equals(resolvedMetadata.messageId)
         .first()
       if (existingById) return existingById.id || 0
     }
@@ -141,10 +145,10 @@ export const storeVector = async (
   }
 
   // Check file limits
-  if (config.maxEmbeddingsPerFile > 0 && metadata.fileId) {
+  if (config.maxEmbeddingsPerFile > 0 && resolvedMetadata.fileId) {
     const fileVectors = await vectorDb.vectors
       .where("metadata.fileId")
-      .equals(metadata.fileId)
+      .equals(resolvedMetadata.fileId)
       .count()
 
     if (fileVectors >= config.maxEmbeddingsPerFile) {
@@ -171,7 +175,7 @@ export const storeVector = async (
     embedding,
     normalizedEmbedding: normalized,
     norm,
-    metadata
+    metadata: resolvedMetadata
   })
 
   // Add to keyword index for full-text search
@@ -181,7 +185,7 @@ export const storeVector = async (
     embedding,
     normalizedEmbedding: normalized,
     norm,
-    metadata
+    metadata: resolvedMetadata
   })
 
   // Add to HNSW index incrementally (if initialized)
@@ -270,6 +274,43 @@ export const getStorageStats = async (): Promise<{
   }
 
   return stats
+}
+
+/**
+ * Gets embedding dimension statistics for health checks
+ */
+export const getEmbeddingDimensionStats = async (): Promise<{
+  totalVectors: number
+  byDimension: Record<string, number>
+  mixedDimensions: boolean
+  dominantDimension: number | null
+}> => {
+  const byDimension: Record<string, number> = {}
+  let totalVectors = 0
+
+  await vectorDb.vectors.each((doc) => {
+    totalVectors += 1
+    const dimension = doc.metadata?.embeddingDim ?? doc.embedding.length
+    if (!dimension) return
+    const key = String(dimension)
+    byDimension[key] = (byDimension[key] || 0) + 1
+  })
+
+  const dimensionEntries = Object.entries(byDimension)
+  const dominantEntry =
+    dimensionEntries.length > 0
+      ? dimensionEntries.reduce(
+          (acc, entry) => (entry[1] > acc[1] ? entry : acc),
+          dimensionEntries[0]
+        )
+      : null
+
+  return {
+    totalVectors,
+    byDimension,
+    mixedDimensions: dimensionEntries.length > 1,
+    dominantDimension: dominantEntry ? Number(dominantEntry[0]) : null
+  }
 }
 
 /**
@@ -420,7 +461,9 @@ export const fromDocuments = async (
         ...doc.metadata,
         type: doc.metadata.type || "file",
         timestamp: Date.now(),
-        fileId: fileId || doc.metadata.fileId
+        fileId: fileId || doc.metadata.fileId,
+        embeddingModel: embeddingResult.model,
+        embeddingDim: embeddingResult.embedding.length
       }
 
       const id = await storeVector(
@@ -467,7 +510,9 @@ export const storeChatMessage = async (
       ...metadata,
       type: "chat",
       source: "chat",
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      embeddingModel: embeddingResult.model,
+      embeddingDim: embeddingResult.embedding.length
     })
   } catch (error) {
     logger.error("Failed to store chat message", "storeChatMessage", { error })

@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -11,12 +11,16 @@ import { Button } from "@/components/ui/button"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const MemorySettings = () => {
   const { t } = useTranslation()
   const [isEnabled, setIsEnabled] = useStorage<boolean>(
-    STORAGE_KEYS.MEMORY.ENABLED,
-    false
+    {
+      key: STORAGE_KEYS.MEMORY.ENABLED,
+      instance: plasmoGlobalStorage
+    },
+    true
   )
   const [isClearing, setIsClearing] = useState(false)
   const [stats, setStats] = useState<{
@@ -44,19 +48,19 @@ export const MemorySettings = () => {
     }
   }
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const s = await getStorageStats()
       setStats(s)
     } catch (error) {
       console.error("Failed to load stats:", error)
     }
-  }
+  }, [])
 
   // Load stats on mount
-  useState(() => {
+  useEffect(() => {
     loadStats()
-  })
+  }, [loadStats])
 
   return (
     <SettingsCard

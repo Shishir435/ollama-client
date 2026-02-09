@@ -1,6 +1,5 @@
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { withErrorContext } from "@/background/lib/error-handler"
-import { memoryManager } from "@/background/lib/memory-manager"
 import { safePostMessage } from "@/background/lib/utils"
 // Dynamic import to reduce bundle size
 // import {
@@ -25,7 +24,7 @@ const limitMessagesForModel = (
 
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
-    const { model, messages, sessionId, chatId } = msg.payload
+    const { model, messages } = msg.payload
 
     const ac = new AbortController()
     setAbortController(port.name, ac)
@@ -40,9 +39,9 @@ export const handleChatWithModel = withErrorContext(
     const preparedMessages = [...limitedMessages]
 
     // --- System Prompt & Context Injection ---
-    const isMemoryEnabled = await plasmoGlobalStorage.get<boolean>(
-      STORAGE_KEYS.MEMORY.ENABLED
-    )
+    const isMemoryEnabled =
+      (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
+      true
     const systemPrompt = modelParams.system || "You are a helpful AI assistant."
     let contextHeader = ""
 
@@ -56,7 +55,7 @@ export const handleChatWithModel = withErrorContext(
 
         const enhancedResults = await retrieveContextEnhanced(
           lastUserMessage.content,
-          {}
+          { type: "chat" }
         )
         if (enhancedResults.length > 0) {
           const { formattedContext, sources } =
@@ -102,8 +101,6 @@ export const handleChatWithModel = withErrorContext(
     // Get Provider
     const provider = await ProviderFactory.getProviderForModel(model)
 
-    let fullResponse = ""
-
     await provider.streamChat(
       {
         model,
@@ -115,27 +112,10 @@ export const handleChatWithModel = withErrorContext(
       (chunk) => {
         if (isPortClosed()) return
 
-        if (chunk.delta) {
-          fullResponse += chunk.delta
-        }
-
         safePostMessage(port, chunk)
       },
       ac.signal
     )
-
-    // --- Save to Memory ---
-    if (isMemoryEnabled && fullResponse && messages.length > 0) {
-      const lastUserMessage = messages[messages.length - 1]
-      if (lastUserMessage.role === "user") {
-        await memoryManager.saveChatToMemory({
-          userMessage: lastUserMessage.content,
-          aiResponse: fullResponse,
-          sessionId: sessionId || "unknown",
-          chatId
-        })
-      }
-    }
   },
   {
     handler: "handleChatWithModel",

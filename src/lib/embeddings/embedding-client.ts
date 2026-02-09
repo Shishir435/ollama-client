@@ -222,7 +222,7 @@ export const cosineSimilarity = (
   embedding2: number[]
 ): number => {
   if (embedding1.length !== embedding2.length) {
-    throw new Error("Embeddings must have the same dimension")
+    return 0
   }
 
   const len = embedding1.length

@@ -1,15 +1,25 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
+import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { db } from "@/lib/db"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const ChatBackfillPanel = () => {
   const { t } = useTranslation()
+  const [memoryEnabled] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.MEMORY.ENABLED,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState<string | null>(null)
@@ -23,40 +33,20 @@ export const ChatBackfillPanel = () => {
     setCompleted(false)
 
     try {
-      // Get all sessions
-      const allSessions = await db.sessions.toArray()
-
-      // Count total messages
-      let totalMessages = 0
-      for (const session of allSessions) {
-        totalMessages += session.messages.filter(
-          (msg) =>
-            msg.role !== "system" &&
-            msg.content?.trim().length >= 10 &&
-            (msg.role === "user" || msg.done === true)
-        ).length
-      }
+      const { messagesBySession, totalMessages } =
+        await getEmbeddableMessagesBySession()
 
       setProgress({ current: 0, total: totalMessages })
 
-      // Process each session
       let processedMessages = 0
-      for (const session of allSessions) {
-        const messagesToEmbed = session.messages.filter(
-          (msg) =>
-            msg.role !== "system" &&
-            msg.content?.trim().length >= 10 &&
-            (msg.role === "user" || msg.done === true)
-        )
+      for (const [sessionId, messages] of messagesBySession.entries()) {
+        if (messages.length === 0) continue
+        await embedMessages(messages, sessionId)
+        processedMessages += messages.length
+        setProgress({ current: processedMessages, total: totalMessages })
 
-        if (messagesToEmbed.length > 0) {
-          await embedMessages(messagesToEmbed, session.id)
-          processedMessages += messagesToEmbed.length
-          setProgress({ current: processedMessages, total: totalMessages })
-
-          // Small delay to avoid overwhelming the system
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
+        // Small delay to avoid overwhelming the system
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
       setCompleted(true)
@@ -129,9 +119,18 @@ export const ChatBackfillPanel = () => {
         <p>{t("chat.backfill.info_time_warning")}</p>
       </div>
 
+      {!memoryEnabled && (
+        <StatusAlert
+          variant="warning"
+          icon={AlertCircle}
+          title="Memory is disabled"
+          description="Enable memory to backfill chat history."
+        />
+      )}
+
       <Button
         onClick={handleBackfill}
-        disabled={isRunning}
+        disabled={isRunning || !memoryEnabled}
         className="w-full"
         variant={completed ? "outline" : "default"}>
         {isRunning ? (

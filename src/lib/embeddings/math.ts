@@ -45,7 +45,7 @@ export const cosineSimilarityOptimized = (
 
   if (len === 0) return 0
   if (len !== docEmbedding.length) {
-    throw new Error("Embeddings must have the same dimension")
+    return 0
   }
 
   // Convert to Float32Array for better performance

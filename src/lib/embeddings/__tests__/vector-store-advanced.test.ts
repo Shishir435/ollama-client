@@ -23,7 +23,17 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
   hnswIndexManager: {
     addVector: vi.fn(),
     search: vi.fn(),
-    shouldUseHNSW: vi.fn().mockResolvedValue(true) // Default to true
+    shouldUseHNSW: vi.fn().mockResolvedValue(true), // Default to true
+    isCompatibleDimension: vi.fn().mockReturnValue(true),
+    buildIndex: vi.fn().mockResolvedValue(undefined),
+    getStats: vi.fn().mockReturnValue({
+      isInitialized: false,
+      dimension: null,
+      numElements: 0,
+      isBuilding: false,
+      buildProgress: 0,
+      memorySizeMB: 0
+    })
   }
 }))
 

@@ -53,14 +53,6 @@ export const EmbeddingGenerationConfig = ({
             updateConfig({ enableCaching: checked })
           }
         />
-
-        <SettingsSwitch
-          id="useWebWorker"
-          label={t("model.embedding_config.use_webworker_label")}
-          description={t("model.embedding_config.use_webworker_description")}
-          checked={config.useWebWorker}
-          onCheckedChange={(checked) => updateConfig({ useWebWorker: checked })}
-        />
       </div>
     </SettingsCard>
   )

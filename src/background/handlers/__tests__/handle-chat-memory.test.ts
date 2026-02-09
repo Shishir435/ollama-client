@@ -65,11 +65,6 @@ vi.mock("@/lib/providers/manager", () => ({
   DEFAULT_PROVIDERS: []
 }))
 
-vi.mock("@/background/lib/memory-manager", () => ({
-  memoryManager: {
-    saveChatToMemory: vi.fn().mockResolvedValue(undefined)
-  }
-}))
 
 describe("handleChatWithModel - Contextual Memory", () => {
   let mockPort: ReturnType<typeof createMockPort>
@@ -113,6 +108,11 @@ describe("handleChatWithModel - Contextual Memory", () => {
     }
 
     await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+    expect(retrieveContextEnhanced).toHaveBeenCalledWith(
+      "What do I like?",
+      expect.objectContaining({ type: "chat" })
+    )
 
     expect(mockStreamChat).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -162,34 +162,5 @@ describe("handleChatWithModel - Contextual Memory", () => {
         expect.any(Function),
         expect.any(AbortSignal)
     )
-  })
-
-  it("should save chat to memory after successful generation", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    const { memoryManager } = await import("@/background/lib/memory-manager")
-    
-    // Mock Memory Enabled
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
-      if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
-      return undefined
-    })
-
-    const message: ChatWithModelMessage = {
-      type: "CHAT_WITH_MODEL",
-      payload: {
-        model: "llama3:latest",
-        messages: [{ role: "user", content: "Who are you?" }],
-        sessionId: "session-123"
-      }
-    }
-
-    await handleChatWithModel(message, mockPort, mockIsPortClosed)
-
-    expect(memoryManager.saveChatToMemory).toHaveBeenCalledWith({
-      userMessage: "Who are you?",
-      aiResponse: "I am an AI.",
-      sessionId: "session-123",
-      chatId: undefined
-    })
   })
 })

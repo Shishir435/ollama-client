@@ -1959,6 +1959,7 @@ export const resources = {
           prompts: "Prompts",
           models: "Models",
           extraction: "Extraction",
+          context: "Context",
           embeddings: "Embeddings",
           providers: "Providers",
           voices: "Voices",
@@ -1966,6 +1967,28 @@ export const resources = {
           guides: "Guides",
           memory: "Memory",
           shortcuts: "Shortcuts"
+        },
+        context: {
+          file_upload: {
+            title: "File Ingestion",
+            description:
+              "Configure how files and images are processed for knowledge retrieval."
+          },
+          embedding_health: {
+            title: "Mixed embedding dimensions detected",
+            description:
+              "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
+            note: "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
+            memory_disabled:
+              "Memory is off, so chat embeddings were not rebuilt.",
+            action: "Rebuild embeddings",
+            action_rebuilding: "Rebuilding...",
+            confirm:
+              "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
+            progress: "Rebuilding chat embeddings ({{current}}/{{total}})",
+            success: "Embeddings rebuilt successfully.",
+            error: "Failed to rebuild embeddings."
+          }
         },
         memory: {
           title: "Contextual Memory",

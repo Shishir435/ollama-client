@@ -23,6 +23,8 @@ export interface RetrievalOptions {
   diversityLambda?: number
   recencyBoost?: number
   fileId?: string | string[]
+  sessionId?: string
+  type?: VectorDocument["metadata"]["type"]
   minSimilarity?: number
   minRerankScore?: number
 }
@@ -46,6 +48,8 @@ export async function retrieveContextEnhanced(
     diversityEnabled = true,
     diversityLambda = 0.7,
     fileId,
+    sessionId,
+    type,
     minSimilarity = 0.3,
     minRerankScore
   } = options
@@ -78,7 +82,8 @@ export async function retrieveContextEnhanced(
     keywordWeight: 0.6,
     semanticWeight: 0.4,
     fileId,
-    type: "file",
+    sessionId,
+    type: type ?? "file",
     minSimilarity: minSimilarity * 0.7 // Lower threshold for recall
   })
 
@@ -92,46 +97,57 @@ export async function retrieveContextEnhanced(
     "RAGPipeline"
   )
 
-  // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
-  logger.verbose("Stage 2: Re-ranking with transformers.js", "RAGPipeline")
+  const embeddingConfig = await getEmbeddingConfig()
+  const useReranking = embeddingConfig.useReranking ?? false
+  let rerankedResults: EnhancedSearchResult[] = []
 
-  const reranked = await rerankerService.rerank(
-    query,
-    candidates.map((c) => ({
-      content: c.document.content,
-      metadata: c.document.metadata
-    })),
-    Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
-  )
+  if (!useReranking) {
+    logger.info("Re-ranking disabled, using hybrid scores", "RAGPipeline")
 
-  logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
-    topScore: reranked[0]?.score.toFixed(3),
-    avgScore: (
-      reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
-    ).toFixed(3)
-  })
+    rerankedResults = candidates.slice(0, topK).map((candidate) => ({
+      document: candidate.document,
+      score: candidate.similarity,
+      originalSimilarity: candidate.similarity
+    }))
+  } else {
+    // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
+    logger.verbose("Stage 2: Re-ranking with transformers.js", "RAGPipeline")
 
-  const configForThreshold = await getEmbeddingConfig()
-  const MIN_RERANK_SCORE =
-    minRerankScore ?? configForThreshold.minRerankScore ?? 0.6
-  const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
+    const reranked = await rerankerService.rerank(
+      query,
+      candidates.map((c) => ({
+        content: c.document.content,
+        metadata: c.document.metadata
+      })),
+      Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
+    )
 
-  if (confidentResults.length === 0) {
-    logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
-      minScore: MIN_RERANK_SCORE,
-      topScore: reranked[0]?.score
+    logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
+      topScore: reranked[0]?.score.toFixed(3),
+      avgScore: (
+        reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
+      ).toFixed(3)
     })
-    return [] // Return empty if no confident matches
-  }
 
-  logger.info(
-    `Filtered to ${confidentResults.length} confident results (score >= ${MIN_RERANK_SCORE})`,
-    "RAGPipeline"
-  )
+    const MIN_RERANK_SCORE =
+      minRerankScore ?? embeddingConfig.minRerankScore ?? 0.6
+    const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
 
-  // Convert to EnhancedSearchResult format
-  const rerankedResults: EnhancedSearchResult[] = confidentResults.map(
-    (r, _idx) => {
+    if (confidentResults.length === 0) {
+      logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
+        minScore: MIN_RERANK_SCORE,
+        topScore: reranked[0]?.score
+      })
+      return [] // Return empty if no confident matches
+    }
+
+    logger.info(
+      `Filtered to ${confidentResults.length} confident results (score >= ${MIN_RERANK_SCORE})`,
+      "RAGPipeline"
+    )
+
+    // Convert to EnhancedSearchResult format
+    rerankedResults = confidentResults.map((r, _idx) => {
       const originalCandidate = candidates.find(
         (c) => c.document.content === r.content
       )
@@ -145,13 +161,11 @@ export async function retrieveContextEnhanced(
         score: r.score,
         originalSimilarity: originalCandidate?.similarity
       }
-    }
-  )
+    })
+  }
 
   // ===== STAGE 2.5: Feedback Score Blending =====
   // Blend user feedback scores with model scores
-  const embeddingConfig = await getEmbeddingConfig()
-
   if (embeddingConfig.feedbackEnabled) {
     logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
 
@@ -184,9 +198,7 @@ export async function retrieveContextEnhanced(
   }
 
   // ===== STAGE 2.6: Temporal Relevance Boosting =====
-  const embeddingConfig2 = await getEmbeddingConfig()
-
-  if (embeddingConfig2.useTemporalBoosting) {
+  if (embeddingConfig.useTemporalBoosting) {
     logger.verbose(
       "Stage 2.6: Applying temporal relevance boost",
       "RAGPipeline"
@@ -194,8 +206,8 @@ export async function retrieveContextEnhanced(
 
     applyRecencyBoost(
       rerankedResults,
-      embeddingConfig2.temporalBoostWeight || 0.3,
-      embeddingConfig2.temporalHalfLife || 90
+      embeddingConfig.temporalBoostWeight || 0.3,
+      embeddingConfig.temporalHalfLife || 90
     )
 
     // Re-sort after boosting

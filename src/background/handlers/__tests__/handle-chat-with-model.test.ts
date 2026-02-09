@@ -69,12 +69,6 @@ vi.mock("@/lib/providers/manager", () => ({
   PROVIDERS_STORAGE_KEY: "llm_providers_config_v1"
 }))
 
-vi.mock("@/background/lib/memory-manager", () => ({
-  memoryManager: {
-    saveChatToMemory: vi.fn().mockResolvedValue(undefined)
-  }
-}))
-
 describe("handleChatWithModel", () => {
   let mockPort: ReturnType<typeof createMockPort>
   let mockIsPortClosed: ReturnType<typeof createMockIsPortClosed>

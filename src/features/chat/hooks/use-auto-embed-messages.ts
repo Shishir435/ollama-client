@@ -43,9 +43,9 @@ const checkDuplicateEmbedding = async (
  * NOW WITH QUALITY FILTERING: Filters out low-quality content before embedding
  */
 export const useAutoEmbedMessages = () => {
-  const [autoEmbedEnabled] = useStorage<boolean>(
+  const [memoryEnabled] = useStorage<boolean>(
     {
-      key: STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT,
+      key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
     true // Default to enabled
@@ -58,7 +58,7 @@ export const useAutoEmbedMessages = () => {
   const embedMessage = useCallback(
     async (message: ChatMessage, sessionId: string): Promise<void> => {
       // Skip if auto-embedding is disabled
-      if (!autoEmbedEnabled) return
+      if (!memoryEnabled) return
 
       // Skip system messages
       if (message.role === "system") return
@@ -142,7 +142,9 @@ export const useAutoEmbedMessages = () => {
           messageId,
           role: message.role,
           qualityScore: qualityAssessment.score,
-          qualityReasons: qualityAssessment.reasons.join(", ")
+          qualityReasons: qualityAssessment.reasons.join(", "),
+          embeddingModel: result.model,
+          embeddingDim: embedding.length
         })
       } catch (error) {
         logger.error("Error embedding message:", "useAutoEmbedMessages", {
@@ -156,7 +158,7 @@ export const useAutoEmbedMessages = () => {
         }, 1000)
       }
     },
-    [autoEmbedEnabled]
+    [memoryEnabled]
   )
 
   const embedMessages = useCallback(
@@ -165,7 +167,7 @@ export const useAutoEmbedMessages = () => {
       sessionId: string,
       isStreaming: boolean = false
     ): Promise<void> => {
-      if (!autoEmbedEnabled) return
+      if (!memoryEnabled) return
 
       // Skip if streaming - we'll embed when streaming completes
       if (isStreaming) return
@@ -192,12 +194,12 @@ export const useAutoEmbedMessages = () => {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
     },
-    [autoEmbedEnabled, embedMessage]
+    [memoryEnabled, embedMessage]
   )
 
   return {
     embedMessage,
     embedMessages,
-    isEnabled: autoEmbedEnabled
+    isEnabled: memoryEnabled
   }
 }

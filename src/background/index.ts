@@ -24,6 +24,7 @@ import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-ur
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { safeSendResponse } from "@/background/lib/utils"
+import { runEmbeddingDimensionMigration } from "@/background/migrations/embedding-dimension-migration"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -56,6 +57,7 @@ const actionAPI =
     .browserAction
 
 void migrateLegacyProviderStorage()
+void runEmbeddingDimensionMigration()
 
 if (isChromiumBased() && "sidePanel" in browser) {
   // Type assertion for Chrome-specific sidePanel API

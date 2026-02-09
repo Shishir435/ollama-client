@@ -12,7 +12,7 @@ import { SocialHandles } from "@/components/social-handles"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
-import { MemorySettings } from "@/features/memory/components/memory-settings"
+import { ContextSettings } from "@/features/context/components/context-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
@@ -56,15 +56,15 @@ export const SettingsPage = () => {
       title: t("settings.sections.ai_models"),
       items: [
         {
-          key: "embeddings",
-          label: t("settings.tabs.embeddings"),
-          icon: Database,
+          key: "context",
+          label: t("settings.tabs.context"),
+          icon: Brain,
           badge: "Beta"
         },
         {
-          key: "memory",
-          label: t("settings.tabs.memory"),
-          icon: Brain,
+          key: "embeddings",
+          label: t("settings.tabs.embeddings"),
+          icon: Database,
           badge: "Beta"
         },
         {
@@ -104,8 +104,8 @@ export const SettingsPage = () => {
     shortcuts: <ShortcutsSettings />,
     templates: <PromptTemplateManager />,
     contentExtraction: <ContentExtractionSettings />,
+    context: <ContextSettings />,
     embeddings: <EmbeddingSettings />,
-    memory: <MemorySettings />,
     voices: <SpeechSettings />,
     reset: <ResetStorage />,
     setup: (

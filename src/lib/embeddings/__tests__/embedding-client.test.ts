@@ -221,8 +221,8 @@ describe("Embedding Client", () => {
       expect(cosineSimilarity(v1, v2)).toBe(0)
     })
 
-    it("should throw on dimension mismatch", () => {
-      expect(() => cosineSimilarity([1], [1, 2])).toThrow()
+    it("should return 0 on dimension mismatch", () => {
+      expect(cosineSimilarity([1], [1, 2])).toBe(0)
     })
   })
 
