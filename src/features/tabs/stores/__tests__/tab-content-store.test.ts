@@ -21,13 +21,14 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 describe("useTabContentStore", () => {
   beforeEach(() => {
     // Reset store to initial state
-    useTabContentStore.setState({ builtContent: "" })
+    useTabContentStore.setState({ builtContent: "", documents: [] })
     vi.clearAllMocks()
   })
 
   it("should initialize with empty content", () => {
     const state = useTabContentStore.getState()
     expect(state.builtContent).toBe("")
+    expect(state.documents).toEqual([])
   })
 
   it("should set built content", () => {
@@ -60,6 +61,13 @@ describe("useTabContentStore", () => {
 
     expect(result.current.builtContent).toContain("Test Page")
     expect(result.current.builtContent).toContain("<p>Content</p>")
+    expect(result.current.documents).toEqual([
+      {
+        id: "1",
+        title: "Test Page",
+        content: "<p>Content</p>"
+      }
+    ])
   })
 
   it("should handle errors in tab content", async () => {
@@ -84,6 +92,7 @@ describe("useTabContentStore", () => {
     const { result } = renderHook(() => useTabContent())
 
     expect(result.current.builtContent).toContain("❌ Error: Failed to load")
+    expect(result.current.documents).toEqual([])
   })
 
   it("should handle missing tab content", async () => {
@@ -106,5 +115,6 @@ describe("useTabContentStore", () => {
     const { result } = renderHook(() => useTabContent())
 
     expect(result.current.builtContent).toContain("(No content)")
+    expect(result.current.documents).toEqual([])
   })
 })

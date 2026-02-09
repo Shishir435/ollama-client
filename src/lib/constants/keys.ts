@@ -96,5 +96,8 @@ export const STORAGE_KEYS = {
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics"
   },
+  KNOWLEDGE: {
+    ACTIVE_SET: "knowledge-active-set"
+  },
   SHORTCUTS: "keyboard-shortcuts"
 }

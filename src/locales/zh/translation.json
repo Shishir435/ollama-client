@@ -993,5 +993,33 @@
     "twitter": "推特",
     "instagram": "Instagram",
     "bug_report": "报告错误 / 功能"
+  },
+  "knowledge_sets": {
+    "title": "知识集",
+    "active_label": "当前知识集",
+    "active_description": "在未附加文件时选择使用的知识集。",
+    "active_placeholder": "选择知识集",
+    "create_label": "创建知识集",
+    "create_description": "创建用于分组文件的新知识集。",
+    "create_placeholder": "知识集名称",
+    "create_button": "创建",
+    "rename_label": "重命名知识集",
+    "rename_description": "修改当前知识集的名称。",
+    "rename_placeholder": "新名称",
+    "rename_button": "重命名",
+    "delete_label": "删除知识集",
+    "delete_description": "删除当前知识集及其文件映射（嵌入仍保留）。",
+    "delete_button": "删除",
+    "delete_confirm": "确定删除“{{name}}”吗？此操作无法撤销。",
+    "prompt_label": "RAG 指令提示词",
+    "prompt_description": "在该知识集的检索上下文前插入的指令。",
+    "question_prompt_label": "问题改写提示词",
+    "question_prompt_description": "用于将追问改写为独立问题的提示词。",
+    "topk_label": "检索 Top‑K",
+    "topk_description": "该知识集检索的分块数量。",
+    "min_similarity_label": "最小相似度",
+    "min_similarity_description": "该知识集分块的最小相似度阈值。",
+    "min_rerank_label": "最小重排分数",
+    "min_rerank_description": "该知识集分块的最小重排置信度。"
   }
 }

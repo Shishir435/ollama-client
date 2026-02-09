@@ -14,6 +14,11 @@ import type {
   ProcessedFile
 } from "@/lib/file-processors/types"
 import { processKnowledge } from "@/lib/knowledge"
+import {
+  addFileToKnowledgeSet,
+  getActiveKnowledgeSetId,
+  markKnowledgeFileEmbedded
+} from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
@@ -115,6 +120,29 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
         try {
           const result = await processFile(file)
+          const fallbackId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? `file-${crypto.randomUUID()}`
+              : `file-${Date.now()}-${Math.random().toString(16).slice(2)}`
+          const fileId = result.metadata.fileId || fallbackId
+          result.metadata.fileId = fileId
+
+          try {
+            const knowledgeSetId = await getActiveKnowledgeSetId()
+            result.metadata.knowledgeSetId = knowledgeSetId
+            await addFileToKnowledgeSet({
+              id: fileId,
+              knowledgeSetId,
+              fileName: result.metadata.fileName,
+              fileType: result.metadata.fileType,
+              fileSize: result.metadata.fileSize,
+              createdAt: result.metadata.processedAt || Date.now()
+            })
+          } catch (err) {
+            logger.warn("Failed to register knowledge file", "useFileUpload", {
+              error: err
+            })
+          }
 
           // Generate embeddings if enabled
           if (config.autoEmbedFiles && embeddingConfig) {
@@ -169,6 +197,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`,
                     "useFileUpload"
                   )
+                  await markKnowledgeFileEmbedded(fileId)
                 } else {
                   logger.error(
                     `Failed to process "${file.name}"`,

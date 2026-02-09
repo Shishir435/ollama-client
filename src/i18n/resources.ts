@@ -1120,6 +1120,43 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Fehler / Funktion melden"
+      },
+      knowledge_sets: {
+        title: "Wissenssammlungen",
+        active_label: "Aktive Wissenssammlung",
+        active_description:
+          "Wählen Sie die Wissenssammlung, die verwendet wird, wenn keine Dateien angehängt sind.",
+        active_placeholder: "Wissenssammlung auswählen",
+        create_label: "Wissenssammlung erstellen",
+        create_description:
+          "Erstellen Sie eine neue Wissenssammlung zum Gruppieren von Dateien.",
+        create_placeholder: "Name der Wissenssammlung",
+        create_button: "Erstellen",
+        rename_label: "Wissenssammlung umbenennen",
+        rename_description: "Ändern Sie den Namen der aktiven Wissenssammlung.",
+        rename_placeholder: "Neuer Name",
+        rename_button: "Umbenennen",
+        delete_label: "Wissenssammlung löschen",
+        delete_description:
+          "Löscht die aktive Wissenssammlung und ihre Dateizuordnung (Einbettungen bleiben).",
+        delete_button: "Löschen",
+        delete_confirm:
+          "„{{name}}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+        prompt_label: "RAG‑Anweisungsprompt",
+        prompt_description:
+          "Anweisungen, die vor dem abgerufenen Kontext für diese Wissenssammlung eingefügt werden.",
+        question_prompt_label: "Prompt zur Frage‑Umformulierung",
+        question_prompt_description:
+          "Prompt zum Umschreiben von Folgefragen in eigenständige Abfragen für diese Wissenssammlung.",
+        topk_label: "Retrieval Top‑K",
+        topk_description:
+          "Wie viele Chunks für diese Wissenssammlung abgerufen werden.",
+        min_similarity_label: "Min. Ähnlichkeit",
+        min_similarity_description:
+          "Minimale Ähnlichkeitsschwelle für Chunks in dieser Wissenssammlung.",
+        min_rerank_label: "Min. Rerank‑Score",
+        min_rerank_description:
+          "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
       }
     }
   },
@@ -2241,6 +2278,40 @@ export const resources = {
         description:
           "An unexpected error occurred. We've logged this issue internally.",
         reload: "Reload"
+      },
+      knowledge_sets: {
+        title: "Knowledge Sets",
+        active_label: "Active knowledge set",
+        active_description:
+          "Select which knowledge set to use when no files are attached.",
+        active_placeholder: "Select a knowledge set",
+        create_label: "Create knowledge set",
+        create_description: "Create a new knowledge set for grouping files.",
+        create_placeholder: "Knowledge set name",
+        create_button: "Create",
+        rename_label: "Rename knowledge set",
+        rename_description: "Change the name of the active knowledge set.",
+        rename_placeholder: "New name",
+        rename_button: "Rename",
+        delete_label: "Delete knowledge set",
+        delete_description:
+          "Delete the active knowledge set and its file mapping (embeddings remain).",
+        delete_button: "Delete",
+        delete_confirm: 'Delete "{{name}}"? This cannot be undone.',
+        prompt_label: "RAG instruction prompt",
+        prompt_description:
+          "Instructions that will be injected before retrieved context for this knowledge set.",
+        question_prompt_label: "Question reformulation prompt",
+        question_prompt_description:
+          "Prompt used to rewrite follow-up questions into standalone queries for this knowledge set.",
+        topk_label: "Retrieval top-K",
+        topk_description: "How many chunks to retrieve for this knowledge set.",
+        min_similarity_label: "Min similarity",
+        min_similarity_description:
+          "Minimum similarity threshold for chunks in this knowledge set.",
+        min_rerank_label: "Min rerank score",
+        min_rerank_description:
+          "Minimum reranker confidence for chunks in this knowledge set."
       }
     }
   },
@@ -3359,6 +3430,41 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Reportar Error / Función"
+      },
+      knowledge_sets: {
+        title: "Conjuntos de conocimiento",
+        active_label: "Conjunto de conocimiento activo",
+        active_description:
+          "Selecciona qué conjunto se usa cuando no hay archivos adjuntos.",
+        active_placeholder: "Seleccionar conjunto",
+        create_label: "Crear conjunto de conocimiento",
+        create_description: "Crea un nuevo conjunto para agrupar archivos.",
+        create_placeholder: "Nombre del conjunto",
+        create_button: "Crear",
+        rename_label: "Renombrar conjunto",
+        rename_description: "Cambia el nombre del conjunto activo.",
+        rename_placeholder: "Nuevo nombre",
+        rename_button: "Renombrar",
+        delete_label: "Eliminar conjunto",
+        delete_description:
+          "Elimina el conjunto activo y su vínculo de archivos (las incrustaciones se mantienen).",
+        delete_button: "Eliminar",
+        delete_confirm:
+          '¿Eliminar "{{name}}"? Esta acción no se puede deshacer.',
+        prompt_label: "Prompt de instrucciones RAG",
+        prompt_description:
+          "Instrucciones que se insertarán antes del contexto recuperado para este conjunto.",
+        question_prompt_label: "Prompt de reformulación de preguntas",
+        question_prompt_description:
+          "Prompt para reescribir preguntas de seguimiento como consultas independientes para este conjunto.",
+        topk_label: "Top‑K de recuperación",
+        topk_description: "Cuántos fragmentos recuperar para este conjunto.",
+        min_similarity_label: "Similitud mínima",
+        min_similarity_description:
+          "Umbral mínimo de similitud para fragmentos en este conjunto.",
+        min_rerank_label: "Puntuación mínima de rerank",
+        min_rerank_description:
+          "Confianza mínima del reranker para fragmentos en este conjunto."
       }
     }
   },
@@ -4483,6 +4589,42 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Signaler un Bogue / une Fonctionnalité"
+      },
+      knowledge_sets: {
+        title: "Ensembles de connaissances",
+        active_label: "Ensemble actif",
+        active_description:
+          "Choisissez l’ensemble utilisé quand aucun fichier n’est joint.",
+        active_placeholder: "Sélectionner un ensemble",
+        create_label: "Créer un ensemble",
+        create_description:
+          "Créez un nouvel ensemble pour regrouper des fichiers.",
+        create_placeholder: "Nom de l’ensemble",
+        create_button: "Créer",
+        rename_label: "Renommer l’ensemble",
+        rename_description: "Modifiez le nom de l’ensemble actif.",
+        rename_placeholder: "Nouveau nom",
+        rename_button: "Renommer",
+        delete_label: "Supprimer l’ensemble",
+        delete_description:
+          "Supprime l’ensemble actif et son lien de fichiers (les embeddings restent).",
+        delete_button: "Supprimer",
+        delete_confirm:
+          "Supprimer « {{name}} » ? Cette action est irréversible.",
+        prompt_label: "Invite d’instructions RAG",
+        prompt_description:
+          "Instructions insérées avant le contexte récupéré pour cet ensemble.",
+        question_prompt_label: "Invite de reformulation des questions",
+        question_prompt_description:
+          "Invite pour reformuler les questions de suivi en requêtes autonomes pour cet ensemble.",
+        topk_label: "Top‑K de récupération",
+        topk_description: "Nombre de segments à récupérer pour cet ensemble.",
+        min_similarity_label: "Similarité minimale",
+        min_similarity_description:
+          "Seuil minimal de similarité pour les segments de cet ensemble.",
+        min_rerank_label: "Score minimal de rerank",
+        min_rerank_description:
+          "Confiance minimale du reranker pour les segments de cet ensemble."
       }
     }
   },
@@ -5569,6 +5711,39 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "बग / सुविधा रिपोर्ट करें"
+      },
+      knowledge_sets: {
+        title: "ज्ञान सेट",
+        active_label: "सक्रिय ज्ञान सेट",
+        active_description:
+          "जब कोई फ़ाइल संलग्न न हो, तब उपयोग होने वाला ज्ञान सेट चुनें।",
+        active_placeholder: "ज्ञान सेट चुनें",
+        create_label: "ज्ञान सेट बनाएं",
+        create_description: "फ़ाइलों को समूहित करने के लिए नया ज्ञान सेट बनाएं।",
+        create_placeholder: "ज्ञान सेट का नाम",
+        create_button: "बनाएं",
+        rename_label: "ज्ञान सेट का नाम बदलें",
+        rename_description: "सक्रिय ज्ञान सेट का नाम बदलें।",
+        rename_placeholder: "नया नाम",
+        rename_button: "नाम बदलें",
+        delete_label: "ज्ञान सेट हटाएं",
+        delete_description:
+          "सक्रिय ज्ञान सेट और उसका फ़ाइल मैपिंग हटाएं (एम्बेडिंग्स रहेंगी)।",
+        delete_button: "हटाएं",
+        delete_confirm: '"{{name}}" हटाएं? यह वापस नहीं किया जा सकता।',
+        prompt_label: "RAG निर्देश प्रॉम्प्ट",
+        prompt_description:
+          "इस ज्ञान सेट के लिए प्राप्त संदर्भ से पहले जोड़े जाने वाले निर्देश।",
+        question_prompt_label: "प्रश्न पुनः‑रचना प्रॉम्प्ट",
+        question_prompt_description:
+          "इस ज्ञान सेट के लिए फ़ॉलो‑अप प्रश्नों को स्वतंत्र प्रश्नों में बदलने वाला प्रॉम्प्ट।",
+        topk_label: "Retrieval Top‑K",
+        topk_description: "इस ज्ञान सेट के लिए कितने चंक प्राप्त करें।",
+        min_similarity_label: "न्यूनतम समानता",
+        min_similarity_description: "इस ज्ञान सेट के चंक्स के लिए न्यूनतम समानता सीमा।",
+        min_rerank_label: "न्यूनतम rerank स्कोर",
+        min_rerank_description:
+          "इस ज्ञान सेट के चंक्स के लिए reranker का न्यूनतम भरोसा।"
       }
     }
   },
@@ -6690,6 +6865,41 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Segnala Bug / Funzionalità"
+      },
+      knowledge_sets: {
+        title: "Set di conoscenza",
+        active_label: "Set di conoscenza attivo",
+        active_description:
+          "Seleziona il set da usare quando non ci sono file allegati.",
+        active_placeholder: "Seleziona un set",
+        create_label: "Crea set di conoscenza",
+        create_description: "Crea un nuovo set per raggruppare i file.",
+        create_placeholder: "Nome del set",
+        create_button: "Crea",
+        rename_label: "Rinomina set",
+        rename_description: "Cambia il nome del set attivo.",
+        rename_placeholder: "Nuovo nome",
+        rename_button: "Rinomina",
+        delete_label: "Elimina set",
+        delete_description:
+          "Elimina il set attivo e la mappatura dei file (le embedding restano).",
+        delete_button: "Elimina",
+        delete_confirm:
+          'Eliminare "{{name}}"? Questa azione non può essere annullata.',
+        prompt_label: "Prompt di istruzioni RAG",
+        prompt_description:
+          "Istruzioni inserite prima del contesto recuperato per questo set.",
+        question_prompt_label: "Prompt di riformulazione delle domande",
+        question_prompt_description:
+          "Prompt per riscrivere le domande di follow‑up in query autonome per questo set.",
+        topk_label: "Top‑K di recupero",
+        topk_description: "Quanti chunk recuperare per questo set.",
+        min_similarity_label: "Somiglianza minima",
+        min_similarity_description:
+          "Soglia minima di somiglianza per i chunk di questo set.",
+        min_rerank_label: "Punteggio minimo di rerank",
+        min_rerank_description:
+          "Confidenza minima del reranker per i chunk di questo set."
       }
     }
   },
@@ -7792,6 +8002,40 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "バグ報告 / 機能リクエスト"
+      },
+      knowledge_sets: {
+        title: "ナレッジセット",
+        active_label: "アクティブなナレッジセット",
+        active_description:
+          "ファイルが添付されていない場合に使用するセットを選択します。",
+        active_placeholder: "ナレッジセットを選択",
+        create_label: "ナレッジセットを作成",
+        create_description: "ファイルをまとめる新しいセットを作成します。",
+        create_placeholder: "ナレッジセット名",
+        create_button: "作成",
+        rename_label: "ナレッジセット名を変更",
+        rename_description: "アクティブなナレッジセット名を変更します。",
+        rename_placeholder: "新しい名前",
+        rename_button: "変更",
+        delete_label: "ナレッジセットを削除",
+        delete_description:
+          "アクティブなナレッジセットとファイル関連付けを削除します（埋め込みは残ります）。",
+        delete_button: "削除",
+        delete_confirm: "「{{name}}」を削除しますか？元に戻せません。",
+        prompt_label: "RAG 指示プロンプト",
+        prompt_description:
+          "このセットの取得コンテキストの前に挿入される指示。",
+        question_prompt_label: "質問の再定式化プロンプト",
+        question_prompt_description:
+          "フォローアップ質問を独立した質問に書き換えるためのプロンプト。",
+        topk_label: "取得 Top‑K",
+        topk_description: "このセットで取得するチャンク数。",
+        min_similarity_label: "最小類似度",
+        min_similarity_description:
+          "このセットのチャンクに対する最小類似度しきい値。",
+        min_rerank_label: "最小再ランクスコア",
+        min_rerank_description:
+          "このセットのチャンクに対する再ランカーの最小信頼度。"
       }
     }
   },
@@ -8899,6 +9143,40 @@ export const resources = {
         twitter: "Twitter",
         instagram: "Instagram",
         bug_report: "Сообщить о баге / фиче"
+      },
+      knowledge_sets: {
+        title: "Наборы знаний",
+        active_label: "Активный набор",
+        active_description:
+          "Выберите набор, который используется, когда файлы не прикреплены.",
+        active_placeholder: "Выберите набор",
+        create_label: "Создать набор знаний",
+        create_description: "Создайте новый набор для группировки файлов.",
+        create_placeholder: "Название набора",
+        create_button: "Создать",
+        rename_label: "Переименовать набор",
+        rename_description: "Измените имя активного набора.",
+        rename_placeholder: "Новое имя",
+        rename_button: "Переименовать",
+        delete_label: "Удалить набор",
+        delete_description:
+          "Удалить активный набор и его привязку файлов (эмбеддинги останутся).",
+        delete_button: "Удалить",
+        delete_confirm: "Удалить «{{name}}»? Это действие нельзя отменить.",
+        prompt_label: "Промпт инструкций RAG",
+        prompt_description:
+          "Инструкции, вставляемые перед извлечённым контекстом для этого набора.",
+        question_prompt_label: "Промпт переформулировки вопроса",
+        question_prompt_description:
+          "Промпт для переписывания уточняющих вопросов в самостоятельные запросы для этого набора.",
+        topk_label: "Top‑K извлечения",
+        topk_description: "Сколько чанков извлекать для этого набора.",
+        min_similarity_label: "Минимальная схожесть",
+        min_similarity_description:
+          "Минимальный порог схожести для чанков этого набора.",
+        min_rerank_label: "Минимальный rerank‑score",
+        min_rerank_description:
+          "Минимальная уверенность reranker для чанков этого набора."
       }
     }
   },
@@ -9939,6 +10217,34 @@ export const resources = {
         twitter: "推特",
         instagram: "Instagram",
         bug_report: "报告错误 / 功能"
+      },
+      knowledge_sets: {
+        title: "知识集",
+        active_label: "当前知识集",
+        active_description: "在未附加文件时选择使用的知识集。",
+        active_placeholder: "选择知识集",
+        create_label: "创建知识集",
+        create_description: "创建用于分组文件的新知识集。",
+        create_placeholder: "知识集名称",
+        create_button: "创建",
+        rename_label: "重命名知识集",
+        rename_description: "修改当前知识集的名称。",
+        rename_placeholder: "新名称",
+        rename_button: "重命名",
+        delete_label: "删除知识集",
+        delete_description: "删除当前知识集及其文件映射（嵌入仍保留）。",
+        delete_button: "删除",
+        delete_confirm: "确定删除“{{name}}”吗？此操作无法撤销。",
+        prompt_label: "RAG 指令提示词",
+        prompt_description: "在该知识集的检索上下文前插入的指令。",
+        question_prompt_label: "问题改写提示词",
+        question_prompt_description: "用于将追问改写为独立问题的提示词。",
+        topk_label: "检索 Top‑K",
+        topk_description: "该知识集检索的分块数量。",
+        min_similarity_label: "最小相似度",
+        min_similarity_description: "该知识集分块的最小相似度阈值。",
+        min_rerank_label: "最小重排分数",
+        min_rerank_description: "该知识集分块的最小重排置信度。"
       }
     }
   }

@@ -992,5 +992,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Signaler un Bogue / une Fonctionnalité"
+  },
+  "knowledge_sets": {
+    "title": "Ensembles de connaissances",
+    "active_label": "Ensemble actif",
+    "active_description": "Choisissez l’ensemble utilisé quand aucun fichier n’est joint.",
+    "active_placeholder": "Sélectionner un ensemble",
+    "create_label": "Créer un ensemble",
+    "create_description": "Créez un nouvel ensemble pour regrouper des fichiers.",
+    "create_placeholder": "Nom de l’ensemble",
+    "create_button": "Créer",
+    "rename_label": "Renommer l’ensemble",
+    "rename_description": "Modifiez le nom de l’ensemble actif.",
+    "rename_placeholder": "Nouveau nom",
+    "rename_button": "Renommer",
+    "delete_label": "Supprimer l’ensemble",
+    "delete_description": "Supprime l’ensemble actif et son lien de fichiers (les embeddings restent).",
+    "delete_button": "Supprimer",
+    "delete_confirm": "Supprimer « {{name}} » ? Cette action est irréversible.",
+    "prompt_label": "Invite d’instructions RAG",
+    "prompt_description": "Instructions insérées avant le contexte récupéré pour cet ensemble.",
+    "question_prompt_label": "Invite de reformulation des questions",
+    "question_prompt_description": "Invite pour reformuler les questions de suivi en requêtes autonomes pour cet ensemble.",
+    "topk_label": "Top‑K de récupération",
+    "topk_description": "Nombre de segments à récupérer pour cet ensemble.",
+    "min_similarity_label": "Similarité minimale",
+    "min_similarity_description": "Seuil minimal de similarité pour les segments de cet ensemble.",
+    "min_rerank_label": "Score minimal de rerank",
+    "min_rerank_description": "Confiance minimale du reranker pour les segments de cet ensemble."
   }
 }

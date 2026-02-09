@@ -427,7 +427,11 @@ export type PromptTemplate = {
 
 export interface TabContentState {
   builtContent: string
+  documents: Array<{ id: string; title: string; content: string }>
   setBuiltContent: (builtContent: string) => void
+  setDocuments: (
+    documents: Array<{ id: string; title: string; content: string }>
+  ) => void
 }
 
 export interface LoadStreamState {

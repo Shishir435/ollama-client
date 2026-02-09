@@ -992,5 +992,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Segnala Bug / Funzionalità"
+  },
+  "knowledge_sets": {
+    "title": "Set di conoscenza",
+    "active_label": "Set di conoscenza attivo",
+    "active_description": "Seleziona il set da usare quando non ci sono file allegati.",
+    "active_placeholder": "Seleziona un set",
+    "create_label": "Crea set di conoscenza",
+    "create_description": "Crea un nuovo set per raggruppare i file.",
+    "create_placeholder": "Nome del set",
+    "create_button": "Crea",
+    "rename_label": "Rinomina set",
+    "rename_description": "Cambia il nome del set attivo.",
+    "rename_placeholder": "Nuovo nome",
+    "rename_button": "Rinomina",
+    "delete_label": "Elimina set",
+    "delete_description": "Elimina il set attivo e la mappatura dei file (le embedding restano).",
+    "delete_button": "Elimina",
+    "delete_confirm": "Eliminare \"{{name}}\"? Questa azione non può essere annullata.",
+    "prompt_label": "Prompt di istruzioni RAG",
+    "prompt_description": "Istruzioni inserite prima del contesto recuperato per questo set.",
+    "question_prompt_label": "Prompt di riformulazione delle domande",
+    "question_prompt_description": "Prompt per riscrivere le domande di follow‑up in query autonome per questo set.",
+    "topk_label": "Top‑K di recupero",
+    "topk_description": "Quanti chunk recuperare per questo set.",
+    "min_similarity_label": "Somiglianza minima",
+    "min_similarity_description": "Soglia minima di somiglianza per i chunk di questo set.",
+    "min_rerank_label": "Punteggio minimo di rerank",
+    "min_rerank_description": "Confidenza minima del reranker per i chunk di questo set."
   }
 }

@@ -991,5 +991,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "बग / सुविधा रिपोर्ट करें"
+  },
+  "knowledge_sets": {
+    "title": "ज्ञान सेट",
+    "active_label": "सक्रिय ज्ञान सेट",
+    "active_description": "जब कोई फ़ाइल संलग्न न हो, तब उपयोग होने वाला ज्ञान सेट चुनें।",
+    "active_placeholder": "ज्ञान सेट चुनें",
+    "create_label": "ज्ञान सेट बनाएं",
+    "create_description": "फ़ाइलों को समूहित करने के लिए नया ज्ञान सेट बनाएं।",
+    "create_placeholder": "ज्ञान सेट का नाम",
+    "create_button": "बनाएं",
+    "rename_label": "ज्ञान सेट का नाम बदलें",
+    "rename_description": "सक्रिय ज्ञान सेट का नाम बदलें।",
+    "rename_placeholder": "नया नाम",
+    "rename_button": "नाम बदलें",
+    "delete_label": "ज्ञान सेट हटाएं",
+    "delete_description": "सक्रिय ज्ञान सेट और उसका फ़ाइल मैपिंग हटाएं (एम्बेडिंग्स रहेंगी)।",
+    "delete_button": "हटाएं",
+    "delete_confirm": "\"{{name}}\" हटाएं? यह वापस नहीं किया जा सकता।",
+    "prompt_label": "RAG निर्देश प्रॉम्प्ट",
+    "prompt_description": "इस ज्ञान सेट के लिए प्राप्त संदर्भ से पहले जोड़े जाने वाले निर्देश।",
+    "question_prompt_label": "प्रश्न पुनः‑रचना प्रॉम्प्ट",
+    "question_prompt_description": "इस ज्ञान सेट के लिए फ़ॉलो‑अप प्रश्नों को स्वतंत्र प्रश्नों में बदलने वाला प्रॉम्प्ट।",
+    "topk_label": "Retrieval Top‑K",
+    "topk_description": "इस ज्ञान सेट के लिए कितने चंक प्राप्त करें।",
+    "min_similarity_label": "न्यूनतम समानता",
+    "min_similarity_description": "इस ज्ञान सेट के चंक्स के लिए न्यूनतम समानता सीमा।",
+    "min_rerank_label": "न्यूनतम rerank स्कोर",
+    "min_rerank_description": "इस ज्ञान सेट के चंक्स के लिए reranker का न्यूनतम भरोसा।"
   }
 }

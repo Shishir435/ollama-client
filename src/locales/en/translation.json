@@ -1012,5 +1012,33 @@
     "title": "Something went wrong",
     "description": "An unexpected error occurred. We've logged this issue internally.",
     "reload": "Reload"
+  },
+  "knowledge_sets": {
+    "title": "Knowledge Sets",
+    "active_label": "Active knowledge set",
+    "active_description": "Select which knowledge set to use when no files are attached.",
+    "active_placeholder": "Select a knowledge set",
+    "create_label": "Create knowledge set",
+    "create_description": "Create a new knowledge set for grouping files.",
+    "create_placeholder": "Knowledge set name",
+    "create_button": "Create",
+    "rename_label": "Rename knowledge set",
+    "rename_description": "Change the name of the active knowledge set.",
+    "rename_placeholder": "New name",
+    "rename_button": "Rename",
+    "delete_label": "Delete knowledge set",
+    "delete_description": "Delete the active knowledge set and its file mapping (embeddings remain).",
+    "delete_button": "Delete",
+    "delete_confirm": "Delete \"{{name}}\"? This cannot be undone.",
+    "prompt_label": "RAG instruction prompt",
+    "prompt_description": "Instructions that will be injected before retrieved context for this knowledge set.",
+    "question_prompt_label": "Question reformulation prompt",
+    "question_prompt_description": "Prompt used to rewrite follow-up questions into standalone queries for this knowledge set.",
+    "topk_label": "Retrieval top-K",
+    "topk_description": "How many chunks to retrieve for this knowledge set.",
+    "min_similarity_label": "Min similarity",
+    "min_similarity_description": "Minimum similarity threshold for chunks in this knowledge set.",
+    "min_rerank_label": "Min rerank score",
+    "min_rerank_description": "Minimum reranker confidence for chunks in this knowledge set."
   }
 }

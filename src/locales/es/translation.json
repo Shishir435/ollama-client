@@ -991,5 +991,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Reportar Error / Función"
+  },
+  "knowledge_sets": {
+    "title": "Conjuntos de conocimiento",
+    "active_label": "Conjunto de conocimiento activo",
+    "active_description": "Selecciona qué conjunto se usa cuando no hay archivos adjuntos.",
+    "active_placeholder": "Seleccionar conjunto",
+    "create_label": "Crear conjunto de conocimiento",
+    "create_description": "Crea un nuevo conjunto para agrupar archivos.",
+    "create_placeholder": "Nombre del conjunto",
+    "create_button": "Crear",
+    "rename_label": "Renombrar conjunto",
+    "rename_description": "Cambia el nombre del conjunto activo.",
+    "rename_placeholder": "Nuevo nombre",
+    "rename_button": "Renombrar",
+    "delete_label": "Eliminar conjunto",
+    "delete_description": "Elimina el conjunto activo y su vínculo de archivos (las incrustaciones se mantienen).",
+    "delete_button": "Eliminar",
+    "delete_confirm": "¿Eliminar \"{{name}}\"? Esta acción no se puede deshacer.",
+    "prompt_label": "Prompt de instrucciones RAG",
+    "prompt_description": "Instrucciones que se insertarán antes del contexto recuperado para este conjunto.",
+    "question_prompt_label": "Prompt de reformulación de preguntas",
+    "question_prompt_description": "Prompt para reescribir preguntas de seguimiento como consultas independientes para este conjunto.",
+    "topk_label": "Top‑K de recuperación",
+    "topk_description": "Cuántos fragmentos recuperar para este conjunto.",
+    "min_similarity_label": "Similitud mínima",
+    "min_similarity_description": "Umbral mínimo de similitud para fragmentos en este conjunto.",
+    "min_rerank_label": "Puntuación mínima de rerank",
+    "min_rerank_description": "Confianza mínima del reranker para fragmentos en este conjunto."
   }
 }

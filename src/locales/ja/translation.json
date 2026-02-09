@@ -991,5 +991,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "バグ報告 / 機能リクエスト"
+  },
+  "knowledge_sets": {
+    "title": "ナレッジセット",
+    "active_label": "アクティブなナレッジセット",
+    "active_description": "ファイルが添付されていない場合に使用するセットを選択します。",
+    "active_placeholder": "ナレッジセットを選択",
+    "create_label": "ナレッジセットを作成",
+    "create_description": "ファイルをまとめる新しいセットを作成します。",
+    "create_placeholder": "ナレッジセット名",
+    "create_button": "作成",
+    "rename_label": "ナレッジセット名を変更",
+    "rename_description": "アクティブなナレッジセット名を変更します。",
+    "rename_placeholder": "新しい名前",
+    "rename_button": "変更",
+    "delete_label": "ナレッジセットを削除",
+    "delete_description": "アクティブなナレッジセットとファイル関連付けを削除します（埋め込みは残ります）。",
+    "delete_button": "削除",
+    "delete_confirm": "「{{name}}」を削除しますか？元に戻せません。",
+    "prompt_label": "RAG 指示プロンプト",
+    "prompt_description": "このセットの取得コンテキストの前に挿入される指示。",
+    "question_prompt_label": "質問の再定式化プロンプト",
+    "question_prompt_description": "フォローアップ質問を独立した質問に書き換えるためのプロンプト。",
+    "topk_label": "取得 Top‑K",
+    "topk_description": "このセットで取得するチャンク数。",
+    "min_similarity_label": "最小類似度",
+    "min_similarity_description": "このセットのチャンクに対する最小類似度しきい値。",
+    "min_rerank_label": "最小再ランクスコア",
+    "min_rerank_description": "このセットのチャンクに対する再ランカーの最小信頼度。"
   }
 }

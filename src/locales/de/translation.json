@@ -992,5 +992,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Fehler / Funktion melden"
+  },
+  "knowledge_sets": {
+    "title": "Wissenssammlungen",
+    "active_label": "Aktive Wissenssammlung",
+    "active_description": "Wählen Sie die Wissenssammlung, die verwendet wird, wenn keine Dateien angehängt sind.",
+    "active_placeholder": "Wissenssammlung auswählen",
+    "create_label": "Wissenssammlung erstellen",
+    "create_description": "Erstellen Sie eine neue Wissenssammlung zum Gruppieren von Dateien.",
+    "create_placeholder": "Name der Wissenssammlung",
+    "create_button": "Erstellen",
+    "rename_label": "Wissenssammlung umbenennen",
+    "rename_description": "Ändern Sie den Namen der aktiven Wissenssammlung.",
+    "rename_placeholder": "Neuer Name",
+    "rename_button": "Umbenennen",
+    "delete_label": "Wissenssammlung löschen",
+    "delete_description": "Löscht die aktive Wissenssammlung und ihre Dateizuordnung (Einbettungen bleiben).",
+    "delete_button": "Löschen",
+    "delete_confirm": "„{{name}}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+    "prompt_label": "RAG‑Anweisungsprompt",
+    "prompt_description": "Anweisungen, die vor dem abgerufenen Kontext für diese Wissenssammlung eingefügt werden.",
+    "question_prompt_label": "Prompt zur Frage‑Umformulierung",
+    "question_prompt_description": "Prompt zum Umschreiben von Folgefragen in eigenständige Abfragen für diese Wissenssammlung.",
+    "topk_label": "Retrieval Top‑K",
+    "topk_description": "Wie viele Chunks für diese Wissenssammlung abgerufen werden.",
+    "min_similarity_label": "Min. Ähnlichkeit",
+    "min_similarity_description": "Minimale Ähnlichkeitsschwelle für Chunks in dieser Wissenssammlung.",
+    "min_rerank_label": "Min. Rerank‑Score",
+    "min_rerank_description": "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
   }
 }

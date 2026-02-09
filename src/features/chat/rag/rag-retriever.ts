@@ -1,9 +1,16 @@
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
+  cosineSimilarity,
+  generateEmbedding,
+  generateEmbeddingsBatch
+} from "@/lib/embeddings/embedding-client"
+import {
   getAllDocuments,
   type VectorDocument
 } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
+import { getTextSplitter } from "@/lib/text-processing"
+import type { Document } from "@/lib/text-processing/types"
 import {
   type EnhancedSearchResult,
   formatEnhancedResults,
@@ -26,6 +33,12 @@ export interface RetrievedContext {
   }>
 }
 
+export interface RagSourceInput {
+  id: string
+  title: string
+  content: string
+}
+
 /**
  * Retrieves relevant context for a query from a knowledge base
  * Supports three modes:
@@ -41,9 +54,17 @@ export async function retrieveContext(
     topK?: number
     maxTokens?: number
     useReranking?: boolean
+    minSimilarity?: number
+    minRerankScore?: number
   } = {}
 ): Promise<RetrievedContext> {
-  const { mode = "similarity", topK, maxTokens } = options
+  const {
+    mode = "similarity",
+    topK,
+    maxTokens,
+    minSimilarity,
+    minRerankScore
+  } = options
 
   let results: EnhancedSearchResult[] = []
 
@@ -84,7 +105,9 @@ export async function retrieveContext(
       topK: topK || (await knowledgeConfig.getRetrievalTopK()),
       fileId,
       diversityEnabled: true,
-      minSimilarity: await knowledgeConfig.getMinSimilarity()
+      minSimilarity:
+        minSimilarity ?? (await knowledgeConfig.getMinSimilarity()),
+      minRerankScore
     })
   }
 
@@ -124,16 +147,106 @@ export async function retrieveContext(
 }
 
 /**
+ * Retrieves context from in-memory sources (e.g., page content) without persistence.
+ */
+export async function retrieveContextFromSources(
+  query: string,
+  sources: RagSourceInput[],
+  options: {
+    topK?: number
+    maxTokens?: number
+    minSimilarity?: number
+  } = {}
+): Promise<RetrievedContext> {
+  if (sources.length === 0) {
+    return { documents: [], formattedContext: "", sources: [] }
+  }
+
+  const queryEmbedding = await generateEmbedding(query)
+  if ("error" in queryEmbedding) {
+    logger.warn(
+      "Failed to generate query embedding for in-memory sources",
+      "retrieveContextFromSources",
+      {
+        error: queryEmbedding.error
+      }
+    )
+    return { documents: [], formattedContext: "", sources: [] }
+  }
+
+  const timestamp = Date.now()
+  const documents: Document[] = sources.map((source) => ({
+    pageContent: source.content,
+    metadata: {
+      fileId: source.id,
+      source: source.title,
+      title: source.title,
+      type: "webpage",
+      timestamp
+    }
+  }))
+
+  const splitter = await getTextSplitter()
+  const chunks = await splitter.splitDocuments(documents)
+  const texts = chunks.map((chunk) => chunk.pageContent)
+  const embeddings = await generateEmbeddingsBatch(texts)
+
+  const results: EnhancedSearchResult[] = []
+  const minSimilarity =
+    options.minSimilarity ?? (await knowledgeConfig.getMinSimilarity())
+
+  for (let i = 0; i < embeddings.length; i++) {
+    const emb = embeddings[i]
+    if ("error" in emb || !emb.embedding) continue
+
+    const similarity = cosineSimilarity(queryEmbedding.embedding, emb.embedding)
+    if (similarity < minSimilarity) continue
+
+    const chunk = chunks[i]
+    const metadata = chunk.metadata || {}
+
+    results.push({
+      document: {
+        content: chunk.pageContent,
+        embedding: emb.embedding,
+        metadata: {
+          source: metadata.source || "Page",
+          title: metadata.title || metadata.source || "Page",
+          type: "webpage",
+          timestamp: metadata.timestamp || timestamp,
+          fileId: metadata.fileId,
+          chunkIndex: metadata.chunkIndex,
+          totalChunks: metadata.totalChunks
+        }
+      } as VectorDocument,
+      score: similarity
+    })
+  }
+
+  results.sort((a, b) => b.score - a.score)
+
+  const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
+  const trimmed = results.slice(0, topK)
+
+  return formatEnhancedResults(
+    trimmed,
+    options.maxTokens || (await knowledgeConfig.getMaxContextSize())
+  )
+}
+
+/**
  * Reformulates a follow-up question to be standalone
  * Uses LLM to understand conversation context and create standalone query
  */
 export async function reformulateQuestion(
   question: string,
   chatHistory: Array<{ role: "user" | "assistant"; content: string }>,
-  modelInvokeFn: (prompt: string) => Promise<string>
+  modelInvokeFn: (prompt: string) => Promise<string>,
+  questionPromptOverride?: string
 ): Promise<string> {
   // Get question prompt template
-  const questionPromptTemplate = await knowledgeConfig.getQuestionPrompt()
+  const questionPromptTemplate =
+    questionPromptOverride || (await knowledgeConfig.getQuestionPrompt())
 
   // Format chat history
   const formattedHistory = chatHistory

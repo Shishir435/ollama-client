@@ -2,7 +2,11 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
-import { retrieveContext } from "@/features/chat/rag"
+import {
+  reformulateQuestion,
+  retrieveContext,
+  retrieveContextFromSources
+} from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -13,8 +17,15 @@ import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import {
+  DEFAULT_KNOWLEDGE_SET_ID,
+  DEFAULT_RAG_PROMPT,
+  getActiveKnowledgeSet,
+  getKnowledgeSetFileIds
+} from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage, FileAttachment } from "@/types"
 
 export const useChat = () => {
@@ -29,7 +40,7 @@ export const useChat = () => {
 
   const { input, setInput } = useChatInput()
   const { selectedTabIds } = useSelectedTabs()
-  const { builtContent: contextText } = useTabContent()
+  const { builtContent: contextText, documents: tabDocuments } = useTabContent()
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 
@@ -201,13 +212,8 @@ export const useChat = () => {
       !customInput && selectedTabIds.length > 0 && contextText?.trim()
 
     // Build initial user message content (without RAG context yet)
-    let userContent = rawInput || ""
-
-    if (includeContext) {
-      userContent = userContent
-        ? `${userContent}\n\n---\n\n${contextText}`
-        : contextText
-    }
+    const userContent = rawInput || ""
+    const hasTabContext = includeContext && tabDocuments.length > 0
 
     // Create file attachments metadata
     const attachments: FileAttachment[] | undefined =
@@ -273,6 +279,48 @@ export const useChat = () => {
         STORAGE_KEYS.EMBEDDINGS.USE_RAG
       )) ?? true
 
+    let ragInstruction = DEFAULT_RAG_PROMPT
+    let ragInstructionAdded = false
+    const invokeModelOnce = async (prompt: string): Promise<string> => {
+      try {
+        const modelId = customModel || selectedModel
+        if (!modelId) return ""
+
+        const provider = await ProviderFactory.getProviderForModel(modelId)
+        let response = ""
+        await provider.streamChat(
+          {
+            model: modelId,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2
+          },
+          (chunk) => {
+            if (chunk.delta) {
+              response += chunk.delta
+            }
+          }
+        )
+        return response.trim()
+      } catch (err) {
+        logger.warn("Failed to reformulate question", "useChat", {
+          error: err
+        })
+        return ""
+      }
+    }
+    const appendRagContext = (current: string, context: string) => {
+      const block =
+        !ragInstructionAdded && ragInstruction
+          ? `${ragInstruction}\n\n${context}`
+          : context
+      ragInstructionAdded = true
+      return current ? `${current}\n\n---\n\n${block}` : block
+    }
+
+    let pageContextAdded = false
+
+    let queryForRag = rawInput || "summary"
+
     if (useRag) {
       try {
         // Get recent chat history for context
@@ -293,13 +341,86 @@ export const useChat = () => {
         if (!queryClassification.shouldUseRAG) {
           logger.info("Skipping RAG for conversational query", "useChat")
         } else {
+          const activeKnowledgeSet = await getActiveKnowledgeSet()
+          if (activeKnowledgeSet?.ragPrompt?.trim()) {
+            ragInstruction = activeKnowledgeSet.ragPrompt.trim()
+          }
+
+          const retrievalOverrides = activeKnowledgeSet?.retrieval
+
+          if (
+            activeKnowledgeSet?.questionPrompt?.trim() &&
+            recentHistory.length >= 2
+          ) {
+            const reformulated = await reformulateQuestion(
+              rawInput || "summary",
+              recentHistory,
+              invokeModelOnce,
+              activeKnowledgeSet.questionPrompt
+            )
+            if (reformulated) {
+              queryForRag = reformulated
+              logger.info("Reformulated query for RAG", "useChat", {
+                queryForRag
+              })
+            }
+          }
+
+          // Page-only context (ephemeral, not persisted)
+          if (hasTabContext) {
+            const pageContext = await retrieveContextFromSources(
+              queryForRag,
+              tabDocuments,
+              {
+                topK: Math.min(
+                  queryClassification.suggestedTopK,
+                  retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+                  4
+                ),
+                minSimilarity: retrievalOverrides?.minSimilarity
+              }
+            )
+
+            if (pageContext.documents.length > 0) {
+              contentWithRAG = appendRagContext(
+                contentWithRAG,
+                pageContext.formattedContext
+              )
+              ragSourcesRef.current = {
+                sources: [
+                  ...(ragSourcesRef.current?.sources || []),
+                  ...pageContext.sources
+                ],
+                query: rawInput || "summary"
+              }
+              pageContextAdded = true
+            }
+          }
+
           // Determine scope: specific files or global
-          const fileIds =
+          let fileIds =
             files && files.length > 0
               ? (files
                   .map((f) => f.metadata.fileId)
                   .filter(Boolean) as string[])
               : undefined
+
+          if (!fileIds && activeKnowledgeSet?.id) {
+            const setFileIds = await getKnowledgeSetFileIds(
+              activeKnowledgeSet.id
+            )
+            if (setFileIds.length > 0) {
+              fileIds = setFileIds
+            }
+          }
+
+          if (
+            fileIds &&
+            activeKnowledgeSet?.id === DEFAULT_KNOWLEDGE_SET_ID &&
+            fileIds.length === 0
+          ) {
+            fileIds = undefined
+          }
 
           logger.verbose("RAG searching for context", "useChat", {
             scope: fileIds ? "Specific Files" : "Global",
@@ -308,15 +429,13 @@ export const useChat = () => {
           })
 
           // Retrieve RAG context
-          const context = await retrieveContext(
-            rawInput || "summary",
-            fileIds,
-            {
-              mode: queryClassification.suggestedMode,
-              topK: queryClassification.suggestedTopK,
-              useReranking: true
-            }
-          )
+          const context = await retrieveContext(queryForRag, fileIds, {
+            mode: queryClassification.suggestedMode,
+            topK: retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+            useReranking: true,
+            minSimilarity: retrievalOverrides?.minSimilarity,
+            minRerankScore: retrievalOverrides?.minRerankScore
+          })
 
           if (context.documents.length > 0) {
             logger.info("RAG found relevant chunks", "useChat", {
@@ -325,11 +444,14 @@ export const useChat = () => {
             const fileContext = context.formattedContext
             // Store sources for display in "i" button
             ragSourcesRef.current = {
-              sources: context.sources,
-              query: rawInput || "summary"
+              sources: [
+                ...(ragSourcesRef.current?.sources || []),
+                ...context.sources
+              ],
+              query: queryForRag
             }
             // Append RAG context to user message for LLM
-            contentWithRAG = `${contentWithRAG}\n\n---\n\n${fileContext}`
+            contentWithRAG = appendRagContext(contentWithRAG, fileContext)
           }
         }
       } catch (e) {
@@ -341,6 +463,12 @@ export const useChat = () => {
             "Failed to retrieve context from files. Continuing without RAG."
         })
       }
+    }
+
+    if (!pageContextAdded && includeContext && contextText?.trim()) {
+      contentWithRAG = contentWithRAG
+        ? `${contentWithRAG}\n\n---\n\n${contextText}`
+        : contextText
     }
 
     // Fallback to full text ONLY if specific files attached AND no RAG context found

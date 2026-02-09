@@ -39,7 +39,20 @@ vi.mock("@/features/chat/rag/rag-retriever", () => ({
     documents: [],
     formattedContext: "",
     sources: []
+  }),
+  retrieveContextFromSources: vi.fn().mockResolvedValue({
+    documents: [],
+    formattedContext: "",
+    sources: []
   })
+}))
+
+vi.mock("@/lib/knowledge/knowledge-sets", () => ({
+  DEFAULT_RAG_PROMPT:
+    "Use ONLY the following context in <doc> blocks. If the answer is not in the context, say you don't know.",
+  DEFAULT_KNOWLEDGE_SET_ID: "default",
+  getActiveKnowledgeSet: vi.fn().mockResolvedValue(undefined),
+  getKnowledgeSetFileIds: vi.fn().mockResolvedValue([])
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -110,7 +123,8 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 
 vi.mock("@/features/tabs/stores/tab-content-store", () => ({
   useTabContent: vi.fn(() => ({
-    builtContent: ""
+    builtContent: "",
+    documents: []
   }))
 }))
 
@@ -377,7 +391,10 @@ describe("useChat", () => {
       setErrors: vi.fn()
     })
     vi.mocked(useTabContent).mockReturnValue({
-      builtContent: "Page content"
+      builtContent: "Page content",
+      documents: [
+        { id: "1", title: "Tab 1", content: "Page content" }
+      ]
     })
     vi.mocked(useChatInput).mockReturnValue({
       input: "Summarize this",
@@ -538,11 +555,15 @@ describe("useChat", () => {
         await result.current.sendMessage("Summarize", undefined, [file])
       })
 
-      expect(retrieveContext).toHaveBeenCalledWith("Summarize", ["file-1"], {
-        mode: "similarity",
-        topK: 5,
-        useReranking: true
-      })
+      expect(retrieveContext).toHaveBeenCalledWith(
+        "Summarize",
+        ["file-1"],
+        expect.objectContaining({
+          mode: "similarity",
+          topK: 5,
+          useReranking: true
+        })
+      )
     })
 
     it("should fallback to full text when RAG fails", async () => {

@@ -24,6 +24,7 @@ export interface RetrievalOptions {
   recencyBoost?: number
   fileId?: string | string[]
   minSimilarity?: number
+  minRerankScore?: number
 }
 
 export interface EnhancedSearchResult {
@@ -45,7 +46,8 @@ export async function retrieveContextEnhanced(
     diversityEnabled = true,
     diversityLambda = 0.7,
     fileId,
-    minSimilarity = 0.3
+    minSimilarity = 0.3,
+    minRerankScore
   } = options
 
   // Full mode: return all documents (no re-ranking needed)
@@ -110,7 +112,8 @@ export async function retrieveContextEnhanced(
   })
 
   const configForThreshold = await getEmbeddingConfig()
-  const MIN_RERANK_SCORE = configForThreshold.minRerankScore || 0.6
+  const MIN_RERANK_SCORE =
+    minRerankScore ?? configForThreshold.minRerankScore ?? 0.6
   const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
 
   if (confidentResults.length === 0) {

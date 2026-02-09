@@ -993,5 +993,33 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "bug_report": "Сообщить о баге / фиче"
+  },
+  "knowledge_sets": {
+    "title": "Наборы знаний",
+    "active_label": "Активный набор",
+    "active_description": "Выберите набор, который используется, когда файлы не прикреплены.",
+    "active_placeholder": "Выберите набор",
+    "create_label": "Создать набор знаний",
+    "create_description": "Создайте новый набор для группировки файлов.",
+    "create_placeholder": "Название набора",
+    "create_button": "Создать",
+    "rename_label": "Переименовать набор",
+    "rename_description": "Измените имя активного набора.",
+    "rename_placeholder": "Новое имя",
+    "rename_button": "Переименовать",
+    "delete_label": "Удалить набор",
+    "delete_description": "Удалить активный набор и его привязку файлов (эмбеддинги останутся).",
+    "delete_button": "Удалить",
+    "delete_confirm": "Удалить «{{name}}»? Это действие нельзя отменить.",
+    "prompt_label": "Промпт инструкций RAG",
+    "prompt_description": "Инструкции, вставляемые перед извлечённым контекстом для этого набора.",
+    "question_prompt_label": "Промпт переформулировки вопроса",
+    "question_prompt_description": "Промпт для переписывания уточняющих вопросов в самостоятельные запросы для этого набора.",
+    "topk_label": "Top‑K извлечения",
+    "topk_description": "Сколько чанков извлекать для этого набора.",
+    "min_similarity_label": "Минимальная схожесть",
+    "min_similarity_description": "Минимальный порог схожести для чанков этого набора.",
+    "min_rerank_label": "Минимальный rerank‑score",
+    "min_rerank_description": "Минимальная уверенность reranker для чанков этого набора."
   }
 }
