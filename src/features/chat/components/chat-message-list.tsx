@@ -1,6 +1,8 @@
 import { useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
+import { Button } from "@/components/ui/button"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
+import { ChevronDown } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
 
 interface ChatMessageListProps {
@@ -30,6 +32,7 @@ export const ChatMessageList = ({
 }: ChatMessageListProps) => {
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const [isAtBottom, setIsAtBottom] = useState(true)
   const filteredMessages = messages.filter((msg) => msg.role !== "system")
   const internalMessagesRef = useRef(filteredMessages)
 
@@ -52,7 +55,7 @@ export const ChatMessageList = ({
   internalMessagesRef.current = filteredMessages
 
   return (
-    <div className="flex-1 px-4 py-2 h-full">
+    <div className="relative flex-1 h-full px-4 py-2">
       <Virtuoso
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
@@ -67,9 +70,10 @@ export const ChatMessageList = ({
         alignToBottom={true} // Initial alignment
         className="scrollbar-none"
         atBottomThreshold={50} // Distance to trigger stick-to-bottom
+        atBottomStateChange={(bottom) => setIsAtBottom(bottom)}
         components={{
           // Optional: Header/Footer if needed
-          Footer: () => <div className="h-4" />
+          Footer: () => <div className="h-28 sm:h-32" />
         }}
         itemContent={(index, msg) => {
           // Calculate relative index since we use firstItemIndex to handle prepending
@@ -121,6 +125,25 @@ export const ChatMessageList = ({
           )
         }}
       />
+      {!isAtBottom && filteredMessages.length > 0 && (
+        <div className="pointer-events-none absolute bottom-4 right-4">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto h-8 gap-1 rounded-full px-3 text-xs shadow-md"
+            onClick={() => {
+              virtuosoRef.current?.scrollToIndex({
+                index: filteredMessages.length - 1,
+                align: "end",
+                behavior: "smooth"
+              })
+            }}>
+            <ChevronDown className="h-3.5 w-3.5" />
+            Bottom
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
