@@ -45,7 +45,7 @@ export function RAGSourcesButton({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-96 max-h-[400px] overflow-y-auto"
+        className="w-80 max-h-[400px] overflow-y-auto"
         align="start">
         <div className="space-y-2">
           <div className="text-xs font-semibold text-muted-foreground mb-2">

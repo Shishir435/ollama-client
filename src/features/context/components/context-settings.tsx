@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
@@ -272,7 +271,7 @@ export const ContextSettings = () => {
       : 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {showMixedDimensions && (
         <div className="space-y-3">
           <StatusAlert
@@ -349,8 +348,10 @@ export const ContextSettings = () => {
         />
       )}
 
-      <MemorySettings />
-      <ChatBackfillPanel />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <MemorySettings />
+        <ChatBackfillPanel />
+      </div>
 
       <SettingsCard
         icon={BookOpen}
@@ -361,36 +362,38 @@ export const ContextSettings = () => {
 
       <FeedbackSettings />
 
-      <SettingsCard
-        icon={Upload}
-        title={t("settings.context.file_upload.title")}
-        description={t("settings.context.file_upload.description")}>
-        <FileUploadSettings />
-      </SettingsCard>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SettingsCard
+          icon={Upload}
+          title={t("settings.context.file_upload.title")}
+          description={t("settings.context.file_upload.description")}>
+          <FileUploadSettings />
+        </SettingsCard>
 
-      <SettingsCard
-        icon={Scissors}
-        title={t("model.embedding_config.chunking_title")}
-        description={t("model.embedding_config.chunking_description")}>
-        <TextSplittingSettings />
-      </SettingsCard>
-
-      <Separator />
+        <SettingsCard
+          icon={Scissors}
+          title={t("model.embedding_config.chunking_title")}
+          description={t("model.embedding_config.chunking_description")}>
+          <TextSplittingSettings />
+        </SettingsCard>
+      </div>
 
       {storageStats && (
         <StorageStatsCard storageStats={storageStats} cacheStats={cacheStats} />
       )}
 
-      <DatabaseManagementCard
-        onRemoveDuplicates={handleRemoveDuplicates}
-        onClearChat={handleClearChatVectors}
-        onClearAll={handleClearAllVectors}
-        isCleaning={isCleaning || isRebuilding}
-        hasVectors={!!storageStats?.totalVectors}
-        hasChatVectors={!!storageStats?.byType?.chat}
-      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <DatabaseManagementCard
+          onRemoveDuplicates={handleRemoveDuplicates}
+          onClearChat={handleClearChatVectors}
+          onClearAll={handleClearAllVectors}
+          isCleaning={isCleaning || isRebuilding}
+          hasVectors={!!storageStats?.totalVectors}
+          hasChatVectors={!!storageStats?.byType?.chat}
+        />
 
-      <EmbeddingLimitsConfig config={config} updateConfig={updateConfig} />
+        <EmbeddingLimitsConfig config={config} updateConfig={updateConfig} />
+      </div>
 
       <EmbeddingIndexControls />
     </div>

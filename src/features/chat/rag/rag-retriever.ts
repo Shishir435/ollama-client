@@ -39,6 +39,32 @@ export interface RagSourceInput {
   content: string
 }
 
+const tokenizeQuery = (query: string): string[] =>
+  query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter((term) => term.length > 2)
+
+const scoreKeywordMatch = (text: string, terms: string[]): number => {
+  if (terms.length === 0) return 0
+  const lower = text.toLowerCase()
+  let uniqueMatches = 0
+  let totalMatches = 0
+
+  for (const term of terms) {
+    if (!term) continue
+    let idx = lower.indexOf(term)
+    if (idx === -1) continue
+    uniqueMatches += 1
+    while (idx !== -1) {
+      totalMatches += 1
+      idx = lower.indexOf(term, idx + term.length)
+    }
+  }
+
+  return uniqueMatches * 2 + totalMatches
+}
+
 /**
  * Retrieves relevant context for a query from a knowledge base
  * Supports three modes:
@@ -162,18 +188,6 @@ export async function retrieveContextFromSources(
     return { documents: [], formattedContext: "", sources: [] }
   }
 
-  const queryEmbedding = await generateEmbedding(query)
-  if ("error" in queryEmbedding) {
-    logger.warn(
-      "Failed to generate query embedding for in-memory sources",
-      "retrieveContextFromSources",
-      {
-        error: queryEmbedding.error
-      }
-    )
-    return { documents: [], formattedContext: "", sources: [] }
-  }
-
   const timestamp = Date.now()
   const documents: Document[] = sources.map((source) => ({
     pageContent: source.content,
@@ -189,9 +203,23 @@ export async function retrieveContextFromSources(
   const splitter = await getTextSplitter()
   const chunks = await splitter.splitDocuments(documents)
   const texts = chunks.map((chunk) => chunk.pageContent)
+
+  const queryEmbedding = await generateEmbedding(query)
+  if ("error" in queryEmbedding) {
+    logger.warn(
+      "Failed to generate query embedding for in-memory sources, using keyword fallback",
+      "retrieveContextFromSources",
+      {
+        error: queryEmbedding.error
+      }
+    )
+    return buildKeywordFallbackContext(query, chunks, options, timestamp)
+  }
+
   const embeddings = await generateEmbeddingsBatch(texts)
 
   const results: EnhancedSearchResult[] = []
+  const allCandidates: EnhancedSearchResult[] = []
   const minSimilarity =
     options.minSimilarity ?? (await knowledgeConfig.getMinSimilarity())
 
@@ -200,15 +228,90 @@ export async function retrieveContextFromSources(
     if ("error" in emb || !emb.embedding) continue
 
     const similarity = cosineSimilarity(queryEmbedding.embedding, emb.embedding)
-    if (similarity < minSimilarity) continue
-
     const chunk = chunks[i]
     const metadata = chunk.metadata || {}
+    const document: VectorDocument = {
+      content: chunk.pageContent,
+      embedding: emb.embedding,
+      metadata: {
+        source: metadata.source || "Page",
+        title: metadata.title || metadata.source || "Page",
+        type: "webpage",
+        timestamp: metadata.timestamp || timestamp,
+        fileId: metadata.fileId,
+        chunkIndex: metadata.chunkIndex,
+        totalChunks: metadata.totalChunks
+      }
+    }
 
-    results.push({
+    const candidate: EnhancedSearchResult = {
+      document,
+      score: similarity
+    }
+
+    allCandidates.push(candidate)
+    if (similarity >= minSimilarity) {
+      results.push(candidate)
+    }
+  }
+
+  if (results.length === 0 && allCandidates.length > 0) {
+    logger.info(
+      "No in-memory sources exceeded similarity threshold, using top candidates",
+      "retrieveContextFromSources",
+      { minSimilarity }
+    )
+    results.push(...allCandidates)
+  }
+
+  if (results.length === 0) {
+    logger.warn(
+      "No valid embeddings for in-memory sources, using keyword fallback",
+      "retrieveContextFromSources"
+    )
+    return buildKeywordFallbackContext(query, chunks, options, timestamp)
+  }
+
+  const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
+  const trimmed = results.sort((a, b) => b.score - a.score).slice(0, topK)
+
+  return formatEnhancedResults(
+    trimmed,
+    options.maxTokens || (await knowledgeConfig.getMaxContextSize())
+  )
+}
+
+const buildKeywordFallbackContext = async (
+  query: string,
+  chunks: Document[],
+  options: {
+    topK?: number
+    maxTokens?: number
+    minSimilarity?: number
+  },
+  timestamp: number
+): Promise<RetrievedContext> => {
+  const terms = tokenizeQuery(query)
+  const scored = chunks.map((chunk) => ({
+    chunk,
+    score: scoreKeywordMatch(chunk.pageContent, terms)
+  }))
+
+  scored.sort((a, b) => b.score - a.score)
+  const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
+  const fallback = scored.slice(0, topK)
+
+  const maxScore = fallback.reduce(
+    (max, item) => (item.score > max ? item.score : max),
+    0
+  )
+
+  const results: EnhancedSearchResult[] = fallback.map((item) => {
+    const metadata = item.chunk.metadata || {}
+    return {
       document: {
-        content: chunk.pageContent,
-        embedding: emb.embedding,
+        content: item.chunk.pageContent,
+        embedding: [],
         metadata: {
           source: metadata.source || "Page",
           title: metadata.title || metadata.source || "Page",
@@ -219,17 +322,12 @@ export async function retrieveContextFromSources(
           totalChunks: metadata.totalChunks
         }
       } as VectorDocument,
-      score: similarity
-    })
-  }
-
-  results.sort((a, b) => b.score - a.score)
-
-  const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
-  const trimmed = results.slice(0, topK)
+      score: maxScore > 0 ? item.score / maxScore : 0.1
+    }
+  })
 
   return formatEnhancedResults(
-    trimmed,
+    results,
     options.maxTokens || (await knowledgeConfig.getMaxContextSize())
   )
 }

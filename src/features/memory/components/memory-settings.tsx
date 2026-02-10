@@ -7,7 +7,19 @@ import {
   SettingsFormField,
   ToggleRow
 } from "@/components/settings"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
@@ -15,6 +27,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const MemorySettings = () => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [isEnabled, setIsEnabled] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.MEMORY.ENABLED,
@@ -30,19 +43,20 @@ export const MemorySettings = () => {
   } | null>(null)
 
   const handleClearMemory = async () => {
-    if (!confirm(t("settings.memory.clear.confirm_dialog"))) {
-      return
-    }
-
     setIsClearing(true)
     try {
       await clearAllVectors("chat")
-      alert(t("settings.memory.clear.success"))
+      toast({
+        title: t("settings.memory.clear.success")
+      })
       // Refresh stats
       loadStats()
     } catch (error) {
       console.error("Failed to clear memory:", error)
-      alert(t("settings.memory.clear.error"))
+      toast({
+        title: t("settings.memory.clear.error"),
+        variant: "destructive"
+      })
     } finally {
       setIsClearing(false)
     }
@@ -93,18 +107,35 @@ export const MemorySettings = () => {
                   </span>
                 )}
               </>
-            }
-          />
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearMemory}
-            disabled={isClearing}>
-            <Trash2 className="size-4 mr-2" />
-            {isClearing
-              ? t("settings.memory.clear.button_clearing")
-              : t("settings.memory.clear.button")}
-          </Button>
+            }>
+            {null}
+          </SettingsFormField>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={isClearing}>
+                <Trash2 className="size-4 mr-2" />
+                {isClearing
+                  ? t("settings.memory.clear.button_clearing")
+                  : t("settings.memory.clear.button")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("settings.memory.clear.label")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("settings.memory.clear.confirm_dialog")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearMemory}>
+                  {t("settings.memory.clear.button")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </SettingsCard>

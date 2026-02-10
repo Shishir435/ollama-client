@@ -5,6 +5,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { CopyButton } from "@/features/chat/components/copy-button"
@@ -133,45 +135,56 @@ export const ChatMessageFooter = ({
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 text-muted-foreground hover:text-foreground">
+              className="size-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60">
               <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
-            className="w-48">
+            sideOffset={6}
+            className="w-40 rounded-lg border-muted/60 p-1.5 shadow-lg">
             {onExport && (
               <>
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  {t("chat.actions.export_as")}
-                </div>
-                <DropdownMenuItem onClick={() => onExport("markdown")}>
-                  <Download className="mr-2  size-3.5" />
-                  Markdown
+                <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground px-2">
+                  Export
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => onExport("markdown")}
+                  className="gap-2 py-1.5 text-xs">
+                  <Download className="size-3.5" />
+                  <span>Markdown</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("pdf")}>
-                  <Download className="mr-2 size-3.5" />
-                  PDF
+                <DropdownMenuItem
+                  onClick={() => onExport("pdf")}
+                  className="gap-2 py-1.5 text-xs">
+                  <Download className="size-3.5" />
+                  <span>PDF</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("json")}>
-                  <Download className="mr-2 size-3.5" />
-                  JSON
+                <DropdownMenuItem
+                  onClick={() => onExport("json")}
+                  className="gap-2 py-1.5 text-xs">
+                  <Download className="size-3.5" />
+                  <span>JSON</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("text")}>
-                  <Download className="mr-2 size-3.5" />
-                  Text
+                <DropdownMenuItem
+                  onClick={() => onExport("text")}
+                  className="gap-2 py-1.5 text-xs">
+                  <Download className="size-3.5" />
+                  <span>Text</span>
                 </DropdownMenuItem>
-                <div className="my-1 h-px bg-muted" />
               </>
             )}
 
             {onDelete && (
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 size-3.5" />
-                {t("chat.actions.delete")}
-              </DropdownMenuItem>
+              <>
+                {onExport && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="gap-2 py-1.5 text-xs text-destructive focus:text-destructive focus:bg-destructive/10">
+                  <Trash2 className="size-3.5" />
+                  {t("chat.actions.delete")}
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
