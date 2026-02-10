@@ -387,7 +387,19 @@
       "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
       "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
       "embedding_source_description": "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
-      "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)"
+      "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Provider स्थिति जाँच रहा है...",

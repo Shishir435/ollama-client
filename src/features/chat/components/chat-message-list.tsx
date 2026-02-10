@@ -1,8 +1,15 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { Button } from "@/components/ui/button"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
+import {
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingConfig,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { ChevronDown } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage } from "@/types"
 
 interface ChatMessageListProps {
@@ -33,8 +40,20 @@ export const ChatMessageList = ({
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
+  const [embeddingConfig] = useStorage<EmbeddingConfig>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_EMBEDDING_CONFIG
+  )
   const filteredMessages = messages.filter((msg) => msg.role !== "system")
   const internalMessagesRef = useRef(filteredMessages)
+  const showRetrievedChunks =
+    embeddingConfig?.showRetrievedChunks ??
+    DEFAULT_EMBEDDING_CONFIG.showRetrievedChunks
+  const feedbackEnabled =
+    embeddingConfig?.feedbackEnabled ?? DEFAULT_EMBEDDING_CONFIG.feedbackEnabled
 
   // Update firstItemIndex when prepending items to ensure stable indices
   if (filteredMessages.length > internalMessagesRef.current.length) {
@@ -109,6 +128,8 @@ export const ChatMessageList = ({
                   msg.role === "assistant" &&
                   index === filteredMessages.length - 1
                 }
+                showRetrievedChunks={showRetrievedChunks}
+                feedbackEnabled={feedbackEnabled}
                 onRegenerate={
                   msg.role === "assistant"
                     ? (model) => {

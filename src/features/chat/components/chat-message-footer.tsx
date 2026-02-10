@@ -28,6 +28,8 @@ export const ChatMessageFooter = ({
   msg,
   isUser,
   isLoading,
+  showRetrievedChunks = true,
+  feedbackEnabled = true,
   onRegenerate,
   onEdit,
   onDelete,
@@ -37,6 +39,8 @@ export const ChatMessageFooter = ({
   msg: ChatMessage
   isUser: boolean
   isLoading?: boolean
+  showRetrievedChunks?: boolean
+  feedbackEnabled?: boolean
   onRegenerate?: (model: string) => void
   onEdit?: () => void
   onDelete?: () => void
@@ -101,12 +105,15 @@ export const ChatMessageFooter = ({
         <SpeechButton text={msg.content} />
 
         {/* RAG Sources Button - Show for messages with RAG context */}
-        {msg.metrics?.ragSources && msg.metrics.ragSources.length > 0 && (
-          <RAGSourcesButton
-            sources={msg.metrics.ragSources}
-            query={msg.metrics.ragQuery}
-          />
-        )}
+        {showRetrievedChunks &&
+          msg.metrics?.ragSources &&
+          msg.metrics.ragSources.length > 0 && (
+            <RAGSourcesButton
+              sources={msg.metrics.ragSources}
+              query={msg.metrics.ragQuery}
+              enableFeedback={feedbackEnabled}
+            />
+          )}
 
         {onEdit && (
           <Button

@@ -454,7 +454,20 @@ export const resources = {
             "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
           embedding_source_description:
             "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
-          embedding_source_default_provider: "Standard-Provider (Ollama)"
+          embedding_source_default_provider: "Standard-Provider (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Provider-Status wird geprüft...",
@@ -1624,7 +1637,20 @@ export const resources = {
           feedback_export_button: "Export Feedback Data",
           feedback_clear_button: "Clear All Feedback",
           feedback_privacy_note:
-            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Checking Provider status...",
@@ -2790,7 +2816,21 @@ export const resources = {
             "Puntuación de calidad mínima (0-1) requerida para incrustar contenido.",
           embedding_source_description:
             "Las incrustaciones se generan usando tu proveedor local (Ollama por defecto)",
-          embedding_source_default_provider: "Proveedor predeterminado (Ollama)"
+          embedding_source_default_provider:
+            "Proveedor predeterminado (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Comprobando estado de Provider...",
@@ -3946,7 +3986,20 @@ export const resources = {
             "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
           embedding_source_description:
             "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
-          embedding_source_default_provider: "Fournisseur par défaut (Ollama)"
+          embedding_source_default_provider: "Fournisseur par défaut (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Vérification du statut d'Provider...",
@@ -5092,7 +5145,20 @@ export const resources = {
             "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
           embedding_source_description:
             "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
-          embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)"
+          embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Provider स्थिति जाँच रहा है...",
@@ -6225,7 +6291,20 @@ export const resources = {
             "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto.",
           embedding_source_description:
             "Gli embedding vengono generati usando il tuo provider locale (Ollama per impostazione predefinita)",
-          embedding_source_default_provider: "Provider predefinito (Ollama)"
+          embedding_source_default_provider: "Provider predefinito (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Verifica stato Provider in corso...",
@@ -7377,7 +7456,20 @@ export const resources = {
             "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
           embedding_source_description:
             "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
-          embedding_source_default_provider: "既定のプロバイダー（Ollama）"
+          embedding_source_default_provider: "既定のプロバイダー（Ollama）",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Providerの状態を確認中...",
@@ -8516,7 +8608,20 @@ export const resources = {
             "Минимальная оценка качества (0-1), необходимая для встраивания контента.",
           embedding_source_description:
             "Эмбеддинги генерируются с помощью вашего локального провайдера (по умолчанию Ollama)",
-          embedding_source_default_provider: "Провайдер по умолчанию (Ollama)"
+          embedding_source_default_provider: "Провайдер по умолчанию (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Проверка статуса Provider...",
@@ -9628,7 +9733,20 @@ export const resources = {
           min_quality_score_label: "最低质量分数",
           min_quality_score_description: "嵌入内容所需的最低质量分数 (0-1)。",
           embedding_source_description: "嵌入由本地提供方生成（默认 Ollama）",
-          embedding_source_default_provider: "默认提供方（Ollama）"
+          embedding_source_default_provider: "默认提供方（Ollama）",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "正在检查 Provider 状态...",

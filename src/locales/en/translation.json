@@ -402,7 +402,19 @@
       "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
       "feedback_export_button": "Export Feedback Data",
       "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Checking Provider status...",

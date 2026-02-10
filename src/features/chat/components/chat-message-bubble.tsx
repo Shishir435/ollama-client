@@ -10,6 +10,8 @@ export const ChatMessageBubble = ({
   msg,
   onRegenerate,
   isLoading,
+  showRetrievedChunks,
+  feedbackEnabled,
   onUpdate,
   onDelete,
   onNavigate
@@ -17,6 +19,8 @@ export const ChatMessageBubble = ({
   msg: ChatMessage
   onRegenerate?: (model: string) => void
   isLoading?: boolean
+  showRetrievedChunks?: boolean
+  feedbackEnabled?: boolean
   onUpdate?: (content: string) => void
   onDelete?: () => void
   onNavigate?: (nodeId: number | string) => void
@@ -70,6 +74,8 @@ export const ChatMessageBubble = ({
             isUser={isUser}
             msg={msg}
             isLoading={isLoading}
+            showRetrievedChunks={showRetrievedChunks}
+            feedbackEnabled={feedbackEnabled}
             onRegenerate={onRegenerate}
             onEdit={() => setIsEditing(true)}
             onDelete={onDelete}

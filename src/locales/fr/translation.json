@@ -388,7 +388,19 @@
       "min_quality_score_label": "Score de qualité minimum",
       "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
       "embedding_source_description": "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
-      "embedding_source_default_provider": "Fournisseur par défaut (Ollama)"
+      "embedding_source_default_provider": "Fournisseur par défaut (Ollama)",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Vérification du statut d'Provider...",

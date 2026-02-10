@@ -1,27 +1,46 @@
-import { Download, InfoIcon, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useStorage } from "@plasmohq/storage/hook"
+import { Download, ThumbsUp, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsSwitch } from "@/components/settings"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { getEmbeddingConfig } from "@/lib/embeddings/config"
+  SettingsCard,
+  SettingsFormField,
+  ToggleRow
+} from "@/components/settings"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
+import {
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingConfig,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export function FeedbackSettings() {
   const { t } = useTranslation()
-  const [feedbackEnabled, setFeedbackEnabled] = useState(true)
-  const [showChunks, setShowChunks] = useState(true)
+  const { toast } = useToast()
+  const [config, setConfig] = useStorage<EmbeddingConfig>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_EMBEDDING_CONFIG
+  )
+  const [isExporting, setIsExporting] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
   const [stats, setStats] = useState({
     totalFeedback: 0,
     helpfulPercentage: 0,
@@ -29,39 +48,48 @@ export function FeedbackSettings() {
     uniqueQueries: 0
   })
 
-  // Load config and stats
-  useEffect(() => {
-    async function loadSettings() {
-      const config = await getEmbeddingConfig()
-      setFeedbackEnabled(config.feedbackEnabled ?? true)
-      setShowChunks(config.showRetrievedChunks ?? true)
+  const feedbackEnabled =
+    config?.feedbackEnabled ?? DEFAULT_EMBEDDING_CONFIG.feedbackEnabled
+  const showChunks =
+    config?.showRetrievedChunks ?? DEFAULT_EMBEDDING_CONFIG.showRetrievedChunks
 
+  const updateConfig = useCallback(
+    (updates: Partial<EmbeddingConfig>) => {
+      setConfig((prev) => ({
+        ...DEFAULT_EMBEDDING_CONFIG,
+        ...prev,
+        ...updates
+      }))
+    },
+    [setConfig]
+  )
+
+  const loadStats = useCallback(async () => {
+    try {
       const stats = await feedbackService.getStatistics()
       setStats(stats)
+    } catch (error) {
+      logger.error("Failed to load feedback stats", "FeedbackSettings", {
+        error
+      })
     }
-    loadSettings()
   }, [])
 
-  const handleFeedbackToggle = async (checked: boolean) => {
-    setFeedbackEnabled(checked)
-    const config = await getEmbeddingConfig()
-    await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.CONFIG, {
-      ...config,
-      feedbackEnabled: checked
-    })
+  useEffect(() => {
+    loadStats()
+  }, [loadStats])
+
+  const handleFeedbackToggle = (checked: boolean) => {
+    updateConfig({ feedbackEnabled: checked })
   }
 
-  const handleShowChunksToggle = async (checked: boolean) => {
-    setShowChunks(checked)
-    const config = await getEmbeddingConfig()
-    await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.CONFIG, {
-      ...config,
-      showRetrievedChunks: checked
-    })
+  const handleShowChunksToggle = (checked: boolean) => {
+    updateConfig({ showRetrievedChunks: checked })
   }
 
   const handleExportFeedback = async () => {
     try {
+      setIsExporting(true)
       const feedback = await feedbackService.exportFeedback()
       const blob = new Blob([JSON.stringify(feedback, null, 2)], {
         type: "application/json"
@@ -76,21 +104,23 @@ export function FeedbackSettings() {
       logger.info("Exported feedback data", "FeedbackSettings", {
         count: feedback.length
       })
+      toast({
+        title: t("model.embedding_config.feedback_export_success")
+      })
     } catch (error) {
       logger.error("Failed to export feedback", "FeedbackSettings", { error })
+      toast({
+        title: t("model.embedding_config.feedback_export_error"),
+        variant: "destructive"
+      })
+    } finally {
+      setIsExporting(false)
     }
   }
 
   const handleClearFeedback = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to clear all feedback? This cannot be undone."
-      )
-    ) {
-      return
-    }
-
     try {
+      setIsClearing(true)
       await feedbackService.clearAllFeedback()
       setStats({
         totalFeedback: 0,
@@ -99,97 +129,120 @@ export function FeedbackSettings() {
         uniqueQueries: 0
       })
       logger.info("Cleared all feedback", "FeedbackSettings")
+      toast({
+        title: t("model.embedding_config.feedback_clear_success")
+      })
     } catch (error) {
       logger.error("Failed to clear feedback", "FeedbackSettings", { error })
+      toast({
+        title: t("model.embedding_config.feedback_clear_error"),
+        variant: "destructive"
+      })
+    } finally {
+      setIsClearing(false)
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {t("model.embedding_config.feedback_learning_title")}
-        </CardTitle>
-        <CardDescription>
-          {t("model.embedding_config.feedback_learning_description")}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <SettingsSwitch
-          label={t("model.embedding_config.feedback_enable_label")}
-          description={t("model.embedding_config.feedback_enable_description")}
-          checked={feedbackEnabled}
-          onCheckedChange={handleFeedbackToggle}
-        />
+    <SettingsCard
+      icon={ThumbsUp}
+      title={t("model.embedding_config.feedback_learning_title")}
+      description={t("model.embedding_config.feedback_learning_description")}
+      contentClassName="space-y-6">
+      <ToggleRow
+        id="feedback-enabled"
+        label={t("model.embedding_config.feedback_enable_label")}
+        description={t("model.embedding_config.feedback_enable_description")}
+        checked={feedbackEnabled}
+        onCheckedChange={handleFeedbackToggle}
+      />
 
-        <SettingsSwitch
-          label={t("model.embedding_config.feedback_show_chunks_label")}
-          description={t(
-            "model.embedding_config.feedback_show_chunks_description"
-          )}
-          checked={showChunks}
-          onCheckedChange={handleShowChunksToggle}
-        />
+      <ToggleRow
+        id="feedback-show-chunks"
+        label={t("model.embedding_config.feedback_show_chunks_label")}
+        description={t(
+          "model.embedding_config.feedback_show_chunks_description"
+        )}
+        checked={showChunks}
+        onCheckedChange={handleShowChunksToggle}
+      />
 
-        <Separator />
-
-        {/* Statistics */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Feedback Statistics</div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <div className="text-muted-foreground">Total Feedback</div>
-              <div className="font-mono">{stats.totalFeedback}</div>
+      <div className="rounded-lg border p-4 space-y-3">
+        <div className="text-sm font-medium">
+          {t("model.embedding_config.feedback_stats_title")}
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <div className="text-muted-foreground">
+              {t("model.embedding_config.feedback_stats_total")}
             </div>
-            <div>
-              <div className="text-muted-foreground">Helpful Rate</div>
-              <div className="font-mono">
-                {stats.helpfulPercentage.toFixed(1)}%
-              </div>
+            <div className="font-mono">{stats.totalFeedback}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">
+              {t("model.embedding_config.feedback_stats_helpful")}
             </div>
-            <div>
-              <div className="text-muted-foreground">Unique Chunks</div>
-              <div className="font-mono">{stats.uniqueChunks}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Unique Queries</div>
-              <div className="font-mono">{stats.uniqueQueries}</div>
+            <div className="font-mono">
+              {stats.helpfulPercentage.toFixed(1)}%
             </div>
           </div>
-        </div>
-
-        <Separator />
-
-        {/* Privacy Controls */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Privacy Controls</div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportFeedback}
-              className="flex-1">
-              <Download className="h-4 w-4 mr-2" />
-              {t("model.embedding_config.feedback_export_button")}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleClearFeedback}
-              className="flex-1">
-              <Trash2 className="h-4 w-4 mr-2" />
-              {t("model.embedding_config.feedback_clear_button")}
-            </Button>
+          <div>
+            <div className="text-muted-foreground">
+              {t("model.embedding_config.feedback_stats_chunks")}
+            </div>
+            <div className="font-mono">{stats.uniqueChunks}</div>
           </div>
-
-          <Alert>
-            <InfoIcon className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              {t("model.embedding_config.feedback_privacy_note")}
-            </AlertDescription>
-          </Alert>
+          <div>
+            <div className="text-muted-foreground">
+              {t("model.embedding_config.feedback_stats_queries")}
+            </div>
+            <div className="font-mono">{stats.uniqueQueries}</div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <SettingsFormField
+          label={t("model.embedding_config.feedback_privacy_title")}
+          description={t("model.embedding_config.feedback_privacy_note")}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportFeedback}
+            disabled={isExporting}>
+            <Download className="h-4 w-4 mr-2" />
+            {t("model.embedding_config.feedback_export_button")}
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={isClearing}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t("model.embedding_config.feedback_clear_button")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("model.embedding_config.feedback_clear_confirm_title")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t(
+                    "model.embedding_config.feedback_clear_confirm_description"
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearFeedback}>
+                  {t("model.embedding_config.feedback_clear_button")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </SettingsCard>
   )
 }

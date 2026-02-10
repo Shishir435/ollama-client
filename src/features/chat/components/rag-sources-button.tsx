@@ -15,12 +15,14 @@ interface RAGSourcesButtonProps {
   sources: RetrievedChunk[]
   query?: string
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RAGSourcesButton({
   sources,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RAGSourcesButtonProps) {
   const [open, setOpen] = useState(false)
 
@@ -58,6 +60,7 @@ export function RAGSourcesButton({
               query={query || ""}
               index={index}
               sessionId={sessionId}
+              enableFeedback={enableFeedback}
             />
           ))}
         </div>

@@ -387,7 +387,19 @@
       "min_quality_score_label": "最小品質スコア",
       "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
       "embedding_source_description": "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
-      "embedding_source_default_provider": "既定のプロバイダー（Ollama）"
+      "embedding_source_default_provider": "既定のプロバイダー（Ollama）",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Providerの状態を確認中...",

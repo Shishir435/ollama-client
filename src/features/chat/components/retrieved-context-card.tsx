@@ -26,17 +26,20 @@ interface RetrievedContextCardProps {
   query: string
   index: number
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RetrievedContextCard({
   chunk,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RetrievedContextCardProps) {
   const [feedback, setFeedback] = useState<boolean | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleFeedback = async (wasHelpful: boolean) => {
+    if (!enableFeedback) return
     if (isSubmitting) return
 
     setIsSubmitting(true)
@@ -84,33 +87,35 @@ export function RetrievedContextCard({
           </div>
 
           {/* Feedback Buttons */}
-          <div className="flex gap-1 shrink-0">
-            <Button
-              size="icon"
-              variant={feedback === true ? "default" : "ghost"}
-              className={cn(
-                "h-7 w-7",
-                feedback === true &&
-                  "bg-green-500 hover:bg-green-600 text-white"
-              )}
-              onClick={() => handleFeedback(true)}
-              disabled={isSubmitting}
-              title="This was helpful">
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant={feedback === false ? "default" : "ghost"}
-              className={cn(
-                "h-7 w-7",
-                feedback === false && "bg-red-500 hover:bg-red-600 text-white"
-              )}
-              onClick={() => handleFeedback(false)}
-              disabled={isSubmitting}
-              title="This was not helpful">
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
-          </div>
+          {enableFeedback && (
+            <div className="flex gap-1 shrink-0">
+              <Button
+                size="icon"
+                variant={feedback === true ? "default" : "ghost"}
+                className={cn(
+                  "h-7 w-7",
+                  feedback === true &&
+                    "bg-green-500 hover:bg-green-600 text-white"
+                )}
+                onClick={() => handleFeedback(true)}
+                disabled={isSubmitting}
+                title="This was helpful">
+                <ThumbsUp className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant={feedback === false ? "default" : "ghost"}
+                className={cn(
+                  "h-7 w-7",
+                  feedback === false && "bg-red-500 hover:bg-red-600 text-white"
+                )}
+                onClick={() => handleFeedback(false)}
+                disabled={isSubmitting}
+                title="This was not helpful">
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="text-xs pt-2">
@@ -128,12 +133,14 @@ interface RetrievedContextListProps {
   chunks: RetrievedChunk[]
   query: string
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RetrievedContextList({
   chunks,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RetrievedContextListProps) {
   if (chunks.length === 0) {
     return null
@@ -151,6 +158,7 @@ export function RetrievedContextList({
           query={query}
           index={index}
           sessionId={sessionId}
+          enableFeedback={enableFeedback}
         />
       ))}
     </div>
