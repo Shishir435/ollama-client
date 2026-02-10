@@ -459,7 +459,8 @@
       "label_off": "Schede",
       "label_on": "Scheda+",
       "tooltip": "Interagisci con le schede aperte"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

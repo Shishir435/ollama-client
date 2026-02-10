@@ -460,7 +460,8 @@
       "label_off": "标签页",
       "label_on": "标签页+",
       "tooltip": "与打开的标签页进行交互"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

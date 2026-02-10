@@ -458,7 +458,8 @@
       "label_off": "Pestañas",
       "label_on": "Pestaña+",
       "tooltip": "Interactuar con pestañas abiertas"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

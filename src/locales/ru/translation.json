@@ -460,7 +460,8 @@
       "label_off": "Вкладки",
       "label_on": "Вкладка+",
       "tooltip": "Взаимодействие с открытыми вкладками"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

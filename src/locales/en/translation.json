@@ -473,7 +473,8 @@
       "label_off": "Tabs",
       "label_on": "Tab+",
       "tooltip": "Interact with open tabs"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

@@ -458,7 +458,8 @@
       "label_off": "टैब",
       "label_on": "टैब+",
       "tooltip": "खुले टैब के साथ इंटरैक्ट करें"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

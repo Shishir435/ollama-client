@@ -458,7 +458,8 @@
       "label_off": "タブ",
       "label_on": "タブ+",
       "tooltip": "開いているタブと対話する"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

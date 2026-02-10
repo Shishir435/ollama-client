@@ -459,7 +459,8 @@
       "label_off": "Onglets",
       "label_on": "Onglet+",
       "tooltip": "Interagir avec les onglets ouverts"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {

@@ -528,7 +528,8 @@ export const resources = {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Mit offenen Tabs interagieren"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -1696,7 +1697,8 @@ export const resources = {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Interact with open tabs"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -2862,7 +2864,8 @@ export const resources = {
           label_off: "Pestañas",
           label_on: "Pestaña+",
           tooltip: "Interactuar con pestañas abiertas"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -4018,7 +4021,8 @@ export const resources = {
           label_off: "Onglets",
           label_on: "Onglet+",
           tooltip: "Interagir avec les onglets ouverts"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -5161,7 +5165,8 @@ export const resources = {
           label_off: "टैब",
           label_on: "टैब+",
           tooltip: "खुले टैब के साथ इंटरैक्ट करें"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -6294,7 +6299,8 @@ export const resources = {
           label_off: "Schede",
           label_on: "Scheda+",
           tooltip: "Interagisci con le schede aperte"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -7443,7 +7449,8 @@ export const resources = {
           label_off: "タブ",
           label_on: "タブ+",
           tooltip: "開いているタブと対話する"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -8583,7 +8590,8 @@ export const resources = {
           label_off: "Вкладки",
           label_on: "Вкладка+",
           tooltip: "Взаимодействие с открытыми вкладками"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -9692,7 +9700,8 @@ export const resources = {
           label_off: "标签页",
           label_on: "标签页+",
           tooltip: "与打开的标签页进行交互"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
