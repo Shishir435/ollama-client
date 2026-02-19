@@ -1,5 +1,8 @@
 import type { TextClassificationPipeline } from "@xenova/transformers"
+import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
+
+export type RerankerBackend = "none" | "transformers-js" | "onnxruntime-web"
 
 // Configure transformers.js to use CDN models
 // Moved to loadModel to avoid top-level import side-effects
@@ -16,8 +19,10 @@ import { logger } from "@/lib/logger"
 class RerankerService {
   private model: TextClassificationPipeline | null = null
   private loading: Promise<TextClassificationPipeline> | null = null
-  private enabled: boolean = false // DISABLED: CSP prevents transformers.js in extensions
+  private enabled: boolean = false // Disabled by default in config
+  private backend: RerankerBackend = "none"
   private modelName = "Xenova/bge-reranker-base"
+  private forceDevice: "webgpu" | "wasm" | undefined = undefined
 
   private disposeTimeout: NodeJS.Timeout | null = null
   private readonly DISPOSE_DELAY = 5 * 60 * 1000 // 5 minutes
@@ -59,21 +64,40 @@ class RerankerService {
     try {
       const { env, pipeline } = await import("@xenova/transformers")
 
-      // Configure environment
-      env.allowLocalModels = false
+      // Configure environment for Chrome extension
+      // Allow remote models from HuggingFace (fetching, not executing remote code)
+      env.allowLocalModels = true
       env.allowRemoteModels = true
+      env.useBrowserCache = true
 
-      // Load the model (transformers.js handles device selection automatically)
-      // WebGPU is used automatically if available, otherwise falls back to WASM
+      // Point to bundled ONNX Runtime WASM files
+      if (env.backends?.onnx?.wasm && browser?.runtime?.getURL) {
+        const wasmPath = browser.runtime.getURL("assets/onnxruntime/")
+        env.backends.onnx.wasm.wasmPaths = wasmPath
+        logger.info(`ONNX WASM path configured: ${wasmPath}`, "RerankerService")
+      }
+
+      // Load model - let transformers.js auto-detect (WASM for extension)
+      logger.info(
+        `Loading re-ranker model: ${this.modelName}`,
+        "RerankerService"
+      )
+
       const model = await pipeline("text-classification", this.modelName)
 
       logger.info("✅ Re-ranker model loaded successfully", "RerankerService")
       return model
     } catch (error) {
-      logger.error("Failed to load re-ranker model", "RerankerService", {
-        error
-      })
-      throw new Error("Re-ranker model failed to load")
+      // Graceful fallback - disable reranker if it fails to load
+      logger.error(
+        "Failed to load re-ranker model, disabling reranker",
+        "RerankerService",
+        {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      )
+      this.enabled = false
+      return null
     }
   }
 
@@ -124,12 +148,28 @@ class RerankerService {
   > {
     this.updateAccess()
 
-    if (!this.enabled || documents.length === 0) {
+    if (!this.enabled || this.backend === "none" || documents.length === 0) {
       return documents.map((d) => ({ ...d, score: 0.5 }))
     }
 
     try {
+      if (this.backend === "onnxruntime-web") {
+        // Transformers.js uses ONNX runtime under the hood; force WASM device.
+        this.forceDevice = "wasm"
+      } else {
+        this.forceDevice = undefined
+      }
+
       const model = await this.getModel()
+
+      // If model failed to load, return original order with default score
+      if (!model) {
+        logger.warn(
+          "Re-ranker model not available, skipping re-ranking",
+          "RerankerService"
+        )
+        return documents.map((d) => ({ ...d, score: 0.5 }))
+      }
 
       logger.verbose(
         `Re-ranking ${documents.length} documents`,
@@ -186,6 +226,20 @@ class RerankerService {
       `Re-ranker ${enabled ? "enabled" : "disabled"}`,
       "RerankerService"
     )
+  }
+
+  setBackend(backend: RerankerBackend) {
+    if (this.backend === backend) return
+    this.backend = backend
+    this.clearCache()
+    logger.info(`Re-ranker backend set to ${backend}`, "RerankerService")
+  }
+
+  setModelName(modelName: string) {
+    if (!modelName || this.modelName === modelName) return
+    this.modelName = modelName
+    this.clearCache()
+    logger.info(`Re-ranker model set to ${modelName}`, "RerankerService")
   }
 
   /**
