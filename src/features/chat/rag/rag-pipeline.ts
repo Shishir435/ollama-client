@@ -25,6 +25,8 @@ export interface RetrievalOptions {
   fileId?: string | string[]
   sessionId?: string
   type?: VectorDocument["metadata"]["type"]
+  includeMemory?: boolean
+  memoryTopK?: number
   minSimilarity?: number
   minRerankScore?: number
 }
@@ -33,6 +35,7 @@ export interface EnhancedSearchResult {
   document: VectorDocument
   score: number
   originalSimilarity?: number
+  isMemory?: boolean
 }
 
 /**
@@ -50,6 +53,8 @@ export async function retrieveContextEnhanced(
     fileId,
     sessionId,
     type,
+    includeMemory = false,
+    memoryTopK = 3,
     minSimilarity = 0.3,
     minRerankScore
   } = options
@@ -74,20 +79,51 @@ export async function retrieveContextEnhanced(
 
   logger.verbose("Stage 1: Hybrid search", "RAGPipeline", {
     candidateK,
-    topK
+    topK,
+    includeMemory
   })
 
+  // Primary search (files/webpages)
+  const searchType = type ?? "file"
   const candidates = await searchHybrid(query, embeddingResult.embedding, {
     limit: candidateK,
     keywordWeight: 0.6,
     semanticWeight: 0.4,
     fileId,
     sessionId,
-    type: type ?? "file",
+    type: searchType,
     minSimilarity: minSimilarity * 0.7 // Lower threshold for recall
   })
 
-  if (candidates.length === 0) {
+  // ===== STAGE 1.5: Memory Search (if enabled) =====
+  let memoryCandidates: EnhancedSearchResult[] = []
+  if (includeMemory) {
+    logger.verbose("Stage 1.5: Memory search", "RAGPipeline", {
+      memoryTopK
+    })
+
+    const memResults = await searchHybrid(query, embeddingResult.embedding, {
+      limit: memoryTopK * 3,
+      keywordWeight: 0.6,
+      semanticWeight: 0.4,
+      type: "chat",
+      minSimilarity: minSimilarity * 0.5 // Lower threshold for memory
+    })
+
+    memoryCandidates = memResults.map((c) => ({
+      document: c.document,
+      score: c.similarity,
+      originalSimilarity: c.similarity,
+      isMemory: true
+    }))
+
+    logger.info(
+      `Stage 1.5 complete: ${memoryCandidates.length} memory candidates`,
+      "RAGPipeline"
+    )
+  }
+
+  if (candidates.length === 0 && memoryCandidates.length === 0) {
     logger.info("No candidates found in hybrid search", "RAGPipeline")
     return []
   }
@@ -99,6 +135,7 @@ export async function retrieveContextEnhanced(
 
   const embeddingConfig = await getEmbeddingConfig()
   const useReranking = embeddingConfig.useReranking ?? false
+  const rerankerBackend = embeddingConfig.rerankerBackend ?? "none"
   let rerankedResults: EnhancedSearchResult[] = []
 
   if (!useReranking) {
@@ -111,7 +148,9 @@ export async function retrieveContextEnhanced(
     }))
   } else {
     // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
-    logger.verbose("Stage 2: Re-ranking with transformers.js", "RAGPipeline")
+    logger.verbose(`Stage 2: Re-ranking with ${rerankerBackend}`, "RAGPipeline")
+    rerankerService.setBackend(rerankerBackend)
+    rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
 
     const reranked = await rerankerService.rerank(
       query,
@@ -164,12 +203,30 @@ export async function retrieveContextEnhanced(
     })
   }
 
+  // ===== STAGE 1.6: Add Memory Candidates =====
+  // Memory is kept separate (not reranked) for Option B - separate context blocks
+  if (memoryCandidates.length > 0) {
+    // Add memory with a slight score boost to prioritize files first
+    const boostedMemory = memoryCandidates.map((m) => ({
+      ...m,
+      score: m.score * 0.9 // Slightly lower priority than file results
+    }))
+    rerankedResults = [...rerankedResults, ...boostedMemory]
+    logger.info(
+      `Added ${boostedMemory.length} memory results to pool`,
+      "RAGPipeline"
+    )
+  }
+
   // ===== STAGE 2.5: Feedback Score Blending =====
   // Blend user feedback scores with model scores
   if (embeddingConfig.feedbackEnabled) {
     logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
 
     for (const result of rerankedResults) {
+      // Skip feedback for memory - it's based on chat content
+      if (result.isMemory) continue
+
       // Get feedback score for this chunk + query combination
       const chunkId = result.document.id?.toString()
       if (chunkId) {
@@ -204,8 +261,10 @@ export async function retrieveContextEnhanced(
       "RAGPipeline"
     )
 
+    // Only apply to non-memory results
+    const fileResults = rerankedResults.filter((r) => !r.isMemory)
     applyRecencyBoost(
-      rerankedResults,
+      fileResults,
       embeddingConfig.temporalBoostWeight || 0.3,
       embeddingConfig.temporalHalfLife || 90
     )
@@ -215,18 +274,35 @@ export async function retrieveContextEnhanced(
   }
 
   // ===== STAGE 3: MMR Diversity Filtering =====
+  // Memory results are kept separate from MMR to preserve them
+  const fileResults = rerankedResults.filter((r) => !r.isMemory)
+  const memoryResults = rerankedResults.filter((r) => r.isMemory)
+
   if (!diversityEnabled) {
-    return rerankedResults.slice(0, topK)
+    const finalResults = [
+      ...fileResults.slice(0, topK),
+      ...memoryResults.slice(0, 1) // Add 1 memory result max
+    ]
+    return finalResults
   }
 
   logger.verbose("Stage 3: MMR diversity filtering", "RAGPipeline", {
     lambda: diversityLambda
   })
 
-  const diversified = applyMMR(rerankedResults, topK, diversityLambda)
+  const diversifiedFileResults = applyMMR(fileResults, topK, diversityLambda)
+
+  // Combine: top file results + memory results (separate blocks for Option B)
+  const diversified = [
+    ...diversifiedFileResults,
+    ...memoryResults.slice(0, 1) // Add 1 memory result max
+  ]
+
+  const fileCount = diversified.filter((r) => !r.isMemory).length
+  const memoryCount = diversified.filter((r) => r.isMemory).length
 
   logger.info(
-    `Stage 3 complete: ${diversified.length} final results`,
+    `Stage 3 complete: ${diversified.length} final results (${fileCount} files, ${memoryCount} memory)`,
     "RAGPipeline"
   )
 
@@ -360,8 +436,10 @@ export function formatEnhancedResults(
 
   const formattedContext = includedResults
     .map((r, i) => {
-      const source =
-        r.document.metadata.title || r.document.metadata.source || "Unknown"
+      const isMemory = r.isMemory
+      const source = isMemory
+        ? `Previous conversation${r.document.metadata.sessionId ? ` (session)` : ""}`
+        : r.document.metadata.title || r.document.metadata.source || "Unknown"
       const page = r.document.metadata.page
       const chunkIndex = r.document.metadata.chunkIndex
       const totalChunks = r.document.metadata.totalChunks
@@ -373,6 +451,7 @@ export function formatEnhancedResults(
       const attrs = [
         `id="${i + 1}"`,
         `source="${escapeAttribute(source)}"`,
+        `type="${isMemory ? "memory" : r.document.metadata.type || "file"}"`,
         page ? `page="${page}"` : undefined,
         chunkLabel ? `chunk="${chunkLabel}"` : undefined,
         r.score ? `score="${r.score.toFixed(3)}"` : undefined
@@ -380,20 +459,28 @@ export function formatEnhancedResults(
         .filter(Boolean)
         .join(" ")
 
+      // For memory results, wrap with special tags for separation
+      if (isMemory) {
+        return `<doc ${attrs}>\n${r.document.content}\n</doc>`
+      }
+
       return `<doc ${attrs}>\n${r.document.content}\n</doc>`
     })
     .join("\n\n")
 
   const sources = includedResults.map((r) => ({
     id: r.document.id || 0,
-    title: r.document.metadata.title || r.document.metadata.source || "Unknown",
+    title: r.isMemory
+      ? "Previous Conversation"
+      : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
     score: r.score,
     source: r.document.metadata.source,
     chunkIndex: r.document.metadata.chunkIndex,
     page: r.document.metadata.page,
     fileId: r.document.metadata.fileId,
-    type: r.document.metadata.type
+    type: r.isMemory ? "memory" : r.document.metadata.type,
+    isMemory: r.isMemory
   }))
 
   return {

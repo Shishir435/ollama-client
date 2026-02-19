@@ -36,6 +36,13 @@ export const useChat = () => {
     },
     ""
   )
+  const [memoryEnabled] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.MEMORY.ENABLED,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
   const { toast } = useToast()
 
   const { input, setInput } = useChatInput()
@@ -428,13 +435,15 @@ export const useChat = () => {
             suggestedMode: queryClassification.suggestedMode
           })
 
-          // Retrieve RAG context
+          // Retrieve RAG context (include memory if enabled)
           const context = await retrieveContext(queryForRag, fileIds, {
             mode: queryClassification.suggestedMode,
             topK: retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
             useReranking: true,
             minSimilarity: retrievalOverrides?.minSimilarity,
-            minRerankScore: retrievalOverrides?.minRerankScore
+            minRerankScore: retrievalOverrides?.minRerankScore,
+            includeMemory: memoryEnabled,
+            memoryTopK: 2
           })
 
           if (context.documents.length > 0) {

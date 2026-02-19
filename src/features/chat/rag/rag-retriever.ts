@@ -82,6 +82,8 @@ export async function retrieveContext(
     useReranking?: boolean
     minSimilarity?: number
     minRerankScore?: number
+    includeMemory?: boolean
+    memoryTopK?: number
   } = {}
 ): Promise<RetrievedContext> {
   const {
@@ -89,7 +91,9 @@ export async function retrieveContext(
     topK,
     maxTokens,
     minSimilarity,
-    minRerankScore
+    minRerankScore,
+    includeMemory,
+    memoryTopK
   } = options
 
   let results: EnhancedSearchResult[] = []
@@ -133,7 +137,9 @@ export async function retrieveContext(
       diversityEnabled: true,
       minSimilarity:
         minSimilarity ?? (await knowledgeConfig.getMinSimilarity()),
-      minRerankScore
+      minRerankScore,
+      includeMemory,
+      memoryTopK
     })
   }
 
