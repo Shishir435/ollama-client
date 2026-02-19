@@ -49,7 +49,9 @@
     "format:check": "biome format .",
     "clean": "rm -rf build .plasmo .wxt .output",
     "prepare": "husky",
-    "generate:resources": "npx tsx tools/generate-i18n-resources.ts"
+    "generate:resources": "npx tsx tools/generate-i18n-resources.ts",
+    "copy:onnx": "node scripts/copy-onnx-assets.mjs",
+    "postinstall": "pnpm copy:onnx"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
@@ -81,6 +83,8 @@
     "dexie": "^4.0.11",
     "dompurify": "^3.2.6",
     "highlight.js": "^11.11.1",
+    "hnsw": "^1.0.3",
+    "hnswlib-wasm": "^0.8.2",
     "html2pdf.js": "^0.11.1",
     "i18next": "^25.6.3",
     "i18next-browser-languagedetector": "^8.2.0",
@@ -98,6 +102,7 @@
     "markdown-it-sup": "^2.0.0",
     "markdown-it-task-lists": "^2.1.1",
     "minisearch": "^7.2.0",
+    "onnxruntime-web": "^1.24.1",
     "pa-tesseract.js": "^5.1.1",
     "pdfjs-dist": "^4.0.379",
     "react": "18.2.0",
@@ -166,7 +171,11 @@
     "web_accessible_resources": [
       {
         "resources": [
-          "assets/*.wasm"
+          "assets/*.wasm",
+          "assets/models/*",
+          "assets/models/**",
+          "assets/onnxruntime/*",
+          "assets/onnxruntime/**"
         ],
         "matches": [
           "<all_urls>"

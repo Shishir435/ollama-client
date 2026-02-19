@@ -39,6 +39,10 @@ export interface EmbeddingConfig {
   searchCacheTTL: number // Cache TTL in minutes (default: 5)
   searchCacheMaxSize: number // Max cached queries (default: 50)
 
+  // ANN Backend Settings
+  annBackend: "wasm-hnsw" | "ts-hnsw" | "bruteforce" // ANN backend selection (default: wasm-hnsw)
+  annMinVectors: number // Min vectors before ANN activates (default: 5000)
+
   // Storage settings
   maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
   autoCleanup: boolean // Auto cleanup old embeddings (default: false)
@@ -68,6 +72,9 @@ export interface EmbeddingConfig {
 
   // Re-ranking Quality
   minRerankScore: number // Minimum re-ranking confidence threshold 0-1 (default: 0.6)
+
+  // Re-ranking Backend
+  rerankerBackend: "none" | "transformers-js" | "onnxruntime-web" // Reranker backend (default: none)
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: boolean // Enable adaptive hybrid weights based on query type (default: true)
@@ -99,6 +106,8 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
   searchCacheTTL: 5, // 5 minutes
   searchCacheMaxSize: 50, // Max 50 cached queries
+  annBackend: "wasm-hnsw",
+  annMinVectors: 5000,
   maxStorageSize: 100, // 100MB limit
   autoCleanup: false,
   cleanupDaysOld: 30,
@@ -111,7 +120,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: false, // DISABLED: transformers.js incompatible with Chrome extension CSP
+  useReranking: true, // ENABLED: ONNX Runtime bundled for Chrome extension
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
@@ -120,6 +129,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   diversityEnabled: true,
   diversityLambda: 0.7,
   minRerankScore: 0.6, // Prevent low-confidence results
+  rerankerBackend: "transformers-js",
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: true,

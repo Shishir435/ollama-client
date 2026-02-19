@@ -70,7 +70,7 @@ Run `pnpm lint:check && pnpm test:run` before opening PRs.
 
 - Embedding strategy chain: provider-native → shared model → Ollama fallback
 - Hybrid search: keyword + semantic with configurable weights
-- CSP constraint: Reranker disabled by default (transformers.js incompatible)
+- Cross-encoder reranker: Enabled by default using transformers.js with bundled ONNX Runtime WASM
 - Browser-first contracts: `src/lib/rag/core/interfaces.ts`
 
 ## Key Conventions
@@ -102,7 +102,7 @@ Uses Biome (not ESLint/Prettier):
 
 ## Important Constraints
 
-- Chrome extension CSP limits WASM/worker ML paths (reranker disabled)
+- Chrome extension CSP requires bundled WASM files (ONNX Runtime bundled for reranker)
 - Firefox lacks Chrome DNR API behavior - requires explicit CORS setup
 - Provider model naming collisions can cause ambiguous routing
 - Token budgeting is approximate (`chars / 4`)
