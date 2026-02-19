@@ -183,10 +183,11 @@ export class OllamaProvider implements LLMProvider {
 
     // Prefer current endpoint and fall back to legacy endpoint for compatibility.
     try {
+      const requestBody = { model: targetModel, input: text }
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: targetModel, input: text })
+        body: JSON.stringify(requestBody)
       })
 
       if (response.ok) {
@@ -198,26 +199,43 @@ export class OllamaProvider implements LLMProvider {
         if (Array.isArray(vector) && vector.length > 0) {
           return vector
         }
+      } else {
+        const errorText = await response.text()
+        console.warn(
+          `[Ollama] /api/embed failed: ${response.status}`,
+          errorText
+        )
       }
     } catch (_error) {
       // Continue to legacy fallback.
     }
 
-    const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: targetModel, prompt: text })
-    })
+    try {
+      const legacyBody = { model: targetModel, prompt: text }
+      const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(legacyBody)
+      })
 
-    if (!legacyResponse.ok) {
-      throw new Error(`Ollama Embedding Error: ${legacyResponse.status}`)
-    }
+      if (!legacyResponse.ok) {
+        const errorText = await legacyResponse.text()
+        console.warn(
+          `[Ollama] /api/embeddings failed: ${legacyResponse.status}`,
+          errorText
+        )
+        throw new Error(`Ollama Embedding Error: ${legacyResponse.status}`)
+      }
 
-    const legacyData = await legacyResponse.json()
-    if (!Array.isArray(legacyData.embedding)) {
-      throw new Error("Ollama Embedding Error: invalid embedding response")
+      const legacyData = await legacyResponse.json()
+      if (!Array.isArray(legacyData.embedding)) {
+        throw new Error("Ollama Embedding Error: invalid embedding response")
+      }
+      return legacyData.embedding
+    } catch (error) {
+      console.error("[Ollama] Both embed endpoints failed", error)
+      throw error
     }
-    return legacyData.embedding
   }
 
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {
