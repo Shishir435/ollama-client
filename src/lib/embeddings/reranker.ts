@@ -18,11 +18,11 @@ export type RerankerBackend = "none" | "transformers-js" | "onnxruntime-web"
  */
 class RerankerService {
   private model: TextClassificationPipeline | null = null
-  private loading: Promise<TextClassificationPipeline> | null = null
+  private loading: Promise<TextClassificationPipeline | null> | null = null
   private enabled: boolean = false // Disabled by default in config
   private backend: RerankerBackend = "none"
-  private modelName = "Xenova/bge-reranker-base"
-  private forceDevice: "webgpu" | "wasm" | undefined = undefined
+  // Use a smaller, faster model for Chrome extension
+  private modelName = "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
 
   private disposeTimeout: NodeJS.Timeout | null = null
   private readonly DISPOSE_DELAY = 5 * 60 * 1000 // 5 minutes
