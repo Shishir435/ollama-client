@@ -121,7 +121,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: true, // ENABLED: ONNX Runtime bundled for Chrome extension
+  useReranking: false, // Disabled: requires model download (complex for extensions)
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
@@ -130,7 +130,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   diversityEnabled: true,
   diversityLambda: 0.7,
   minRerankScore: 0.6, // Prevent low-confidence results
-  rerankerBackend: "transformers-js",
+  rerankerBackend: "none",
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: true,
