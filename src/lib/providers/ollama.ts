@@ -87,7 +87,8 @@ export class OllamaProvider implements LLMProvider {
       messages,
       stream: true,
       keep_alive,
-      options: Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
+      options:
+        Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }
 
     const response = await fetch(`${baseUrl}/api/chat`, {
