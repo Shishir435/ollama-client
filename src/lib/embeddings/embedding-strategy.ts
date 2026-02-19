@@ -101,7 +101,14 @@ const tryEmbed = async (
     return null
   }
 
-  const vector = await provider.embed(text, attempt.model)
+  // Truncate text to prevent context length errors (default ~500 tokens = ~2000 chars)
+  const MAX_EMBED_CHARS = 2000
+  const truncatedText =
+    text.length > MAX_EMBED_CHARS
+      ? text.slice(0, MAX_EMBED_CHARS) + "..."
+      : text
+
+  const vector = await provider.embed(truncatedText, attempt.model)
   if (!Array.isArray(vector) || vector.length === 0) {
     return null
   }
