@@ -57,7 +57,7 @@ export default defineConfig({
     ],
     content_security_policy: {
       extension_pages:
-        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.ollama.ai; object-src 'self'"
+        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.ollama.ai; object-src 'self'"
     },
     browser_specific_settings: {
       gecko: {
