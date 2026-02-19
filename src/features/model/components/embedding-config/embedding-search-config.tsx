@@ -2,6 +2,15 @@ import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import type { EmbeddingConfig } from "@/lib/constants"
 
@@ -121,6 +130,61 @@ export const EmbeddingSearchConfig = ({
             }}
             min={10}
             max={200}
+          />
+        </SettingsFormField>
+
+        <SettingsFormField
+          label={t("model.embedding_config.ann_backend_label")}
+          description={t("model.embedding_config.ann_backend_description")}
+          className="pt-2 border-t">
+          <Select
+            value={config.annBackend}
+            onValueChange={(value) =>
+              updateConfig({
+                annBackend: value as EmbeddingConfig["annBackend"]
+              })
+            }>
+            <SelectTrigger>
+              <SelectValue
+                placeholder={t("model.embedding_config.ann_backend_placeholder")}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>
+                  {t("model.embedding_config.ann_backend_group")}
+                </SelectLabel>
+                <SelectItem value="wasm-hnsw">
+                  {t("model.embedding_config.ann_backend_wasm")}
+                </SelectItem>
+                <SelectItem value="ts-hnsw">
+                  {t("model.embedding_config.ann_backend_ts")}
+                </SelectItem>
+                <SelectItem value="bruteforce">
+                  {t("model.embedding_config.ann_backend_bruteforce")}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </SettingsFormField>
+
+        <SettingsFormField
+          htmlFor="annMinVectors"
+          label={t("model.embedding_config.ann_min_vectors_label")}
+          description={t("model.embedding_config.ann_min_vectors_description")}>
+          <Input
+            id="annMinVectors"
+            type="number"
+            value={config.annMinVectors}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10)
+              if (!Number.isNaN(val) && val >= 0) {
+                updateConfig({
+                  annMinVectors: val
+                })
+              }
+            }}
+            min={0}
           />
         </SettingsFormField>
       </div>

@@ -41,17 +41,53 @@ export class OllamaProvider implements LLMProvider {
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const { model, messages, temperature, top_p } = request
+    const {
+      model,
+      messages,
+      temperature,
+      top_p,
+      top_k,
+      repeat_penalty,
+      repeat_last_n,
+      seed,
+      num_ctx,
+      num_predict,
+      min_p,
+      stop,
+      num_thread,
+      num_gpu,
+      num_batch,
+      keep_alive
+    } = request
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
+
+    const options: OllamaChatRequest["options"] = {
+      temperature,
+      top_p,
+      top_k,
+      repeat_penalty,
+      repeat_last_n,
+      seed,
+      num_ctx,
+      num_predict,
+      min_p,
+      stop,
+      num_thread,
+      num_gpu,
+      num_batch
+    }
+
+    // Remove undefined values to keep payload concise
+    const filteredOptions = Object.fromEntries(
+      Object.entries(options).filter(([, value]) => value !== undefined)
+    )
 
     const body: OllamaChatRequest = {
       model,
       messages,
       stream: true,
-      options: {
-        temperature,
-        top_p
-      }
+      keep_alive,
+      options: Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }
 
     const response = await fetch(`${baseUrl}/api/chat`, {

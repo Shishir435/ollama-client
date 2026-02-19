@@ -43,13 +43,21 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm", "ocr/*", "ocr/lang/*"],
+        resources: [
+          "assets/*.wasm",
+          "assets/models/*",
+          "assets/models/**",
+          "assets/onnxruntime/*",
+          "assets/onnxruntime/**",
+          "ocr/*",
+          "ocr/lang/*"
+        ],
         matches: ["<all_urls>"]
       }
     ],
     content_security_policy: {
       extension_pages:
-        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'self'"
+        "script-src 'self' 'wasm-unsafe-eval' https://huggingface.co https://cdn.jsdelivr.net; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://cdn.jsdelivr.net https://*.ollama.ai; object-src 'self'"
     },
     browser_specific_settings: {
       gecko: {

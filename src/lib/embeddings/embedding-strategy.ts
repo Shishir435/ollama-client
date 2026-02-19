@@ -4,6 +4,7 @@ import {
   DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   MESSAGE_KEYS,
+  normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -54,7 +55,7 @@ const normalizeModelForProvider = (
   _providerId: string,
   model: string
 ): string => {
-  const normalized = model.trim()
+  const normalized = normalizeEmbeddingModelName(model)
   const baseModel = DEFAULT_EMBEDDING_MODEL.split(":")[0]?.toLowerCase()
 
   if (baseModel && normalized.toLowerCase() === baseModel) {

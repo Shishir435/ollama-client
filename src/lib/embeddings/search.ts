@@ -172,7 +172,12 @@ export const searchSimilarVectors = async (
   const vectorCount = await vectorQuery.count()
   const queryDimension = queryEmbedding.length
 
-  if (config.useHNSW && config.hnswAutoRebuild && vectorCount > 0) {
+  if (
+    config.useHNSW &&
+    config.annBackend !== "bruteforce" &&
+    config.hnswAutoRebuild &&
+    vectorCount > 0
+  ) {
     const stats = hnswIndexManager.getStats()
     const needsRebuild =
       !stats.isBuilding &&

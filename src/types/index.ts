@@ -33,6 +33,12 @@ export type ModelConfig = {
   seed: number
   num_predict: number
   min_p: number
+  num_thread?: number
+  num_gpu?: number
+  num_batch?: number
+  keep_alive?: string | number
+  warm_on_select?: boolean
+  unload_on_switch?: boolean
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>
@@ -162,6 +168,9 @@ export interface OllamaChatRequest {
     seed?: number
     num_predict?: number
     min_p?: number
+    num_thread?: number
+    num_gpu?: number
+    num_batch?: number
   }
 }
 

@@ -105,7 +105,20 @@ export const handleChatWithModel = withErrorContext(
       {
         model,
         messages: preparedMessages,
-        temperature: modelParams.temperature
+        temperature: modelParams.temperature,
+        top_p: modelParams.top_p,
+        top_k: modelParams.top_k,
+        repeat_penalty: modelParams.repeat_penalty,
+        repeat_last_n: modelParams.repeat_last_n,
+        seed: modelParams.seed,
+        num_ctx: modelParams.num_ctx,
+        num_predict: modelParams.num_predict,
+        min_p: modelParams.min_p,
+        stop: modelParams.stop,
+        num_thread: modelParams.num_thread,
+        num_gpu: modelParams.num_gpu,
+        num_batch: modelParams.num_batch,
+        keep_alive: modelParams.keep_alive
         // provider handles system prompt if needed, but we already injected it into messages
         // so we pass the prepared messages
       },

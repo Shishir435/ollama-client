@@ -9,6 +9,7 @@ import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersSection } from "@/features/model/components/model-parameters-section"
+import { ModelPerformanceSection } from "@/features/model/components/model-performance-section"
 import { ModelSystemSection } from "@/features/model/components/model-system-section"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
@@ -192,6 +193,7 @@ export const ModelSettingsForm = () => {
           <LoadedModelsInfo />
         </SettingsCard>
         <ModelSystemSection config={config} updateConfig={updateConfig} />
+        <ModelPerformanceSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
       </div>
     </FormProvider>

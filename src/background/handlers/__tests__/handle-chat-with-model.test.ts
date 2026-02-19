@@ -202,6 +202,50 @@ describe("handleChatWithModel", () => {
         expect.any(AbortSignal)
       )
     })
+
+    it("should include keep_alive and runtime options from model config", async () => {
+      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            "llama3:latest": {
+              keep_alive: "5m",
+              top_k: 55,
+              num_ctx: 4096,
+              num_thread: 6,
+              num_gpu: 1,
+              num_batch: 16,
+              stop: ["</s>"]
+            }
+          }
+        }
+        return undefined
+      })
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          keep_alive: "5m",
+          top_k: 55,
+          num_ctx: 4096,
+          num_thread: 6,
+          num_gpu: 1,
+          num_batch: 16,
+          stop: ["</s>"]
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
   })
 
   describe("message limiting for small models", () => {

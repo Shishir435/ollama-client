@@ -20,6 +20,7 @@ import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
 import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
+import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
@@ -270,6 +271,12 @@ browser.runtime.onMessage.addListener(
         if (typeof message.payload === "string") {
           handleUnloadModel(message.payload, sendResponse)
         }
+        return true
+      }
+
+      case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL:
+      case MESSAGE_KEYS.OLLAMA.WARMUP_MODEL: {
+        handleWarmupModel(message.payload as { model: string }, sendResponse)
         return true
       }
 

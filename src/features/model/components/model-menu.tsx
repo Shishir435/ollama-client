@@ -23,7 +23,8 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
+import { browser } from "@/lib/browser-api"
+import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getProviderDisplayName } from "@/lib/providers/registry"
@@ -63,12 +64,27 @@ export const ModelMenu = ({
   }, [status, models, selectedModel, setSelectedModel])
 
   const handleSelect = (modelName: string) => {
+    const previousModel = selectedModel
     if (_onSelectModel) {
       _onSelectModel(modelName)
     } else {
       setSelectedModel(modelName)
     }
     setOpen(false)
+
+    if (modelName && modelName !== previousModel) {
+      browser.runtime
+        .sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL,
+          payload: {
+            model: modelName,
+            previousModel
+          }
+        })
+        .catch((error) => {
+          console.warn("Failed to trigger model warmup", error)
+        })
+    }
   }
 
   if (!models) return null

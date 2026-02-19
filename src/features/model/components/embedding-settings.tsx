@@ -19,6 +19,7 @@ import {
   DEFAULT_PROVIDER_ID,
   type EmbeddingConfig,
   MESSAGE_KEYS,
+  normalizeEmbeddingModelName,
   RECOMMENDED_EMBEDDING_MODELS,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -85,6 +86,10 @@ export const EmbeddingSettings = () => {
         return true
       }
 
+      if (normalized.includes("minilm") || normalized.includes("sentence-transformers")) {
+        return true
+      }
+
       return false
     },
     [recommendedBaseSet, recommendedModelSet]
@@ -97,6 +102,12 @@ export const EmbeddingSettings = () => {
 
   // We need to check model existence here to pass to children
   useEffect(() => {
+    const normalized = normalizeEmbeddingModelName(selectedModel)
+    if (normalized !== selectedModel) {
+      setSelectedModel(normalized)
+      return
+    }
+
     if (selectedModel !== lastCheckedModelRef.current) {
       autoSwitchRef.current = false
       lastCheckedModelRef.current = selectedModel

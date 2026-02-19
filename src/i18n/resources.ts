@@ -1574,6 +1574,17 @@ export const resources = {
           cache_max_size_label: "Max Cached Queries",
           cache_max_size_description:
             "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+          ann_backend_label: "ANN Backend",
+          ann_backend_description:
+            "Choose the approximate nearest neighbor backend used for vector search.",
+          ann_backend_placeholder: "Select a backend",
+          ann_backend_group: "Backends",
+          ann_backend_wasm: "WASM HNSW (Recommended)",
+          ann_backend_ts: "TypeScript HNSW",
+          ann_backend_bruteforce: "Brute Force",
+          ann_min_vectors_label: "ANN Min Vectors",
+          ann_min_vectors_description:
+            "Minimum number of vectors before ANN is used (0 = always).",
           enhanced_chunking_label: "Enhanced Chunking",
           enhanced_chunking_description:
             "Use advanced recursive character splitting for better context",
@@ -1598,6 +1609,14 @@ export const resources = {
           reranking_label: "Enable Re-Ranking (Transformers.js)",
           reranking_description:
             "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+          reranker_backend_label: "Reranker Backend",
+          reranker_backend_description:
+            "Choose the backend used to run the reranker model.",
+          reranker_backend_placeholder: "Select a reranker backend",
+          reranker_backend_group: "Backends",
+          reranker_backend_none: "Disabled",
+          reranker_backend_transformers: "Transformers.js (Local)",
+          reranker_backend_onnx: "ONNX Runtime Web (Local)",
           hybrid_search_label: "Enable Hybrid Search",
           hybrid_search_description:
             "Combine keyword search (BM25) with semantic search for better recall.",
@@ -1878,6 +1897,23 @@ export const resources = {
           context: {
             title: "Context and Generation",
             description: "Memory and Output Control Settings"
+          },
+          runtime: {
+            title: "Runtime & Warmup",
+            description: "Control model warmup and runtime options.",
+            keep_alive_label: "Keep alive",
+            keep_alive_description:
+              "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
+            keep_alive_placeholder: "e.g. 300, 5m, 0 to unload",
+            num_thread_label: "Threads",
+            num_gpu_label: "GPU layers",
+            num_batch_label: "Batch size",
+            warm_on_select_label: "Warm model on select",
+            warm_on_select_description:
+              "Preload the model when you switch to it for faster first response.",
+            unload_on_switch_label: "Unload previous model on switch",
+            unload_on_switch_description:
+              "Free memory by unloading the last model when switching."
           },
           parameters: {
             temperature: {

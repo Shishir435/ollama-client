@@ -3,6 +3,7 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   MESSAGE_KEYS,
+  normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -15,6 +16,7 @@ import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
 export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
 ): Promise<{ exists: boolean; debug?: object }> => {
+  const normalizedModelName = normalizeEmbeddingModelName(modelName)
   let providerDebug: object | null = null
 
   // Try High-Level Provider Check
@@ -37,25 +39,25 @@ export const checkEmbeddingModelExists = async (
         })
         .filter((name) => name.length > 0)
       console.log(
-        `[checkEmbeddingModelExists] Checking '${modelName}' against provider models:`,
+        `[checkEmbeddingModelExists] Checking '${normalizedModelName}' against provider models:`,
         modelNames
       )
 
       // Normalize model names for comparison (remove tags)
       const normalizeModelName = (name: string): string =>
         name.split(":")[0] || name
-      const normalizedSearchName = normalizeModelName(modelName)
+      const normalizedSearchName = normalizeModelName(normalizedModelName)
 
       const found = modelNames.some((m: string) => {
-        const normalizedModelName = normalizeModelName(m)
+        const normalizedCandidate = normalizeModelName(m)
         const isMatch =
-          m === modelName ||
-          normalizedModelName === normalizedSearchName ||
-          m.startsWith(`${modelName}:`) ||
+          m === normalizedModelName ||
+          normalizedCandidate === normalizedSearchName ||
+          m.startsWith(`${normalizedModelName}:`) ||
           m.startsWith(`${normalizedSearchName}:`)
         if (isMatch) {
           console.log(
-            `[checkEmbeddingModelExists] Found match: '${m}' matches '${modelName}'`
+            `[checkEmbeddingModelExists] Found match: '${m}' matches '${normalizedModelName}'`
           )
         }
         return isMatch
@@ -78,7 +80,7 @@ export const checkEmbeddingModelExists = async (
         method: "provider-failed-not-found"
       }
       console.warn(
-        `[checkEmbeddingModelExists] Model '${modelName}' NOT found in provider models.`
+        `[checkEmbeddingModelExists] Model '${normalizedModelName}' NOT found in provider models.`
       )
     }
   } catch (error) {
@@ -109,7 +111,7 @@ export const checkEmbeddingModelExists = async (
 
     const normalizeModelName = (name: string): string =>
       name.split(":")[0] || name
-    const normalizedSearchName = normalizeModelName(modelName)
+    const normalizedSearchName = normalizeModelName(normalizedModelName)
 
     const found = providerModels
       .map((model: unknown) => {
@@ -123,11 +125,11 @@ export const checkEmbeddingModelExists = async (
       })
       .filter((name) => name.length > 0)
       .some((name) => {
-        const normalizedModelName = normalizeModelName(name)
+        const normalizedCandidate = normalizeModelName(name)
         return (
-          name === modelName ||
-          normalizedModelName === normalizedSearchName ||
-          name.startsWith(`${modelName}:`) ||
+          name === normalizedModelName ||
+          normalizedCandidate === normalizedSearchName ||
+          name.startsWith(`${normalizedModelName}:`) ||
           name.startsWith(`${normalizedSearchName}:`)
         )
       })
@@ -138,6 +140,7 @@ export const checkEmbeddingModelExists = async (
         ...providerDebug,
         fallback: {
           found,
+          normalizedModelName,
           models: providerModels
             .map((model: unknown) => {
               if (typeof model === "string") return model
@@ -173,13 +176,14 @@ export const downloadEmbeddingModelSilently = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    const normalizedModelName = normalizeEmbeddingModelName(modelName)
     // Check if model already exists
-    const result = await checkEmbeddingModelExists(modelName)
+    const result = await checkEmbeddingModelExists(normalizedModelName)
     if (result.exists) {
       logger.info(
         "Embedding model already exists",
         "downloadEmbeddingModelSilently",
-        { modelName }
+        { modelName: normalizedModelName }
       )
       await plasmoGlobalStorage.set(
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
@@ -190,7 +194,7 @@ export const downloadEmbeddingModelSilently = async (
 
     const baseUrl = await getBaseUrl()
     const requestBody: DefaultProviderPullRequest = {
-      name: modelName,
+      name: normalizedModelName,
       stream: false // Don't stream for silent download
     }
 
@@ -220,13 +224,13 @@ export const downloadEmbeddingModelSilently = async (
     await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
     await plasmoGlobalStorage.set(
       STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-      modelName
+      normalizedModelName
     )
 
     logger.info(
       "Successfully downloaded embedding model",
       "downloadEmbeddingModelSilently",
-      { modelName }
+      { modelName: normalizedModelName }
     )
     return { success: true }
   } catch (error) {
@@ -256,7 +260,9 @@ export const prepareEmbeddingModel = async (
   payload: PrepareEmbeddingPayload = {}
 ): Promise<{ ready: boolean; prepared: boolean; error?: string }> => {
   const providerId = payload.providerId || DEFAULT_PROVIDER_ID
-  const modelName = payload.model || DEFAULT_EMBEDDING_MODEL
+  const modelName = normalizeEmbeddingModelName(
+    payload.model || DEFAULT_EMBEDDING_MODEL
+  )
 
   // Only the default provider supports model pull in current runtime.
   if (providerId !== DEFAULT_PROVIDER_ID) {

@@ -60,6 +60,7 @@ vi.mock("@/background/handlers/handle-scrape-model", () => ({ handleScrapeModel:
 vi.mock("@/background/handlers/handle-scrape-model-variants", () => ({ handleScrapeModelVariants: vi.fn() }))
 vi.mock("@/background/handlers/handle-show-model-details", () => ({ handleShowModelDetails: vi.fn() }))
 vi.mock("@/background/handlers/handle-unload-model", () => ({ handleUnloadModel: vi.fn() }))
+vi.mock("@/background/handlers/handle-warmup-model", () => ({ handleWarmupModel: vi.fn() }))
 vi.mock("@/background/handlers/handle-update-base-url", () => ({ handleUpdateBaseUrl: vi.fn() }))
 vi.mock("@/background/lib/dnr", () => ({ updateDNRRules: vi.fn() }))
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -78,6 +79,7 @@ import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-m
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
+import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
 import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
@@ -177,6 +179,16 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage({ type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" }, {}, vi.fn())
       expect(handleUnloadModel).toHaveBeenCalled()
+    })
+
+    it("should route WARMUP_MODEL", () => {
+      const onMessage = listeners.onMessage[0]
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL, payload: { model: "m" } },
+        {},
+        vi.fn()
+      )
+      expect(handleWarmupModel).toHaveBeenCalled()
     })
 
     it("should route DELETE_MODEL", () => {

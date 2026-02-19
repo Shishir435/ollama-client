@@ -44,6 +44,18 @@ export interface ChatRequest {
   messages: ChatMessage[]
   temperature?: number
   top_p?: number
+  top_k?: number
+  repeat_penalty?: number
+  repeat_last_n?: number
+  seed?: number
+  num_ctx?: number
+  num_predict?: number
+  min_p?: number
+  stop?: string[]
+  num_thread?: number
+  num_gpu?: number
+  num_batch?: number
+  keep_alive?: string | number
   max_tokens?: number
   stream?: boolean
 }

@@ -1,4 +1,3 @@
-import Dexie, { type Table } from "dexie"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
@@ -8,33 +7,46 @@ import { vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
-/**
- * LocalIndex - In-memory HNSW-inspired index for fast approximate nearest neighbor search
- *
- * This is a simplified implementation that works in Service Workers.
- * For production use at scale (>50K vectors), consider upgrading to the WASM solution
- * documented in docs/HNSW_WASM_UPGRADE.md
- */
-interface IndexedVector {
-  id: number
-  embedding: Float32Array
+type AnnBackendType = "wasm-hnsw" | "ts-hnsw" | "bruteforce"
+
+interface AnnBackendStats {
+  count: number
+  dimension: number | null
+  memorySizeMB: number
+  backend: AnnBackendType
 }
 
+interface AnnBackend {
+  readonly backend: AnnBackendType
+  initialize(dimension: number, config: EmbeddingConfig): Promise<void>
+  buildIndex(
+    vectors: Array<{ id: number; embedding: number[] }>,
+    config: EmbeddingConfig
+  ): Promise<void>
+  addVector(id: number, embedding: number[]): Promise<void>
+  search(
+    queryEmbedding: number[],
+    k: number,
+    minSimilarity: number
+  ): Promise<Array<{ id: number; distance: number }>>
+  clear(): Promise<void>
+  getStats(): AnnBackendStats
+  isInitialized(): boolean
+  isCompatibleDimension(dimension: number): boolean
+}
+
+/**
+ * Local in-memory brute-force index for fast similarity search.
+ */
 class LocalVectorIndex {
-  private vectors: IndexedVector[] = []
+  private vectors: Array<{ id: number; embedding: Float32Array }> = []
   private dimension: number | null = null
 
-  /**
-   * Initialize index with dimension
-   */
   initialize(dimension: number): void {
     this.dimension = dimension
     this.vectors = []
   }
 
-  /**
-   * Add vector to index
-   */
   addVector(id: number, embedding: number[]): void {
     if (!this.dimension) {
       this.dimension = embedding.length
@@ -50,18 +62,23 @@ class LocalVectorIndex {
     })
   }
 
-  /**
-   * Search for k nearest neighbors using optimized brute-force with early termination
-   *
-   * While not true HNSW, this provides decent performance for datasets up to ~50K vectors:
-   * - Pre-normalized vectors for fast dot product
-   * - Float32Array for SIMD optimization
-   * - Top-K heap for memory efficiency
-   */
+  buildIndex(vectors: Array<{ id: number; embedding: number[] }>): void {
+    if (vectors.length === 0) {
+      this.vectors = []
+      this.dimension = null
+      return
+    }
+
+    this.initialize(vectors[0].embedding.length)
+    for (const vector of vectors) {
+      this.addVector(vector.id, vector.embedding)
+    }
+  }
+
   search(
     queryEmbedding: number[],
     k: number,
-    minSimilarity: number = 0.0
+    minSimilarity: number
   ): Array<{ id: number; distance: number }> {
     if (this.vectors.length === 0) {
       return []
@@ -74,7 +91,6 @@ class LocalVectorIndex {
     const queryVec = new Float32Array(queryEmbedding)
     const results: Array<{ id: number; similarity: number }> = []
 
-    // Calculate similarities for all vectors
     for (const vec of this.vectors) {
       const similarity = this.cosineSimilarity(queryVec, vec.embedding)
 
@@ -83,7 +99,6 @@ class LocalVectorIndex {
       }
     }
 
-    // Sort by similarity (descending) and take top K
     results.sort((a, b) => b.similarity - a.similarity)
 
     return results
@@ -91,9 +106,6 @@ class LocalVectorIndex {
       .map((r) => ({ id: r.id, distance: r.similarity }))
   }
 
-  /**
-   * Fast cosine similarity using Float32Array
-   */
   private cosineSimilarity(a: Float32Array, b: Float32Array): number {
     let dotProduct = 0
     let normA = 0
@@ -109,26 +121,9 @@ class LocalVectorIndex {
     return denominator === 0 ? 0 : dotProduct / denominator
   }
 
-  /**
-   * Get current vector count
-   */
-  getCount(): number {
-    return this.vectors.length
-  }
-
-  /**
-   * Clear all vectors
-   */
-  clear(): void {
-    this.vectors = []
-    this.dimension = null
-  }
-
-  /**
-   * Get index statistics
-   */
-  getStats() {
+  getStats(): AnnBackendStats {
     return {
+      backend: "bruteforce",
       count: this.vectors.length,
       dimension: this.dimension,
       memorySizeMB:
@@ -139,49 +134,279 @@ class LocalVectorIndex {
   getDimension(): number | null {
     return this.dimension
   }
-}
 
-/**
- * HNSW Index Data stored in IndexedDB (for future WASM implementation)
- */
-interface HNSWIndexData {
-  id: string
-  dimension: number
-  numElements: number
-  indexData: Uint8Array
-  timestamp: number
-  version: number
-}
+  getCount(): number {
+    return this.vectors.length
+  }
 
-/**
- * HNSW Index Database for persistence
- */
-class HNSWIndexDatabase extends Dexie {
-  hnswIndex!: Table<HNSWIndexData>
-
-  constructor() {
-    super("HNSWIndexDatabase")
-    this.version(1).stores({
-      hnswIndex: "id, timestamp"
-    })
+  clear(): void {
+    this.vectors = []
+    this.dimension = null
   }
 }
 
-export const hnswIndexDb = new HNSWIndexDatabase()
+class WasmHnswBackend implements AnnBackend {
+  readonly backend: AnnBackendType = "wasm-hnsw"
+  private lib: Awaited<ReturnType<typeof import("hnswlib-wasm").loadHnswlib>> | null =
+    null
+  private index:
+    | import("hnswlib-wasm").HierarchicalNSW
+    | null = null
+  private dimension: number | null = null
+  private count = 0
+  private filename = ""
+  private persistTimer: NodeJS.Timeout | null = null
 
-/**
- * HNSW Index Manager
- * Currently uses optimized brute-force search in Service Worker
- * Can be upgraded to WASM-based HNSW via Offscreen Document (see docs/HNSW_WASM_UPGRADE.md)
- */
+  private async loadLibrary() {
+    if (this.lib) return this.lib
+    const { loadHnswlib } = await import("hnswlib-wasm")
+    this.lib = await loadHnswlib("IDBFS")
+    return this.lib
+  }
+
+  private buildFilename(dimension: number) {
+    return `hnsw-wasm-${dimension}.idx`
+  }
+
+  async initialize(
+    dimension: number,
+    _config: EmbeddingConfig
+  ): Promise<void> {
+    if (this.dimension === dimension && this.index) return
+    const lib = await this.loadLibrary()
+    this.dimension = dimension
+    this.filename = this.buildFilename(dimension)
+    this.index = new lib.HierarchicalNSW("cosine", dimension, this.filename)
+  }
+
+  async buildIndex(
+    vectors: Array<{ id: number; embedding: number[] }>,
+    config: EmbeddingConfig
+  ): Promise<void> {
+    if (vectors.length === 0) {
+      this.clear()
+      return
+    }
+
+    const dimension = vectors[0].embedding.length
+    await this.initialize(dimension)
+    const lib = await this.loadLibrary()
+    try {
+      await lib.EmscriptenFileSystemManager.syncFS(true, () => {})
+    } catch (error) {
+      logger.debug("Failed to sync IDBFS before build", "HNSWIndex", { error })
+    }
+
+    const maxElements = Math.max(
+      vectors.length + 100,
+      config.annMinVectors || 0,
+      100
+    )
+
+    this.index?.initIndex(
+      maxElements,
+      config.hnswM,
+      config.hnswEfConstruction,
+      100
+    )
+    this.index?.setEfSearch(config.hnswEfSearch)
+
+    for (const vector of vectors) {
+      this.index?.addPoint(vector.embedding, vector.id, false)
+    }
+
+    this.count = vectors.length
+
+    try {
+      await this.index?.writeIndex(this.filename)
+      await lib.EmscriptenFileSystemManager.syncFS(false, () => {})
+    } catch (error) {
+      logger.warn("Failed to persist WASM HNSW index", "HNSWIndex", {
+        error
+      })
+    }
+  }
+
+  async addVector(id: number, embedding: number[]): Promise<void> {
+    if (!this.index || this.dimension !== embedding.length) return
+    this.index.addPoint(embedding, id, false)
+    this.count += 1
+    this.schedulePersist()
+  }
+
+  async search(
+    queryEmbedding: number[],
+    k: number,
+    minSimilarity: number
+  ): Promise<Array<{ id: number; distance: number }>> {
+    if (!this.index || !this.dimension) return []
+    if (queryEmbedding.length !== this.dimension) return []
+
+    const results = this.index.searchKnn(queryEmbedding, k, undefined)
+    return results.neighbors
+      .map((id, idx) => {
+        const distance = results.distances[idx]
+        const similarity = 1 - distance
+        return { id, distance: similarity }
+      })
+      .filter((r) => r.distance >= minSimilarity)
+  }
+
+  async clear(): Promise<void> {
+    this.index = null
+    this.dimension = null
+    this.count = 0
+  }
+
+  getStats(): AnnBackendStats {
+    return {
+      backend: this.backend,
+      count: this.count,
+      dimension: this.dimension,
+      memorySizeMB:
+        (this.count * (this.dimension || 0) * 4) / (1024 * 1024)
+    }
+  }
+
+  isInitialized(): boolean {
+    return !!this.index && this.count > 0
+  }
+
+  isCompatibleDimension(dimension: number): boolean {
+    return this.dimension === dimension
+  }
+
+  private schedulePersist() {
+    if (!this.lib || !this.index) return
+    if (this.persistTimer) return
+
+    this.persistTimer = setTimeout(async () => {
+      this.persistTimer = null
+      try {
+        await this.index?.writeIndex(this.filename)
+        await this.lib?.EmscriptenFileSystemManager.syncFS(false, () => {})
+      } catch (error) {
+        logger.debug("Deferred HNSW persist failed", "HNSWIndex", { error })
+      }
+    }, 5000)
+  }
+}
+
+class TsHnswBackend implements AnnBackend {
+  readonly backend: AnnBackendType = "ts-hnsw"
+  private index: import("hnsw").HNSWWithDB | null = null
+  private dimension: number | null = null
+  private count = 0
+  private persistTimer: NodeJS.Timeout | null = null
+
+  private buildDbName(dimension: number) {
+    return `hnsw-ts-${dimension}`
+  }
+
+  async initialize(
+    dimension: number,
+    config: EmbeddingConfig = DEFAULT_EMBEDDING_CONFIG
+  ): Promise<void> {
+    if (this.dimension === dimension && this.index) return
+    const { HNSWWithDB } = await import("hnsw")
+    this.dimension = dimension
+    this.index = await HNSWWithDB.create(
+      config.hnswM,
+      config.hnswEfConstruction,
+      this.buildDbName(dimension)
+    )
+  }
+
+  async buildIndex(
+    vectors: Array<{ id: number; embedding: number[] }>,
+    config: EmbeddingConfig
+  ): Promise<void> {
+    if (vectors.length === 0) {
+      await this.clear()
+      return
+    }
+
+    const dimension = vectors[0].embedding.length
+    await this.initialize(dimension, config)
+
+    if (!this.index) return
+
+    await this.index.buildIndex(
+      vectors.map((vector) => ({
+        id: vector.id,
+        vector: vector.embedding
+      }))
+    )
+    this.count = vectors.length
+    await this.index.saveIndex()
+  }
+
+  async addVector(id: number, embedding: number[]): Promise<void> {
+    if (!this.index || this.dimension !== embedding.length) return
+    await this.index.addPoint(id, embedding)
+    this.count += 1
+    this.schedulePersist()
+  }
+
+  async search(
+    queryEmbedding: number[],
+    k: number,
+    minSimilarity: number
+  ): Promise<Array<{ id: number; distance: number }>> {
+    if (!this.index) return []
+    const results = this.index.searchKNN(queryEmbedding, k)
+    return results
+      .map((result) => ({ id: result.id, distance: result.score }))
+      .filter((r) => r.distance >= minSimilarity)
+  }
+
+  async clear(): Promise<void> {
+    if (this.index) {
+      await this.index.deleteIndex()
+    }
+    this.index = null
+    this.dimension = null
+    this.count = 0
+  }
+
+  getStats(): AnnBackendStats {
+    return {
+      backend: this.backend,
+      count: this.count,
+      dimension: this.dimension,
+      memorySizeMB:
+        (this.count * (this.dimension || 0) * 4) / (1024 * 1024)
+    }
+  }
+
+  isInitialized(): boolean {
+    return !!this.index && this.count > 0
+  }
+
+  isCompatibleDimension(dimension: number): boolean {
+    return this.dimension === dimension
+  }
+
+  private schedulePersist() {
+    if (!this.index || this.persistTimer) return
+    this.persistTimer = setTimeout(async () => {
+      this.persistTimer = null
+      try {
+        await this.index?.saveIndex()
+      } catch (error) {
+        logger.debug("Deferred TS HNSW persist failed", "HNSWIndex", { error })
+      }
+    }, 5000)
+  }
+}
+
 class HNSWIndexManager {
-  private index: LocalVectorIndex = new LocalVectorIndex()
+  private localIndex: LocalVectorIndex = new LocalVectorIndex()
+  private wasmBackend = new WasmHnswBackend()
+  private tsBackend = new TsHnswBackend()
   private isBuilding: boolean = false
   private buildProgress: number = 0
 
-  /**
-   * Get embedding configuration
-   */
   private async getConfig(): Promise<EmbeddingConfig> {
     const stored = await plasmoGlobalStorage.get<EmbeddingConfig>(
       STORAGE_KEYS.EMBEDDINGS.CONFIG
@@ -192,17 +417,27 @@ class HNSWIndexManager {
     }
   }
 
-  /**
-   * Initialize HNSW index
-   */
-  async initialize(dimension: number): Promise<void> {
-    this.index.initialize(dimension)
-    logger.info("Vector Index Initialized", "HNSWIndex", { dimension })
+  private resolveBackend(config: EmbeddingConfig): AnnBackendType {
+    return config.annBackend || "wasm-hnsw"
   }
 
-  /**
-   * Build index from all vectors in the database
-   */
+  private getBackendInstance(config: EmbeddingConfig): AnnBackend | null {
+    const backend = this.resolveBackend(config)
+    if (backend === "wasm-hnsw") return this.wasmBackend
+    if (backend === "ts-hnsw") return this.tsBackend
+    return null
+  }
+
+  async initialize(dimension: number): Promise<void> {
+    const config = await this.getConfig()
+    const backend = this.getBackendInstance(config)
+    if (backend) {
+      await backend.initialize(dimension, config)
+      return
+    }
+    this.localIndex.initialize(dimension)
+  }
+
   async buildIndex(
     onProgress?: (current: number, total: number) => void,
     targetDimension?: number
@@ -229,37 +464,48 @@ class HNSWIndexManager {
 
       if (filteredVectors.length === 0) {
         logger.info("No vectors to index", "HNSWIndex")
-        this.index.clear()
+        this.localIndex.clear()
         this.isBuilding = false
         return
       }
 
       const dimension = targetDimension ?? filteredVectors[0].embedding.length
-      this.index.initialize(dimension)
+      const config = await this.getConfig()
+      const backend = this.getBackendInstance(config)
 
-      // Process in batches to avoid blocking
-      const BATCH_SIZE = 100
-      let processed = 0
+      const vectorPayload = filteredVectors
+        .filter((vector) => vector.id !== undefined)
+        .map((vector) => ({
+          id: vector.id as number,
+          embedding: vector.embedding
+        }))
 
-      for (let i = 0; i < filteredVectors.length; i += BATCH_SIZE) {
-        const batch = filteredVectors.slice(i, i + BATCH_SIZE)
-
-        for (const vector of batch) {
-          if (vector.id === undefined) continue
-          this.index.addVector(vector.id, vector.embedding)
-          processed++
+      if (backend) {
+        try {
+          await backend.buildIndex(vectorPayload, config)
+        } catch (error) {
+          if (backend.backend === "wasm-hnsw") {
+            logger.warn(
+              "WASM HNSW build failed, falling back to TS backend",
+              "HNSWIndex",
+              { error }
+            )
+            await this.tsBackend.buildIndex(vectorPayload, config)
+          } else {
+            throw error
+          }
         }
-
-        this.buildProgress = processed / filteredVectors.length
-        onProgress?.(processed, filteredVectors.length)
-
-        // Yield to main thread
-        await new Promise((resolve) => setTimeout(resolve, 0))
+      } else {
+        this.localIndex.buildIndex(vectorPayload)
       }
+
+      this.buildProgress = 1
+      onProgress?.(vectorPayload.length, vectorPayload.length)
 
       const duration = performance.now() - startTime
       logger.info("Vector Index built successfully", "HNSWIndex", {
-        count: filteredVectors.length,
+        backend: backend?.backend ?? "bruteforce",
+        count: vectorPayload.length,
         dimension,
         targetDimension,
         duration: `${duration.toFixed(2)}ms`
@@ -273,40 +519,45 @@ class HNSWIndexManager {
     }
   }
 
-  /**
-   * Add a single vector to the index (incremental update)
-   */
   async addVector(id: number, embedding: number[]): Promise<void> {
+    const config = await this.getConfig()
+    const backend = this.getBackendInstance(config)
     try {
-      this.index.addVector(id, embedding)
+      if (backend?.isInitialized()) {
+        await backend.addVector(id, embedding)
+      } else if (backend?.backend === "wasm-hnsw" && this.tsBackend.isInitialized()) {
+        await this.tsBackend.addVector(id, embedding)
+      } else if (!backend) {
+        this.localIndex.addVector(id, embedding)
+      }
     } catch (error) {
       logger.error("Failed to add vector to index", "HNSWIndex", { error })
     }
   }
 
-  /**
-   * Search for k nearest neighbors
-   */
   async search(
     queryEmbedding: number[],
     k: number = 10
   ): Promise<Array<{ id: number; distance: number }>> {
     const config = await this.getConfig()
-    return this.index.search(queryEmbedding, k, config.defaultMinSimilarity)
+    const minSimilarity = config.defaultMinSimilarity
+    const backend = this.getBackendInstance(config)
+    if (backend?.isInitialized()) {
+      return backend.search(queryEmbedding, k, minSimilarity)
+    }
+    if (backend?.backend === "wasm-hnsw" && this.tsBackend.isInitialized()) {
+      return this.tsBackend.search(queryEmbedding, k, minSimilarity)
+    }
+    return this.localIndex.search(queryEmbedding, k, minSimilarity)
   }
 
-  /**
-   * Clear the index
-   */
   async clearIndex(): Promise<void> {
-    this.index.clear()
-    await hnswIndexDb.hnswIndex.clear()
+    await this.wasmBackend.clear()
+    await this.tsBackend.clear()
+    this.localIndex.clear()
     logger.verbose("Vector Index cleared", "HNSWIndex")
   }
 
-  /**
-   * Get index statistics
-   */
   getStats(): {
     isInitialized: boolean
     dimension: number | null
@@ -314,21 +565,26 @@ class HNSWIndexManager {
     isBuilding: boolean
     buildProgress: number
     memorySizeMB: number
+    backend: AnnBackendType
   } {
-    const stats = this.index.getStats()
+    const stats =
+      this.wasmBackend.isInitialized()
+        ? this.wasmBackend.getStats()
+        : this.tsBackend.isInitialized()
+          ? this.tsBackend.getStats()
+          : this.localIndex.getStats()
+
     return {
       isInitialized: stats.count > 0,
       dimension: stats.dimension,
       numElements: stats.count,
       isBuilding: this.isBuilding,
       buildProgress: this.buildProgress,
-      memorySizeMB: stats.memorySizeMB
+      memorySizeMB: stats.memorySizeMB,
+      backend: stats.backend
     }
   }
 
-  /**
-   * Check if index should be used based on configuration and vector count
-   */
   async shouldUseHNSW(vectorCount: number): Promise<boolean> {
     const config = await this.getConfig()
 
@@ -336,19 +592,33 @@ class HNSWIndexManager {
       return false
     }
 
-    if (vectorCount < config.hnswMinVectors) {
+    const minVectors = config.annMinVectors ?? config.hnswMinVectors ?? 0
+    if (vectorCount < minVectors) {
       return false
     }
 
-    return this.index.getCount() > 0
+    const backend = this.getBackendInstance(config)
+    if (!backend) return false
+
+    if (backend.isInitialized()) return true
+    if (backend.backend === "wasm-hnsw") {
+      return this.tsBackend.isInitialized()
+    }
+
+    return false
   }
 
   isCompatibleDimension(queryDimension: number): boolean {
-    const dimension = this.index.getDimension()
+    if (this.wasmBackend.isInitialized()) {
+      return this.wasmBackend.isCompatibleDimension(queryDimension)
+    }
+    if (this.tsBackend.isInitialized()) {
+      return this.tsBackend.isCompatibleDimension(queryDimension)
+    }
+    const dimension = this.localIndex.getDimension()
     if (!dimension) return false
     return dimension === queryDimension
   }
 }
 
-// Export singleton instance
 export const hnswIndexManager = new HNSWIndexManager()
