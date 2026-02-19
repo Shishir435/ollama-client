@@ -113,7 +113,6 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   cleanupDaysOld: 30,
   // HNSW Phase 2 defaults
   useHNSW: true, // Always use HNSW for best quality
-  annBackend: "wasm", // WASM backend (falls back to JS if WASM fails)
   hnswM: 16, // Good balance of accuracy and speed
   hnswEfConstruction: 200, // High quality index construction
   hnswEfSearch: 100, // High quality search results
