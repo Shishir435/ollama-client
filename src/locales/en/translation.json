@@ -114,6 +114,7 @@
       "fork": "Fork Conversation",
       "edit": "Edit",
       "export_as": "Export as...",
+      "more": "More",
       "delete": "Delete Message"
     },
     "metrics": {

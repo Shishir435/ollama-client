@@ -10,7 +10,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList
+  CommandList,
+  CommandSeparator
 } from "@/components/ui/command"
 import {
   Popover,
@@ -159,38 +160,40 @@ export const ModelMenu = ({
       </Tooltip>
 
       <PopoverContent className="w-[320px] p-0" align="start">
-        <div className="flex items-center justify-between border-b px-3 py-2">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {t("model.menu.models_label")}
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={refresh}
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                aria-label={t("model.menu.refresh_aria_label")}>
-                <RotateCcw
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform",
-                    isLoading && "animate-spin"
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("model.menu.refresh_tooltip")}</TooltipContent>
-          </Tooltip>
-        </div>
-
-        <Command className="max-h-[400px]">
-          <div className="flex items-center border-b px-3">
+        <Command className="max-h-[400px] w-full">
+          <div className="flex flex-col justify-between w-full h-full p-1">
+            <div className="flex items-center justify-between p-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {t("model.menu.models_label")}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={refresh}
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    aria-label={t("model.menu.refresh_aria_label")}>
+                    <RotateCcw
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        isLoading && "animate-spin"
+                      )}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t("model.menu.refresh_tooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <CommandInput
               placeholder={t("model.menu.search_placeholder")}
-              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-transparent rounded-md text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               autoFocus
             />
           </div>
+          <CommandSeparator className="mt-2" />
           <CommandList className="max-h-[300px] overflow-y-auto p-1">
             <CommandEmpty className="py-6 text-center text-sm">
               {t("model.menu.no_model_found")}

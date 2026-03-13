@@ -140,6 +140,7 @@ export const useChatStream = ({
   setIsStreaming,
   onToken
 }: UseChatStreamProps) => {
+  const DEBUG_THINKING_STREAM = false
   const { t } = useTranslation()
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
@@ -177,6 +178,24 @@ export const useChatStream = ({
     }
 
     const listener = (msg: StreamMessage) => {
+      if (DEBUG_THINKING_STREAM) {
+        console.debug("[Stream] msg", {
+          type: msg.type,
+          hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
+          deltaPreview:
+            typeof msg.delta === "string" ? msg.delta.slice(0, 120) : undefined,
+          hasThinkingDelta:
+            typeof msg.thinkingDelta === "string" &&
+            msg.thinkingDelta.length > 0,
+          thinkingPreview:
+            typeof msg.thinkingDelta === "string"
+              ? msg.thinkingDelta.slice(0, 120)
+              : undefined,
+          done: msg.done,
+          error: msg.error
+        })
+        console.log("MSG", JSON.stringify(msg, null, 3))
+      }
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false
@@ -194,6 +213,9 @@ export const useChatStream = ({
       let didUpdate = false
 
       if (msg.thinkingDelta) {
+        if (DEBUG_THINKING_STREAM) {
+          console.debug("[ThinkingStream] delta", msg.thinkingDelta)
+        }
         assistantMessage.thinking = `${assistantMessage.thinking || ""}${msg.thinkingDelta}`
         didUpdate = true
       }
@@ -205,6 +227,9 @@ export const useChatStream = ({
         )
 
         if (thinking) {
+          if (DEBUG_THINKING_STREAM) {
+            console.debug("[ThinkingStream] parsed", thinking)
+          }
           assistantMessage.thinking = `${assistantMessage.thinking || ""}${thinking}`
           didUpdate = true
         }

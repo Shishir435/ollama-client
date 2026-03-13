@@ -10,6 +10,7 @@ export const ChatMessageBubble = ({
   msg,
   onRegenerate,
   isLoading,
+  isStreaming,
   showRetrievedChunks,
   feedbackEnabled,
   onUpdate,
@@ -19,6 +20,7 @@ export const ChatMessageBubble = ({
   msg: ChatMessage
   onRegenerate?: (model: string) => void
   isLoading?: boolean
+  isStreaming?: boolean
   showRetrievedChunks?: boolean
   feedbackEnabled?: boolean
   onUpdate?: (content: string) => void
@@ -69,7 +71,12 @@ export const ChatMessageBubble = ({
         />
       ) : (
         <>
-          <ChatMessageContent msg={msg} isUser={isUser} />
+          <ChatMessageContent
+            msg={msg}
+            isUser={isUser}
+            isLoading={isLoading}
+            isStreaming={isStreaming}
+          />
           <ChatMessageFooter
             isUser={isUser}
             msg={msg}

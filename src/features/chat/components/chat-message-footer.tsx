@@ -6,18 +6,24 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { CopyButton } from "@/features/chat/components/copy-button"
 import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import {
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Download,
+  Code,
+  FileDown,
+  FileText,
   GitFork,
   MoreHorizontal,
   SquarePen,
@@ -63,6 +69,60 @@ export const ChatMessageFooter = ({
     onNavigate?.(targetNodeId)
   }
 
+  const actionItems = [
+    onExport
+      ? {
+          key: "markdown",
+          label: "Markdown",
+          onClick: () => onExport("markdown"),
+          icon: <BookOpen className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "pdf",
+          label: "PDF",
+          onClick: () => onExport("pdf"),
+          icon: <FileDown className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "json",
+          label: "JSON",
+          onClick: () => onExport("json"),
+          icon: <Code className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "text",
+          label: "Text",
+          onClick: () => onExport("text"),
+          icon: <FileText className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onDelete
+      ? {
+          key: "delete",
+          label: t("chat.actions.delete"),
+          onClick: () => onDelete(),
+          icon: <Trash2 className="size-4" />,
+          destructive: true
+        }
+      : null
+  ].filter(Boolean) as Array<{
+    key: string
+    label: string
+    onClick: () => void
+    icon: React.ReactNode
+    destructive: boolean
+  }>
+
   return (
     <div
       className={
@@ -71,7 +131,7 @@ export const ChatMessageFooter = ({
       }>
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-xs">
+        <div className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5">
           <Button
             variant="ghost"
             size="icon"
@@ -100,7 +160,7 @@ export const ChatMessageFooter = ({
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex items-center gap-1 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
@@ -117,25 +177,43 @@ export const ChatMessageFooter = ({
           )}
 
         {onEdit && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-            onClick={onEdit}
-            title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}>
-            {isUser ? (
-              <GitFork className="size-3.5" />
-            ) : (
-              <SquarePen className="size-3.5" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                onClick={onEdit}
+                title={
+                  isUser ? t("chat.actions.fork") : t("chat.actions.edit")
+                }>
+                {isUser ? (
+                  <GitFork className="size-3.5" />
+                ) : (
+                  <SquarePen className="size-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {!isUser && msg.model && !isLoading && (
-          <RegenerateButton
-            model={msg.model}
-            onSelectModel={(model) => onRegenerate?.(model)}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <RegenerateButton
+                  model={msg.model}
+                  onSelectModel={(model) => onRegenerate?.(model)}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("chat.actions.switch_model_tooltip")}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         <DropdownMenu>
@@ -143,62 +221,44 @@ export const ChatMessageFooter = ({
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60">
-              <MoreHorizontal className="size-3.5" />
+              className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              title={t("chat.actions.more")}
+              aria-label={t("chat.actions.more")}>
+              <MoreHorizontal className="size-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
             sideOffset={6}
-            className="w-40 rounded-lg border-muted/60 p-1.5 shadow-lg">
-            {onExport && (
+            className="w-auto rounded-lg border-muted/60 p-1.5 shadow-lg data-open:animate-none data-closed:animate-none">
+            {actionItems.length > 0 && (
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground px-2">
-                  Export
-                </DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => onExport("markdown")}
-                  className="gap-2 py-1.5 text-xs">
-                  <Download className="size-3.5" />
-                  <span>Markdown</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onExport("pdf")}
-                  className="gap-2 py-1.5 text-xs">
-                  <Download className="size-3.5" />
-                  <span>PDF</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onExport("json")}
-                  className="gap-2 py-1.5 text-xs">
-                  <Download className="size-3.5" />
-                  <span>JSON</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onExport("text")}
-                  className="gap-2 py-1.5 text-xs">
-                  <Download className="size-3.5" />
-                  <span>Text</span>
-                </DropdownMenuItem>
+                <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">
+                  {actionItems.map((item) => (
+                    <Tooltip key={item.key}>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          onClick={item.onClick}
+                          aria-label={item.label}
+                          className={
+                            item.destructive
+                              ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
+                              : "size-8 justify-center rounded-md hover:bg-muted/60"
+                          }>
+                          {item.icon}
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent>{item.label}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               </DropdownMenuGroup>
-            )}
-
-            {onDelete && (
-              <>
-                {onExport && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  onClick={onDelete}
-                  className="gap-2 py-1.5 text-xs text-destructive focus:text-destructive focus:bg-destructive/10">
-                  <Trash2 className="size-3.5" />
-                  {t("chat.actions.delete")}
-                </DropdownMenuItem>
-              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="ml-auto text-[10px] text-muted-foreground/60">
+      <div className="ml-auto text-[10px] text-muted-foreground/60 tabular-nums">
         {isUser
           ? new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
               hour: "2-digit",

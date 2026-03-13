@@ -128,6 +128,11 @@ export const ChatMessageList = ({
                   msg.role === "assistant" &&
                   index === filteredMessages.length - 1
                 }
+                isStreaming={
+                  isStreaming &&
+                  msg.role === "assistant" &&
+                  index === filteredMessages.length - 1
+                }
                 showRetrievedChunks={showRetrievedChunks}
                 feedbackEnabled={feedbackEnabled}
                 onRegenerate={

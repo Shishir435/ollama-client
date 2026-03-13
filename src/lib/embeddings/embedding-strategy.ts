@@ -91,9 +91,45 @@ const getStoredEmbeddingModel = async (): Promise<string> => {
   return stored || DEFAULT_EMBEDDING_MODEL
 }
 
+const isContextLengthError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error)
+  return /context length|input length|too long|max(?:imum)? context/i.test(
+    message
+  )
+}
+
+const buildTruncationPlan = (maxChars: number): number[] => {
+  const targets = [
+    maxChars,
+    2048,
+    1536,
+    1024,
+    768,
+    512,
+    384,
+    256,
+    192,
+    160,
+    128,
+    96,
+    64,
+    48,
+    32
+  ]
+  const unique: number[] = []
+  for (const value of targets) {
+    if (value <= 0) continue
+    if (!unique.includes(value)) {
+      unique.push(value)
+    }
+  }
+  return unique
+}
+
 const tryEmbed = async (
   text: string,
-  attempt: EmbedAttempt
+  attempt: EmbedAttempt,
+  maxChars: number
 ): Promise<EmbeddingStrategyResult | null> => {
   const provider = await ProviderFactory.getProvider(attempt.providerId)
 
@@ -101,25 +137,40 @@ const tryEmbed = async (
     return null
   }
 
-  // Truncate text to prevent context length errors (default ~500 tokens = ~2000 chars)
-  const MAX_EMBED_CHARS = 2000
-  const truncatedText =
-    text.length > MAX_EMBED_CHARS
-      ? `${text.slice(0, MAX_EMBED_CHARS)}...`
-      : text
+  const truncationPlan = buildTruncationPlan(maxChars)
+  let lastError: unknown
 
-  const vector = await provider.embed(truncatedText, attempt.model)
-  if (!Array.isArray(vector) || vector.length === 0) {
-    return null
+  for (let index = 0; index < truncationPlan.length; index++) {
+    const limit = truncationPlan[index]
+    const truncatedText =
+      text.length > limit ? `${text.slice(0, limit)}...` : text
+
+    try {
+      const vector = await provider.embed(truncatedText, attempt.model)
+      if (!Array.isArray(vector) || vector.length === 0) {
+        return null
+      }
+
+      return {
+        embedding: vector,
+        model: attempt.model,
+        providerId: provider.id,
+        route: attempt.route,
+        attemptedRoutes: [attempt.route]
+      }
+    } catch (error) {
+      lastError = error
+      if (!isContextLengthError(error)) {
+        throw error
+      }
+    }
   }
 
-  return {
-    embedding: vector,
-    model: attempt.model,
-    providerId: provider.id,
-    route: attempt.route,
-    attemptedRoutes: [attempt.route]
+  if (lastError) {
+    throw lastError
   }
+
+  return null
 }
 
 const scheduleSharedModelWarmup = async (
@@ -200,7 +251,11 @@ const buildAttempts = async (
   )
 
   const baseAttempts: EmbedAttempt[] = []
-  const providerNativeAttempt = activeProvider?.embed
+  const allowProviderNative =
+    !!activeProvider?.embed &&
+    (activeProvider.id === DEFAULT_PROVIDER_ID ||
+      config.embeddingStrategy === "provider-native")
+  const providerNativeAttempt = allowProviderNative
     ? {
         providerId: activeProvider.id,
         route: "provider-native" as const,
@@ -276,6 +331,8 @@ export const generateEmbeddingWithStrategy = async (
   text: string,
   requestedModel?: string
 ): Promise<EmbeddingStrategyResult> => {
+  const config = await getEmbeddingConfig()
+  const maxChars = Math.max(256, Math.floor(config.chunkSize * 4))
   const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
   const attemptedRoutes: EmbeddingRoute[] = []
   const routeErrors: string[] = []
@@ -284,7 +341,7 @@ export const generateEmbeddingWithStrategy = async (
     attemptedRoutes.push(attempt.route)
 
     try {
-      const result = await tryEmbed(text, attempt)
+      const result = await tryEmbed(text, attempt, maxChars)
       if (result) {
         result.attemptedRoutes = [...attemptedRoutes]
         return result

@@ -113,6 +113,7 @@
       "switch_model_tooltip": "モデルを切り替え",
       "edit": "編集",
       "export_as": "エクスポート...",
+      "more": "その他",
       "delete": "メッセージを削除"
     },
     "metrics": {
