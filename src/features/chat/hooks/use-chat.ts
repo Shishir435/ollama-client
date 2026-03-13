@@ -29,6 +29,7 @@ import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage, FileAttachment } from "@/types"
 
 export const useChat = () => {
+  const DEBUG_THINKING_STREAM = process.env.NODE_ENV === "development" && false
   const [selectedModel] = useStorage<string>(
     {
       key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
@@ -85,13 +86,18 @@ export const useChat = () => {
     query: string
   } | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const thinkingLogRef = useRef<Map<number, number>>(new Map())
 
-  const debouncedDbUpdate = (id: number, content: string) => {
+  const debouncedDbUpdate = (
+    id: number,
+    content: string,
+    thinking?: string
+  ) => {
     if (dbUpdateTimeoutRef.current) {
       clearTimeout(dbUpdateTimeoutRef.current)
     }
     dbUpdateTimeoutRef.current = setTimeout(() => {
-      updateMessage(id, { content }, false) // false = write to DB
+      updateMessage(id, { content, thinking }, false) // false = write to DB
     }, 1000) // 1 second debounce
   }
 
@@ -100,11 +106,24 @@ export const useChat = () => {
       // Logic to update UI state immediately (skip DB)
       if (currentStreamingMessageId.current && newMessages.length > 0) {
         const lastMsg = newMessages[newMessages.length - 1]
+        if (DEBUG_THINKING_STREAM && lastMsg.thinking) {
+          const id = currentStreamingMessageId.current
+          const nextLen = lastMsg.thinking.length
+          const prevLen = thinkingLogRef.current.get(id) ?? 0
+          if (nextLen !== prevLen) {
+            console.log("[ThinkingStore] len", nextLen, {
+              id,
+              tail: lastMsg.thinking.slice(-120)
+            })
+            thinkingLogRef.current.set(id, nextLen)
+          }
+        }
         // Update local state ONLY (fast)
         updateMessage(
           currentStreamingMessageId.current,
           {
             content: lastMsg.content,
+            thinking: lastMsg.thinking,
             metrics: lastMsg.metrics,
             done: lastMsg.done
           },
@@ -113,14 +132,23 @@ export const useChat = () => {
 
         // Debounce DB update
         if (!lastMsg.done) {
-          debouncedDbUpdate(currentStreamingMessageId.current, lastMsg.content)
+          debouncedDbUpdate(
+            currentStreamingMessageId.current,
+            lastMsg.content,
+            lastMsg.thinking
+          )
         } else {
           // Final update should flush DB immediately
           if (dbUpdateTimeoutRef.current)
             clearTimeout(dbUpdateTimeoutRef.current)
           updateMessage(
             currentStreamingMessageId.current,
-            { content: lastMsg.content, metrics: lastMsg.metrics, done: true },
+            {
+              content: lastMsg.content,
+              thinking: lastMsg.thinking,
+              metrics: lastMsg.metrics,
+              done: true
+            },
             false
           )
           // Also embed if needed

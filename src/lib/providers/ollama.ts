@@ -236,7 +236,10 @@ export class OllamaProvider implements LLMProvider {
           `[Ollama] /api/embeddings failed: ${legacyResponse.status}`,
           errorText
         )
-        throw new Error(`Ollama Embedding Error: ${legacyResponse.status}`)
+        const message = errorText
+          ? `Ollama Embedding Error: ${legacyResponse.status} ${errorText}`
+          : `Ollama Embedding Error: ${legacyResponse.status}`
+        throw new Error(message)
       }
 
       const legacyData = await legacyResponse.json()

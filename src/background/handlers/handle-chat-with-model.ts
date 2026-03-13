@@ -125,6 +125,24 @@ export const handleChatWithModel = withErrorContext(
       (chunk) => {
         if (isPortClosed()) return
 
+        if (process.env.NODE_ENV === "development") {
+          console.log("[ChatStream] chunk", {
+            hasDelta: typeof chunk.delta === "string" && chunk.delta.length > 0,
+            deltaPreview:
+              typeof chunk.delta === "string"
+                ? chunk.delta.slice(0, 120)
+                : undefined,
+            hasThinkingDelta:
+              typeof chunk.thinkingDelta === "string" &&
+              chunk.thinkingDelta.length > 0,
+            thinkingPreview:
+              typeof chunk.thinkingDelta === "string"
+                ? chunk.thinkingDelta.slice(0, 120)
+                : undefined,
+            done: chunk.done,
+            error: chunk.error
+          })
+        }
         safePostMessage(port, chunk)
       },
       ac.signal

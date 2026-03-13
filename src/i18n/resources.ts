@@ -124,6 +124,7 @@ export const resources = {
           fork: "Konversation abzweigen",
           edit: "Bearbeiten",
           export_as: "Exportieren als...",
+          more: "Mehr",
           delete: "Nachricht löschen"
         },
         metrics: {
@@ -1293,6 +1294,7 @@ export const resources = {
           fork: "Fork Conversation",
           edit: "Edit",
           export_as: "Export as...",
+          more: "More",
           delete: "Delete Message"
         },
         metrics: {
@@ -2520,6 +2522,7 @@ export const resources = {
           fork: "Bifurcar conversación",
           edit: "Editar",
           export_as: "Exportar como...",
+          more: "Más",
           delete: "Eliminar mensaje"
         },
         metrics: {
@@ -3689,6 +3692,7 @@ export const resources = {
           fork: "Fourcher la conversation",
           edit: "Modifier",
           export_as: "Exporter sous...",
+          more: "Plus",
           delete: "Supprimer le message"
         },
         metrics: {
@@ -4861,6 +4865,7 @@ export const resources = {
           switch_model_tooltip: "मॉडल बदलें",
           edit: "संपादित करें",
           export_as: "इस रूप में निर्यात करें...",
+          more: "और",
           delete: "संदेश हटाएँ"
         },
         metrics: {
@@ -5995,6 +6000,7 @@ export const resources = {
           fork: "Biforca conversazione",
           edit: "Modifica",
           export_as: "Esporta come...",
+          more: "Altro",
           delete: "Elimina messaggio"
         },
         metrics: {
@@ -7164,6 +7170,7 @@ export const resources = {
           switch_model_tooltip: "モデルを切り替え",
           edit: "編集",
           export_as: "エクスポート...",
+          more: "その他",
           delete: "メッセージを削除"
         },
         metrics: {
@@ -8314,6 +8321,7 @@ export const resources = {
           switch_model_tooltip: "Переключить модель",
           edit: "Редактировать",
           export_as: "Экспортировать как...",
+          more: "Ещё",
           delete: "Удалить сообщение"
         },
         metrics: {
@@ -9467,6 +9475,7 @@ export const resources = {
           switch_model_tooltip: "切换模型",
           edit: "编辑",
           export_as: "导出为...",
+          more: "更多",
           delete: "删除消息"
         },
         metrics: {
