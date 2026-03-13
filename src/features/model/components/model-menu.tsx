@@ -62,11 +62,26 @@ export const ModelMenu = ({
 
   const { status, models, refresh, isLoading } = useProviderModels()
 
+  const filteredDefaultModels = models.filter((model) => {
+    if (
+      model.details?.families?.some((f) =>
+        ["bert", "nomic-bert", "xlm-roberta"].includes(f)
+      )
+    )
+      return false
+    if (model.name.includes("embed")) return false
+    return true
+  })
+
   useEffect(() => {
-    if (status === "ready" && models.length > 0 && !selectedModel) {
-      setSelectedModel(models[0].name)
+    if (
+      status === "ready" &&
+      filteredDefaultModels.length > 0 &&
+      !selectedModel
+    ) {
+      setSelectedModel(filteredDefaultModels[0].name)
     }
-  }, [status, models, selectedModel, setSelectedModel])
+  }, [status, filteredDefaultModels, selectedModel, setSelectedModel])
 
   const handleSelect = (modelName: string) => {
     const previousModel = selectedModel
@@ -94,30 +109,19 @@ export const ModelMenu = ({
 
   if (!models) return null
 
-  const groupedModels = models
-    .filter((model) => {
-      if (
-        model.details?.families?.some((f) =>
-          ["bert", "nomic-bert", "xlm-roberta"].includes(f)
-        )
-      )
-        return false
-      if (model.name.includes("embed")) return false
-      return true
-    })
-    .reduce(
-      (groups, model) => {
-        const providerId = model.providerId || DEFAULT_PROVIDER_ID
-        const providerName =
-          model.providerName || getProviderDisplayName(providerId)
-        if (!groups[providerId]) {
-          groups[providerId] = { name: providerName, models: [] }
-        }
-        groups[providerId].models.push(model)
-        return groups
-      },
-      {} as Record<string, { name: string; models: typeof models }>
-    )
+  const groupedModels = filteredDefaultModels.reduce(
+    (groups, model) => {
+      const providerId = model.providerId || DEFAULT_PROVIDER_ID
+      const providerName =
+        model.providerName || getProviderDisplayName(providerId)
+      if (!groups[providerId]) {
+        groups[providerId] = { name: providerName, models: [] }
+      }
+      groups[providerId].models.push(model)
+      return groups
+    },
+    {} as Record<string, { name: string; models: typeof models }>
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
