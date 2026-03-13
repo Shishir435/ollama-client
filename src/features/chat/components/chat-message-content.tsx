@@ -47,14 +47,15 @@ export const ChatMessageContent = ({
           open={showThinking}
           onOpenChange={setShowThinking}
           className="mb-2 rounded-lg border border-dashed border-border/60 bg-muted/30 p-2 text-xs">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">Thinking</span>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="xs">
-                {showThinking ? "Hide" : "Show"}
-              </Button>
-            </CollapsibleTrigger>
-          </div>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-auto w-full justify-between px-2 py-1 text-muted-foreground">
+              <span>Thinking</span>
+              <span>{showThinking ? "Hide" : "Show"}</span>
+            </Button>
+          </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 text-sm text-foreground">
             <MarkdownRenderer content={msg.thinking ?? ""} />
           </CollapsibleContent>

@@ -162,11 +162,15 @@ export async function retrieveContextEnhanced(
       Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
     )
 
+    const topScore = reranked[0]?.score ?? 0
+    const avgScore =
+      reranked.length > 0
+        ? reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
+        : 0
+
     logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
-      topScore: reranked[0]?.score.toFixed(3),
-      avgScore: (
-        reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
-      ).toFixed(3)
+      topScore: topScore.toFixed(3),
+      avgScore: avgScore.toFixed(3)
     })
 
     const MIN_RERANK_SCORE =
@@ -176,7 +180,7 @@ export async function retrieveContextEnhanced(
     if (confidentResults.length === 0) {
       logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
         minScore: MIN_RERANK_SCORE,
-        topScore: reranked[0]?.score
+        topScore
       })
       return [] // Return empty if no confident matches
     }
