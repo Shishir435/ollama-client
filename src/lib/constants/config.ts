@@ -40,8 +40,8 @@ export interface EmbeddingConfig {
   searchCacheMaxSize: number // Max cached queries (default: 50)
 
   // ANN Backend Settings
-  annBackend: "wasm-hnsw" | "ts-hnsw" | "bruteforce" // ANN backend selection (default: wasm-hnsw)
-  annMinVectors: number // Min vectors before ANN activates (default: 5000)
+  annBackend: "ts-hnsw" | "bruteforce" // ANN backend selection (default: ts-hnsw)
+  annMinVectors: number // Min vectors before ANN activates (default: 0)
 
   // Storage settings
   maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
@@ -57,7 +57,7 @@ export interface EmbeddingConfig {
   hnswAutoRebuild: boolean // Auto rebuild on schema changes (default: true)
 
   // RAG Advanced Settings (Phase 3)
-  useReranking: boolean // Enable transformers.js re-ranking (default: true)
+  useReranking: boolean // Enable cosine re-ranking (default: false)
   useHybridSearch: boolean // Enable hybrid search (keyword + semantic) (default: true)
   keywordWeight: number // Hybrid search keyword weight 0-1 (default: 0.6)
   semanticWeight: number // Hybrid search semantic weight 0-1 (default: 0.4)
@@ -74,7 +74,7 @@ export interface EmbeddingConfig {
   minRerankScore: number // Minimum re-ranking confidence threshold 0-1 (default: 0.6)
 
   // Re-ranking Backend
-  rerankerBackend: "none" | "transformers-js" | "onnxruntime-web" // Reranker backend (default: none)
+  rerankerBackend: "none" | "cosine" // Reranker backend (default: cosine)
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: boolean // Enable adaptive hybrid weights based on query type (default: true)
@@ -106,8 +106,8 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
   searchCacheTTL: 5, // 5 minutes
   searchCacheMaxSize: 50, // Max 50 cached queries
-  annBackend: "wasm-hnsw",
-  annMinVectors: 5000,
+  annBackend: "ts-hnsw",
+  annMinVectors: 0,
   maxStorageSize: 100, // 100MB limit
   autoCleanup: false,
   cleanupDaysOld: 30,
@@ -120,7 +120,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: false, // Disabled: requires model download (complex for extensions)
+  useReranking: false, // Disabled by default
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
@@ -129,7 +129,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   diversityEnabled: true,
   diversityLambda: 0.7,
   minRerankScore: 0.6, // Prevent low-confidence results
-  rerankerBackend: "none",
+  rerankerBackend: "cosine",
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: true,

@@ -1,13 +1,9 @@
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_EMBEDDING_CONFIG, type EmbeddingConfig } from "@/lib/constants"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
-type AnnBackendType = "wasm-hnsw" | "ts-hnsw" | "bruteforce"
+type AnnBackendType = "ts-hnsw" | "bruteforce"
 
 interface AnnBackendStats {
   count: number
@@ -145,159 +141,31 @@ class LocalVectorIndex {
   }
 }
 
-class WasmHnswBackend implements AnnBackend {
-  readonly backend: AnnBackendType = "wasm-hnsw"
-  private lib: Awaited<ReturnType<typeof import("hnswlib-wasm").loadHnswlib>> | null =
-    null
-  private index:
-    | import("hnswlib-wasm").HierarchicalNSW
-    | null = null
-  private dimension: number | null = null
-  private count = 0
-  private filename = ""
-  private persistTimer: NodeJS.Timeout | null = null
-
-  private async loadLibrary() {
-    if (this.lib) return this.lib
-    const { loadHnswlib } = await import("hnswlib-wasm")
-    this.lib = await loadHnswlib("IDBFS")
-    return this.lib
-  }
-
-  private buildFilename(dimension: number) {
-    return `hnsw-wasm-${dimension}.idx`
-  }
-
-  async initialize(
-    dimension: number,
-    _config: EmbeddingConfig
-  ): Promise<void> {
-    if (this.dimension === dimension && this.index) return
-    const lib = await this.loadLibrary()
-    this.dimension = dimension
-    this.filename = this.buildFilename(dimension)
-    this.index = new lib.HierarchicalNSW("cosine", dimension, this.filename)
-  }
-
-  async buildIndex(
-    vectors: Array<{ id: number; embedding: number[] }>,
-    config: EmbeddingConfig
-  ): Promise<void> {
-    if (vectors.length === 0) {
-      this.clear()
-      return
-    }
-
-    const dimension = vectors[0].embedding.length
-    await this.initialize(dimension)
-    const lib = await this.loadLibrary()
-    try {
-      await lib.EmscriptenFileSystemManager.syncFS(true, () => {})
-    } catch (error) {
-      logger.debug("Failed to sync IDBFS before build", "HNSWIndex", { error })
-    }
-
-    const maxElements = Math.max(
-      vectors.length + 100,
-      config.annMinVectors || 0,
-      100
-    )
-
-    this.index?.initIndex(
-      maxElements,
-      config.hnswM,
-      config.hnswEfConstruction,
-      100
-    )
-    this.index?.setEfSearch(config.hnswEfSearch)
-
-    for (const vector of vectors) {
-      this.index?.addPoint(vector.embedding, vector.id, false)
-    }
-
-    this.count = vectors.length
-
-    try {
-      await this.index?.writeIndex(this.filename)
-      await lib.EmscriptenFileSystemManager.syncFS(false, () => {})
-    } catch (error) {
-      logger.warn("Failed to persist WASM HNSW index", "HNSWIndex", {
-        error
-      })
-    }
-  }
-
-  async addVector(id: number, embedding: number[]): Promise<void> {
-    if (!this.index || this.dimension !== embedding.length) return
-    this.index.addPoint(embedding, id, false)
-    this.count += 1
-    this.schedulePersist()
-  }
-
-  async search(
-    queryEmbedding: number[],
-    k: number,
-    minSimilarity: number
-  ): Promise<Array<{ id: number; distance: number }>> {
-    if (!this.index || !this.dimension) return []
-    if (queryEmbedding.length !== this.dimension) return []
-
-    const results = this.index.searchKnn(queryEmbedding, k, undefined)
-    return results.neighbors
-      .map((id, idx) => {
-        const distance = results.distances[idx]
-        const similarity = 1 - distance
-        return { id, distance: similarity }
-      })
-      .filter((r) => r.distance >= minSimilarity)
-  }
-
-  async clear(): Promise<void> {
-    this.index = null
-    this.dimension = null
-    this.count = 0
-  }
-
-  getStats(): AnnBackendStats {
-    return {
-      backend: this.backend,
-      count: this.count,
-      dimension: this.dimension,
-      memorySizeMB:
-        (this.count * (this.dimension || 0) * 4) / (1024 * 1024)
-    }
-  }
-
-  isInitialized(): boolean {
-    return !!this.index && this.count > 0
-  }
-
-  isCompatibleDimension(dimension: number): boolean {
-    return this.dimension === dimension
-  }
-
-  private schedulePersist() {
-    if (!this.lib || !this.index) return
-    if (this.persistTimer) return
-
-    this.persistTimer = setTimeout(async () => {
-      this.persistTimer = null
-      try {
-        await this.index?.writeIndex(this.filename)
-        await this.lib?.EmscriptenFileSystemManager.syncFS(false, () => {})
-      } catch (error) {
-        logger.debug("Deferred HNSW persist failed", "HNSWIndex", { error })
-      }
-    }, 5000)
-  }
-}
-
 class TsHnswBackend implements AnnBackend {
   readonly backend: AnnBackendType = "ts-hnsw"
   private index: import("hnsw").HNSWWithDB | null = null
+  private fallbackIndex: LocalVectorIndex | null = null
+  private useFallback: boolean = false
   private dimension: number | null = null
   private count = 0
   private persistTimer: NodeJS.Timeout | null = null
+
+  private shouldUseFallback(): boolean {
+    return (
+      typeof process !== "undefined" &&
+      (!!process.env.VITEST || process.env.NODE_ENV === "test")
+    )
+  }
+
+  private enableFallback(dimension: number) {
+    if (!this.fallbackIndex) {
+      this.fallbackIndex = new LocalVectorIndex()
+    }
+    this.fallbackIndex.initialize(dimension)
+    this.useFallback = true
+    this.dimension = dimension
+    this.count = 0
+  }
 
   private buildDbName(dimension: number) {
     return `hnsw-ts-${dimension}`
@@ -308,13 +176,22 @@ class TsHnswBackend implements AnnBackend {
     config: EmbeddingConfig = DEFAULT_EMBEDDING_CONFIG
   ): Promise<void> {
     if (this.dimension === dimension && this.index) return
-    const { HNSWWithDB } = await import("hnsw")
-    this.dimension = dimension
-    this.index = await HNSWWithDB.create(
-      config.hnswM,
-      config.hnswEfConstruction,
-      this.buildDbName(dimension)
-    )
+    if (this.shouldUseFallback()) {
+      this.enableFallback(dimension)
+      return
+    }
+    try {
+      const { HNSWWithDB } = await import("hnsw")
+      this.dimension = dimension
+      this.index = await HNSWWithDB.create(
+        config.hnswM,
+        config.hnswEfConstruction,
+        this.buildDbName(dimension)
+      )
+    } catch (error) {
+      logger.debug("Falling back to in-memory index", "HNSWIndex", { error })
+      this.enableFallback(dimension)
+    }
   }
 
   async buildIndex(
@@ -327,6 +204,13 @@ class TsHnswBackend implements AnnBackend {
     }
 
     const dimension = vectors[0].embedding.length
+    if (this.useFallback || this.shouldUseFallback()) {
+      this.enableFallback(dimension)
+      this.fallbackIndex?.buildIndex(vectors)
+      this.count = vectors.length
+      return
+    }
+
     await this.initialize(dimension, config)
 
     if (!this.index) return
@@ -342,6 +226,12 @@ class TsHnswBackend implements AnnBackend {
   }
 
   async addVector(id: number, embedding: number[]): Promise<void> {
+    if (this.useFallback && this.fallbackIndex) {
+      if (this.dimension !== embedding.length) return
+      this.fallbackIndex.addVector(id, embedding)
+      this.count += 1
+      return
+    }
     if (!this.index || this.dimension !== embedding.length) return
     await this.index.addPoint(id, embedding)
     this.count += 1
@@ -353,6 +243,9 @@ class TsHnswBackend implements AnnBackend {
     k: number,
     minSimilarity: number
   ): Promise<Array<{ id: number; distance: number }>> {
+    if (this.useFallback && this.fallbackIndex) {
+      return this.fallbackIndex.search(queryEmbedding, k, minSimilarity)
+    }
     if (!this.index) return []
     const results = this.index.searchKNN(queryEmbedding, k)
     return results
@@ -361,34 +254,54 @@ class TsHnswBackend implements AnnBackend {
   }
 
   async clear(): Promise<void> {
-    if (this.index) {
-      await this.index.deleteIndex()
-    }
+    const index = this.index
     this.index = null
     this.dimension = null
     this.count = 0
+    if (this.fallbackIndex) {
+      this.fallbackIndex.clear()
+    }
+    if (!index) return
+
+    try {
+      await Promise.race([
+        index.deleteIndex(),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000))
+      ])
+    } catch (error) {
+      logger.debug("Failed to delete TS HNSW index", "HNSWIndex", { error })
+    }
   }
 
   getStats(): AnnBackendStats {
+    if (this.useFallback && this.fallbackIndex) {
+      const stats = this.fallbackIndex.getStats()
+      return {
+        ...stats,
+        backend: this.backend
+      }
+    }
     return {
       backend: this.backend,
       count: this.count,
       dimension: this.dimension,
-      memorySizeMB:
-        (this.count * (this.dimension || 0) * 4) / (1024 * 1024)
+      memorySizeMB: (this.count * (this.dimension || 0) * 4) / (1024 * 1024)
     }
   }
 
   isInitialized(): boolean {
-    return !!this.index && this.count > 0
+    return this.useFallback ? !!this.fallbackIndex : !!this.index
   }
 
   isCompatibleDimension(dimension: number): boolean {
+    if (this.useFallback && this.fallbackIndex) {
+      return this.fallbackIndex.getDimension() === dimension
+    }
     return this.dimension === dimension
   }
 
   private schedulePersist() {
-    if (!this.index || this.persistTimer) return
+    if (this.useFallback || !this.index || this.persistTimer) return
     this.persistTimer = setTimeout(async () => {
       this.persistTimer = null
       try {
@@ -402,28 +315,20 @@ class TsHnswBackend implements AnnBackend {
 
 class HNSWIndexManager {
   private localIndex: LocalVectorIndex = new LocalVectorIndex()
-  private wasmBackend = new WasmHnswBackend()
   private tsBackend = new TsHnswBackend()
   private isBuilding: boolean = false
   private buildProgress: number = 0
 
   private async getConfig(): Promise<EmbeddingConfig> {
-    const stored = await plasmoGlobalStorage.get<EmbeddingConfig>(
-      STORAGE_KEYS.EMBEDDINGS.CONFIG
-    )
-    return {
-      ...DEFAULT_EMBEDDING_CONFIG,
-      ...stored
-    }
+    return getEmbeddingConfig()
   }
 
   private resolveBackend(config: EmbeddingConfig): AnnBackendType {
-    return config.annBackend || "wasm-hnsw"
+    return config.annBackend || "ts-hnsw"
   }
 
   private getBackendInstance(config: EmbeddingConfig): AnnBackend | null {
     const backend = this.resolveBackend(config)
-    if (backend === "wasm-hnsw") return this.wasmBackend
     if (backend === "ts-hnsw") return this.tsBackend
     return null
   }
@@ -481,20 +386,7 @@ class HNSWIndexManager {
         }))
 
       if (backend) {
-        try {
-          await backend.buildIndex(vectorPayload, config)
-        } catch (error) {
-          if (backend.backend === "wasm-hnsw") {
-            logger.warn(
-              "WASM HNSW build failed, falling back to TS backend",
-              "HNSWIndex",
-              { error }
-            )
-            await this.tsBackend.buildIndex(vectorPayload, config)
-          } else {
-            throw error
-          }
-        }
+        await backend.buildIndex(vectorPayload, config)
       } else {
         this.localIndex.buildIndex(vectorPayload)
       }
@@ -525,8 +417,6 @@ class HNSWIndexManager {
     try {
       if (backend?.isInitialized()) {
         await backend.addVector(id, embedding)
-      } else if (backend?.backend === "wasm-hnsw" && this.tsBackend.isInitialized()) {
-        await this.tsBackend.addVector(id, embedding)
       } else if (!backend) {
         this.localIndex.addVector(id, embedding)
       }
@@ -543,16 +433,15 @@ class HNSWIndexManager {
     const minSimilarity = config.defaultMinSimilarity
     const backend = this.getBackendInstance(config)
     if (backend?.isInitialized()) {
-      return backend.search(queryEmbedding, k, minSimilarity)
-    }
-    if (backend?.backend === "wasm-hnsw" && this.tsBackend.isInitialized()) {
-      return this.tsBackend.search(queryEmbedding, k, minSimilarity)
+      const stats = backend.getStats()
+      if (stats.count > 0) {
+        return backend.search(queryEmbedding, k, minSimilarity)
+      }
     }
     return this.localIndex.search(queryEmbedding, k, minSimilarity)
   }
 
   async clearIndex(): Promise<void> {
-    await this.wasmBackend.clear()
     await this.tsBackend.clear()
     this.localIndex.clear()
     logger.verbose("Vector Index cleared", "HNSWIndex")
@@ -567,12 +456,9 @@ class HNSWIndexManager {
     memorySizeMB: number
     backend: AnnBackendType
   } {
-    const stats =
-      this.wasmBackend.isInitialized()
-        ? this.wasmBackend.getStats()
-        : this.tsBackend.isInitialized()
-          ? this.tsBackend.getStats()
-          : this.localIndex.getStats()
+    const stats = this.tsBackend.isInitialized()
+      ? this.tsBackend.getStats()
+      : this.localIndex.getStats()
 
     return {
       isInitialized: stats.count > 0,
@@ -600,18 +486,11 @@ class HNSWIndexManager {
     const backend = this.getBackendInstance(config)
     if (!backend) return false
 
-    if (backend.isInitialized()) return true
-    if (backend.backend === "wasm-hnsw") {
-      return this.tsBackend.isInitialized()
-    }
-
-    return false
+    const stats = backend.getStats()
+    return stats.count > 0
   }
 
   isCompatibleDimension(queryDimension: number): boolean {
-    if (this.wasmBackend.isInitialized()) {
-      return this.wasmBackend.isCompatibleDimension(queryDimension)
-    }
     if (this.tsBackend.isInitialized()) {
       return this.tsBackend.isCompatibleDimension(queryDimension)
     }

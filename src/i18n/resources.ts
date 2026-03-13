@@ -429,7 +429,7 @@ export const resources = {
           temporal_boosting_label: "Zeitliche Relevanzverstärkung",
           temporal_boosting_description:
             "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
-          reranking_label: "Re-Ranking aktivieren (Transformers.js)",
+          reranking_label: "Re-Ranking aktivieren",
           reranking_description:
             "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
           hybrid_search_label: "Hybrid-Suche aktivieren",
@@ -1606,7 +1606,7 @@ export const resources = {
           temporal_boosting_label: "Temporal Relevance Boosting",
           temporal_boosting_description:
             "Prioritize newer documentation using exponential decay scoring",
-          reranking_label: "Enable Re-Ranking (Transformers.js)",
+          reranking_label: "Enable Re-Ranking",
           reranking_description:
             "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
           reranker_backend_label: "Reranker Backend",
@@ -1615,8 +1615,6 @@ export const resources = {
           reranker_backend_placeholder: "Select a reranker backend",
           reranker_backend_group: "Backends",
           reranker_backend_none: "Disabled",
-          reranker_backend_transformers: "Transformers.js (Local)",
-          reranker_backend_onnx: "ONNX Runtime Web (Local)",
           hybrid_search_label: "Enable Hybrid Search",
           hybrid_search_description:
             "Combine keyword search (BM25) with semantic search for better recall.",
@@ -2827,7 +2825,7 @@ export const resources = {
           temporal_boosting_label: "Impulso de Relevancia Temporal",
           temporal_boosting_description:
             "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
-          reranking_label: "Habilitar Re-Ranking (Transformers.js)",
+          reranking_label: "Habilitar Re-Ranking",
           reranking_description:
             "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
           hybrid_search_label: "Habilitar búsqueda híbrida",
@@ -3997,7 +3995,7 @@ export const resources = {
           temporal_boosting_label: "Renforcement de la Pertinence Temporelle",
           temporal_boosting_description:
             "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
-          reranking_label: "Activer le ré-classement (Transformers.js)",
+          reranking_label: "Activer le ré-classement",
           reranking_description:
             "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
           hybrid_search_label: "Activer la recherche hybride",
@@ -5157,7 +5155,7 @@ export const resources = {
           temporal_boosting_label: "कालिक प्रासंगिकता बढ़ावा",
           temporal_boosting_description:
             "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
-          reranking_label: "री-रैंकिंग सक्षम करें (Transformers.js)",
+          reranking_label: "री-रैंकिंग सक्षम करें",
           reranking_description:
             "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
           hybrid_search_label: "हाइब्रिड खोज सक्षम करें",
@@ -6302,7 +6300,7 @@ export const resources = {
           temporal_boosting_label: "Potenziamento Rilevanza Temporale",
           temporal_boosting_description:
             "Priorità alla documentazione più recente utilizzando il punteggio di decadimento esponenziale",
-          reranking_label: "Abilita Re-Ranking (Transformers.js)",
+          reranking_label: "Abilita Re-Ranking",
           reranking_description:
             "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
           hybrid_search_label: "Abilita ricerca ibrida",
@@ -7467,7 +7465,7 @@ export const resources = {
           temporal_boosting_label: "時間的関連性の向上",
           temporal_boosting_description:
             "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
-          reranking_label: "再ランク付けを有効にする (Transformers.js)",
+          reranking_label: "再ランク付けを有効にする",
           reranking_description:
             "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
           hybrid_search_label: "ハイブリッド検索を有効にする",
@@ -8619,7 +8617,7 @@ export const resources = {
           temporal_boosting_label: "Усиление Временной Релевантности",
           temporal_boosting_description:
             "Приоритет более новой документации с использованием оценки экспоненциального затухания",
-          reranking_label: "Включить переранжирование (Transformers.js)",
+          reranking_label: "Включить переранжирование",
           reranking_description:
             "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
           hybrid_search_label: "Включить гибридный поиск",
@@ -9748,7 +9746,7 @@ export const resources = {
             "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
           temporal_boosting_label: "时间相关性增强",
           temporal_boosting_description: "使用指数衰减评分优先考虑较新的文档",
-          reranking_label: "启用重新排序 (Transformers.js)",
+          reranking_label: "启用重新排序",
           reranking_description:
             "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
           hybrid_search_label: "启用混合搜索",

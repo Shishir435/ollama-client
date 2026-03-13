@@ -8,11 +8,13 @@ import {
   storeVector,
   vectorDb
 } from "../vector-store"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 describe("Vector Store - Baseline Tests", () => {
   beforeEach(async () => {
     // Clear database before each test
     await clearAllVectors()
+    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
   })
 
   describe("storeVector", () => {
@@ -513,5 +515,3 @@ describe("Vector Store - Baseline Tests", () => {
       expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
     })
   })
-
-

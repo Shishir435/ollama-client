@@ -351,8 +351,10 @@ export const clearAllVectors = async (
   await vectorDb.vectors.clear()
 
   // Clear indexes
-  await hnswIndexManager.clearIndex()
-  await keywordIndexManager.clear()
+  keywordIndexManager.clear()
+  void hnswIndexManager.clearIndex().catch((error) => {
+    logger.warn("Failed to clear HNSW index", "clearAllVectors", { error })
+  })
 
   return count
 }

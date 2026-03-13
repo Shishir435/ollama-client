@@ -146,7 +146,9 @@ export const EmbeddingSearchConfig = ({
             }>
             <SelectTrigger>
               <SelectValue
-                placeholder={t("model.embedding_config.ann_backend_placeholder")}
+                placeholder={t(
+                  "model.embedding_config.ann_backend_placeholder"
+                )}
               />
             </SelectTrigger>
             <SelectContent>
@@ -154,9 +156,6 @@ export const EmbeddingSearchConfig = ({
                 <SelectLabel>
                   {t("model.embedding_config.ann_backend_group")}
                 </SelectLabel>
-                <SelectItem value="wasm-hnsw">
-                  {t("model.embedding_config.ann_backend_wasm")}
-                </SelectItem>
                 <SelectItem value="ts-hnsw">
                   {t("model.embedding_config.ann_backend_ts")}
                 </SelectItem>

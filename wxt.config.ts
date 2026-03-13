@@ -43,15 +43,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: [
-          "assets/*.wasm",
-          "assets/models/*",
-          "assets/models/**",
-          "assets/onnxruntime/*",
-          "assets/onnxruntime/**",
-          "ocr/*",
-          "ocr/lang/*"
-        ],
+        resources: ["assets/*.wasm", "ocr/*", "ocr/lang/*"],
         matches: ["<all_urls>"]
       }
     ],

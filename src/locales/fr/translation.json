@@ -371,7 +371,7 @@
       "adaptive_weights_description": "Ajustement automatique de la recherche par mots-clés vs sémantique selon le type de requête (ex: code vs concepts)",
       "temporal_boosting_label": "Renforcement de la Pertinence Temporelle",
       "temporal_boosting_description": "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
-      "reranking_label": "Activer le ré-classement (Transformers.js)",
+      "reranking_label": "Activer le ré-classement",
       "reranking_description": "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
       "hybrid_search_label": "Activer la recherche hybride",
       "hybrid_search_description": "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",

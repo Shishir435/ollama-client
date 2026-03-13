@@ -153,9 +153,10 @@ export async function retrieveContextEnhanced(
     rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
 
     const reranked = await rerankerService.rerank(
-      query,
+      embeddingResult.embedding,
       candidates.map((c) => ({
         content: c.document.content,
+        embedding: c.document.embedding,
         metadata: c.document.metadata
       })),
       Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
@@ -451,7 +452,6 @@ export function formatEnhancedResults(
       const attrs = [
         `id="${i + 1}"`,
         `source="${escapeAttribute(source)}"`,
-        `type="${isMemory ? "memory" : r.document.metadata.type || "file"}"`,
         page ? `page="${page}"` : undefined,
         chunkLabel ? `chunk="${chunkLabel}"` : undefined,
         r.score ? `score="${r.score.toFixed(3)}"` : undefined

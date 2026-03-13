@@ -371,7 +371,7 @@
       "adaptive_weights_description": "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
       "temporal_boosting_label": "Zeitliche Relevanzverstärkung",
       "temporal_boosting_description": "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
-      "reranking_label": "Re-Ranking aktivieren (Transformers.js)",
+      "reranking_label": "Re-Ranking aktivieren",
       "reranking_description": "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
       "hybrid_search_label": "Hybrid-Suche aktivieren",
       "hybrid_search_description": "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",

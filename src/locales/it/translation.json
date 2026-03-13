@@ -371,7 +371,7 @@
       "adaptive_weights_description": "Regolazione automatica della ricerca per parole chiave vs semantica in base al tipo di query (es. codice vs concetti)",
       "temporal_boosting_label": "Potenziamento Rilevanza Temporale",
       "temporal_boosting_description": "Priorità alla documentazione più recente utilizzando il punteggio di decadimento esponenziale",
-      "reranking_label": "Abilita Re-Ranking (Transformers.js)",
+      "reranking_label": "Abilita Re-Ranking",
       "reranking_description": "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
       "hybrid_search_label": "Abilita ricerca ibrida",
       "hybrid_search_description": "Combina la ricerca per parole chiave (BM25) con la ricerca semantica per un miglior richiamo.",

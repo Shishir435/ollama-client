@@ -370,7 +370,7 @@
       "adaptive_weights_description": "Ajuste automático de búsqueda por palabras clave frente a semántica según el tipo de consulta (p. ej., código frente a conceptos)",
       "temporal_boosting_label": "Impulso de Relevancia Temporal",
       "temporal_boosting_description": "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
-      "reranking_label": "Habilitar Re-Ranking (Transformers.js)",
+      "reranking_label": "Habilitar Re-Ranking",
       "reranking_description": "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
       "hybrid_search_label": "Habilitar búsqueda híbrida",
       "hybrid_search_description": "Combine la búsqueda por palabras clave (BM25) con la búsqueda semántica para una mejor recuperación.",

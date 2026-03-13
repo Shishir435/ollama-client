@@ -108,7 +108,9 @@ export const RAGSettings = () => {
   }, [activeSet, topK, defaultQuestionPrompt])
 
   useEffect(() => {
-    setMinRerankScore(config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore)
+    setMinRerankScore(
+      config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore
+    )
   }, [config.minRerankScore])
 
   const refreshKnowledgeSets = async () => {
@@ -220,7 +222,11 @@ export const RAGSettings = () => {
           description={t("model.embedding_config.reranking_description")}
           checked={config.useReranking ?? false}
           onCheckedChange={(checked) =>
-            setConfig((prev) => ({ ...prev, useReranking: checked }))
+            setConfig((prev) => ({
+              ...prev,
+              useReranking: checked,
+              rerankerBackend: checked ? "cosine" : "none"
+            }))
           }
         />
       </div>
@@ -235,41 +241,6 @@ export const RAGSettings = () => {
           step={1}
           onValueChange={handleTopKChange}
         />
-      </SettingsFormField>
-
-      <SettingsFormField
-        label={t("model.embedding_config.reranker_backend_label")}
-        description={t("model.embedding_config.reranker_backend_description")}>
-        <Select
-          value={config.rerankerBackend}
-          onValueChange={(value) =>
-            setConfig((prev) => ({
-              ...prev,
-              rerankerBackend: value as EmbeddingConfig["rerankerBackend"]
-            }))
-          }>
-          <SelectTrigger>
-            <SelectValue
-              placeholder={t("model.embedding_config.reranker_backend_placeholder")}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectLabel>
-                {t("model.embedding_config.reranker_backend_group")}
-              </SelectLabel>
-              <SelectItem value="none">
-                {t("model.embedding_config.reranker_backend_none")}
-              </SelectItem>
-              <SelectItem value="transformers-js">
-                {t("model.embedding_config.reranker_backend_transformers")}
-              </SelectItem>
-              <SelectItem value="onnxruntime-web">
-                {t("model.embedding_config.reranker_backend_onnx")}
-              </SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
       </SettingsFormField>
 
       <SettingsFormField

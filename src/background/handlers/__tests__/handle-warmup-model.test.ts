@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { ProviderId } from "@/lib/providers/types"
-
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn()
@@ -12,9 +10,9 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
     getProviderForModel: vi.fn().mockResolvedValue({
-      id: ProviderId.OLLAMA,
+      id: "ollama",
       config: {
-        id: ProviderId.OLLAMA,
+        id: "ollama",
         type: "ollama",
         enabled: true,
         baseUrl: "http://localhost:11434",
@@ -61,4 +59,3 @@ describe("handleWarmupModel", () => {
     expect(sendResponse).toHaveBeenCalledWith({ success: true })
   })
 })
-

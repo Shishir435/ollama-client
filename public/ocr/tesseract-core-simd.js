@@ -1,10 +1,10 @@
-var TesseractCore = (() => {
+var TesseractCore = (function () {
   var _scriptDir =
     typeof document !== "undefined" && document.currentScript
       ? document.currentScript.src
       : undefined
   if (typeof __filename !== "undefined") _scriptDir = _scriptDir || __filename
-  return (TesseractCore = {}) => {
+  return function (TesseractCore = {}) {
     var b
     b || (b = typeof TesseractCore !== "undefined" ? TesseractCore : {})
     var aa, ba

@@ -372,7 +372,7 @@
       "adaptive_weights_description": "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
       "temporal_boosting_label": "时间相关性增强",
       "temporal_boosting_description": "使用指数衰减评分优先考虑较新的文档",
-      "reranking_label": "启用重新排序 (Transformers.js)",
+      "reranking_label": "启用重新排序",
       "reranking_description": "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
       "hybrid_search_label": "启用混合搜索",
       "hybrid_search_description": "将关键字搜索 (BM25) 与语义搜索相结合，以获得更好的召回率。",

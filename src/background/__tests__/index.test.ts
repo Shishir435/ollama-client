@@ -65,7 +65,9 @@ vi.mock("@/background/handlers/handle-update-base-url", () => ({ handleUpdateBas
 vi.mock("@/background/lib/dnr", () => ({ updateDNRRules: vi.fn() }))
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(false)
+    get: vi.fn().mockResolvedValue(false),
+    set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined)
   }
 }))
 
