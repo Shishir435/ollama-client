@@ -153,7 +153,7 @@ export const EmbeddingStatusIndicator = () => {
           variant="secondary"
           size="icon"
           onClick={modelExists === false ? handleDownload : handleRetry}
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent/50">
+          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
           {icon}
         </Button>
       </TooltipTrigger>
@@ -186,7 +186,7 @@ export const EmbeddingStatusIndicator = () => {
           )}
 
           {error && (
-            <div className="text-xs text-red-500 break-words">{error}</div>
+            <div className="text-xs text-red-500 wrap-break-word">{error}</div>
           )}
         </div>
       </TooltipContent>

@@ -22,10 +22,10 @@ export const Guides = () => {
             ({ labelKey, href, descriptionKey, badgeKey, icon: Icon }) => (
               <Card
                 key={href}
-                className="group transition-all hover:border-primary/20 hover:shadow-sm">
+                className="group transition-all hover:border-primary/20 hover:shadow-xs">
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex-shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
+                    <div className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -33,9 +33,7 @@ export const Guides = () => {
                         <h4 className="truncate text-sm font-medium">
                           {t(labelKey)}
                         </h4>
-                        <Badge
-                          variant="secondary"
-                          className="flex-shrink-0 text-xs">
+                        <Badge variant="secondary" className="shrink-0 text-xs">
                           {t(badgeKey)}
                         </Badge>
                       </div>
@@ -70,7 +68,7 @@ export const Guides = () => {
                 {t("guides.support.description")}
               </p>
             </div>
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <a
                 href="https://www.producthunt.com/products/ollama-client?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-ollama&#0045;client"
                 target="_blank"

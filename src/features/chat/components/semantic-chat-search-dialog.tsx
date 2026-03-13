@@ -282,7 +282,7 @@ export const SemanticChatSearchDialog = ({
                   {groupedResults.map(
                     ({ sessionId, sessionTitle, results: sessionResults }) => (
                       <div key={sessionId} className="space-y-2">
-                        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1 flex items-center gap-2 border-b">
+                        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-xs py-1 flex items-center gap-2 border-b">
                           <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="text-sm font-medium truncate flex-1">
                             {sessionTitle}
@@ -302,7 +302,7 @@ export const SemanticChatSearchDialog = ({
                               className={cn(
                                 "group relative w-full rounded-lg border border-border bg-card p-3 text-left",
                                 "hover:bg-accent hover:border-accent-foreground/20",
-                                "transition-all cursor-pointer shadow-sm"
+                                "transition-all cursor-pointer shadow-xs"
                               )}
                               onClick={() => handleSelectResult(result)}>
                               <div className="flex flex-col gap-2">
@@ -332,7 +332,7 @@ export const SemanticChatSearchDialog = ({
                                   </Badge>
                                 </div>
 
-                                <p className="text-sm text-foreground leading-relaxed break-words line-clamp-4">
+                                <p className="text-sm text-foreground leading-relaxed wrap-break-word line-clamp-4">
                                   {truncateText(result.messageContent, 300)}
                                 </p>
                               </div>

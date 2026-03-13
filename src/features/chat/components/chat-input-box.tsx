@@ -329,7 +329,7 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative rounded-xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
+          "relative rounded-xl border-2 bg-card/50 backdrop-blur-xs transition-all duration-200",
           isFocused
             ? "border-primary/50 shadow-lg shadow-primary/10"
             : "border-border/50 hover:border-border",

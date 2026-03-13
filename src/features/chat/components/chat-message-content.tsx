@@ -17,7 +17,7 @@ export const ChatMessageContent = ({
   return (
     <div
       className={cn(
-        "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-sm sm:max-w-2xl sm:p-4",
+        "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-xs sm:max-w-2xl sm:p-4",
         "hover:shadow-md",
         isUser
           ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"

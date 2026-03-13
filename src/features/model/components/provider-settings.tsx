@@ -284,7 +284,7 @@ export const ProviderSettings = () => {
               onClick={() => setSelectedId(provider.id)}
               className={cn(
                 "relative p-4 rounded-lg border-2 transition-all text-left",
-                "hover:border-primary/50 hover:shadow-sm",
+                "hover:border-primary/50 hover:shadow-xs",
                 isSelected
                   ? "border-primary bg-primary/5"
                   : "border-border bg-card"

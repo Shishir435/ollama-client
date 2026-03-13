@@ -152,7 +152,7 @@ const DetailRow = ({
   <div className="flex items-start gap-2 py-1">
     {icon}
     <span className="min-w-0 flex-1 text-xs font-medium">{label}</span>
-    <span className="max-w-[12rem] whitespace-normal break-words rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+    <span className="max-w-48 whitespace-normal wrap-break-word rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
       {String(value)}
     </span>
   </div>

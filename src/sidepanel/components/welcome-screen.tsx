@@ -62,10 +62,10 @@ export const WelcomeScreen = () => {
   return (
     <div className="flex w-full flex-col items-center justify-start overflow-auto rounded-b-lg rounded-t-2xl bg-white px-4 py-6 text-center text-gray-900 scrollbar-none dark:bg-gray-900 dark:text-gray-100">
       <div className="mb-6 flex flex-col items-center">
-        <div className="mb-3 rounded-3xl bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 p-3 shadow-xl transition-transform hover:scale-105 dark:shadow-blue-500/20">
+        <div className="mb-3 rounded-3xl bg-linear-to-br from-blue-500 via-purple-500 to-indigo-600 p-3 shadow-xl transition-transform hover:scale-105 dark:shadow-blue-500/20">
           <Sparkles className="h-8 w-8 animate-pulse text-white" />
         </div>
-        <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-3xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400">
+        <h1 className="mb-2 bg-linear-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-3xl font-bold text-transparent dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400">
           {t("welcome.title")}
         </h1>
         <p className="text-base font-medium text-slate-600 dark:text-slate-300">
@@ -104,23 +104,23 @@ export const WelcomeScreen = () => {
         <div
           className={`mb-5 w-full max-w-lg rounded-xl border-2 p-4 shadow-lg transition-all ${
             status === "error"
-              ? "border-red-200 bg-gradient-to-r from-red-50 to-pink-50 dark:border-red-700 dark:from-red-950/30 dark:to-pink-950/30"
+              ? "border-red-200 bg-linear-to-r from-red-50 to-pink-50 dark:border-red-700 dark:from-red-950/30 dark:to-pink-950/30"
               : status === "empty"
-                ? "border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 dark:border-yellow-700 dark:from-yellow-950/30 dark:to-amber-950/30"
+                ? "border-yellow-200 bg-linear-to-r from-yellow-50 to-amber-50 dark:border-yellow-700 dark:from-yellow-950/30 dark:to-amber-950/30"
                 : status === "ready"
-                  ? "border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 dark:border-green-700 dark:from-green-950/30 dark:to-emerald-950/30"
-                  : "border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:border-blue-700 dark:from-blue-950/30 dark:to-indigo-950/30"
+                  ? "border-green-200 bg-linear-to-r from-green-50 to-emerald-50 dark:border-green-700 dark:from-green-950/30 dark:to-emerald-950/30"
+                  : "border-blue-200 bg-linear-to-r from-blue-50 to-indigo-50 dark:border-blue-700 dark:from-blue-950/30 dark:to-indigo-950/30"
           }`}>
           <div className="flex items-start gap-3">
             <div
               className={`rounded-full p-1.5 shadow-md ${
                 status === "error"
-                  ? "bg-gradient-to-r from-red-500 to-pink-500"
+                  ? "bg-linear-to-r from-red-500 to-pink-500"
                   : status === "empty"
-                    ? "bg-gradient-to-r from-yellow-500 to-amber-500"
+                    ? "bg-linear-to-r from-yellow-500 to-amber-500"
                     : status === "ready"
-                      ? "bg-gradient-to-r from-green-500 to-emerald-500"
-                      : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                      ? "bg-linear-to-r from-green-500 to-emerald-500"
+                      : "bg-linear-to-r from-blue-500 to-indigo-500"
               }`}>
               <statusConfig.icon
                 className={`h-4 w-4 text-white ${statusConfig.iconClass}`}
@@ -218,7 +218,7 @@ export const WelcomeScreen = () => {
           className={`group flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold shadow-xl transition-all duration-300 ${
             status === "error" || status === "empty"
               ? "cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-700 dark:text-slate-500"
-              : "bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white hover:scale-110 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 hover:shadow-2xl hover:shadow-blue-500/25"
+              : "bg-linear-to-r from-blue-600 via-purple-600 to-indigo-600 text-white hover:scale-110 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 hover:shadow-2xl hover:shadow-blue-500/25"
           }`}
           onClick={async () => {
             await createSession()
@@ -291,7 +291,7 @@ const FeatureCard = ({
     <div
       className={`group flex items-center gap-3 rounded-xl border p-4 transition-all duration-200 hover:scale-105 hover:shadow-lg ${variant.border} ${variant.bg}`}>
       <div
-        className={`flex-shrink-0 rounded-lg p-2 transition-transform duration-200 group-hover:rotate-12 ${variant.iconBg}`}>
+        className={`shrink-0 rounded-lg p-2 transition-transform duration-200 group-hover:rotate-12 ${variant.iconBg}`}>
         <Icon className="h-5 w-5 text-white" />
       </div>
       <div className="flex-1 text-left">

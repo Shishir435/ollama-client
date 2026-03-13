@@ -155,11 +155,11 @@ export const ModelList = (): JSX.Element => {
   }
 
   return (
-    <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-sm">
+    <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-xs">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <button
           type="button"
-          className="flex w-full items-center justify-between p-2 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex w-full items-center justify-between p-2 text-left hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => setIsOpen(!isOpen)}>
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-muted-foreground" />
@@ -206,7 +206,7 @@ export const ModelList = (): JSX.Element => {
                     className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-muted text-sm">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
                           {getModelIcon(model.name)}
                         </div>
 

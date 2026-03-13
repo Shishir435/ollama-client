@@ -124,7 +124,7 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
                 </div>
               ) : (
                 <>
-                  <pre className="text-xs bg-muted rounded-lg p-4 whitespace-pre-wrap break-words font-mono">
+                  <pre className="text-xs bg-muted rounded-lg p-4 whitespace-pre-wrap wrap-break-word font-mono">
                     {fullText || "No text content available"}
                   </pre>
                   {fullText && (

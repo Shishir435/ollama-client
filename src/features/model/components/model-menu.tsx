@@ -128,7 +128,7 @@ export const ModelMenu = ({
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className="h-8 justify-between gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-sm px-3 font-normal hover:bg-accent/50 hover:text-accent-foreground items-center">
+                className="h-8 justify-between gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-xs px-3 font-normal hover:bg-accent/50 hover:text-accent-foreground items-center">
                 {selectedModel ? (
                   <div className="flex items-center gap-2">
                     <span className="text-lg leading-none">
@@ -187,7 +187,7 @@ export const ModelMenu = ({
           <div className="flex items-center border-b px-3">
             <CommandInput
               placeholder={t("model.menu.search_placeholder")}
-              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               autoFocus
             />
           </div>

@@ -122,7 +122,7 @@ export const LoadedModelsInfo = () => {
   const totalSize = models.reduce((acc, model) => acc + model.size, 0)
 
   return (
-    <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-sm">
+    <Card className="w-full rounded-lg border-border bg-card text-card-foreground shadow-xs">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">

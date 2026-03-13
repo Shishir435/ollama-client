@@ -159,7 +159,7 @@ export const SettingsPage = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <header className="flex-none border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+      <header className="flex-none border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60 z-50">
         <div className="flex bg-background items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">

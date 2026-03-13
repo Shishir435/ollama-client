@@ -93,9 +93,9 @@ export const VoiceSelector = ({
           aria-expanded={open}
           aria-label={t("chat.voice_selector.select_voice")}
           className={cn(
-            "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-sm transition-colors",
+            "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-xs transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",
             open && "ring-1 ring-ring"
           )}
@@ -138,7 +138,7 @@ export const VoiceSelector = ({
               placeholder={t("chat.voice_selector.search_placeholder")}
               value={searchQuery}
               onValueChange={setSearchQuery}
-              className="h-11 border-0 focus:outline-none focus:ring-0"
+              className="h-11 border-0 focus:outline-hidden focus:ring-0"
             />
           </div>
           <CommandList className="max-h-[320px] overflow-y-auto">
@@ -189,7 +189,7 @@ export const VoiceSelector = ({
                           "group mx-1 flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-all",
                           "aria-selected:bg-accent/50",
                           isSelected
-                            ? "bg-accent text-accent-foreground shadow-sm"
+                            ? "bg-accent text-accent-foreground shadow-xs"
                             : "hover:bg-accent/50"
                         )}>
                         <div className="flex flex-1 items-center justify-between gap-3 min-w-0">

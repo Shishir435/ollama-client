@@ -219,7 +219,7 @@ const ContentExtractionSettingsForm = ({
                 hover:bg-accent/50 hover:border-accent-foreground/20
                 ${
                   isSelected
-                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-sm"
+                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
                     : "border-border"
                 }
               `}>

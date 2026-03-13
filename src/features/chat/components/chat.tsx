@@ -152,7 +152,7 @@ export const Chat = () => {
   const hasSession = !!currentSessionId
 
   return (
-    <div className="flex h-screen flex-col rounded-lg bg-gradient-to-br from-background via-background to-background/95 p-1">
+    <div className="flex h-screen flex-col rounded-lg bg-linear-to-br from-background via-background to-background/95 p-1">
       <ChatHeader />
 
       {hasSession ? (

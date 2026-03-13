@@ -77,8 +77,8 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
     description: "Create structured research outlines",
     category: "Research",
     userPrompt:
-      "Create a comprehensive research outline for the following topic, including main sections, key questions, and potential sources.",
-    tags: ["research", "outline", "structure"],
+      "Create a comprehensive research outline-solid for the following topic, including main sections, key questions, and potential sources.",
+    tags: ["research", "outline-solid", "structure"],
     usageCount: 0
   }
 ]

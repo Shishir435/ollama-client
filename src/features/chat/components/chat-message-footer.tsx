@@ -70,7 +70,7 @@ export const ChatMessageFooter = ({
       }>
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-sm">
+        <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-xs">
           <Button
             variant="ghost"
             size="icon"
@@ -81,7 +81,7 @@ export const ChatMessageFooter = ({
             }}>
             <ChevronLeft className="h-3 w-3" />
           </Button>
-          <span className="min-w-[1.5rem] text-center text-[10px] font-medium text-muted-foreground">
+          <span className="min-w-6 text-center text-[10px] font-medium text-muted-foreground">
             {siblingIndex + 1} / {siblingIds.length}
           </span>
           <Button

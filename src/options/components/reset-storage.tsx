@@ -139,7 +139,7 @@ const ModuleResetItem = ({
   return (
     <div className="flex items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="flex-shrink-0 text-lg">{getModuleIcon(module)}</span>
+        <span className="shrink-0 text-lg">{getModuleIcon(module)}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium">{module.replace("_", " ")}</h4>

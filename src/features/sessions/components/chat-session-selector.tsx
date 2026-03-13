@@ -44,7 +44,7 @@ export const ChatSessionSelector = ({
         <Button
           variant="ghost"
           size="icon"
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent/50">
+          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
           <Menu className="h-4 w-4" />
         </Button>
       </SheetTrigger>
@@ -58,7 +58,7 @@ export const ChatSessionSelector = ({
               <div className="rounded-lg bg-primary/10 p-1.5">
                 <MessageSquare className="h-4 w-4 text-primary" />
               </div>
-              <h2 className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
+              <h2 className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
                 {t("sessions.selector.title")}
               </h2>
             </div>
@@ -67,7 +67,7 @@ export const ChatSessionSelector = ({
           <div className="p-2 space-y-2">
             <Button
               onClick={createSession}
-              className="flex h-10 w-full items-center justify-start rounded-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
+              className="flex h-10 w-full items-center justify-start rounded-lg bg-linear-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
               aria-label={t("sessions.selector.create_new_aria")}>
               <SquarePen className="mr-2 h-4 w-4" />
               {t("sessions.selector.start_new")}
@@ -106,11 +106,11 @@ export const ChatSessionSelector = ({
                         className={cn(
                           "group relative overflow-hidden rounded-lg transition-all duration-200",
                           isActive
-                            ? "border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/10 shadow-sm"
+                            ? "border border-primary/20 bg-linear-to-r from-primary/15 to-primary/10 shadow-xs"
                             : "border border-transparent hover:bg-accent/50"
                         )}>
                         {isActive && (
-                          <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-gradient-to-b from-primary to-primary/70" />
+                          <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-linear-to-b from-primary to-primary/70" />
                         )}
 
                         <div className="flex items-center p-2 pr-1">
