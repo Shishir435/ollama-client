@@ -69,18 +69,21 @@ export function RetrievedContextCard({
   const title = chunk.title?.trim() || chunk.source || "Source"
 
   return (
-    <Card className="mb-2 border border-muted/50 bg-muted/20 shadow-sm transition hover:border-muted/70 hover:bg-muted/30">
-      <CardHeader className="pb-2 pt-3">
+    <Card
+      size="sm"
+      className="mb-1.5 gap-2 border border-muted/40 bg-muted/10 py-2 shadow-sm transition hover:border-muted/60 hover:bg-muted/20">
+      <CardHeader className="px-3 py-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="text-sm truncate">{title}</CardTitle>
-            <CardDescription className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <CardTitle className="truncate text-xs font-medium">
+              {title}
+            </CardTitle>
+            <CardDescription className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <span>Relevance</span>
                 <span className="font-mono">{relevance}%</span>
               </span>
               {chunk.chunkIndex !== undefined && (
-                <span>Chunk {chunk.chunkIndex + 1}</span>
+                <span>• #{chunk.chunkIndex + 1}</span>
               )}
               {chunk.source && (
                 <span className="truncate">• {chunk.source}</span>
@@ -120,9 +123,9 @@ export function RetrievedContextCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="pt-2 text-xs">
+      <CardContent className="px-3 pb-1 pt-0 text-xs">
         <div className="prose prose-sm max-w-none dark:prose-invert">
-          <p className="line-clamp-4 whitespace-pre-wrap text-muted-foreground">
+          <p className="mt-0 mb-0 line-clamp-3 whitespace-pre-wrap text-muted-foreground leading-snug">
             {chunk.content}
           </p>
         </div>
@@ -149,7 +152,7 @@ export function RetrievedContextList({
   }
 
   return (
-    <div className="space-y-2 mb-4">
+    <div className="space-y-1.5">
       <div className="text-xs font-medium text-muted-foreground">
         Retrieved Context ({chunks.length})
       </div>
