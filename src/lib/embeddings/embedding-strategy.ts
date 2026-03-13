@@ -105,7 +105,7 @@ const tryEmbed = async (
   const MAX_EMBED_CHARS = 2000
   const truncatedText =
     text.length > MAX_EMBED_CHARS
-      ? text.slice(0, MAX_EMBED_CHARS) + "..."
+      ? `${text.slice(0, MAX_EMBED_CHARS)}...`
       : text
 
   const vector = await provider.embed(truncatedText, attempt.model)

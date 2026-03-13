@@ -24,7 +24,11 @@ import {
 } from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_PROVIDER_ID,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getProviderDisplayName } from "@/lib/providers/registry"

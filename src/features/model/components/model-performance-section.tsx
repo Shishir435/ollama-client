@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, SettingsFormField, SettingsSwitch } from "@/components/settings"
+import {
+  SettingsCard,
+  SettingsFormField,
+  SettingsSwitch
+} from "@/components/settings"
 import { Input } from "@/components/ui/input"
-import { useDebounce } from "@/hooks/use-debounce"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
+import { useDebounce } from "@/hooks/use-debounce"
 import { Zap } from "@/lib/lucide-icon"
 
 interface ModelPerformanceSectionProps {
@@ -60,12 +64,7 @@ export const ModelPerformanceSection = ({
         value: config.num_batch ?? ""
       }
     ],
-    [
-      config.num_batch,
-      config.num_gpu,
-      config.num_thread,
-      t
-    ]
+    [config.num_batch, config.num_gpu, config.num_thread, t]
   )
 
   return (

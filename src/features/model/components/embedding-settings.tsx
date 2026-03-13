@@ -86,7 +86,10 @@ export const EmbeddingSettings = () => {
         return true
       }
 
-      if (normalized.includes("minilm") || normalized.includes("sentence-transformers")) {
+      if (
+        normalized.includes("minilm") ||
+        normalized.includes("sentence-transformers")
+      ) {
         return true
       }
 

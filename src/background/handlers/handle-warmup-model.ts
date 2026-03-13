@@ -13,9 +13,7 @@ type WarmupPayload = {
 
 const warmupHistory = new Map<string, number>()
 
-const parseKeepAliveMs = (
-  value?: string | number
-): number | undefined => {
+const parseKeepAliveMs = (value?: string | number): number | undefined => {
   if (value === undefined || value === null) return undefined
   if (typeof value === "number") return Math.max(0, value) * 1000
 
@@ -116,10 +114,7 @@ export const handleWarmupModel = async (
       })
     }
 
-    if (
-      payload.previousModel &&
-      payload.previousModel !== payload.model
-    ) {
+    if (payload.previousModel && payload.previousModel !== payload.model) {
       const previousConfig = await getModelConfig(payload.previousModel)
       if (previousConfig.unload_on_switch) {
         await unloadModel(payload.previousModel)
