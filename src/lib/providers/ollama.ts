@@ -124,6 +124,18 @@ export class OllamaProvider implements LLMProvider {
             const data = JSON.parse(line)
             if (data.error) throw new Error(data.error)
 
+            const thinkingDelta =
+              data.message?.thinking ||
+              data.message?.reasoning ||
+              data.message?.reasoning_content
+
+            if (thinkingDelta) {
+              onChunk({
+                thinkingDelta,
+                done: false
+              })
+            }
+
             onChunk({
               delta: data.message?.content || "",
               done: data.done,

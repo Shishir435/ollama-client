@@ -132,6 +132,16 @@ export class OpenAIProvider implements LLMProvider {
               const data = JSON.parse(trimmed.slice(6))
               const delta = data.choices?.[0]?.delta
 
+              const thinkingDelta =
+                delta?.reasoning ||
+                delta?.reasoning_content ||
+                delta?.thinking ||
+                delta?.thoughts
+
+              if (thinkingDelta) {
+                onChunk({ thinkingDelta, done: false })
+              }
+
               if (delta?.content) {
                 if (!firstTokenTime) {
                   firstTokenTime = Date.now()

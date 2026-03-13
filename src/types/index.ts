@@ -62,6 +62,7 @@ export interface ChatMessage {
   id?: number | string
   role: Role
   content: string
+  thinking?: string
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
@@ -203,6 +204,9 @@ export interface OllamaChatResponse {
     role: "assistant" | "user" | "system"
     content: string
     images?: string[]
+    thinking?: string
+    reasoning?: string
+    reasoning_content?: string
   }
   done: boolean
   total_duration?: number
@@ -266,6 +270,7 @@ export type ProviderModelListResponse = DefaultProviderTagsResponse
 
 export interface ChatStreamMessage {
   delta?: string
+  thinkingDelta?: string
   done?: boolean
   content?: string
   aborted?: boolean

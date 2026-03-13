@@ -24,6 +24,15 @@ export const processStreamChunk = (
     try {
       const data: DefaultProviderChatResponse = JSON.parse(trimmedLine)
 
+      const thinkingDelta =
+        data.message?.thinking ||
+        data.message?.reasoning ||
+        data.message?.reasoning_content
+
+      if (thinkingDelta) {
+        safePostMessage(port, { thinkingDelta })
+      }
+
       if (data.message?.content) {
         const delta = data.message.content
         fullText += delta

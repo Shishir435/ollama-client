@@ -1,4 +1,12 @@
+import { useState } from "react"
+
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible"
 import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
 import { ChatMessageMetrics } from "@/features/chat/components/chat-message-metrics"
 import { FileAttachmentDisplay } from "@/features/chat/components/file-attachment-display"
@@ -14,6 +22,9 @@ export const ChatMessageContent = ({
   isUser: boolean
 }) => {
   const { isLoading, isStreaming } = useLoadStream()
+  const [showThinking, setShowThinking] = useState(false)
+
+  const hasThinking = !isUser && Boolean(msg.thinking?.trim())
   return (
     <div
       className={cn(
@@ -30,6 +41,24 @@ export const ChatMessageContent = ({
       {/* File Attachments */}
       {msg.attachments && msg.attachments.length > 0 && (
         <FileAttachmentDisplay attachments={msg.attachments} />
+      )}
+      {hasThinking && (
+        <Collapsible
+          open={showThinking}
+          onOpenChange={setShowThinking}
+          className="mb-2 rounded-lg border border-dashed border-border/60 bg-muted/30 p-2 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">Thinking</span>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="xs">
+                {showThinking ? "Hide" : "Show"}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="mt-2 text-sm text-foreground">
+            <MarkdownRenderer content={msg.thinking ?? ""} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
       <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
         <MarkdownRenderer content={msg.content} />
