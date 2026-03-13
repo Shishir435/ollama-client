@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -151,7 +152,7 @@ export const ChatMessageFooter = ({
             sideOffset={6}
             className="w-40 rounded-lg border-muted/60 p-1.5 shadow-lg">
             {onExport && (
-              <>
+              <DropdownMenuGroup>
                 <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground px-2">
                   Export
                 </DropdownMenuLabel>
@@ -179,7 +180,7 @@ export const ChatMessageFooter = ({
                   <Download className="size-3.5" />
                   <span>Text</span>
                 </DropdownMenuItem>
-              </>
+              </DropdownMenuGroup>
             )}
 
             {onDelete && (

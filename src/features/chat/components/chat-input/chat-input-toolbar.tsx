@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -65,27 +66,29 @@ export const ChatInputToolbar = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground px-2">
-              {t("tabs.context")}
-            </DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={tabAccess}
-              onCheckedChange={(value) => setTabAccess(Boolean(value))}
-              className="gap-2">
-              <AppWindow className="h-3.5 w-3.5" />
-              {tabAccess
-                ? t("tabs.toggle.label_on")
-                : t("tabs.toggle.label_off")}
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={useRAG}
-              onCheckedChange={(value) => setUseRAG(Boolean(value))}
-              className="gap-2">
-              <BrainCircuit className="h-3.5 w-3.5" />
-              {useRAG
-                ? t("chat.input.rag_toggle_on")
-                : t("chat.input.rag_toggle_off")}
-            </DropdownMenuCheckboxItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground px-2">
+                {t("tabs.context")}
+              </DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={tabAccess}
+                onCheckedChange={(value) => setTabAccess(Boolean(value))}
+                className="gap-2">
+                <AppWindow className="h-3.5 w-3.5" />
+                {tabAccess
+                  ? t("tabs.toggle.label_on")
+                  : t("tabs.toggle.label_off")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={useRAG}
+                onCheckedChange={(value) => setUseRAG(Boolean(value))}
+                className="gap-2">
+                <BrainCircuit className="h-3.5 w-3.5" />
+                {useRAG
+                  ? t("chat.input.rag_toggle_on")
+                  : t("chat.input.rag_toggle_off")}
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="gap-2"

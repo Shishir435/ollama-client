@@ -68,7 +68,7 @@ const formatDate = (
   }
 }
 
-export const ModelList = (): JSX.Element => {
+export const ModelList = (): React.ReactElement => {
   const { t } = useTranslation()
   const { models, isLoading, error, deleteModel, refresh } = useProviderModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
