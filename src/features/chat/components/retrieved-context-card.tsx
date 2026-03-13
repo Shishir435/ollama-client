@@ -65,30 +65,32 @@ export function RetrievedContextCard({
     }
   }
 
+  const relevance = Math.max(0, Math.min(100, Math.round(chunk.score * 100)))
+  const title = chunk.title?.trim() || chunk.source || "Source"
+
   return (
-    <Card className="mb-2 border-l-4 border-l-primary/50">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-sm truncate">{chunk.title}</CardTitle>
-            <CardDescription className="text-xs flex items-center gap-2">
-              <span>
-                Relevance:{" "}
-                <span className="font-mono">
-                  {(chunk.score * 100).toFixed(0)}%
-                </span>
+    <Card className="mb-2 border border-muted/50 bg-muted/20 shadow-sm transition hover:border-muted/70 hover:bg-muted/30">
+      <CardHeader className="pb-2 pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm truncate">{title}</CardTitle>
+            <CardDescription className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span>Relevance</span>
+                <span className="font-mono">{relevance}%</span>
               </span>
               {chunk.chunkIndex !== undefined && (
-                <span className="text-muted-foreground">
-                  • Chunk {chunk.chunkIndex + 1}
-                </span>
+                <span>Chunk {chunk.chunkIndex + 1}</span>
+              )}
+              {chunk.source && (
+                <span className="truncate">• {chunk.source}</span>
               )}
             </CardDescription>
           </div>
 
           {/* Feedback Buttons */}
           {enableFeedback && (
-            <div className="flex gap-1 shrink-0">
+            <div className="flex shrink-0 gap-1">
               <Button
                 size="icon"
                 variant={feedback === true ? "default" : "ghost"}
@@ -118,9 +120,9 @@ export function RetrievedContextCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="text-xs pt-2">
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p className="line-clamp-3 text-muted-foreground whitespace-pre-wrap">
+      <CardContent className="pt-2 text-xs">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <p className="line-clamp-4 whitespace-pre-wrap text-muted-foreground">
             {chunk.content}
           </p>
         </div>

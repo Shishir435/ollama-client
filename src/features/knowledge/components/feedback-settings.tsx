@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { Download, ThumbsUp, Trash2 } from "lucide-react"
+import { Download, RotateCcw, ThumbsUp, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -41,6 +41,8 @@ export function FeedbackSettings() {
   )
   const [isExporting, setIsExporting] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const [stats, setStats] = useState({
     totalFeedback: 0,
     helpfulPercentage: 0,
@@ -66,12 +68,16 @@ export function FeedbackSettings() {
 
   const loadStats = useCallback(async () => {
     try {
+      setIsLoadingStats(true)
       const stats = await feedbackService.getStatistics()
       setStats(stats)
+      setLastUpdated(Date.now())
     } catch (error) {
       logger.error("Failed to load feedback stats", "FeedbackSettings", {
         error
       })
+    } finally {
+      setIsLoadingStats(false)
     }
   }, [])
 
@@ -168,8 +174,19 @@ export function FeedbackSettings() {
       />
 
       <div className="rounded-lg border p-4 space-y-3">
-        <div className="text-sm font-medium">
-          {t("model.embedding_config.feedback_stats_title")}
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-medium">
+            {t("model.embedding_config.feedback_stats_title")}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-2 px-2 text-xs"
+            onClick={loadStats}
+            disabled={isLoadingStats}>
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
@@ -199,6 +216,15 @@ export function FeedbackSettings() {
             <div className="font-mono">{stats.uniqueQueries}</div>
           </div>
         </div>
+        {lastUpdated && (
+          <div className="text-[10px] text-muted-foreground">
+            Updated{" "}
+            {new Date(lastUpdated).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">

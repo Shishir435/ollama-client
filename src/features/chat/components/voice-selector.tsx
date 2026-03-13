@@ -9,7 +9,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList
+  CommandList,
+  CommandSeparator
 } from "@/components/ui/command"
 import {
   Popover,
@@ -133,14 +134,15 @@ export const VoiceSelector = ({
         align="center"
         sideOffset={6}>
         <Command className="rounded-lg border-0" shouldFilter={false}>
-          <div className="flex items-center border-b px-3">
-            <CommandInput
-              placeholder={t("chat.voice_selector.search_placeholder")}
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              className="h-11 border-0 focus:outline-hidden focus:ring-0"
-            />
-          </div>
+          <CommandInput
+            placeholder={t("chat.voice_selector.search_placeholder")}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            className="border-0 focus:outline-hidden focus:ring-0"
+          />
+
+          <CommandSeparator className="mt-2" />
+
           <CommandList className="max-h-[320px] overflow-y-auto">
             <CommandEmpty className="py-8">
               <div className="flex flex-col items-center gap-2 text-center">
@@ -174,57 +176,59 @@ export const VoiceSelector = ({
                       {group.voices.length}
                     </Badge>
                   </div>
-                  {group.voices.map((voice) => {
-                    const isSelected = selectedVoiceURI === voice.voiceURI
-                    return (
-                      <CommandItem
-                        key={voice.voiceURI}
-                        value={voice.voiceURI}
-                        onSelect={() => {
-                          onVoiceChange(voice.voiceURI)
-                          setOpen(false)
-                          setSearchQuery("")
-                        }}
-                        className={cn(
-                          "group mx-1 flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-all",
-                          "aria-selected:bg-accent/50",
-                          isSelected
-                            ? "bg-accent text-accent-foreground shadow-xs"
-                            : "hover:bg-accent/50"
-                        )}>
-                        <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-                          <div className="flex flex-col min-w-0">
-                            <span
-                              className={cn(
-                                "text-sm truncate leading-tight transition-colors",
-                                isSelected ? "font-semibold" : "font-medium"
-                              )}>
-                              {voice.name}
-                            </span>
-                            {voice.localService === false && (
-                              <span className="text-[10px] text-muted-foreground mt-0.5">
-                                {t("chat.voice_selector.network_voice")}
+                  <div className="space-y-1">
+                    {group.voices.map((voice) => {
+                      const isSelected = selectedVoiceURI === voice.voiceURI
+                      return (
+                        <CommandItem
+                          key={voice.voiceURI}
+                          value={voice.voiceURI}
+                          onSelect={() => {
+                            onVoiceChange(voice.voiceURI)
+                            setOpen(false)
+                            setSearchQuery("")
+                          }}
+                          className={cn(
+                            "group mx-1 flex items-center gap-3 rounded-md p-3 cursor-pointer transition-all",
+                            "aria-selected:bg-accent/50",
+                            isSelected
+                              ? "bg-accent text-accent-foreground shadow-xs"
+                              : "hover:bg-accent/50"
+                          )}>
+                          <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
+                            <div className="flex flex-col min-w-0">
+                              <span
+                                className={cn(
+                                  "text-sm truncate leading-tight transition-colors",
+                                  isSelected ? "font-semibold" : "font-medium"
+                                )}>
+                                {voice.name}
                               </span>
-                            )}
+                              {voice.localService === false && (
+                                <span className="text-[10px] text-muted-foreground mt-0.5">
+                                  {t("chat.voice_selector.network_voice")}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {voice.default && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] h-4 px-1.5 font-normal border-muted-foreground/30">
+                                  {t("chat.voice_selector.default_badge")}
+                                </Badge>
+                              )}
+                              {isSelected && (
+                                <div className="flex items-center justify-center">
+                                  <Check className="size-4 text-primary" />
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {voice.default && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] h-4 px-1.5 font-normal border-muted-foreground/30">
-                                {t("chat.voice_selector.default_badge")}
-                              </Badge>
-                            )}
-                            {isSelected && (
-                              <div className="flex items-center justify-center">
-                                <Check className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    )
-                  })}
+                        </CommandItem>
+                      )
+                    })}
+                  </div>
                 </CommandGroup>
               ))}
             </div>

@@ -58,8 +58,10 @@ export const EmbeddingSearchConfig = ({
           <div className="flex items-center gap-4">
             <Slider
               value={[config.defaultMinSimilarity]}
-              onValueChange={([value]) =>
-                updateConfig({ defaultMinSimilarity: value })
+              onValueChange={(value) =>
+                updateConfig({
+                  defaultMinSimilarity: Array.isArray(value) ? value[0] : value
+                })
               }
               min={0}
               max={1}

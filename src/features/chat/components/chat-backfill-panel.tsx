@@ -132,7 +132,7 @@ export const ChatBackfillPanel = () => {
         onClick={handleBackfill}
         disabled={isRunning || !memoryEnabled}
         className="w-full"
-        variant={completed ? "outline-solid" : "default"}>
+        variant={completed ? "outline" : "default"}>
         {isRunning ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />

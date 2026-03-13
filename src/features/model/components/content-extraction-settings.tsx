@@ -327,7 +327,9 @@ const ContentExtractionSettingsForm = ({
           max={100}
           step={5}
           value={[depthPercent]}
-          onValueChange={([value]) => onValueChange(value / 100)}
+          onValueChange={(value) =>
+            onValueChange((Array.isArray(value) ? value[0] : value) / 100)
+          }
           className="py-2"
         />
         <div className="flex justify-between text-xs text-muted-foreground">

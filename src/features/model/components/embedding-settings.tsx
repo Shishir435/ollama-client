@@ -196,77 +196,113 @@ export const EmbeddingSettings = () => {
 
   return (
     <div className="space-y-6">
-      <SettingsCard
-        icon={Database}
-        title={t("settings.embeddings.title")}
-        description={t("settings.embeddings.description")}
-        badge="Beta">
-        <div className="space-y-4">
-          <EmbeddingInfo />
+      {(() => {
+        const labelMap = new Map<string, string>()
+        RECOMMENDED_EMBEDDING_MODELS.forEach((modelName) => {
+          const label =
+            modelName === DEFAULT_EMBEDDING_MODEL
+              ? `${modelName} (${t(
+                  "settings.content_extraction.badges.recommended"
+                )})`
+              : modelName
+          labelMap.set(modelName, label)
+        })
+        embeddingModels.forEach((model) => {
+          const label = `${model.name} (${
+            model.providerName || getProviderDisplayName(DEFAULT_PROVIDER_ID)
+          })`
+          labelMap.set(model.name, label)
+        })
+        return (
+          <>
+            <SettingsCard
+              icon={Database}
+              title={t("settings.embeddings.title")}
+              description={t("settings.embeddings.description")}
+              badge="Beta">
+              <div className="space-y-4">
+                <EmbeddingInfo />
 
-          <div className="rounded-lg border p-4 space-y-4">
-            <SettingsFormField
-              label={t("settings.embeddings.model_select.label")}
-              description={t("settings.embeddings.model_select.description")}>
-              <Select
-                value={selectedModel}
-                onValueChange={(value) => setSelectedModel(value)}>
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={t(
-                      "settings.embeddings.model_select.placeholder"
-                    )}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>
-                      {t("settings.embeddings.model_select.recommended_group")}
-                    </SelectLabel>
-                    {RECOMMENDED_EMBEDDING_MODELS.map((modelName) => (
-                      <SelectItem key={modelName} value={modelName}>
-                        {modelName}
-                        {modelName === DEFAULT_EMBEDDING_MODEL
-                          ? ` (${t("settings.content_extraction.badges.recommended")})`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                <div className="rounded-lg border p-4 space-y-4">
+                  <SettingsFormField
+                    label={t("settings.embeddings.model_select.label")}
+                    description={t(
+                      "settings.embeddings.model_select.description"
+                    )}>
+                    <Select
+                      value={selectedModel}
+                      onValueChange={(value) => setSelectedModel(value)}>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t(
+                            "settings.embeddings.model_select.placeholder"
+                          )}>
+                          {(value) =>
+                            value
+                              ? labelMap.get(String(value)) || String(value)
+                              : null
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>
+                            {t(
+                              "settings.embeddings.model_select.recommended_group"
+                            )}
+                          </SelectLabel>
+                          {RECOMMENDED_EMBEDDING_MODELS.map((modelName) => (
+                            <SelectItem key={modelName} value={modelName}>
+                              {modelName}
+                              {modelName === DEFAULT_EMBEDDING_MODEL
+                                ? ` (${t("settings.content_extraction.badges.recommended")})`
+                                : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
 
-                  {embeddingModels.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>
-                        {t("settings.embeddings.model_select.all_models_group")}
-                      </SelectLabel>
-                      {embeddingModels
-                        .filter(
-                          (m) =>
-                            !recommendedBaseSet.has(
-                              m.name.toLowerCase().split(":")[0]
-                            )
-                        )
-                        .map((model) => (
-                          <SelectItem
-                            key={`${model.providerId}-${model.name}`}
-                            value={model.name}>
-                            {model.name} (
-                            {model.providerName ||
-                              getProviderDisplayName(DEFAULT_PROVIDER_ID)}
-                            )
-                          </SelectItem>
-                        ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
-            </SettingsFormField>
-          </div>
-        </div>
-      </SettingsCard>
+                        {embeddingModels.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>
+                              {t(
+                                "settings.embeddings.model_select.all_models_group"
+                              )}
+                            </SelectLabel>
+                            {embeddingModels
+                              .filter(
+                                (m) =>
+                                  !recommendedBaseSet.has(
+                                    m.name.toLowerCase().split(":")[0]
+                                  )
+                              )
+                              .map((model) => (
+                                <SelectItem
+                                  key={`${model.providerId}-${model.name}`}
+                                  value={model.name}>
+                                  {model.name} (
+                                  {model.providerName ||
+                                    getProviderDisplayName(DEFAULT_PROVIDER_ID)}
+                                  )
+                                </SelectItem>
+                              ))}
+                          </SelectGroup>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </SettingsFormField>
+                </div>
+              </div>
+            </SettingsCard>
 
-      {modelExists && <EmbeddingTestTools modelExists={modelExists} />}
+            {modelExists && <EmbeddingTestTools modelExists={modelExists} />}
 
-      <EmbeddingGenerationConfig config={config} updateConfig={updateConfig} />
+            <EmbeddingGenerationConfig
+              config={config}
+              updateConfig={updateConfig}
+            />
+          </>
+        )
+      })()}
     </div>
   )
 }

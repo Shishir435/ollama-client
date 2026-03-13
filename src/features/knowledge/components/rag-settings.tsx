@@ -49,7 +49,9 @@ export const RAGSettings = () => {
     DEFAULT_EMBEDDING_CONFIG
   )
 
-  const [topK, setTopK] = useState(config.defaultSearchLimit)
+  const [topK, setTopK] = useState(
+    config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
+  )
   const [knowledgeSets, setKnowledgeSets] = useState<
     Array<{
       id: string
@@ -88,7 +90,9 @@ export const RAGSettings = () => {
       setActiveKnowledgeSetIdState(activeId)
     }
     loadSettings()
-    setTopK(config.defaultSearchLimit)
+    setTopK(
+      config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
+    )
   }, [config.defaultSearchLimit])
 
   const activeSet = knowledgeSets.find((set) => set.id === activeKnowledgeSetId)
@@ -239,7 +243,9 @@ export const RAGSettings = () => {
           min={1}
           max={20}
           step={1}
-          onValueChange={handleTopKChange}
+          onValueChange={(value) =>
+            handleTopKChange(Array.isArray(value) ? value : [value])
+          }
         />
       </SettingsFormField>
 
@@ -251,17 +257,18 @@ export const RAGSettings = () => {
           min={0}
           max={1}
           step={0.05}
-          onValueChange={([value]) => {
-            setMinRerankScore(value)
+          onValueChange={(value) => {
+            const next = Array.isArray(value) ? value[0] : value
+            setMinRerankScore(next)
             setConfig((prev) => ({
               ...prev,
-              minRerankScore: value
+              minRerankScore: next
             }))
           }}
         />
       </SettingsFormField>
 
-      <Accordion type="single" collapsible className="w-full">
+      <Accordion className="w-full">
         <AccordionItem value="knowledge-sets">
           <AccordionTrigger>{t("knowledge_sets.title")}</AccordionTrigger>
           <AccordionContent className="space-y-6 pt-4">
@@ -367,9 +374,10 @@ export const RAGSettings = () => {
                     min={1}
                     max={20}
                     step={1}
-                    onValueChange={([val]) => {
-                      setKnowledgeTopK(val)
-                      updateKnowledgeRetrieval({ topK: val })
+                    onValueChange={(value) => {
+                      const next = Array.isArray(value) ? value[0] : value
+                      setKnowledgeTopK(next)
+                      updateKnowledgeRetrieval({ topK: next })
                     }}
                   />
                 </SettingsFormField>
@@ -382,9 +390,10 @@ export const RAGSettings = () => {
                     min={0}
                     max={1}
                     step={0.05}
-                    onValueChange={([val]) => {
-                      setKnowledgeMinSimilarity(val)
-                      updateKnowledgeRetrieval({ minSimilarity: val })
+                    onValueChange={(value) => {
+                      const next = Array.isArray(value) ? value[0] : value
+                      setKnowledgeMinSimilarity(next)
+                      updateKnowledgeRetrieval({ minSimilarity: next })
                     }}
                   />
                 </SettingsFormField>

@@ -55,8 +55,7 @@ describe("handle-context-menu", () => {
         id: "add-to-local-llm-client",
         title: "Ask Local LLM",
         contexts: ["selection"]
-      },
-      expect.any(Function)
+      }
     )
   })
 

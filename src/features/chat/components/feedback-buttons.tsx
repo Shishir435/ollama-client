@@ -51,9 +51,9 @@ export const FeedbackButtons = ({
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <TooltipProvider>
-        <Tooltip delayDuration={300}>
+    <TooltipProvider delay={300}>
+      <div className={cn("flex items-center gap-1", className)}>
+        <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
@@ -71,10 +71,8 @@ export const FeedbackButtons = ({
           </TooltipTrigger>
           <TooltipContent>Helpful Response</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
 
-      <TooltipProvider>
-        <Tooltip delayDuration={300}>
+        <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
@@ -92,7 +90,7 @@ export const FeedbackButtons = ({
           </TooltipTrigger>
           <TooltipContent>Not Helpful</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

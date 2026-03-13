@@ -161,9 +161,7 @@ export const PromptSelectorDialog = ({
             {categories.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
-                  variant={
-                    selectedCategory === null ? "default" : "outline-solid"
-                  }
+                  variant={selectedCategory === null ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedCategory(null)}>
                   {t("prompts.selector.all_categories")}
@@ -172,9 +170,7 @@ export const PromptSelectorDialog = ({
                   <Button
                     key={category}
                     variant={
-                      selectedCategory === category
-                        ? "default"
-                        : "outline-solid"
+                      selectedCategory === category ? "default" : "outline"
                     }
                     size="sm"
                     onClick={() => setSelectedCategory(category)}>

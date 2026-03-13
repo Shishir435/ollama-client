@@ -21,22 +21,36 @@ export const LanguageSelector = () => {
       title={t("common.language.label")}
       description={t("common.language.description")}
       badge={t("common.language.beta_badge")}>
-      <SelectRow
-        id="language-select"
-        label={t("common.language.select_label")}
-        value={i18n.language}
-        onValueChange={(value) => {
-          i18n.changeLanguage(value)
-          setStoredLanguage(value)
-        }}>
-        {LANGUAGES.map((lang) => (
-          <SelectItem key={lang.value} value={lang.value}>
-            {lang.label === lang.nativeLabel
+      {(() => {
+        const languageMap = new Map(
+          LANGUAGES.map((lang) => [
+            lang.value,
+            lang.label === lang.nativeLabel
               ? lang.label
-              : `${lang.label} (${lang.nativeLabel})`}
-          </SelectItem>
-        ))}
-      </SelectRow>
+              : `${lang.label} (${lang.nativeLabel})`
+          ])
+        )
+        const currentLabel = languageMap.get(i18n.language)
+        return (
+          <SelectRow
+            id="language-select"
+            label={t("common.language.select_label")}
+            value={i18n.language}
+            valueLabel={currentLabel || i18n.language}
+            onValueChange={(value) => {
+              i18n.changeLanguage(value)
+              setStoredLanguage(value)
+            }}>
+            {LANGUAGES.map((lang) => (
+              <SelectItem key={lang.value} value={lang.value}>
+                {lang.label === lang.nativeLabel
+                  ? lang.label
+                  : `${lang.label} (${lang.nativeLabel})`}
+              </SelectItem>
+            ))}
+          </SelectRow>
+        )
+      })()}
 
       <p className="text-xs text-muted-foreground italic">
         <Trans

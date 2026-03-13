@@ -359,10 +359,13 @@ export const useChat = () => {
     if (useRag) {
       try {
         // Get recent chat history for context
-        const recentHistory = messages.slice(-5).map((m) => ({
-          role: m.role,
-          content: m.content
-        }))
+        const recentHistory = messages
+          .filter((m) => m.role !== "system")
+          .slice(-5)
+          .map((m) => ({
+            role: m.role,
+            content: m.content
+          })) as Array<{ role: "user" | "assistant"; content: string }>
 
         const queryClassification = classifyQuery(rawInput || "", recentHistory)
 
