@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 
 import { db } from "@/lib/db"
+import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -16,10 +17,14 @@ export const useResetAppStorage = () => {
         await db.delete()
       }
 
+      if (key === "all" || key === "FEEDBACK") {
+        await feedbackService.clearAllFeedback()
+      }
+
       if (key === "all") {
         await plasmoGlobalStorage.clear()
         sessionStorage.clear()
-      } else if (key !== "CHAT_SESSIONS") {
+      } else if (key !== "CHAT_SESSIONS" && key !== "FEEDBACK") {
         const keysToRemove = allKeys[key] || []
         if (keysToRemove.length > 0) {
           await Promise.all(
