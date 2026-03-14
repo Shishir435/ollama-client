@@ -50,7 +50,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     DEFAULT_EMBEDDING_CONFIG
   )
 
-  const { onFileProcessed, onError, maxFileSize = config.maxFileSize } = options
+  const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
+  const { onFileProcessed, onError, maxFileSize = safeConfig.maxFileSize } = options
 
   const [processingStates, setProcessingStates] = useState<
     Map<File, FileProcessingState>
@@ -91,7 +92,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           continue
         }
 
-        if (file.type.startsWith("image/") && !config.enableOcr) {
+        if (file.type.startsWith("image/") && !safeConfig.enableOcr) {
           const error = new Error(
             `OCR is disabled. Enable OCR in settings to upload image files (${file.name}).`
           )
@@ -145,11 +146,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           }
 
           // Generate embeddings if enabled
-          if (config.autoEmbedFiles && embeddingConfig) {
+          const safeEmbeddingConfig = embeddingConfig || DEFAULT_EMBEDDING_CONFIG
+          if (safeConfig.autoEmbedFiles) {
             try {
               // Check if using new knowledge processor (enhanced text splitters)
               const useNewProcessor =
-                embeddingConfig.useEnhancedChunking || false
+                safeEmbeddingConfig.useEnhancedChunking || false
 
               if (useNewProcessor) {
                 // Use new knowledge processor with enhanced text splitters
@@ -166,7 +168,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   contentType: file.type || "text/plain",
                   onProgress: (progress) => {
                     if (
-                      config.showEmbeddingProgress &&
+                      safeConfig.showEmbeddingProgress &&
                       progress.status === "processing"
                     ) {
                       const progressPercent =
@@ -207,7 +209,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                 }
 
                 // Mark as complete
-                if (config.showEmbeddingProgress) {
+                if (safeConfig.showEmbeddingProgress) {
                   setProcessingStates((prev) => {
                     const next = new Map(prev)
                     next.set(file, {
@@ -227,9 +229,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
               // Use old chunking system (backward compatibility)
               const chunks = await chunkTextAsync(result.text, {
-                chunkSize: embeddingConfig.chunkSize,
-                chunkOverlap: embeddingConfig.chunkOverlap,
-                strategy: embeddingConfig.chunkingStrategy
+                chunkSize: safeEmbeddingConfig.chunkSize,
+                chunkOverlap: safeEmbeddingConfig.chunkOverlap,
+                strategy: safeEmbeddingConfig.chunkingStrategy
               })
 
               logger.info(
@@ -238,7 +240,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
               )
 
               // Mark status as queued so UI doesn't block while background processes embeddings
-              if (config.showEmbeddingProgress) {
+              if (safeConfig.showEmbeddingProgress) {
                 setProcessingStates((prev) => {
                   const next = new Map(prev)
                   next.set(file, {
@@ -277,7 +279,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     const total = m.total || 0
                     const progress =
                       total > 0 ? Math.round((processed / total) * 100) : 0
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -291,7 +293,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     }
                   } else if (m?.status === "done") {
                     // Embedding complete
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -313,7 +315,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     logger.warn("Background embedding error", "useFileUpload", {
                       error: m?.message
                     })
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -337,7 +339,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
               })
 
               // Stream batches to background to avoid sending a huge single message
-              const batchSize = config.embeddingBatchSize || 3
+              const batchSize = safeConfig.embeddingBatchSize || 3
               for (let i = 0; i < chunks.length; i += batchSize) {
                 const batch = chunks
                   .slice(i, i + batchSize)
