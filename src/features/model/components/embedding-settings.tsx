@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
+import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import {
@@ -304,7 +304,7 @@ export const EmbeddingSettings = () => {
             />
 
             <FeedbackSettings />
-            
+
             <DataMigrationSettings />
           </>
         )

@@ -189,14 +189,14 @@ export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
  */
 export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   logger.info("Importing database bytes...", "SQLite")
-  
+
   // Save to IndexedDB
   await saveDatabaseToIndexedDB(bytes)
-  
+
   // Reset singletons to force reload
   db = null
   initPromise = null
-  
+
   // Reinitialize DB
   await initSQLite()
   logger.info("Database imported successfully", "SQLite")

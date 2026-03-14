@@ -146,7 +146,9 @@ export const ChatMessageContent = ({
             {!showThinking && thinkingPreview && (
               <div className="ml-8 pr-4">
                 <p className="line-clamp-1 text-[11px] leading-relaxed text-muted-foreground/70 italic">
-                  &ldquo;{thinkingPreview.replace(/^Thinking Process:?\s*/i, "")}&rdquo;
+                  &ldquo;
+                  {thinkingPreview.replace(/^Thinking Process:?\s*/i, "")}
+                  &rdquo;
                 </p>
               </div>
             )}
