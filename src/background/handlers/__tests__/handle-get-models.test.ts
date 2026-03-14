@@ -72,7 +72,7 @@ describe("handleGetModels", () => {
 
       await handleGetModels(mockSendResponse)
 
-      const response = mockSendResponse.mock.calls[0][0]
+      const response = (mockSendResponse as any).mock.calls[0][0]
       expect(response.success).toBe(true)
       expect(response.data?.models).toHaveLength(2)
       expect(response.data?.models[0].name).toBe("llama3:latest")

@@ -1,9 +1,15 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { db } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { useResetAppStorage } from "../use-reset-app-storage"
+
+vi.mock("@/lib/embeddings/feedback-service", () => ({
+  feedbackService: {
+    clearAllFeedback: vi.fn().mockResolvedValue(undefined)
+  }
+}))
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -11,9 +17,10 @@ vi.mock("@/lib/db", () => ({
   }
 }))
 
-vi.mock("@/lib/embeddings/feedback-service", () => ({
-  feedbackService: {
-    clearAllFeedback: vi.fn().mockResolvedValue(undefined)
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  plasmoGlobalStorage: {
+    clear: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined)
   }
 }))
 

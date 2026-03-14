@@ -39,7 +39,7 @@ interface StreamMessage {
   metrics?: Record<string, unknown>
 }
 
-interface UseChatStreamProps {
+export interface UseChatStreamProps {
   setMessages: (messages: ChatMessage[]) => void
   setIsLoading: (v: boolean) => void
   setIsStreaming: (v: boolean) => void

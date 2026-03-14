@@ -58,13 +58,13 @@ describe("Vector Store - Advanced Tests", () => {
         id: 1,
         content: "Apple pie",
         embedding: [1, 0],
-        metadata: { type: "chat", timestamp: 1 }
+        metadata: { source: "", type: "chat", timestamp: 1 }
       }
       const doc2 = {
         id: 2,
         content: "Apple computer",
         embedding: [0, 1],
-        metadata: { type: "chat", timestamp: 2 }
+        metadata: { source: "", type: "chat", timestamp: 2 }
       }
 
       await vectorDb.vectors.bulkAdd([doc1, doc2] as any)
@@ -92,13 +92,13 @@ describe("Vector Store - Advanced Tests", () => {
         id: 1,
         content: "Keyword match",
         embedding: [0, 1],
-        metadata: { type: "chat", timestamp: 1 }
+        metadata: { source: "", type: "chat", timestamp: 1 }
       }
       const doc2 = {
         id: 2,
         content: "Semantic match",
         embedding: [1, 0],
-        metadata: { type: "chat", timestamp: 2 }
+        metadata: { source: "", type: "chat", timestamp: 2 }
       }
 
       await vectorDb.vectors.bulkAdd([doc1, doc2] as any)
@@ -135,12 +135,27 @@ describe("Vector Store - Advanced Tests", () => {
 
       const fileId = "limited-file"
 
-      await storeVector("Chunk 1", [1], { type: "file", fileId, timestamp: 1 })
-      await storeVector("Chunk 2", [1], { type: "file", fileId, timestamp: 2 })
+      await storeVector("Chunk 1", [1], {
+        source: "",
+        type: "file",
+        fileId,
+        timestamp: 1
+      })
+      await storeVector("Chunk 2", [1], {
+        source: "",
+        type: "file",
+        fileId,
+        timestamp: 2
+      })
 
       // Should throw on 3rd
       await expect(
-        storeVector("Chunk 3", [1], { type: "file", fileId, timestamp: 3 })
+        storeVector("Chunk 3", [1], {
+          source: "",
+          type: "file",
+          fileId,
+          timestamp: 3
+        })
       ).rejects.toThrow("Maximum embeddings per file")
     })
 
@@ -157,11 +172,15 @@ describe("Vector Store - Advanced Tests", () => {
       await vectorDb.vectors.add({
         content: "Old",
         embedding: [1],
-        metadata: { type: "chat", timestamp: oldDate }
+        metadata: { source: "", type: "chat", timestamp: oldDate }
       } as any)
 
       // Trigger cleanup via storeVector
-      await storeVector("New", [1], { type: "chat", timestamp: newDate })
+      await storeVector("New", [1], {
+        source: "",
+        type: "chat",
+        timestamp: newDate
+      })
 
       const all = await vectorDb.vectors.toArray()
       expect(all.length).toBe(1)
@@ -176,6 +195,7 @@ describe("Vector Store - Advanced Tests", () => {
         promises.push(
           storeVector(`Content ${i}`, [i], {
             type: "chat",
+            source: "",
             timestamp: Date.now()
           })
         )
@@ -200,6 +220,7 @@ describe("Vector Store - Advanced Tests", () => {
       for (let i = 0; i < 20; i++) {
         await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
           type: "chat",
+          source: "",
           timestamp: Date.now() + i
         })
       }
@@ -217,8 +238,16 @@ describe("Vector Store - Advanced Tests", () => {
       const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
       vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(false)
 
-      await storeVector("Target", [1, 0], { type: "chat", timestamp: 1 })
-      await storeVector("Noise", [0, 1], { type: "chat", timestamp: 2 })
+      await storeVector("Target", [1, 0], {
+        source: "",
+        type: "chat",
+        timestamp: 1
+      })
+      await storeVector("Noise", [0, 1], {
+        source: "",
+        type: "chat",
+        timestamp: 2
+      })
 
       const results = await searchHybrid("Target", [1, 0], {
         limit: 1,
@@ -242,7 +271,7 @@ describe("Vector Store - Advanced Tests", () => {
         vectors.push({
           content: `Doc ${i}`,
           embedding: [0.1, 0.1],
-          metadata: { type: "chat", timestamp: Date.now() }
+          metadata: { source: "", type: "chat", timestamp: Date.now() }
         })
       }
       await vectorDb.vectors.bulkAdd(vectors as any)
@@ -258,7 +287,11 @@ describe("Vector Store - Advanced Tests", () => {
         new Error("HNSW Error")
       )
 
-      await storeVector("Target", [1, 0], { type: "chat", timestamp: 1 })
+      await storeVector("Target", [1, 0], {
+        source: "",
+        type: "chat",
+        timestamp: 1
+      })
 
       const results = await searchSimilarVectors([1, 0], { limit: 1 })
       expect(results.length).toBe(1)
@@ -277,7 +310,7 @@ describe("Vector Store - Advanced Tests", () => {
         vectors.push({
           content: `Doc ${i}`,
           embedding: new Array(10).fill(0.1),
-          metadata: { type: "chat", timestamp: i } // Old timestamps
+          metadata: { source: "", type: "chat", timestamp: i } // Old timestamps
         })
       }
       await vectorDb.vectors.bulkAdd(vectors as any)
@@ -285,6 +318,7 @@ describe("Vector Store - Advanced Tests", () => {
       // Trigger cleanup by adding one more
       await storeVector("New", new Array(10).fill(0.1), {
         type: "chat",
+        source: "",
         timestamp: 1000
       })
 

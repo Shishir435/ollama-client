@@ -30,7 +30,9 @@ export const LanguageSelector = () => {
               : `${lang.label} (${lang.nativeLabel})`
           ])
         )
-        const currentLabel = languageMap.get(i18n.language)
+        const currentLabel = languageMap.get(
+          i18n.language as (typeof LANGUAGES)[number]["value"]
+        )
         return (
           <SelectRow
             id="language-select"

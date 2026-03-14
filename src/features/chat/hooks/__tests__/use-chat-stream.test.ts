@@ -1,7 +1,8 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
+import { PROVIDER_MESSAGE_KEYS } from "@/lib/constants/keys"
+import type { UseChatStreamProps } from "../use-chat-stream"
 import { useChatStream } from "../use-chat-stream"
 
 // Mock browser API
@@ -15,9 +16,9 @@ vi.mock("@/lib/browser-api", () => ({
 
 describe("useChatStream", () => {
   let mockPort: any
-  let setMessages: ReturnType<typeof vi.fn>
-  let setIsLoading: ReturnType<typeof vi.fn>
-  let setIsStreaming: ReturnType<typeof vi.fn>
+  let setMessages: UseChatStreamProps["setMessages"]
+  let setIsLoading: UseChatStreamProps["setIsLoading"]
+  let setIsStreaming: UseChatStreamProps["setIsStreaming"]
 
   beforeEach(() => {
     // Reset mocks
@@ -30,15 +31,19 @@ describe("useChatStream", () => {
         addListener: vi.fn(),
         removeListener: vi.fn()
       },
+      onDisconnect: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
       disconnect: vi.fn()
     }
 
     vi.mocked(browser.runtime.connect).mockReturnValue(mockPort)
 
     // Create mock setter functions
-    setMessages = vi.fn()
-    setIsLoading = vi.fn()
-    setIsStreaming = vi.fn()
+    setMessages = vi.fn() as UseChatStreamProps["setMessages"]
+    setIsLoading = vi.fn() as UseChatStreamProps["setIsLoading"]
+    setIsStreaming = vi.fn() as UseChatStreamProps["setIsStreaming"]
   })
 
   it("should initialize streaming correctly", () => {
@@ -70,7 +75,7 @@ describe("useChatStream", () => {
     })
 
     expect(browser.runtime.connect).toHaveBeenCalledWith({
-      name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
+      name: PROVIDER_MESSAGE_KEYS.STREAM_RESPONSE
     })
     expect(setIsLoading).toHaveBeenCalledWith(true)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
@@ -185,7 +190,7 @@ describe("useChatStream", () => {
     })
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
-      type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION
+      type: PROVIDER_MESSAGE_KEYS.STOP_GENERATION
     })
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)

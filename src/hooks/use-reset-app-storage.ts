@@ -35,7 +35,7 @@ export const useResetAppStorage = () => {
 
       return key === "all"
         ? "All app data has been reset. Please reload the extension."
-        : `${key} has been reset.`
+        : `${String(key)} has been reset.`
     } catch (err) {
       logger.error("Failed to reset app data", "useResetAppStorage", {
         error: err

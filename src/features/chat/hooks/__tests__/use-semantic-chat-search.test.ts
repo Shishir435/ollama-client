@@ -62,6 +62,7 @@ describe("useSemanticChatSearch", () => {
           content: "Test message",
           embedding: [0.1, 0.2, 0.3],
           metadata: {
+            source: "",
             sessionId: "session-1",
             timestamp: Date.now(),
             title: "User message",
@@ -205,6 +206,7 @@ describe("useSemanticChatSearch", () => {
           content: "Assistant response",
           embedding: [0.1, 0.2, 0.3],
           metadata: {
+            source: "",
             sessionId: "session-1",
             timestamp: Date.now(),
             title: "Assistant response",

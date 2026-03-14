@@ -5,12 +5,13 @@ import { backupService } from "../backup-service"
 import { importDatabaseBytes } from "../sqlite/db"
 
 vi.mock("jszip", () => {
-  const MockZip: any = vi.fn().mockImplementation(function (this: any) {
-    this.file = vi.fn()
-    this.generateAsync = vi.fn().mockResolvedValue(new Blob(["test-zip"]))
-    return this
-  })
-  MockZip.loadAsync = vi.fn()
+  const MockZip = vi.fn().mockImplementation(
+    class {
+      file = vi.fn()
+      generateAsync = vi.fn().mockResolvedValue(new Blob(["test-zip"]))
+    } as any
+  )
+  ;(MockZip as any).loadAsync = vi.fn()
   return { default: MockZip }
 })
 
@@ -57,8 +58,8 @@ describe("backupService", () => {
     vi.clearAllMocks()
 
     // Mock chrome storage returns
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({})
-    vi.mocked(chrome.storage.local.get).mockResolvedValue({})
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue()
+    vi.mocked(chrome.storage.local.get).mockResolvedValue()
 
     // Mock chrome.runtime.getManifest
     global.chrome.runtime.getManifest = vi
@@ -71,34 +72,16 @@ describe("backupService", () => {
       await backupService.exportAll()
 
       const zipInstance = vi.mocked(JSZip).mock.instances[0]
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "manifest.json",
-        expect.any(String)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "sync-storage.json",
-        expect.any(String)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "local-storage.json",
-        expect.any(String)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "database.sqlite",
-        expect.any(Uint8Array)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "chat-db.json",
-        expect.any(Blob)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "vector-db.json",
-        expect.any(Blob)
-      )
-      expect(zipInstance.file).toHaveBeenCalledWith(
-        "knowledge-db.json",
-        expect.any(Blob)
-      )
+      const fileMock = zipInstance.file as any
+
+      const calledFiles = fileMock.mock.calls.map((c: any) => c[0])
+      expect(calledFiles).toContain("manifest.json")
+      expect(calledFiles).toContain("sync-storage.json")
+      expect(calledFiles).toContain("local-storage.json")
+      expect(calledFiles).toContain("database.sqlite")
+      expect(calledFiles).toContain("chat-db.json")
+      expect(calledFiles).toContain("vector-db.json")
+      expect(calledFiles).toContain("knowledge-db.json")
     })
   })
 

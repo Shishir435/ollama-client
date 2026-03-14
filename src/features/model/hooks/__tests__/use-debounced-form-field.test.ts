@@ -9,18 +9,18 @@ vi.mock("@/hooks/use-debounce", () => ({
 
 describe("useDebouncedFormField", () => {
   it("should return debounced value from watch", () => {
-    const mockWatch = vi.fn().mockReturnValue("test-value")
+    const mockWatch = vi.fn().mockReturnValue("test-value") as any
 
     const { result } = renderHook(() =>
-      useDebouncedFormField(mockWatch, "model", 500)
+      useDebouncedFormField(mockWatch, "temperature", 500)
     )
 
-    expect(mockWatch).toHaveBeenCalledWith("model")
+    expect(mockWatch).toHaveBeenCalledWith("temperature")
     expect(result.current).toBe("test-value")
   })
 
   it("should use default delay", () => {
-    const mockWatch = vi.fn().mockReturnValue(42)
+    const mockWatch = vi.fn().mockReturnValue(42) as any
 
     const { result } = renderHook(() =>
       useDebouncedFormField(mockWatch, "temperature", undefined)

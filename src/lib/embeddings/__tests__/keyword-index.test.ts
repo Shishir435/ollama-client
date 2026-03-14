@@ -15,6 +15,7 @@ describe("Keyword Index Manager", () => {
         content: "The quick brown fox jumps over the lazy dog",
         embedding: [0.1, 0.2, 0.3],
         metadata: {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -32,13 +33,23 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "First version",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
       const doc2: VectorDocument = {
         id: 1,
         content: "Second version",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc1.content, doc1)
@@ -54,7 +65,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(i, doc.content, doc)
       }
@@ -80,7 +96,12 @@ describe("Keyword Index Manager", () => {
           id,
           content,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(id, content, doc)
       })
@@ -207,7 +228,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -227,7 +253,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -245,7 +276,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(i, doc.content, doc)
       }
@@ -272,7 +308,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -291,7 +332,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i} content`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         })
       }
 
@@ -308,7 +354,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         })
       }
 
@@ -330,7 +381,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Initial document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
       keywordIndexManager.addDocument(1, doc1.content, doc1)
 
@@ -340,7 +396,12 @@ describe("Keyword Index Manager", () => {
           id: 2,
           content: "New document",
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
       ]
 

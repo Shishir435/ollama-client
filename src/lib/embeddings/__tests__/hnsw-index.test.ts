@@ -43,6 +43,7 @@ describe("HNSW Index Manager", () => {
         .fill(0)
         .map((_, i) => i / 384)
       await storeVector("Test 1", embedding, {
+        source: "",
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
@@ -51,6 +52,7 @@ describe("HNSW Index Manager", () => {
         "Test 2",
         embedding.map((v) => v * 0.5),
         {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -72,6 +74,7 @@ describe("HNSW Index Manager", () => {
         .map((_, i) => i / 384)
       for (let i = 0; i < 10; i++) {
         await storeVector(`Test ${i}`, embedding, {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -92,6 +95,7 @@ describe("HNSW Index Manager", () => {
         .fill(0)
         .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
+        source: "",
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
@@ -151,6 +155,7 @@ describe("HNSW Index Manager", () => {
         .map((_, i) => i / 384)
 
       await storeVector("Document 1", baseEmbedding, {
+        source: "",
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
@@ -159,6 +164,7 @@ describe("HNSW Index Manager", () => {
         "Document 2",
         baseEmbedding.map((v) => v * 0.9),
         {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -168,6 +174,7 @@ describe("HNSW Index Manager", () => {
         "Document 3",
         baseEmbedding.map((v) => v * 0.5),
         {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -230,6 +237,7 @@ describe("HNSW Index Manager", () => {
         .fill(0)
         .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
+        source: "",
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
@@ -250,6 +258,7 @@ describe("HNSW Index Manager", () => {
         .fill(0)
         .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
+        source: "",
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
@@ -289,6 +298,7 @@ describe("HNSW Index Manager", () => {
         .map((_, i) => i / 384)
       for (let i = 0; i < 5; i++) {
         await storeVector(`Test ${i}`, embedding, {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()

@@ -18,15 +18,17 @@ const collectSelectItems = (
 ) => {
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement(child)) return
-    if (child.type === SelectItem) {
-      const value = child.props?.value
+    // biome-ignore lint/suspicious/noExplicitAny: React element props can be anything
+    const element = child as React.ReactElement<any>
+    if (element.type === SelectItem) {
+      const value = element.props?.value
       if (value !== undefined) {
-        items.push({ value, label: child.props.children })
+        items.push({ value, label: element.props.children })
       }
       return
     }
-    if (child.props?.children) {
-      collectSelectItems(child.props.children, items)
+    if (element.props?.children) {
+      collectSelectItems(element.props.children, items)
     }
   })
 }

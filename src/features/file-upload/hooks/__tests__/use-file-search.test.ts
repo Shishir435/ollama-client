@@ -59,6 +59,7 @@ describe("useFileSearch", () => {
           embedding: [0.1, 0.2, 0.3],
           text: "test content",
           metadata: {
+            source: "",
             fileId: "file-1",
             title: "Test File",
             chunkIndex: 0,
@@ -70,7 +71,7 @@ describe("useFileSearch", () => {
       }
     ]
 
-    vi.mocked(searchSimilarVectors).mockResolvedValue(mockResults)
+    vi.mocked(searchSimilarVectors).mockResolvedValue(mockResults as any)
 
     const { result } = renderHook(() => useFileSearch())
 

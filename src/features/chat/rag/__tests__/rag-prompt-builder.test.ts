@@ -51,6 +51,10 @@ describe("formatSources", () => {
   it("formats sources for UI", () => {
     const sources = [
       {
+        id: "1",
+        content: "retrieved content",
+        score: 1.0,
+        source: "",
         title: "Doc 1",
         type: "pdf",
         chunkIndex: 0,

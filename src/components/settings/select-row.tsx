@@ -1,5 +1,4 @@
-import type React from "react"
-import { useMemo } from "react"
+import React, { useMemo } from "react"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -40,13 +39,12 @@ export const SelectRow = ({
     if (valueLabel) return valueLabel
     const map = new Map<string, React.ReactNode>()
     React.Children.forEach(children, (child) => {
-      if (!child) return
-      if (
-        typeof child === "object" &&
-        "props" in child &&
-        child.props?.value !== undefined
-      ) {
-        map.set(String(child.props.value), child.props.children)
+      if (React.isValidElement(child)) {
+        // biome-ignore lint/suspicious/noExplicitAny: React element props can be anything
+        const element = child as React.ReactElement<any>
+        if (element.props?.value !== undefined) {
+          map.set(String(element.props.value), element.props.children)
+        }
       }
     })
     return map.get(value)
