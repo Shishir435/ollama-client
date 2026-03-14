@@ -120,7 +120,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: false, // Disabled by default
+  useReranking: true, // Enabled by default
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
