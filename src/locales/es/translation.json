@@ -33,7 +33,10 @@
       "help_text": "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
     },
     "cancel": "Cancelar",
-    "save": "Guardar"
+    "save": "Guardar",
+    "continue": "Continuar Importación",
+    "reload": "Recargar Extensión",
+    "close": "Cerrar"
   },
   "selection_button": {
     "label": "Preguntar al LLM local",
@@ -655,6 +658,17 @@
           "label": "Repetir Últimos N",
           "validation_min": "Debe ser al menos {{min}}."
         }
+      },
+      "runtime": {
+        "title": "Tiempo de Ejecución y Calentamiento",
+        "description": "Controlar el calentamiento del modelo y las opciones del tiempo de ejecución.",
+        "keep_alive_label": "Mantener cargado",
+        "keep_alive_description": "Cuánto tiempo mantener el modelo cargado después de una solicitud. Usa segundos o duraciones como 5m.",
+        "keep_alive_placeholder": "ej. 300, 5m, 0 para descargar",
+        "warm_on_select_label": "Calentar modelo al seleccionar",
+        "warm_on_select_description": "Pre-cargar el modelo al cambiar para recibir la primera respuesta más rápido.",
+        "unload_on_switch_label": "Descargar modelo anterior al cambiar",
+        "unload_on_switch_description": "Liberar memoria descargando el último modelo al cambiar de modelo."
       }
     },
     "base_url": {
@@ -964,6 +978,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "No se encontraron modelos",
         "no_models_description": "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
+      }
+    },
+    "migration": {
+      "title": "Migración de Datos",
+      "description": "Exportar o importar todos los datos de su extensión, incluyendo preferencias, historial de chat y bases de datos de incrustaciones.",
+      "export": {
+        "label": "Exportar Copia de Seguridad Completa",
+        "description": "Descargar una copia de seguridad completa de todos los datos de la extensión como un archivo ZIP.",
+        "button": "Exportar Todo"
+      },
+      "import": {
+        "label": "Importar Copia de Seguridad",
+        "description": "Restaurar datos desde una copia de seguridad ZIP exportada previamente. Esto sobrescribirá los datos existentes.",
+        "button": "Importar Todo"
+      },
+      "import_confirm": {
+        "title": "¿Está absolutamente seguro?",
+        "description": "Esta acción sobrescribirá completamente sus preferencias existentes, el historial de chat y las bases de datos con el contenido del archivo de copia de seguridad. Esta acción no se puede deshacer."
+      },
+      "import_result": {
+        "title": "Resultados de la Importación",
+        "description": "Revise el estado de su importación de datos a continuación:"
       }
     }
   },

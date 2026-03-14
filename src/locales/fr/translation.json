@@ -33,7 +33,10 @@
       "help_text": "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
     },
     "cancel": "Annuler",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "continue": "Continuer l'Importation",
+    "reload": "Recharger l'Extension",
+    "close": "Fermer"
   },
   "selection_button": {
     "label": "Demander au LLM local",
@@ -656,6 +659,17 @@
           "label": "Répéter les Derniers N",
           "validation_min": "Doit être au moins {{min}}."
         }
+      },
+      "runtime": {
+        "title": "Exécution & Préchauffage",
+        "description": "Contrôler le préchauffage du modèle et les options d'exécution.",
+        "keep_alive_label": "Maintien en mémoire",
+        "keep_alive_description": "Combien de temps garder le modèle chargé après une requête. Utilisez des secondes ou une durée comme 5m.",
+        "keep_alive_placeholder": "ex. 300, 5m, 0 pour décharger",
+        "warm_on_select_label": "Préchauffer le modèle à la sélection",
+        "warm_on_select_description": "Précharger le modèle lors du changement pour une première réponse plus rapide.",
+        "unload_on_switch_label": "Décharger le précédent modèle lors du changement",
+        "unload_on_switch_description": "Libérer la mémoire en déchargeant le dernier modèle lors d'un changement."
       }
     },
     "base_url": {
@@ -965,6 +979,28 @@
         "failed_description": "{{url}} : {{error}}",
         "no_models_title": "Aucun modèle trouvé",
         "no_models_description": "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement."
+      }
+    },
+    "migration": {
+      "title": "Migration de Données",
+      "description": "Exportez ou importez toutes les données de votre extension, y compris les préférences, l'historique des discussions et les bases de données d'intégration.",
+      "export": {
+        "label": "Exporter la Sauvegarde Complète",
+        "description": "Télécharger une sauvegarde complète de toutes les données de l'extension sous forme de fichier ZIP.",
+        "button": "Tout Exporter"
+      },
+      "import": {
+        "label": "Importer la Sauvegarde",
+        "description": "Restaurer les données à partir d'une sauvegarde ZIP précédemment exportée. Cela écrasera les données existantes.",
+        "button": "Tout Importer"
+      },
+      "import_confirm": {
+        "title": "Êtes-vous absolument sûr ?",
+        "description": "Cette action écrasera complètement vos préférences existantes, votre historique de discussion et vos bases de données avec le contenu du fichier de sauvegarde. Cette action est irréversible."
+      },
+      "import_result": {
+        "title": "Résultats de l'Importation",
+        "description": "Passez en revue l'état de votre importation de données ci-dessous :"
       }
     }
   },

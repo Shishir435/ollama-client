@@ -33,7 +33,10 @@
       "help_text": "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
     },
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "continue": "Continue Import",
+    "reload": "Reload Extension",
+    "close": "Close"
   },
   "selection_button": {
     "label": "Ask Local LLM",
@@ -650,9 +653,6 @@
         "keep_alive_label": "Keep alive",
         "keep_alive_description": "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
         "keep_alive_placeholder": "e.g. 300, 5m, 0 to unload",
-        "num_thread_label": "Threads",
-        "num_gpu_label": "GPU layers",
-        "num_batch_label": "Batch size",
         "warm_on_select_label": "Warm model on select",
         "warm_on_select_description": "Preload the model when you switch to it for faster first response.",
         "unload_on_switch_label": "Unload previous model on switch",
@@ -1027,6 +1027,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "No Models Found",
         "no_models_description": "Connected to {{url}} but no models were found. Check if the service is running correctly."
+      }
+    },
+    "migration": {
+      "title": "Data Migration",
+      "description": "Export or import all your extension data including preferences, chat history, and embedding databases.",
+      "export": {
+        "label": "Export Full Backup",
+        "description": "Download a complete backup of all extension data as a ZIP file.",
+        "button": "Export All"
+      },
+      "import": {
+        "label": "Import Backup",
+        "description": "Restore data from a previously exported ZIP backup. This will overwrite existing data.",
+        "button": "Import All"
+      },
+      "import_confirm": {
+        "title": "Are you absolutely sure?",
+        "description": "This action will completely overwrite your existing preferences, chat history, and databases with the contents of the backup file. This action cannot be undone."
+      },
+      "import_result": {
+        "title": "Import Results",
+        "description": "Review the status of your data import below:"
       }
     }
   },

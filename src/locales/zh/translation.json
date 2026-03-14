@@ -33,7 +33,10 @@
       "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
     },
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "continue": "继续导入",
+    "reload": "重新加载扩展",
+    "close": "关闭"
   },
   "selection_button": {
     "label": "询问本地 LLM",
@@ -657,6 +660,17 @@
           "label": "重复最后 N 个",
           "validation_min": "必须至少为 {{min}}。"
         }
+      },
+      "runtime": {
+        "title": "运行与预热",
+        "description": "控制模型预热和运行时选项。",
+        "keep_alive_label": "保持连接畅通",
+        "keep_alive_description": "请求后将模型保持在内存中的时间长度。使用秒或类似 5m 的持续时间。",
+        "keep_alive_placeholder": "例如 300、5m、0 卸载",
+        "warm_on_select_label": "选择时预热模型",
+        "warm_on_select_description": "切换时预加载模型，以获得更快的初次响应速度。",
+        "unload_on_switch_label": "切换时卸载先前的模型",
+        "unload_on_switch_description": "在切换模型时卸载上个模型以释放内存。"
       }
     },
     "base_url": {
@@ -966,6 +980,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "未找到模型",
         "no_models_description": "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。"
+      }
+    },
+    "migration": {
+      "title": "数据迁移",
+      "description": "导出或导入您所有的扩展程序数据，包括首选项、聊天记录和嵌入数据库。",
+      "export": {
+        "label": "导出完整备份",
+        "description": "将所有扩展程序数据的完整备份下载为 ZIP 文件。",
+        "button": "全部导出"
+      },
+      "import": {
+        "label": "导入备份",
+        "description": "从之前导出的 ZIP 备份中恢复数据。这将覆盖现有数据。",
+        "button": "全部导入"
+      },
+      "import_confirm": {
+        "title": "您完全确定吗？",
+        "description": "此操作将用备份文件的内容完全覆盖您现有的首选项、聊天记录和数据库。此操作无法撤销。"
+      },
+      "import_result": {
+        "title": "导入结果",
+        "description": "查看下面您的数据导入状态："
       }
     }
   },

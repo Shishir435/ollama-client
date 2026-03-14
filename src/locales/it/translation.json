@@ -33,7 +33,10 @@
       "help_text": "Le traduzioni sono generate dall'IA. Aiutaci a migliorare contribuendo su <0>GitHub</0>!"
     },
     "cancel": "Annulla",
-    "save": "Salva"
+    "save": "Salva",
+    "continue": "Continua Importazione",
+    "reload": "Ricarica Estensione",
+    "close": "Chiudi"
   },
   "selection_button": {
     "label": "Chiedi al LLM locale",
@@ -656,6 +659,17 @@
           "label": "Ripeti Ultimi N",
           "validation_min": "Deve essere almeno {{min}}."
         }
+      },
+      "runtime": {
+        "title": "Esecuzione e Riscaldamento",
+        "description": "Controlla il riscaldamento del modello e le opzioni di runtime.",
+        "keep_alive_label": "Mantieni attivo",
+        "keep_alive_description": "Quanto tempo mantenere il modello caricato dopo una richiesta. Usa secondi o una durata come 5m.",
+        "keep_alive_placeholder": "es. 300, 5m, 0 per scaricare",
+        "warm_on_select_label": "Riscalda modello alla selezione",
+        "warm_on_select_description": "Precarica il modello al cambio per avere la prima risposta più veloce.",
+        "unload_on_switch_label": "Scarica il modello precedente al cambio",
+        "unload_on_switch_description": "Libera memoria scaricando l'ultimo modello quando lo cambi."
       }
     },
     "base_url": {
@@ -965,6 +979,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "Nessun modello trovato",
         "no_models_description": "Connesso a {{url}} ma nessun modello trovato. Controlla se il servizio è in esecuzione correttamente."
+      }
+    },
+    "migration": {
+      "title": "Migrazione dei Dati",
+      "description": "Esporta o importa tutti i dati della tua estensione, incluse le preferenze, la cronologia delle chat e le directory delle incorporazioni.",
+      "export": {
+        "label": "Esporta Backup Completo",
+        "description": "Scarica un backup completo di tutti i dati dell'estensione come file ZIP.",
+        "button": "Esporta Tutto"
+      },
+      "import": {
+        "label": "Importa Backup",
+        "description": "Ripristina i dati da un backup ZIP esportato in precedenza. Questo sovrascriverà i dati esistenti.",
+        "button": "Importa Tutto"
+      },
+      "import_confirm": {
+        "title": "Sei assolutamente sicuro?",
+        "description": "Questa azione sovrascriverà completamente le tue preferenze, la cronologia delle chat e i database esistenti con il contenuto del file di backup. Questa azione non può essere annullata."
+      },
+      "import_result": {
+        "title": "Risultati dell'Importazione",
+        "description": "Rivedi lo stato della tua importazione di dati di seguito:"
       }
     }
   },

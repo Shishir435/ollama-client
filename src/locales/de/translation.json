@@ -33,7 +33,10 @@
       "help_text": "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
     },
     "cancel": "Abbrechen",
-    "save": "Speichern"
+    "save": "Speichern",
+    "continue": "Import Fortsetzen",
+    "reload": "Erweiterung Neu Laden",
+    "close": "Schließen"
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",
@@ -656,6 +659,17 @@
           "label": "Letzte N wiederholen",
           "validation_min": "Muss mindestens {{min}} sein."
         }
+      },
+      "runtime": {
+        "title": "Laufzeit & Aufwärmen",
+        "description": "Steuern Sie das Aufwärmen und die Laufzeitoptionen für das Modell.",
+        "keep_alive_label": "Geladen halten",
+        "keep_alive_description": "Wie lange das Modell nach einer Anfrage im Speicher bleiben soll. Verwenden Sie Sekunden oder Dauer wie 5m.",
+        "keep_alive_placeholder": "z.B. 300, 5m, 0 zum Entladen",
+        "warm_on_select_label": "Modell beim Auswählen aufwärmen",
+        "warm_on_select_description": "Das Modell beim Wechseln vorladen, um die erste Antwort zu beschleunigen.",
+        "unload_on_switch_label": "Vorheriges Modell beim Wechsel entladen",
+        "unload_on_switch_description": "Speicher durch Entladen des vorherigen Modells beim Wechseln freigeben."
       }
     },
     "base_url": {
@@ -965,6 +979,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "Keine Modelle gefunden",
         "no_models_description": "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
+      }
+    },
+    "migration": {
+      "title": "Datenmigration",
+      "description": "Exportieren oder importieren Sie alle Ihre Erweiterungsdaten einschließlich Einstellungen, Chat-Verlauf und Einbettungsdatenbanken.",
+      "export": {
+        "label": "Vollständiges Backup Exportieren",
+        "description": "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
+        "button": "Alles Exportieren"
+      },
+      "import": {
+        "label": "Backup Importieren",
+        "description": "Stellen Sie Daten aus einem zuvor exportierten ZIP-Backup wieder her. Dies überschreibt vorhandene Daten.",
+        "button": "Alles Importieren"
+      },
+      "import_confirm": {
+        "title": "Sind Sie absolut sicher?",
+        "description": "Diese Aktion überschreibt Ihre vorhandenen Einstellungen, den Chat-Verlauf und die Datenbanken vollständig mit dem Inhalt der Backup-Datei. Diese Aktion kann nicht rückgängig gemacht werden."
+      },
+      "import_result": {
+        "title": "Import-Ergebnisse",
+        "description": "Überprüfen Sie den Status Ihres Datenimports unten:"
       }
     }
   },

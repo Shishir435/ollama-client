@@ -40,7 +40,10 @@ export const resources = {
             "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
         },
         cancel: "Abbrechen",
-        save: "Speichern"
+        save: "Speichern",
+        continue: "Import Fortsetzen",
+        reload: "Erweiterung Neu Laden",
+        close: "Schließen"
       },
       selection_button: {
         label: "Lokalen LLM fragen",
@@ -743,6 +746,21 @@ export const resources = {
               label: "Letzte N wiederholen",
               validation_min: "Muss mindestens {{min}} sein."
             }
+          },
+          runtime: {
+            title: "Laufzeit & Aufwärmen",
+            description:
+              "Steuern Sie das Aufwärmen und die Laufzeitoptionen für das Modell.",
+            keep_alive_label: "Geladen halten",
+            keep_alive_description:
+              "Wie lange das Modell nach einer Anfrage im Speicher bleiben soll. Verwenden Sie Sekunden oder Dauer wie 5m.",
+            keep_alive_placeholder: "z.B. 300, 5m, 0 zum Entladen",
+            warm_on_select_label: "Modell beim Auswählen aufwärmen",
+            warm_on_select_description:
+              "Das Modell beim Wechseln vorladen, um die erste Antwort zu beschleunigen.",
+            unload_on_switch_label: "Vorheriges Modell beim Wechsel entladen",
+            unload_on_switch_description:
+              "Speicher durch Entladen des vorherigen Modells beim Wechseln freigeben."
           }
         },
         base_url: {
@@ -1090,6 +1108,32 @@ export const resources = {
             no_models_description:
               "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
           }
+        },
+        migration: {
+          title: "Datenmigration",
+          description:
+            "Exportieren oder importieren Sie alle Ihre Erweiterungsdaten einschließlich Einstellungen, Chat-Verlauf und Einbettungsdatenbanken.",
+          export: {
+            label: "Vollständiges Backup Exportieren",
+            description:
+              "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
+            button: "Alles Exportieren"
+          },
+          import: {
+            label: "Backup Importieren",
+            description:
+              "Stellen Sie Daten aus einem zuvor exportierten ZIP-Backup wieder her. Dies überschreibt vorhandene Daten.",
+            button: "Alles Importieren"
+          },
+          import_confirm: {
+            title: "Sind Sie absolut sicher?",
+            description:
+              "Diese Aktion überschreibt Ihre vorhandenen Einstellungen, den Chat-Verlauf und die Datenbanken vollständig mit dem Inhalt der Backup-Datei. Diese Aktion kann nicht rückgängig gemacht werden."
+          },
+          import_result: {
+            title: "Import-Ergebnisse",
+            description: "Überprüfen Sie den Status Ihres Datenimports unten:"
+          }
         }
       },
       guides: {
@@ -1212,7 +1256,10 @@ export const resources = {
             "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
         },
         cancel: "Cancel",
-        save: "Save"
+        save: "Save",
+        continue: "Continue Import",
+        reload: "Reload Extension",
+        close: "Close"
       },
       selection_button: {
         label: "Ask Local LLM",
@@ -1905,9 +1952,6 @@ export const resources = {
             keep_alive_description:
               "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
             keep_alive_placeholder: "e.g. 300, 5m, 0 to unload",
-            num_thread_label: "Threads",
-            num_gpu_label: "GPU layers",
-            num_batch_label: "Batch size",
             warm_on_select_label: "Warm model on select",
             warm_on_select_description:
               "Preload the model when you switch to it for faster first response.",
@@ -2316,6 +2360,32 @@ export const resources = {
             no_models_description:
               "Connected to {{url}} but no models were found. Check if the service is running correctly."
           }
+        },
+        migration: {
+          title: "Data Migration",
+          description:
+            "Export or import all your extension data including preferences, chat history, and embedding databases.",
+          export: {
+            label: "Export Full Backup",
+            description:
+              "Download a complete backup of all extension data as a ZIP file.",
+            button: "Export All"
+          },
+          import: {
+            label: "Import Backup",
+            description:
+              "Restore data from a previously exported ZIP backup. This will overwrite existing data.",
+            button: "Import All"
+          },
+          import_confirm: {
+            title: "Are you absolutely sure?",
+            description:
+              "This action will completely overwrite your existing preferences, chat history, and databases with the contents of the backup file. This action cannot be undone."
+          },
+          import_result: {
+            title: "Import Results",
+            description: "Review the status of your data import below:"
+          }
         }
       },
       guides: {
@@ -2439,7 +2509,10 @@ export const resources = {
             "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
         },
         cancel: "Cancelar",
-        save: "Guardar"
+        save: "Guardar",
+        continue: "Continuar Importación",
+        reload: "Recargar Extensión",
+        close: "Cerrar"
       },
       selection_button: {
         label: "Preguntar al LLM local",
@@ -3144,6 +3217,21 @@ export const resources = {
               label: "Repetir Últimos N",
               validation_min: "Debe ser al menos {{min}}."
             }
+          },
+          runtime: {
+            title: "Tiempo de Ejecución y Calentamiento",
+            description:
+              "Controlar el calentamiento del modelo y las opciones del tiempo de ejecución.",
+            keep_alive_label: "Mantener cargado",
+            keep_alive_description:
+              "Cuánto tiempo mantener el modelo cargado después de una solicitud. Usa segundos o duraciones como 5m.",
+            keep_alive_placeholder: "ej. 300, 5m, 0 para descargar",
+            warm_on_select_label: "Calentar modelo al seleccionar",
+            warm_on_select_description:
+              "Pre-cargar el modelo al cambiar para recibir la primera respuesta más rápido.",
+            unload_on_switch_label: "Descargar modelo anterior al cambiar",
+            unload_on_switch_description:
+              "Liberar memoria descargando el último modelo al cambiar de modelo."
           }
         },
         base_url: {
@@ -3488,6 +3576,33 @@ export const resources = {
             no_models_description:
               "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
           }
+        },
+        migration: {
+          title: "Migración de Datos",
+          description:
+            "Exportar o importar todos los datos de su extensión, incluyendo preferencias, historial de chat y bases de datos de incrustaciones.",
+          export: {
+            label: "Exportar Copia de Seguridad Completa",
+            description:
+              "Descargar una copia de seguridad completa de todos los datos de la extensión como un archivo ZIP.",
+            button: "Exportar Todo"
+          },
+          import: {
+            label: "Importar Copia de Seguridad",
+            description:
+              "Restaurar datos desde una copia de seguridad ZIP exportada previamente. Esto sobrescribirá los datos existentes.",
+            button: "Importar Todo"
+          },
+          import_confirm: {
+            title: "¿Está absolutamente seguro?",
+            description:
+              "Esta acción sobrescribirá completamente sus preferencias existentes, el historial de chat y las bases de datos con el contenido del archivo de copia de seguridad. Esta acción no se puede deshacer."
+          },
+          import_result: {
+            title: "Resultados de la Importación",
+            description:
+              "Revise el estado de su importación de datos a continuación:"
+          }
         }
       },
       guides: {
@@ -3608,7 +3723,10 @@ export const resources = {
             "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
         },
         cancel: "Annuler",
-        save: "Enregistrer"
+        save: "Enregistrer",
+        continue: "Continuer l'Importation",
+        reload: "Recharger l'Extension",
+        close: "Fermer"
       },
       selection_button: {
         label: "Demander au LLM local",
@@ -4316,6 +4434,22 @@ export const resources = {
               label: "Répéter les Derniers N",
               validation_min: "Doit être au moins {{min}}."
             }
+          },
+          runtime: {
+            title: "Exécution & Préchauffage",
+            description:
+              "Contrôler le préchauffage du modèle et les options d'exécution.",
+            keep_alive_label: "Maintien en mémoire",
+            keep_alive_description:
+              "Combien de temps garder le modèle chargé après une requête. Utilisez des secondes ou une durée comme 5m.",
+            keep_alive_placeholder: "ex. 300, 5m, 0 pour décharger",
+            warm_on_select_label: "Préchauffer le modèle à la sélection",
+            warm_on_select_description:
+              "Précharger le modèle lors du changement pour une première réponse plus rapide.",
+            unload_on_switch_label:
+              "Décharger le précédent modèle lors du changement",
+            unload_on_switch_description:
+              "Libérer la mémoire en déchargeant le dernier modèle lors d'un changement."
           }
         },
         base_url: {
@@ -4663,6 +4797,33 @@ export const resources = {
             no_models_description:
               "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement."
           }
+        },
+        migration: {
+          title: "Migration de Données",
+          description:
+            "Exportez ou importez toutes les données de votre extension, y compris les préférences, l'historique des discussions et les bases de données d'intégration.",
+          export: {
+            label: "Exporter la Sauvegarde Complète",
+            description:
+              "Télécharger une sauvegarde complète de toutes les données de l'extension sous forme de fichier ZIP.",
+            button: "Tout Exporter"
+          },
+          import: {
+            label: "Importer la Sauvegarde",
+            description:
+              "Restaurer les données à partir d'une sauvegarde ZIP précédemment exportée. Cela écrasera les données existantes.",
+            button: "Tout Importer"
+          },
+          import_confirm: {
+            title: "Êtes-vous absolument sûr ?",
+            description:
+              "Cette action écrasera complètement vos préférences existantes, votre historique de discussion et vos bases de données avec le contenu du fichier de sauvegarde. Cette action est irréversible."
+          },
+          import_result: {
+            title: "Résultats de l'Importation",
+            description:
+              "Passez en revue l'état de votre importation de données ci-dessous :"
+          }
         }
       },
       guides: {
@@ -4783,7 +4944,10 @@ export const resources = {
             "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
         },
         cancel: "रद्द करें",
-        save: "सहेजें"
+        save: "सहेजें",
+        continue: "आयात जारी रखें",
+        reload: "एक्सटेंशन पुनः लोड करें",
+        close: "बंद करें"
       },
       selection_button: {
         label: "स्थानीय LLM से पूछें",
@@ -5464,6 +5628,20 @@ export const resources = {
               label: "पिछले N दोहराएँ",
               validation_min: "कम से कम {{min}} होना चाहिए।"
             }
+          },
+          runtime: {
+            title: "रनटाइम और वार्मअप",
+            description: "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
+            keep_alive_label: "जीवित रखें",
+            keep_alive_description:
+              "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
+            keep_alive_placeholder: "जैसे 300, 5m, अनलोड के लिए 0",
+            warm_on_select_label: "चयन पर मॉडल को वार्म करें",
+            warm_on_select_description:
+              "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
+            unload_on_switch_label: "बदलते समय पिछले मॉडल को अनलोड करें",
+            unload_on_switch_description:
+              "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
           }
         },
         base_url: {
@@ -5801,6 +5979,32 @@ export const resources = {
             no_models_description:
               "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
           }
+        },
+        migration: {
+          title: "डेटा माइग्रेशन",
+          description:
+            "वरीयताओं, चैट इतिहास और एम्बेडिंग डेटाबेस सहित अपने सभी एक्सटेंशन डेटा को निर्यात या आयात करें।",
+          export: {
+            label: "पूर्ण बैकअप निर्यात करें",
+            description:
+              "सभी एक्सटेंशन डेटा का एक पूर्ण बैकअप एक ज़िप फ़ाइल के रूप में डाउनलोड करें।",
+            button: "सभी निर्यात करें"
+          },
+          import: {
+            label: "बैकअप आयात करें",
+            description:
+              "पहले से निर्यातित ज़िप बैकअप से डेटा पुनर्स्थापित करें। यह मौजूदा डेटा को अधिलेखित कर देगा।",
+            button: "सभी आयात करें"
+          },
+          import_confirm: {
+            title: "क्या आप बिल्कुल सुनिश्चित हैं?",
+            description:
+              "यह क्रिया बैकअप फ़ाइल की सामग्री के साथ आपकी मौजूदा प्राथमिकताओं, चैट इतिहास और डेटाबेस को पूरी तरह से अधिलेखित कर देगी। इस क्रिया को पूर्ववत नहीं किया जा सकता है।"
+          },
+          import_result: {
+            title: "आयात परिणाम",
+            description: "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:"
+          }
         }
       },
       guides: {
@@ -5917,7 +6121,10 @@ export const resources = {
             "Le traduzioni sono generate dall'IA. Aiutaci a migliorare contribuendo su <0>GitHub</0>!"
         },
         cancel: "Annulla",
-        save: "Salva"
+        save: "Salva",
+        continue: "Continua Importazione",
+        reload: "Ricarica Estensione",
+        close: "Chiudi"
       },
       selection_button: {
         label: "Chiedi al LLM locale",
@@ -6622,6 +6829,21 @@ export const resources = {
               label: "Ripeti Ultimi N",
               validation_min: "Deve essere almeno {{min}}."
             }
+          },
+          runtime: {
+            title: "Esecuzione e Riscaldamento",
+            description:
+              "Controlla il riscaldamento del modello e le opzioni di runtime.",
+            keep_alive_label: "Mantieni attivo",
+            keep_alive_description:
+              "Quanto tempo mantenere il modello caricato dopo una richiesta. Usa secondi o una durata come 5m.",
+            keep_alive_placeholder: "es. 300, 5m, 0 per scaricare",
+            warm_on_select_label: "Riscalda modello alla selezione",
+            warm_on_select_description:
+              "Precarica il modello al cambio per avere la prima risposta più veloce.",
+            unload_on_switch_label: "Scarica il modello precedente al cambio",
+            unload_on_switch_description:
+              "Libera memoria scaricando l'ultimo modello quando lo cambi."
           }
         },
         base_url: {
@@ -6968,6 +7190,33 @@ export const resources = {
             no_models_description:
               "Connesso a {{url}} ma nessun modello trovato. Controlla se il servizio è in esecuzione correttamente."
           }
+        },
+        migration: {
+          title: "Migrazione dei Dati",
+          description:
+            "Esporta o importa tutti i dati della tua estensione, incluse le preferenze, la cronologia delle chat e le directory delle incorporazioni.",
+          export: {
+            label: "Esporta Backup Completo",
+            description:
+              "Scarica un backup completo di tutti i dati dell'estensione come file ZIP.",
+            button: "Esporta Tutto"
+          },
+          import: {
+            label: "Importa Backup",
+            description:
+              "Ripristina i dati da un backup ZIP esportato in precedenza. Questo sovrascriverà i dati esistenti.",
+            button: "Importa Tutto"
+          },
+          import_confirm: {
+            title: "Sei assolutamente sicuro?",
+            description:
+              "Questa azione sovrascriverà completamente le tue preferenze, la cronologia delle chat e i database esistenti con il contenuto del file di backup. Questa azione non può essere annullata."
+          },
+          import_result: {
+            title: "Risultati dell'Importazione",
+            description:
+              "Rivedi lo stato della tua importazione di dati di seguito:"
+          }
         }
       },
       guides: {
@@ -7088,7 +7337,10 @@ export const resources = {
             "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
         },
         cancel: "キャンセル",
-        save: "保存"
+        save: "保存",
+        continue: "インポートを続行",
+        reload: "拡張機能を再読み込み",
+        close: "閉じる"
       },
       selection_button: {
         label: "ローカルLLMに聞く",
@@ -7781,6 +8033,21 @@ export const resources = {
               label: "Repeat Last N",
               validation_min: "少なくとも {{min}} である必要があります。"
             }
+          },
+          runtime: {
+            title: "ランタイムとウォームアップ",
+            description:
+              "モデルのウォームアップとランタイムオプションを制御します。",
+            keep_alive_label: "キープアライブ",
+            keep_alive_description:
+              "リクエスト後にモデルをロードしたままにする時間。秒数または「5m」のような期間を使用します。",
+            keep_alive_placeholder: "例：300、5m、アンロードする場合は0",
+            warm_on_select_label: "選択時にモデルをウォームアップ",
+            warm_on_select_description:
+              "切り替え時にモデルをプリロードして、初回の応答を高速化します。",
+            unload_on_switch_label: "切り替え時に前のモデルをアンロード",
+            unload_on_switch_description:
+              "切り替え時に最後のモデルをアンロードしてメモリを解放します。"
           }
         },
         base_url: {
@@ -8122,6 +8389,32 @@ export const resources = {
             no_models_description:
               "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。"
           }
+        },
+        migration: {
+          title: "データ移行",
+          description:
+            "設定、チャット履歴、埋め込みデータベースを含む、すべての拡張機能データをエクスポートまたはインポートします。",
+          export: {
+            label: "完全なバックアップをエクスポート",
+            description:
+              "すべての拡張機能データの完全なバックアップをZIPファイルとしてダウンロードします。",
+            button: "すべてエクスポート"
+          },
+          import: {
+            label: "バックアップをインポート",
+            description:
+              "以前にエクスポートしたZIPバックアップからデータを復元します。これにより既存のデータが上書きされます。",
+            button: "すべてインポート"
+          },
+          import_confirm: {
+            title: "本当によろしいですか？",
+            description:
+              "この操作により、既存の設定、チャット履歴、データベースがバックアップファイルの内容で完全に上書きされます。この操作は元に戻すことができません。"
+          },
+          import_result: {
+            title: "インポート結果",
+            description: "以下のデータインポートのステータスを確認してください:"
+          }
         }
       },
       guides: {
@@ -8239,7 +8532,10 @@ export const resources = {
             "Переводы созданы ИИ. Помогите нам улучшить их на <0>GitHub</0>!"
         },
         cancel: "Отмена",
-        save: "Сохранить"
+        save: "Сохранить",
+        continue: "Продолжить импорт",
+        reload: "Перезагрузить расширение",
+        close: "Закрыть"
       },
       selection_button: {
         label: "Спросить локальный LLM",
@@ -8937,6 +9233,21 @@ export const resources = {
               label: "Repeat Last N",
               validation_min: "Должно быть не менее {{min}}."
             }
+          },
+          runtime: {
+            title: "Среда выполнения и запуск",
+            description:
+              "Настройки запуска и параметров среды выполнения модели.",
+            keep_alive_label: "Сохранять в памяти",
+            keep_alive_description:
+              "Как долго модель должна находиться в памяти после запроса. В секундах или формат как 5m.",
+            keep_alive_placeholder: "напр. 300, 5m, 0 для выгрузки",
+            warm_on_select_label: "Запускать модель при выборе",
+            warm_on_select_description:
+              "Предварительно загружать модель при переключении для ускорения первого ответа.",
+            unload_on_switch_label: "Выгружать предыдущую модель при смене",
+            unload_on_switch_description:
+              "Освобождать память, выгружая последнюю модель при переключении на новую."
           }
         },
         base_url: {
@@ -9278,6 +9589,32 @@ export const resources = {
             no_models_description:
               "Подключено к {{url}}, но модели не найдены. Проверьте, правильно ли работает сервис."
           }
+        },
+        migration: {
+          title: "Перенос данных",
+          description:
+            "Экспортируйте или импортируйте все данные вашего расширения, включая настройки, историю чата и базы данных векторных представлений.",
+          export: {
+            label: "Экспортировать полную резервную копию",
+            description:
+              "Скачать полную резервную копию всех данных расширения в виде ZIP-файла.",
+            button: "Экспортировать все"
+          },
+          import: {
+            label: "Импортировать резервную копию",
+            description:
+              "Восстановить данные из ранее экспортированной ZIP-копии. Это перезапишет существующие данные.",
+            button: "Импортировать все"
+          },
+          import_confirm: {
+            title: "Вы абсолютно уверены?",
+            description:
+              "Это действие полностью перезапишет ваши существующие настройки, историю чатов и базы данных содержимым файла резервной копии. Это действие нельзя отменить."
+          },
+          import_result: {
+            title: "Результаты импорта",
+            description: "Ознакомьтесь со статусом импорта данных ниже:"
+          }
         }
       },
       guides: {
@@ -9394,7 +9731,10 @@ export const resources = {
           help_text: "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
         },
         cancel: "取消",
-        save: "保存"
+        save: "保存",
+        continue: "继续导入",
+        reload: "重新加载扩展",
+        close: "关闭"
       },
       selection_button: {
         label: "询问本地 LLM",
@@ -10049,6 +10389,19 @@ export const resources = {
               label: "重复最后 N 个",
               validation_min: "必须至少为 {{min}}。"
             }
+          },
+          runtime: {
+            title: "运行与预热",
+            description: "控制模型预热和运行时选项。",
+            keep_alive_label: "保持连接畅通",
+            keep_alive_description:
+              "请求后将模型保持在内存中的时间长度。使用秒或类似 5m 的持续时间。",
+            keep_alive_placeholder: "例如 300、5m、0 卸载",
+            warm_on_select_label: "选择时预热模型",
+            warm_on_select_description:
+              "切换时预加载模型，以获得更快的初次响应速度。",
+            unload_on_switch_label: "切换时卸载先前的模型",
+            unload_on_switch_description: "在切换模型时卸载上个模型以释放内存。"
           }
         },
         base_url: {
@@ -10369,6 +10722,30 @@ export const resources = {
             no_models_title: "未找到模型",
             no_models_description:
               "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。"
+          }
+        },
+        migration: {
+          title: "数据迁移",
+          description:
+            "导出或导入您所有的扩展程序数据，包括首选项、聊天记录和嵌入数据库。",
+          export: {
+            label: "导出完整备份",
+            description: "将所有扩展程序数据的完整备份下载为 ZIP 文件。",
+            button: "全部导出"
+          },
+          import: {
+            label: "导入备份",
+            description: "从之前导出的 ZIP 备份中恢复数据。这将覆盖现有数据。",
+            button: "全部导入"
+          },
+          import_confirm: {
+            title: "您完全确定吗？",
+            description:
+              "此操作将用备份文件的内容完全覆盖您现有的首选项、聊天记录和数据库。此操作无法撤销。"
+          },
+          import_result: {
+            title: "导入结果",
+            description: "查看下面您的数据导入状态："
           }
         }
       },

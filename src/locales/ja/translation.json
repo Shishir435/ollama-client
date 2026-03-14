@@ -33,7 +33,10 @@
       "help_text": "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
     },
     "cancel": "キャンセル",
-    "save": "保存"
+    "save": "保存",
+    "continue": "インポートを続行",
+    "reload": "拡張機能を再読み込み",
+    "close": "閉じる"
   },
   "selection_button": {
     "label": "ローカルLLMに聞く",
@@ -655,6 +658,17 @@
           "label": "Repeat Last N",
           "validation_min": "少なくとも {{min}} である必要があります。"
         }
+      },
+      "runtime": {
+        "title": "ランタイムとウォームアップ",
+        "description": "モデルのウォームアップとランタイムオプションを制御します。",
+        "keep_alive_label": "キープアライブ",
+        "keep_alive_description": "リクエスト後にモデルをロードしたままにする時間。秒数または「5m」のような期間を使用します。",
+        "keep_alive_placeholder": "例：300、5m、アンロードする場合は0",
+        "warm_on_select_label": "選択時にモデルをウォームアップ",
+        "warm_on_select_description": "切り替え時にモデルをプリロードして、初回の応答を高速化します。",
+        "unload_on_switch_label": "切り替え時に前のモデルをアンロード",
+        "unload_on_switch_description": "切り替え時に最後のモデルをアンロードしてメモリを解放します。"
       }
     },
     "base_url": {
@@ -964,6 +978,28 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "モデルが見つかりません",
         "no_models_description": "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。"
+      }
+    },
+    "migration": {
+      "title": "データ移行",
+      "description": "設定、チャット履歴、埋め込みデータベースを含む、すべての拡張機能データをエクスポートまたはインポートします。",
+      "export": {
+        "label": "完全なバックアップをエクスポート",
+        "description": "すべての拡張機能データの完全なバックアップをZIPファイルとしてダウンロードします。",
+        "button": "すべてエクスポート"
+      },
+      "import": {
+        "label": "バックアップをインポート",
+        "description": "以前にエクスポートしたZIPバックアップからデータを復元します。これにより既存のデータが上書きされます。",
+        "button": "すべてインポート"
+      },
+      "import_confirm": {
+        "title": "本当によろしいですか？",
+        "description": "この操作により、既存の設定、チャット履歴、データベースがバックアップファイルの内容で完全に上書きされます。この操作は元に戻すことができません。"
+      },
+      "import_result": {
+        "title": "インポート結果",
+        "description": "以下のデータインポートのステータスを確認してください:"
       }
     }
   },
