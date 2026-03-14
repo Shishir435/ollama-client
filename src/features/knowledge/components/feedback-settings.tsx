@@ -104,7 +104,9 @@ export function FeedbackSettings() {
       const a = document.createElement("a")
       a.href = url
       a.download = `feedback-export-${Date.now()}.json`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
       logger.info("Exported feedback data", "FeedbackSettings", {
