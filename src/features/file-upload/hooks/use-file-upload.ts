@@ -51,7 +51,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   )
 
   const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
-  const { onFileProcessed, onError, maxFileSize = safeConfig.maxFileSize } = options
+  const {
+    onFileProcessed,
+    onError,
+    maxFileSize = safeConfig.maxFileSize
+  } = options
 
   const [processingStates, setProcessingStates] = useState<
     Map<File, FileProcessingState>
@@ -146,7 +150,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           }
 
           // Generate embeddings if enabled
-          const safeEmbeddingConfig = embeddingConfig || DEFAULT_EMBEDDING_CONFIG
+          const safeEmbeddingConfig =
+            embeddingConfig || DEFAULT_EMBEDDING_CONFIG
           if (safeConfig.autoEmbedFiles) {
             try {
               // Check if using new knowledge processor (enhanced text splitters)
@@ -419,7 +424,10 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       onFileProcessed,
       onError,
       processingStates,
-      config,
+      safeConfig.autoEmbedFiles,
+      safeConfig.enableOcr,
+      safeConfig.embeddingBatchSize,
+      safeConfig.showEmbeddingProgress,
       embeddingConfig
     ]
   )

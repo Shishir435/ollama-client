@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
@@ -46,8 +46,6 @@ export const ModelPerformanceSection = ({
     }
   }, [debouncedKeepAlive, config.keep_alive, updateConfig])
 
-
-
   return (
     <SettingsCard
       icon={Zap}
@@ -65,7 +63,6 @@ export const ModelPerformanceSection = ({
           placeholder={t("settings.model.runtime.keep_alive_placeholder")}
         />
       </SettingsFormField>
-
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SettingsSwitch

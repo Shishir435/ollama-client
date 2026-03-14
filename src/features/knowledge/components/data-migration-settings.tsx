@@ -14,19 +14,26 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { backupService, type ImportResult } from "@/lib/backup-service"
-import { HardDriveDownload, Download, Upload, Loader2, CheckCircle, XCircle } from "@/lib/lucide-icon"
+import {
+  CheckCircle,
+  Download,
+  HardDriveDownload,
+  Loader2,
+  Upload,
+  XCircle
+} from "@/lib/lucide-icon"
 
 export const DataMigrationSettings = () => {
   const { t } = useTranslation()
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  
+
   const [importConfirmOpen, setImportConfirmOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  
+
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [resultDialogOpen, setResultDialogOpen] = useState(false)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = async () => {
@@ -62,18 +69,21 @@ export const DataMigrationSettings = () => {
 
   const confirmImport = async () => {
     if (!selectedFile) return
-    
+
     setImportConfirmOpen(false)
     setIsImporting(true)
-    
+
     try {
       const result = await backupService.importAll(selectedFile)
       setImportResult(result)
       setResultDialogOpen(true)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Import failed:", error)
       setImportResult({
-        syncStorage: { ok: false, error: error.message },
+        syncStorage: {
+          ok: false,
+          error: error instanceof Error ? error.message : "Unknown error"
+        },
         localStorage: { ok: false, error: "Aborted" },
         database: { ok: false, error: "Aborted" },
         dexie: {
@@ -88,7 +98,7 @@ export const DataMigrationSettings = () => {
       setSelectedFile(null)
     }
   }
-  
+
   const closeResultDialogAndReload = () => {
     setResultDialogOpen(false)
     if (
@@ -107,25 +117,37 @@ export const DataMigrationSettings = () => {
     <SettingsCard
       icon={HardDriveDownload}
       title={t("settings.migration.title")}
-      description={t("settings.migration.description")}
-    >
+      description={t("settings.migration.description")}>
       <div className="space-y-4">
         <SettingsFormField
           label={t("settings.migration.export.label")}
-          description={t("settings.migration.export.description")}
-        >
-          <Button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto">
-            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          description={t("settings.migration.export.description")}>
+          <Button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="w-full sm:w-auto">
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             {t("settings.migration.export.button")}
           </Button>
         </SettingsFormField>
 
         <SettingsFormField
           label={t("settings.migration.import.label")}
-          description={t("settings.migration.import.description")}
-        >
-          <Button onClick={() => fileInputRef.current?.click()} disabled={isImporting} variant="secondary" className="w-full sm:w-auto">
-            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+          description={t("settings.migration.import.description")}>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            variant="secondary"
+            className="w-full sm:w-auto">
+            {isImporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
             {t("settings.migration.import.button")}
           </Button>
           <input
@@ -141,7 +163,9 @@ export const DataMigrationSettings = () => {
       <AlertDialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("settings.migration.import_confirm.title")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("settings.migration.import_confirm.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {t("settings.migration.import_confirm.description")}
             </AlertDialogDescription>
@@ -150,57 +174,87 @@ export const DataMigrationSettings = () => {
             <AlertDialogCancel disabled={isImporting}>
               {t("common.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmImport} disabled={isImporting}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmImport}
+              disabled={isImporting}>
               {t("common.continue")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={resultDialogOpen} onOpenChange={(open) => {
-        if (!open) closeResultDialogAndReload()
-      }}>
+      <AlertDialog
+        open={resultDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeResultDialogAndReload()
+        }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("settings.migration.import_result.title")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("settings.migration.import_result.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {t("settings.migration.import_result.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           <div className="py-4 space-y-4">
-            {importResult && [
-              { label: "Preferences (Sync)", result: importResult.syncStorage },
-              { label: "Local Storage", result: importResult.localStorage },
-              { label: "Database (SQLite)", result: importResult.database },
-              { label: "Chat History (Dexie)", result: importResult.dexie.chatDb },
-              { label: "Vector Embeddings (Dexie)", result: importResult.dexie.vectorDb },
-              { label: "Knowledge Sets (Dexie)", result: importResult.dexie.knowledgeDb }
-            ].map((item) => (
-              <div key={item.label} className="flex flex-col gap-1 border-b pb-2 last:border-0 last:pb-0">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{item.label}</span>
-                  <Badge variant={item.result.ok ? "default" : "destructive"} className="gap-1">
-                    {item.result.ok ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                    {item.result.ok ? "Success" : "Failed"}
-                  </Badge>
+            {importResult &&
+              [
+                {
+                  label: "Preferences (Sync)",
+                  result: importResult.syncStorage
+                },
+                { label: "Local Storage", result: importResult.localStorage },
+                { label: "Database (SQLite)", result: importResult.database },
+                {
+                  label: "Chat History (Dexie)",
+                  result: importResult.dexie.chatDb
+                },
+                {
+                  label: "Vector Embeddings (Dexie)",
+                  result: importResult.dexie.vectorDb
+                },
+                {
+                  label: "Knowledge Sets (Dexie)",
+                  result: importResult.dexie.knowledgeDb
+                }
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex flex-col gap-1 border-b pb-2 last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{item.label}</span>
+                    <Badge
+                      variant={item.result.ok ? "default" : "destructive"}
+                      className="gap-1">
+                      {item.result.ok ? (
+                        <CheckCircle className="h-3 w-3" />
+                      ) : (
+                        <XCircle className="h-3 w-3" />
+                      )}
+                      {item.result.ok ? "Success" : "Failed"}
+                    </Badge>
+                  </div>
+                  {!item.result.ok && item.result.error && (
+                    <p className="text-xs text-destructive mt-1">
+                      {item.result.error}
+                    </p>
+                  )}
                 </div>
-                {!item.result.ok && item.result.error && (
-                  <p className="text-xs text-destructive mt-1">{item.result.error}</p>
-                )}
-              </div>
-            ))}
+              ))}
           </div>
-          
+
           <AlertDialogFooter>
             <AlertDialogAction onClick={closeResultDialogAndReload}>
-              {importResult?.syncStorage.ok && 
-               importResult?.localStorage.ok && 
-               importResult?.database.ok &&
-               importResult?.dexie.chatDb.ok &&
-               importResult?.dexie.vectorDb.ok &&
-               importResult?.dexie.knowledgeDb.ok
-                ? t("common.reload") 
+              {importResult?.syncStorage.ok &&
+              importResult?.localStorage.ok &&
+              importResult?.database.ok &&
+              importResult?.dexie.chatDb.ok &&
+              importResult?.dexie.vectorDb.ok &&
+              importResult?.dexie.knowledgeDb.ok
+                ? t("common.reload")
                 : t("common.close")}
             </AlertDialogAction>
           </AlertDialogFooter>

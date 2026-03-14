@@ -1,10 +1,10 @@
-import JSZip from "jszip"
 import { exportDB, importInto } from "dexie-export-import"
-import { exportDatabaseBytes, importDatabaseBytes } from "./sqlite/db"
+import JSZip from "jszip"
 import { db as chatDb } from "./db"
 import { vectorDb } from "./embeddings/db"
-import { knowledgeDb, listKnowledgeSets } from "./knowledge/knowledge-sets"
+import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
+import { exportDatabaseBytes, importDatabaseBytes } from "./sqlite/db"
 
 export type ImportResult = {
   syncStorage: { ok: boolean; error?: string }
@@ -57,7 +57,7 @@ export const backupService = {
       // Knowledge DB
       const knowledgeDbBlob = await exportDB(knowledgeDb)
       zip.file("knowledge-db.json", knowledgeDbBlob)
-    } catch (e: any) {
+    } catch (e) {
       logger.error("Failed to export Dexie databases", "Backup", { error: e })
     }
 
@@ -99,15 +99,20 @@ export const backupService = {
         if (syncFile) {
           const syncStr = await syncFile.async("string")
           const syncData = JSON.parse(syncStr)
-          
+
           await chrome.storage.sync.clear()
 
           const failedKeys: string[] = []
           for (const [key, value] of Object.entries(syncData)) {
             try {
               await chrome.storage.sync.set({ [key]: value })
-            } catch (e: any) {
-              logger.warn(`Failed to import sync key ${key}: ${e.message}`, "Backup")
+            } catch (e) {
+              const errorMessage =
+                e instanceof Error ? e.message : "Unknown error"
+              logger.warn(
+                `Failed to import sync key ${key}: ${errorMessage}`,
+                "Backup"
+              )
               failedKeys.push(key)
             }
           }
@@ -123,8 +128,11 @@ export const backupService = {
         } else {
           result.syncStorage = { ok: false, error: "Missing sync-storage.json" }
         }
-      } catch (e: any) {
-        result.syncStorage = { ok: false, error: e.message }
+      } catch (e) {
+        result.syncStorage = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       // Local Storage
@@ -137,10 +145,16 @@ export const backupService = {
           await chrome.storage.local.set(localData)
           result.localStorage.ok = true
         } else {
-          result.localStorage = { ok: false, error: "Missing local-storage.json" }
+          result.localStorage = {
+            ok: false,
+            error: "Missing local-storage.json"
+          }
         }
-      } catch (e: any) {
-        result.localStorage = { ok: false, error: e.message }
+      } catch (e) {
+        result.localStorage = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       // Database
@@ -153,8 +167,11 @@ export const backupService = {
         } else {
           result.database = { ok: false, error: "Missing database.sqlite" }
         }
-      } catch (e: any) {
-        result.database = { ok: false, error: e.message }
+      } catch (e) {
+        result.database = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       // Dexie Databases
@@ -164,11 +181,17 @@ export const backupService = {
           const chatDbBlob = await chatDbFile.async("blob")
           await chatDb.delete()
           await chatDb.open()
-          await importInto(chatDb, chatDbBlob, { overwriteValues: true, clearTablesBeforeImport: true })
+          await importInto(chatDb, chatDbBlob, {
+            overwriteValues: true,
+            clearTablesBeforeImport: true
+          })
           result.dexie.chatDb.ok = true
         }
-      } catch (e: any) {
-        result.dexie.chatDb = { ok: false, error: e.message }
+      } catch (e) {
+        result.dexie.chatDb = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       try {
@@ -177,11 +200,17 @@ export const backupService = {
           const vectorDbBlob = await vectorDbFile.async("blob")
           await vectorDb.delete()
           await vectorDb.open()
-          await importInto(vectorDb, vectorDbBlob, { overwriteValues: true, clearTablesBeforeImport: true })
+          await importInto(vectorDb, vectorDbBlob, {
+            overwriteValues: true,
+            clearTablesBeforeImport: true
+          })
           result.dexie.vectorDb.ok = true
         }
-      } catch (e: any) {
-        result.dexie.vectorDb = { ok: false, error: e.message }
+      } catch (e) {
+        result.dexie.vectorDb = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       try {
@@ -190,17 +219,24 @@ export const backupService = {
           const knowledgeDbBlob = await knowledgeDbFile.async("blob")
           await knowledgeDb.delete()
           await knowledgeDb.open()
-          await importInto(knowledgeDb, knowledgeDbBlob, { overwriteValues: true, clearTablesBeforeImport: true })
+          await importInto(knowledgeDb, knowledgeDbBlob, {
+            overwriteValues: true,
+            clearTablesBeforeImport: true
+          })
           result.dexie.knowledgeDb.ok = true
         }
-      } catch (e: any) {
-        result.dexie.knowledgeDb = { ok: false, error: e.message }
+      } catch (e) {
+        result.dexie.knowledgeDb = {
+          ok: false,
+          error: e instanceof Error ? e.message : "Unknown error"
+        }
       }
 
       return result
-    } catch (e: any) {
+    } catch (e) {
       // If we completely fail to parse zip or manifest:
-      throw new Error(`Failed to read backup file: ${e.message}`)
+      const errorMessage = e instanceof Error ? e.message : "Unknown error"
+      throw new Error(`Failed to read backup file: ${errorMessage}`)
     }
   }
 }
