@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
-import type { ChromeMessage } from "@/types"
+import type { ChromeMessage, ChromePort } from "@/types"
 import {
   handleEmbedFileChunks,
   handleEmbedFileChunksPort
@@ -23,13 +23,14 @@ describe("Handle Embed Chunks", () => {
 
   describe("handleEmbedFileChunks (Legacy)", () => {
     it("should handle valid payload", async () => {
-      const message = {
+      const message: ChromeMessage = {
+        type: "embed",
         payload: {
           chunks: [{ index: 0, text: "chunk1" }],
           metadata: { fileId: "file1", title: "File 1" },
           model: "test-model"
         }
-      } as ChromeMessage
+      }
       const sendResponse = vi.fn()
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
@@ -50,7 +51,7 @@ describe("Handle Embed Chunks", () => {
     })
 
     it("should handle invalid payload", async () => {
-      const message = { payload: {} } as ChromeMessage
+      const message: ChromeMessage = { type: "embed", payload: {} }
       const sendResponse = vi.fn()
 
       await handleEmbedFileChunks(message, sendResponse)
@@ -62,12 +63,13 @@ describe("Handle Embed Chunks", () => {
     })
 
     it("should handle errors", async () => {
-      const message = {
+      const message: ChromeMessage = {
+        type: "embed",
         payload: {
           chunks: [{ index: 0, text: "chunk1" }],
           metadata: { fileId: "file1" }
         }
-      } as ChromeMessage
+      }
       const sendResponse = vi.fn()
 
       vi.mocked(generateEmbeddingsBatch).mockRejectedValue(
@@ -84,31 +86,41 @@ describe("Handle Embed Chunks", () => {
   })
 
   describe("handleEmbedFileChunksPort (Streaming)", () => {
-    let port: any
-    let listeners: Record<string, (...args: any[]) => void>
+    let port: ChromePort
+    let listeners: {
+      message?: (message: ChromeMessage) => void | Promise<void>
+      disconnect?: () => void
+    }
 
     beforeEach(() => {
       listeners = {}
       port = {
+        name: "test-port",
         onMessage: {
           addListener: vi.fn((fn) => {
             listeners.message = fn
-          })
+          }),
+          removeListener: vi.fn(),
+          hasListener: vi.fn(),
+          hasListeners: vi.fn()
         },
         onDisconnect: {
           addListener: vi.fn((fn) => {
             listeners.disconnect = fn
-          })
+          }),
+          removeListener: vi.fn(),
+          hasListener: vi.fn(),
+          hasListeners: vi.fn()
         },
         postMessage: vi.fn(),
         disconnect: vi.fn()
-      }
+      } as unknown as ChromePort
     })
 
     it("should initialize correctly", () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message({
+      listeners.message?.({
         type: "init",
         payload: {
           metadata: { fileId: "file1" },
@@ -123,9 +135,11 @@ describe("Handle Embed Chunks", () => {
       handleEmbedFileChunksPort(port)
 
       // Init first
-      listeners.message({
+      listeners.message?.({
         type: "init",
-        payload: { metadata: { fileId: "file1" } }
+        payload: {
+          metadata: { fileId: "file1" }
+        }
       })
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
@@ -134,7 +148,7 @@ describe("Handle Embed Chunks", () => {
       ])
 
       // Send batch
-      await listeners.message({
+      await listeners.message?.({
         type: "batch",
         payload: {
           chunks: [
@@ -149,17 +163,19 @@ describe("Handle Embed Chunks", () => {
         undefined
       )
       expect(storeVector).toHaveBeenCalledTimes(2)
-      expect(port.postMessage).toHaveBeenCalledWith({
-        status: "progress",
-        processed: 2,
-        total: 2
-      })
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "progress",
+          processed: 2,
+          total: 2
+        })
+      )
     })
 
     it("should handle cancellation", () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message({ cancel: true })
+      listeners.message?.({ type: "cancel", cancel: true })
 
       expect(port.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -172,7 +188,7 @@ describe("Handle Embed Chunks", () => {
     it("should handle done message", () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message({ type: "done" })
+      listeners.message?.({ type: "done" })
 
       expect(port.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -185,7 +201,7 @@ describe("Handle Embed Chunks", () => {
     it("should handle errors during processing", async () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message({
+      listeners.message?.({
         type: "init",
         payload: { metadata: { fileId: "file1" } }
       })
@@ -194,7 +210,7 @@ describe("Handle Embed Chunks", () => {
         new Error("Processing failed")
       )
 
-      await listeners.message({
+      await listeners.message?.({
         type: "batch",
         payload: { chunks: [{ index: 0, text: "chunk1" }] }
       })
@@ -210,27 +226,24 @@ describe("Handle Embed Chunks", () => {
     it("should stop processing on disconnect", async () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message({
+      listeners.message?.({
         type: "init",
         payload: { metadata: { fileId: "file1" } }
       })
 
       // Simulate disconnect
-      listeners.disconnect()
+      listeners.disconnect?.()
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
         { embedding: [0.1], model: "default" }
       ])
 
-      await listeners.message({
+      await listeners.message?.({
         type: "batch",
         payload: { chunks: [{ index: 0, text: "chunk1" }] }
       })
 
       // Should not store vector if cancelled/disconnected
-      // Wait, the implementation checks `cancelled` flag inside the loop
-      // `onDisconnect` sets `cancelled = true`
-
       expect(storeVector).not.toHaveBeenCalled()
     })
   })
