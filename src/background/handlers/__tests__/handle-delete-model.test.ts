@@ -42,8 +42,12 @@ describe("handleDeleteModel", () => {
     })
 
     it("should use custom base URL", async () => {
-      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue("http://192.168.1.100:11434")
+      const { plasmoGlobalStorage } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
+        "http://192.168.1.100:11434"
+      )
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse({}))
 
       await handleDeleteModel("mistral:latest", mockSendResponse)
@@ -61,7 +65,7 @@ describe("handleDeleteModel", () => {
 
       const callArgs = vi.mocked(fetch).mock.calls[0]
       const requestBody = JSON.parse(callArgs[1]?.body as string)
-      
+
       expect(requestBody).toEqual({ model: "gemma:7b" })
     })
 
@@ -72,7 +76,7 @@ describe("handleDeleteModel", () => {
 
       const callArgs = vi.mocked(fetch).mock.calls[0]
       const requestBody = JSON.parse(callArgs[1]?.body as string)
-      
+
       expect(requestBody.model).toBe("llama3:8b-instruct-q4_0")
     })
   })

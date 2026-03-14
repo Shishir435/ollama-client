@@ -26,7 +26,7 @@ describe("formatEnhancedResults", () => {
     )
 
     expect(formattedContext).toBe(
-      "<doc id=\"1\" source=\"Doc\" page=\"3\" chunk=\"2/5\" score=\"0.876\">\nHello from page 3\n</doc>"
+      '<doc id="1" source="Doc" page="3" chunk="2/5" score="0.876">\nHello from page 3\n</doc>'
     )
     expect(sources[0].page).toBe(3)
   })

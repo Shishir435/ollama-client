@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   clearAllVectors,
   deleteVectors,
@@ -8,7 +9,6 @@ import {
   storeVector,
   vectorDb
 } from "../vector-store"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 describe("Vector Store - Baseline Tests", () => {
   beforeEach(async () => {
@@ -151,7 +151,7 @@ describe("Vector Store - Baseline Tests", () => {
 
     it("should filter by fileId array", async () => {
       await clearAllVectors()
-      
+
       await storeVector("File A content", [1, 0, 0], {
         type: "file",
         fileId: "file-A",
@@ -182,10 +182,10 @@ describe("Vector Store - Baseline Tests", () => {
 
     it("should use search cache on repeated queries", async () => {
       const queryEmbedding = [1, 0, 0]
-      
+
       // First query
       const results1 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
-      
+
       // Second query (should use cache)
       const results2 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
 
@@ -436,82 +436,88 @@ describe("Vector Store - Baseline Tests", () => {
       const count = await clearAllVectors("chat")
       expect(count).toBe(1)
 
-      const chatCount = await vectorDb.vectors.where("metadata.type").equals("chat").count()
+      const chatCount = await vectorDb.vectors
+        .where("metadata.type")
+        .equals("chat")
+        .count()
       expect(chatCount).toBe(0)
 
-      const fileCount = await vectorDb.vectors.where("metadata.type").equals("file").count()
+      const fileCount = await vectorDb.vectors
+        .where("metadata.type")
+        .equals("file")
+        .count()
       expect(fileCount).toBe(1)
     })
   })
-  })
+})
 
-  describe("Advanced Features", () => {
-    it("should respect storage limits", async () => {
-      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      const { STORAGE_KEYS } = await import("@/lib/constants")
-      
-      // Mock config with small storage limit (e.g., 0.001 MB = 1KB)
-      vi.spyOn(plasmoGlobalStorage, "get").mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.EMBEDDINGS.CONFIG) {
-          return { maxStorageSize: 0.001, autoCleanup: true }
-        }
-        return undefined
-      })
+describe("Advanced Features", () => {
+  it("should respect storage limits", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    const { STORAGE_KEYS } = await import("@/lib/constants")
 
-      // Store enough vectors to exceed limit
-      // Each vector is ~100-200 bytes + overhead
-      for (let i = 0; i < 20; i++) {
-        await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
-          type: "chat",
-          timestamp: Date.now() + i // Increasing timestamps
-        })
+    // Mock config with small storage limit (e.g., 0.001 MB = 1KB)
+    vi.spyOn(plasmoGlobalStorage, "get").mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.EMBEDDINGS.CONFIG) {
+        return { maxStorageSize: 0.001, autoCleanup: true }
       }
-
-      // Check if some were deleted (oldest first)
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(20)
-      
-      // Verify oldest are gone
-      const first = await vectorDb.vectors.orderBy("metadata.timestamp").first()
-      expect(first?.content).not.toBe("Content 0")
+      return undefined
     })
 
-    it("should perform hybrid search", async () => {
-      const { searchHybrid } = await import("../vector-store")
-      const { keywordIndexManager } = await import("@/lib/embeddings/keyword-index")
-      
-      // Add documents
-      const id1 = await storeVector("The quick brown fox", [1, 0, 0], {
+    // Store enough vectors to exceed limit
+    // Each vector is ~100-200 bytes + overhead
+    for (let i = 0; i < 20; i++) {
+      await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
         type: "chat",
-        timestamp: Date.now()
+        timestamp: Date.now() + i // Increasing timestamps
       })
-      const id2 = await storeVector("The lazy dog", [0, 1, 0], {
-        type: "chat",
-        timestamp: Date.now()
-      })
+    }
 
-      // Keyword match "fox" (id1), Semantic match [0, 1, 0] (id2)
-      // Hybrid should return both, ranked by weights
-      const results = await searchHybrid("fox", [0, 1, 0], {
-        limit: 2,
-        keywordWeight: 0.5,
-        semanticWeight: 0.5
-      })
+    // Check if some were deleted (oldest first)
+    const count = await vectorDb.vectors.count()
+    expect(count).toBeLessThan(20)
 
-      expect(results.length).toBeGreaterThan(0)
-      const hasFox = results.some(r => r.document.content.includes("fox"))
-      const hasDog = results.some(r => r.document.content.includes("dog"))
-      expect(hasFox || hasDog).toBe(true)
-    })
-
-    it("should handle normalization edge cases", async () => {
-      // Zero vector
-      const id = await storeVector("Zero", [0, 0, 0], {
-        type: "chat",
-        timestamp: Date.now()
-      })
-      const stored = await vectorDb.vectors.get(id)
-      expect(stored?.norm).toBe(0)
-      expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
-    })
+    // Verify oldest are gone
+    const first = await vectorDb.vectors.orderBy("metadata.timestamp").first()
+    expect(first?.content).not.toBe("Content 0")
   })
+
+  it("should perform hybrid search", async () => {
+    const { searchHybrid } = await import("../vector-store")
+    await import("@/lib/embeddings/keyword-index")
+
+    // Add documents
+    const _id1 = await storeVector("The quick brown fox", [1, 0, 0], {
+      type: "chat",
+      timestamp: Date.now()
+    })
+    const _id2 = await storeVector("The lazy dog", [0, 1, 0], {
+      type: "chat",
+      timestamp: Date.now()
+    })
+
+    // Keyword match "fox" (id1), Semantic match [0, 1, 0] (id2)
+    // Hybrid should return both, ranked by weights
+    const results = await searchHybrid("fox", [0, 1, 0], {
+      limit: 2,
+      keywordWeight: 0.5,
+      semanticWeight: 0.5
+    })
+
+    expect(results.length).toBeGreaterThan(0)
+    const hasFox = results.some((r) => r.document.content.includes("fox"))
+    const hasDog = results.some((r) => r.document.content.includes("dog"))
+    expect(hasFox || hasDog).toBe(true)
+  })
+
+  it("should handle normalization edge cases", async () => {
+    // Zero vector
+    const id = await storeVector("Zero", [0, 0, 0], {
+      type: "chat",
+      timestamp: Date.now()
+    })
+    const stored = await vectorDb.vectors.get(id)
+    expect(stored?.norm).toBe(0)
+    expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
+  })
+})

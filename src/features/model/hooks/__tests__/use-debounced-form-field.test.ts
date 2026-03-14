@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 import { useDebouncedFormField } from "../use-debounced-form-field"
 
 // Mock useDebounce
@@ -10,7 +10,7 @@ vi.mock("@/hooks/use-debounce", () => ({
 describe("useDebouncedFormField", () => {
   it("should return debounced value from watch", () => {
     const mockWatch = vi.fn().mockReturnValue("test-value")
-    
+
     const { result } = renderHook(() =>
       useDebouncedFormField(mockWatch, "model", 500)
     )
@@ -21,7 +21,7 @@ describe("useDebouncedFormField", () => {
 
   it("should use default delay", () => {
     const mockWatch = vi.fn().mockReturnValue(42)
-    
+
     const { result } = renderHook(() =>
       useDebouncedFormField(mockWatch, "temperature", undefined)
     )

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { loadStreamStore } from "../load-stream-store"
 
 describe("loadStreamStore", () => {
@@ -16,7 +16,7 @@ describe("loadStreamStore", () => {
   it("should set isLoading to true", () => {
     const { setIsLoading } = loadStreamStore.getState()
     setIsLoading(true)
-    
+
     expect(loadStreamStore.getState().isLoading).toBe(true)
   })
 
@@ -24,14 +24,14 @@ describe("loadStreamStore", () => {
     const { setIsLoading } = loadStreamStore.getState()
     setIsLoading(true)
     setIsLoading(false)
-    
+
     expect(loadStreamStore.getState().isLoading).toBe(false)
   })
 
   it("should set isStreaming to true", () => {
     const { setIsStreaming } = loadStreamStore.getState()
     setIsStreaming(true)
-    
+
     expect(loadStreamStore.getState().isStreaming).toBe(true)
   })
 
@@ -39,21 +39,21 @@ describe("loadStreamStore", () => {
     const { setIsStreaming } = loadStreamStore.getState()
     setIsStreaming(true)
     setIsStreaming(false)
-    
+
     expect(loadStreamStore.getState().isStreaming).toBe(false)
   })
 
   it("should handle both flags independently", () => {
     const { setIsLoading, setIsStreaming } = loadStreamStore.getState()
-    
+
     setIsLoading(true)
     setIsStreaming(true)
-    
+
     expect(loadStreamStore.getState().isLoading).toBe(true)
     expect(loadStreamStore.getState().isStreaming).toBe(true)
-    
+
     setIsLoading(false)
-    
+
     expect(loadStreamStore.getState().isLoading).toBe(false)
     expect(loadStreamStore.getState().isStreaming).toBe(true)
   })

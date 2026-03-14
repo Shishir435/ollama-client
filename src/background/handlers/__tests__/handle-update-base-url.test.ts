@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleUpdateBaseUrl } from "../handle-update-base-url"
-import { createMockSendResponse, clearHandlerMocks } from "./test-utils"
+import { clearHandlerMocks, createMockSendResponse } from "./test-utils"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -77,7 +77,10 @@ describe("handleUpdateBaseUrl", () => {
       const { isChromiumBased } = await import("@/lib/browser-api")
       vi.mocked(isChromiumBased).mockReturnValue(true)
 
-      await handleUpdateBaseUrl("http://192.168.1.100:11434/api", mockSendResponse)
+      await handleUpdateBaseUrl(
+        "http://192.168.1.100:11434/api",
+        mockSendResponse
+      )
 
       const callArgs =
         mockDeclarativeNetRequest.updateDynamicRules.mock.calls[0][0]
@@ -86,9 +89,7 @@ describe("handleUpdateBaseUrl", () => {
       expect(addedRule.action.requestHeaders[0].value).toBe(
         "http://192.168.1.100:11434"
       )
-      expect(addedRule.condition.urlFilter).toBe(
-        "http://192.168.1.100:11434/*"
-      )
+      expect(addedRule.condition.urlFilter).toBe("http://192.168.1.100:11434/*")
     })
 
     it("should handle URLs without port", async () => {
@@ -110,7 +111,10 @@ describe("handleUpdateBaseUrl", () => {
       const { isChromiumBased } = await import("@/lib/browser-api")
       vi.mocked(isChromiumBased).mockReturnValue(true)
 
-      await handleUpdateBaseUrl("https://secure.ollama.com:443", mockSendResponse)
+      await handleUpdateBaseUrl(
+        "https://secure.ollama.com:443",
+        mockSendResponse
+      )
 
       const callArgs =
         mockDeclarativeNetRequest.updateDynamicRules.mock.calls[0][0]
@@ -147,29 +151,31 @@ describe("handleUpdateBaseUrl", () => {
 
       await handleUpdateBaseUrl("http://localhost:11434", mockSendResponse)
 
-      expect(mockDeclarativeNetRequest.updateDynamicRules).toHaveBeenCalledWith({
-        removeRuleIds: [1],
-        addRules: [
-          {
-            id: 1,
-            priority: 1,
-            action: {
-              type: "modifyHeaders",
-              requestHeaders: [
-                {
-                  header: "Origin",
-                  operation: "set",
-                  value: "http://localhost:11434"
-                }
-              ]
-            },
-            condition: {
-              urlFilter: "http://localhost:11434/*",
-              resourceTypes: ["xmlhttprequest"]
+      expect(mockDeclarativeNetRequest.updateDynamicRules).toHaveBeenCalledWith(
+        {
+          removeRuleIds: [1],
+          addRules: [
+            {
+              id: 1,
+              priority: 1,
+              action: {
+                type: "modifyHeaders",
+                requestHeaders: [
+                  {
+                    header: "Origin",
+                    operation: "set",
+                    value: "http://localhost:11434"
+                  }
+                ]
+              },
+              condition: {
+                urlFilter: "http://localhost:11434/*",
+                resourceTypes: ["xmlhttprequest"]
+              }
             }
-          }
-        ]
-      })
+          ]
+        }
+      )
     })
 
     it("should remove previous rule (id: 1) before adding new one", async () => {
@@ -254,9 +260,9 @@ describe("handleUpdateBaseUrl", () => {
 
       vi.mocked(isChromiumBased).mockReturnValue(true)
       // Cast string to Error-like object
-      mockDeclarativeNetRequest.updateDynamicRules.mockRejectedValue(
-        { message: "String error" } as Error
-      )
+      mockDeclarativeNetRequest.updateDynamicRules.mockRejectedValue({
+        message: "String error"
+      } as Error)
 
       await handleUpdateBaseUrl("http://localhost:11434", mockSendResponse)
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CsvProcessor } from "../csv-processor"
 
 // Mock CsvLoader
@@ -93,8 +93,7 @@ describe("CsvProcessor", () => {
     })
 
     it("should process CSV with multiple rows", async () => {
-      const csvContent =
-        "name,age,city\nJohn,30,NY\nJane,25,SF\nBob,35,LA"
+      const csvContent = "name,age,city\nJohn,30,NY\nJane,25,SF\nBob,35,LA"
       const file = new File([csvContent], "data.csv", { type: "text/csv" })
 
       mockLoad.mockResolvedValue([

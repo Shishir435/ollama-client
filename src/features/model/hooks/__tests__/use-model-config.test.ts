@@ -1,7 +1,7 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useModelConfig } from "../use-model-config"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
+import { useModelConfig } from "../use-model-config"
 
 // Mock useStorage hook from @plasmohq/storage
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -80,7 +80,10 @@ describe("useModelConfig", () => {
     }
 
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([existingConfigs, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([
+      existingConfigs,
+      mockSetModelConfigs
+    ])
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -105,8 +108,12 @@ describe("useModelConfig", () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
     vi.mocked(useStorage).mockReturnValue([configs, mockSetModelConfigs])
 
-    const { result: result1 } = renderHook(() => useModelConfig("llama3:latest"))
-    const { result: result2 } = renderHook(() => useModelConfig("mistral:latest"))
+    const { result: result1 } = renderHook(() =>
+      useModelConfig("llama3:latest")
+    )
+    const { result: result2 } = renderHook(() =>
+      useModelConfig("mistral:latest")
+    )
 
     expect(result1.current[0].temperature).toBe(0.8)
     expect(result2.current[0].temperature).toBe(0.6)

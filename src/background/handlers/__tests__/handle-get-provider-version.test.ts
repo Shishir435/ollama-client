@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { handleGetProviderVersion } from "../handle-get-provider-version"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { handleGetProviderVersion } from "../handle-get-provider-version"
 
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn(),
@@ -17,7 +17,7 @@ describe("handleGetProviderVersion", () => {
 
   it("should get provider version successfully", async () => {
     const mockData = { version: "0.1.17" }
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue(mockData)

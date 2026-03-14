@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { handleUnloadModel } from "../handle-unload-model"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
+import { handleUnloadModel } from "../handle-unload-model"
 
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, expect, it } from "vitest"
 import { db } from "../db"
 
 describe("ChatDatabase", () => {
@@ -12,24 +12,24 @@ describe("ChatDatabase", () => {
   it("should have correct schema for sessions table", () => {
     const schema = db.sessions.schema
     expect(schema.primKey.name).toBe("id")
-    expect(schema.indexes.map(i => i.name)).toContain("createdAt")
-    expect(schema.indexes.map(i => i.name)).toContain("updatedAt")
-    expect(schema.indexes.map(i => i.name)).toContain("modelId")
+    expect(schema.indexes.map((i) => i.name)).toContain("createdAt")
+    expect(schema.indexes.map((i) => i.name)).toContain("updatedAt")
+    expect(schema.indexes.map((i) => i.name)).toContain("modelId")
   })
 
   it("should have correct schema for messages table", () => {
     const schema = db.messages.schema
     expect(schema.primKey.name).toBe("id")
     expect(schema.primKey.auto).toBe(true)
-    expect(schema.indexes.map(i => i.name)).toContain("sessionId")
-    expect(schema.indexes.map(i => i.name)).toContain("timestamp")
+    expect(schema.indexes.map((i) => i.name)).toContain("sessionId")
+    expect(schema.indexes.map((i) => i.name)).toContain("timestamp")
   })
 
   it("should have correct schema for files table", () => {
     const schema = db.files.schema
     expect(schema.primKey.name).toBe("id")
     expect(schema.primKey.auto).toBe(true)
-    expect(schema.indexes.map(i => i.name)).toContain("sessionId")
+    expect(schema.indexes.map((i) => i.name)).toContain("sessionId")
   })
 
   it("should be named ChatDatabase", () => {

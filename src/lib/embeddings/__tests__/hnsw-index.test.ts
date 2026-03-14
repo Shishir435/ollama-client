@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { hnswIndexManager } from "../hnsw-index"
 import { clearAllVectors, storeVector } from "../vector-store"
 
@@ -39,17 +39,23 @@ describe("HNSW Index Manager", () => {
 
     it("should build index from vectors in database", async () => {
       // Store test vectors
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await storeVector("Test 1", embedding, {
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
       })
-      await storeVector("Test 2", embedding.map(v => v * 0.5), {
-        type: "chat",
-        sessionId: "test-session",
-        timestamp: Date.now()
-      })
+      await storeVector(
+        "Test 2",
+        embedding.map((v) => v * 0.5),
+        {
+          type: "chat",
+          sessionId: "test-session",
+          timestamp: Date.now()
+        }
+      )
 
       await hnswIndexManager.buildIndex()
 
@@ -61,7 +67,9 @@ describe("HNSW Index Manager", () => {
 
     it("should track build progress", async () => {
       // Store multiple vectors
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       for (let i = 0; i < 10; i++) {
         await storeVector(`Test ${i}`, embedding, {
           type: "chat",
@@ -80,7 +88,9 @@ describe("HNSW Index Manager", () => {
     })
 
     it("should not allow concurrent builds", async () => {
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
         type: "chat",
         sessionId: "test-session",
@@ -103,7 +113,9 @@ describe("HNSW Index Manager", () => {
     it("should add vector incrementally to index", async () => {
       await hnswIndexManager.initialize(384)
 
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await hnswIndexManager.addVector(1, embedding)
 
       const stats = hnswIndexManager.getStats()
@@ -113,10 +125,18 @@ describe("HNSW Index Manager", () => {
     it("should handle adding multiple vectors", async () => {
       await hnswIndexManager.initialize(384)
 
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await hnswIndexManager.addVector(1, embedding)
-      await hnswIndexManager.addVector(2, embedding.map(v => v * 0.5))
-      await hnswIndexManager.addVector(3, embedding.map(v => v * 0.25))
+      await hnswIndexManager.addVector(
+        2,
+        embedding.map((v) => v * 0.5)
+      )
+      await hnswIndexManager.addVector(
+        3,
+        embedding.map((v) => v * 0.25)
+      )
 
       const stats = hnswIndexManager.getStats()
       expect(stats.numElements).toBe(3)
@@ -126,29 +146,41 @@ describe("HNSW Index Manager", () => {
   describe("search", () => {
     beforeEach(async () => {
       // Build index with test vectors
-      const baseEmbedding = Array(384).fill(0).map((_, i) => i / 384)
-      
+      const baseEmbedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
+
       await storeVector("Document 1", baseEmbedding, {
         type: "chat",
         sessionId: "test-session",
         timestamp: Date.now()
       })
-      await storeVector("Document 2", baseEmbedding.map(v => v * 0.9), {
-        type: "chat",
-        sessionId: "test-session",
-        timestamp: Date.now()
-      })
-      await storeVector("Document 3", baseEmbedding.map(v => v * 0.5), {
-        type: "chat",
-        sessionId: "test-session",
-        timestamp: Date.now()
-      })
+      await storeVector(
+        "Document 2",
+        baseEmbedding.map((v) => v * 0.9),
+        {
+          type: "chat",
+          sessionId: "test-session",
+          timestamp: Date.now()
+        }
+      )
+      await storeVector(
+        "Document 3",
+        baseEmbedding.map((v) => v * 0.5),
+        {
+          type: "chat",
+          sessionId: "test-session",
+          timestamp: Date.now()
+        }
+      )
 
       await hnswIndexManager.buildIndex()
     })
 
     it("should find nearest neighbors", async () => {
-      const queryEmbedding = Array(384).fill(0).map((_, i) => i / 384)
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       const results = await hnswIndexManager.search(queryEmbedding, 3)
 
       expect(results.length).toBeGreaterThan(0)
@@ -158,17 +190,23 @@ describe("HNSW Index Manager", () => {
     })
 
     it("should return results sorted by similarity", async () => {
-      const queryEmbedding = Array(384).fill(0).map((_, i) => i / 384)
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       const results = await hnswIndexManager.search(queryEmbedding, 3)
 
       // Distances should be in descending order (higher similarity first)
       for (let i = 0; i < results.length - 1; i++) {
-        expect(results[i].distance).toBeGreaterThanOrEqual(results[i + 1].distance)
+        expect(results[i].distance).toBeGreaterThanOrEqual(
+          results[i + 1].distance
+        )
       }
     })
 
     it("should respect k limit", async () => {
-      const queryEmbedding = Array(384).fill(0).map((_, i) => i / 384)
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       const results = await hnswIndexManager.search(queryEmbedding, 2)
 
       expect(results.length).toBeLessThanOrEqual(2)
@@ -177,7 +215,9 @@ describe("HNSW Index Manager", () => {
     it("should return empty array for empty index", async () => {
       await hnswIndexManager.clearIndex()
 
-      const queryEmbedding = Array(384).fill(0).map((_, i) => i / 384)
+      const queryEmbedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       const results = await hnswIndexManager.search(queryEmbedding, 10)
 
       expect(results).toEqual([])
@@ -186,7 +226,9 @@ describe("HNSW Index Manager", () => {
 
   describe("clearIndex", () => {
     it("should clear all vectors from index", async () => {
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
         type: "chat",
         sessionId: "test-session",
@@ -204,7 +246,9 @@ describe("HNSW Index Manager", () => {
 
   describe("getStats", () => {
     it("should return correct statistics", async () => {
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       await storeVector("Test", embedding, {
         type: "chat",
         sessionId: "test-session",
@@ -240,7 +284,9 @@ describe("HNSW Index Manager", () => {
 
     it("should return true when conditions are met", async () => {
       // Build index with vectors
-      const embedding = Array(384).fill(0).map((_, i) => i / 384)
+      const embedding = Array(384)
+        .fill(0)
+        .map((_, i) => i / 384)
       for (let i = 0; i < 5; i++) {
         await storeVector(`Test ${i}`, embedding, {
           type: "chat",

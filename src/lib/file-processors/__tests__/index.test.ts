@@ -1,11 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 import {
   getProcessor,
-  processFile,
+  getSupportedExtensions,
   isFileTypeSupported,
-  getSupportedExtensions
+  processFile
 } from "../index"
-import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 
 // Mock the processors
 vi.mock("@/features/file-upload/processors/text-processor", () => ({
@@ -13,15 +13,30 @@ vi.mock("@/features/file-upload/processors/text-processor", () => ({
     canProcess = vi.fn().mockImplementation((file: File) => {
       const type = file.type
       const name = file.name
-      if (type.startsWith("image/") || type.startsWith("video/") || type === "application/xyz") return false
-      if (name.endsWith(".png") || name.endsWith(".mp4") || name.endsWith(".xyz")) return false
+      if (
+        type.startsWith("image/") ||
+        type.startsWith("video/") ||
+        type === "application/xyz"
+      )
+        return false
+      if (
+        name.endsWith(".png") ||
+        name.endsWith(".mp4") ||
+        name.endsWith(".xyz")
+      )
+        return false
       if (type === "application/pdf" || name.endsWith(".pdf")) return false
-      if (type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx")) return false
+      if (
+        type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        name.endsWith(".docx")
+      )
+        return false
       return true
     })
     process = vi.fn().mockImplementation(async (file: File) => ({
       text: await file.text(),
-      metadata: { 
+      metadata: {
         fileName: file.name,
         fileType: file.type || "text/plain",
         fileSize: file.size,
@@ -32,7 +47,12 @@ vi.mock("@/features/file-upload/processors/text-processor", () => ({
 }))
 vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
   PdfProcessor: class {
-    canProcess = vi.fn().mockImplementation((file: File) => file.type === "application/pdf" || file.name.endsWith(".pdf"))
+    canProcess = vi
+      .fn()
+      .mockImplementation(
+        (file: File) =>
+          file.type === "application/pdf" || file.name.endsWith(".pdf")
+      )
     process = vi.fn().mockResolvedValue({
       text: "PDF content",
       metadata: { pageCount: 1 }
@@ -42,10 +62,14 @@ vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
 
 vi.mock("@/features/file-upload/processors/docx-processor", () => ({
   DocxProcessor: class {
-    canProcess = vi.fn().mockImplementation((file: File) => 
-      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 
-      file.name.endsWith(".docx")
-    )
+    canProcess = vi
+      .fn()
+      .mockImplementation(
+        (file: File) =>
+          file.type ===
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+          file.name.endsWith(".docx")
+      )
     process = vi.fn().mockResolvedValue({
       text: "DOCX content",
       metadata: { wordCount: 100 }
@@ -55,9 +79,12 @@ vi.mock("@/features/file-upload/processors/docx-processor", () => ({
 
 vi.mock("@/features/file-upload/processors/image-processor", () => ({
   ImageProcessor: class {
-    canProcess = vi.fn().mockImplementation((file: File) =>
-      file.type.startsWith("image/") || file.name.endsWith(".png")
-    )
+    canProcess = vi
+      .fn()
+      .mockImplementation(
+        (file: File) =>
+          file.type.startsWith("image/") || file.name.endsWith(".png")
+      )
     process = vi.fn().mockResolvedValue({
       text: "OCR content",
       metadata: { ocrLanguage: "eng" }
@@ -199,10 +226,10 @@ describe("File Processors - Infrastructure", () => {
 
     it("should handle processor errors gracefully", async () => {
       const file = new File(["content"], "test.txt", { type: "text/plain" })
-      
+
       // Processor should handle errors internally
       const result = await processFile(file)
-      
+
       // Should either succeed or return structured error
       expect(result).toBeDefined()
     })
@@ -283,7 +310,7 @@ describe("File Processors - Infrastructure", () => {
 
     it("should include common text extensions", () => {
       const exts = getSupportedExtensions()
-      
+
       // Implementation returns specific list
       expect(exts).toContain("*") // Wildcard for text files
     })

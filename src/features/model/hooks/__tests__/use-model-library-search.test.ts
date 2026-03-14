@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
-import { useModelLibrarySearch } from "../use-model-library-search"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
+import { useModelLibrarySearch } from "../use-model-library-search"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -85,7 +85,7 @@ describe("useModelLibrarySearch", () => {
     })
 
     const { result } = renderHook(() => useModelLibrarySearch())
-    
+
     result.current.setSearchQuery("llama")
 
     await waitFor(() => {

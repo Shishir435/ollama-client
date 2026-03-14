@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-
-import { retrieveContext } from "../rag-retriever"
 import * as vectorStore from "@/lib/embeddings/vector-store"
-import { knowledgeConfig } from "@/lib/config/knowledge-config"
+import { retrieveContext } from "../rag-retriever"
 
 // Mock dependencies
 vi.mock("@/lib/embeddings/vector-store")
@@ -23,14 +21,26 @@ vi.mock("../rag-pipeline", () => ({
     {
       document: {
         content: "Chunk 1 content",
-        metadata: { title: "Doc 1", source: "test.txt", type: "file", chunkIndex: 0, fileId: "file1" }
+        metadata: {
+          title: "Doc 1",
+          source: "test.txt",
+          type: "file",
+          chunkIndex: 0,
+          fileId: "file1"
+        }
       },
       score: 0.9
     },
     {
       document: {
         content: "Chunk 2 content",
-        metadata: { title: "Doc 1", source: "test.txt", type: "file", chunkIndex: 1, fileId: "file1" }
+        metadata: {
+          title: "Doc 1",
+          source: "test.txt",
+          type: "file",
+          chunkIndex: 1,
+          fileId: "file1"
+        }
       },
       score: 0.8
     }
@@ -47,10 +57,10 @@ describe("retrieveContext", () => {
     {
       content: "Chunk 1 content",
       embedding: [0.1, 0.2, 0.3],
-      metadata: { 
+      metadata: {
         source: "test.txt",
-        title: "Doc 1", 
-        chunkIndex: 0, 
+        title: "Doc 1",
+        chunkIndex: 0,
         fileId: "file1",
         type: "file",
         timestamp: Date.now()
@@ -59,10 +69,10 @@ describe("retrieveContext", () => {
     {
       content: "Chunk 2 content",
       embedding: [0.4, 0.5, 0.6],
-      metadata: { 
+      metadata: {
         source: "test.txt",
-        title: "Doc 1", 
-        chunkIndex: 1, 
+        title: "Doc 1",
+        chunkIndex: 1,
         fileId: "file1",
         type: "file",
         timestamp: Date.now()
@@ -72,14 +82,14 @@ describe("retrieveContext", () => {
 
   it("retrieves context using enhanced pipeline by default", async () => {
     const { retrieveContextEnhanced } = await import("../rag-pipeline")
-    
+
     const result = await retrieveContext("query", "file1")
 
     expect(retrieveContextEnhanced).toHaveBeenCalledWith(
       "query",
-      expect.objectContaining({ 
-        topK: 4, 
-        fileId: "file1", 
+      expect.objectContaining({
+        topK: 4,
+        fileId: "file1",
         minSimilarity: 0.5,
         diversityEnabled: true
       })

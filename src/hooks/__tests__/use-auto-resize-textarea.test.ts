@@ -1,7 +1,6 @@
 import { renderHook } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { useAutoResizeTextarea } from "../use-auto-resize-textarea"
-import { createRef } from "react"
 
 describe("useAutoResizeTextarea", () => {
   let textareaRef: React.RefObject<HTMLTextAreaElement>
@@ -16,7 +15,7 @@ describe("useAutoResizeTextarea", () => {
       } as CSSStyleDeclaration,
       scrollHeight: 150
     }
-    
+
     textareaRef = { current: mockTextarea as HTMLTextAreaElement }
   })
 
@@ -28,7 +27,9 @@ describe("useAutoResizeTextarea", () => {
   })
 
   it("should resize based on content", () => {
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Some content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Some content", 100, 300)
+    )
 
     // Should set to auto first, then to scrollHeight
     expect(mockTextarea.style?.height).toBe("150px")
@@ -45,7 +46,9 @@ describe("useAutoResizeTextarea", () => {
   it("should respect maximum height", () => {
     mockTextarea.scrollHeight = 400 // More than maxHeight
 
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Very long content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Very long content", 100, 300)
+    )
 
     expect(mockTextarea.style?.height).toBe("300px")
     expect(mockTextarea.style?.overflowY).toBe("auto")
@@ -54,7 +57,9 @@ describe("useAutoResizeTextarea", () => {
   it("should hide overflow when within bounds", () => {
     mockTextarea.scrollHeight = 200 // Within bounds
 
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Medium content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Medium content", 100, 300)
+    )
 
     expect(mockTextarea.style?.overflowY).toBe("hidden")
   })

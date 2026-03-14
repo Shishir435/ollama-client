@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { handleGetLoadedModels } from "../handle-get-loaded-model"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { handleGetLoadedModels } from "../handle-get-loaded-model"
 
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn(),
@@ -17,11 +17,9 @@ describe("handleGetLoadedModels", () => {
 
   it("should get loaded models successfully", async () => {
     const mockData = {
-      models: [
-        { name: "llama2:latest", size: 3825819519 }
-      ]
+      models: [{ name: "llama2:latest", size: 3825819519 }]
     }
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue(mockData)

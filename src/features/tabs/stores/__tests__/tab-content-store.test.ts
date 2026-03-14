@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
-import { useTabContentStore, useTabContent } from "../tab-content-store"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useTabContent, useTabContentStore } from "../tab-content-store"
 
 // Mock dependencies
 vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
@@ -34,13 +34,17 @@ describe("useTabContentStore", () => {
   it("should set built content", () => {
     const { setBuiltContent } = useTabContentStore.getState()
     setBuiltContent("Test content")
-    
+
     expect(useTabContentStore.getState().builtContent).toBe("Test content")
   })
 
   it("should build content from selected tabs", async () => {
-    const { useTabContents } = await import("@/features/tabs/hooks/use-tab-contents")
-    const { useSelectedTabs } = await import("@/features/tabs/stores/selected-tabs-store")
+    const { useTabContents } = await import(
+      "@/features/tabs/hooks/use-tab-contents"
+    )
+    const { useSelectedTabs } = await import(
+      "@/features/tabs/stores/selected-tabs-store"
+    )
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -71,8 +75,12 @@ describe("useTabContentStore", () => {
   })
 
   it("should handle errors in tab content", async () => {
-    const { useTabContents } = await import("@/features/tabs/hooks/use-tab-contents")
-    const { useSelectedTabs } = await import("@/features/tabs/stores/selected-tabs-store")
+    const { useTabContents } = await import(
+      "@/features/tabs/hooks/use-tab-contents"
+    )
+    const { useSelectedTabs } = await import(
+      "@/features/tabs/stores/selected-tabs-store"
+    )
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -96,8 +104,12 @@ describe("useTabContentStore", () => {
   })
 
   it("should handle missing tab content", async () => {
-    const { useTabContents } = await import("@/features/tabs/hooks/use-tab-contents")
-    const { useSelectedTabs } = await import("@/features/tabs/stores/selected-tabs-store")
+    const { useTabContents } = await import(
+      "@/features/tabs/hooks/use-tab-contents"
+    )
+    const { useSelectedTabs } = await import(
+      "@/features/tabs/stores/selected-tabs-store"
+    )
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],

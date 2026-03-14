@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
+import fs from "node:fs"
+import path from "node:path"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
-import fs from "fs"
-import path from "path"
+import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
 
 // Mock pdfjs-dist
 vi.mock("pdfjs-dist", () => ({
@@ -34,7 +34,7 @@ vi.mock("mammoth", () => ({
 
 describe("File Processors - Integration with Test Files", () => {
   const fixturesDir = path.resolve(__dirname)
-  
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -45,13 +45,15 @@ describe("File Processors - Integration with Test Files", () => {
       console.warn("document.pdf not found, skipping test")
       return
     }
-    
+
     const buffer = fs.readFileSync(pdfPath)
-    const file = new File([new Uint8Array(buffer)], "document.pdf", { type: "application/pdf" })
-    
+    const file = new File([new Uint8Array(buffer)], "document.pdf", {
+      type: "application/pdf"
+    })
+
     const processor = new PdfProcessor()
     const result = await processor.process(file)
-    
+
     expect(result.text).toBeTruthy()
     expect(result.metadata.fileType).toBe("application/pdf")
   })
@@ -64,13 +66,13 @@ describe("File Processors - Integration with Test Files", () => {
     }
 
     const buffer = fs.readFileSync(docxPath)
-    const file = new File([new Uint8Array(buffer)], "document.docx", { 
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+    const file = new File([new Uint8Array(buffer)], "document.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     })
-    
+
     const processor = new DocxProcessor()
     const result = await processor.process(file)
-    
+
     expect(result.text).toBe("DOCX Content") // Based on mock
     expect(result.metadata.fileType).toContain("wordprocessingml")
   })

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, act } from "@testing-library/react"
-import { useChatStream } from "../use-chat-stream"
+import { act, renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { useChatStream } from "../use-chat-stream"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -260,7 +260,7 @@ describe("useChatStream", () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
 
     act(() => {
-      result.current.startStream({model: "llama2", messages })
+      result.current.startStream({ model: "llama2", messages })
     })
 
     const listener = mockPort.onMessage.addListener.mock.calls[0][0]

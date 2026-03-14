@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { assessContentQuality, getRecommendedThreshold } from "../content-quality-filter"
+import {
+  assessContentQuality,
+  getRecommendedThreshold
+} from "../content-quality-filter"
 
 describe("Content Quality Filter", () => {
   describe("assessContentQuality", () => {
@@ -11,7 +14,10 @@ describe("Content Quality Filter", () => {
     })
 
     it("scores technical queries high", () => {
-      const result = assessContentQuality("How do I implement a binary search tree in Python?", "user")
+      const result = assessContentQuality(
+        "How do I implement a binary search tree in Python?",
+        "user"
+      )
       expect(result.score).toBeGreaterThan(0.4)
       expect(result.shouldEmbed).toBe(true)
       expect(result.reasons).toContain("technical content")

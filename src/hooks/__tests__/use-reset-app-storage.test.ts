@@ -1,9 +1,9 @@
 import { renderHook } from "@testing-library/react"
-import { vi, describe, it, expect, beforeEach } from "vitest"
-import { useResetAppStorage } from "../use-reset-app-storage"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useResetAppStorage } from "../use-reset-app-storage"
 
 vi.mock("@/lib/db", () => ({
   db: {

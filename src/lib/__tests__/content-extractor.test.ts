@@ -1,13 +1,12 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { ContentExtractionConfig } from "@/types"
 import {
-  extractDomain,
-  findMatchingSiteOverride,
-  getEffectiveConfig,
   detectPagePatterns,
   extractContentWithLoading,
-  scrollStrategies
+  extractDomain,
+  findMatchingSiteOverride,
+  getEffectiveConfig
 } from "../content-extractor"
-import type { ContentExtractionConfig } from "@/types"
 
 describe("Content Extractor", () => {
   const defaultConfig: ContentExtractionConfig = {
@@ -45,12 +44,18 @@ describe("Content Extractor", () => {
     })
 
     it("should match regex pattern", () => {
-      const match = findMatchingSiteOverride("https://regex-test.com", overrides)
+      const match = findMatchingSiteOverride(
+        "https://regex-test.com",
+        overrides
+      )
       expect(match).toEqual({ scrollStrategy: "gradual" })
     })
 
     it("should match simple string inclusion", () => {
-      const match = findMatchingSiteOverride("https://site.com/simple-match", overrides)
+      const match = findMatchingSiteOverride(
+        "https://site.com/simple-match",
+        overrides
+      )
       expect(match).toEqual({ scrollStrategy: "instant" })
     })
 
@@ -134,7 +139,7 @@ describe("Content Extractor", () => {
 
     it("should execute scroll strategy", async () => {
       const config = { ...defaultConfig, scrollStrategy: "instant" as const }
-      
+
       const promise = extractContentWithLoading(config)
       await vi.runAllTimersAsync()
       const result = await promise
@@ -145,12 +150,12 @@ describe("Content Extractor", () => {
 
     it("should handle mutation observer", async () => {
       const config = { ...defaultConfig, mutationObserverTimeout: 100 }
-      
+
       const promise = extractContentWithLoading(config)
-      
+
       // Trigger mutation
       document.body.appendChild(document.createElement("div"))
-      
+
       await vi.runAllTimersAsync()
       const result = await promise
 
@@ -164,9 +169,11 @@ describe("Content Extractor", () => {
       })
 
       const config = { ...defaultConfig, scrollStrategy: "instant" as const }
-      
+
       // Should reject with structured error object
-      await expect(extractContentWithLoading(config)).rejects.toHaveProperty("error")
+      await expect(extractContentWithLoading(config)).rejects.toHaveProperty(
+        "error"
+      )
     })
   })
 })

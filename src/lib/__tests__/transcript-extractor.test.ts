@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { getTranscript } from "../transcript-extractor"
 
 describe("Transcript Extractor", () => {
@@ -8,7 +8,7 @@ describe("Transcript Extractor", () => {
     // Reset DOM
     document.body.innerHTML = ""
     vi.clearAllMocks()
-    
+
     // Mock console to keep output clean
     vi.spyOn(console, "log").mockImplementation(() => {})
   })
@@ -81,15 +81,15 @@ describe("Transcript Extractor", () => {
       it("should extract transcript from panel", async () => {
         const panel = document.createElement("div")
         panel.setAttribute("data-purpose", "transcript-panel")
-        
+
         const cue1 = document.createElement("span")
         cue1.setAttribute("data-purpose", "cue-text")
         cue1.textContent = "Line 1"
-        
+
         const cue2 = document.createElement("span")
         cue2.setAttribute("data-purpose", "cue-text")
         cue2.textContent = "Line 2"
-        
+
         panel.appendChild(cue1)
         panel.appendChild(cue2)
         document.body.appendChild(panel)
@@ -113,11 +113,11 @@ describe("Transcript Extractor", () => {
         const phrase1 = document.createElement("span")
         phrase1.className = "rc-Phrase"
         phrase1.textContent = "Hello"
-        
+
         const phrase2 = document.createElement("span")
         phrase2.className = "rc-Phrase"
         phrase2.textContent = "world"
-        
+
         document.body.appendChild(phrase1)
         document.body.appendChild(phrase2)
 

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { browser } from "@/lib/browser-api"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   getBaseUrl,
   getPullAbortControllerKey,
   safePostMessage,
   safeSendResponse
 } from "../utils"
-import { browser } from "@/lib/browser-api"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { STORAGE_KEYS } from "@/lib/constants"
 
 // Mock dependencies
 vi.mock("@/lib/browser-api", () => ({
@@ -104,12 +104,16 @@ describe("Background Utils", () => {
 
   describe("getBaseUrl", () => {
     it("should return stored URL", async () => {
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue("http://custom:11434")
+      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
+        "http://custom:11434"
+      )
 
       const url = await getBaseUrl()
 
       expect(url).toBe("http://custom:11434")
-      expect(plasmoGlobalStorage.get).toHaveBeenCalledWith(STORAGE_KEYS.PROVIDER.BASE_URL)
+      expect(plasmoGlobalStorage.get).toHaveBeenCalledWith(
+        STORAGE_KEYS.PROVIDER.BASE_URL
+      )
     })
 
     it("should return default URL if not stored", async () => {

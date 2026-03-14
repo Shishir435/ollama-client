@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, act } from "@testing-library/react"
-import { useModelInfo } from "../use-model-info"
+import { act, renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
+import { useModelInfo } from "../use-model-info"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -34,7 +34,7 @@ describe("useModelInfo", () => {
     const { result } = renderHook(() => useModelInfo("llama2"))
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
     })
 
     expect(result.current.modelInfo).toBeTruthy()
@@ -49,7 +49,7 @@ describe("useModelInfo", () => {
     const { result } = renderHook(() => useModelInfo("llama2"))
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
     })
 
     expect(result.current.error).toBe("Failed to fetch model info")

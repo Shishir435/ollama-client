@@ -2,19 +2,34 @@ import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useProviderModels } from "../use-provider-models"
 
-const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
+const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
   const ollamaProvider = {
     id: "ollama",
-    config: { id: "ollama", type: "ollama", enabled: true, baseUrl: "http://localhost:11434", name: "Ollama" },
+    config: {
+      id: "ollama",
+      type: "ollama",
+      enabled: true,
+      baseUrl: "http://localhost:11434",
+      name: "Ollama"
+    },
     getModels: vi.fn().mockResolvedValue([
-      { name: "llama3:latest", model: "llama3:latest", size: 0, details: { family: "llama" } },
-      { name: "mistral:latest", model: "mistral:latest", size: 0, details: { family: "mistral" } }
+      {
+        name: "llama3:latest",
+        model: "llama3:latest",
+        size: 0,
+        details: { family: "llama" }
+      },
+      {
+        name: "mistral:latest",
+        model: "mistral:latest",
+        size: 0,
+        details: { family: "mistral" }
+      }
     ]),
     streamChat: vi.fn()
   }
   return {
     mockOllamaProvider: ollamaProvider,
-    mockProvider: ollamaProvider,
     mockProviderConfig: [ollamaProvider.config] // Stable reference
   }
 })
@@ -23,8 +38,11 @@ const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() =
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn((config, initialValue) => {
     // Return stable references to prevent infinite loops in useEffect
-    if (config.key === "llm_providers_config_v1" || config.key?.includes("provider")) {
-        return [mockProviderConfig, vi.fn().mockResolvedValue(undefined)]
+    if (
+      config.key === "llm_providers_config_v1" ||
+      config.key?.includes("provider")
+    ) {
+      return [mockProviderConfig, vi.fn().mockResolvedValue(undefined)]
     }
     return [initialValue, vi.fn().mockResolvedValue(undefined)]
   })
@@ -87,9 +105,12 @@ describe("useProviderModels", () => {
       const { result } = renderHook(() => useProviderModels())
 
       // Wait for loading to finish
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      }, { timeout: 5000 })
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false)
+        },
+        { timeout: 5000 }
+      )
 
       expect(result.current.models).toHaveLength(2)
       expect(result.current.models?.[0].name).toBe("llama3:latest")
@@ -110,7 +131,9 @@ describe("useProviderModels", () => {
     })
 
     it("should handle fetch errors", async () => {
-      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(new Error("API Error"))
+      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(
+        new Error("API Error")
+      )
 
       const { result } = renderHook(() => useProviderModels())
 
@@ -176,9 +199,14 @@ describe("useProviderModels", () => {
       })
 
       vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([
-        { name: "new-model", model: "new-model", size: 0, details: { family: "llama" } }
+        {
+          name: "new-model",
+          model: "new-model",
+          size: 0,
+          details: { family: "llama" }
+        }
       ])
-      
+
       await result.current.refresh()
 
       await waitFor(() => {

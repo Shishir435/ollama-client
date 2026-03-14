@@ -4,7 +4,6 @@ import {
   clearHandlerMocks,
   createMockSendResponse,
   mockModelDetailsResponse,
-  mockOllamaResponse,
   setupHandlerMocks
 } from "./test-utils"
 

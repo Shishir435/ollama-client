@@ -10,7 +10,8 @@ export const mockOllamaResponse = (data: unknown, ok = true): Response => {
     status: ok ? 200 : 500,
     statusText: ok ? "OK" : "Internal Server Error",
     json: () => Promise.resolve(data),
-    text: () => Promise.resolve(typeof data === "string" ? data : JSON.stringify(data)),
+    text: () =>
+      Promise.resolve(typeof data === "string" ? data : JSON.stringify(data)),
     headers: new Headers(),
     redirected: false,
     type: "basic",
@@ -103,7 +104,7 @@ export const mockModelDetailsResponse = {
 export const setupHandlerMocks = () => {
   // Mock global fetch
   global.fetch = vi.fn()
-  
+
   return {
     fetch: global.fetch as ReturnType<typeof vi.fn>
   }

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
-import { useOpenTabs } from "../use-open-tab"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
+import { useOpenTabs } from "../use-open-tab"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -48,7 +48,9 @@ describe("useOpenTabs", () => {
 
   it("should handle fetch errors gracefully", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
-    vi.mocked(browser.runtime.sendMessage).mockRejectedValue(new Error("Failed"))
+    vi.mocked(browser.runtime.sendMessage).mockRejectedValue(
+      new Error("Failed")
+    )
 
     const { result } = renderHook(() => useOpenTabs(true))
 
@@ -57,7 +59,7 @@ describe("useOpenTabs", () => {
     })
 
     expect(result.current.tabs).toEqual([])
-    
+
     consoleSpy.mockRestore()
   })
 
@@ -68,7 +70,7 @@ describe("useOpenTabs", () => {
     const { result } = renderHook(() => useOpenTabs(true))
 
     expect(result.current.refreshTabs).toBeDefined()
-    
+
     await result.current.refreshTabs()
 
     await waitFor(() => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { STORAGE_KEYS } from "@/lib/constants"
+
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn()

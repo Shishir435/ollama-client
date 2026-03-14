@@ -114,7 +114,9 @@ describe("Utils", () => {
     })
 
     it("should format links", () => {
-      expect(markdownToSpeechText("Click [here](https://example.com)")).toBe("Click here")
+      expect(markdownToSpeechText("Click [here](https://example.com)")).toBe(
+        "Click here"
+      )
     })
 
     it("should normalize whitespace", () => {

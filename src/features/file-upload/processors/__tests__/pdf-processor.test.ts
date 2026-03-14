@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PdfProcessor } from "../pdf-processor"
 
 // Mock pdfjs-dist
@@ -36,15 +36,15 @@ describe("PdfProcessor", () => {
       numPages: 1,
       getPage: mockGetPage
     }
-    
+
     mockGetDocument.mockReturnValue({
       promise: Promise.resolve(mockPdf)
     })
-    
+
     mockGetPage.mockResolvedValue({
       getTextContent: mockGetTextContent
     })
-    
+
     mockGetTextContent.mockResolvedValue({
       items: [{ str: "Page content" }]
     })
@@ -67,7 +67,7 @@ describe("PdfProcessor", () => {
     mockGetDocument.mockReturnValueOnce({
       promise: Promise.reject(new Error("Worker failed"))
     })
-    
+
     // Second attempt succeeds
     mockGetDocument.mockReturnValueOnce({
       promise: Promise.resolve(mockPdf)
@@ -76,7 +76,7 @@ describe("PdfProcessor", () => {
     mockGetPage.mockResolvedValue({
       getTextContent: mockGetTextContent
     })
-    
+
     mockGetTextContent.mockResolvedValue({
       items: [{ str: "Retry content" }]
     })
@@ -93,15 +93,15 @@ describe("PdfProcessor", () => {
       numPages: 1,
       getPage: mockGetPage
     }
-    
+
     mockGetDocument.mockReturnValue({
       promise: Promise.resolve(mockPdf)
     })
-    
+
     mockGetPage.mockResolvedValue({
       getTextContent: mockGetTextContent
     })
-    
+
     mockGetTextContent.mockResolvedValue({
       items: []
     })
@@ -118,7 +118,9 @@ describe("PdfProcessor", () => {
     })
 
     const file = new File(["content"], "test.pdf", { type: "application/pdf" })
-    
-    await expect(processor.process(file)).rejects.toThrow("Failed to process PDF")
+
+    await expect(processor.process(file)).rejects.toThrow(
+      "Failed to process PDF"
+    )
   })
 })

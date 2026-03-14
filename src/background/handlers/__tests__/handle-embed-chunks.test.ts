@@ -1,8 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { handleEmbedFileChunks, handleEmbedFileChunksPort } from "../handle-embed-chunks"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import type { ChromeMessage } from "@/types"
+import {
+  handleEmbedFileChunks,
+  handleEmbedFileChunksPort
+} from "../handle-embed-chunks"
 
 // Mock dependencies
 vi.mock("@/lib/embeddings/embedding-client", () => ({
@@ -35,7 +38,10 @@ describe("Handle Embed Chunks", () => {
 
       await handleEmbedFileChunks(message, sendResponse)
 
-      expect(generateEmbeddingsBatch).toHaveBeenCalledWith(["chunk1"], "test-model")
+      expect(generateEmbeddingsBatch).toHaveBeenCalledWith(
+        ["chunk1"],
+        "test-model"
+      )
       expect(storeVector).toHaveBeenCalled()
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
@@ -64,7 +70,9 @@ describe("Handle Embed Chunks", () => {
       } as ChromeMessage
       const sendResponse = vi.fn()
 
-      vi.mocked(generateEmbeddingsBatch).mockRejectedValue(new Error("API Error"))
+      vi.mocked(generateEmbeddingsBatch).mockRejectedValue(
+        new Error("API Error")
+      )
 
       await handleEmbedFileChunks(message, sendResponse)
 
@@ -77,7 +85,7 @@ describe("Handle Embed Chunks", () => {
 
   describe("handleEmbedFileChunksPort (Streaming)", () => {
     let port: any
-    let listeners: Record<string, Function>
+    let listeners: Record<string, (...args: any[]) => void>
 
     beforeEach(() => {
       listeners = {}
@@ -99,7 +107,7 @@ describe("Handle Embed Chunks", () => {
 
     it("should initialize correctly", () => {
       handleEmbedFileChunksPort(port)
-      
+
       listeners.message({
         type: "init",
         payload: {
@@ -113,7 +121,7 @@ describe("Handle Embed Chunks", () => {
 
     it("should process batch of chunks", async () => {
       handleEmbedFileChunksPort(port)
-      
+
       // Init first
       listeners.message({
         type: "init",
@@ -136,7 +144,10 @@ describe("Handle Embed Chunks", () => {
         }
       })
 
-      expect(generateEmbeddingsBatch).toHaveBeenCalledWith(["chunk1", "chunk2"], undefined)
+      expect(generateEmbeddingsBatch).toHaveBeenCalledWith(
+        ["chunk1", "chunk2"],
+        undefined
+      )
       expect(storeVector).toHaveBeenCalledTimes(2)
       expect(port.postMessage).toHaveBeenCalledWith({
         status: "progress",
@@ -147,50 +158,58 @@ describe("Handle Embed Chunks", () => {
 
     it("should handle cancellation", () => {
       handleEmbedFileChunksPort(port)
-      
+
       listeners.message({ cancel: true })
 
-      expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        status: "cancelled"
-      }))
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "cancelled"
+        })
+      )
       expect(port.disconnect).toHaveBeenCalled()
     })
 
     it("should handle done message", () => {
       handleEmbedFileChunksPort(port)
-      
+
       listeners.message({ type: "done" })
 
-      expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        status: "done"
-      }))
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "done"
+        })
+      )
       expect(port.disconnect).toHaveBeenCalled()
     })
 
     it("should handle errors during processing", async () => {
       handleEmbedFileChunksPort(port)
-      
+
       listeners.message({
         type: "init",
         payload: { metadata: { fileId: "file1" } }
       })
 
-      vi.mocked(generateEmbeddingsBatch).mockRejectedValue(new Error("Processing failed"))
+      vi.mocked(generateEmbeddingsBatch).mockRejectedValue(
+        new Error("Processing failed")
+      )
 
       await listeners.message({
         type: "batch",
         payload: { chunks: [{ index: 0, text: "chunk1" }] }
       })
 
-      expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-        status: "error",
-        message: "Processing failed"
-      }))
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "error",
+          message: "Processing failed"
+        })
+      )
     })
 
     it("should stop processing on disconnect", async () => {
       handleEmbedFileChunksPort(port)
-      
+
       listeners.message({
         type: "init",
         payload: { metadata: { fileId: "file1" } }
@@ -211,7 +230,7 @@ describe("Handle Embed Chunks", () => {
       // Should not store vector if cancelled/disconnected
       // Wait, the implementation checks `cancelled` flag inside the loop
       // `onDisconnect` sets `cancelled = true`
-      
+
       expect(storeVector).not.toHaveBeenCalled()
     })
   })
