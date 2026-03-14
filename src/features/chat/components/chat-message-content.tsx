@@ -91,52 +91,67 @@ export const ChatMessageContent = ({
         <FileAttachmentDisplay attachments={msg.attachments} />
       )}
       {hasThinking && (
-        <div className="group mb-2 rounded-lg border border-muted-foreground/15 bg-linear-to-b from-muted/40 to-transparent px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <section
+          aria-label="Model reasoning"
+          className="group mb-3 rounded-lg border border-border/80 bg-background/80 px-3 py-2">
           <button
             type="button"
             id={reasoningButtonId}
             aria-expanded={showThinking}
             aria-controls={reasoningId}
-            className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+            className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
             onClick={() => {
               setShowThinking((prev) => !prev)
               setUserToggledThinking(true)
             }}>
-            <span className="flex items-center gap-2">
-              <Brain className="size-3" />
-              <span>Reasoning</span>
-              {isStreaming && (
-                <span className="ml-1 inline-flex size-1.5 animate-pulse rounded-full bg-emerald-400/80" />
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Brain className="size-3" />
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-[11px] font-semibold tracking-wide uppercase">
+                  Reasoning trace
+                </span>
+                {!showThinking && thinkingPreview && (
+                  <span className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                    {thinkingPreview}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {showThinkingIndicator && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
+                  <span className="inline-flex size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  Thinking…
+                </span>
               )}
-            </span>
-            <span className="flex items-center gap-1">
-              <span>{showThinking ? "Hide" : "Show"}</span>
-              <ChevronDown
-                className={`size-3 transition ${
-                  showThinking ? "rotate-180" : ""
-                }`}
-              />
-            </span>
+              {!showThinkingIndicator && !isStreaming && !isLoading && (
+                <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
+                  Done
+                </span>
+              )}
+              <span className="flex items-center gap-1 text-[11px]">
+                <span>{showThinking ? "Hide" : "Expand"}</span>
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform duration-150",
+                    showThinking ? "rotate-180" : "rotate-0"
+                  )}
+                />
+              </span>
+            </div>
           </button>
-          {!showThinking && thinkingPreview ? (
-            <button
-              type="button"
-              className="mt-1 line-clamp-2 w-full text-left text-xs italic text-foreground/55 transition group-hover:text-foreground/70"
-              onClick={() => {
-                setShowThinking(true)
-                setUserToggledThinking(true)
-              }}>
-              {thinkingPreview}
-            </button>
-          ) : null}
           {showThinking && (
             <div
               id={reasoningId}
-              className="mt-2 border-l-2 border-emerald-400/40 pl-3 text-xs italic text-foreground/70">
-              <MarkdownRenderer content={msg.thinking ?? ""} />
+              className="mt-2 max-h-56 overflow-y-auto rounded-md bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1">
+                <MarkdownRenderer content={msg.thinking ?? ""} />
+              </div>
             </div>
           )}
-        </div>
+        </section>
       )}
       <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
         <MarkdownRenderer content={msg.content} />
