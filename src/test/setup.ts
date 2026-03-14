@@ -29,6 +29,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
     watch: vi.fn()
   }
 }))
