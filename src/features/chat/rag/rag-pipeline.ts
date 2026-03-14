@@ -39,7 +39,13 @@ export interface EnhancedSearchResult {
 }
 
 /**
- * Retrieve context with multi-stage pipeline
+ * Retrieve context with a multi-stage RAG pipeline.
+ * Stages:
+ * 1. Hybrid Search: Recall-optimized retrieval of candidates (5x topK).
+ * 2. Cross-Encoder Re-Ranking: (Optional) Re-scores candidates for high precision.
+ * 3. Temporal Boosting: Boosts scores for more recent documents.
+ * 4. Feedback Blending: Adjusts scores based on historical user feedback.
+ * 5. MMR Diversity Filtering: Selects final subset while minimizing structural redundancy.
  */
 export async function retrieveContextEnhanced(
   query: string,
@@ -315,8 +321,11 @@ export async function retrieveContextEnhanced(
 }
 
 /**
- * Maximal Marginal Relevance (MMR) for diversity
- * Balances relevance with diversity to avoid redundant results
+ * Maximal Marginal Relevance (MMR) for diversity filtering.
+ * Balances relevance with diversity to avoid redundant results in the context window.
+ * The algorithm selects a document i that maximizes:
+ * MMR(i) = λ * Similarity(i, Query) - (1-λ) * max_j[Similarity(i, j)]
+ * where j are documents already selected.
  */
 function applyMMR(
   results: EnhancedSearchResult[],
@@ -393,7 +402,8 @@ function semanticSimilarity(
 import { estimateTokens } from "@/lib/embeddings/chunker"
 
 /**
- * Format enhanced results back to standard format with token limits
+ * Format enhanced search results into standard VectorDocument objects and formatted prompt strings with token limits.
+ * Estimates token usage for each chunk to fit the target context window perfectly.
  */
 export function formatEnhancedResults(
   results: EnhancedSearchResult[],

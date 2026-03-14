@@ -12,6 +12,11 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage, ChatWithModelMessage, ModelConfigMap } from "@/types"
 
+/**
+ * Limits the number of messages sent to the model to stay within context window constraints.
+ * Specifically targets Small Language Models (SLMs) like those in the 135M-0.6B parameter range
+ * which typically have very shallow context windows.
+ */
 const limitMessagesForModel = (
   model: string,
   messages: ChatMessage[]
@@ -22,6 +27,14 @@ const limitMessagesForModel = (
   return messages
 }
 
+/**
+ * Main handler for streaming chat interactions.
+ * Features:
+ * 1. Model-specific context window limiting.
+ * 2. Automated memory/RAG injection from past conversations.
+ * 3. Dynamic system prompt assembly.
+ * 4. Cross-origin safe message streaming via browser ports.
+ */
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
     const { model, messages } = msg.payload

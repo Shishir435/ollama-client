@@ -51,6 +51,11 @@ interface EmbedAttempt {
 const WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 const warmupThrottle = new Map<string, number>()
 
+/**
+ * Normalizes model names for specific providers, handling default aliases.
+ * @param _providerId Current provider ID (hooks for future per-provider logic).
+ * @param model The raw model name string.
+ */
 const normalizeModelForProvider = (
   _providerId: string,
   model: string
@@ -98,6 +103,11 @@ const isContextLengthError = (error: unknown): boolean => {
   )
 }
 
+/**
+ * Generates an array of character limits used for recursive truncation.
+ * Used when an embedding request fails due to context length limits; the strategy
+ * will attempt to re-embed the text at these decreasing character boundaries.
+ */
 const buildTruncationPlan = (maxChars: number): number[] => {
   const targets = [
     maxChars,
@@ -126,6 +136,10 @@ const buildTruncationPlan = (maxChars: number): number[] => {
   return unique
 }
 
+/**
+ * Attempts to generate an embedding using a specific route.
+ * Implements exponential back-off via truncation for context length errors.
+ */
 const tryEmbed = async (
   text: string,
   attempt: EmbedAttempt,
@@ -221,6 +235,11 @@ const scheduleSharedModelWarmup = async (
   }
 }
 
+/**
+ * Resolves the sequence of embedding attempts based on the user's configured strategy.
+ * Possible routes include provider-native (LLM's matching model), shared-model
+ * (a secondary dedicated embedding provider like Ollama), and default-provider (last-resort).
+ */
 const buildAttempts = async (
   requestedModel?: string
 ): Promise<{
@@ -327,6 +346,13 @@ export const getEmbeddingCapabilities =
     }
   }
 
+/**
+ * Robust embedding generation that tries multiple providers and models based on user preference.
+ * Use this as the primary entry point for vectorizing text in the extension.
+ * @param text The input string to vectorize.
+ * @param requestedModel Optional target model (e.g. if forcing specific document dimension).
+ * @throws Error if all configured routes and fallbacks fail.
+ */
 export const generateEmbeddingWithStrategy = async (
   text: string,
   requestedModel?: string
@@ -381,6 +407,10 @@ export const generateEmbeddingWithStrategy = async (
   )
 }
 
+/**
+ * Ensures the shared embedding model is loaded and ready in the background.
+ * Prevents first-use latency by "warming up" the model if configured.
+ */
 export const ensureEmbeddingStrategyReady =
   async (): Promise<EmbeddingStrategyReadiness> => {
     const config = await getEmbeddingConfig()

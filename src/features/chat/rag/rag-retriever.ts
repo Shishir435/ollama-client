@@ -17,6 +17,10 @@ import {
   retrieveContextEnhanced
 } from "./rag-pipeline"
 
+/**
+ * High-level result of a context retrieval operation.
+ * Includes both the raw documents and a pre-formatted string ready for LLM injection.
+ */
 export interface RetrievedContext {
   documents: VectorDocument[]
   formattedContext: string
@@ -179,7 +183,9 @@ export async function retrieveContext(
 }
 
 /**
- * Retrieves context from in-memory sources (e.g., page content) without persistence.
+ * Retrieves context from in-memory sources (like the current browser webpage/tab content).
+ * These sources are chunked and vectorized on-the-fly without being persisted to the main DB.
+ * If embedding generation is unavailable or fails, it falls back to keyword-based retrieval.
  */
 export async function retrieveContextFromSources(
   query: string,

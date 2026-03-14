@@ -12,27 +12,55 @@ interface AnnBackendStats {
   backend: AnnBackendType
 }
 
+/**
+ * Common interface for approximate nearest neighbor (ANN) backends.
+ */
 interface AnnBackend {
   readonly backend: AnnBackendType
+  /**
+   * Initialize the backend with specific vector dimensions and configuration.
+   */
   initialize(dimension: number, config: EmbeddingConfig): Promise<void>
+  /**
+   * Build the complete index from a set of existing vectors.
+   */
   buildIndex(
     vectors: Array<{ id: number; embedding: number[] }>,
     config: EmbeddingConfig
   ): Promise<void>
+  /**
+   * Add a single vector to the existing index.
+   */
   addVector(id: number, embedding: number[]): Promise<void>
+  /**
+   * Search for the k-nearest neighbors to the query embedding.
+   */
   search(
     queryEmbedding: number[],
     k: number,
     minSimilarity: number
   ): Promise<Array<{ id: number; distance: number }>>
+  /**
+   * Completely clear and reset the index.
+   */
   clear(): Promise<void>
+  /**
+   * Retrieve performance and size statistics from the backend.
+   */
   getStats(): AnnBackendStats
+  /**
+   * Check if the backend is ready for operations.
+   */
   isInitialized(): boolean
+  /**
+   * Verify if the backend can handle a specific vector dimension.
+   */
   isCompatibleDimension(dimension: number): boolean
 }
 
 /**
  * Local in-memory brute-force index for fast similarity search.
+ * Used for small datasets or as a fallback when native HNSW is unavailable.
  */
 class LocalVectorIndex {
   private vectors: Array<{ id: number; embedding: Float32Array }> = []
@@ -71,6 +99,9 @@ class LocalVectorIndex {
     }
   }
 
+  /**
+   * Performs an exhaustive (O(n)) search using cosine similarity.
+   */
   search(
     queryEmbedding: number[],
     k: number,
@@ -141,6 +172,11 @@ class LocalVectorIndex {
   }
 }
 
+/**
+ * High-performance HNSW backend powered by the 'hnsw' library.
+ * Provides sub-linear search time for large datasets using Hierarchical Navigable Small World graphs.
+ * Automatically persists to IndexedDB via the library's internal storage mechanism.
+ */
 class TsHnswBackend implements AnnBackend {
   readonly backend: AnnBackendType = "ts-hnsw"
   private index: import("hnsw").HNSWWithDB | null = null
@@ -150,6 +186,9 @@ class TsHnswBackend implements AnnBackend {
   private count = 0
   private persistTimer: NodeJS.Timeout | null = null
 
+  /**
+   * Deterministically decides whether to use the simplified fallback in specific environments (like Vitest).
+   */
   private shouldUseFallback(): boolean {
     return (
       typeof process !== "undefined" &&
@@ -171,6 +210,11 @@ class TsHnswBackend implements AnnBackend {
     return `hnsw-ts-${dimension}`
   }
 
+  /**
+   * Loads or creates an HNSW index.
+   * If native HNSW initialization fails (common in restricted extension environments),
+   * falls back to the in-memory brute-force index.
+   */
   async initialize(
     dimension: number,
     config: EmbeddingConfig = DEFAULT_EMBEDDING_CONFIG
@@ -313,6 +357,12 @@ class TsHnswBackend implements AnnBackend {
   }
 }
 
+/**
+ * Central manager for Vector Indexing and Search.
+ * Implements a hybrid approach:
+ * 1. ts-hnsw: Native IndexedDB-backed HNSW for large datasets (O(log n) search).
+ * 2. bruteforce: Exhaustive cosine similarity for small datasets (O(n) search) or as a zero-setup fallback.
+ */
 class HNSWIndexManager {
   private localIndex: LocalVectorIndex = new LocalVectorIndex()
   private tsBackend = new TsHnswBackend()
@@ -333,6 +383,9 @@ class HNSWIndexManager {
     return null
   }
 
+  /**
+   * Initialize a backend for the given vector dimension.
+   */
   async initialize(dimension: number): Promise<void> {
     const config = await this.getConfig()
     const backend = this.getBackendInstance(config)
@@ -343,6 +396,12 @@ class HNSWIndexManager {
     this.localIndex.initialize(dimension)
   }
 
+  /**
+   * Triggers a full rebuild of the vector index from all documents in the database.
+   * Typically called when switching models (dimensions) or when data is imported/reset.
+   * @param onProgress Callback for tracking build progress.
+   * @param targetDimension Optional dimension filter; if not provided, infers from the first vector found.
+   */
   async buildIndex(
     onProgress?: (current: number, total: number) => void,
     targetDimension?: number
@@ -411,6 +470,9 @@ class HNSWIndexManager {
     }
   }
 
+  /**
+   * Adds a single vector to whichever backend is currently active and initialized.
+   */
   async addVector(id: number, embedding: number[]): Promise<void> {
     const config = await this.getConfig()
     const backend = this.getBackendInstance(config)
@@ -425,6 +487,10 @@ class HNSWIndexManager {
     }
   }
 
+  /**
+   * Performs a k-NN search across the active indexing backend.
+   * Falls back to brute-force if the primary backend (HNSW) is not yet populated.
+   */
   async search(
     queryEmbedding: number[],
     k: number = 10
@@ -441,12 +507,18 @@ class HNSWIndexManager {
     return this.localIndex.search(queryEmbedding, k, minSimilarity)
   }
 
+  /**
+   * Clears all indexing state.
+   */
   async clearIndex(): Promise<void> {
     await this.tsBackend.clear()
     this.localIndex.clear()
     logger.verbose("Vector Index cleared", "HNSWIndex")
   }
 
+  /**
+   * Returns current indexing statistics (element count, dimension, memory usage, etc).
+   */
   getStats(): {
     isInitialized: boolean
     dimension: number | null
@@ -471,6 +543,10 @@ class HNSWIndexManager {
     }
   }
 
+  /**
+   * Strategy decision logic: checks if HNSW is enabled and if the data volume
+   * warrants an approximate search over a basic brute-force scan.
+   */
   async shouldUseHNSW(vectorCount: number): Promise<boolean> {
     const config = await this.getConfig()
 
@@ -490,6 +566,9 @@ class HNSWIndexManager {
     return stats.count > 0
   }
 
+  /**
+   * Validates if the current index matches the dimension of a new query.
+   */
   isCompatibleDimension(queryDimension: number): boolean {
     if (this.tsBackend.isInitialized()) {
       return this.tsBackend.isCompatibleDimension(queryDimension)

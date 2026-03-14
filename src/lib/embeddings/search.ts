@@ -115,7 +115,10 @@ async function searchBruteForce(
 }
 
 /**
- * Searches for similar vectors using HNSW or brute-force cosine similarity
+ * Searches for similar vectors using HNSW or brute-force cosine similarity.
+ * Automatically decides the strategy based on data size and backend availability.
+ * Incorporates results from the HNSW graph if populated, otherwise scans the DB sequentially.
+ * Results are cached to minimize redundant embedding and DB lookups.
  */
 export const searchSimilarVectors = async (
   queryEmbedding: number[],
@@ -272,8 +275,10 @@ export const searchSimilarVectors = async (
 import { classifyQuery, getWeightsForQueryType } from "./query-classifier"
 
 /**
- * Hybrid search combining keyword and semantic search
- * With adaptive weights based on query type (v3.0)
+ * Hybrid search combining keyword and semantic search.
+ * This is the primary retrieval mechanism for the RAG pipeline.
+ * It uses Reciprocal Rank Fusion (implicit) by weighted scoring:
+ * Final Score = (keywordWeight * normalizedBM25) + (semanticWeight * cosineSimilarity)
  */
 export const searchHybrid = async (
   queryText: string,
@@ -412,8 +417,8 @@ export const searchHybrid = async (
 export const similaritySearchWithScore = searchSimilarVectors
 
 /**
- * Retrieves context for RAG generation
- * Performs a search and formats the results into a string
+ * Retrieves context for RAG generation and formats it as a structured string.
+ * Used for basic context injection where sophisticated pipeline features (reranking, diversity) aren't required.
  */
 export const retrieveContext = async (
   query: string,

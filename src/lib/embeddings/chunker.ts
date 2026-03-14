@@ -1,8 +1,14 @@
 import type { ChunkingStrategy } from "@/lib/constants"
 
+/**
+ * Configuration for the text chunking process.
+ */
 export interface ChunkOptions {
-  chunkSize: number // Size in tokens (approximate)
-  chunkOverlap: number // Overlap in tokens
+  /** Size in tokens (approximate). Roughly 1 token per 4 characters. */
+  chunkSize: number
+  /** Number of tokens to overlap between adjacent chunks to maintain context. */
+  chunkOverlap: number
+  /** The splitting logic to use (fixed, semantic, hybrid, or markdown). */
   strategy: ChunkingStrategy
 }
 
@@ -14,8 +20,10 @@ export interface TextChunk {
 }
 
 /**
- * Estimates the number of tokens in a text
- * Rule of thumb: 1 token ≈ 4 characters for English text
+ * Estimates the number of tokens in a text string.
+ * Uses a standard rule of thumb for English/Code: 1 token ≈ 4 characters.
+ * This is a fast, deterministic estimation that avoids the overhead of a full BPE tokenizer
+ * while remaining sufficiently accurate for context-window management in browser extensions.
  */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
@@ -129,8 +137,10 @@ function semanticChunking(
 }
 
 /**
- * Hybrid chunking: Uses semantic boundaries but enforces size limits
- * Combines best of both approaches
+ * Hybrid chunking: Uses semantic boundaries (paragraphs) but enforces strict size limits.
+ * If a paragraph exceeds the target `chunkSize`, it is further subdivided into sentences.
+ * This is the recommended default for most RAG applications as it balances context integrity
+ * with consistent vector density.
  */
 function hybridChunking(
   text: string,
@@ -249,8 +259,9 @@ function hybridChunking(
 }
 
 /**
- * Markdown chunking: Splits by headers and code blocks
- * Preserves structure of technical documents
+ * Markdown-aware chunking: Splits by headers (H1-H6) and protects code blocks from being split.
+ * Best for technical documentation, READMEs, and structured notes.
+ * If a section between headers is too large, it falls back to hybrid chunking for that specific section.
  */
 function markdownChunking(
   text: string,
@@ -356,7 +367,8 @@ function markdownChunking(
 }
 
 /**
- * Main chunking function that selects the appropriate strategy
+ * Main entry point for text chunking. selects the appropriate strategy based on options.
+ * Validates sizes and handles small-string edge cases (returning a single chunk if beneath limit).
  */
 export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
   const { strategy, chunkSize, chunkOverlap } = options
