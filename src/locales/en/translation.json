@@ -998,6 +998,10 @@
         },
         "provider": {
           "description": "Model settings & configurations"
+        },
+        "feedback": {
+          "title": "Feedback",
+          "description": "Clear all learning and retrieved chunk feedback"
         }
       },
       "item_count": "{{count}} item",

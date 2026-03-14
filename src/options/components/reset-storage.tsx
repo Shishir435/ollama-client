@@ -41,8 +41,29 @@ export const ResetStorage = () => {
         return "🔊"
       case "CHAT_SESSIONS":
         return "💬"
+      case "FEEDBACK":
+        return "👍"
       default:
         return "⚙️"
+    }
+  }
+
+  const getModuleName = (module: string) => {
+    switch (module) {
+      case "PROVIDER":
+        return t("settings.reset.modules.provider.title", "Provider Settings")
+      case "THEME":
+        return t("settings.reset.modules.theme.title", "Theme & UI")
+      case "BROWSER":
+        return t("settings.reset.modules.browser.title", "Browser Settings")
+      case "TTS":
+        return t("settings.reset.modules.tts.title", "Text to Speech")
+      case "CHAT_SESSIONS":
+        return t("settings.reset.modules.chat_sessions.title", "Chat History")
+      case "FEEDBACK":
+        return t("settings.reset.modules.feedback.title", "User Feedback")
+      default:
+        return module.replace("_", " ")
     }
   }
 
@@ -58,6 +79,8 @@ export const ResetStorage = () => {
         return t("settings.reset.modules.tts.description")
       case "CHAT_SESSIONS":
         return t("settings.reset.modules.chat_sessions.description")
+      case "FEEDBACK":
+        return t("settings.reset.modules.feedback.description")
       default:
         return t("settings.reset.modules.default.description")
     }
@@ -76,6 +99,7 @@ export const ResetStorage = () => {
               module={module}
               keys={keys}
               getModuleIcon={getModuleIcon}
+              getModuleName={getModuleName}
               getModuleDescription={getModuleDescription}
               reset={reset}
             />
@@ -124,12 +148,14 @@ const ModuleResetItem = ({
   module,
   keys,
   getModuleIcon,
+  getModuleName,
   getModuleDescription,
   reset
 }: {
   module: string
   keys: string[]
   getModuleIcon: (module: string) => string
+  getModuleName: (module: string) => string
   getModuleDescription: (module: string) => string
   reset: (key: string) => Promise<string>
 }) => {
@@ -142,7 +168,7 @@ const ModuleResetItem = ({
         <span className="shrink-0 text-lg">{getModuleIcon(module)}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-medium">{module.replace("_", " ")}</h4>
+            <h4 className="text-sm font-medium">{getModuleName(module)}</h4>
             <Badge variant="secondary" className="text-xs">
               {keys.length === 1
                 ? t("settings.reset.item_count", { count: keys.length })

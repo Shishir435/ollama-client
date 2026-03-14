@@ -944,6 +944,10 @@
         },
         "provider": {
           "description": "Modelleinstellungen und Konfigurationen"
+        },
+        "feedback": {
+          "title": "Feedback",
+          "description": "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
         }
       },
       "item_count": "{{count}} Element",

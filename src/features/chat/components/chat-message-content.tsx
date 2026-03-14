@@ -93,61 +93,72 @@ export const ChatMessageContent = ({
       {hasThinking && (
         <section
           aria-label="Model reasoning"
-          className="group mb-3 rounded-lg border border-border/80 bg-background/80 px-3 py-2">
+          className="group mb-3 overflow-hidden rounded-xl border border-border/50 bg-muted/30 transition-all duration-200 hover:border-border/80 hover:bg-muted/50">
           <button
             type="button"
             id={reasoningButtonId}
             aria-expanded={showThinking}
             aria-controls={reasoningId}
-            className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+            className="flex w-full flex-col gap-2 p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => {
               setShowThinking((prev) => !prev)
               setUserToggledThinking(true)
             }}>
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <Brain className="size-3" />
-              </span>
-              <div className="flex min-w-0 flex-col">
-                <span className="text-[11px] font-semibold tracking-wide uppercase">
-                  Reasoning trace
+            <div className="flex w-full items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-6 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+                  <Brain className="size-3.5" />
+                </div>
+                <span className="text-xs font-semibold tracking-tight text-foreground/90">
+                  Thought Process
                 </span>
-                {!showThinking && thinkingPreview && (
-                  <span className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
-                    {thinkingPreview}
-                  </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {showThinkingIndicator ? (
+                  <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="relative flex size-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                    </span>
+                    Thinking…
+                  </div>
+                ) : (
+                  !isStreaming &&
+                  !isLoading && (
+                    <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                      Done
+                    </span>
+                  )
                 )}
+                <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                  {showThinking ? "Hide" : "Explore"}
+                  <ChevronDown
+                    className={cn(
+                      "size-3.5 transition-transform duration-300 ease-in-out",
+                      showThinking ? "rotate-180" : "rotate-0"
+                    )}
+                  />
+                </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {showThinkingIndicator && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
-                  <span className="inline-flex size-1.5 animate-pulse rounded-full bg-emerald-400" />
-                  Thinking…
-                </span>
-              )}
-              {!showThinkingIndicator && !isStreaming && !isLoading && (
-                <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
-                  Done
-                </span>
-              )}
-              <span className="flex items-center gap-1 text-[11px]">
-                <span>{showThinking ? "Hide" : "Expand"}</span>
-                <ChevronDown
-                  className={cn(
-                    "size-3 transition-transform duration-150",
-                    showThinking ? "rotate-180" : "rotate-0"
-                  )}
-                />
-              </span>
-            </div>
+
+            {!showThinking && thinkingPreview && (
+              <div className="ml-8 pr-4">
+                <p className="line-clamp-1 text-[11px] leading-relaxed text-muted-foreground/70 italic">
+                  &ldquo;{thinkingPreview.replace(/^Thinking Process:?\s*/i, "")}&rdquo;
+                </p>
+              </div>
+            )}
           </button>
           {showThinking && (
             <div
               id={reasoningId}
-              className="mt-2 max-h-56 overflow-y-auto rounded-md bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1">
-                <MarkdownRenderer content={msg.thinking ?? ""} />
+              className="mt-0 border-t border-border/40 bg-muted/10">
+              <div className="max-h-56 overflow-y-auto px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground/90">
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-code:rounded prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5">
+                  <MarkdownRenderer content={msg.thinking ?? ""} />
+                </div>
               </div>
             </div>
           )}

@@ -945,6 +945,10 @@
         },
         "provider": {
           "description": "模型设置和配置"
+        },
+        "feedback": {
+          "title": "反馈",
+          "description": "清除所有学习和检索到的块反馈"
         }
       },
       "item_count": "{{count}} 个项目",

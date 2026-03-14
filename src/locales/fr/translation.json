@@ -944,6 +944,10 @@
         },
         "provider": {
           "description": "Paramètres et configurations du modèle"
+        },
+        "feedback": {
+          "title": "Commentaires",
+          "description": "Effacer tous les commentaires d'apprentissage et les fragments récupérés"
         }
       },
       "item_count": "{{count}} élément",

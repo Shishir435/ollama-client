@@ -943,6 +943,10 @@
         },
         "provider": {
           "description": "モデル設定と構成"
+        },
+        "feedback": {
+          "title": "フィードバック",
+          "description": "すべての学習および取得されたチャックのフィードバックをクリアする"
         }
       },
       "item_count": "{{count}} 項目",

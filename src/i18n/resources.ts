@@ -1069,6 +1069,10 @@ export const resources = {
             },
             provider: {
               description: "Modelleinstellungen und Konfigurationen"
+            },
+            feedback: {
+              title: "Feedback",
+              description: "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
             }
           },
           item_count: "{{count}} Element",
@@ -2327,6 +2331,10 @@ export const resources = {
             },
             provider: {
               description: "Model settings & configurations"
+            },
+            feedback: {
+              title: "Feedback",
+              description: "Clear all learning and retrieved chunk feedback"
             }
           },
           item_count: "{{count}} item",
@@ -3537,6 +3545,11 @@ export const resources = {
             },
             provider: {
               description: "Ajustes y configuraciones del modelo"
+            },
+            feedback: {
+              title: "Comentarios",
+              description:
+                "Borrar todos los comentarios de aprendizaje y fragmentos recuperados"
             }
           },
           item_count: "{{count}} elemento",
@@ -4758,6 +4771,11 @@ export const resources = {
             },
             provider: {
               description: "Paramètres et configurations du modèle"
+            },
+            feedback: {
+              title: "Commentaires",
+              description:
+                "Effacer tous les commentaires d'apprentissage et les fragments récupérés"
             }
           },
           item_count: "{{count}} élément",
@@ -5940,6 +5958,10 @@ export const resources = {
             },
             provider: {
               description: "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
+            },
+            feedback: {
+              title: "प्रतिक्रिया",
+              description: "सभी सीखने और प्राप्त किए गए खंड प्रतिक्रिया को साफ़ करें"
             }
           },
           item_count: "{{count}} आइटम",
@@ -7151,6 +7173,11 @@ export const resources = {
             },
             provider: {
               description: "Impostazioni e configurazioni del modello"
+            },
+            feedback: {
+              title: "Feedback",
+              description:
+                "Cancella tutti i feedback di apprendimento e dei frammenti recuperati"
             }
           },
           item_count: "{{count}} elemento",
@@ -8350,6 +8377,11 @@ export const resources = {
             },
             provider: {
               description: "モデル設定と構成"
+            },
+            feedback: {
+              title: "フィードバック",
+              description:
+                "すべての学習および取得されたチャックのフィードバックをクリアする"
             }
           },
           item_count: "{{count}} 項目",
@@ -9550,6 +9582,11 @@ export const resources = {
             },
             provider: {
               description: "Настройки моделей и конфигурации"
+            },
+            feedback: {
+              title: "Обратная связь",
+              description:
+                "Очистить все отзывы об обучении и полученных фрагментах"
             }
           },
           item_count: "{{count}} элемент",
@@ -10684,6 +10721,10 @@ export const resources = {
             },
             provider: {
               description: "模型设置和配置"
+            },
+            feedback: {
+              title: "反馈",
+              description: "清除所有学习和检索到的块反馈"
             }
           },
           item_count: "{{count}} 个项目",

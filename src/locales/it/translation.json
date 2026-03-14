@@ -944,6 +944,10 @@
         },
         "provider": {
           "description": "Impostazioni e configurazioni del modello"
+        },
+        "feedback": {
+          "title": "Feedback",
+          "description": "Cancella tutti i feedback di apprendimento e dei frammenti recuperati"
         }
       },
       "item_count": "{{count}} elemento",
