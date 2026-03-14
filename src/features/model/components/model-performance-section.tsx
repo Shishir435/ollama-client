@@ -46,26 +46,7 @@ export const ModelPerformanceSection = ({
     }
   }, [debouncedKeepAlive, config.keep_alive, updateConfig])
 
-  const runtimeInputs = useMemo(
-    () => [
-      {
-        key: "num_thread" as const,
-        label: t("settings.model.runtime.num_thread_label"),
-        value: config.num_thread ?? ""
-      },
-      {
-        key: "num_gpu" as const,
-        label: t("settings.model.runtime.num_gpu_label"),
-        value: config.num_gpu ?? ""
-      },
-      {
-        key: "num_batch" as const,
-        label: t("settings.model.runtime.num_batch_label"),
-        value: config.num_batch ?? ""
-      }
-    ],
-    [config.num_batch, config.num_gpu, config.num_thread, t]
-  )
+
 
   return (
     <SettingsCard
@@ -85,32 +66,6 @@ export const ModelPerformanceSection = ({
         />
       </SettingsFormField>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {runtimeInputs.map((input) => (
-          <SettingsFormField
-            key={input.key}
-            htmlFor={input.key}
-            label={input.label}>
-            <Input
-              id={input.key}
-              type="number"
-              min={0}
-              value={input.value}
-              onChange={(e) => {
-                const raw = e.target.value
-                if (raw === "") {
-                  updateConfig({ [input.key]: undefined })
-                  return
-                }
-                const parsed = Number.parseInt(raw, 10)
-                if (!Number.isNaN(parsed) && parsed >= 0) {
-                  updateConfig({ [input.key]: parsed })
-                }
-              }}
-            />
-          </SettingsFormField>
-        ))}
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SettingsSwitch
