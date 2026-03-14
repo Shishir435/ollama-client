@@ -35,6 +35,7 @@ export {
   Github,
   Globe,
   HardDrive,
+  HardDriveDownload,
   Hash,
   HelpCircle,
   Image,

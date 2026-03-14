@@ -35,6 +35,9 @@ importers:
       dexie:
         specifier: ^4.0.11
         version: 4.0.11
+      dexie-export-import:
+        specifier: ^4.1.4
+        version: 4.1.4(dexie@4.0.11)
       dompurify:
         specifier: ^3.2.6
         version: 3.2.6
@@ -56,6 +59,9 @@ importers:
       i18next-resources-to-backend:
         specifier: ^1.2.1
         version: 1.2.1
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       lucide-react:
         specifier: 0.474.0
         version: 0.474.0(react@19.0.0)
@@ -165,6 +171,9 @@ importers:
       '@types/html2pdf.js':
         specifier: ^0.10.0
         version: 0.10.0
+      '@types/jszip':
+        specifier: ^3.4.1
+        version: 3.4.1
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
@@ -1537,6 +1546,10 @@ packages:
   '@types/html2pdf.js@0.10.0':
     resolution: {integrity: sha512-XisuzaIQRGHsdu+Xxnymffh/+M2cu4lzpFMsoMTCoq3flN0EcEVFeYhqIO2uq5FE19NoA7tWYE62lS3SeOdMqA==}
 
+  '@types/jszip@3.4.1':
+    resolution: {integrity: sha512-TezXjmf3lj+zQ651r6hPqvSScqBLvyPI9FxdXBqpEwBijNGQ2NXpaFW/7joGzveYkKQUil7iiDHLo6LV71Pc0A==}
+    deprecated: This is a stub types definition. jszip provides its own type definitions, so you do not need this installed.
+
   '@types/linkify-it@5.0.0':
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
 
@@ -2092,6 +2105,11 @@ packages:
 
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
+
+  dexie-export-import@4.1.4:
+    resolution: {integrity: sha512-3bw171qUuOTWSYLXI7C/0M6p1X65Rho3tu1IvD9By8jn0+3t3dLSkDlZ1BC6MbABl3kRlhtGigzC+SF+qcS5Og==}
+    peerDependencies:
+      dexie: ^2.0.4 || ^3.0.0 || ^4.0.1
 
   dexie@4.0.11:
     resolution: {integrity: sha512-SOKO002EqlvBYYKQSew3iymBoN2EQ4BDw/3yprjh7kAfFzjBYkaMNa/pZvcA7HSWlcKSQb9XhPe3wKyQ0x4A8A==}
@@ -5208,6 +5226,10 @@ snapshots:
 
   '@types/html2pdf.js@0.10.0': {}
 
+  '@types/jszip@3.4.1':
+    dependencies:
+      jszip: 3.10.1
+
   '@types/linkify-it@5.0.0': {}
 
   '@types/markdown-it-container@2.0.10':
@@ -5782,6 +5804,10 @@ snapshots:
   detect-libc@2.0.4: {}
 
   detect-node-es@1.1.0: {}
+
+  dexie-export-import@4.1.4(dexie@4.0.11):
+    dependencies:
+      dexie: 4.0.11
 
   dexie@4.0.11: {}
 

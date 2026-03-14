@@ -176,6 +176,32 @@ export const saveDatabase = async (): Promise<void> => {
   }
 }
 
+/**
+ * Export raw database bytes for backup
+ */
+export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
+  const database = await getDb()
+  return database.export()
+}
+
+/**
+ * Import raw database bytes from backup and reload memory DB
+ */
+export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
+  logger.info("Importing database bytes...", "SQLite")
+  
+  // Save to IndexedDB
+  await saveDatabaseToIndexedDB(bytes)
+  
+  // Reset singletons to force reload
+  db = null
+  initPromise = null
+  
+  // Reinitialize DB
+  await initSQLite()
+  logger.info("Database imported successfully", "SQLite")
+}
+
 const isDevelopment = process.env.NODE_ENV === "development"
 
 if (isDevelopment) {

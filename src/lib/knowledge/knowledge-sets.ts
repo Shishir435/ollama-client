@@ -41,7 +41,7 @@ class KnowledgeDatabase extends Dexie {
   }
 }
 
-const knowledgeDb = new KnowledgeDatabase()
+export const knowledgeDb = new KnowledgeDatabase()
 
 export const DEFAULT_KNOWLEDGE_SET_ID = "default"
 export const DEFAULT_KNOWLEDGE_SET_NAME = "Default"
