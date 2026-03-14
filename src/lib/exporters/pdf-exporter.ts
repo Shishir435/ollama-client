@@ -1,4 +1,3 @@
-import html2pdf from "html2pdf.js"
 import type { TFunction } from "i18next"
 
 import type { ChatMessage, ChatSession } from "@/types"
@@ -44,6 +43,8 @@ const renderPdf = async (html: string, filename: string) => {
     `<!doctype html><html><head><meta charset="utf-8" /></head><body>${html}</body></html>`
   )
   doc.close()
+
+  const html2pdf = (await import("html2pdf.js")).default
 
   return html2pdf()
     .from(doc.body)

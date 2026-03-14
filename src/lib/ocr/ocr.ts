@@ -1,4 +1,3 @@
-import { createWorker } from "pa-tesseract.js"
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_FILE_UPLOAD_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -48,6 +47,8 @@ export const processImageForOCR = async (
   const langPath = browser.runtime.getURL("ocr/lang/")
 
   try {
+    const { createWorker } = await import("pa-tesseract.js")
+
     const worker = await createWorker(language, undefined, {
       workerPath,
       workerBlobURL: false,
