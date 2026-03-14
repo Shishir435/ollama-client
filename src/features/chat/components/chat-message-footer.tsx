@@ -220,16 +220,18 @@ export const ChatMessageFooter = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                  aria-label={t("chat.actions.more")}>
-                  <MoreHorizontal className="size-3" />
-                </Button>
+                <span className="flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    aria-label={t("chat.actions.more")}>
+                    <MoreHorizontal className="size-3" />
+                  </Button>
+                </span>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent>{t("chat.actions.more")}</TooltipContent>
+            <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>
           </Tooltip>
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
@@ -239,18 +241,23 @@ export const ChatMessageFooter = ({
               <DropdownMenuGroup>
                 <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">
                   {actionItems.map((item) => (
-                    <DropdownMenuItem
-                      key={item.key}
-                      onClick={item.onClick}
-                      aria-label={item.label}
-                      title={item.label}
-                      className={
-                        item.destructive
-                          ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
-                          : "size-8 justify-center rounded-md hover:bg-muted/60"
-                      }>
-                      {item.icon}
-                    </DropdownMenuItem>
+                    <Tooltip key={item.key}>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          onClick={item.onClick}
+                          aria-label={item.label}
+                          className={
+                            item.destructive
+                              ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
+                              : "size-8 justify-center rounded-md hover:bg-muted/60"
+                          }>
+                          {item.icon}
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={10}>
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </DropdownMenuGroup>
