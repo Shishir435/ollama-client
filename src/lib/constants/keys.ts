@@ -87,7 +87,8 @@ export const STORAGE_KEYS = {
     GLOBAL_AUTO_EMBED: "global-auto-embed-enabled",
     KEYWORD_INDEX_BUILT: "keyword-index-built", // Track if keyword index is built
     AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
-    USE_RAG: "embeddings-use-rag"
+    USE_RAG: "embeddings-use-rag",
+    FEEDBACK_STATS: "embeddings-feedback-stats"
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"

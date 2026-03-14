@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import {
@@ -300,6 +301,8 @@ export const EmbeddingSettings = () => {
               config={config}
               updateConfig={updateConfig}
             />
+
+            <FeedbackSettings />
           </>
         )
       })()}

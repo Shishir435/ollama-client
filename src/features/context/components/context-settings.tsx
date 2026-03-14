@@ -12,7 +12,6 @@ import {
   RAGSettings,
   TextSplittingSettings
 } from "@/features/knowledge/components"
-import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { DatabaseManagementCard } from "@/features/model/components/embedding-config/database-management-card"
 import { EmbeddingLimitsConfig } from "@/features/model/components/embedding-config/embedding-limits-config"
@@ -359,8 +358,6 @@ export const ContextSettings = () => {
         description={t("model.embedding_config.rag_settings_description")}>
         <RAGSettings />
       </SettingsCard>
-
-      <FeedbackSettings />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SettingsCard

@@ -1,4 +1,6 @@
+import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { query as dbQuery, run as dbRun, initSQLite } from "@/lib/sqlite/db"
 
 /**
@@ -40,7 +42,72 @@ interface FeedbackStatsRow {
   unique_queries: number
 }
 
+type FeedbackStatsSnapshot = {
+  total: number
+  helpful: number
+  chunkIds: string[]
+  queryHashes: string[]
+}
+
 class FeedbackService {
+  private async updateStatsSnapshot(
+    chunkVectorId: string,
+    queryHash: string,
+    wasHelpful: boolean
+  ): Promise<void> {
+    try {
+      const existing =
+        (await plasmoGlobalStorage.get<FeedbackStatsSnapshot>(
+          STORAGE_KEYS.EMBEDDINGS.FEEDBACK_STATS
+        )) ??
+        ({
+          total: 0,
+          helpful: 0,
+          chunkIds: [],
+          queryHashes: []
+        } as FeedbackStatsSnapshot)
+
+      const next: FeedbackStatsSnapshot = {
+        total: existing.total + 1,
+        helpful: existing.helpful + (wasHelpful ? 1 : 0),
+        chunkIds: [...existing.chunkIds, chunkVectorId],
+        queryHashes: [...existing.queryHashes, queryHash]
+      }
+
+      await plasmoGlobalStorage.set(
+        STORAGE_KEYS.EMBEDDINGS.FEEDBACK_STATS,
+        next
+      )
+    } catch (error) {
+      logger.error(
+        "Failed to update feedback stats snapshot",
+        "FeedbackService",
+        {
+          error
+        }
+      )
+    }
+  }
+
+  private async clearStatsSnapshot(): Promise<void> {
+    try {
+      await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.FEEDBACK_STATS, {
+        total: 0,
+        helpful: 0,
+        chunkIds: [],
+        queryHashes: []
+      } satisfies FeedbackStatsSnapshot)
+    } catch (error) {
+      logger.error(
+        "Failed to clear feedback stats snapshot",
+        "FeedbackService",
+        {
+          error
+        }
+      )
+    }
+  }
+
   /**
    * Record user feedback for a chunk
    */
@@ -65,6 +132,8 @@ class FeedbackService {
           sessionId || null
         ]
       )
+
+      void this.updateStatsSnapshot(chunkVectorId, queryHash, wasHelpful)
 
       logger.info(
         `Recorded feedback for chunk ${chunkVectorId}`,
@@ -214,6 +283,7 @@ class FeedbackService {
       })
 
       logger.info("Cleared all feedback data", "FeedbackService")
+      await this.clearStatsSnapshot()
     } catch (error) {
       logger.error("Failed to clear feedback", "FeedbackService", { error })
       throw error
@@ -271,6 +341,24 @@ class FeedbackService {
     uniqueQueries: number
   }> {
     try {
+      const snapshot =
+        (await plasmoGlobalStorage.get<FeedbackStatsSnapshot>(
+          STORAGE_KEYS.EMBEDDINGS.FEEDBACK_STATS
+        )) ?? null
+
+      if (snapshot && snapshot.total > 0) {
+        const uniqueChunks = new Set(snapshot.chunkIds).size
+        const uniqueQueries = new Set(snapshot.queryHashes).size
+
+        return {
+          totalFeedback: snapshot.total,
+          helpfulPercentage:
+            snapshot.total > 0 ? (snapshot.helpful / snapshot.total) * 100 : 0,
+          uniqueChunks,
+          uniqueQueries
+        }
+      }
+
       const db = await initSQLite()
 
       const stats = await new Promise<FeedbackStatsRow>((resolve, reject) => {
