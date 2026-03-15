@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -13,6 +14,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
+import { queryClient } from "@/lib/query-client"
 import { useThemeStore } from "@/stores/theme"
 
 export const OptionsIndex = () => {
@@ -67,12 +69,14 @@ export const OptionsIndex = () => {
   })
 
   return (
-    <ErrorBoundary>
-      <TooltipProvider>
-        <SettingsPage />
-        <Toaster />
-      </TooltipProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <TooltipProvider>
+          <SettingsPage />
+          <Toaster />
+        </TooltipProvider>
+      </ErrorBoundary>
+    </QueryClientProvider>
   )
 }
 

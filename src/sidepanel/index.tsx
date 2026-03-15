@@ -1,6 +1,7 @@
 import "../globals.css"
 import "@/i18n/config"
 
+import { QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -10,6 +11,7 @@ import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useSQLiteMigration } from "@/hooks/use-sqlite-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
+import { queryClient } from "@/lib/query-client"
 
 const IndexSidePanel = () => {
   useThemeWatcher()
@@ -18,12 +20,14 @@ const IndexSidePanel = () => {
   useProviderStorageMigration()
   useSQLiteMigration() // Automatic SQLite migration
   return (
-    <ErrorBoundary>
-      <TooltipProvider>
-        <Chat />
-        <Toaster />
-      </TooltipProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <TooltipProvider>
+          <Chat />
+          <Toaster />
+        </TooltipProvider>
+      </ErrorBoundary>
+    </QueryClientProvider>
   )
 }
 

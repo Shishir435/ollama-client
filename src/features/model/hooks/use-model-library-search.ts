@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL, MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { queryKeys } from "@/lib/query-keys"
 import type { ChromeResponse } from "@/types"
 
 interface ModelMeta {
@@ -60,21 +62,16 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
   const parser = new DOMParser()
   const doc = parser.parseFromString(res.html, "text/html")
 
-  // Find the section tag and get all <a> tags with href attributes inside it
   const section = doc.querySelector("section")
-
-  if (!section) {
-    return []
-  }
+  if (!section) return []
 
   const linkElements = section.querySelectorAll("a[href]")
 
   const variants = Array.from(linkElements)
     .map((link) => link.getAttribute("href"))
-    .filter(Boolean) // Remove null/undefined values
+    .filter(Boolean)
     .filter((href) => href?.includes("/library/"))
     .map((href) => {
-      // Extract model variant from href like "/library/deepseek-r1:latest" -> "deepseek-r1:latest"
       const match = href?.match(/\/library\/(.+)$/)
       return match ? match[1] : null
     })
@@ -90,36 +87,33 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
 }
 
 export const useModelLibrarySearch = () => {
-  const [models, setModels] = useState<ModelMeta[]>([])
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (!searchQuery) return
-
-    const fetch = async () => {
-      setLoading(true)
-      try {
-        const scraped = await fetchSearchResults(searchQuery)
-        setModels(scraped)
-      } catch (err) {
-        logger.error("Model search scrape failed", "useModelLibrarySearch", {
-          error: err
-        })
-        setModels([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetch()
-  }, [searchQuery])
+  const { data: models = [], isFetching: loading } = useQuery({
+    queryKey: queryKeys.model.librarySearch(searchQuery),
+    queryFn: () => fetchSearchResults(searchQuery),
+    enabled: !!searchQuery,
+    // Cache search results for 2 minutes — the library doesn't change that often.
+    staleTime: 1000 * 60 * 2,
+    // On error, log and resolve to empty array so the UI doesn't break.
+    throwOnError: false
+  })
 
   const loadVariants = async (modelName: string) => {
     try {
-      const variants = await fetchModelVariants(modelName)
-      setModels((prev) =>
-        prev.map((m) => (m.name === modelName ? { ...m, variants } : m))
+      const variants = await queryClient.fetchQuery({
+        queryKey: queryKeys.model.libraryVariants(modelName),
+        queryFn: () => fetchModelVariants(modelName),
+        staleTime: 1000 * 60 * 5
+      })
+
+      // Merge variants into the cached search result list so callers see the update.
+      queryClient.setQueryData<ModelMeta[]>(
+        queryKeys.model.librarySearch(searchQuery),
+        (prev) =>
+          prev?.map((m) => (m.name === modelName ? { ...m, variants } : m)) ??
+          []
       )
     } catch (err) {
       logger.error("Failed to load variants", "useModelLibrarySearch", {
