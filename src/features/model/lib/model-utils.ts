@@ -6,7 +6,35 @@ export const getModelIcon = (modelName: string): string => {
   if (name.includes("phi")) return "📐"
   if (name.includes("gemma")) return "💎"
   if (name.includes("qwq")) return "🐱"
+  if (isEmbeddingModel(modelName)) return "🧠"
   return "🤖"
+}
+
+export const isEmbeddingModel = (
+  modelName: string,
+  families: string[] = []
+): boolean => {
+  const name = modelName.toLowerCase()
+
+  // Check by name patterns
+  if (
+    name.includes("embed") ||
+    name.includes("embedding") ||
+    name.includes("bge") ||
+    name.includes("gte") ||
+    name.includes("minilm") ||
+    name.includes("sentence-transformers")
+  ) {
+    return true
+  }
+
+  // Check by architecture families
+  const embeddingFamilies = ["bert", "nomic-bert", "xlm-roberta"]
+  if (families.some((f) => embeddingFamilies.includes(f.toLowerCase()))) {
+    return true
+  }
+
+  return false
 }
 
 export const formatFileSize = (

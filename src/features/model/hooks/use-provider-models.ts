@@ -1,5 +1,6 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useCallback, useEffect, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
@@ -7,177 +8,185 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
+import { queryKeys } from "@/lib/query-keys"
 import type { ProviderModel } from "@/types"
+import { isEmbeddingModel } from "../lib/model-utils"
+
+const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
+  const providers = await ProviderManager.getProviders()
+  const enabledProviders = providers.filter((p) => p.enabled)
+  console.log(
+    "[useProviderModels] Enabled providers:",
+    enabledProviders.map((p) => p.id)
+  )
+
+  const allModels: ProviderModel[] = []
+
+  await Promise.all(
+    enabledProviders.map(async (config) => {
+      try {
+        console.log(`[useProviderModels] Fetching for ${config.id}...`)
+        const provider = await ProviderFactory.getProvider(config.id)
+        const providerModels = await provider.getModels()
+        const customs = config.customModels || []
+
+        const modelMap = new Map<string, ProviderModel>()
+        providerModels.forEach((m) => {
+          modelMap.set(m.name, m)
+        })
+
+        customs.forEach((name) => {
+          if (!modelMap.has(name)) {
+            modelMap.set(name, {
+              name,
+              model: name,
+              modified_at: new Date().toISOString(),
+              size: 0,
+              digest: config.id,
+              providerId: config.id,
+              providerName: config.name,
+              details: {
+                parent_model: "",
+                format: "gguf",
+                family: config.type,
+                families: [],
+                parameter_size: "",
+                quantization_level: ""
+              }
+            })
+          }
+        })
+
+        modelMap.forEach((model) => {
+          if (!model.providerId) model.providerId = config.id
+          if (!model.providerName) model.providerName = config.name
+          allModels.push(model)
+        })
+      } catch (e) {
+        console.error(`Failed to fetch models for ${config.id}`, e)
+      }
+    })
+  )
+
+  // Persist model→provider mappings so the background script can route correctly.
+  const mappings: Record<string, string> = {}
+  allModels.forEach((m) => {
+    if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
+      mappings[m.name] = m.providerId
+    }
+  })
+  if (Object.keys(mappings).length > 0) {
+    await ProviderManager.saveModelMappings(mappings)
+  }
+
+  allModels.sort((a, b) => a.name.localeCompare(b.name))
+  return allModels
+}
+
+const fetchOllamaVersion = async (): Promise<string> => {
+  const config = await ProviderManager.getProviderConfig(DEFAULT_PROVIDER_ID)
+  const baseUrl = config?.baseUrl || "http://localhost:11434"
+
+  const response = await fetch(`${baseUrl}/api/version`)
+  if (!response.ok) throw new Error("Failed to fetch version")
+  const data = await response.json()
+  return data.version as string
+}
+
+/**
+ * Hook for managing provider models, including fetching, selecting, and deleting.
+ */
 
 export const useProviderModels = () => {
   const { t } = useTranslation()
-  const [selectedModel, setSelectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    ""
-  )
+  const queryClientInstance = useQueryClient()
 
+  const [selectedModel, setSelectedModel, { isLoading: isStorageLoading }] =
+    useStorage<string>(
+      {
+        key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
+        instance: plasmoGlobalStorage
+      },
+      ""
+    )
   const [providerConfig] = useStorage<ProviderConfig[]>(
-    {
-      key: ProviderStorageKey.CONFIG,
-      instance: plasmoGlobalStorage
-    },
+    { key: ProviderStorageKey.CONFIG, instance: plasmoGlobalStorage },
     []
   )
 
-  const [models, setModels] = useState<ProviderModel[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [version, setVersion] = useState<string | null>(null)
-  const [versionError, setVersionError] = useState<string | null>(null)
+  /**
+   * Model list query — refetches whenever providerConfig changes
+   */
+  const {
+    data: models = [],
+    isFetching: isLoading,
+    error: modelsError,
+    refetch: refetchModels
+  } = useQuery({
+    queryKey: [...queryKeys.model.providerList(), providerConfig],
+    queryFn: fetchAllProviderModels,
+    // 30-second stale time; the list rarely changes mid-session.
+    staleTime: 1000 * 30
+  })
 
-  const fetchModels = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
+  // Fallback: If no model is selected but models are available, pick the first one.
+  // This ensures the UI doesn't drop into a "no model selected" state on first load.
+  // We only run this if the storage has finished loading to prevent race conditions.
+  // We deliberately avoid overwriting if selectedModel already has a value, even if it's
+  // missing from the current generic list, to prevent losing user preference due to
+  // transient provider fetch delays.
+  useEffect(() => {
+    if (isStorageLoading || models.length === 0) return
 
-    try {
-      const providers = await ProviderManager.getProviders()
-      const enabledProviders = providers.filter((p) => p.enabled)
-      console.log(
-        `[useProviderModels] Enabled providers:`,
-        enabledProviders.map((p) => p.id)
+    if (!selectedModel) {
+      const firstChatModel = models.find(
+        (m) => !isEmbeddingModel(m.name, m.details?.families || [])
       )
-
-      const allModels: ProviderModel[] = []
-
-      await Promise.all(
-        enabledProviders.map(async (config) => {
-          try {
-            console.log(`[useProviderModels] Fetching for ${config.id}...`)
-            // Get provider instance (might trigger creation)
-            const provider = await ProviderFactory.getProvider(config.id)
-            const providerModels = await provider.getModels() // ProviderModel[]
-
-            // Add custom models if any
-            const customs = config.customModels || []
-
-            // Create a map of existing models for easy lookup/merging
-            const modelMap = new Map<string, ProviderModel>()
-            providerModels.forEach((m) => {
-              modelMap.set(m.name, m)
-            })
-
-            // Add/Merge custom models
-            customs.forEach((name) => {
-              if (!modelMap.has(name)) {
-                modelMap.set(name, {
-                  name: name,
-                  model: name,
-                  modified_at: new Date().toISOString(),
-                  size: 0,
-                  digest: config.id,
-                  providerId: config.id,
-                  providerName: config.name,
-                  details: {
-                    parent_model: "",
-                    format: "gguf",
-                    family: config.type,
-                    families: [],
-                    parameter_size: "",
-                    quantization_level: ""
-                  }
-                })
-              }
-            })
-
-            modelMap.forEach((model) => {
-              // Ensure provider info is set correctly
-              if (!model.providerId) model.providerId = config.id
-              if (!model.providerName) model.providerName = config.name
-              allModels.push(model)
-            })
-          } catch (e) {
-            console.error(`Failed to fetch models for ${config.id}`, e)
-          }
-        })
-      )
-
-      // Persist mappings for background script (critical for routing)
-      const mappings: Record<string, string> = {}
-      allModels.forEach((m) => {
-        if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
-          mappings[m.name] = m.providerId
-        }
-      })
-
-      if (Object.keys(mappings).length > 0) {
-        await ProviderManager.saveModelMappings(mappings)
+      if (firstChatModel) {
+        setSelectedModel(firstChatModel.name)
       }
-
-      // Sort: stable alpha (default provider still tends to be first by mapping)
-      allModels.sort((a, b) => a.name.localeCompare(b.name))
-
-      setModels(allModels)
-
-      // Removed auto-select logic to prevent overwriting stored selection during race conditions
-    } catch (err) {
-      setError(t("errors.failed_to_fetch_models"))
-      console.error(err)
-    } finally {
-      setIsLoading(false)
     }
-  }, [t])
+  }, [selectedModel, models, isStorageLoading, setSelectedModel])
 
-  const fetchVersion = useCallback(async () => {
-    try {
+  /**
+   * Ollama version query
+   */
+  const { data: version = null, error: versionRawError } = useQuery({
+    queryKey: queryKeys.model.providerVersion(),
+    queryFn: fetchOllamaVersion,
+    staleTime: 1000 * 60 * 5,
+    retry: false
+  })
+
+  /**
+   * Delete mutation — invalidates the model list on success
+   */
+  const { mutateAsync: deleteModel } = useMutation({
+    mutationFn: async (modelName: string) => {
       const config =
         await ProviderManager.getProviderConfig(DEFAULT_PROVIDER_ID)
       const baseUrl = config?.baseUrl || "http://localhost:11434"
 
-      const response = await fetch(`${baseUrl}/api/version`)
-      if (response.ok) {
-        const data = await response.json()
-        setVersion(data.version)
-        setVersionError(null)
-      } else {
-        setVersionError("Failed to fetch version")
-      }
-    } catch (err) {
-      setVersionError("Failed to connect to provider")
-      console.error(err)
-    }
-  }, [])
+      const response = await fetch(`${baseUrl}/api/delete`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: modelName })
+      })
 
-  const deleteModel = useCallback(
-    async (modelName: string) => {
-      try {
-        const config =
-          await ProviderManager.getProviderConfig(DEFAULT_PROVIDER_ID)
-        const baseUrl = config?.baseUrl || "http://localhost:11434"
-
-        const response = await fetch(`${baseUrl}/api/delete`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: modelName })
-        })
-
-        if (response.ok) {
-          await fetchModels() // Refresh the list
-        } else {
-          throw new Error("Failed to delete model")
-        }
-      } catch (err) {
-        console.error("Error deleting model:", err)
-        setError(t("errors.failed_to_delete_model"))
-      }
+      if (!response.ok) throw new Error("Failed to delete model")
     },
-    [fetchModels, t]
-  )
+    onSuccess: () => {
+      queryClientInstance.invalidateQueries({
+        queryKey: queryKeys.model.providerList()
+      })
+    },
+    onError: (err) => {
+      console.error("Error deleting model:", err)
+    }
+  })
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: We want to refetch models/version whenever the provider configuration changes
-  useEffect(() => {
-    fetchModels()
-    fetchVersion()
-  }, [providerConfig, fetchModels, fetchVersion])
+  const error = modelsError ? t("errors.failed_to_fetch_models") : null
 
-  // Compute status from current state
   const status = isLoading
     ? "loading"
     : error
@@ -186,12 +195,13 @@ export const useProviderModels = () => {
         ? "empty"
         : "ready"
 
-  // Only show version if the selected model is from Ollama (or if no model is selected yet, defaulting to Ollama context)
   const selectedModelData = models.find((m) => m.name === selectedModel)
   const isOllama =
     !selectedModel ||
     !selectedModelData ||
     selectedModelData.providerId === DEFAULT_PROVIDER_ID
+
+  const versionError = versionRawError ? "Failed to connect to provider" : null
 
   return {
     models,
@@ -199,7 +209,7 @@ export const useProviderModels = () => {
     setSelectedModel,
     isLoading,
     error,
-    refresh: fetchModels,
+    refresh: refetchModels,
     status,
     version: isOllama ? version : null,
     versionError,

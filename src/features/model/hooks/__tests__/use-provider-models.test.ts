@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
+import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useProviderModels } from "../use-provider-models"
 
@@ -42,9 +44,17 @@ vi.mock("@plasmohq/storage/hook", () => ({
       config.key === "llm_providers_config_v1" ||
       config.key?.includes("provider")
     ) {
-      return [mockProviderConfig, vi.fn().mockResolvedValue(undefined)]
+      return [
+        mockProviderConfig,
+        vi.fn().mockResolvedValue(undefined),
+        { isLoading: false }
+      ]
     }
-    return [initialValue, vi.fn().mockResolvedValue(undefined)]
+    return [
+      initialValue,
+      vi.fn().mockResolvedValue(undefined),
+      { isLoading: false }
+    ]
   })
 }))
 
@@ -79,8 +89,23 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+// Prevent the shared singleton from leaking state between tests.
+vi.mock("@/lib/query-client", () => ({
+  queryClient: new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  })
+}))
+
 // Mock fetch globally
 global.fetch = vi.fn()
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  })
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+}
 
 describe("useProviderModels", () => {
   beforeEach(() => {
@@ -102,7 +127,9 @@ describe("useProviderModels", () => {
 
   describe("fetchModels", () => {
     it("should fetch models successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       // Wait for loading to finish
       await waitFor(
@@ -120,7 +147,9 @@ describe("useProviderModels", () => {
     it("should handle empty models list", async () => {
       vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([])
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -135,7 +164,9 @@ describe("useProviderModels", () => {
         new Error("API Error")
       )
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -147,7 +178,9 @@ describe("useProviderModels", () => {
 
   describe("deleteModel", () => {
     it("should delete model successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -167,7 +200,9 @@ describe("useProviderModels", () => {
 
   describe("fetchProviderVersion", () => {
     it("should fetch version successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.version).toBe("0.1.23")
@@ -182,7 +217,9 @@ describe("useProviderModels", () => {
         return { ok: true, json: async () => ({}) } as Response
       })
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.versionError).toBeTruthy()
@@ -192,7 +229,9 @@ describe("useProviderModels", () => {
 
   describe("refresh", () => {
     it("should refetch models when refresh is called", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.status).toBe("ready")

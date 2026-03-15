@@ -1,5 +1,4 @@
-import { useStorage } from "@plasmohq/storage/hook"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,17 +24,16 @@ import {
 } from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
-import {
-  DEFAULT_PROVIDER_ID,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 
-import { formatFileSize, getModelIcon } from "../lib/model-utils"
+import {
+  formatFileSize,
+  getModelIcon,
+  isEmbeddingModel
+} from "../lib/model-utils"
 
 interface ModelMenuProps {
   trigger?: React.ReactNode
@@ -52,36 +50,12 @@ export const ModelMenu = ({
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    ""
+  const { models, refresh, isLoading, selectedModel, setSelectedModel } =
+    useProviderModels()
+
+  const filteredDefaultModels = models.filter(
+    (model) => !isEmbeddingModel(model.name, model.details?.families || [])
   )
-
-  const { status, models, refresh, isLoading } = useProviderModels()
-
-  const filteredDefaultModels = models.filter((model) => {
-    if (
-      model.details?.families?.some((f) =>
-        ["bert", "nomic-bert", "xlm-roberta"].includes(f)
-      )
-    )
-      return false
-    if (model.name.includes("embed")) return false
-    return true
-  })
-
-  useEffect(() => {
-    if (
-      status === "ready" &&
-      filteredDefaultModels.length > 0 &&
-      !selectedModel
-    ) {
-      setSelectedModel(filteredDefaultModels[0].name)
-    }
-  }, [status, filteredDefaultModels, selectedModel, setSelectedModel])
 
   const handleSelect = (modelName: string) => {
     const previousModel = selectedModel
@@ -173,7 +147,7 @@ export const ModelMenu = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={refresh}
+                    onClick={() => refresh()}
                     variant="ghost"
                     size="icon"
                     className="size-6"
