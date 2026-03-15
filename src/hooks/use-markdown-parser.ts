@@ -16,31 +16,6 @@ import { hljs } from "@/lib/hljs"
 import "markdown-it-copy-code/styles/base.css"
 import "markdown-it-copy-code/styles/small.css"
 
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true,
-  highlight: (str, lang) => {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`
-      } catch (__) {}
-    }
-    return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
-  }
-})
-
-md.use(taskLists, { enabled: true })
-  .use(footnote)
-  .use(container, "info")
-  .use(container, "warning")
-  .use(emoji)
-  .use(MarkdownItCopyCode)
-  .use(markdownItMark)
-  .use(deflist)
-  .use(sub)
-  .use(sup)
-
 export const useMarkdownParser = (markdown: string) => {
   const [html, setHtml] = useState("")
   const md = useMemo(() => {
@@ -78,9 +53,13 @@ export const useMarkdownParser = (markdown: string) => {
     return instance
   }, [])
   useEffect(() => {
-    const rawHtml = md.render(markdown)
-    const safeHtml = DOMPurify.sanitize(rawHtml)
-    setHtml(safeHtml)
+    const rafId = requestAnimationFrame(() => {
+      const rawHtml = md.render(markdown)
+      const safeHtml = DOMPurify.sanitize(rawHtml)
+      setHtml(safeHtml)
+    })
+
+    return () => cancelAnimationFrame(rafId)
   }, [markdown, md])
 
   return html
