@@ -174,9 +174,7 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
   maxFileSize: FILE_UPLOAD.MAX_SIZE,
   autoEmbedFiles: true, // Enable automatic embedding by default
   showEmbeddingProgress: true, // Show progress to users
-  embeddingBatchSize: 3, // Process 3 chunks at a time (balanced performance)
-  enableOcr: true, // OCR on by default
-  ocrLanguage: "eng"
+  embeddingBatchSize: 3 // Process 3 chunks at a time (balanced performance)
 }
 
 export const CHAT_PAGINATION_LIMIT = 50

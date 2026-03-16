@@ -218,7 +218,7 @@
   "file_upload": {
     "button": {
       "aria_label": "上传文件",
-      "tooltip": "上传文件（PDF、DOCX、CSV、HTML、文本、图片）"
+      "tooltip": "上传文件（PDF、DOCX、CSV、HTML、文本）"
     },
     "preview": {
       "remove_aria_label": "移除文件",
@@ -227,8 +227,7 @@
       "processing_docx": "正在处理 DOCX 文档...",
       "processing_file": "正在处理文件...",
       "processing_csv": "正在处理 CSV 文件...",
-      "processing_html": "正在将 HTML 转换为 Markdown...",
-      "processing_image": "正在处理图片（OCR）..."
+      "processing_html": "正在将 HTML 转换为 Markdown..."
     },
     "area": {
       "files_ready": "{{count}} 个文件已准备就绪",
@@ -236,12 +235,7 @@
     },
     "settings": {
       "max_file_size_label": "最大文件大小 (MB)",
-      "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
-      "ocr_enabled_label": "启用图片 OCR",
-      "ocr_enabled_description": "使用本地 OCR 将图片转换为文本（仅英文）。",
-      "ocr_language_label": "OCR 语言（仅英文）",
-      "ocr_language_description": "目前仅支持英文，后续会添加更多语言。",
-      "ocr_language_placeholder": "英文"
+      "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。"
     }
   },
   "model": {

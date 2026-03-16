@@ -218,7 +218,7 @@
   "file_upload": {
     "button": {
       "aria_label": "Загрузить файл",
-      "tooltip": "Загрузить файл (PDF, DOCX, CSV, HTML, Текст, Изображения)"
+      "tooltip": "Загрузить файл (PDF, DOCX, CSV, HTML, Текст)"
     },
     "preview": {
       "remove_aria_label": "Удалить файл",
@@ -227,8 +227,7 @@
       "processing_docx": "Обработка документа DOCX...",
       "processing_file": "Обработка файла...",
       "processing_csv": "Обработка CSV файла...",
-      "processing_html": "Конвертация HTML в Markdown...",
-      "processing_image": "Обработка изображения (OCR)..."
+      "processing_html": "Конвертация HTML в Markdown..."
     },
     "area": {
       "files_ready": "{{count}} файл готов",
@@ -236,12 +235,7 @@
     },
     "settings": {
       "max_file_size_label": "Макс. размер файла (МБ)",
-      "max_file_size_description": "Максимально допустимый размер для отдельных файлов. Обработка больших файлов может занять больше времени.",
-      "ocr_enabled_label": "Включить OCR для изображений",
-      "ocr_enabled_description": "Преобразует изображения в текст локально с помощью OCR (только английский).",
-      "ocr_language_label": "Язык OCR (только английский)",
-      "ocr_language_description": "Пока доступен только английский. Другие языки будут добавлены позже.",
-      "ocr_language_placeholder": "Английский"
+      "max_file_size_description": "Максимально допустимый размер для отдельных файлов. Обработка больших файлов может занять больше времени."
     }
   },
   "model": {

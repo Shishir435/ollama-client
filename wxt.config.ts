@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig } from "wxt"
+import packageJson from "./package.json"
 
 type WxtViteFactory = NonNullable<Parameters<typeof defineConfig>[0]["vite"]>
 type WxtViteConfig = ReturnType<WxtViteFactory>
@@ -12,11 +13,10 @@ export default defineConfig({
   outDirTemplate: "",
   publicDir: "public",
   manifest: {
-    name: "Ollama Client - Chat with Local LLM Models",
-    description:
-      "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
-    version: "0.6.0",
-    homepage_url: "https://ollama-client.shishirchaurasiya.in",
+    name: packageJson.name,
+    description: packageJson.description,
+    version: packageJson.version,
+    homepage_url: packageJson.homepage,
     icons: {
       16: "assets/icon.png",
       32: "assets/icon.png",
@@ -43,7 +43,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm", "ocr/*", "ocr/lang/*"],
+        resources: ["assets/*.wasm"],
         matches: ["<all_urls>"]
       }
     ],

@@ -13,9 +13,6 @@ export interface FileMetadata {
   processedAt: number
   fileId?: string
   knowledgeSetId?: string
-  // OCR-specific metadata (for image files)
-  ocrLanguage?: string
-  ocrConfidence?: number
   processingTime?: number
 }
 

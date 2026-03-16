@@ -77,12 +77,6 @@ export const FILE_UPLOAD = {
     CSV: "csv",
     TSV: "tsv",
     HTML: "html",
-    HTM: "htm",
-    PNG: "png",
-    JPG: "jpg",
-    JPEG: "jpeg",
-    WEBP: "webp",
-    GIF: "gif",
-    BMP: "bmp"
+    HTM: "htm"
   }
 }

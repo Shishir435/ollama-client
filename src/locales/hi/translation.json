@@ -218,7 +218,7 @@
   "file_upload": {
     "button": {
       "aria_label": "फ़ाइल अपलोड करें",
-      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट, चित्र)"
+      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)"
     },
     "preview": {
       "remove_aria_label": "फ़ाइल हटाएँ",
@@ -227,8 +227,7 @@
       "processing_docx": "DOCX दस्तावेज़ प्रोसेस किया जा रहा है...",
       "processing_file": "फ़ाइल प्रोसेस की जा रही है...",
       "processing_csv": "CSV फ़ाइल प्रोसेस की जा रही है...",
-      "processing_html": "HTML को Markdown में बदला जा रहा है...",
-      "processing_image": "चित्र प्रोसेस हो रहा है (OCR)..."
+      "processing_html": "HTML को Markdown में बदला जा रहा है..."
     },
     "area": {
       "files_ready": "{{count}} फ़ाइल तैयार",
@@ -236,12 +235,7 @@
     },
     "settings": {
       "max_file_size_label": "अधिकतम फ़ाइल साइज़ (MB)",
-      "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।",
-      "ocr_enabled_label": "छवियों के लिए OCR सक्षम करें",
-      "ocr_enabled_description": "छवि फ़ाइलों को स्थानीय रूप से OCR से टेक्स्ट में बदलें (केवल अंग्रेज़ी)।",
-      "ocr_language_label": "OCR भाषा (केवल अंग्रेज़ी)",
-      "ocr_language_description": "फिलहाल केवल अंग्रेज़ी। अन्य भाषाएँ जल्द आएँगी।",
-      "ocr_language_placeholder": "अंग्रेज़ी"
+      "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।"
     }
   },
   "model": {

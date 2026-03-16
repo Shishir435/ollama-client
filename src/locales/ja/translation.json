@@ -218,7 +218,7 @@
   "file_upload": {
     "button": {
       "aria_label": "ファイルをアップロード",
-      "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト、画像)"
+      "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)"
     },
     "preview": {
       "remove_aria_label": "ファイルを削除",
@@ -227,8 +227,7 @@
       "processing_docx": "DOCXドキュメントを処理中...",
       "processing_file": "ファイルを処理中...",
       "processing_csv": "CSVファイルを処理中...",
-      "processing_html": "HTMLをMarkdownに変換中...",
-      "processing_image": "画像を処理中（OCR）..."
+      "processing_html": "HTMLをMarkdownに変換中..."
     },
     "area": {
       "files_ready": "{{count}} ファイル準備完了",
@@ -236,12 +235,7 @@
     },
     "settings": {
       "max_file_size_label": "最大ファイルサイズ (MB)",
-      "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。",
-      "ocr_enabled_label": "画像のOCRを有効化",
-      "ocr_enabled_description": "画像ファイルをローカルでOCRしてテキスト化します（英語のみ）。",
-      "ocr_language_label": "OCR言語（英語のみ）",
-      "ocr_language_description": "現在は英語のみ対応です。ほかの言語は今後追加予定です。",
-      "ocr_language_placeholder": "英語"
+      "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。"
     }
   },
   "model": {

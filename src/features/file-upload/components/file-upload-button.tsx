@@ -47,12 +47,7 @@ export const FileUploadButton = ({
     "text/csv,.csv", // CSV
     "text/tab-separated-values,.tsv", // TSV
     "text/html,.html,.htm", // HTML
-    "application/javascript,application/json,application/xml,application/yaml",
-    "image/png,.png",
-    "image/jpeg,.jpg,.jpeg",
-    "image/webp,.webp",
-    "image/gif,.gif",
-    "image/bmp,.bmp"
+    "application/javascript,application/json,application/xml,application/yaml"
   ].join(",")
 
   return (

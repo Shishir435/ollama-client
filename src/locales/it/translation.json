@@ -219,7 +219,7 @@
   "file_upload": {
     "button": {
       "aria_label": "Carica file",
-      "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo, Immagini)"
+      "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo)"
     },
     "preview": {
       "remove_aria_label": "Rimuovi file",
@@ -228,8 +228,7 @@
       "processing_docx": "Elaborazione documento DOCX in corso...",
       "processing_file": "Elaborazione file in corso...",
       "processing_csv": "Elaborazione file CSV...",
-      "processing_html": "Conversione HTML in Markdown...",
-      "processing_image": "Elaborazione immagine (OCR)..."
+      "processing_html": "Conversione HTML in Markdown..."
     },
     "area": {
       "files_ready": "{{count}} file pronto",
@@ -237,12 +236,7 @@
     },
     "settings": {
       "max_file_size_label": "Dimensione Massima File (MB)",
-      "max_file_size_description": "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione.",
-      "ocr_enabled_label": "Abilita OCR per le immagini",
-      "ocr_enabled_description": "Converti le immagini in testo localmente tramite OCR (solo inglese).",
-      "ocr_language_label": "Lingua OCR (solo inglese)",
-      "ocr_language_description": "Attualmente solo inglese. Altre lingue saranno aggiunte presto.",
-      "ocr_language_placeholder": "Inglese"
+      "max_file_size_description": "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione."
     }
   },
   "model": {

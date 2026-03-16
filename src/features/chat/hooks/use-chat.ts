@@ -282,33 +282,6 @@ export const useChat = () => {
     // 🔄 2. Calculate RAG context asynchronously (in background)
     let contentWithRAG = userContent
 
-    const noTextPlaceholder = "(No text content detected in image)"
-    const isImageFile = (file: ProcessedFile) => {
-      const fileType = file.metadata.fileType || ""
-      if (fileType.startsWith("image/")) {
-        return true
-      }
-      const name = file.metadata.fileName || ""
-      return /\.(png|jpe?g|webp|gif|bmp)$/i.test(name)
-    }
-
-    const imageFiles = files?.filter(isImageFile) || []
-    const ocrBlocks = imageFiles
-      .map((file) => {
-        const text = file.text?.trim() || ""
-        if (!text || text === noTextPlaceholder) {
-          return ""
-        }
-        return `File: ${file.metadata.fileName}\n${text}`
-      })
-      .filter(Boolean)
-
-    if (ocrBlocks.length > 0) {
-      const ocrBlock = `The following OCR text was extracted from attached image(s). Use it to answer the user's question. If the OCR text is incomplete, say so.\n\n[IMAGE OCR TEXT]\n${ocrBlocks.join("\n\n---\n\n")}`
-      contentWithRAG = contentWithRAG
-        ? `${contentWithRAG}\n\n${ocrBlock}`
-        : ocrBlock
-    }
     const useRag =
       (await plasmoGlobalStorage.get<boolean>(
         STORAGE_KEYS.EMBEDDINGS.USE_RAG
@@ -513,10 +486,7 @@ export const useChat = () => {
 
     // Fallback to full text ONLY if specific files attached AND no RAG context found
     if (contentWithRAG === userContent && files && files.length > 0) {
-      const fallbackFiles =
-        ocrBlocks.length > 0
-          ? files.filter((file) => !isImageFile(file))
-          : files
+      const fallbackFiles = files
       const fullTextContext = fallbackFiles
         .map(
           (file) =>

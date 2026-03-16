@@ -219,7 +219,7 @@
   "file_upload": {
     "button": {
       "aria_label": "Téléverser un fichier",
-      "tooltip": "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte, Images)"
+      "tooltip": "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte)"
     },
     "preview": {
       "remove_aria_label": "Retirer le fichier",
@@ -228,8 +228,7 @@
       "processing_docx": "Traitement du document DOCX...",
       "processing_file": "Traitement du fichier...",
       "processing_csv": "Traitement du fichier CSV...",
-      "processing_html": "Conversion HTML vers Markdown...",
-      "processing_image": "Traitement de l'image (OCR)..."
+      "processing_html": "Conversion HTML vers Markdown..."
     },
     "area": {
       "files_ready": "{{count}} fichier prêt",
@@ -237,12 +236,7 @@
     },
     "settings": {
       "max_file_size_label": "Taille Maximale de Fichier (Mo)",
-      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
-      "ocr_enabled_label": "Activer l'OCR pour les images",
-      "ocr_enabled_description": "Convertit localement les images en texte via OCR (anglais uniquement).",
-      "ocr_language_label": "Langue OCR (anglais uniquement)",
-      "ocr_language_description": "Limité à l'anglais pour le moment. D'autres langues arrivent.",
-      "ocr_language_placeholder": "Anglais"
+      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités."
     }
   },
   "model": {

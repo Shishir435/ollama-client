@@ -8,7 +8,6 @@ import {
   AlertCircle,
   CircleCheck,
   FileText,
-  Image,
   Loader2,
   X
 } from "@/lib/lucide-icon"
@@ -57,13 +56,6 @@ export const FilePreview = ({
       case FILE_UPLOAD.EXTENSIONS.HTML:
       case FILE_UPLOAD.EXTENSIONS.HTM:
         return <FileText className="size-4 text-orange-500/80" />
-      case FILE_UPLOAD.EXTENSIONS.PNG:
-      case FILE_UPLOAD.EXTENSIONS.JPG:
-      case FILE_UPLOAD.EXTENSIONS.JPEG:
-      case FILE_UPLOAD.EXTENSIONS.WEBP:
-      case FILE_UPLOAD.EXTENSIONS.GIF:
-      case FILE_UPLOAD.EXTENSIONS.BMP:
-        return <Image className="size-4 text-purple-500/80" />
       default:
         return <FileText className="size-4 text-muted-foreground/50" />
     }
@@ -106,16 +98,6 @@ export const FilePreview = ({
       extension === FILE_UPLOAD.EXTENSIONS.HTM
     ) {
       return t("file_upload.preview.processing_html")
-    }
-    if (
-      extension === FILE_UPLOAD.EXTENSIONS.PNG ||
-      extension === FILE_UPLOAD.EXTENSIONS.JPG ||
-      extension === FILE_UPLOAD.EXTENSIONS.JPEG ||
-      extension === FILE_UPLOAD.EXTENSIONS.WEBP ||
-      extension === FILE_UPLOAD.EXTENSIONS.GIF ||
-      extension === FILE_UPLOAD.EXTENSIONS.BMP
-    ) {
-      return t("file_upload.preview.processing_image")
     }
     return t("file_upload.preview.processing_file")
   }

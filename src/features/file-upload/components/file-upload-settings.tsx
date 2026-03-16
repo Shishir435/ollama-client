@@ -1,19 +1,9 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import type { ChangeEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsFormField, SettingsSwitch } from "@/components/settings"
+import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { DEFAULT_FILE_UPLOAD_CONFIG, STORAGE_KEYS } from "@/lib/constants"
-import { ocrLanguages } from "@/lib/ocr/ocr-language"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { FileUploadConfig } from "@/types"
 
@@ -40,8 +30,6 @@ export const FileUploadSettings = () => {
   const currentSizeMB = config?.maxFileSize
     ? (config.maxFileSize / (1024 * 1024)).toFixed(0)
     : "10"
-  const ocrEnabled = config?.enableOcr ?? false
-  const ocrLanguage = config?.ocrLanguage || "eng"
 
   return (
     <div className="space-y-6">
@@ -61,51 +49,6 @@ export const FileUploadSettings = () => {
             />
             <span className="text-sm text-muted-foreground">MB</span>
           </div>
-        </SettingsFormField>
-
-        <SettingsSwitch
-          id="ocr-enabled"
-          label={t("file_upload.settings.ocr_enabled_label")}
-          description={t("file_upload.settings.ocr_enabled_description")}
-          checked={ocrEnabled}
-          onCheckedChange={(checked) =>
-            setConfig((prev) => ({
-              ...prev,
-              enableOcr: checked
-            }))
-          }
-        />
-
-        <SettingsFormField
-          label={t("file_upload.settings.ocr_language_label")}
-          description={t("file_upload.settings.ocr_language_description")}>
-          <Select
-            value={ocrLanguage}
-            onValueChange={(value) =>
-              setConfig((prev) => ({
-                ...prev,
-                ocrLanguage: value
-              }))
-            }
-            disabled={!ocrEnabled}>
-            <SelectTrigger>
-              <SelectValue
-                placeholder={t("file_upload.settings.ocr_language_placeholder")}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>
-                  {t("file_upload.settings.ocr_language_label")}
-                </SelectLabel>
-                {ocrLanguages.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
         </SettingsFormField>
       </div>
     </div>

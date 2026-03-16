@@ -1,7 +1,6 @@
 import { CsvProcessor } from "@/features/file-upload/processors/csv-processor"
 import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
 import { HtmlProcessor } from "@/features/file-upload/processors/html-processor"
-import { ImageProcessor } from "@/features/file-upload/processors/image-processor"
 import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
 import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 import { logger } from "@/lib/logger"
@@ -13,7 +12,6 @@ const processors: FileProcessor[] = [
   new DocxProcessor(), // DOCX second
   new CsvProcessor(), // CSV third (before text to handle .csv files)
   new HtmlProcessor(), // HTML fourth (before text to handle .html files)
-  new ImageProcessor(), // Image OCR (before text fallback)
   new TextProcessor() // Text processor is fallback
 ]
 
@@ -90,12 +88,6 @@ export function getSupportedExtensions(): string[] {
     ".csv", // CSV
     ".tsv", // Tab-separated
     ".html", // HTML
-    ".htm", // HTML
-    ".png", // Image
-    ".jpg", // Image
-    ".jpeg", // Image
-    ".webp", // Image
-    ".gif", // Image
-    ".bmp" // Image
+    ".htm" // HTML
   ]
 }

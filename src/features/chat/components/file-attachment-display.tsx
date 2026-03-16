@@ -1,4 +1,4 @@
-import { FileIcon, FileText, Image as ImageIcon, Loader2 } from "lucide-react"
+import { FileIcon, FileText, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,9 +18,6 @@ interface FileAttachmentDisplayProps {
 }
 
 function getFileIcon(fileType: string) {
-  if (fileType.startsWith("image/")) {
-    return <ImageIcon className="h-3 w-3" />
-  }
   if (fileType === "application/pdf" || fileType.includes("document")) {
     return <FileText className="h-3 w-3" />
   }
@@ -107,41 +104,31 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 max-h-[60vh] overflow-y-auto">
-          {file.fileType.startsWith("image/") && file.data ? (
-            <div className="flex justify-center">
-              <img
-                src={URL.createObjectURL(new Blob([file.data as BlobPart]))}
-                alt={file.fileName}
-                className="max-w-full h-auto rounded-lg border"
-              />
-            </div>
-          ) : (
-            <div className="relative">
-              {isLoading ? (
-                <div className="flex items-center justify-center p-8 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  <span className="text-sm">Loading full content...</span>
-                </div>
-              ) : (
-                <>
-                  <pre className="text-xs bg-muted rounded-lg p-4 whitespace-pre-wrap wrap-break-word font-mono">
-                    {fullText || "No text content available"}
-                  </pre>
-                  {fullText && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="absolute top-2 right-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(fullText)
-                      }}>
-                      Copy Text
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          <div className="relative">
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span className="text-sm">Loading full content...</span>
+              </div>
+            ) : (
+              <>
+                <pre className="text-xs bg-muted rounded-lg p-4 whitespace-pre-wrap wrap-break-word font-mono">
+                  {fullText || "No text content available"}
+                </pre>
+                {fullText && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(fullText)
+                    }}>
+                    Copy Text
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
