@@ -7,75 +7,19 @@ import { getPdfStyles } from "./styles"
 import type { Exporter, ExportOptions } from "./types"
 
 const renderPdf = async (html: string, filename: string) => {
-  const scrollbarWidth =
-    window.innerWidth - document.documentElement.clientWidth
-  const lockStyle = document.createElement("style")
-  lockStyle.id = "pdf-export-lock"
-  lockStyle.textContent = `
-    html.pdf-export-lock,
-    body.pdf-export-lock {
-      overflow-y: scroll !important;
-      padding-right: ${Math.max(0, scrollbarWidth)}px !important;
-    }
-  `
-  document.head.appendChild(lockStyle)
-  document.documentElement.classList.add("pdf-export-lock")
-  document.body.classList.add("pdf-export-lock")
+  localStorage.setItem("print_html", html)
+  localStorage.setItem("print_filename", filename)
 
-  document.documentElement.style.scrollbarGutter = "stable both-edges"
-  document.body.style.scrollbarGutter = "stable both-edges"
+  const printPageUrl = chrome.runtime.getURL("print.html")
+  const printWindow = window.open(printPageUrl, "_blank")
 
-  const iframe = document.createElement("iframe")
-  iframe.setAttribute(
-    "style",
-    "position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:0;opacity:0;pointer-events:none;"
-  )
-  document.body.appendChild(iframe)
-
-  const doc = iframe.contentDocument
-  if (!doc) {
-    iframe.remove()
-    throw new Error("Failed to initialize PDF renderer")
+  if (!printWindow) {
+    localStorage.removeItem("print_html")
+    localStorage.removeItem("print_filename")
+    throw new Error(
+      "Failed to open print window. Please check if popups are blocked."
+    )
   }
-
-  doc.open()
-  doc.write(
-    `<!doctype html><html><head><meta charset="utf-8" /></head><body>${html}</body></html>`
-  )
-  doc.close()
-
-  const html2pdf = (await import("html2pdf.js")).default
-
-  return html2pdf()
-    .from(doc.body)
-    .set({
-      margin: [15, 15, 15, 15],
-      filename,
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        letterRendering: true,
-        allowTaint: false
-      },
-      jsPDF: {
-        unit: "mm",
-        format: "a4",
-        orientation: "portrait",
-        compress: true
-      },
-      pagebreak: {
-        mode: ["avoid-all", "css", "legacy"]
-      }
-    })
-    .save()
-    .finally(() => {
-      iframe.remove()
-      document.documentElement.classList.remove("pdf-export-lock")
-      document.body.classList.remove("pdf-export-lock")
-      document.documentElement.style.scrollbarGutter = ""
-      document.body.style.scrollbarGutter = ""
-      lockStyle.remove()
-    })
 }
 
 export const pdfExporter: Exporter = {

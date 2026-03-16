@@ -54,7 +54,6 @@ export default defineContentScript({
   cssInjectionMode: "ui",
   async main(ctx) {
     let container: HTMLDivElement | null = null
-    let shadowRoot: ShadowRoot | null = null
     let isEnabled = true
     let currentLanguage = "en"
     let selectionText = ""
@@ -114,7 +113,6 @@ export default defineContentScript({
         `
         uiContainer.append(style)
         uiContainer.append(container)
-        shadowRoot = uiContainer.getRootNode() as ShadowRoot
         return container
       }
     })
