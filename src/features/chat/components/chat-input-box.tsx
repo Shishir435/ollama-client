@@ -290,11 +290,11 @@ export const ChatInputBox = ({
 
   return (
     <div className="relative">
+      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
+
       <div className="mb-1">
         <TabsSelect />
       </div>
-
-      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
 
       <ChatInputAttachmentList
         processingStates={processingStates}
