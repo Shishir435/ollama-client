@@ -104,13 +104,13 @@ export const ModelMenu = ({
           <PopoverTrigger asChild aria-label={tooltipTextContent}>
             {trigger ?? (
               <Button
-                variant="outline"
+                variant="ghost"
                 role="combobox"
                 aria-expanded={open}
-                className="h-8 justify-between gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-xs px-3 font-normal hover:bg-accent/50 hover:text-accent-foreground items-center">
+                className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all">
                 {selectedModel ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg leading-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">
                       {getModelIcon(selectedModel)}
                     </span>
                     <span className="truncate font-medium">
@@ -172,7 +172,7 @@ export const ModelMenu = ({
             />
           </div>
           <CommandSeparator className="mt-2" />
-          <CommandList className="max-h-[300px] overflow-y-auto p-1">
+          <CommandList className="max-h-[300px] overflow-y-auto p-1 scrollbar-none">
             <CommandEmpty className="py-6 text-center text-sm">
               {t("model.menu.no_model_found")}
             </CommandEmpty>

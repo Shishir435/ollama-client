@@ -143,7 +143,7 @@ export const VoiceSelector = ({
 
           <CommandSeparator className="mt-2" />
 
-          <CommandList className="max-h-[320px] overflow-y-auto">
+          <CommandList className="max-h-[320px] overflow-y-auto scrollbar-none">
             <CommandEmpty className="py-8">
               <div className="flex flex-col items-center gap-2 text-center">
                 <div className="rounded-full bg-muted p-3">

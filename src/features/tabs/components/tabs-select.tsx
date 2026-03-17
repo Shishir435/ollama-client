@@ -77,7 +77,7 @@ export const TabsSelect = () => {
     }))
 
   return (
-    <div className="mb-2 w-full">
+    <div className="mb-1 w-full">
       <MultiSelect
         options={tabOptions}
         onValueChange={setSelectedTabIds}
