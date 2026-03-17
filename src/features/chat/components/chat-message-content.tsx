@@ -78,13 +78,8 @@ export const ChatMessageContent = ({
       className={cn(
         "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-xs sm:max-w-2xl sm:p-4",
         "hover:shadow-md",
-        isUser
-          ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-          : "bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
-        "border",
-        isUser
-          ? "border-gray-300 dark:border-gray-600"
-          : "border-gray-200 dark:border-gray-700"
+        "bg-secondary text-secondary-foreground",
+        "border border-border/40"
       )}>
       {/* File Attachments */}
       {msg.attachments && msg.attachments.length > 0 && (
@@ -93,7 +88,7 @@ export const ChatMessageContent = ({
       {hasThinking && (
         <section
           aria-label="Model reasoning"
-          className="group mb-3 overflow-hidden rounded-xl border border-border/50 bg-muted/30 transition-all duration-200 hover:border-border/80 hover:bg-muted/50">
+          className="group mb-3 overflow-hidden rounded-xl border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
           <button
             type="button"
             id={reasoningButtonId}
@@ -156,9 +151,9 @@ export const ChatMessageContent = ({
           {showThinking && (
             <div
               id={reasoningId}
-              className="mt-0 border-t border-border/40 bg-muted/10">
+              className="mt-0 border-t border-border/20 bg-muted/10">
               <div className="max-h-56 overflow-y-auto px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground/90">
-                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-code:rounded prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5">
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-code:rounded prose-code:bg-muted/30 prose-code:px-1 prose-code:py-0.5">
                   <MarkdownRenderer content={msg.thinking ?? ""} />
                 </div>
               </div>
