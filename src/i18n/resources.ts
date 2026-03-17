@@ -165,8 +165,12 @@ export const resources = {
           searching: "Chat-Verlauf wird durchsucht...",
           no_results:
             "Keine Ergebnisse gefunden. Versuchen Sie eine andere Suchanfrage.",
+          no_results_description:
+            "Versuchen Sie, Ihre Schlüsselwörter oder den Suchbereich anzupassen.",
           start_typing:
             "Beginnen Sie mit der Eingabe, um Ihren Chat-Verlauf semantisch zu durchsuchen...",
+          start_typing_description:
+            "Durchsuchen Sie Ihren Chat-Verlauf mithilfe der semantischen Suche.",
           result_badge: "Ergebnis",
           results_badge: "Ergebnisse",
           match_percentage: "% Übereinstimmung",
@@ -1374,8 +1378,12 @@ export const resources = {
           scope_current: "Current Chat",
           searching: "Searching chat history...",
           no_results: "No results found. Try a different search query.",
+          no_results_description:
+            "Try adjusting your keywords or search scope.",
           start_typing:
             "Start typing to search your chat history semantically...",
+          start_typing_description:
+            "Search through your chat history using semantic search.",
           result_badge: "result",
           results_badge: "results",
           match_percentage: "% match",
@@ -2625,8 +2633,12 @@ export const resources = {
           searching: "Buscando historial de chat...",
           no_results:
             "No se encontraron resultados. Intenta una consulta de búsqueda diferente.",
+          no_results_description:
+            "Intente ajustar sus palabras clave o el alcance de la búsqueda.",
           start_typing:
             "Empieza a escribir para buscar semánticamente en tu historial de chat...",
+          start_typing_description:
+            "Busque en su historial de chat mediante la búsqueda semántica.",
           result_badge: "resultado",
           results_badge: "resultados",
           match_percentage: "% de coincidencia",
@@ -3838,8 +3850,12 @@ export const resources = {
           searching: "Recherche de l'historique de chat...",
           no_results:
             "Aucun résultat trouvé. Essayez une requête de recherche différente.",
+          no_results_description:
+            "Essayez d'ajuster vos mots-clés ou le périmètre de recherche.",
           start_typing:
             "Commencez à taper pour rechercher sémantiquement dans votre historique de chat...",
+          start_typing_description:
+            "Recherchez dans votre historique de chat via la recherche sémantique.",
           result_badge: "résultat",
           results_badge: "résultats",
           match_percentage: "% de correspondance",
@@ -5052,8 +5068,12 @@ export const resources = {
           scope_current: "वर्तमान चैट",
           searching: "चैट इतिहास खोजा जा रहा है...",
           no_results: "कोई परिणाम नहीं मिला। कोई भिन्न खोज क्वेरी आज़माएँ।",
+          no_results_description:
+            "अपने कीवर्ड या खोज के दायरे को समायोजित करने का प्रयास करें।",
           start_typing:
             "सिमेंटिक रूप से अपना चैट इतिहास खोजने के लिए टाइप करना शुरू करें...",
+          start_typing_description:
+            "सिमेंटिक खोज के माध्यम से अपने चैट इतिहास को खोजें।",
           result_badge: "परिणाम",
           results_badge: "परिणाम",
           match_percentage: "% मिलान",
@@ -6228,8 +6248,12 @@ export const resources = {
           searching: "Ricerca cronologia chat in corso...",
           no_results:
             "Nessun risultato trovato. Prova una query di ricerca diversa.",
+          no_results_description:
+            "Prova a modificare le parole chiave o l'ambito della ricerca.",
           start_typing:
             "Inizia a digitare per cercare semanticamente nella cronologia chat...",
+          start_typing_description:
+            "Cerca nella cronologia della chat tramite la ricerca semantica.",
           result_badge: "risultato",
           results_badge: "risultati",
           match_percentage: "% corrispondenza",
@@ -7439,7 +7463,11 @@ export const resources = {
           scope_current: "現在のチャット",
           searching: "チャット履歴を検索中...",
           no_results: "結果が見つかりません。別の検索クエリを試してください。",
+          no_results_description:
+            "キーワードまたは検索範囲を調整してみてください。",
           start_typing: "入力を開始してチャット履歴をセマンティック検索...",
+          start_typing_description:
+            "セマンティック検索を使用してチャット履歴を検索します。",
           result_badge: "件",
           results_badge: "件",
           match_percentage: "% 一致",
@@ -8630,7 +8658,11 @@ export const resources = {
           scope_current: "Текущий чат",
           searching: "Поиск по истории чатов...",
           no_results: "Результатов не найдено. Попробуйте другой запрос.",
+          no_results_description:
+            "Попробуйте скорректировать ключевые слова или область поиска.",
           start_typing: "Начните печатать для семантического поиска...",
+          start_typing_description:
+            "Ищите в истории вашего чата с помощью семантического поиска.",
           result_badge: "результат",
           results_badge: "результатов",
           match_percentage: "% совпадения",
@@ -9824,7 +9856,9 @@ export const resources = {
           scope_current: "当前聊天",
           searching: "正在搜索聊天记录...",
           no_results: "未找到结果。请尝试不同的搜索查询。",
+          no_results_description: "请尝试调整您的关键词或搜索范围。",
           start_typing: "开始输入以语义搜索您的聊天记录...",
+          start_typing_description: "通过语义搜索在您的聊天记录中进行查找。",
           result_badge: "个结果",
           results_badge: "个结果",
           match_percentage: "匹配度",

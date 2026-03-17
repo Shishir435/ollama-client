@@ -150,26 +150,33 @@ export const searchSimilarVectors = async (
 
   const startTime = performance.now()
 
-  // Get total vector count for strategy decision
-  let vectorQuery: Dexie.Collection<VectorDocument, number> = type
-    ? vectorDb.vectors.where("metadata.type").equals(type)
-    : sessionId
-      ? vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-      : fileId && !Array.isArray(fileId)
-        ? vectorDb.vectors.where("metadata.fileId").equals(fileId)
-        : vectorDb.vectors.toCollection()
+  // Optimize query by picking the most selective index
+  let vectorQuery: Dexie.Collection<VectorDocument, number>
 
-  // Apply filters to collection if needed (for toCollection case or additional filters)
-  if (sessionId && !type) {
-    vectorQuery = vectorQuery.filter(
-      (doc) => doc.metadata.sessionId === sessionId
-    )
+  if (sessionId) {
+    vectorQuery = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+  } else if (fileId && !Array.isArray(fileId)) {
+    vectorQuery = vectorDb.vectors.where("metadata.fileId").equals(fileId)
+  } else if (type) {
+    vectorQuery = vectorDb.vectors.where("metadata.type").equals(type)
+  } else {
+    vectorQuery = vectorDb.vectors.toCollection()
   }
 
-  if (fileId && Array.isArray(fileId)) {
-    vectorQuery = vectorQuery.filter((doc) =>
-      fileId.includes(doc.metadata.fileId || "")
-    )
+  // Apply remaining filters manually
+  if (type && sessionId) {
+    vectorQuery = vectorQuery.filter((doc) => doc.metadata.type === type)
+  }
+
+  if (fileId) {
+    if (Array.isArray(fileId)) {
+      vectorQuery = vectorQuery.filter((doc) =>
+        fileId.includes(doc.metadata.fileId || "")
+      )
+    } else if (sessionId || type) {
+      // Only filter if not already used as primary index
+      vectorQuery = vectorQuery.filter((doc) => doc.metadata.fileId === fileId)
+    }
   }
 
   const vectorCount = await vectorQuery.count()
