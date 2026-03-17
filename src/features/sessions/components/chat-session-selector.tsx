@@ -1,18 +1,21 @@
-import { Menu, MessageSquare, SquarePen } from "lucide-react"
+import { Menu, MessageSquare, SquarePen, X } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
-import { BugReportIcon } from "@/components/bug-report-icon"
-import { SettingsButton } from "@/components/settings-button"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { ChatDeleteButton } from "@/features/sessions/components/chat-delete-button"
-import { ChatExportButton } from "@/features/sessions/components/chat-export-button"
-import { ChatImportButton } from "@/features/sessions/components/chat-import-button"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger
+} from "@/components/ui/sheet"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
-import { cn } from "@/lib/utils"
+import { ChatSessionEmpty } from "./chat-session-empty"
+import { ChatSessionFooter } from "./chat-session-footer"
+import { ChatSessionItem } from "./chat-session-item"
 
 interface ChatSessionSelectorProps {
   searchTrigger?: React.ReactNode
@@ -44,25 +47,34 @@ export const ChatSessionSelector = ({
         <Button
           variant="ghost"
           size="icon"
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
-          <Menu className="h-4 w-4" />
+          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50 cursor-pointer">
+          <Menu className="size-4" />
         </Button>
       </SheetTrigger>
 
       <SheetContent
         side="left"
+        showCloseButton={false}
         className="w-80 border-r border-border/50 bg-background/95 p-0 backdrop-blur-xl">
         <div className="flex h-full flex-col">
-          <div className="border-b border-border/50 p-4 pb-3">
+          <SheetHeader className="flex-row items-center justify-between border-b border-border/50 p-4 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-primary/10 p-1.5">
-                <MessageSquare className="h-4 w-4 text-primary" />
+              <div className="rounded-lg bg-primary/10 p-1.5 grayscale-50">
+                <MessageSquare className="size-4 text-primary" />
               </div>
-              <h2 className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
+              <SheetTitle className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
                 {t("sessions.selector.title")}
-              </h2>
+              </SheetTitle>
             </div>
-          </div>
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="size-8 rounded-lg cursor-pointer bg-transparent">
+                <X className="size-4.5 text-muted-foreground/80" />
+              </Button>
+            </SheetClose>
+          </SheetHeader>
 
           <div className="p-2 space-y-2">
             <Button
@@ -77,108 +89,24 @@ export const ChatSessionSelector = ({
 
           <div className="flex-1 px-2 h-full">
             {sessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center h-full">
-                <div className="mb-3 rounded-full bg-muted/50 p-3">
-                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t("sessions.selector.no_sessions")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground/70">
-                  {t("sessions.selector.no_sessions_hint")}
-                </p>
-              </div>
+              <ChatSessionEmpty />
             ) : (
               <Virtuoso
                 data={sessions}
                 className="scrollbar-none"
-                itemContent={(_index, session) => {
-                  const isActive = session.id === currentSessionId
-
-                  return (
-                    <div className="pb-1">
-                      <button
-                        type="button"
-                        className={cn(
-                          "group relative flex w-full items-center gap-1 overflow-hidden rounded-lg p-1.5 text-left transition-all duration-200 select-none cursor-pointer outline-hidden focus-visible:ring-2 focus-visible:ring-primary",
-                          isActive
-                            ? "bg-primary/15 text-primary shadow-xs ring-1 ring-primary/20"
-                            : "text-foreground/70 hover:bg-accent/50 hover:text-foreground"
-                        )}
-                        onClick={() => setCurrentSessionId(session.id)}
-                        aria-label={t("sessions.selector.select_session", {
-                          title: session.title
-                        })}>
-                        {isActive && (
-                          <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-linear-to-b from-primary to-primary/70" />
-                        )}
-
-                        <div className="flex flex-1 min-w-0 items-center gap-3">
-                          <div
-                            className={cn(
-                              "shrink-0 rounded-lg p-1 transition-colors duration-200",
-                              isActive
-                                ? "bg-primary/20"
-                                : "bg-muted/30 group-hover:bg-transparent"
-                            )}>
-                            <MessageSquare
-                              className={cn(
-                                "h-3.5 w-3.5",
-                                isActive
-                                  ? "text-primary"
-                                  : "text-muted-foreground/70 group-hover:text-foreground"
-                              )}
-                            />
-                          </div>
-                          <span className="truncate text-sm font-medium leading-none">
-                            {session.title}
-                          </span>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <ChatExportButton sessionId={session.id} />
-                          <ChatDeleteButton
-                            sessionId={session.id}
-                            sessionTitle={session.title}
-                            onDelete={() => deleteSession(session.id)}
-                          />
-                        </div>
-                      </button>
-                    </div>
-                  )
-                }}
+                itemContent={(_index, session) => (
+                  <ChatSessionItem
+                    session={session}
+                    isActive={session.id === currentSessionId}
+                    onClick={setCurrentSessionId}
+                    onDelete={deleteSession}
+                  />
+                )}
               />
             )}
           </div>
-          <div className="border-t border-border/50 p-2">
-            <div className="flex items-center justify-center gap-2">
-              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
-                <SettingsButton />
-              </div>
 
-              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
-                <BugReportIcon />
-              </div>
-
-              <div className="flex flex-1 items-center rounded-lg bg-muted/20 p-1 transition-all duration-200 hover:bg-muted/40">
-                <ThemeToggle />
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-border/50 bg-muted/20 p-3 pt-2">
-            <div className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-              {sessions.length === 1
-                ? t("sessions.selector.session_count", {
-                    count: sessions.length
-                  })
-                : t("sessions.selector.session_count_plural", {
-                    count: sessions.length
-                  })}{" "}
-              <ChatExportButton showAllSessions />
-              <ChatImportButton />
-            </div>
-          </div>
+          <ChatSessionFooter sessionCount={sessions.length} />
         </div>
       </SheetContent>
     </Sheet>
