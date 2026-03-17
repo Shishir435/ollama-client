@@ -1,5 +1,5 @@
-import { useState } from "react"
-
+import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -56,16 +56,24 @@ export const MultiSelect = ({
   variant: _variant = "default",
   statusForValue
 }: MultiSelectProps) => {
+  const { t } = useTranslation()
   const [selectedValues, setSelectedValues] = useState<string[]>(defaultValue)
   const [open, setOpen] = useState(false)
 
-  const toggleOption = (value: string) => {
-    const newValues = selectedValues.includes(value)
-      ? selectedValues.filter((v) => v !== value)
-      : [...selectedValues, value]
+  // Sync internal state with defaultValue when it changes from outside
+  useEffect(() => {
+    setSelectedValues(defaultValue)
+  }, [defaultValue])
 
-    setSelectedValues(newValues)
-    onValueChange?.(newValues)
+  const toggleOption = (value: string) => {
+    setSelectedValues((prev) => {
+      const newValues = prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
+
+      onValueChange?.(newValues)
+      return newValues
+    })
   }
 
   return (
@@ -105,15 +113,25 @@ export const MultiSelect = ({
                     {isSuccess && (
                       <CheckIcon className="h-4 w-4 text-green-500" />
                     )}
-                    {isError && <XCircle className="h-4 w-4 text-red-500" />}
 
-                    <XCircle
-                      className="h-4 w-4 cursor-pointer"
+                    <button
+                      type="button"
+                      className="ml-0.5 cursor-pointer pointer-events-auto rounded-full p-0.5 hover:bg-muted-foreground/10 transition-colors duration-200 outline-none focus-visible:ring-1 focus-visible:ring-primary"
                       onClick={(e) => {
                         e.stopPropagation()
+                        e.preventDefault()
                         toggleOption(value)
                       }}
-                    />
+                      aria-label={t("common.remove")}>
+                      <XCircle
+                        className={cn(
+                          "h-3.5 w-3.5 transition-colors duration-200",
+                          isError
+                            ? "text-red-500"
+                            : "text-muted-foreground group-hover/badge:text-foreground"
+                        )}
+                      />
+                    </button>
                   </Badge>
                 )
               })}

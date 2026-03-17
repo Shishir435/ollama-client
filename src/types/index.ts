@@ -417,7 +417,11 @@ export interface SelectedTabsState {
   selectedTabIds: string[]
   errors: Record<number, string>
   setSelectedTabIds: (tabs: string[]) => void
-  setErrors: (errors: Record<number, string>) => void
+  setErrors: (
+    errors:
+      | Record<number, string>
+      | ((prev: Record<number, string>) => Record<number, string>)
+  ) => void
 }
 
 export type Theme = "dark" | "light" | "system"

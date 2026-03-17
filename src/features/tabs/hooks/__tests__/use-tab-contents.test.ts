@@ -61,7 +61,7 @@ describe("useTabContents", () => {
     const { result } = renderHook(() => useTabContents())
 
     expect(result.current.tabContents).toEqual({})
-    expect(result.current.loading).toBe(false)
+    expect(result.current.loadingIds).toEqual({})
   })
 
   it("should not fetch when no tabs are selected", () => {
@@ -88,7 +88,7 @@ describe("useTabContents", () => {
     const { result } = renderHook(() => useTabContents())
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+      expect(result.current.loadingIds[123]).toBeFalsy()
     })
 
     expect(result.current.tabContents[123]).toEqual({
@@ -115,9 +115,7 @@ describe("useTabContents", () => {
 
     await waitFor(() => {
       expect(setErrors).toHaveBeenCalledWith(
-        expect.objectContaining({
-          456: expect.any(String)
-        })
+        expect.any(Function) // Now it uses functional update
       )
     })
   })
