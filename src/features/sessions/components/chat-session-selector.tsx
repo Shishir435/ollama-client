@@ -93,59 +93,49 @@ export const ChatSessionSelector = ({
                 data={sessions}
                 className="scrollbar-none"
                 itemContent={(_index, session) => {
-                  const trimmedTitle =
-                    session.title.length > 22
-                      ? `${session.title.slice(0, 22)}...`
-                      : session.title
-
                   const isActive = session.id === currentSessionId
 
                   return (
                     <div className="pb-1">
-                      <div
+                      <button
+                        type="button"
                         className={cn(
-                          "group relative overflow-hidden rounded-lg transition-all duration-200",
+                          "group relative flex w-full items-center gap-1 overflow-hidden rounded-lg p-1.5 text-left transition-all duration-200 select-none cursor-pointer outline-hidden focus-visible:ring-2 focus-visible:ring-primary",
                           isActive
-                            ? "border border-primary/20 bg-linear-to-r from-primary/15 to-primary/10 shadow-xs"
-                            : "border border-transparent hover:bg-accent/50"
-                        )}>
+                            ? "bg-primary/15 text-primary shadow-xs ring-1 ring-primary/20"
+                            : "text-foreground/70 hover:bg-accent/50 hover:text-foreground"
+                        )}
+                        onClick={() => setCurrentSessionId(session.id)}
+                        aria-label={t("sessions.selector.select_session", {
+                          title: session.title
+                        })}>
                         {isActive && (
                           <div className="absolute bottom-0 left-0 top-0 w-1 rounded-r-lg bg-linear-to-b from-primary to-primary/70" />
                         )}
 
-                        <div className="flex items-center p-2 pr-1">
-                          <Button
-                            variant="ghost"
+                        <div className="flex flex-1 min-w-0 items-center gap-3">
+                          <div
                             className={cn(
-                              "h-auto flex-1 justify-start p-0 text-left hover:bg-transparent",
+                              "shrink-0 rounded-lg p-1 transition-colors duration-200",
                               isActive
-                                ? "font-medium text-primary"
-                                : "text-foreground/80 hover:text-foreground"
-                            )}
-                            title={session.title}
-                            onClick={() => setCurrentSessionId(session.id)}>
-                            <div className="flex w-full min-w-0 items-center gap-3">
-                              <div
-                                className={cn(
-                                  "shrink-0 rounded-lg p-1",
-                                  isActive
-                                    ? "bg-primary/20"
-                                    : "bg-muted/50 group-hover:bg-muted"
-                                )}>
-                                <MessageSquare
-                                  className={cn(
-                                    "h-3 w-3",
-                                    isActive
-                                      ? "text-primary"
-                                      : "text-muted-foreground"
-                                  )}
-                                />
-                              </div>
-                              <span className="truncate text-sm leading-relaxed">
-                                {trimmedTitle}
-                              </span>
-                            </div>
-                          </Button>
+                                ? "bg-primary/20"
+                                : "bg-muted/30 group-hover:bg-transparent"
+                            )}>
+                            <MessageSquare
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground/70 group-hover:text-foreground"
+                              )}
+                            />
+                          </div>
+                          <span className="truncate text-sm font-medium leading-none">
+                            {session.title}
+                          </span>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <ChatExportButton sessionId={session.id} />
                           <ChatDeleteButton
                             sessionId={session.id}
@@ -153,7 +143,7 @@ export const ChatSessionSelector = ({
                             onDelete={() => deleteSession(session.id)}
                           />
                         </div>
-                      </div>
+                      </button>
                     </div>
                   )
                 }}
