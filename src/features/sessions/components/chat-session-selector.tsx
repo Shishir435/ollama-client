@@ -94,8 +94,8 @@ export const ChatSessionSelector = ({
                 className="scrollbar-none"
                 itemContent={(_index, session) => {
                   const trimmedTitle =
-                    session.title.length > 25
-                      ? `${session.title.slice(0, 25)}...`
+                    session.title.length > 22
+                      ? `${session.title.slice(0, 22)}...`
                       : session.title
 
                   const isActive = session.id === currentSessionId
