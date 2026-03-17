@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "再試行",
-      "refresh": "更新"
+      "refresh": "更新",
+      "close": "閉じる"
     },
+    "updated_at": "更新済み",
     "social": {
       "title": "私とつながる",
       "visit_profile": "私の {{platform}} プロフィールを見る"
@@ -36,7 +38,16 @@
     "save": "保存",
     "continue": "インポートを続行",
     "reload": "拡張機能を再読み込み",
-    "close": "閉じる"
+    "close": "閉じる",
+    "status": {
+      "active": "アクティブ"
+    },
+    "labels": {
+      "performance": "パフォーマンス"
+    },
+    "nav": {
+      "settings_aria": "設定ナビゲーション"
+    }
   },
   "selection_button": {
     "label": "ローカルLLMに聞く",
@@ -135,11 +146,30 @@
       "prompt_tokens": "{{value}} プロンプト",
       "generated_tokens": "{{value}} 生成済",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} 件",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
       "tooltip_messages": "AI応答数"
+    },
+    "file": {
+      "loading_content": "コンテンツを読み込み中..."
+    },
+    "reasoning": {
+      "aria_label": "モデルの思考プロセス",
+      "title": "思考プロセス",
+      "thinking": "思考中…",
+      "done": "完了",
+      "hide": "隠す",
+      "explore": "詳細表示",
+      "loading_thinking": "思考中",
+      "loading_typing": "入力中",
+      "loading_queued": "待機中"
+    },
+    "feedback": {
+      "helpful_tooltip": "役に立った",
+      "not_helpful_tooltip": "役に立たなかった"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -313,6 +343,17 @@
       "clear_chat_description": "すべてのチャットエンベディングを削除します。後でバックフィルして再生成できます",
       "clear_all_button": "全エンベディングをクリア",
       "clear_all_description": "すべてのエンベディング（チャット、ファイル、Webページ）を削除します。この操作は取り消せません",
+      "database_management": {
+        "remove_duplicates_confirm": "重複した埋め込みを削除しますか？各ユニークなメッセージの最初の出現のみが保持されます。",
+        "remove_duplicates_success": "{{deleted}}個の重複を削除しました。{{kept}}個のユニークな埋め込みを保持しました。",
+        "remove_duplicates_error": "重複の削除に失敗しました。詳細はコンソールを確認してください。",
+        "clear_chat_confirm": "すべてのチャットの埋め込みを消去しますか？これにより、チャットのすべてのセマンティック検索データが削除されます。後でバックフィルが可能です。",
+        "clear_chat_success": "{{count}}個のチャットの埋め込みを消去しました。",
+        "clear_chat_error": "チャットベクトルの消去に失敗しました。詳細はコンソールを確認してください。",
+        "clear_all_confirm": "すべての埋め込みを消去しますか？これにより、すべてのセマンティック検索データ（チャット、ファイル、ウェブページ）が削除されます。この操作は取り消せません。",
+        "clear_all_success": "すべての埋め込みを消去しました。",
+        "clear_all_error": "すべてのベクトルの消去に失敗しました。詳細はコンソールを確認してください。"
+      },
       "chunking_title": "チャンク設定",
       "chunking_description": "テキストをエンベディング用にチャンク分割する方法を設定します",
       "chunk_size_label": "チャンクサイズ (トークン)",
@@ -358,13 +399,15 @@
       "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
       "cache_max_size_label": "最大キャッシュクエリ数",
       "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
-      "enhanced_chunking_label": "Enhanced Chunking",
-      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
-      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_enable_label": "Enable RAG",
-      "rag_enable_description": "Use retrieved context to answer questions about your files",
-      "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "enhanced_chunking_label": "拡張チャンキング",
+      "enhanced_chunking_description": "高度な再帰的文字分割を使用して、より良いコンテキストを維持します",
+      "enhanced_chunking_info": "拡張チャンキングは、テキストを階層的に分割（段落→文→単語）し、セマンティックな意味を保持します。RAGに推奨されます。",
+      "rag_settings_title": "RAG (検索拡張生成)",
+      "rag_settings_description": "取得されたコンテキストを使用して、ファイルに関する質問に答える方法を設定します",
+      "rag_enable_label": "RAGを有効にする",
+      "rag_enable_description": "取得されたコンテキストを使用して、ファイルに関する質問に答えます",
+      "rag_system_prompt_label": "RAGシステムプロンプト",
+      "rag_system_prompt_description": "システムプロンプトのテンプレート。取得されたテキストには {context}、ユーザーのクエリには {question} を使用します。",
       "advanced_retrieval_title": "高度な検索設定",
       "adaptive_weights_label": "適応型ハイブリッド重み付け",
       "adaptive_weights_description": "クエリタイプ（例：コード対概念）に基づいて、キーワード検索とセマンティック検索を自動的に調整します",
@@ -737,7 +780,8 @@
       "guides": "ガイド",
       "memory": "メモリ",
       "shortcuts": "ショートカット",
-      "providers": "プロバイダー"
+      "providers": "プロバイダー",
+      "context": "コンテキスト"
     },
     "errorBoundary": {
       "title": "問題が発生しました",
@@ -923,25 +967,30 @@
       },
       "modules": {
         "theme": {
+          "title": "テーマとインターフェース",
           "description": "UIの外観設定"
         },
         "browser": {
+          "title": "ブラウザ設定",
           "description": "タブアクセスとURLパターン"
         },
         "tts": {
+          "title": "音声読み上げ",
           "description": "テキスト読み上げ設定"
         },
         "chat_sessions": {
+          "title": "チャット履歴",
           "description": "会話履歴"
         },
         "default": {
           "description": "モジュール設定"
         },
         "provider": {
+          "title": "プロバイダー設定",
           "description": "モデル設定と構成"
         },
         "feedback": {
-          "title": "フィードバック",
+          "title": "ユーザーフィードバック",
           "description": "すべての学習および取得されたチャックのフィードバックをクリアする"
         }
       },
@@ -1040,6 +1089,24 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "ファイル取り込み",
+        "description": "知識取得のためにファイルがどのように処理されるかを設定します。"
+      },
+      "embedding_health": {
+        "title": "混合エンベディング次元が検出されました",
+        "description": "エンベディングが複数の次元（{{dimensions}}）で保存されています。すべてが再構築されるまで、検索やメモリが失敗する可能性があります。",
+        "note": "再構築するとすべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+        "memory_disabled": "メモリがオフになっているため、チャットのエンベディングは再構築されませんでした。",
+        "action": "エンベディングを再構築",
+        "action_rebuilding": "再構築中...",
+        "confirm": "エンベディングを再構築しますか？これにより、すべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+        "progress": "チャットエンベディングを再構築中（{{current}}/{{total}}）",
+        "success": "エンベディングの再構築が正常に完了しました。",
+        "error": "エンベディングの再構築に失敗しました。"
+      }
+    },
     "bug_report": "バグ報告 / 機能リクエスト"
   },
   "knowledge_sets": {
@@ -1069,5 +1136,16 @@
     "min_similarity_description": "このセットのチャンクに対する最小類似度しきい値。",
     "min_rerank_label": "最小再ランクスコア",
     "min_rerank_description": "このセットのチャンクに対する再ランカーの最小信頼度。"
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "アクティブ",
+      "provider_details": "高品質な埋め込み • 768-1024次元 • 一貫した結果",
+      "webgpu_warning_title": "WebGPUによる埋め込み生成は利用できません",
+      "webgpu_warning_text": "Chrome拡張機能のコンテンツセキュリティポリシー（CSP）の制限によるものです。WebGPUによる再ランク付けは引き続き有効です。埋め込み生成は、ネイティブサポートが利用できない場合にデフォルトのプロバイダーを使用するフォールバックチェーンを通じて行われます。",
+      "performance_title": "パフォーマンス",
+      "performance_default": "デフォルトプロバイダーの埋め込み生成：1チャンクあたり約500ms",
+      "provider_hint": "現在、ローカルプロバイダーが実行されていることを確認してください（デフォルト：localhost:11434）"
+    }
   }
 }

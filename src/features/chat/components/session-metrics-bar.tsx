@@ -61,7 +61,7 @@ export const SessionMetricsBar = ({
     {
       icon: Zap,
       iconColor: "text-emerald-600 dark:text-emerald-400",
-      value: `${metrics.averageSpeed.toFixed(1)} t/s`,
+      value: `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit", "t/s")}`,
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
     {

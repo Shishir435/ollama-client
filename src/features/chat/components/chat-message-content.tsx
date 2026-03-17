@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
@@ -19,6 +20,7 @@ export const ChatMessageContent = ({
   isLoading?: boolean
   isStreaming?: boolean
 }) => {
+  const { t } = useTranslation()
   const [showThinking, setShowThinking] = useState(false)
   const [userToggledThinking, setUserToggledThinking] = useState(false)
 
@@ -26,10 +28,10 @@ export const ChatMessageContent = ({
   const showThinkingIndicator =
     !isUser && isLoading && Boolean(msg.thinking?.trim()) && !msg.content.trim()
   const loadingLabel = showThinkingIndicator
-    ? "Thinking"
+    ? t("chat.reasoning.loading_thinking", "Thinking")
     : isStreaming
-      ? "Typing"
-      : "Queued"
+      ? t("chat.reasoning.loading_typing", "Typing")
+      : t("chat.reasoning.loading_queued", "Queued")
 
   const thinkingPreview = useMemo(() => {
     if (!hasThinking) return ""
@@ -87,7 +89,7 @@ export const ChatMessageContent = ({
       )}
       {hasThinking && (
         <section
-          aria-label="Model reasoning"
+          aria-label={t("chat.reasoning.aria_label")}
           className="group mb-3 overflow-hidden rounded-xl border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
           <button
             type="button"
@@ -105,7 +107,7 @@ export const ChatMessageContent = ({
                   <Brain className="size-3.5" />
                 </div>
                 <span className="text-xs font-semibold tracking-tight text-foreground/90">
-                  Thought Process
+                  {t("chat.reasoning.title")}
                 </span>
               </div>
 
@@ -116,18 +118,19 @@ export const ChatMessageContent = ({
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                     </span>
-                    Thinking…
+                    {t("chat.reasoning.thinking")}
                   </div>
                 ) : (
-                  !isStreaming &&
                   !isLoading && (
                     <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
-                      Done
+                      {t("chat.reasoning.done")}
                     </span>
                   )
                 )}
                 <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-                  {showThinking ? "Hide" : "Explore"}
+                  {showThinking
+                    ? t("chat.reasoning.hide")
+                    : t("chat.reasoning.explore")}
                   <ChevronDown
                     className={cn(
                       "size-3.5 transition-transform duration-300 ease-in-out",

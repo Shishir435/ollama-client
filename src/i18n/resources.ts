@@ -24,8 +24,10 @@ export const resources = {
         },
         actions: {
           retry: "Wiederholen",
-          refresh: "Aktualisieren"
+          refresh: "Aktualisieren",
+          close: "Schließen"
         },
+        updated_at: "Aktualisiert",
         social: {
           title: "Verbinde Dich mit mir",
           visit_profile: "Besuche mein {{platform}}-Profil"
@@ -43,7 +45,16 @@ export const resources = {
         save: "Speichern",
         continue: "Import Fortsetzen",
         reload: "Erweiterung Neu Laden",
-        close: "Schließen"
+        close: "Schließen",
+        status: {
+          active: "Aktiv"
+        },
+        labels: {
+          performance: "Leistung"
+        },
+        nav: {
+          settings_aria: "Einstellungen-Navigation"
+        }
       },
       selection_button: {
         label: "Lokalen LLM fragen",
@@ -146,11 +157,30 @@ export const resources = {
           prompt_tokens: "{{value}} Prompt",
           generated_tokens: "{{value}} generiert",
           avg_speed: "{{speed}} T/s",
+          speed_unit: "T/s",
           messages: "{{value}} Nachrichten",
           tooltip_tokens: "Insgesamt in dieser Sitzung genutzte Token",
           tooltip_time: "Gesamte Antwortzeit",
           tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
           tooltip_messages: "Anzahl der KI-Antworten"
+        },
+        file: {
+          loading_content: "Vollständiger Inhalt wird geladen..."
+        },
+        reasoning: {
+          aria_label: "Modell-Überlegungen",
+          title: "Denkprozess",
+          thinking: "Überlegt…",
+          done: "Fertig",
+          hide: "Ausblenden",
+          explore: "Erkunden",
+          loading_thinking: "Überlegt",
+          loading_typing: "Tippt",
+          loading_queued: "Warteschlange"
+        },
+        feedback: {
+          helpful_tooltip: "Das war hilfreich",
+          not_helpful_tooltip: "Das war nicht hilfreich"
         },
         search: {
           button_title: "Chat-Verlauf suchen (semantische Suche)",
@@ -346,6 +376,24 @@ export const resources = {
           clear_all_button: "Alle Embeddings löschen",
           clear_all_description:
             "Löschen Sie alle Embeddings (Chats, Dateien, Webseiten). Diese Aktion kann nicht rückgängig gemacht werden",
+          database_management: {
+            remove_duplicates_confirm:
+              "Doppelte Einbettungen entfernen? Dadurch wird nur das erste Vorkommen jeder eindeutigen Nachricht beibehalten.",
+            remove_duplicates_success:
+              "{{deleted}} Duplikat(e) entfernt. {{kept}} eindeutige Einbettung(en) behalten.",
+            remove_duplicates_error:
+              "Duplikate konnten nicht entfernt werden. Details finden Sie in der Konsole.",
+            clear_chat_confirm:
+              "Alle Chat-Einbettungen löschen? Dadurch werden alle semantischen Suchdaten für Chats gelöscht. Sie können später eine Nachfüllung vornehmen.",
+            clear_chat_success: "{{count}} Chat-Einbettung(en) gelöscht.",
+            clear_chat_error:
+              "Chat-Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole.",
+            clear_all_confirm:
+              "ALLE Einbettungen löschen? Dadurch werden alle semantischen Suchdaten (Chats, Dateien, Webseiten) gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+            clear_all_success: "Alle Einbettungen gelöscht.",
+            clear_all_error:
+              "Alle Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole."
+          },
           chunking_title: "Chunking-Einstellungen",
           chunking_description:
             "Konfigurieren Sie, wie Text zur Einbettung in Chunks aufgeteilt wird",
@@ -411,17 +459,20 @@ export const resources = {
           cache_max_size_label: "Max. zwischengespeicherte Abfragen",
           cache_max_size_description:
             "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Erweitertes Chunking",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Verwenden Sie fortgeschrittene rekursive Zeichenteilung für besseren Kontext",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Erweitertes Chunking teilt Text hierarchisch auf (Absätze → Sätze → Wörter), um die semantische Bedeutung zu bewahren. Dies wird für RAG empfohlen.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
+          rag_enable_label: "RAG aktivieren",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
+          rag_system_prompt_label: "RAG-System-Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Vorlage für den System-Prompt. Verwenden Sie {context} für abgerufenen Text und {question} für die Benutzeranfrage.",
           advanced_retrieval_title: "Erweiterte Abrufeinstellungen",
           adaptive_weights_label: "Adaptive Hybrid-Gewichtung",
           adaptive_weights_description:
@@ -832,7 +883,8 @@ export const resources = {
           guides: "Anleitungen",
           memory: "Gedächtnis",
           shortcuts: "Tastaturkürzel",
-          providers: "Anbieter"
+          providers: "Anbieter",
+          context: "Kontext"
         },
         memory: {
           title: "Kontextuelles Gedächtnis",
@@ -1049,25 +1101,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Thema & Benutzeroberfläche",
               description: "UI-Erscheinungspräferenzen"
             },
             browser: {
+              title: "Browser-Einstellungen",
               description: "Tab-Zugriff und URL-Muster"
             },
             tts: {
+              title: "Text-zu-Sprache",
               description: "Text-to-Speech-Einstellungen"
             },
             chat_sessions: {
+              title: "Chat-Verlauf",
               description: "Konversationsverlauf"
             },
             default: {
               description: "Moduleinstellungen"
             },
             provider: {
+              title: "Provider-Einstellungen",
               description: "Modelleinstellungen und Konfigurationen"
             },
             feedback: {
-              title: "Feedback",
+              title: "Benutzer-Feedback",
               description: "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
             }
           },
@@ -1178,6 +1235,28 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Datei-Ingestion",
+            description:
+              "Konfigurieren Sie, wie Dateien für den Wissensabruf verarbeitet werden."
+          },
+          embedding_health: {
+            title: "Gemischte Embedding-Dimensionen erkannt",
+            description:
+              "Embeddings sind in mehreren Dimensionen gespeichert ({{dimensions}}). Suche und Gedächtnis können fehlschlagen, bis alles neu aufgebaut ist.",
+            note: "Neu aufbauen löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+            memory_disabled:
+              "Gedächtnis ist ausgeschaltet, daher wurden Chat-Embeddings nicht neu aufgebaut.",
+            action: "Embeddings neu aufbauen",
+            action_rebuilding: "Baue neu auf...",
+            confirm:
+              "Embeddings neu aufbauen? Dies löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+            progress: "Baue Chat-Embeddings neu auf ({{current}}/{{total}})",
+            success: "Embeddings erfolgreich neu aufgebaut.",
+            error: "Fehler beim Neuaufbau der Embeddings."
+          }
+        },
         bug_report: "Fehler / Funktion melden"
       },
       knowledge_sets: {
@@ -1216,6 +1295,22 @@ export const resources = {
         min_rerank_label: "Min. Rerank‑Score",
         min_rerank_description:
           "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Aktiv",
+          provider_details:
+            "Hochwertige Embeddings • 768-1024 Dimensionen • Konsistente Ergebnisse",
+          webgpu_warning_title:
+            "WebGPU-Embedding-Generierung ist nicht verfügbar",
+          webgpu_warning_text:
+            "aufgrund von Chrome Extension Content Security Policy Einschränkungen. WebGPU Re-Ranking ist weiterhin aktiv und funktioniert. Embeddings werden über die Provider-Fallback-Kette generiert, wobei der Standard-Provider verwendet wird, wenn keine native Unterstützung verfügbar ist.",
+          performance_title: "Leistung",
+          performance_default:
+            "Standard-Provider-Embedding-Generierung: ~500ms pro Chunk",
+          provider_hint:
+            "Stellen Sie sicher, dass Ihr lokaler Provider läuft (Standard: localhost:11434)"
+        }
       }
     }
   },
@@ -1241,8 +1336,10 @@ export const resources = {
         },
         actions: {
           retry: "Retry",
-          refresh: "Refresh"
+          refresh: "Refresh",
+          close: "Close"
         },
+        updated_at: "Updated",
         social: {
           title: "Connect With Me",
           visit_profile: "Visit my {{platform}} profile"
@@ -1259,7 +1356,16 @@ export const resources = {
         save: "Save",
         continue: "Continue Import",
         reload: "Reload Extension",
-        close: "Close"
+        close: "Close",
+        status: {
+          active: "Active"
+        },
+        labels: {
+          performance: "Performance"
+        },
+        nav: {
+          settings_aria: "Settings navigation"
+        }
       },
       selection_button: {
         label: "Ask Local LLM",
@@ -1360,11 +1466,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generated",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total tokens used in this session",
           tooltip_time: "Total response generation time",
           tooltip_speed: "Average generation speed",
           tooltip_messages: "Number of AI responses"
+        },
+        file: {
+          loading_content: "Loading full content..."
+        },
+        reasoning: {
+          aria_label: "Model reasoning",
+          title: "Thought Process",
+          thinking: "Thinking…",
+          done: "Done",
+          hide: "Hide",
+          explore: "Explore",
+          loading_thinking: "Thinking",
+          loading_typing: "Typing",
+          loading_queued: "Queued"
+        },
+        feedback: {
+          helpful_tooltip: "This was helpful",
+          not_helpful_tooltip: "This was not helpful"
         },
         search: {
           button_title: "Search chat history (semantic search)",
@@ -1557,6 +1682,24 @@ export const resources = {
           clear_all_button: "Clear All Embeddings",
           clear_all_description:
             "Delete all embeddings (chats, files, webpages). This action cannot be undone",
+          database_management: {
+            remove_duplicates_confirm:
+              "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
+            remove_duplicates_success:
+              "Removed {{deleted}} duplicate(s). Kept {{kept}} unique embedding(s).",
+            remove_duplicates_error:
+              "Failed to remove duplicates. Check console for details.",
+            clear_chat_confirm:
+              "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
+            clear_chat_success: "Cleared {{count}} chat embedding(s).",
+            clear_chat_error:
+              "Failed to clear chat vectors. Check console for details.",
+            clear_all_confirm:
+              "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
+            clear_all_success: "All embeddings cleared.",
+            clear_all_error:
+              "Failed to clear all vectors. Check console for details."
+          },
           chunking_title: "Chunking Settings",
           chunking_description:
             "Configure how text is split into chunks for embedding",
@@ -2307,25 +2450,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Theme & UI",
               description: "UI appearance preferences"
             },
             browser: {
+              title: "Browser Settings",
               description: "Tab access & URL patterns"
             },
             tts: {
+              title: "Text to Speech",
               description: "Text-to-speech settings"
             },
             chat_sessions: {
+              title: "Chat History",
               description: "Conversation history"
             },
             default: {
               description: "Module settings"
             },
             provider: {
+              title: "Provider Settings",
               description: "Model settings & configurations"
             },
             feedback: {
-              title: "Feedback",
+              title: "User Feedback",
               description: "Clear all learning and retrieved chunk feedback"
             }
           },
@@ -2469,6 +2617,21 @@ export const resources = {
         min_rerank_label: "Min rerank score",
         min_rerank_description:
           "Minimum reranker confidence for chunks in this knowledge set."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Active",
+          provider_details:
+            "High quality embeddings • 768-1024 dimensions • Consistent results",
+          webgpu_warning_title: "WebGPU embedding generation is unavailable",
+          webgpu_warning_text:
+            "due to Chrome Extension Content Security Policy constraints. WebGPU re-ranking is still active and working. Embeddings are generated via the provider fallback chain, using the default provider when native support is unavailable.",
+          performance_title: "Performance",
+          performance_default:
+            "Default provider embedding generation: ~500ms per chunk",
+          provider_hint:
+            "Ensure your local provider is running (default: localhost:11434)"
+        }
       }
     }
   },
@@ -2494,8 +2657,10 @@ export const resources = {
         },
         actions: {
           retry: "Reintentar",
-          refresh: "Actualizar"
+          refresh: "Actualizar",
+          close: "Cerrar"
         },
+        updated_at: "Actualizado",
         social: {
           title: "Conecta Conmigo",
           visit_profile: "Visitar mi perfil de {{platform}}"
@@ -2512,7 +2677,16 @@ export const resources = {
         save: "Guardar",
         continue: "Continuar Importación",
         reload: "Recargar Extensión",
-        close: "Cerrar"
+        close: "Cerrar",
+        status: {
+          active: "Activo"
+        },
+        labels: {
+          performance: "Rendimiento"
+        },
+        nav: {
+          settings_aria: "Navegación de ajustes"
+        }
       },
       selection_button: {
         label: "Preguntar al LLM local",
@@ -2614,11 +2788,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generados",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total de tokens usados en esta sesión",
           tooltip_time: "Tiempo total de generación de respuestas",
           tooltip_speed: "Velocidad media de generación",
           tooltip_messages: "Número de respuestas de IA"
+        },
+        file: {
+          loading_content: "Cargando contenido completo..."
+        },
+        reasoning: {
+          aria_label: "Razonamiento del modelo",
+          title: "Proceso de Pensamiento",
+          thinking: "Pensando…",
+          done: "Listo",
+          hide: "Ocultar",
+          explore: "Explorar",
+          loading_thinking: "Pensando",
+          loading_typing: "Escribiendo",
+          loading_queued: "En cola"
+        },
+        feedback: {
+          helpful_tooltip: "Esto fue útil",
+          not_helpful_tooltip: "Esto no fue útil"
         },
         search: {
           button_title: "Buscar historial de chat (búsqueda semántica)",
@@ -2813,6 +3006,24 @@ export const resources = {
           clear_all_button: "Borrar Todas las Incrustaciones",
           clear_all_description:
             "Elimina todas las incrustaciones (chats, archivos, páginas web). Esta acción no se puede deshacer",
+          database_management: {
+            remove_duplicates_confirm:
+              "¿Eliminar incrustaciones duplicadas? Esto mantendrá solo la primera ocurrencia de cada mensaje único.",
+            remove_duplicates_success:
+              "Se eliminaron {{deleted}} duplicados. Se mantuvieron {{kept}} incrustaciones únicas.",
+            remove_duplicates_error:
+              "Error al eliminar duplicados. Consulte la consola para obtener más detalles.",
+            clear_chat_confirm:
+              "¿Borrar todas las incrustaciones de chat? Esto eliminará todos los datos de búsqueda semántica de los chats. Puede realizar un llenado posterior más adelante.",
+            clear_chat_success: "Se borraron {{count}} incrustaciones de chat.",
+            clear_chat_error:
+              "Error al borrar los vectores de chat. Consulte la consola para obtener más detalles.",
+            clear_all_confirm:
+              "¿Borrar TODAS las incrustaciones? Esto eliminará todos los datos de búsqueda semántica (chats, archivos, páginas web). Esta acción no se puede deshacer.",
+            clear_all_success: "Se borraron todas las incrustaciones.",
+            clear_all_error:
+              "Error al borrar todos los vectores. Consulte la consola para obtener más detalles."
+          },
           chunking_title: "Ajustes de Fragmentación (Chunking)",
           chunking_description:
             "Configura cómo se divide el texto en fragmentos para la incrustación",
@@ -2879,17 +3090,20 @@ export const resources = {
           cache_max_size_label: "Máx. Consultas en Caché",
           cache_max_size_description:
             "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Chunking Mejorado",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Usar división de caracteres recursiva avanzada para un mejor contexto",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "El chunking mejorado divide el texto de forma jerárquica (párrafos → oraciones → palabras) para preservar el significado semántico. Se recomienda para RAG.",
+          rag_settings_title: "RAG (Generación Aumentada por Recuperación)",
+          rag_settings_description:
+            "Configurar cómo se utilizan los archivos para responder preguntas con el contexto recuperado",
+          rag_enable_label: "Habilitar RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Usar el contexto recuperado para responder preguntas sobre sus archivos",
+          rag_system_prompt_label: "Prompt de sistema RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Plantilla para el prompt del sistema. Use {context} para el texto recuperado y {question} para la consulta del usuario.",
           advanced_retrieval_title: "Configuración avanzada de recuperación",
           adaptive_weights_label: "Pesos Híbridos Adaptativos",
           adaptive_weights_description:
@@ -3303,7 +3517,8 @@ export const resources = {
           guides: "Guías",
           memory: "Memoria",
           shortcuts: "Atajos",
-          providers: "Proveedores"
+          providers: "Proveedores",
+          context: "Contexto"
         },
         errorBoundary: {
           title: "Algo salió mal",
@@ -3516,26 +3731,31 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Tema e Interfaz",
               description:
                 "Preferencias de apariencia de la interfaz de usuario"
             },
             browser: {
+              title: "Ajustes del Navegador",
               description: "Acceso a pestañas y patrones de URL"
             },
             tts: {
+              title: "Texto a Voz",
               description: "Ajustes de texto a voz"
             },
             chat_sessions: {
+              title: "Historial de Chat",
               description: "Historial de conversación"
             },
             default: {
               description: "Ajustes del módulo"
             },
             provider: {
+              title: "Ajustes del Proveedor",
               description: "Ajustes y configuraciones del modelo"
             },
             feedback: {
-              title: "Comentarios",
+              title: "Comentarios del Usuario",
               description:
                 "Borrar todos los comentarios de aprendizaje y fragmentos recuperados"
             }
@@ -3648,6 +3868,29 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingesta de Archivos",
+            description:
+              "Configurar cómo se procesan los archivos para la recuperación de conocimientos."
+          },
+          embedding_health: {
+            title: "Se detectaron dimensiones de incrustación mixtas",
+            description:
+              "Las incrustaciones se almacenan en múltiples dimensiones ({{dimensions}}). La búsqueda y la memoria pueden fallar hasta que se reconstruya todo.",
+            note: "Reconstruir borra todas las incrustaciones y vuelve a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+            memory_disabled:
+              "La memoria está desactivada, por lo que no se reconstruyeron las incrustaciones de chat.",
+            action: "Reconstruir incrustaciones",
+            action_rebuilding: "Reconstruyendo...",
+            confirm:
+              "¿Reconstruir incrustaciones? Esto borrará todas las incrustaciones y volverá a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+            progress:
+              "Reconstruyendo incrustaciones de chat ({{current}}/{{total}})",
+            success: "Incrustaciones reconstruidas con éxito.",
+            error: "Error al reconstruir las incrustaciones."
+          }
+        },
         bug_report: "Reportar Error / Función"
       },
       knowledge_sets: {
@@ -3684,6 +3927,22 @@ export const resources = {
         min_rerank_label: "Puntuación mínima de rerank",
         min_rerank_description:
           "Confianza mínima del reranker para fragmentos en este conjunto."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Activo",
+          provider_details:
+            "Incrustaciones de alta calidad • 768-1024 dimensiones • Resultados consistentes",
+          webgpu_warning_title:
+            "La generación de incrustaciones WebGPU no está disponible",
+          webgpu_warning_text:
+            "debido a las restricciones de la Política de seguridad de contenido de la extensión de Chrome. La reclasificación de WebGPU todavía está activa y funcionando. Las incrustaciones se generan a través de la cadena de respaldo del proveedor, utilizando el proveedor predeterminado cuando el soporte nativo no está disponible.",
+          performance_title: "Rendimiento",
+          performance_default:
+            "Generación de incrustaciones del proveedor predeterminado: ~500ms por fragmento",
+          provider_hint:
+            "Asegúrate de que tu proveedor local esté funcionando (predeterminado: localhost:11434)"
+        }
       }
     }
   },
@@ -3709,8 +3968,10 @@ export const resources = {
         },
         actions: {
           retry: "Réessayer",
-          refresh: "Actualiser"
+          refresh: "Actualiser",
+          close: "Fermer"
         },
+        updated_at: "Mis à jour",
         social: {
           title: "Connectez-vous avec Moi",
           visit_profile: "Visiter mon profil {{platform}}"
@@ -3727,7 +3988,16 @@ export const resources = {
         save: "Enregistrer",
         continue: "Continuer l'Importation",
         reload: "Recharger l'Extension",
-        close: "Fermer"
+        close: "Fermer",
+        status: {
+          active: "Actif"
+        },
+        labels: {
+          performance: "Rendement"
+        },
+        nav: {
+          settings_aria: "Navigation des paramètres"
+        }
       },
       selection_button: {
         label: "Demander au LLM local",
@@ -3830,11 +4100,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} générés",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total des tokens utilisés dans cette session",
           tooltip_time: "Temps total de génération des réponses",
           tooltip_speed: "Vitesse moyenne de génération",
           tooltip_messages: "Nombre de réponses IA"
+        },
+        file: {
+          loading_content: "Chargement du contenu complet..."
+        },
+        reasoning: {
+          aria_label: "Raisonnement du modèle",
+          title: "Processus de Pensée",
+          thinking: "Réflexion…",
+          done: "Terminé",
+          hide: "Masquer",
+          explore: "Explorer",
+          loading_thinking: "Réflexion",
+          loading_typing: "Écriture",
+          loading_queued: "En attente"
+        },
+        feedback: {
+          helpful_tooltip: "C'était utile",
+          not_helpful_tooltip: "Ce n'était pas utile"
         },
         search: {
           button_title:
@@ -4030,6 +4319,24 @@ export const resources = {
           clear_all_button: "Effacer Toutes les Incrustations",
           clear_all_description:
             "Supprime toutes les incrustations (chats, fichiers, pages web). Cette action est irréversible",
+          database_management: {
+            remove_duplicates_confirm:
+              "Supprimer les embeddings en double ? Cela ne conservera que la première occurrence de chaque message unique.",
+            remove_duplicates_success:
+              "{{deleted}} doublon(s) supprimé(s). {{kept}} embedding(s) unique(s) conservé(s).",
+            remove_duplicates_error:
+              "Échec de la suppression des doublons. Consultez la console pour plus de détails.",
+            clear_chat_confirm:
+              "Effacer tous les embeddings de chat ? Cela supprimera toutes les données de recherche sémantique pour les chats. Vous pourrez effectuer un remplissage ultérieurement.",
+            clear_chat_success: "{{count}} embedding(s) de chat effacé(s).",
+            clear_chat_error:
+              "Échec de l'effacement des vecteurs de chat. Consultez la console pour plus de détails.",
+            clear_all_confirm:
+              "Effacer TOUS les embeddings ? Cela supprimera toutes les données de recherche sémantique (chats, fichiers, pages Web). Cette action ne peut pas être annulée.",
+            clear_all_success: "Tous les embeddings ont été effacés.",
+            clear_all_error:
+              "Échec de l'effacement de tous les vecteurs. Consultez la console pour plus de détails."
+          },
           chunking_title: "Paramètres de Fragmentation",
           chunking_description:
             "Configure la manière dont le texte est divisé en fragments pour l'incrustation",
@@ -4096,17 +4403,20 @@ export const resources = {
           cache_max_size_label: "Max Requêtes Mises en Cache",
           cache_max_size_description:
             "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Découpage Amélioré",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Utiliser le découpage récursif avancé des caractères pour un meilleur contexte",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Le découpage amélioré divise le texte de manière hiérarchique (paragraphes → phrases → mots) pour préserver la signification sémantique. Ceci est recommandé pour le RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configurez la manière dont les fichiers sont utilisés pour répondre aux questions avec le contexte récupéré",
+          rag_enable_label: "Activer le RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Utiliser le contexte récupéré pour répondre aux questions sur vos fichiers",
+          rag_system_prompt_label: "Prompt système RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Modèle pour le prompt système. Utilisez {context} pour le texte récupéré et {question} pour la requête de l'utilisateur.",
           advanced_retrieval_title: "Paramètres de récupération avancés",
           adaptive_weights_label: "Poids Hybrides Adaptatifs",
           adaptive_weights_description:
@@ -4523,7 +4833,8 @@ export const resources = {
           guides: "Guides",
           memory: "Mémoire",
           shortcuts: "Raccourcis",
-          providers: "Fournisseurs"
+          providers: "Fournisseurs",
+          context: "Contexte"
         },
         errorBoundary: {
           title: "Une erreur est survenue",
@@ -4739,25 +5050,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Thème & Interface",
               description: "Préférences d'apparence de l'interface utilisateur"
             },
             browser: {
+              title: "Paramètres du Navigateur",
               description: "Accès aux onglets et motifs d'URL"
             },
             tts: {
+              title: "Synthèse Vocale",
               description: "Paramètres de synthèse vocale (text-to-speech)"
             },
             chat_sessions: {
+              title: "Historique des Chats",
               description: "Historique des conversations"
             },
             default: {
               description: "Paramètres du module"
             },
             provider: {
+              title: "Paramètres du Fournisseur",
               description: "Paramètres et configurations du modèle"
             },
             feedback: {
-              title: "Commentaires",
+              title: "Commentaires de l'utilisateur",
               description:
                 "Effacer tous les commentaires d'apprentissage et les fragments récupérés"
             }
@@ -4869,6 +5185,29 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingestion de Fichiers",
+            description:
+              "Configurez la manière dont les fichiers sont traités pour la récupération des connaissances."
+          },
+          embedding_health: {
+            title: "Dimensions d'incrustation mixtes détectées",
+            description:
+              "Les incrustations sont stockées avec plusieurs dimensions ({{dimensions}}). La recherche et la mémoire peuvent échouer jusqu'à ce que tout soit reconstruit.",
+            note: "La reconstruction efface toutes les incrustations et ré-incruste l'historique du chat. Les fichiers devront être téléchargés à nouveau pour restaurer les connaissances.",
+            memory_disabled:
+              "La mémoire est désactivée, donc les incrustations de chat n'ont pas été reconstruites.",
+            action: "Reconstruire les incrustations",
+            action_rebuilding: "Reconstruction...",
+            confirm:
+              "Reconstruire les incrustations ? Cela effacera toutes les incrustations et ré-incrustera l'historique du chat. Les fichiers devront être téléchargés à nouveau pour restaurer les connaissances.",
+            progress:
+              "Reconstruction des incrustations de chat ({{current}}/{{total}})",
+            success: "Incrustations reconstruites avec succès.",
+            error: "Échec de la reconstruction des incrustations."
+          }
+        },
         bug_report: "Signaler un Bogue / une Fonctionnalité"
       },
       knowledge_sets: {
@@ -4906,6 +5245,22 @@ export const resources = {
         min_rerank_label: "Score minimal de rerank",
         min_rerank_description:
           "Confiance minimale du reranker pour les segments de cet ensemble."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Activo",
+          provider_details:
+            "Embeddings de haute qualité • 768-1024 dimensions • Résultats cohérents",
+          webgpu_warning_title:
+            "La génération d'embeddings WebGPU n'est pas disponible",
+          webgpu_warning_text:
+            "en raison des restrictions de la politique de sécurité du contenu de l'extension Chrome. Le reclassement WebGPU est toujours actif et fonctionnel. Les embeddings sont générés via la chaîne de secours du fournisseur, en utilisant le fournisseur par défaut lorsque la prise en charge native n'est pas disponible.",
+          performance_title: "Rendement",
+          performance_default:
+            "Génération d'embeddings du fournisseur par défaut : ~500 ms par morceau",
+          provider_hint:
+            "Assurez-vous que votre fournisseur local est en cours d'exécution (par défaut : localhost:11434)"
+        }
       }
     }
   },
@@ -4931,8 +5286,10 @@ export const resources = {
         },
         actions: {
           retry: "पुनः प्रयास करें",
-          refresh: "रिफ्रेश करें"
+          refresh: "रिफ्रेश करें",
+          close: "बंद करें"
         },
+        updated_at: "अपडेट किया गया",
         social: {
           title: "मुझसे जुड़ें",
           visit_profile: "मेरी {{platform}} प्रोफाइल देखें"
@@ -4949,7 +5306,16 @@ export const resources = {
         save: "सहेजें",
         continue: "आयात जारी रखें",
         reload: "एक्सटेंशन पुनः लोड करें",
-        close: "बंद करें"
+        close: "बंद करें",
+        status: {
+          active: "सक्रिय"
+        },
+        labels: {
+          performance: "प्रदर्शन"
+        },
+        nav: {
+          settings_aria: "सेटिंग्स नेविगेशन"
+        }
       },
       selection_button: {
         label: "स्थानीय LLM से पूछें",
@@ -5050,11 +5416,30 @@ export const resources = {
           prompt_tokens: "{{value}} प्रॉम्प्ट",
           generated_tokens: "{{value}} उत्पन्न",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} संदेश",
           tooltip_tokens: "इस सत्र में कुल उपयोग किए गए टोकन",
           tooltip_time: "कुल प्रतिक्रिया उत्पन्न करने का समय",
           tooltip_speed: "औसत उत्पन्न करने की गति",
           tooltip_messages: "एआई प्रतिक्रियाओं की संख्या"
+        },
+        file: {
+          loading_content: "पूरी सामग्री लोड हो रही है..."
+        },
+        reasoning: {
+          aria_label: "मॉडल विचार प्रक्रिया",
+          title: "सोचने की प्रक्रिया",
+          thinking: "सोच रहा हूँ…",
+          done: "पूर्ण",
+          hide: "छिपाएं",
+          explore: "अन्वेषण करें",
+          loading_thinking: "सोच रहा हूँ",
+          loading_typing: "टाइपिंग",
+          loading_queued: "कतार में"
+        },
+        feedback: {
+          helpful_tooltip: "यह मददगार था",
+          not_helpful_tooltip: "यह मददगार नहीं था"
         },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -5245,6 +5630,21 @@ export const resources = {
           clear_all_button: "सभी एम्बेडिंग साफ़ करें",
           clear_all_description:
             "सभी एम्बेडिंग (चैट, फ़ाइलें, वेबपृष्ठ) हटाएँ। यह कार्रवाई पूर्ववत नहीं की जा सकती",
+          database_management: {
+            remove_duplicates_confirm:
+              "डुप्लिकेट एम्बेडिंग हटाएं? यह प्रत्येक अद्वितीय संदेश की केवल पहली घटना को रखेगा।",
+            remove_duplicates_success:
+              "{{deleted}} डुप्लिकेट हटा दिए गए। {{kept}} अद्वितीय एम्बेडिंग रखे गए।",
+            remove_duplicates_error: "डुप्लिकेट हटाने में विफल। विवरण के लिए कंसोल देखें।",
+            clear_chat_confirm:
+              "सभी चैट एम्बेडिंग साफ़ करें? यह चैट के लिए सभी सिमेंटिक खोज डेटा हटा देगा। आप बाद में बैकफिल कर सकते हैं।",
+            clear_chat_success: "{{count}} चैट एम्बेडिंग साफ़ किए गए।",
+            clear_chat_error: "चैट वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।",
+            clear_all_confirm:
+              "सभी एम्बेडिंग साफ़ करें? यह सभी सिमेंटिक खोज डेटा (चैट, फ़ाइलें, वेब पेज) हटा देगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+            clear_all_success: "सभी एम्बेडिंग साफ़ कर दिए गए।",
+            clear_all_error: "सभी वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।"
+          },
           chunking_title: "चंकिंग सेटिंग्स",
           chunking_description:
             "एम्बेडिंग के लिए टेक्स्ट को चंक्स में कैसे विभाजित किया जाता है, इसे कॉन्फ़िगर करें",
@@ -5305,17 +5705,20 @@ export const resources = {
           cache_max_size_label: "अधिकतम कैश की गई क्वेरी",
           cache_max_size_description:
             "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "बेहतर चंकिंग",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "बेहतर संदर्भ के लिए उन्नत पुनरावर्ती वर्ण विभाजन का उपयोग करें",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "बेहतर चंकिंग अर्थपूर्ण अर्थ को बनाए रखने के लिए टेक्स्ट को श्रेणीबद्ध रूप से (पैराग्राफ → वाक्य → शब्द) विभाजित करती है। यह RAG के लिए अनुशंसित है।",
+          rag_settings_title: "RAG (रिट्रीवल ऑगमेंटेड जेनरेशन)",
+          rag_settings_description:
+            "कॉन्फ़िगर करें कि पुनर्प्राप्त संदर्भ के साथ प्रश्नों के उत्तर देने के लिए फ़ाइलों का उपयोग कैसे किया जाता है",
+          rag_enable_label: "RAG सक्षम करें",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "अपनी फ़ाइलों के बारे में प्रश्नों के उत्तर देने के लिए प्राप्त संदर्भ का उपयोग करें",
+          rag_system_prompt_label: "RAG सिस्टम प्रॉम्प्ट",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "सिस्टम प्रॉम्प्ट के लिए टेम्पलेट। प्राप्त टेक्स्ट के लिए {context} और उपयोगकर्ता क्वेरी के लिए {question} का उपयोग करें।",
           advanced_retrieval_title: "उन्नत पुनर्प्राप्ति सेटिंग्स",
           adaptive_weights_label: "अनुकूली हाइब्रिड भार",
           adaptive_weights_description:
@@ -5348,19 +5751,35 @@ export const resources = {
           embedding_source_description:
             "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
           embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)",
-          feedback_stats_title: "Feedback statistics",
-          feedback_stats_total: "Total feedback",
-          feedback_stats_helpful: "Helpful rate",
-          feedback_stats_chunks: "Unique chunks",
-          feedback_stats_queries: "Unique queries",
-          feedback_privacy_title: "Privacy",
-          feedback_export_success: "Feedback exported",
-          feedback_export_error: "Failed to export feedback",
-          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_learning_title: "उपयोगकर्ता फीडबैक लर्निंग",
+          feedback_learning_description:
+            "अपने फीडबैक से सीखकर खोज गुणवत्ता में सुधार करें",
+          feedback_enable_label: "फीडबैक संग्रह सक्षम करें",
+          feedback_enable_description:
+            "याद रखें कि भविष्य की पुनर्प्राप्ति में सुधार के लिए कौन से चंक्स सहायक थे",
+          feedback_show_chunks_label: "पुनर्प्राप्त चंक्स दिखाएं",
+          feedback_show_chunks_description:
+            "फीडबैक बटन के साथ चैट में स्रोत चंक्स प्रदर्शित करें",
+          feedback_blend_weight_label: "फीडबैक लर्निंग भार",
+          feedback_blend_weight_description:
+            "सीखे गए फीडबैक बनाम मॉडल स्कोर (0-1) पर कितना भरोसा करना है",
+          feedback_export_button: "फीडबैक डेटा निर्यात करें",
+          feedback_clear_button: "सभी फीडबैक साफ़ करें",
+          feedback_privacy_note:
+            "सभी फीडबैक स्थानीय रूप से संग्रहीत हैं। गोपनीयता के लिए प्रश्नों को हैश किया गया है। कोई भी डेटा आपके डिवाइस को नहीं छोड़ता है।",
+          feedback_stats_title: "फीडबैक आँकड़े",
+          feedback_stats_total: "कुल फीडबैक",
+          feedback_stats_helpful: "सहायक दर",
+          feedback_stats_chunks: "अद्वितीय चंक्स",
+          feedback_stats_queries: "अद्वितीय प्रश्न",
+          feedback_privacy_title: "गोपनीयता",
+          feedback_export_success: "फीडबैक निर्यात किया गया",
+          feedback_export_error: "फीडबैक निर्यात करने में विफल",
+          feedback_clear_confirm_title: "फीडबैक साफ़ करें?",
           feedback_clear_confirm_description:
-            "This will permanently delete all feedback. This cannot be undone.",
-          feedback_clear_success: "Feedback cleared",
-          feedback_clear_error: "Failed to clear feedback"
+            "यह स्थायी रूप से सभी फीडबैक को हटा देगा। इसे पूर्ववत नहीं किया जा सकता।",
+          feedback_clear_success: "फीडबैक साफ़ किया गया",
+          feedback_clear_error: "फीडबैक साफ़ करने में विफल"
         },
         provider_status: {
           checking: "Provider स्थिति जाँच रहा है...",
@@ -5714,7 +6133,8 @@ export const resources = {
           guides: "गाइड",
           memory: "मेमोरी",
           shortcuts: "शॉर्टकट",
-          providers: "प्रदाता"
+          providers: "प्रदाता",
+          context: "संदर्भ"
         },
         memory: {
           title: "प्रासंगिक मेमोरी",
@@ -5923,25 +6343,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "थीम और इंटरफ़ेस",
               description: "UI स्वरूपण प्राथमिकताएँ"
             },
             browser: {
+              title: "ब्राउज़र सेटिंग्स",
               description: "टैब एक्सेस और URL पैटर्न"
             },
             tts: {
+              title: "टेक्स्ट-टू-स्पीच",
               description: "टेक्स्ट-टू-स्पीच सेटिंग्स"
             },
             chat_sessions: {
+              title: "चैट इतिहास",
               description: "बातचीत का इतिहास"
             },
             default: {
               description: "मॉड्यूल सेटिंग्स"
             },
             provider: {
+              title: "प्रदाता सेटिंग्स",
               description: "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
             },
             feedback: {
-              title: "प्रतिक्रिया",
+              title: "उपयोगकर्ता फीडबैक",
               description: "सभी सीखने और प्राप्त किए गए खंड प्रतिक्रिया को साफ़ करें"
             }
           },
@@ -6050,6 +6475,28 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "फ़ाइल इनजेशन",
+            description:
+              "कॉन्फ़िगर करें कि ज्ञान पुनर्प्राप्ति के लिए फ़ाइलों को कैसे संसाधित किया जाता है।"
+          },
+          embedding_health: {
+            title: "मिश्रित एम्बेडिंग आयाम पाए गए",
+            description:
+              "एम्बेडिंग कई आयामों ({{dimensions}}) पर संग्रहीत हैं। सब कुछ पुनर्निर्माण होने तक खोज और मेमोरी विफल हो सकती है।",
+            note: "पुनर्निर्माण सभी एम्बेडिंग को साफ़ करता है और चैट इतिहास को फिर से एम्बेड करता है। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+            memory_disabled:
+              "मेमोर बंद है, इसलिए चैट एम्बेडिंग का पुनर्निर्माण नहीं किया गया था।",
+            action: "एम्बेडिंग फिर से बनाएं",
+            action_rebuilding: "फिर से बना रहा है...",
+            confirm:
+              "एम्बेडिंग फिर से बनाएं? यह सभी एम्बेडिंग को साफ़ कर देगा और चैट इतिहास को फिर से एम्बेड करेगा। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+            progress: "चैट एम्बेडिंग फिर से बन रहे हैं ({{current}}/{{total}})",
+            success: "एम्बेडिंग सफलतापूर्वक फिर से बन गए।",
+            error: "एम्बेडिंग फिर से बनाने में विफल।"
+          }
+        },
         bug_report: "बग / सुविधा रिपोर्ट करें"
       },
       knowledge_sets: {
@@ -6084,6 +6531,20 @@ export const resources = {
         min_rerank_label: "न्यूनतम rerank स्कोर",
         min_rerank_description:
           "इस ज्ञान सेट के चंक्स के लिए reranker का न्यूनतम भरोसा।"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "सक्रिय",
+          provider_details:
+            "उच्च गुणवत्ता वाली एम्बेडिंग • 768-1024 आयाम • सुसंगत परिणाम",
+          webgpu_warning_title: "WebGPU एम्बेडिंग जनरेशन उपलब्ध नहीं है",
+          webgpu_warning_text:
+            "Chrome एक्सटेंशन की सामग्री सुरक्षा नीति प्रतिबंधों के कारण। WebGPU री-रैंकिंग अभी भी सक्रिय और कार्यात्मक है। एम्बेडिंग प्रदाता फ़ॉलबैक श्रृंखला के माध्यम से जेनरेट किए जाते हैं, जब मूल समर्थन उपलब्ध नहीं होता है तो डिफ़ॉल्ट प्रदाता का उपयोग किया जाता है।",
+          performance_title: "प्रदर्शन",
+          performance_default: "डिफ़ॉल्ट प्रदाता एम्बेडिंग जनरेशन: प्रति चंक ~500ms",
+          provider_hint:
+            "सुनिश्चित करें कि आपका स्थानीय प्रदाता चल रहा है (डिफ़ॉल्ट: localhost:11434)"
+        }
       }
     }
   },
@@ -6109,8 +6570,10 @@ export const resources = {
         },
         actions: {
           retry: "Riprova",
-          refresh: "Aggiorna"
+          refresh: "Aggiorna",
+          close: "Chiudi"
         },
+        updated_at: "Aggiornato",
         social: {
           title: "Connettiti con Me",
           visit_profile: "Visita il mio profilo {{platform}}"
@@ -6127,7 +6590,16 @@ export const resources = {
         save: "Salva",
         continue: "Continua Importazione",
         reload: "Ricarica Estensione",
-        close: "Chiudi"
+        close: "Chiudi",
+        status: {
+          active: "Attivo"
+        },
+        labels: {
+          performance: "Prestazioni"
+        },
+        nav: {
+          settings_aria: "Navigazione impostazioni"
+        }
       },
       selection_button: {
         label: "Chiedi al LLM locale",
@@ -6229,11 +6701,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generati",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msg",
           tooltip_tokens: "Token totali utilizzati in questa sessione",
           tooltip_time: "Tempo totale generazione risposte",
           tooltip_speed: "Velocità media di generazione",
           tooltip_messages: "Numero di risposte AI"
+        },
+        file: {
+          loading_content: "Caricamento contenuto completo..."
+        },
+        reasoning: {
+          aria_label: "Ragionamento del modello",
+          title: "Processo di Pensiero",
+          thinking: "Pensando…",
+          done: "Fatto",
+          hide: "Nascondi",
+          explore: "Esplora",
+          loading_thinking: "Pensando",
+          loading_typing: "Scrittura",
+          loading_queued: "In coda"
+        },
+        feedback: {
+          helpful_tooltip: "È stato utile",
+          not_helpful_tooltip: "Non è stato utile"
         },
         search: {
           button_title: "Cerca nella cronologia chat (ricerca semantica)",
@@ -6428,6 +6919,24 @@ export const resources = {
           clear_all_button: "Cancella Tutti gli Embeddings",
           clear_all_description:
             "Elimina tutti gli embeddings (chat, file, pagine web). Questa azione non può essere annullata",
+          database_management: {
+            remove_duplicates_confirm:
+              "Rimuovere gli embedding duplicati? Verrà mantenuta solo la prima occorrenza di ogni messaggio univoco.",
+            remove_duplicates_success:
+              "Rimossi {{deleted}} duplicati. Mantenuti {{kept}} embedding univoci.",
+            remove_duplicates_error:
+              "Impossibile rimuovere i duplicati. Controlla la console per i dettagli.",
+            clear_chat_confirm:
+              "Cancellare tutti gli embedding della chat? Questo eliminerà tutti i dati di ricerca semantica per le chat. Puoi eseguire il backfill in seguito.",
+            clear_chat_success: "Cancellati {{count}} embedding della chat.",
+            clear_chat_error:
+              "Impossibile cancellare i vettori della chat. Controlla la console per i dettagli.",
+            clear_all_confirm:
+              "Cancellare TUTTI gli embedding? Questo eliminerà tutti i dati di ricerca semantica (chat, file, pagine web). Questa azione non può essere annullata.",
+            clear_all_success: "Tutti gli embedding sono stati cancellati.",
+            clear_all_error:
+              "Impossibile cancellare tutti i vettori. Controlla la console per i dettagli."
+          },
           chunking_title: "Impostazioni di Suddivisione (Chunking)",
           chunking_description:
             "Configura come il testo viene suddiviso in frammenti per l'embedding",
@@ -6494,17 +7003,20 @@ export const resources = {
           cache_max_size_label: "Max Query Memorizzate nella Cache",
           cache_max_size_description:
             "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Chunking Avanzato",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Usa la suddivisione ricorsiva avanzata dei caratteri per un migliore contesto",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Il chunking avanzato divide il testo in modo gerarchico (paragrafi → frasi → parole) per preservare il significato semantico. Raccomandato per RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configura come i file vengono utilizzati per rispondere alle domande con il contesto recuperato",
+          rag_enable_label: "Abilita RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Usa il contesto recuperato per rispondere alle domande sui tuoi file",
+          rag_system_prompt_label: "Prompt di sistema RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Modello per il prompt di sistema. Usa {context} per il testo recuperato e {question} per la query dell'utente.",
           advanced_retrieval_title: "Impostazioni di Recupero Avanzate",
           adaptive_weights_label: "Pesi Ibridi Adattivi",
           adaptive_weights_description:
@@ -6918,7 +7430,8 @@ export const resources = {
           guides: "Guide",
           memory: "Memoria",
           shortcuts: "Scorciatoie",
-          providers: "Provider"
+          providers: "Provider",
+          context: "Contesto"
         },
         memory: {
           title: "Memoria Contestuale",
@@ -7134,25 +7647,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Tema e Interfaccia",
               description: "Preferenze di aspetto dell'interfaccia utente"
             },
             browser: {
+              title: "Impostazioni Browser",
               description: "Accesso alle schede e pattern URL"
             },
             tts: {
+              title: "Sintesi Vocale",
               description: "Impostazioni text-to-speech"
             },
             chat_sessions: {
+              title: "Cronologia Chat",
               description: "Cronologia conversazioni"
             },
             default: {
               description: "Impostazioni modulo"
             },
             provider: {
+              title: "Impostazioni Provider",
               description: "Impostazioni e configurazioni del modello"
             },
             feedback: {
-              title: "Feedback",
+              title: "Feedback Utente",
               description:
                 "Cancella tutti i feedback di apprendimento e dei frammenti recuperati"
             }
@@ -7265,6 +7783,28 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingestione File",
+            description:
+              "Configura come i file vengono elaborati per il recupero della conoscenza."
+          },
+          embedding_health: {
+            title: "Rilevate dimensioni di embedding miste",
+            description:
+              "Gli embedding sono memorizzati in più dimensioni ({{dimensions}}). La ricerca e la memoria possono fallire finché tutto non viene ricostruito.",
+            note: "La ricostruzione cancella tutti gli embedding e reinserisce la cronologia della chat. I caricamenti di file dovranno essere ricaricati per ripristinare la conoscenza.",
+            memory_disabled:
+              "La memoria è disattivata, quindi gli embedding della chat non sono stati ricostruiti.",
+            action: "Ricostruisci embedding",
+            action_rebuilding: "Ricostruzione in corso...",
+            confirm:
+              "Ricostruire gli embedding? Questo cancellerà tutti gli embedding e reinserirà la cronologia della chat. I caricamenti di file dovranno essere ricaricati per ripristinare la conoscenza.",
+            progress: "Ricostruzione embedding chat ({{current}}/{{total}})",
+            success: "Embedding ricostruiti con successo.",
+            error: "Impossibile ricostruire gli embedding."
+          }
+        },
         bug_report: "Segnala Bug / Funzionalità"
       },
       knowledge_sets: {
@@ -7300,7 +7840,23 @@ export const resources = {
           "Soglia minima di somiglianza per i chunk di questo set.",
         min_rerank_label: "Punteggio minimo di rerank",
         min_rerank_description:
-          "Confidenza minima del reranker per i chunk di questo set."
+          "Confianza minima del reranker per i chunk di questo set."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Attivo",
+          provider_details:
+            "Embedding di alta qualità • 768-1024 dimensioni • Risultati coerenti",
+          webgpu_warning_title:
+            "La generazione di embedding WebGPU non è disponibile",
+          webgpu_warning_text:
+            "a causa delle restrizioni della Content Security Policy dell'estensione Chrome. Il re-ranking WebGPU è ancora attivo e funzionante. Gli embedding vengono generati tramite la catena di fallback del provider, utilizzando il provider predefinito quando il supporto nativo non è disponibile.",
+          performance_title: "Prestazioni",
+          performance_default:
+            "Generazione embedding provider predefinito: ~500ms per chunk",
+          provider_hint:
+            "Assicurati che il tuo provider locale sia in esecuzione (predefinito: localhost:11434)"
+        }
       }
     }
   },
@@ -7326,8 +7882,10 @@ export const resources = {
         },
         actions: {
           retry: "再試行",
-          refresh: "更新"
+          refresh: "更新",
+          close: "閉じる"
         },
+        updated_at: "更新済み",
         social: {
           title: "私とつながる",
           visit_profile: "私の {{platform}} プロフィールを見る"
@@ -7344,7 +7902,16 @@ export const resources = {
         save: "保存",
         continue: "インポートを続行",
         reload: "拡張機能を再読み込み",
-        close: "閉じる"
+        close: "閉じる",
+        status: {
+          active: "アクティブ"
+        },
+        labels: {
+          performance: "パフォーマンス"
+        },
+        nav: {
+          settings_aria: "設定ナビゲーション"
+        }
       },
       selection_button: {
         label: "ローカルLLMに聞く",
@@ -7445,11 +8012,30 @@ export const resources = {
           prompt_tokens: "{{value}} プロンプト",
           generated_tokens: "{{value}} 生成済",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} 件",
           tooltip_tokens: "このセッションで使用された合計トークン",
           tooltip_time: "合計応答生成時間",
           tooltip_speed: "平均生成速度",
           tooltip_messages: "AI応答数"
+        },
+        file: {
+          loading_content: "コンテンツを読み込み中..."
+        },
+        reasoning: {
+          aria_label: "モデルの思考プロセス",
+          title: "思考プロセス",
+          thinking: "思考中…",
+          done: "完了",
+          hide: "隠す",
+          explore: "詳細表示",
+          loading_thinking: "思考中",
+          loading_typing: "入力中",
+          loading_queued: "待機中"
+        },
+        feedback: {
+          helpful_tooltip: "役に立った",
+          not_helpful_tooltip: "役に立たなかった"
         },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
@@ -7640,6 +8226,25 @@ export const resources = {
           clear_all_button: "全エンベディングをクリア",
           clear_all_description:
             "すべてのエンベディング（チャット、ファイル、Webページ）を削除します。この操作は取り消せません",
+          database_management: {
+            remove_duplicates_confirm:
+              "重複した埋め込みを削除しますか？各ユニークなメッセージの最初の出現のみが保持されます。",
+            remove_duplicates_success:
+              "{{deleted}}個の重複を削除しました。{{kept}}個のユニークな埋め込みを保持しました。",
+            remove_duplicates_error:
+              "重複の削除に失敗しました。詳細はコンソールを確認してください。",
+            clear_chat_confirm:
+              "すべてのチャットの埋め込みを消去しますか？これにより、チャットのすべてのセマンティック検索データが削除されます。後でバックフィルが可能です。",
+            clear_chat_success:
+              "{{count}}個のチャットの埋め込みを消去しました。",
+            clear_chat_error:
+              "チャットベクトルの消去に失敗しました。詳細はコンソールを確認してください。",
+            clear_all_confirm:
+              "すべての埋め込みを消去しますか？これにより、すべてのセマンティック検索データ（チャット、ファイル、ウェブページ）が削除されます。この操作は取り消せません。",
+            clear_all_success: "すべての埋め込みを消去しました。",
+            clear_all_error:
+              "すべてのベクトルの消去に失敗しました。詳細はコンソールを確認してください。"
+          },
           chunking_title: "チャンク設定",
           chunking_description:
             "テキストをエンベディング用にチャンク分割する方法を設定します",
@@ -7705,17 +8310,20 @@ export const resources = {
           cache_max_size_label: "最大キャッシュクエリ数",
           cache_max_size_description:
             "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "拡張チャンキング",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "高度な再帰的文字分割を使用して、より良いコンテキストを維持します",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "拡張チャンキングは、テキストを階層的に分割（段落→文→単語）し、セマンティックな意味を保持します。RAGに推奨されます。",
+          rag_settings_title: "RAG (検索拡張生成)",
+          rag_settings_description:
+            "取得されたコンテキストを使用して、ファイルに関する質問に答える方法を設定します",
+          rag_enable_label: "RAGを有効にする",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "取得されたコンテキストを使用して、ファイルに関する質問に答えます",
+          rag_system_prompt_label: "RAGシステムプロンプト",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "システムプロンプトのテンプレート。取得されたテキストには {context}、ユーザーのクエリには {question} を使用します。",
           advanced_retrieval_title: "高度な検索設定",
           adaptive_weights_label: "適応型ハイブリッド重み付け",
           adaptive_weights_description:
@@ -8121,7 +8729,8 @@ export const resources = {
           guides: "ガイド",
           memory: "メモリ",
           shortcuts: "ショートカット",
-          providers: "プロバイダー"
+          providers: "プロバイダー",
+          context: "コンテキスト"
         },
         errorBoundary: {
           title: "問題が発生しました",
@@ -8333,25 +8942,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "テーマとインターフェース",
               description: "UIの外観設定"
             },
             browser: {
+              title: "ブラウザ設定",
               description: "タブアクセスとURLパターン"
             },
             tts: {
+              title: "音声読み上げ",
               description: "テキスト読み上げ設定"
             },
             chat_sessions: {
+              title: "チャット履歴",
               description: "会話履歴"
             },
             default: {
               description: "モジュール設定"
             },
             provider: {
+              title: "プロバイダー設定",
               description: "モデル設定と構成"
             },
             feedback: {
-              title: "フィードバック",
+              title: "ユーザーフィードバック",
               description:
                 "すべての学習および取得されたチャックのフィードバックをクリアする"
             }
@@ -8461,6 +9075,29 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "ファイル取り込み",
+            description:
+              "知識取得のためにファイルがどのように処理されるかを設定します。"
+          },
+          embedding_health: {
+            title: "混合エンベディング次元が検出されました",
+            description:
+              "エンベディングが複数の次元（{{dimensions}}）で保存されています。すべてが再構築されるまで、検索やメモリが失敗する可能性があります。",
+            note: "再構築するとすべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+            memory_disabled:
+              "メモリがオフになっているため、チャットのエンベディングは再構築されませんでした。",
+            action: "エンベディングを再構築",
+            action_rebuilding: "再構築中...",
+            confirm:
+              "エンベディングを再構築しますか？これにより、すべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+            progress:
+              "チャットエンベディングを再構築中（{{current}}/{{total}}）",
+            success: "エンベディングの再構築が正常に完了しました。",
+            error: "エンベディングの再構築に失敗しました。"
+          }
+        },
         bug_report: "バグ報告 / 機能リクエスト"
       },
       knowledge_sets: {
@@ -8496,6 +9133,20 @@ export const resources = {
         min_rerank_label: "最小再ランクスコア",
         min_rerank_description:
           "このセットのチャンクに対する再ランカーの最小信頼度。"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "アクティブ",
+          provider_details: "高品質な埋め込み • 768-1024次元 • 一貫した結果",
+          webgpu_warning_title: "WebGPUによる埋め込み生成は利用できません",
+          webgpu_warning_text:
+            "Chrome拡張機能のコンテンツセキュリティポリシー（CSP）の制限によるものです。WebGPUによる再ランク付けは引き続き有効です。埋め込み生成は、ネイティブサポートが利用できない場合にデフォルトのプロバイダーを使用するフォールバックチェーンを通じて行われます。",
+          performance_title: "パフォーマンス",
+          performance_default:
+            "デフォルトプロバイダーの埋め込み生成：1チャンクあたり約500ms",
+          provider_hint:
+            "現在、ローカルプロバイダーが実行されていることを確認してください（デフォルト：localhost:11434）"
+        }
       }
     }
   },
@@ -8521,8 +9172,10 @@ export const resources = {
         },
         actions: {
           retry: "Повторить",
-          refresh: "Обновить"
+          refresh: "Обновить",
+          close: "Закрыть"
         },
+        updated_at: "Обновлено",
         social: {
           title: "Связаться со мной",
           visit_profile: "Посетить мой профиль {{platform}}"
@@ -8539,7 +9192,16 @@ export const resources = {
         save: "Сохранить",
         continue: "Продолжить импорт",
         reload: "Перезагрузить расширение",
-        close: "Закрыть"
+        close: "Закрыть",
+        status: {
+          active: "Активен"
+        },
+        labels: {
+          performance: "Производительность"
+        },
+        nav: {
+          settings_aria: "Навигация настроек"
+        }
       },
       selection_button: {
         label: "Спросить локальный LLM",
@@ -8640,11 +9302,30 @@ export const resources = {
           prompt_tokens: "{{value}} промпт",
           generated_tokens: "{{value}} сгенер.",
           avg_speed: "{{speed}} т/с",
+          speed_unit: "т/с",
           messages: "{{value}} сообщ.",
           tooltip_tokens: "Всего токенов в текущей сессии",
           tooltip_time: "Общее время генерации",
           tooltip_speed: "Средняя скорость генерации",
           tooltip_messages: "Количество ответов ИИ"
+        },
+        file: {
+          loading_content: "Загрузка содержимого..."
+        },
+        reasoning: {
+          aria_label: "Процесс мышления модели",
+          title: "Ход мыслей",
+          thinking: "Думаю…",
+          done: "Готово",
+          hide: "Скрыть",
+          explore: "Подробнее",
+          loading_thinking: "Думаю",
+          loading_typing: "Печатаю",
+          loading_queued: "В очереди"
+        },
+        feedback: {
+          helpful_tooltip: "Это было полезно",
+          not_helpful_tooltip: "Это не было полезно"
         },
         search: {
           button_title: "Поиск по истории чатов (семантический)",
@@ -8836,6 +9517,24 @@ export const resources = {
           clear_all_button: "Очистить все эмбеддинги",
           clear_all_description:
             "Удалить все эмбеддинги (чаты, файлы, веб-страницы). Это действие нельзя отменить",
+          database_management: {
+            remove_duplicates_confirm:
+              "Удалить дубликаты встраиваний? Будет сохранено только первое вхождение каждого уникального сообщения.",
+            remove_duplicates_success:
+              "Удалено дубликатов: {{deleted}}. Сохранено уникальных встраиваний: {{kept}}.",
+            remove_duplicates_error:
+              "Не удалось удалить дубликаты. Подробности см. в консоли.",
+            clear_chat_confirm:
+              "Очистить все встраивания чатов? Это удалит все данные семантического поиска для чатов. Вы сможете выполнить обратную засыпку позже.",
+            clear_chat_success: "Очищено встраиваний чатов: {{count}}.",
+            clear_chat_error:
+              "Не удалось очистить векторы чатов. Подробности см. в консоли.",
+            clear_all_confirm:
+              "Очистить ВСЕ встраивания? Это удалит все данные семантического поиска (чаты, файлы, веб-страницы). Это действие нельзя отменить.",
+            clear_all_success: "Все встраивания очищены.",
+            clear_all_error:
+              "Не удалось очистить все векторы. Подробности см. в консоли."
+          },
           chunking_title: "Настройки разбиения (Chunking)",
           chunking_description:
             "Настройте, как текст разбивается на части для создания эмбеддингов",
@@ -9321,7 +10020,8 @@ export const resources = {
           guides: "Руководства",
           memory: "Память",
           shortcuts: "Горячие клавиши",
-          providers: "Провайдеры"
+          providers: "Провайдеры",
+          context: "Контекст"
         },
         memory: {
           title: "Контекстная память",
@@ -9534,25 +10234,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Тема и интерфейс",
               description: "Настройки внешнего вида UI"
             },
             browser: {
+              title: "Настройки браузера",
               description: "Доступ к вкладкам и шаблоны URL"
             },
             tts: {
+              title: "Текст в речь",
               description: "Настройки синтеза речи (TTS)"
             },
             chat_sessions: {
+              title: "История чатов",
               description: "История разговоров"
             },
             default: {
               description: "Настройки модуля"
             },
             provider: {
+              title: "Настройки провайдера",
               description: "Настройки моделей и конфигурации"
             },
             feedback: {
-              title: "Обратная связь",
+              title: "Отзывы пользователей",
               description:
                 "Очистить все отзывы об обучении и полученных фрагментах"
             }
@@ -9662,6 +10367,28 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Загрузка файлов",
+            description:
+              "Настройте, как файлы обрабатываются для извлечения знаний."
+          },
+          embedding_health: {
+            title: "Обнаружены смешанные измерения эмбеддингов",
+            description:
+              "Эмбеддинги хранятся в нескольких измерениях ({{dimensions}}). Поиск и память могут не работать до полного перестроения.",
+            note: "Перестроение удаляет все эмбеддинги и заново индексирует историю чата. Загруженные файлы потребуется загрузить повторно для восстановления знаний.",
+            memory_disabled:
+              "Память отключена, поэтому эмбеддинги чата не были перестроены.",
+            action: "Перестроить эмбеддинги",
+            action_rebuilding: "Перестроение...",
+            confirm:
+              "Перестроить эмбеддинги? Это удалит все существующие эмбеддинги и заново проиндексирует историю чата. Файлы потребуется загрузить повторно.",
+            progress: "Перестроение эмбеддингов чата ({{current}}/{{total}})",
+            success: "Эмбеддинги успешно перестроены.",
+            error: "Не удалось перестроить эмбеддинги."
+          }
+        },
         bug_report: "Сообщить о баге / фиче"
       },
       knowledge_sets: {
@@ -9697,6 +10424,21 @@ export const resources = {
         min_rerank_label: "Минимальный rerank‑score",
         min_rerank_description:
           "Минимальная уверенность reranker для чанков этого набора."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Активен",
+          provider_details:
+            "Высококачественные эмбеддинги • 768-1024 измерений • Стабильные результаты",
+          webgpu_warning_title: "Генерация эмбеддингов через WebGPU недоступна",
+          webgpu_warning_text:
+            "Из-за ограничений политики безопасности контента (CSP) расширения Chrome. Переранжирование через WebGPU по-прежнему активно. Эмбеддинги генерируются через цепочку фоллбэков, используя провайдера по умолчанию, когда нативная поддержка недоступна.",
+          performance_title: "Производительность",
+          performance_default:
+            "Генерация эмбеддингов провайдером по умолчанию: ~500мс на фрагмент",
+          provider_hint:
+            "Убедитесь, что ваш локальный провайдер запущен (по умолчанию: localhost:11434)"
+        }
       }
     }
   },
@@ -9722,8 +10464,10 @@ export const resources = {
         },
         actions: {
           retry: "重试",
-          refresh: "刷新"
+          refresh: "刷新",
+          close: "关闭"
         },
+        updated_at: "已更新",
         social: {
           title: "联系我",
           visit_profile: "访问我的 {{platform}} 个人资料"
@@ -9739,7 +10483,16 @@ export const resources = {
         save: "保存",
         continue: "继续导入",
         reload: "重新加载扩展",
-        close: "关闭"
+        close: "关闭",
+        status: {
+          active: "活动"
+        },
+        labels: {
+          performance: "性能"
+        },
+        nav: {
+          settings_aria: "设置导航"
+        }
       },
       selection_button: {
         label: "询问本地 LLM",
@@ -9839,11 +10592,30 @@ export const resources = {
           prompt_tokens: "{{value}} 提示词",
           generated_tokens: "{{value}} 生成",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} 条消息",
           tooltip_tokens: "本次会话使用的总 Token",
           tooltip_time: "总生成时间",
           tooltip_speed: "平均生成速度",
           tooltip_messages: "AI 回复数量"
+        },
+        file: {
+          loading_content: "正在加载完整内容..."
+        },
+        reasoning: {
+          aria_label: "模型思维过程",
+          title: "思维过程",
+          thinking: "思考中…",
+          done: "完成",
+          hide: "隐藏",
+          explore: "探索",
+          loading_thinking: "正在思考",
+          loading_typing: "正在输入",
+          loading_queued: "排队中"
+        },
+        feedback: {
+          helpful_tooltip: "很有帮助",
+          not_helpful_tooltip: "没有帮助"
         },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",
@@ -10024,6 +10796,22 @@ export const resources = {
           clear_all_button: "清除所有嵌入",
           clear_all_description:
             "删除所有嵌入（聊天、文件、网页）。此操作无法撤消",
+          database_management: {
+            remove_duplicates_confirm:
+              "删除重复的嵌入？这将仅保留每个唯一消息的第一次出现。",
+            remove_duplicates_success:
+              "已删除 {{deleted}} 个重复项。保留了 {{kept}} 个唯一的嵌入。",
+            remove_duplicates_error:
+              "删除重复项失败。有关详细信息，请查看控制台。",
+            clear_chat_confirm:
+              "清除所有聊天嵌入？这将删除聊天的所有语义搜索数据。您稍后可以进行回填。",
+            clear_chat_success: "已清除 {{count}} 个聊天嵌入。",
+            clear_chat_error: "清除聊天向量失败。有关详细信息，请查看控制台。",
+            clear_all_confirm:
+              "清除所有嵌入？这将删除所有语义搜索数据（聊天、文件、网页）。此操作无法撤销。",
+            clear_all_success: "所有嵌入已清除。",
+            clear_all_error: "清除所有向量失败。有关详细信息，请查看控制台。"
+          },
           chunking_title: "分块设置",
           chunking_description: "配置如何将文本拆分成块以进行嵌入",
           chunk_size_label: "块大小 (tokens)",
@@ -10475,7 +11263,8 @@ export const resources = {
           guides: "指南",
           memory: "记忆",
           shortcuts: "快捷键",
-          providers: "服务商"
+          providers: "服务商",
+          context: "上下文"
         },
         memory: {
           title: "上下文记忆",
@@ -10669,25 +11458,30 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "主题与界面",
               description: "UI 外观偏好设置"
             },
             browser: {
+              title: "浏览器设置",
               description: "标签页访问和 URL 模式"
             },
             tts: {
+              title: "文本转语音",
               description: "文本转语音设置"
             },
             chat_sessions: {
+              title: "聊天记录",
               description: "对话历史记录"
             },
             default: {
               description: "模块设置"
             },
             provider: {
+              title: "服务商设置",
               description: "模型设置和配置"
             },
             feedback: {
-              title: "反馈",
+              title: "用户反馈",
               description: "清除所有学习和检索到的块反馈"
             }
           },
@@ -10791,6 +11585,26 @@ export const resources = {
         linkedin: "领英",
         twitter: "推特",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "文件导入",
+            description: "配置如何处理文件以进行知识检索。"
+          },
+          embedding_health: {
+            title: "检测到混合嵌入维度",
+            description:
+              "嵌入以多个维度 ({{dimensions}}) 存储。在重建所有内容之前，搜索和记忆可能会失败。",
+            note: "重建将清除所有嵌入并重新嵌入聊天记录。需要重新上传文件以恢复知识。",
+            memory_disabled: "记忆已关闭，因此未重建聊天嵌入。",
+            action: "重建嵌入",
+            action_rebuilding: "正在重建...",
+            confirm:
+              "重建嵌入？这将清除所有嵌入并重新嵌入聊天历史记录。需要重新上传文件以恢复知识。",
+            progress: "正在重建聊天嵌入 ({{current}}/{{total}})",
+            success: "嵌入重建成功。",
+            error: "重建嵌入失败。"
+          }
+        },
         bug_report: "报告错误 / 功能"
       },
       knowledge_sets: {
@@ -10820,6 +11634,18 @@ export const resources = {
         min_similarity_description: "该知识集分块的最小相似度阈值。",
         min_rerank_label: "最小重排分数",
         min_rerank_description: "该知识集分块的最小重排置信度。"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "活动",
+          provider_details: "高质量嵌入 • 768-1024 维度 • 结果一致",
+          webgpu_warning_title: "WebGPU 嵌入生成不可用",
+          webgpu_warning_text:
+            "由于 Chrome 扩展程序的內容安全策略 (CSP) 限制。WebGPU 重新排序仍然处于激活状态且功能正常。嵌入是通过回退链生成的，当原生支持不可用时，将使用默认提供方。",
+          performance_title: "性能",
+          performance_default: "默认提供方嵌入生成：每个分块约 500 毫秒",
+          provider_hint: "确保您的本地提供方正在运行（默认：localhost:11434）"
+        }
       }
     }
   }

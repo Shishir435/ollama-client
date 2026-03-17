@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "Reintentar",
-      "refresh": "Actualizar"
+      "refresh": "Actualizar",
+      "close": "Cerrar"
     },
+    "updated_at": "Actualizado",
     "social": {
       "title": "Conecta Conmigo",
       "visit_profile": "Visitar mi perfil de {{platform}}"
@@ -36,7 +38,16 @@
     "save": "Guardar",
     "continue": "Continuar Importación",
     "reload": "Recargar Extensión",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "status": {
+      "active": "Activo"
+    },
+    "labels": {
+      "performance": "Rendimiento"
+    },
+    "nav": {
+      "settings_aria": "Navegación de ajustes"
+    }
   },
   "selection_button": {
     "label": "Preguntar al LLM local",
@@ -135,11 +146,30 @@
       "prompt_tokens": "{{value}} prompt",
       "generated_tokens": "{{value}} generados",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} msgs",
       "tooltip_tokens": "Total de tokens usados en esta sesión",
       "tooltip_time": "Tiempo total de generación de respuestas",
       "tooltip_speed": "Velocidad media de generación",
       "tooltip_messages": "Número de respuestas de IA"
+    },
+    "file": {
+      "loading_content": "Cargando contenido completo..."
+    },
+    "reasoning": {
+      "aria_label": "Razonamiento del modelo",
+      "title": "Proceso de Pensamiento",
+      "thinking": "Pensando…",
+      "done": "Listo",
+      "hide": "Ocultar",
+      "explore": "Explorar",
+      "loading_thinking": "Pensando",
+      "loading_typing": "Escribiendo",
+      "loading_queued": "En cola"
+    },
+    "feedback": {
+      "helpful_tooltip": "Esto fue útil",
+      "not_helpful_tooltip": "Esto no fue útil"
     },
     "search": {
       "button_title": "Buscar historial de chat (búsqueda semántica)",
@@ -313,6 +343,17 @@
       "clear_chat_description": "Elimina todas las incrustaciones de chat. Puedes rellenar (backfill) más tarde para regenerarlas",
       "clear_all_button": "Borrar Todas las Incrustaciones",
       "clear_all_description": "Elimina todas las incrustaciones (chats, archivos, páginas web). Esta acción no se puede deshacer",
+      "database_management": {
+        "remove_duplicates_confirm": "¿Eliminar incrustaciones duplicadas? Esto mantendrá solo la primera ocurrencia de cada mensaje único.",
+        "remove_duplicates_success": "Se eliminaron {{deleted}} duplicados. Se mantuvieron {{kept}} incrustaciones únicas.",
+        "remove_duplicates_error": "Error al eliminar duplicados. Consulte la consola para obtener más detalles.",
+        "clear_chat_confirm": "¿Borrar todas las incrustaciones de chat? Esto eliminará todos los datos de búsqueda semántica de los chats. Puede realizar un llenado posterior más adelante.",
+        "clear_chat_success": "Se borraron {{count}} incrustaciones de chat.",
+        "clear_chat_error": "Error al borrar los vectores de chat. Consulte la consola para obtener más detalles.",
+        "clear_all_confirm": "¿Borrar TODAS las incrustaciones? Esto eliminará todos los datos de búsqueda semántica (chats, archivos, páginas web). Esta acción no se puede deshacer.",
+        "clear_all_success": "Se borraron todas las incrustaciones.",
+        "clear_all_error": "Error al borrar todos los vectores. Consulte la consola para obtener más detalles."
+      },
       "chunking_title": "Ajustes de Fragmentación (Chunking)",
       "chunking_description": "Configura cómo se divide el texto en fragmentos para la incrustación",
       "chunk_size_label": "Tamaño del Fragmento (tokens)",
@@ -358,13 +399,15 @@
       "cache_ttl_description": "Tiempo que se almacenan en caché los resultados de búsqueda (1-60 minutos). Las consultas en caché se devuelven instantáneamente.",
       "cache_max_size_label": "Máx. Consultas en Caché",
       "cache_max_size_description": "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
-      "enhanced_chunking_label": "Enhanced Chunking",
-      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
-      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_enable_label": "Enable RAG",
-      "rag_enable_description": "Use retrieved context to answer questions about your files",
-      "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "enhanced_chunking_label": "Chunking Mejorado",
+      "enhanced_chunking_description": "Usar división de caracteres recursiva avanzada para un mejor contexto",
+      "enhanced_chunking_info": "El chunking mejorado divide el texto de forma jerárquica (párrafos → oraciones → palabras) para preservar el significado semántico. Se recomienda para RAG.",
+      "rag_settings_title": "RAG (Generación Aumentada por Recuperación)",
+      "rag_settings_description": "Configurar cómo se utilizan los archivos para responder preguntas con el contexto recuperado",
+      "rag_enable_label": "Habilitar RAG",
+      "rag_enable_description": "Usar el contexto recuperado para responder preguntas sobre sus archivos",
+      "rag_system_prompt_label": "Prompt de sistema RAG",
+      "rag_system_prompt_description": "Plantilla para el prompt del sistema. Use {context} para el texto recuperado y {question} para la consulta del usuario.",
       "advanced_retrieval_title": "Configuración avanzada de recuperación",
       "adaptive_weights_label": "Pesos Híbridos Adaptativos",
       "adaptive_weights_description": "Ajuste automático de búsqueda por palabras clave frente a semántica según el tipo de consulta (p. ej., código frente a conceptos)",
@@ -737,7 +780,8 @@
       "guides": "Guías",
       "memory": "Memoria",
       "shortcuts": "Atajos",
-      "providers": "Proveedores"
+      "providers": "Proveedores",
+      "context": "Contexto"
     },
     "errorBoundary": {
       "title": "Algo salió mal",
@@ -923,25 +967,30 @@
       },
       "modules": {
         "theme": {
+          "title": "Tema e Interfaz",
           "description": "Preferencias de apariencia de la interfaz de usuario"
         },
         "browser": {
+          "title": "Ajustes del Navegador",
           "description": "Acceso a pestañas y patrones de URL"
         },
         "tts": {
+          "title": "Texto a Voz",
           "description": "Ajustes de texto a voz"
         },
         "chat_sessions": {
+          "title": "Historial de Chat",
           "description": "Historial de conversación"
         },
         "default": {
           "description": "Ajustes del módulo"
         },
         "provider": {
+          "title": "Ajustes del Proveedor",
           "description": "Ajustes y configuraciones del modelo"
         },
         "feedback": {
-          "title": "Comentarios",
+          "title": "Comentarios del Usuario",
           "description": "Borrar todos los comentarios de aprendizaje y fragmentos recuperados"
         }
       },
@@ -1040,6 +1089,24 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "Ingesta de Archivos",
+        "description": "Configurar cómo se procesan los archivos para la recuperación de conocimientos."
+      },
+      "embedding_health": {
+        "title": "Se detectaron dimensiones de incrustación mixtas",
+        "description": "Las incrustaciones se almacenan en múltiples dimensiones ({{dimensions}}). La búsqueda y la memoria pueden fallar hasta que se reconstruya todo.",
+        "note": "Reconstruir borra todas las incrustaciones y vuelve a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+        "memory_disabled": "La memoria está desactivada, por lo que no se reconstruyeron las incrustaciones de chat.",
+        "action": "Reconstruir incrustaciones",
+        "action_rebuilding": "Reconstruyendo...",
+        "confirm": "¿Reconstruir incrustaciones? Esto borrará todas las incrustaciones y volverá a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+        "progress": "Reconstruyendo incrustaciones de chat ({{current}}/{{total}})",
+        "success": "Incrustaciones reconstruidas con éxito.",
+        "error": "Error al reconstruir las incrustaciones."
+      }
+    },
     "bug_report": "Reportar Error / Función"
   },
   "knowledge_sets": {
@@ -1069,5 +1136,16 @@
     "min_similarity_description": "Umbral mínimo de similitud para fragmentos en este conjunto.",
     "min_rerank_label": "Puntuación mínima de rerank",
     "min_rerank_description": "Confianza mínima del reranker para fragmentos en este conjunto."
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "Activo",
+      "provider_details": "Incrustaciones de alta calidad • 768-1024 dimensiones • Resultados consistentes",
+      "webgpu_warning_title": "La generación de incrustaciones WebGPU no está disponible",
+      "webgpu_warning_text": "debido a las restricciones de la Política de seguridad de contenido de la extensión de Chrome. La reclasificación de WebGPU todavía está activa y funcionando. Las incrustaciones se generan a través de la cadena de respaldo del proveedor, utilizando el proveedor predeterminado cuando el soporte nativo no está disponible.",
+      "performance_title": "Rendimiento",
+      "performance_default": "Generación de incrustaciones del proveedor predeterminado: ~500ms por fragmento",
+      "provider_hint": "Asegúrate de que tu proveedor local esté funcionando (predeterminado: localhost:11434)"
+    }
   }
 }

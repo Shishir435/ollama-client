@@ -187,7 +187,7 @@ export function FeedbackSettings() {
             onClick={loadStats}
             disabled={isLoadingStats}>
             <RotateCcw className="h-3.5 w-3.5" />
-            Refresh
+            {t("common.actions.refresh")}
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 text-xs">
@@ -220,7 +220,7 @@ export function FeedbackSettings() {
         </div>
         {lastUpdated && (
           <div className="text-[10px] text-muted-foreground">
-            Updated{" "}
+            {t("common.updated_at")}{" "}
             {new Date(lastUpdated).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit"

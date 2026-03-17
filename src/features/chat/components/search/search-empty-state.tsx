@@ -22,8 +22,7 @@ export const SearchEmptyState = ({
           {t("chat.search.no_results")}
         </h3>
         <p className="text-xs text-muted-foreground max-w-[200px]">
-          {t("chat.search.no_results_description") ||
-            "Try adjusting your keywords or search scope."}
+          {t("chat.search.no_results_description")}
         </p>
       </div>
     )
@@ -39,8 +38,7 @@ export const SearchEmptyState = ({
           {t("chat.search.start_typing")}
         </h3>
         <p className="text-xs text-muted-foreground max-w-[200px]">
-          {t("chat.search.start_typing_description") ||
-            "Search through your chat history using semantic search."}
+          {t("chat.search.start_typing_description")}
         </p>
       </div>
     )

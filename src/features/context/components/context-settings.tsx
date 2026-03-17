@@ -144,7 +144,9 @@ export const ContextSettings = () => {
   const handleRemoveDuplicates = useCallback(async () => {
     if (
       !confirm(
-        "Remove duplicate embeddings? This will keep only the first occurrence of each unique message."
+        t(
+          "model.embedding_config.database_management.remove_duplicates_confirm"
+        )
       )
     ) {
       return
@@ -154,21 +156,29 @@ export const ContextSettings = () => {
     try {
       const { deleted, kept } = await removeDuplicateVectors()
       alert(
-        `Removed ${deleted} duplicate(s). Kept ${kept} unique embedding(s).`
+        t(
+          "model.embedding_config.database_management.remove_duplicates_success",
+          {
+            deleted,
+            kept
+          }
+        )
       )
       await loadStats()
     } catch (error) {
       console.error("Failed to remove duplicates:", error)
-      alert("Failed to remove duplicates. Check console for details.")
+      alert(
+        t("model.embedding_config.database_management.remove_duplicates_error")
+      )
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats])
+  }, [loadStats, t])
 
   const handleClearChatVectors = useCallback(async () => {
     if (
       !confirm(
-        "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later."
+        t("model.embedding_config.database_management.clear_chat_confirm")
       )
     ) {
       return
@@ -177,20 +187,24 @@ export const ContextSettings = () => {
     setIsCleaning(true)
     try {
       const deleted = await clearAllVectors("chat")
-      alert(`Cleared ${deleted} chat embedding(s).`)
+      alert(
+        t("model.embedding_config.database_management.clear_chat_success", {
+          count: deleted
+        })
+      )
       await loadStats()
     } catch (error) {
       console.error("Failed to clear chat vectors:", error)
-      alert("Failed to clear chat vectors. Check console for details.")
+      alert(t("model.embedding_config.database_management.clear_chat_error"))
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats])
+  }, [loadStats, t])
 
   const handleClearAllVectors = useCallback(async () => {
     if (
       !confirm(
-        "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone."
+        t("model.embedding_config.database_management.clear_all_confirm")
       )
     ) {
       return
@@ -199,15 +213,15 @@ export const ContextSettings = () => {
     setIsCleaning(true)
     try {
       await clearAllVectors()
-      alert("All embeddings cleared.")
+      alert(t("model.embedding_config.database_management.clear_all_success"))
       await loadStats()
     } catch (error) {
       console.error("Failed to clear all vectors:", error)
-      alert("Failed to clear all vectors. Check console for details.")
+      alert(t("model.embedding_config.database_management.clear_all_error"))
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats])
+  }, [loadStats, t])
 
   const handleRebuildEmbeddings = useCallback(async () => {
     if (!confirm(t("settings.context.embedding_health.confirm"))) {

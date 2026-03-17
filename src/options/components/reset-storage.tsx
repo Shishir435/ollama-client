@@ -51,17 +51,17 @@ export const ResetStorage = () => {
   const getModuleName = (module: string) => {
     switch (module) {
       case "PROVIDER":
-        return t("settings.reset.modules.provider.title", "Provider Settings")
+        return t("settings.reset.modules.provider.title")
       case "THEME":
-        return t("settings.reset.modules.theme.title", "Theme & UI")
+        return t("settings.reset.modules.theme.title")
       case "BROWSER":
-        return t("settings.reset.modules.browser.title", "Browser Settings")
+        return t("settings.reset.modules.browser.title")
       case "TTS":
-        return t("settings.reset.modules.tts.title", "Text to Speech")
+        return t("settings.reset.modules.tts.title")
       case "CHAT_SESSIONS":
-        return t("settings.reset.modules.chat_sessions.title", "Chat History")
+        return t("settings.reset.modules.chat_sessions.title")
       case "FEEDBACK":
-        return t("settings.reset.modules.feedback.title", "User Feedback")
+        return t("settings.reset.modules.feedback.title")
       default:
         return module.replace("_", " ")
     }

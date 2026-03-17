@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "Retry",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "close": "Close"
     },
+    "updated_at": "Updated",
     "social": {
       "title": "Connect With Me",
       "visit_profile": "Visit my {{platform}} profile"
@@ -36,7 +38,16 @@
     "save": "Save",
     "continue": "Continue Import",
     "reload": "Reload Extension",
-    "close": "Close"
+    "close": "Close",
+    "status": {
+      "active": "Active"
+    },
+    "labels": {
+      "performance": "Performance"
+    },
+    "nav": {
+      "settings_aria": "Settings navigation"
+    }
   },
   "selection_button": {
     "label": "Ask Local LLM",
@@ -136,11 +147,30 @@
       "prompt_tokens": "{{value}} prompt",
       "generated_tokens": "{{value}} generated",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} msgs",
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
       "tooltip_messages": "Number of AI responses"
+    },
+    "file": {
+      "loading_content": "Loading full content..."
+    },
+    "reasoning": {
+      "aria_label": "Model reasoning",
+      "title": "Thought Process",
+      "thinking": "Thinking…",
+      "done": "Done",
+      "hide": "Hide",
+      "explore": "Explore",
+      "loading_thinking": "Thinking",
+      "loading_typing": "Typing",
+      "loading_queued": "Queued"
+    },
+    "feedback": {
+      "helpful_tooltip": "This was helpful",
+      "not_helpful_tooltip": "This was not helpful"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
@@ -314,6 +344,17 @@
       "clear_chat_description": "Delete all chat embeddings. You can backfill later to regenerate them",
       "clear_all_button": "Clear All Embeddings",
       "clear_all_description": "Delete all embeddings (chats, files, webpages). This action cannot be undone",
+      "database_management": {
+        "remove_duplicates_confirm": "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
+        "remove_duplicates_success": "Removed {{deleted}} duplicate(s). Kept {{kept}} unique embedding(s).",
+        "remove_duplicates_error": "Failed to remove duplicates. Check console for details.",
+        "clear_chat_confirm": "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
+        "clear_chat_success": "Cleared {{count}} chat embedding(s).",
+        "clear_chat_error": "Failed to clear chat vectors. Check console for details.",
+        "clear_all_confirm": "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
+        "clear_all_success": "All embeddings cleared.",
+        "clear_all_error": "Failed to clear all vectors. Check console for details."
+      },
       "chunking_title": "Chunking Settings",
       "chunking_description": "Configure how text is split into chunks for embedding",
       "chunk_size_label": "Chunk Size (tokens)",
@@ -978,25 +1019,30 @@
       },
       "modules": {
         "theme": {
+          "title": "Theme & UI",
           "description": "UI appearance preferences"
         },
         "browser": {
+          "title": "Browser Settings",
           "description": "Tab access & URL patterns"
         },
         "tts": {
+          "title": "Text to Speech",
           "description": "Text-to-speech settings"
         },
         "chat_sessions": {
+          "title": "Chat History",
           "description": "Conversation history"
         },
         "default": {
           "description": "Module settings"
         },
         "provider": {
+          "title": "Provider Settings",
           "description": "Model settings & configurations"
         },
         "feedback": {
-          "title": "Feedback",
+          "title": "User Feedback",
           "description": "Clear all learning and retrieved chunk feedback"
         }
       },
@@ -1123,5 +1169,16 @@
     "min_similarity_description": "Minimum similarity threshold for chunks in this knowledge set.",
     "min_rerank_label": "Min rerank score",
     "min_rerank_description": "Minimum reranker confidence for chunks in this knowledge set."
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "Active",
+      "provider_details": "High quality embeddings • 768-1024 dimensions • Consistent results",
+      "webgpu_warning_title": "WebGPU embedding generation is unavailable",
+      "webgpu_warning_text": "due to Chrome Extension Content Security Policy constraints. WebGPU re-ranking is still active and working. Embeddings are generated via the provider fallback chain, using the default provider when native support is unavailable.",
+      "performance_title": "Performance",
+      "performance_default": "Default provider embedding generation: ~500ms per chunk",
+      "provider_hint": "Ensure your local provider is running (default: localhost:11434)"
+    }
   }
 }

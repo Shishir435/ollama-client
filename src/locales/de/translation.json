@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "Wiederholen",
-      "refresh": "Aktualisieren"
+      "refresh": "Aktualisieren",
+      "close": "Schließen"
     },
+    "updated_at": "Aktualisiert",
     "social": {
       "title": "Verbinde Dich mit mir",
       "visit_profile": "Besuche mein {{platform}}-Profil"
@@ -36,7 +38,16 @@
     "save": "Speichern",
     "continue": "Import Fortsetzen",
     "reload": "Erweiterung Neu Laden",
-    "close": "Schließen"
+    "close": "Schließen",
+    "status": {
+      "active": "Aktiv"
+    },
+    "labels": {
+      "performance": "Leistung"
+    },
+    "nav": {
+      "settings_aria": "Einstellungen-Navigation"
+    }
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",
@@ -136,11 +147,30 @@
       "prompt_tokens": "{{value}} Prompt",
       "generated_tokens": "{{value}} generiert",
       "avg_speed": "{{speed}} T/s",
+      "speed_unit": "T/s",
       "messages": "{{value}} Nachrichten",
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten"
+    },
+    "file": {
+      "loading_content": "Vollständiger Inhalt wird geladen..."
+    },
+    "reasoning": {
+      "aria_label": "Modell-Überlegungen",
+      "title": "Denkprozess",
+      "thinking": "Überlegt…",
+      "done": "Fertig",
+      "hide": "Ausblenden",
+      "explore": "Erkunden",
+      "loading_thinking": "Überlegt",
+      "loading_typing": "Tippt",
+      "loading_queued": "Warteschlange"
+    },
+    "feedback": {
+      "helpful_tooltip": "Das war hilfreich",
+      "not_helpful_tooltip": "Das war nicht hilfreich"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -314,6 +344,17 @@
       "clear_chat_description": "Löschen Sie alle Chat-Embeddings. Sie können sie später durch Nachfüllen neu generieren",
       "clear_all_button": "Alle Embeddings löschen",
       "clear_all_description": "Löschen Sie alle Embeddings (Chats, Dateien, Webseiten). Diese Aktion kann nicht rückgängig gemacht werden",
+      "database_management": {
+        "remove_duplicates_confirm": "Doppelte Einbettungen entfernen? Dadurch wird nur das erste Vorkommen jeder eindeutigen Nachricht beibehalten.",
+        "remove_duplicates_success": "{{deleted}} Duplikat(e) entfernt. {{kept}} eindeutige Einbettung(en) behalten.",
+        "remove_duplicates_error": "Duplikate konnten nicht entfernt werden. Details finden Sie in der Konsole.",
+        "clear_chat_confirm": "Alle Chat-Einbettungen löschen? Dadurch werden alle semantischen Suchdaten für Chats gelöscht. Sie können später eine Nachfüllung vornehmen.",
+        "clear_chat_success": "{{count}} Chat-Einbettung(en) gelöscht.",
+        "clear_chat_error": "Chat-Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole.",
+        "clear_all_confirm": "ALLE Einbettungen löschen? Dadurch werden alle semantischen Suchdaten (Chats, Dateien, Webseiten) gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "clear_all_success": "Alle Einbettungen gelöscht.",
+        "clear_all_error": "Alle Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole."
+      },
       "chunking_title": "Chunking-Einstellungen",
       "chunking_description": "Konfigurieren Sie, wie Text zur Einbettung in Chunks aufgeteilt wird",
       "chunk_size_label": "Chunk-Größe (Tokens)",
@@ -359,13 +400,15 @@
       "cache_ttl_description": "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
       "cache_max_size_label": "Max. zwischengespeicherte Abfragen",
       "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
-      "enhanced_chunking_label": "Enhanced Chunking",
-      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
-      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_enable_label": "Enable RAG",
-      "rag_enable_description": "Use retrieved context to answer questions about your files",
-      "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "enhanced_chunking_label": "Erweitertes Chunking",
+      "enhanced_chunking_description": "Verwenden Sie fortgeschrittene rekursive Zeichenteilung für besseren Kontext",
+      "enhanced_chunking_info": "Erweitertes Chunking teilt Text hierarchisch auf (Absätze → Sätze → Wörter), um die semantische Bedeutung zu bewahren. Dies wird für RAG empfohlen.",
+      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_description": "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
+      "rag_enable_label": "RAG aktivieren",
+      "rag_enable_description": "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
+      "rag_system_prompt_label": "RAG-System-Prompt",
+      "rag_system_prompt_description": "Vorlage für den System-Prompt. Verwenden Sie {context} für abgerufenen Text und {question} für die Benutzeranfrage.",
       "advanced_retrieval_title": "Erweiterte Abrufeinstellungen",
       "adaptive_weights_label": "Adaptive Hybrid-Gewichtung",
       "adaptive_weights_description": "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
@@ -738,7 +781,8 @@
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
       "shortcuts": "Tastaturkürzel",
-      "providers": "Anbieter"
+      "providers": "Anbieter",
+      "context": "Kontext"
     },
     "memory": {
       "title": "Kontextuelles Gedächtnis",
@@ -924,25 +968,30 @@
       },
       "modules": {
         "theme": {
+          "title": "Thema & Benutzeroberfläche",
           "description": "UI-Erscheinungspräferenzen"
         },
         "browser": {
+          "title": "Browser-Einstellungen",
           "description": "Tab-Zugriff und URL-Muster"
         },
         "tts": {
+          "title": "Text-zu-Sprache",
           "description": "Text-to-Speech-Einstellungen"
         },
         "chat_sessions": {
+          "title": "Chat-Verlauf",
           "description": "Konversationsverlauf"
         },
         "default": {
           "description": "Moduleinstellungen"
         },
         "provider": {
+          "title": "Provider-Einstellungen",
           "description": "Modelleinstellungen und Konfigurationen"
         },
         "feedback": {
-          "title": "Feedback",
+          "title": "Benutzer-Feedback",
           "description": "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
         }
       },
@@ -1041,6 +1090,24 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "Datei-Ingestion",
+        "description": "Konfigurieren Sie, wie Dateien für den Wissensabruf verarbeitet werden."
+      },
+      "embedding_health": {
+        "title": "Gemischte Embedding-Dimensionen erkannt",
+        "description": "Embeddings sind in mehreren Dimensionen gespeichert ({{dimensions}}). Suche und Gedächtnis können fehlschlagen, bis alles neu aufgebaut ist.",
+        "note": "Neu aufbauen löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+        "memory_disabled": "Gedächtnis ist ausgeschaltet, daher wurden Chat-Embeddings nicht neu aufgebaut.",
+        "action": "Embeddings neu aufbauen",
+        "action_rebuilding": "Baue neu auf...",
+        "confirm": "Embeddings neu aufbauen? Dies löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+        "progress": "Baue Chat-Embeddings neu auf ({{current}}/{{total}})",
+        "success": "Embeddings erfolgreich neu aufgebaut.",
+        "error": "Fehler beim Neuaufbau der Embeddings."
+      }
+    },
     "bug_report": "Fehler / Funktion melden"
   },
   "knowledge_sets": {
@@ -1070,5 +1137,16 @@
     "min_similarity_description": "Minimale Ähnlichkeitsschwelle für Chunks in dieser Wissenssammlung.",
     "min_rerank_label": "Min. Rerank‑Score",
     "min_rerank_description": "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "Aktiv",
+      "provider_details": "Hochwertige Embeddings • 768-1024 Dimensionen • Konsistente Ergebnisse",
+      "webgpu_warning_title": "WebGPU-Embedding-Generierung ist nicht verfügbar",
+      "webgpu_warning_text": "aufgrund von Chrome Extension Content Security Policy Einschränkungen. WebGPU Re-Ranking ist weiterhin aktiv und funktioniert. Embeddings werden über die Provider-Fallback-Kette generiert, wobei der Standard-Provider verwendet wird, wenn keine native Unterstützung verfügbar ist.",
+      "performance_title": "Leistung",
+      "performance_default": "Standard-Provider-Embedding-Generierung: ~500ms pro Chunk",
+      "provider_hint": "Stellen Sie sicher, dass Ihr lokaler Provider läuft (Standard: localhost:11434)"
+    }
   }
 }
