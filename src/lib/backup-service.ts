@@ -25,6 +25,7 @@ export const backupService = {
     const zip = new JSZip()
 
     // Manifest
+    console.log("[Backup] Exporting manifest...")
     const manifest = {
       version: MANIFEST_VERSION,
       timestamp: new Date().toISOString(),
@@ -33,32 +34,47 @@ export const backupService = {
     zip.file("manifest.json", JSON.stringify(manifest, null, 2))
 
     // Sync Storage
+    console.log("[Backup] Exporting sync storage...")
     const syncData = await chrome.storage.sync.get(null)
     zip.file("sync-storage.json", JSON.stringify(syncData, null, 2))
 
     // Local Storage
+    console.log("[Backup] Exporting local storage...")
     const localData = await chrome.storage.local.get(null)
     zip.file("local-storage.json", JSON.stringify(localData, null, 2))
 
     // SQLite Database
-    const dbBytes = await exportDatabaseBytes()
-    zip.file("database.sqlite", dbBytes)
+    try {
+      console.log("[Backup] Exporting SQLite database...")
+      const dbBytes = await exportDatabaseBytes()
+      zip.file("database.sqlite", dbBytes)
+      console.log("[Backup] SQLite database exported.")
+    } catch (e) {
+      console.error("[Backup] SQLite export failed:", e)
+      throw e // Re-throw to see the full stack in the UI
+    }
 
     // Dexie Databases
-    try {
-      // Chat DB
-      const chatDbBlob = await exportDB(chatDb)
-      zip.file("chat-db.json", chatDbBlob)
+    const dexieDbs = [
+      { name: "Chat DB", db: chatDb, file: "chat-db.json" },
+      { name: "Vector DB", db: vectorDb, file: "vector-db.json" },
+      { name: "Knowledge DB", db: knowledgeDb, file: "knowledge-db.json" }
+    ]
 
-      // Vector DB
-      const vectorDbBlob = await exportDB(vectorDb)
-      zip.file("vector-db.json", vectorDbBlob)
-
-      // Knowledge DB
-      const knowledgeDbBlob = await exportDB(knowledgeDb)
-      zip.file("knowledge-db.json", knowledgeDbBlob)
-    } catch (e) {
-      logger.error("Failed to export Dexie databases", "Backup", { error: e })
+    for (const item of dexieDbs) {
+      try {
+        console.log(`[Backup] Exporting ${item.name}...`)
+        const blob = await exportDB(item.db)
+        zip.file(item.file, blob)
+        console.log(`[Backup] ${item.name} exported.`)
+      } catch (e) {
+        console.error(`[Backup] ${item.name} export failed:`, e)
+        // We log but don't throw, allowing partial backups
+        zip.file(
+          `${item.file}.error.txt`,
+          `Failed to export ${item.name}: ${e instanceof Error ? e.message : String(e)}`
+        )
+      }
     }
 
     // Generate blob

@@ -1,3 +1,5 @@
+import type { SqlJsStatic } from "sql.js"
+import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { SCHEMA_SQL } from "./schema"
@@ -74,11 +76,16 @@ export const initSQLite = async (): Promise<Database> => {
     try {
       logger.info("Initializing SQLite (sql.js)...", "SQLite")
 
-      // Initialize sql.js with locally bundled WASM
-      const initSqlJs = (await import("sql.js")).default
-      const SQL = await initSqlJs({
-        // Load WASM from assets folder (bundled with extension)
-        locateFile: (file) => chrome.runtime.getURL(`assets/${file}`)
+      const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
+      const response = await fetch(wasmUrl)
+      const wasmBinary = await response.arrayBuffer()
+
+      const SQL = await (
+        initSqlJs as unknown as (config: {
+          wasmBinary: Uint8Array
+        }) => Promise<SqlJsStatic>
+      )({
+        wasmBinary: new Uint8Array(wasmBinary)
       })
 
       // Try to load existing database from IndexedDB

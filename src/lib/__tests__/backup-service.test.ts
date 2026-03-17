@@ -68,11 +68,22 @@ describe("backupService", () => {
   })
 
   describe("exportAll", () => {
-    it("should export all components into a zip", async () => {
-      await backupService.exportAll()
+    it("should export all components into a zip with correct manifest", async () => {
+      const result = await backupService.exportAll()
 
+      expect(result).toBeInstanceOf(Blob)
       const zipInstance = vi.mocked(JSZip).mock.instances[0]
       const fileMock = zipInstance.file as any
+
+      // Check manifest content
+      const manifestCall = fileMock.mock.calls.find(
+        (c: any) => c[0] === "manifest.json"
+      )
+      expect(manifestCall).toBeDefined()
+      const manifest = JSON.parse(manifestCall[1])
+      expect(manifest.version).toBe(1)
+      expect(manifest.appVersion).toBe("1.0.0")
+      expect(manifest.timestamp).toBeDefined()
 
       const calledFiles = fileMock.mock.calls.map((c: any) => c[0])
       expect(calledFiles).toContain("manifest.json")
@@ -82,6 +93,14 @@ describe("backupService", () => {
       expect(calledFiles).toContain("chat-db.json")
       expect(calledFiles).toContain("vector-db.json")
       expect(calledFiles).toContain("knowledge-db.json")
+    })
+
+    it("should still succeed if Dexie export fails (with empty blobs)", async () => {
+      const { exportDB } = await import("dexie-export-import")
+      vi.mocked(exportDB).mockRejectedValueOnce(new Error("Dexie error"))
+
+      const result = await backupService.exportAll()
+      expect(result).toBeInstanceOf(Blob)
     })
   })
 
@@ -94,6 +113,27 @@ describe("backupService", () => {
       await expect(
         backupService.importAll(new File([], "test.zip"))
       ).rejects.toThrow("Missing manifest.json in backup file")
+    })
+
+    it("should fail if manifest version is unsupported", async () => {
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json") {
+            return {
+              async: vi
+                .fn()
+                .mockResolvedValue(
+                  JSON.stringify({ version: 99, appVersion: "1.0.0" })
+                )
+            }
+          }
+          return null
+        })
+      } as any)
+
+      await expect(
+        backupService.importAll(new File([], "test.zip"))
+      ).rejects.toThrow("Unsupported backup version: 99")
     })
 
     it("should import all components successfully", async () => {
@@ -139,6 +179,29 @@ describe("backupService", () => {
       })
       expect(importDatabaseBytes).toHaveBeenCalled()
       expect(importInto).toHaveBeenCalledTimes(3)
+    })
+
+    it("should report failures for individual components", async () => {
+      vi.mocked(importDatabaseBytes).mockRejectedValueOnce(
+        new Error("SQL Error")
+      )
+
+      const zipInstance = {
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return {
+              async: vi.fn().mockResolvedValue(JSON.stringify(mockManifest))
+            }
+          if (name === "database.sqlite")
+            return { async: vi.fn().mockResolvedValue(new Uint8Array([1])) }
+          return null
+        })
+      }
+      vi.mocked(JSZip.loadAsync).mockResolvedValue(zipInstance as any)
+
+      const result = await backupService.importAll(new File([], "test.zip"))
+      expect(result.database.ok).toBe(false)
+      expect(result.database.error).toBe("SQL Error")
     })
   })
 })

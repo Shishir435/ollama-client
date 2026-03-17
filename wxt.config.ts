@@ -43,7 +43,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm"],
+        resources: ["assets/*.wasm", "chunks/*.js"],
         matches: ["<all_urls>"]
       }
     ],
