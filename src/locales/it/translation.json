@@ -1049,7 +1049,20 @@
       },
       "import_result": {
         "title": "Risultati dell'Importazione",
-        "description": "Rivedi lo stato della tua importazione di dati di seguito:"
+        "description": "Rivedi lo stato della tua importazione di dati di seguito:",
+        "labels": {
+          "sync": "Preferenze (Sync)",
+          "local": "Archiviazione Locale",
+          "database": "Database (SQLite)",
+          "chatDb": "Cronologia chat (Dexie)",
+          "vectorDb": "Incorporamenti vettoriali (Dexie)",
+          "knowledgeDb": "Set di conoscenze (Dexie)"
+        },
+        "status": {
+          "success": "Successo",
+          "failed": "Fallito",
+          "aborted": "Annullato"
+        }
       }
     }
   },

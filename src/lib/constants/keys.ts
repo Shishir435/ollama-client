@@ -45,6 +45,9 @@ export const MESSAGE_KEYS = {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat"
+  },
+  APP: {
+    RELOAD: "app-reload"
   }
 }
 

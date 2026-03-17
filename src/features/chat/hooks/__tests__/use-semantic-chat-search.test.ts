@@ -210,7 +210,8 @@ describe("useSemanticChatSearch", () => {
             sessionId: "session-1",
             timestamp: Date.now(),
             title: "Assistant response",
-            type: "chat"
+            type: "chat",
+            role: "assistant"
           }
         },
         similarity: 0.9

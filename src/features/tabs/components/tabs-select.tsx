@@ -70,10 +70,10 @@ export const TabsSelect = () => {
   }
 
   const tabOptions = openTabs
-    .filter((tab) => isAccessibleTab(tab.url))
+    .filter((tab) => tab.id !== undefined && isAccessibleTab(tab.url))
     .map((tab) => ({
       label: trimTitle(tab.title),
-      value: tab.id?.toString() || tab.title
+      value: String(tab.id)
     }))
 
   return (

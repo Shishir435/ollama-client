@@ -69,10 +69,17 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   )
 
   // Persist model→provider mappings so the background script can route correctly.
+  // On collision (same model name from multiple providers), the first one wins.
   const mappings: Record<string, string> = {}
   allModels.forEach((m) => {
     if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
-      mappings[m.name] = m.providerId
+      if (mappings[m.name]) {
+        console.warn(
+          `[useProviderModels] Model name collision: "${m.name}" is served by both "${mappings[m.name]}" and "${m.providerId}". Keeping first mapping.`
+        )
+      } else {
+        mappings[m.name] = m.providerId
+      }
     }
   })
   if (Object.keys(mappings).length > 0) {

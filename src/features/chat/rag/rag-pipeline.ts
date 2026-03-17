@@ -474,11 +474,9 @@ export function formatEnhancedResults(
 
     if (maxTokens && currentTokens + tokens > maxTokens) {
       if (includedResults.length === 0) {
-        // Always include at least one result if possible, or truncate it?
-        // For now, if even the first one is too big, we might skip or let it pass
-        // (but usually chunks are small enough).
-        // Let's include it but warn/truncate if we were doing fancy truncation.
-        // Here we just stop adding more.
+        // Always include at least one result even if it exceeds the budget.
+        // A single over-budget chunk is better than returning zero context.
+        includedResults.push(result)
       }
       break
     }

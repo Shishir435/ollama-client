@@ -1048,7 +1048,20 @@
       },
       "import_result": {
         "title": "インポート結果",
-        "description": "以下のデータインポートのステータスを確認してください:"
+        "description": "以下のデータインポートのステータスを確認してください:",
+        "labels": {
+          "sync": "環境設定 (Sync)",
+          "local": "ローカルストレージ",
+          "database": "データベース (SQLite)",
+          "chatDb": "チャット履歴 (Dexie)",
+          "vectorDb": "ベクトル埋め込み (Dexie)",
+          "knowledgeDb": "ナレッジセット (Dexie)"
+        },
+        "status": {
+          "success": "成功",
+          "failed": "失敗",
+          "aborted": "中止"
+        }
       }
     }
   },

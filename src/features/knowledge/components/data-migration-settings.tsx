@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { browser } from "wxt/browser"
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import {
   AlertDialog,
@@ -13,7 +14,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
+import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import {
   CheckCircle,
   Download,
@@ -25,6 +28,7 @@ import {
 
 export const DataMigrationSettings = () => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
 
@@ -49,7 +53,14 @@ export const DataMigrationSettings = () => {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error"
+      toast({
+        title: t("settings.migration.export.error_title"),
+        description: errorMessage,
+        variant: "destructive"
+      })
       console.error("Export failed:", error)
     } finally {
       setIsExporting(false)
@@ -77,19 +88,34 @@ export const DataMigrationSettings = () => {
       const result = await backupService.importAll(selectedFile)
       setImportResult(result)
       setResultDialogOpen(true)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Import failed:", error)
       setImportResult({
         syncStorage: {
           ok: false,
           error: error instanceof Error ? error.message : "Unknown error"
         },
-        localStorage: { ok: false, error: "Aborted" },
-        database: { ok: false, error: "Aborted" },
+        localStorage: {
+          ok: false,
+          error: t("settings.migration.import_result.status.aborted")
+        },
+        database: {
+          ok: false,
+          error: t("settings.migration.import_result.status.aborted")
+        },
         dexie: {
-          chatDb: { ok: false, error: "Aborted" },
-          vectorDb: { ok: false, error: "Aborted" },
-          knowledgeDb: { ok: false, error: "Aborted" }
+          chatDb: {
+            ok: false,
+            error: t("settings.migration.import_result.status.aborted")
+          },
+          vectorDb: {
+            ok: false,
+            error: t("settings.migration.import_result.status.aborted")
+          },
+          knowledgeDb: {
+            ok: false,
+            error: t("settings.migration.import_result.status.aborted")
+          }
         }
       })
       setResultDialogOpen(true)
@@ -109,6 +135,9 @@ export const DataMigrationSettings = () => {
       importResult?.dexie.vectorDb.ok &&
       importResult?.dexie.knowledgeDb.ok
     ) {
+      browser.runtime
+        .sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
+        .catch(() => {})
       window.location.reload()
     }
   }
@@ -203,21 +232,29 @@ export const DataMigrationSettings = () => {
             {importResult &&
               [
                 {
-                  label: "Preferences (Sync)",
+                  label: t("settings.migration.import_result.labels.sync"),
                   result: importResult.syncStorage
                 },
-                { label: "Local Storage", result: importResult.localStorage },
-                { label: "Database (SQLite)", result: importResult.database },
                 {
-                  label: "Chat History (Dexie)",
+                  label: t("settings.migration.import_result.labels.local"),
+                  result: importResult.localStorage
+                },
+                {
+                  label: t("settings.migration.import_result.labels.database"),
+                  result: importResult.database
+                },
+                {
+                  label: t("settings.migration.import_result.labels.chatDb"),
                   result: importResult.dexie.chatDb
                 },
                 {
-                  label: "Vector Embeddings (Dexie)",
+                  label: t("settings.migration.import_result.labels.vectorDb"),
                   result: importResult.dexie.vectorDb
                 },
                 {
-                  label: "Knowledge Sets (Dexie)",
+                  label: t(
+                    "settings.migration.import_result.labels.knowledgeDb"
+                  ),
                   result: importResult.dexie.knowledgeDb
                 }
               ].map((item) => (
@@ -234,7 +271,9 @@ export const DataMigrationSettings = () => {
                       ) : (
                         <XCircle className="h-3 w-3" />
                       )}
-                      {item.result.ok ? "Success" : "Failed"}
+                      {item.result.ok
+                        ? t("settings.migration.import_result.status.success")
+                        : t("settings.migration.import_result.status.failed")}
                     </Badge>
                   </div>
                   {!item.result.ok && item.result.error && (

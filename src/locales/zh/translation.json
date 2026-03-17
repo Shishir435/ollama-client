@@ -1048,7 +1048,20 @@
       },
       "import_result": {
         "title": "导入结果",
-        "description": "查看下面您的数据导入状态："
+        "description": "查看下面您的数据导入状态：",
+        "labels": {
+          "sync": "偏好设置 (Sync)",
+          "local": "本地存储",
+          "database": "数据库 (SQLite)",
+          "chatDb": "聊天记录 (Dexie)",
+          "vectorDb": "向量嵌入 (Dexie)",
+          "knowledgeDb": "知识库 (Dexie)"
+        },
+        "status": {
+          "success": "成功",
+          "failed": "失败",
+          "aborted": "已中止"
+        }
       }
     }
   },

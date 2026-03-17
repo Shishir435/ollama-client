@@ -1094,7 +1094,24 @@
       },
       "import_result": {
         "title": "Import Results",
-        "description": "Review the status of your data import below:"
+        "description": "Review the status of your data import below:",
+        "sync": "Settings",
+        "vector": "Knowledge Base (Vectors)",
+        "sqlite": "Chat History & Data",
+        "errors": "Errors encountered ({{count}})",
+        "labels": {
+          "sync": "Preferences (Sync)",
+          "local": "Local Storage",
+          "database": "Database (SQLite)",
+          "chatDb": "Chat History (Dexie)",
+          "vectorDb": "Vector Embeddings (Dexie)",
+          "knowledgeDb": "Knowledge Sets (Dexie)"
+        },
+        "status": {
+          "success": "Success",
+          "failed": "Failed",
+          "aborted": "Aborted"
+        }
       }
     }
   },

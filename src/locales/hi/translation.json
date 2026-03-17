@@ -1059,7 +1059,20 @@
       },
       "import_result": {
         "title": "आयात परिणाम",
-        "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:"
+        "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+        "labels": {
+          "sync": "प्राथमिकताएँ (Sync)",
+          "local": "स्थानीय संग्रहण",
+          "database": "डेटाबेस (SQLite)",
+          "chatDb": "चैट इतिहास (Dexie)",
+          "vectorDb": "वेक्टर एम्बेडिंग (Dexie)",
+          "knowledgeDb": "ज्ञान सेट (Dexie)"
+        },
+        "status": {
+          "success": "सफल",
+          "failed": "विफल",
+          "aborted": "निरस्त"
+        }
       }
     }
   },

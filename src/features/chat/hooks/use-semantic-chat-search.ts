@@ -89,9 +89,10 @@ export const useSemanticChatSearch = () => {
           result,
           sessionId: result.document.metadata.sessionId || "",
           messageContent: result.document.content,
-          role: result.document.metadata.title?.includes("User")
-            ? "user"
-            : "assistant",
+          role:
+            result.document.metadata.role === "assistant"
+              ? "assistant"
+              : "user",
           timestamp: result.document.metadata.timestamp,
           messageId: result.document.metadata.messageId
         }))

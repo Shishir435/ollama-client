@@ -1,22 +1,117 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect } from "react"
+import { create } from "zustand"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-
 import type { ChromeResponse } from "@/types"
+
+interface TabFetchingState {
+  tabContents: Record<number, { title: string; html: string }>
+  loadingIds: Record<number, boolean>
+  fetchedIds: number[]
+  fetchTabContent: (
+    tabId: number,
+    fallbackTitle: string,
+    setErrors: (
+      updater: (prev: Record<number, string>) => Record<number, string>
+    ) => void
+  ) => Promise<void>
+  cleanupRemovedTabs: (
+    currentTabIds: number[],
+    setErrors: (
+      updater: (prev: Record<number, string>) => Record<number, string>
+    ) => void
+  ) => void
+}
+
+const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
+  tabContents: {},
+  loadingIds: {},
+  fetchedIds: [],
+
+  fetchTabContent: async (tabId, fallbackTitle, setErrors) => {
+    const state = get()
+    // Deduplicate: if already fetched or in-flight across ANY hook instance, abort.
+    if (state.fetchedIds.includes(tabId) || state.loadingIds[tabId]) {
+      return
+    }
+
+    set((s) => ({
+      fetchedIds: [...s.fetchedIds, tabId],
+      loadingIds: { ...s.loadingIds, [tabId]: true }
+    }))
+
+    try {
+      const response = (await browser.tabs.sendMessage(tabId, {
+        type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
+      })) as ChromeResponse & { html?: string; title?: string }
+
+      const html = response?.html || ""
+      const title = response?.title || fallbackTitle || "Untitled"
+
+      set((s) => ({
+        tabContents: { ...s.tabContents, [tabId]: { html, title } },
+        loadingIds: { ...s.loadingIds, [tabId]: false }
+      }))
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
+      set((s) => {
+        const newLoading = { ...s.loadingIds }
+        delete newLoading[tabId]
+        return {
+          loadingIds: newLoading,
+          fetchedIds: s.fetchedIds.filter((id) => id !== tabId)
+        }
+      })
+    }
+  },
+
+  cleanupRemovedTabs: (currentTabIds, setErrors) => {
+    set((s) => {
+      const nextContents = { ...s.tabContents }
+      let contentsChanged = false
+      for (const idStr in nextContents) {
+        const id = parseInt(idStr, 10)
+        if (!currentTabIds.includes(id)) {
+          delete nextContents[id]
+          contentsChanged = true
+        }
+      }
+
+      const nextFetched = s.fetchedIds.filter((id) =>
+        currentTabIds.includes(id)
+      )
+      const fetchedChanged = nextFetched.length !== s.fetchedIds.length
+
+      return contentsChanged || fetchedChanged
+        ? { tabContents: nextContents, fetchedIds: nextFetched }
+        : s
+    })
+
+    setErrors((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const idStr in next) {
+        const id = parseInt(idStr, 10)
+        if (!currentTabIds.includes(id)) {
+          delete next[id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }
+}))
 
 export const useTabContents = () => {
   const { selectedTabIds, errors, setErrors } = useSelectedTabs()
-  const [tabContents, setTabContents] = useState<
-    Record<number, { title: string; html: string }>
-  >({})
-  const [loadingIds, setLoadingIds] = useState<Record<number, boolean>>({})
-  // Tracks IDs that have already been fetched (or are in-flight) to prevent
-  // the fetch effect from re-triggering when tabContents/loadingIds update.
-  const fetchedIdsRef = useRef<Set<number>>(new Set())
+  const { tabContents, loadingIds, fetchTabContent, cleanupRemovedTabs } =
+    useTabFetchingStore()
+
   const [tabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
@@ -35,113 +130,19 @@ export const useTabContents = () => {
     [openTabs]
   )
 
-  const fetchTabContent = useCallback(
-    async (tabId: number): Promise<{ html: string; title: string }> => {
-      const response = (await browser.tabs.sendMessage(tabId, {
-        type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
-      })) as ChromeResponse & { html?: string; title?: string }
-
-      const html = response?.html || ""
-      const title = response?.title || getTabTitle(tabId) || "Untitled"
-
-      return { html, title }
-    },
-    [getTabTitle]
-  )
+  useEffect(() => {
+    const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
+    cleanupRemovedTabs(currentTabIds, setErrors)
+  }, [selectedTabIds, setErrors, cleanupRemovedTabs])
 
   useEffect(() => {
     const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
-
-    // 1. Cleanup removed tabs from contents, errors, and the fetched-IDs ref
-    setTabContents((prev) => {
-      const next = { ...prev }
-      let changed = false
-      for (const idStr in next) {
-        const id = parseInt(idStr, 10)
-        if (!currentTabIds.includes(id)) {
-          delete next[id]
-          changed = true
-        }
-      }
-      return changed ? next : prev
+    currentTabIds.forEach((tabId) => {
+      // fetchTabContent internally checks get() to avoid duplicates
+      // even if multiple useTabContents hooks mount simultaneously.
+      fetchTabContent(tabId, getTabTitle(tabId), setErrors)
     })
-
-    setErrors((prev) => {
-      const next = { ...prev }
-      let changed = false
-      for (const idStr in next) {
-        const id = parseInt(idStr, 10)
-        if (!currentTabIds.includes(id)) {
-          delete next[id]
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-
-    // Remove de-selected tab IDs from the ref so they can be re-fetched if re-added
-    fetchedIdsRef.current.forEach((id) => {
-      if (!currentTabIds.includes(id)) {
-        fetchedIdsRef.current.delete(id)
-      }
-    })
-  }, [selectedTabIds, setErrors])
-
-  // Separate effect for fetching new content to keep cleanup independent.
-  // Uses fetchedIdsRef (a ref, not state) to track in-flight/completed fetches so
-  // this effect does NOT need tabContents or loadingIds as dependencies — avoiding
-  // the infinite re-render loop that those state deps would cause (BUG-01).
-  useEffect(() => {
-    const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
-    const newTabIds = currentTabIds.filter(
-      (id) => !fetchedIdsRef.current.has(id)
-    )
-
-    if (newTabIds.length === 0) return
-
-    // Mark all new IDs as in-flight BEFORE any async work to prevent duplicate fetches
-    for (const id of newTabIds) {
-      fetchedIdsRef.current.add(id)
-    }
-
-    const fetchNewTabs = async () => {
-      setLoadingIds((prev) => {
-        const next = { ...prev }
-        for (const id of newTabIds) {
-          next[id] = true
-        }
-        return next
-      })
-
-      for (const tabId of newTabIds) {
-        try {
-          const content = await fetchTabContent(tabId)
-          setTabContents((prev) => ({ ...prev, [tabId]: content }))
-          setErrors((prev) => {
-            if (prev[tabId]) {
-              const next = { ...prev }
-              delete next[tabId]
-              return next
-            }
-            return prev
-          })
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
-          // On error, remove from ref so the tab can be retried if re-selected
-          fetchedIdsRef.current.delete(tabId)
-        } finally {
-          setLoadingIds((prev) => {
-            const next = { ...prev }
-            delete next[tabId]
-            return next
-          })
-        }
-      }
-    }
-
-    fetchNewTabs()
-  }, [selectedTabIds, fetchTabContent, setErrors])
+  }, [selectedTabIds, getTabTitle, fetchTabContent, setErrors])
 
   return { tabContents, loadingIds, errors }
 }

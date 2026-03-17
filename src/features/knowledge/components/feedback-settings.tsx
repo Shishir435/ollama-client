@@ -136,6 +136,7 @@ export function FeedbackSettings() {
         uniqueChunks: 0,
         uniqueQueries: 0
       })
+      setLastUpdated(null)
       logger.info("Cleared all feedback", "FeedbackSettings")
       toast({
         title: t("model.embedding_config.feedback_clear_success")

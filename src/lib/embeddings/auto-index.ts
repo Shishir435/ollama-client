@@ -42,8 +42,14 @@ export async function buildKeywordIndexFromExisting(
     return
   }
 
-  // Build index in batches
-  await keywordIndexManager.buildFromDocuments(allVectors, onProgress)
+  // Build keyword index for basic full-text search
+  const isBuilt = await plasmoGlobalStorage.get<boolean>(
+    STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT
+  )
+
+  if (!isBuilt) {
+    await keywordIndexManager.buildFromDocuments(allVectors, onProgress)
+  }
 
   // Mark as built
   await plasmoGlobalStorage.set(

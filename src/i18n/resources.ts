@@ -1189,7 +1189,20 @@ export const resources = {
           },
           import_result: {
             title: "Import-Ergebnisse",
-            description: "Überprüfen Sie den Status Ihres Datenimports unten:"
+            description: "Überprüfen Sie den Status Ihres Datenimports unten:",
+            labels: {
+              sync: "Einstellungen (Sync)",
+              local: "Lokaler Speicher",
+              database: "Datenbank (SQLite)",
+              chatDb: "Chat-Verlauf (Dexie)",
+              vectorDb: "Vektor-Embeddings (Dexie)",
+              knowledgeDb: "Wissensdatenbanken (Dexie)"
+            },
+            status: {
+              success: "Erfolg",
+              failed: "Fehlgeschlagen",
+              aborted: "Abgebrochen"
+            }
           }
         }
       },
@@ -2532,7 +2545,24 @@ export const resources = {
           },
           import_result: {
             title: "Import Results",
-            description: "Review the status of your data import below:"
+            description: "Review the status of your data import below:",
+            sync: "Settings",
+            vector: "Knowledge Base (Vectors)",
+            sqlite: "Chat History & Data",
+            errors: "Errors encountered ({{count}})",
+            labels: {
+              sync: "Preferences (Sync)",
+              local: "Local Storage",
+              database: "Database (SQLite)",
+              chatDb: "Chat History (Dexie)",
+              vectorDb: "Vector Embeddings (Dexie)",
+              knowledgeDb: "Knowledge Sets (Dexie)"
+            },
+            status: {
+              success: "Success",
+              failed: "Failed",
+              aborted: "Aborted"
+            }
           }
         }
       },
@@ -3822,7 +3852,20 @@ export const resources = {
           import_result: {
             title: "Resultados de la Importación",
             description:
-              "Revise el estado de su importación de datos a continuación:"
+              "Revise el estado de su importación de datos a continuación:",
+            labels: {
+              sync: "Preferencias (Sync)",
+              local: "Almacenamiento Local",
+              database: "Base de datos (SQLite)",
+              chatDb: "Historial de chat (Dexie)",
+              vectorDb: "Incrustaciones vectoriales (Dexie)",
+              knowledgeDb: "Bases de conocimiento (Dexie)"
+            },
+            status: {
+              success: "Éxito",
+              failed: "Fallido",
+              aborted: "Abortado"
+            }
           }
         }
       },
@@ -5140,7 +5183,20 @@ export const resources = {
           import_result: {
             title: "Résultats de l'Importation",
             description:
-              "Passez en revue l'état de votre importation de données ci-dessous :"
+              "Passez en revue l'état de votre importation de données ci-dessous :",
+            labels: {
+              sync: "Préférences (Sync)",
+              local: "Stockage Local",
+              database: "Base de données (SQLite)",
+              chatDb: "Historique des chats (Dexie)",
+              vectorDb: "Intégrations vectorielles (Dexie)",
+              knowledgeDb: "Bases de connaissances (Dexie)"
+            },
+            status: {
+              success: "Succès",
+              failed: "Échoué",
+              aborted: "Avorté"
+            }
           }
         }
       },
@@ -6431,7 +6487,20 @@ export const resources = {
           },
           import_result: {
             title: "आयात परिणाम",
-            description: "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:"
+            description: "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+            labels: {
+              sync: "प्राथमिकताएँ (Sync)",
+              local: "स्थानीय संग्रहण",
+              database: "डेटाबेस (SQLite)",
+              chatDb: "चैट इतिहास (Dexie)",
+              vectorDb: "वेक्टर एम्बेडिंग (Dexie)",
+              knowledgeDb: "ज्ञान सेट (Dexie)"
+            },
+            status: {
+              success: "सफल",
+              failed: "विफल",
+              aborted: "निरस्त"
+            }
           }
         }
       },
@@ -7737,7 +7806,20 @@ export const resources = {
           import_result: {
             title: "Risultati dell'Importazione",
             description:
-              "Rivedi lo stato della tua importazione di dati di seguito:"
+              "Rivedi lo stato della tua importazione di dati di seguito:",
+            labels: {
+              sync: "Preferenze (Sync)",
+              local: "Archiviazione Locale",
+              database: "Database (SQLite)",
+              chatDb: "Cronologia chat (Dexie)",
+              vectorDb: "Incorporamenti vettoriali (Dexie)",
+              knowledgeDb: "Set di conoscenze (Dexie)"
+            },
+            status: {
+              success: "Successo",
+              failed: "Fallito",
+              aborted: "Annullato"
+            }
           }
         }
       },
@@ -9031,7 +9113,21 @@ export const resources = {
           },
           import_result: {
             title: "インポート結果",
-            description: "以下のデータインポートのステータスを確認してください:"
+            description:
+              "以下のデータインポートのステータスを確認してください:",
+            labels: {
+              sync: "環境設定 (Sync)",
+              local: "ローカルストレージ",
+              database: "データベース (SQLite)",
+              chatDb: "チャット履歴 (Dexie)",
+              vectorDb: "ベクトル埋め込み (Dexie)",
+              knowledgeDb: "ナレッジセット (Dexie)"
+            },
+            status: {
+              success: "成功",
+              failed: "失敗",
+              aborted: "中止"
+            }
           }
         }
       },
@@ -10323,7 +10419,20 @@ export const resources = {
           },
           import_result: {
             title: "Результаты импорта",
-            description: "Ознакомьтесь со статусом импорта данных ниже:"
+            description: "Ознакомьтесь со статусом импорта данных ниже:",
+            labels: {
+              sync: "Настройки (Sync)",
+              local: "Локальное хранилище",
+              database: "База данных (SQLite)",
+              chatDb: "История чата (Dexie)",
+              vectorDb: "Векторные вложения (Dexie)",
+              knowledgeDb: "Базы знаний (Dexie)"
+            },
+            status: {
+              success: "Успех",
+              failed: "Провалено",
+              aborted: "Прервано"
+            }
           }
         }
       },
@@ -11544,7 +11653,20 @@ export const resources = {
           },
           import_result: {
             title: "导入结果",
-            description: "查看下面您的数据导入状态："
+            description: "查看下面您的数据导入状态：",
+            labels: {
+              sync: "偏好设置 (Sync)",
+              local: "本地存储",
+              database: "数据库 (SQLite)",
+              chatDb: "聊天记录 (Dexie)",
+              vectorDb: "向量嵌入 (Dexie)",
+              knowledgeDb: "知识库 (Dexie)"
+            },
+            status: {
+              success: "成功",
+              failed: "失败",
+              aborted: "已中止"
+            }
           }
         }
       },
