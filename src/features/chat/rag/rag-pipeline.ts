@@ -65,10 +65,50 @@ export async function retrieveContextEnhanced(
     minRerankScore
   } = options
 
-  // Full mode: return all documents (no re-ranking needed)
+  // Full mode: return all documents above minSimilarity without re-ranking or MMR.
+  // Useful for bulk retrieval (e.g., knowledge-base export, diagnostics).
   if (mode === "full") {
-    logger.info("Full mode selected, skipping re-ranking", "RAGPipeline")
-    return []
+    logger.info(
+      "Full mode selected, skipping re-ranking and MMR",
+      "RAGPipeline"
+    )
+
+    const fullEmbeddingResult = await generateEmbedding(query)
+    if ("error" in fullEmbeddingResult) {
+      logger.error(
+        "Failed to generate query embedding (full mode)",
+        "RAGPipeline",
+        {
+          error: fullEmbeddingResult.error
+        }
+      )
+      return []
+    }
+
+    const fullResults = await searchHybrid(
+      query,
+      fullEmbeddingResult.embedding,
+      {
+        limit: topK,
+        keywordWeight: 0.6,
+        semanticWeight: 0.4,
+        fileId,
+        sessionId,
+        type: type ?? "file",
+        minSimilarity
+      }
+    )
+
+    logger.info(
+      `Full mode complete: ${fullResults.length} results (no re-ranking)`,
+      "RAGPipeline"
+    )
+
+    return fullResults.map((c) => ({
+      document: c.document,
+      score: c.similarity,
+      originalSimilarity: c.similarity
+    }))
   }
 
   // Generate query embedding

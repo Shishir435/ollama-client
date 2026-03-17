@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
@@ -14,6 +14,9 @@ export const useTabContents = () => {
     Record<number, { title: string; html: string }>
   >({})
   const [loadingIds, setLoadingIds] = useState<Record<number, boolean>>({})
+  // Tracks IDs that have already been fetched (or are in-flight) to prevent
+  // the fetch effect from re-triggering when tabContents/loadingIds update.
+  const fetchedIdsRef = useRef<Set<number>>(new Set())
   const [tabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
@@ -49,7 +52,7 @@ export const useTabContents = () => {
   useEffect(() => {
     const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
 
-    // 1. Cleanup removed tabs from contents and errors
+    // 1. Cleanup removed tabs from contents, errors, and the fetched-IDs ref
     setTabContents((prev) => {
       const next = { ...prev }
       let changed = false
@@ -76,22 +79,30 @@ export const useTabContents = () => {
       return changed ? next : prev
     })
 
-    // 2. Identify new tabs by checking against current state
-    // Note: We use a small hack to get the latest tabContents without depending on it
-    // by doing the identification inside a "no-op" setTabContents call or just relying on the fact
-    // that we'll filter new ones in the fetch loop.
-    // Actually, it's better to just use a ref or accept that we might re-fetch if we are not careful.
-    // But wait, we can just use the selectedTabIds and content we have.
-  }, [selectedTabIds, setErrors]) // Corrected dependencies
+    // Remove de-selected tab IDs from the ref so they can be re-fetched if re-added
+    fetchedIdsRef.current.forEach((id) => {
+      if (!currentTabIds.includes(id)) {
+        fetchedIdsRef.current.delete(id)
+      }
+    })
+  }, [selectedTabIds, setErrors])
 
-  // Separate effect for fetching new content to keep cleanup independent
+  // Separate effect for fetching new content to keep cleanup independent.
+  // Uses fetchedIdsRef (a ref, not state) to track in-flight/completed fetches so
+  // this effect does NOT need tabContents or loadingIds as dependencies — avoiding
+  // the infinite re-render loop that those state deps would cause (BUG-01).
   useEffect(() => {
     const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
     const newTabIds = currentTabIds.filter(
-      (id) => !tabContents[id] && !loadingIds[id]
+      (id) => !fetchedIdsRef.current.has(id)
     )
 
     if (newTabIds.length === 0) return
+
+    // Mark all new IDs as in-flight BEFORE any async work to prevent duplicate fetches
+    for (const id of newTabIds) {
+      fetchedIdsRef.current.add(id)
+    }
 
     const fetchNewTabs = async () => {
       setLoadingIds((prev) => {
@@ -117,6 +128,8 @@ export const useTabContents = () => {
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
           setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
+          // On error, remove from ref so the tab can be retried if re-selected
+          fetchedIdsRef.current.delete(tabId)
         } finally {
           setLoadingIds((prev) => {
             const next = { ...prev }
@@ -128,7 +141,7 @@ export const useTabContents = () => {
     }
 
     fetchNewTabs()
-  }, [selectedTabIds, fetchTabContent, setErrors, tabContents, loadingIds])
+  }, [selectedTabIds, fetchTabContent, setErrors])
 
   return { tabContents, loadingIds, errors }
 }
