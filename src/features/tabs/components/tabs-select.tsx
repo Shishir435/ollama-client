@@ -77,15 +77,13 @@ export const TabsSelect = () => {
     }))
 
   return (
-    <div className="mb-1 w-full">
-      <MultiSelect
-        options={tabOptions}
-        onValueChange={setSelectedTabIds}
-        onRefresh={refreshTabs}
-        defaultValue={selectedTabIds}
-        placeholder={t("tabs.select.placeholder")}
-        statusForValue={getTabStatus}
-      />
-    </div>
+    <MultiSelect
+      options={tabOptions}
+      onValueChange={setSelectedTabIds}
+      onRefresh={refreshTabs}
+      defaultValue={selectedTabIds}
+      placeholder={t("tabs.select.placeholder")}
+      statusForValue={getTabStatus}
+    />
   )
 }
