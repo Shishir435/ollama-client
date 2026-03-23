@@ -61,6 +61,13 @@ export default defineConfig({
 
   vite: () =>
     ({
-      plugins: [react(), visualizer({ open: false, filename: "stats.html" })]
+      plugins: [
+        react({
+          babel: {
+            plugins: [["babel-plugin-react-compiler"]]
+          }
+        }),
+        visualizer({ open: false, filename: "stats.html" })
+      ]
     }) as unknown as WxtViteConfig
 })

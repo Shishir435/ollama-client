@@ -85,8 +85,8 @@
     "markdown-it-task-lists": "^2.1.1",
     "minisearch": "^7.2.0",
     "pdfjs-dist": "^4.0.379",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "react-hook-form": "^7.66.0",
     "react-i18next": "^16.3.5",
     "react-virtuoso": "^4.17.0",
@@ -107,16 +107,16 @@
     "@testing-library/react": "^16.3.0",
     "@types/chrome": "0.0.258",
     "@types/d3-dsv": "^3.0.7",
-    "@types/jszip": "^3.4.1",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-container": "^2.0.10",
     "@types/markdown-it-emoji": "^3.0.1",
     "@types/markdown-it-footnote": "^3.0.4",
-    "@types/node": "20.11.5",
+    "@types/node": "^22.12.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
     "@types/turndown": "^5.0.6",
     "@types/webextension-polyfill": "^0.12.4",
+    "babel-plugin-react-compiler": "1.0.0",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "4.0.14",
     "@vitest/ui": "^4.0.14",
@@ -168,7 +168,7 @@
       }
     }
   },
-  "packageManager": "pnpm@10.15.0",
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {
     "node": ">=18"
   }
