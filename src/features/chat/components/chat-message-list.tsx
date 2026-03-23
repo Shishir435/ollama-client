@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { Button } from "@/components/ui/button"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
@@ -55,23 +55,23 @@ export const ChatMessageList = ({
   const feedbackEnabled =
     embeddingConfig?.feedbackEnabled ?? DEFAULT_EMBEDDING_CONFIG.feedbackEnabled
 
-  // Update firstItemIndex when prepending items to ensure stable indices
-  if (filteredMessages.length > internalMessagesRef.current.length) {
+  useEffect(() => {
     const newMessages = filteredMessages
     const oldMessages = internalMessagesRef.current
-    const diff = newMessages.length - oldMessages.length
 
-    // specific check for prepend: if the old first message is now at index `diff`
-    const isPrepend =
-      oldMessages.length > 0 && newMessages[diff] === oldMessages[0]
+    if (newMessages.length > oldMessages.length) {
+      const diff = newMessages.length - oldMessages.length
+      // specific check for prepend: if the old first message is now at index `diff`
+      const isPrepend =
+        oldMessages.length > 0 && newMessages[diff] === oldMessages[0]
 
-    if (isPrepend) {
-      setFirstItemIndex((prev) => prev - diff)
+      if (isPrepend) {
+        setFirstItemIndex((prev) => prev - diff)
+      }
     }
-  }
 
-  // Update ref after render
-  internalMessagesRef.current = filteredMessages
+    internalMessagesRef.current = newMessages
+  }, [filteredMessages])
 
   return (
     <div className="relative flex-1 h-full px-4 py-2">
