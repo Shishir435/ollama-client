@@ -27,11 +27,9 @@ export const ChatMessageContent = ({
   const hasThinking = !isUser && Boolean(msg.thinking?.trim())
   const showThinkingIndicator =
     !isUser && isLoading && Boolean(msg.thinking?.trim()) && !msg.content.trim()
-  const loadingLabel = showThinkingIndicator
-    ? t("chat.reasoning.loading_thinking", "Thinking")
-    : isStreaming
-      ? t("chat.reasoning.loading_typing", "Typing")
-      : t("chat.reasoning.loading_queued", "Queued")
+  const loadingLabel = isStreaming
+    ? t("chat.reasoning.loading_typing", "Typing")
+    : t("chat.reasoning.loading_queued", "Queued")
 
   const thinkingPreview = useMemo(() => {
     if (!hasThinking) return ""
@@ -166,7 +164,7 @@ export const ChatMessageContent = ({
       )}
       <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
         <MarkdownRenderer content={msg.content} />
-        {isLoading && !isUser && (
+        {isLoading && !isUser && !showThinkingIndicator && (
           <ChatMessageLoadingIndicator
             label={loadingLabel}
             showDots={isStreaming}
