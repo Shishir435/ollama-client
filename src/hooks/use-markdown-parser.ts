@@ -17,7 +17,6 @@ import "markdown-it-copy-code/styles/base.css"
 import "markdown-it-copy-code/styles/small.css"
 
 export const useMarkdownParser = (markdown: string) => {
-  const [html, setHtml] = useState("")
   const md = useMemo(() => {
     const instance = new MarkdownIt({
       html: true,
@@ -52,6 +51,12 @@ export const useMarkdownParser = (markdown: string) => {
 
     return instance
   }, [])
+
+  const [html, setHtml] = useState(() => {
+    const rawHtml = md.render(markdown)
+    return DOMPurify.sanitize(rawHtml)
+  })
+
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
       const rawHtml = md.render(markdown)

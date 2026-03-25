@@ -10,7 +10,7 @@ export const ChatMessageContainer = ({
   return (
     <div
       className={cn(
-        "group flex w-full flex-col items-start transition-all duration-200",
+        "group flex w-full flex-col items-start",
         isUser && "items-end"
       )}>
       {children}

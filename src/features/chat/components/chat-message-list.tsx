@@ -25,6 +25,12 @@ interface ChatMessageListProps {
   onLoadMore: () => void
 }
 
+const ChatListFooter = () => <div className="h-28 sm:h-32" />
+
+const virtuosoComponents = {
+  Footer: ChatListFooter
+}
+
 export const ChatMessageList = ({
   messages,
   isLoading,
@@ -130,10 +136,7 @@ export const ChatMessageList = ({
             ? String(msg.id)
             : `${msg.role}:${String(msg.timestamp ?? index)}`
         }
-        components={{
-          // Optional: Header/Footer if needed
-          Footer: () => <div className="h-28 sm:h-32" />
-        }}
+        components={virtuosoComponents}
         itemContent={(index, msg) => {
           // Convert virtuoso absolute index into local array index.
           const relativeIndex = index - firstItemIndex
@@ -141,14 +144,13 @@ export const ChatMessageList = ({
             msg.role === "assistant" &&
             relativeIndex === filteredMessages.length - 1
 
-          // Calculate margins - logic moved inside
-          let className = "mt-2"
-          if (relativeIndex === 0) className = "mt-3"
+          let paddingTop = "pt-2"
+          if (relativeIndex === 0) paddingTop = "pt-3"
           else if (
             relativeIndex > 0 &&
             filteredMessages[relativeIndex - 1]?.role !== msg.role
           )
-            className = "mt-6"
+            paddingTop = "pt-6"
 
           // Check for highlight
           const isHighlighted =
@@ -156,30 +158,28 @@ export const ChatMessageList = ({
             highlightedMessage.role === msg.role &&
             highlightedMessage.content === msg.content
 
-          if (isHighlighted) {
-            className += " bg-accent/20"
-          }
-
           return (
-            <div className={`${className} rounded-lg pr-2`}>
-              <ChatMessageBubble
-                msg={msg}
-                isLoading={isLoading && isLastAssistantMessage}
-                isStreaming={isStreaming && isLastAssistantMessage}
-                showRetrievedChunks={showRetrievedChunks}
-                feedbackEnabled={feedbackEnabled}
-                onRegenerate={
-                  msg.role === "assistant"
-                    ? (model) => {
-                        if (isLoading || isStreaming) return
-                        onRegenerate(msg, model)
-                      }
-                    : undefined
-                }
-                onUpdate={(content) => onUpdateMessage(msg, content)}
-                onDelete={() => onDeleteMessage(msg)}
-                onNavigate={onNavigate}
-              />
+            <div className={`${paddingTop} pr-2`}>
+              <div className={isHighlighted ? "rounded-lg bg-accent/20" : ""}>
+                <ChatMessageBubble
+                  msg={msg}
+                  isLoading={isLoading && isLastAssistantMessage}
+                  isStreaming={isStreaming && isLastAssistantMessage}
+                  showRetrievedChunks={showRetrievedChunks}
+                  feedbackEnabled={feedbackEnabled}
+                  onRegenerate={
+                    msg.role === "assistant"
+                      ? (model) => {
+                          if (isLoading || isStreaming) return
+                          onRegenerate(msg, model)
+                        }
+                      : undefined
+                  }
+                  onUpdate={(content) => onUpdateMessage(msg, content)}
+                  onDelete={() => onDeleteMessage(msg)}
+                  onNavigate={onNavigate}
+                />
+              </div>
             </div>
           )
         }}
