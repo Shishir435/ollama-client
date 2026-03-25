@@ -1,6 +1,11 @@
 import type { VariantProps } from "class-variance-authority"
 import type { ComponentPropsWithoutRef } from "react"
 import { buttonVariants } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -19,6 +24,8 @@ interface SocialLinkButtonProps
   iconSize?: number
   size?: "default" | "compact"
   iconOnly?: boolean
+  tooltip?: string
+  showTooltip?: boolean
   showFocusRing?: boolean
   showShadow?: boolean
   className?: string
@@ -33,12 +40,16 @@ export const SocialLinkButton = ({
   iconSize = 18,
   size = "default",
   iconOnly = false,
+  tooltip,
+  showTooltip,
   showFocusRing = true,
   showShadow = true,
   className,
   ...anchorProps
 }: SocialLinkButtonProps) => {
   const computedAriaLabel = ariaLabel || label
+  const tooltipText = tooltip || label
+  const shouldShowTooltip = showTooltip ?? iconOnly
   const buttonSize = (() => {
     if (iconOnly) {
       return size === "compact" ? "icon-sm" : "icon"
@@ -46,7 +57,7 @@ export const SocialLinkButton = ({
     return size === "compact" ? "sm" : "default"
   })()
 
-  return (
+  const button = (
     <a
       href={href}
       target="_blank"
@@ -77,5 +88,16 @@ export const SocialLinkButton = ({
         </span>
       )}
     </a>
+  )
+
+  if (!shouldShowTooltip) {
+    return button
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="top">{tooltipText}</TooltipContent>
+    </Tooltip>
   )
 }
