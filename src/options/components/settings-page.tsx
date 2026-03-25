@@ -9,6 +9,7 @@ import {
   SettingsSidebar
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
+import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
@@ -19,11 +20,13 @@ import { ModelSettingsForm } from "@/features/model/components/model-settings-fo
 
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
+import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
   BookOpen,
   Brain,
   Database,
   FileText,
+  Github,
   RefreshCcw,
   Server,
   Settings,
@@ -156,6 +159,9 @@ export const SettingsPage = () => {
   }
 
   const allNavItems = navSections.flatMap((s) => s.items)
+  const githubLink =
+    SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
+    "https://github.com/Shishir435/ollama-client"
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
@@ -169,7 +175,22 @@ export const SettingsPage = () => {
               {t("settings.page.description")}
             </p>
           </div>
-          <ThemeToggle showText={false} />
+          <div className="flex items-center gap-2">
+            <SocialLinkButton
+              href={githubLink}
+              icon={Github}
+              buttonVariant="ghost"
+              size="compact"
+              iconSize={16}
+              iconOnly
+              showShadow={false}
+              label={t("social.github")}
+              aria-label={t("common.social.visit_profile", {
+                platform: t("social.github")
+              })}
+            />
+            <ThemeToggle showText={false} />
+          </div>
         </div>
       </header>
 

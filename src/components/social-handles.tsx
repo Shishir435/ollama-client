@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { SocialLinkButton } from "@/components/social-link-button"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 
 export const SocialHandles = () => {
@@ -15,29 +16,15 @@ export const SocialHandles = () => {
 
       <div className="mx-auto flex max-w-md flex-wrap justify-center gap-4 p-2">
         {SOCIAL_LINKS.map(({ id, labelKey, href, icon: Icon }) => (
-          <a
+          <SocialLinkButton
             key={id}
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative flex min-w-0 shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-muted-foreground shadow-xs transition-all duration-200 ease-out hover:border-primary/40 hover:text-foreground hover:shadow-lg hover:shadow-primary/20 focus:outline-hidden focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 active:scale-95"
             aria-label={t("common.social.visit_profile", {
               platform: t(labelKey)
             })}
-            style={{ willChange: "transform, box-shadow" }}>
-            <div className="absolute inset-0 rounded-xl bg-linear-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"></div>
-
-            <div className="relative z-10 shrink-0 transition-transform duration-200 group-hover:scale-110">
-              <Icon
-                size={18}
-                className="drop-shadow-xs transition-all duration-200 group-hover:drop-shadow-md"
-              />
-            </div>
-
-            <span className="relative z-10 whitespace-nowrap text-sm font-medium tracking-wide transition-all duration-200 group-hover:text-foreground">
-              {t(labelKey)}
-            </span>
-          </a>
+            icon={Icon}
+            label={t(labelKey)}
+          />
         ))}
       </div>
     </div>
