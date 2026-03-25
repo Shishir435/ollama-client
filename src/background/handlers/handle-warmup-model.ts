@@ -8,7 +8,9 @@ import type { ModelConfigMap, SendResponseFunction } from "@/types"
 
 type WarmupPayload = {
   model: string
+  providerId?: string
   previousModel?: string
+  previousProviderId?: string
 }
 
 const warmupHistory = new Map<string, number>()
@@ -47,16 +49,23 @@ const getModelConfig = async (model: string) => {
 
 const DEFAULT_WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 
-const shouldWarmup = (model: string, keepAliveMs?: number) => {
+const buildWarmupKey = (model: string, providerId?: string) =>
+  `${providerId || ProviderId.OLLAMA}:${model}`
+
+const shouldWarmup = (historyKey: string, keepAliveMs?: number) => {
   if (keepAliveMs === 0) return false
-  const last = warmupHistory.get(model)
+  const last = warmupHistory.get(historyKey)
   if (!last) return true
   const windowMs = keepAliveMs ?? DEFAULT_WARMUP_COOLDOWN_MS
   return Date.now() - last > windowMs / 2
 }
 
-const warmupModel = async (model: string, keepAlive?: string | number) => {
-  const provider = await ProviderFactory.getProviderForModel(model)
+const warmupModel = async (
+  model: string,
+  keepAlive?: string | number,
+  providerId?: string
+) => {
+  const provider = await ProviderFactory.getProviderForModel(model, providerId)
   if (provider.id !== ProviderId.OLLAMA) return
 
   const baseUrl = provider.config.baseUrl || "http://localhost:11434"
@@ -73,8 +82,8 @@ const warmupModel = async (model: string, keepAlive?: string | number) => {
   })
 }
 
-const unloadModel = async (model: string) => {
-  const provider = await ProviderFactory.getProviderForModel(model)
+const unloadModel = async (model: string, providerId?: string) => {
+  const provider = await ProviderFactory.getProviderForModel(model, providerId)
   if (provider.id !== ProviderId.OLLAMA) return
 
   const baseUrl = provider.config.baseUrl || "http://localhost:11434"
@@ -105,10 +114,11 @@ export const handleWarmupModel = async (
   try {
     const config = await getModelConfig(payload.model)
     const keepAliveMs = parseKeepAliveMs(config.keep_alive)
+    const warmupKey = buildWarmupKey(payload.model, payload.providerId)
 
-    if (config.warm_on_select && shouldWarmup(payload.model, keepAliveMs)) {
-      await warmupModel(payload.model, config.keep_alive)
-      warmupHistory.set(payload.model, Date.now())
+    if (config.warm_on_select && shouldWarmup(warmupKey, keepAliveMs)) {
+      await warmupModel(payload.model, config.keep_alive, payload.providerId)
+      warmupHistory.set(warmupKey, Date.now())
       logger.info("Model warmup triggered", "WarmupModel", {
         model: payload.model
       })
@@ -117,7 +127,7 @@ export const handleWarmupModel = async (
     if (payload.previousModel && payload.previousModel !== payload.model) {
       const previousConfig = await getModelConfig(payload.previousModel)
       if (previousConfig.unload_on_switch) {
-        await unloadModel(payload.previousModel)
+        await unloadModel(payload.previousModel, payload.previousProviderId)
         logger.info("Model unloaded on switch", "WarmupModel", {
           model: payload.previousModel
         })

@@ -8,6 +8,17 @@ import type { ChatStreamMessage, ProviderModel } from "@/types"
 
 export class AnthropicProvider implements LLMProvider {
   id = "anthropic"
+  capabilities = {
+    chat: true,
+    embeddings: false,
+    modelDiscovery: true,
+    modelDetails: false,
+    modelPull: false,
+    modelUnload: false,
+    modelDelete: false,
+    providerVersion: false,
+    toolCalling: true
+  }
 
   constructor(public config: ProviderConfig) {}
 

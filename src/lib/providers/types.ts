@@ -16,6 +16,9 @@ export enum ProviderId {
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
+  VLLM = "vllm",
+  LOCALAI = "localai",
+  KOBOLDCPP = "koboldcpp",
   OPENAI = "openai",
   ANTHROPIC = "anthropic"
 }
@@ -66,9 +69,22 @@ export interface EmbeddingSupport {
   notes?: string
 }
 
+export interface ProviderCapabilities {
+  chat: boolean
+  embeddings: boolean
+  modelDiscovery: boolean
+  modelDetails: boolean
+  modelPull: boolean
+  modelUnload: boolean
+  modelDelete: boolean
+  providerVersion: boolean
+  toolCalling: boolean
+}
+
 export interface LLMProvider {
   id: string
   config: ProviderConfig
+  capabilities: ProviderCapabilities
 
   streamChat(
     request: ChatRequest,

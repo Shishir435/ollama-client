@@ -18,6 +18,11 @@ export type ProviderModel = {
   }
 }
 
+export interface SelectedModelRef {
+  providerId: string
+  modelId: string
+}
+
 // Legacy alias for provider-agnostic model metadata
 export type OllamaModel = ProviderModel
 
@@ -307,7 +312,7 @@ export interface PullStreamMessage {
 }
 
 export interface ModelPullMessage {
-  payload: string
+  payload: string | { model: string; providerId?: string }
   cancel?: boolean
 }
 
@@ -315,6 +320,7 @@ export interface ChatWithModelMessage {
   type: string
   payload: {
     model: string
+    providerId?: string
     messages: ChatMessage[]
     sessionId?: string
     chatId?: string

@@ -3,12 +3,24 @@ import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
+  type ProviderCapabilities,
   type ProviderConfig,
   ProviderId
 } from "./types"
 
 export class OpenAIProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
+  capabilities: ProviderCapabilities = {
+    chat: true,
+    embeddings: true,
+    modelDiscovery: true,
+    modelDetails: false,
+    modelPull: false,
+    modelUnload: false,
+    modelDelete: false,
+    providerVersion: false,
+    toolCalling: false
+  }
 
   constructor(public config: ProviderConfig) {}
 

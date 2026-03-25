@@ -1,12 +1,43 @@
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderId } from "@/lib/providers/types"
 import type { SendResponseFunction } from "@/types"
 
 export const handleUnloadModel = async (
-  modelName: string,
+  payload: string | { model: string; providerId?: string },
   sendResponse: SendResponseFunction
 ): Promise<void> => {
   try {
-    const baseUrl = await getBaseUrl()
+    const modelName = typeof payload === "string" ? payload : payload.model
+    const providerId =
+      typeof payload === "string" ? undefined : payload.providerId
+    const provider = await ProviderFactory.getProviderForModel(
+      modelName,
+      providerId
+    )
+    const baseUrl = providerId
+      ? provider.config.baseUrl || (await getBaseUrl())
+      : await getBaseUrl()
+
+    if (provider.id === ProviderId.LM_STUDIO) {
+      const res = await fetch(
+        `${baseUrl.replace(/\/v1\/?$/, "")}/api/v1/models/unload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: modelName })
+        }
+      )
+      if (!res.ok) {
+        safeSendResponse(sendResponse, {
+          success: false,
+          error: { status: res.status, message: res.statusText }
+        })
+        return
+      }
+      safeSendResponse(sendResponse, { success: true })
+      return
+    }
 
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",

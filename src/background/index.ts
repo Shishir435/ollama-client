@@ -221,8 +221,16 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS:
       case MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS: {
-        if (typeof message.payload === "string") {
-          handleShowModelDetails(message.payload, sendResponse)
+        if (
+          typeof message.payload === "string" ||
+          (typeof message.payload === "object" &&
+            message.payload !== null &&
+            "model" in message.payload)
+        ) {
+          handleShowModelDetails(
+            message.payload as string | { model: string; providerId?: string },
+            sendResponse
+          )
         }
         return true
       }
@@ -262,14 +270,25 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS:
       case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
-        handleGetLoadedModels(sendResponse)
+        handleGetLoadedModels(
+          message.payload as { providerId?: string } | undefined,
+          sendResponse
+        )
         return true
       }
 
       case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL:
       case MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL: {
-        if (typeof message.payload === "string") {
-          handleUnloadModel(message.payload, sendResponse)
+        if (
+          typeof message.payload === "string" ||
+          (typeof message.payload === "object" &&
+            message.payload !== null &&
+            "model" in message.payload)
+        ) {
+          handleUnloadModel(
+            message.payload as string | { model: string; providerId?: string },
+            sendResponse
+          )
         }
         return true
       }

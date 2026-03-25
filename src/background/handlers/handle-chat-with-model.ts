@@ -37,7 +37,7 @@ const limitMessagesForModel = (
  */
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
-    const { model, messages } = msg.payload
+    const { model, providerId, messages } = msg.payload
 
     const ac = new AbortController()
     setAbortController(port.name, ac)
@@ -112,7 +112,10 @@ export const handleChatWithModel = withErrorContext(
     // -----------------------------------
 
     // Get Provider
-    const provider = await ProviderFactory.getProviderForModel(model)
+    const provider = await ProviderFactory.getProviderForModel(
+      model,
+      providerId
+    )
 
     await provider.streamChat(
       {

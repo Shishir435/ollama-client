@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ProviderFactory } from "../factory"
+import { KoboldCppProvider } from "../koboldcpp"
 import { LlamaCppProvider } from "../llama-cpp"
 import { LMStudioProvider } from "../lm-studio"
+import { LocalAIProvider } from "../localai"
 import { ProviderManager } from "../manager"
 import { OllamaProvider } from "../ollama"
 import { OpenAIProvider } from "../openai"
 import { ProviderId, ProviderType } from "../types"
+import { VllmProvider } from "../vllm"
 
 vi.mock("../manager", () => ({
   ProviderManager: {
@@ -54,6 +57,39 @@ vi.mock("../llama-cpp", () => {
       // biome-ignore lint: Vitest mock constructor requires regular function
       .mockImplementation(function () {
         return { id: "llama-cpp", streamChat: vi.fn() }
+      })
+  }
+})
+
+vi.mock("../vllm", () => {
+  return {
+    VllmProvider: vi
+      .fn()
+      // biome-ignore lint: Vitest mock constructor requires regular function
+      .mockImplementation(function () {
+        return { id: "vllm", streamChat: vi.fn() }
+      })
+  }
+})
+
+vi.mock("../localai", () => {
+  return {
+    LocalAIProvider: vi
+      .fn()
+      // biome-ignore lint: Vitest mock constructor requires regular function
+      .mockImplementation(function () {
+        return { id: "localai", streamChat: vi.fn() }
+      })
+  }
+})
+
+vi.mock("../koboldcpp", () => {
+  return {
+    KoboldCppProvider: vi
+      .fn()
+      // biome-ignore lint: Vitest mock constructor requires regular function
+      .mockImplementation(function () {
+        return { id: "koboldcpp", streamChat: vi.fn() }
       })
   }
 })
@@ -124,6 +160,45 @@ describe("ProviderFactory", () => {
 
       const _provider = await ProviderFactory.getProvider("openai-custom")
       expect(OpenAIProvider).toHaveBeenCalled()
+    })
+
+    it("should return VllmProvider for VLLM id", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: ProviderId.VLLM,
+        name: "vLLM",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://localhost:8001/v1"
+      })
+
+      const _provider = await ProviderFactory.getProvider(ProviderId.VLLM)
+      expect(VllmProvider).toHaveBeenCalled()
+    })
+
+    it("should return LocalAIProvider for LocalAI id", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: ProviderId.LOCALAI,
+        name: "LocalAI",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://localhost:8080/v1"
+      })
+
+      const _provider = await ProviderFactory.getProvider(ProviderId.LOCALAI)
+      expect(LocalAIProvider).toHaveBeenCalled()
+    })
+
+    it("should return KoboldCppProvider for KoboldCpp id", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: ProviderId.KOBOLDCPP,
+        name: "KoboldCpp",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://localhost:5001/v1"
+      })
+
+      const _provider = await ProviderFactory.getProvider(ProviderId.KOBOLDCPP)
+      expect(KoboldCppProvider).toHaveBeenCalled()
     })
   })
 
