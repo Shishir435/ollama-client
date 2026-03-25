@@ -8,6 +8,7 @@ import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
   model: string
+  providerId?: string
   messages: ChatMessage[]
   sessionId?: string
   generatedMessage?: ChatMessage
@@ -148,6 +149,7 @@ export const useChatStream = ({
 
   const startStream = ({
     model,
+    providerId,
     messages,
     sessionId,
     generatedMessage
@@ -304,6 +306,7 @@ export const useChatStream = ({
       type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
       payload: {
         model,
+        providerId,
         messages,
         sessionId
       }

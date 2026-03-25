@@ -72,6 +72,17 @@ const normalizeModelForProvider = (
 
 const getActiveProvider = async (): Promise<LLMProvider | null> => {
   try {
+    const selectedModelRef = await plasmoGlobalStorage.get<{
+      providerId?: string
+      modelId?: string
+    }>(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
+    if (selectedModelRef?.modelId) {
+      return await ProviderFactory.getProviderForModel(
+        selectedModelRef.modelId,
+        selectedModelRef.providerId
+      )
+    }
+
     const selectedChatModel = await plasmoGlobalStorage.get<string>(
       STORAGE_KEYS.PROVIDER.SELECTED_MODEL
     )

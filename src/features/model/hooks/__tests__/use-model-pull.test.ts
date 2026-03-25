@@ -45,7 +45,9 @@ describe("useModelPull", () => {
 
     expect(result.current.pullingModel).toBe("llama2")
     expect(result.current.progress).toBe("Starting...")
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ payload: "llama2" })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      payload: { model: "llama2", providerId: undefined }
+    })
   })
 
   it("should handle progress updates", () => {

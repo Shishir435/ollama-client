@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -15,25 +14,18 @@ import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ProviderVersion } from "@/features/model/components/provider-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   type FormValues,
   fieldValidations
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useSyncDebouncedValue } from "@/hooks/use-sync-debounced-value"
-import { STORAGE_KEYS } from "@/lib/constants"
 import { Settings } from "@/lib/lucide-icon"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const ModelSettingsForm = () => {
   const { t } = useTranslation()
-  const [selectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    ""
-  )
+  const { selectedModel, selectedProviderId } = useProviderModels()
 
   const [config, updateConfig] = useModelConfig(selectedModel)
 
@@ -189,7 +181,10 @@ export const ModelSettingsForm = () => {
               <ProviderVersion />
             </>
           }>
-          <ModelInfo selectedModel={selectedModel} />
+          <ModelInfo
+            selectedModel={selectedModel}
+            selectedProviderId={selectedProviderId}
+          />
           <LoadedModelsInfo />
         </SettingsCard>
         <ModelSystemSection config={config} updateConfig={updateConfig} />

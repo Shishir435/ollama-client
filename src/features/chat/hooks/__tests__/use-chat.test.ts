@@ -5,7 +5,19 @@ import { useChat } from "../use-chat"
 
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn((_config, defaultValue) => [defaultValue, vi.fn()])
+  useStorage: vi.fn((config, defaultValue) => {
+    const key = config?.key
+    if (key === "provider-selected-model") {
+      return ["llama3:latest", vi.fn()]
+    }
+    if (key === "provider-selected-model-ref") {
+      return [{ providerId: "ollama", modelId: "llama3:latest" }, vi.fn()]
+    }
+    if (key === "provider-selection-conflict-model") {
+      return [null, vi.fn()]
+    }
+    return [defaultValue, vi.fn()]
+  })
 }))
 
 vi.mock("@/lib/db", () => ({
@@ -220,7 +232,8 @@ describe("useChat", () => {
     expect(useChatSessions().addMessage).toHaveBeenCalled()
     expect(startStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "",
+        model: "llama3:latest",
+        providerId: "ollama",
         sessionId: "session-1",
         messages: expect.arrayContaining([
           expect.objectContaining({

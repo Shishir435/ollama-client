@@ -14,6 +14,17 @@ const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
       baseUrl: "http://localhost:11434",
       name: "Ollama"
     },
+    capabilities: {
+      chat: true,
+      embeddings: true,
+      modelDiscovery: true,
+      modelDetails: true,
+      modelPull: true,
+      modelUnload: true,
+      modelDelete: true,
+      providerVersion: true,
+      toolCalling: false
+    },
     getModels: vi.fn().mockResolvedValue([
       {
         name: "llama3:latest",
@@ -40,10 +51,7 @@ const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn((config, initialValue) => {
     // Return stable references to prevent infinite loops in useEffect
-    if (
-      config.key === "llm_providers_config_v1" ||
-      config.key?.includes("provider")
-    ) {
+    if (config.key === "llm_providers_config_v1") {
       return [
         mockProviderConfig,
         vi.fn().mockResolvedValue(undefined),
@@ -63,6 +71,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
     watch: vi.fn().mockReturnValue(() => {})
   }
 }))

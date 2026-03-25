@@ -26,7 +26,7 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
-import type { ChatMessage, FileAttachment } from "@/types"
+import type { ChatMessage, FileAttachment, SelectedModelRef } from "@/types"
 
 export const useChat = () => {
   const DEBUG_THINKING_STREAM = process.env.NODE_ENV === "development" && false
@@ -36,6 +36,20 @@ export const useChat = () => {
       instance: plasmoGlobalStorage
     },
     ""
+  )
+  const [selectedModelRef] = useStorage<SelectedModelRef | null>(
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
+      instance: plasmoGlobalStorage
+    },
+    null
+  )
+  const [selectionConflictModel] = useStorage<string | null>(
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
+      instance: plasmoGlobalStorage
+    },
+    null
   )
   const [memoryEnabled] = useStorage<boolean>(
     {
@@ -195,11 +209,15 @@ export const useChat = () => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
 
+    const modelForRequest =
+      customModel || selectedModelRef?.modelId || selectedModel
+    if (!modelForRequest) return
+
     // 1. Add Assistant Shell
     const assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
-      model: customModel || selectedModel,
+      model: modelForRequest,
       metrics: ragSourcesRef.current
         ? {
             ragSources: ragSourcesRef.current.sources,
@@ -223,7 +241,8 @@ export const useChat = () => {
     const history = contextMessages || messages
 
     startStream({
-      model: customModel || selectedModel,
+      model: modelForRequest,
+      providerId: selectedModelRef?.providerId,
       messages: history,
       sessionId: sessionId,
       generatedMessage: { ...assistantMessage, id: assistantId }
@@ -239,6 +258,15 @@ export const useChat = () => {
     if (!sessionId) return
 
     const rawInput = customInput?.trim() ?? input.trim()
+
+    if (selectionConflictModel) {
+      toast({
+        variant: "destructive",
+        title: "Model provider selection required",
+        description: `Select a provider for "${selectionConflictModel}" in the model menu before sending a message.`
+      })
+      return
+    }
 
     // Allow sending message with just files (no text input)
     if (!rawInput && (!files || files.length === 0)) return
@@ -291,10 +319,14 @@ export const useChat = () => {
     let ragInstructionAdded = false
     const invokeModelOnce = async (prompt: string): Promise<string> => {
       try {
-        const modelId = customModel || selectedModel
+        const modelId =
+          customModel || selectedModelRef?.modelId || selectedModel
         if (!modelId) return ""
 
-        const provider = await ProviderFactory.getProviderForModel(modelId)
+        const provider = await ProviderFactory.getProviderForModel(
+          modelId,
+          selectedModelRef?.providerId
+        )
         let response = ""
         await provider.streamChat(
           {

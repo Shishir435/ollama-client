@@ -1,6 +1,7 @@
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { ProviderStorageKey } from "@/lib/providers/types"
 
 type StorageLike = typeof plasmoGlobalStorage
 
@@ -49,6 +50,28 @@ export const migrateLegacyProviderStorage = async (
     logger.info("Migrated legacy provider storage keys", "ProviderStorage", {
       migratedKeys
     })
+  }
+
+  // Best-effort migration for selected model reference:
+  // If we have legacy string selection + model mapping, create canonical ref.
+  const selectedModelRef = await storage.get(
+    STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
+  )
+  if (!selectedModelRef) {
+    const selectedModel = await storage.get<string>(
+      STORAGE_KEYS.PROVIDER.SELECTED_MODEL
+    )
+    const modelMappings = await storage.get<Record<string, string>>(
+      ProviderStorageKey.MODEL_MAPPINGS
+    )
+    if (selectedModel && modelMappings?.[selectedModel]) {
+      await storage.set(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF, {
+        providerId: modelMappings[selectedModel],
+        modelId: selectedModel
+      })
+      await storage.remove(STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL)
+      migratedKeys.push(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
+    }
   }
 
   return {

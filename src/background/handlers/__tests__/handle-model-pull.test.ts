@@ -5,6 +5,7 @@ import {
   setAbortController
 } from "@/background/lib/abort-controller-registry"
 import { safePostMessage } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
 import { handleModelPull } from "../handle-model-pull"
 
 // Mock dependencies
@@ -23,6 +24,11 @@ vi.mock("@/background/lib/utils", () => ({
   getPullAbortControllerKey: vi.fn().mockReturnValue("key"),
   safePostMessage: vi.fn()
 }))
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn()
+  }
+}))
 
 global.fetch = vi.fn()
 
@@ -32,6 +38,12 @@ describe("Handle Model Pull", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: "ollama",
+      config: {
+        baseUrl: "http://localhost:11434"
+      }
+    } as any)
   })
 
   it("should initiate pull successfully", async () => {

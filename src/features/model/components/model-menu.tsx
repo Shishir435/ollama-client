@@ -50,19 +50,31 @@ export const ModelMenu = ({
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const { models, refresh, isLoading, selectedModel, setSelectedModel } =
-    useProviderModels()
+  const {
+    models,
+    refresh,
+    isLoading,
+    selectedModel,
+    selectedModelRef,
+    setSelectedModel,
+    selectionConflictModel,
+    clearSelectionConflict
+  } = useProviderModels()
 
   const filteredDefaultModels = models.filter(
     (model) => !isEmbeddingModel(model.name, model.details?.families || [])
   )
 
-  const handleSelect = (modelName: string) => {
+  const handleSelect = async (modelName: string, providerId?: string) => {
     const previousModel = selectedModel
+    const previousProviderId = selectedModelRef?.providerId
     if (_onSelectModel) {
       _onSelectModel(modelName)
     } else {
-      setSelectedModel(modelName)
+      await setSelectedModel(modelName, providerId)
+      if (selectionConflictModel) {
+        await clearSelectionConflict()
+      }
     }
     setOpen(false)
 
@@ -72,7 +84,9 @@ export const ModelMenu = ({
           type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL,
           payload: {
             model: modelName,
-            previousModel
+            providerId,
+            previousModel,
+            previousProviderId
           }
         })
         .catch((error) => {
@@ -95,6 +109,11 @@ export const ModelMenu = ({
       return groups
     },
     {} as Record<string, { name: string; models: typeof models }>
+  )
+  const duplicateModelNames = new Set(
+    filteredDefaultModels
+      .map((model) => model.name)
+      .filter((name, index, arr) => arr.indexOf(name) !== index)
   )
 
   return (
@@ -140,6 +159,12 @@ export const ModelMenu = ({
       <PopoverContent className="w-[320px] p-0" align="start">
         <Command className="max-h-[400px] w-full">
           <div className="flex flex-col justify-between w-full h-full p-1">
+            {selectionConflictModel && (
+              <div className="mb-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1.5 text-xs text-yellow-900 dark:text-yellow-200">
+                Provider selection required for{" "}
+                <strong>{selectionConflictModel}</strong>.
+              </div>
+            )}
             <div className="flex items-center justify-between p-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t("model.menu.models_label")}
@@ -183,7 +208,7 @@ export const ModelMenu = ({
                   <CommandItem
                     key={`${providerId}-${model.name}`}
                     value={model.name}
-                    onSelect={() => handleSelect(model.name)}
+                    onSelect={() => handleSelect(model.name, providerId)}
                     className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
                       {getModelIcon(model.name)}
@@ -194,7 +219,17 @@ export const ModelMenu = ({
                         <span className="truncate font-medium text-sm">
                           {model.name}
                         </span>
-                        {selectedModel === model.name && (
+                        {duplicateModelNames.has(model.name) && (
+                          <Badge
+                            variant="secondary"
+                            className="h-4 px-1 text-[10px]">
+                            Conflict
+                          </Badge>
+                        )}
+                        {(selectedModelRef
+                          ? selectedModelRef.modelId === model.name &&
+                            selectedModelRef.providerId === providerId
+                          : selectedModel === model.name) && (
                           <Check className="h-3.5 w-3.5 text-primary" />
                         )}
                       </div>

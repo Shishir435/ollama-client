@@ -64,6 +64,8 @@ export const STORAGE_KEYS = {
   PROVIDER: {
     BASE_URL: "provider-base-url",
     SELECTED_MODEL: "provider-selected-model",
+    SELECTED_MODEL_REF: "provider-selected-model-ref",
+    SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",
     PROMPT_TEMPLATES: "provider-prompt-templates",
     MODEL_CONFIGS: "provider-model-config"
   },

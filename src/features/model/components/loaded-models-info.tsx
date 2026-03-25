@@ -14,6 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
@@ -52,46 +53,57 @@ const formatBytes = (bytes: number): string => {
 
 export const LoadedModelsInfo = () => {
   const { t } = useTranslation()
+  const { selectedProviderCapabilities, selectedProviderId } =
+    useProviderModels()
   const [models, setModels] = useState<LoadedModel[]>([])
   const [loading, setLoading] = useState(false)
   const [unloading, setUnloading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const fetchModels = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true)
-    } else {
-      setLoading(true)
-    }
-
-    try {
-      const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS
-      })) as ChromeResponse & {
-        data?: { models?: LoadedModel[] }
-      }
-      if (res?.success && res.data?.models) {
-        setModels(res.data.models)
+  const fetchModels = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true)
       } else {
-        console.error(res?.error)
-        setModels([])
+        setLoading(true)
       }
-    } catch (error) {
-      console.error("Failed to fetch loaded models:", error)
-      setModels([])
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
+
+      try {
+        const res = (await browser.runtime.sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS,
+          payload: {
+            providerId: selectedProviderId
+          }
+        })) as ChromeResponse & {
+          data?: { models?: LoadedModel[] }
+        }
+        if (res?.success && res.data?.models) {
+          setModels(res.data.models)
+        } else {
+          console.error(res?.error)
+          setModels([])
+        }
+      } catch (error) {
+        console.error("Failed to fetch loaded models:", error)
+        setModels([])
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [selectedProviderId]
+  )
 
   const unloadModel = async (modelName: string) => {
     setUnloading(modelName)
     try {
       const res = (await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL,
-        payload: modelName
+        payload: {
+          model: modelName,
+          providerId: selectedProviderId
+        }
       })) as ChromeResponse
       if (res?.success) {
         setModels((prev) => prev.filter((m) => m.name !== modelName))
@@ -114,10 +126,15 @@ export const LoadedModelsInfo = () => {
   }
 
   useEffect(() => {
+    if (!selectedProviderCapabilities?.modelUnload) return
     fetchModels()
     const interval = setInterval(() => fetchModels(), 10000)
     return () => clearInterval(interval)
-  }, [fetchModels])
+  }, [fetchModels, selectedProviderCapabilities?.modelUnload])
+
+  if (!selectedProviderCapabilities?.modelUnload) {
+    return null
+  }
 
   const totalSize = models.reduce((acc, model) => acc + model.size, 0)
 

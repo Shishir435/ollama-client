@@ -44,7 +44,8 @@ describe("handleShowModelDetails", () => {
       await handleShowModelDetails("llama3:latest", mockSendResponse)
 
       expect(ProviderFactory.getProviderForModel).toHaveBeenCalledWith(
-        "llama3:latest"
+        "llama3:latest",
+        undefined
       )
       expect(mockProvider.getModelDetails).toHaveBeenCalledWith("llama3:latest")
       expect(mockSendResponse).toHaveBeenCalledWith({

@@ -6,18 +6,21 @@ import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
 import type { ChromeResponse, ProviderModelDetails } from "@/types"
 
-export const useModelInfo = (model: string) => {
+export const useModelInfo = (model: string, providerId?: string) => {
   const {
     data: modelInfo = null,
     isLoading: loading,
     error: rawError,
     refetch
   } = useQuery({
-    queryKey: queryKeys.model.info(model),
+    queryKey: [...queryKeys.model.info(model), providerId || "auto"],
     queryFn: async () => {
       const res = (await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-        payload: model
+        payload: {
+          model,
+          providerId
+        }
       })) as ChromeResponse & { data?: ProviderModelDetails }
 
       if (!res?.success) {

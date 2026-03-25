@@ -202,7 +202,7 @@ export const ModelList = (): React.ReactElement => {
               <div className="flex flex-wrap justify-center gap-1 space-y-1 p-2">
                 {models.map((model: ProviderModel) => (
                   <Card
-                    key={model.name}
+                    key={`${model.providerId || DEFAULT_PROVIDER_ID}-${model.name}`}
                     className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
                     <CardContent className="p-3">
                       <div className="flex items-center gap-3">
@@ -240,7 +240,10 @@ export const ModelList = (): React.ReactElement => {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                              onClick={(e) => e.stopPropagation()}>
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={
+                                model.providerId !== DEFAULT_PROVIDER_ID
+                              }>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
@@ -262,7 +265,12 @@ export const ModelList = (): React.ReactElement => {
                                 {t("settings.model_list.delete_dialog.cancel")}
                               </AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => deleteModel(model.name)}
+                                onClick={() =>
+                                  deleteModel({
+                                    modelName: model.name,
+                                    providerId: model.providerId
+                                  })
+                                }
                                 className="bg-destructive hover:bg-destructive/90">
                                 {t("settings.model_list.delete_dialog.confirm")}
                               </AlertDialogAction>

@@ -158,9 +158,18 @@ const DetailRow = ({
   </div>
 )
 
-export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
+export const ModelInfo = ({
+  selectedModel,
+  selectedProviderId
+}: {
+  selectedModel: string
+  selectedProviderId?: string
+}) => {
   const { t } = useTranslation()
-  const { error, loading, modelInfo, refresh } = useModelInfo(selectedModel)
+  const { error, loading, modelInfo, refresh } = useModelInfo(
+    selectedModel,
+    selectedProviderId
+  )
   const [isExpanded, setIsExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 

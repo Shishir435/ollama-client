@@ -10,7 +10,7 @@ export const useModelPull = () => {
   const [pullingModel, setPullingModel] = useState<string | null>(null)
   const portRef = useRef<browser.Runtime.Port | null>(null)
 
-  const pullModel = (modelName: string) => {
+  const pullModel = (modelName: string, providerId?: string) => {
     logger.verbose("Pull model requested", "useModelPull", { modelName })
     setPullingModel(modelName)
     setProgress("Starting...")
@@ -20,7 +20,12 @@ export const useModelPull = () => {
     })
     portRef.current = port
 
-    port.postMessage({ payload: modelName })
+    port.postMessage({
+      payload: {
+        model: modelName,
+        providerId
+      }
+    })
 
     port.onMessage.addListener((msg: unknown) => {
       const message = msg as PullStreamMessage

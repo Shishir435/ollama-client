@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Info,
   Loader2,
   Plus,
   Save,
@@ -14,12 +15,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
-
 import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { DEFAULT_PROVIDERS, ProviderManager } from "@/lib/providers/manager"
+import { isBetaProvider } from "@/lib/providers/registry"
 import { type ProviderConfig, ProviderId } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
@@ -243,8 +249,21 @@ export const ProviderSettings = () => {
   const isLocalProvider = [
     ProviderId.OLLAMA,
     ProviderId.LM_STUDIO,
-    ProviderId.LLAMA_CPP
+    ProviderId.LLAMA_CPP,
+    ProviderId.VLLM,
+    ProviderId.LOCALAI,
+    ProviderId.KOBOLDCPP
   ].includes(activeConfig?.id as ProviderId)
+  const isRemoteEndpoint = (() => {
+    const url = activeConfig?.baseUrl?.trim()
+    if (!url) return false
+    try {
+      const parsed = new URL(url)
+      return !["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)
+    } catch {
+      return false
+    }
+  })()
 
   if (loading) {
     return (
@@ -253,6 +272,9 @@ export const ProviderSettings = () => {
       </div>
     )
   }
+
+  const betaNoticeText =
+    "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
 
   return (
     <div className="space-y-6">
@@ -304,6 +326,21 @@ export const ProviderSettings = () => {
                     )}
                   />
                   <h4 className="font-medium">{provider.name}</h4>
+                  {isBetaProvider(provider.id) && (
+                    <>
+                      <MiniBadge text="Beta" />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex text-muted-foreground hover:text-foreground">
+                            <Info className="h-3.5 w-3.5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">{betaNoticeText}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
                 </div>
                 {provider.id === DEFAULT_PROVIDER_ID && (
                   <MiniBadge text={t("settings.providers.default")} />
@@ -339,7 +376,24 @@ export const ProviderSettings = () => {
                 )}
               />
               <div>
-                <h3 className="font-semibold text-lg">{activeConfig.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg">{activeConfig.name}</h3>
+                  {isBetaProvider(activeConfig.id) && (
+                    <>
+                      <MiniBadge text="Beta" />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex text-muted-foreground hover:text-foreground">
+                            <Info className="h-3.5 w-3.5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">{betaNoticeText}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {!activeConfig.enabled
                     ? t("settings.providers.inactive")
@@ -458,6 +512,12 @@ export const ProviderSettings = () => {
                     : t("settings.providers.saved")}
                 </Button>
               </div>
+              {isRemoteEndpoint && (
+                <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
+                  This endpoint is remote. Prompts and responses will be sent
+                  outside your local machine.
+                </p>
+              )}
             </SettingsFormField>
 
             {!isLocalProvider && (

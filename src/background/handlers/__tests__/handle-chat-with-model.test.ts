@@ -100,7 +100,8 @@ describe("handleChatWithModel", () => {
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
       expect(ProviderFactory.getProviderForModel).toHaveBeenCalledWith(
-        "llama3:latest"
+        "llama3:latest",
+        undefined
       )
       expect(mockStreamChat).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -126,7 +127,8 @@ describe("handleChatWithModel", () => {
 
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
       expect(ProviderFactory.getProviderForModel).toHaveBeenCalledWith(
-        "llama3:latest"
+        "llama3:latest",
+        undefined
       )
     })
 
