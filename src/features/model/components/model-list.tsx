@@ -121,7 +121,11 @@ export const ModelList = (): React.ReactElement => {
         </div>
         <div className="p-3">
           <div className="mb-2 text-sm text-destructive">{error}</div>
-          <Button variant="outline" size="sm" onClick={refresh} className="h-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refresh()}
+            className="h-8">
             <RefreshCw className="mr-1 h-3 w-3" />
             {t("settings.model_list.retry")}
           </Button>
@@ -145,7 +149,11 @@ export const ModelList = (): React.ReactElement => {
           <div className="mb-2 text-sm text-muted-foreground">
             {t("settings.model_list.no_models")}
           </div>
-          <Button variant="outline" size="sm" onClick={refresh} className="h-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refresh()}
+            className="h-8">
             <RefreshCw className="mr-1 h-3 w-3" />
             {t("settings.model_list.refresh")}
           </Button>

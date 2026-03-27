@@ -83,12 +83,20 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Bevor Sie beginnen, folgen Sie diesen schnellen Schritten:",
-          step1: "Installieren Sie einen lokalen Provider (Ollama empfohlen)",
-          step2: "Ziehen Sie ein Modell (z. B. <code>ollama run llama3</code>)",
+          title: "Schnelleinrichtung (Ollama)",
+          intro:
+            "Sie benötigen Ollama, das mit einem Chat-Modell und einem Embeddings-Modell läuft.",
+          step1: "Ollama installieren und starten (<code>ollama serve</code>)",
+          step2:
+            "Ein Chat-Modell herunterladen (<code>ollama pull qwen2.5:3b</code>)",
           step3:
+            "Ein Embeddings-Modell herunterladen (<code>ollama pull all-minilm:latest</code>)",
+          step4:
             "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
-          full_guide_link: "Vollständige Einrichtungsanleitung"
+          hint: "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
+          full_guide_link: "Vollständige Einrichtungsanleitung",
+          firefox_warning:
+            "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren."
         },
         features: {
           private: {
@@ -1386,7 +1394,8 @@ export const resources = {
       },
       welcome: {
         title: "Welcome to Local LLM Chat",
-        subtitle: "Local AI conversations made simple",
+        subtitle: "Private, local-first chat with your own models",
+        badge: "Local-first chat",
         start_chatting: "Start Chatting",
         status: {
           connecting: {
@@ -1399,7 +1408,8 @@ export const resources = {
           },
           no_models: {
             title: "No Models Found",
-            message: "Please pull a model to get started"
+            message:
+              "Install at least one chat model and one embeddings model to continue"
           },
           ready: {
             title: "Ready to Chat",
@@ -1407,11 +1417,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Before you start, follow these quick steps:",
-          step1: "Install a local provider (Ollama recommended)",
-          step2: "Pull a model (e.g. <code>ollama run llama3</code>)",
-          step3: "Return here and click <b>Refresh</b>",
-          full_guide_link: "Full Setup Guide"
+          title: "Quick Setup (Ollama)",
+          intro:
+            "You'll need Ollama running with one chat model and one embeddings model.",
+          step1: "Install Ollama and start it (<code>ollama serve</code>)",
+          step2: "Pull a chat model (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Pull an embeddings model (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Return here and click <b>Refresh</b>",
+          hint: "Follow the setup guide below to install Ollama and models.",
+          full_guide_link: "Full Setup Guide",
+          firefox_warning:
+            "Firefox users: run the ollama-env.sh script to enable CORS before starting."
         },
         features: {
           private: {
@@ -2746,11 +2763,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Antes de empezar, sigue estos pasos rápidos:",
-          step1: "Instala un proveedor local (Ollama recomendado)",
-          step2: "Descarga un modelo (p. ej., <code>ollama run llama3</code>)",
-          step3: "Vuelve aquí y haz clic en <b>Actualizar</b>",
-          full_guide_link: "Guía Completa de Configuración"
+          title: "Configuración Rápida (Ollama)",
+          intro:
+            "Necesitarás tener Ollama en ejecución con un modelo de chat y un modelo de incrustaciones.",
+          step1: "Instala Ollama e inícialo (<code>ollama serve</code>)",
+          step2:
+            "Descarga un modelo de chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Descarga un modelo de incrustaciones (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Vuelve aquí y haz clic en <b>Actualizar</b>",
+          hint: "Sigue la guía de configuración a continuación para instalar Ollama y los modelos.",
+          full_guide_link: "Guía Completa de Configuración",
+          firefox_warning:
+            "Usuarios de Firefox: ejecute el script ollama-env.sh para habilitar CORS antes de comenzar."
         },
         features: {
           private: {
@@ -4070,11 +4095,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Avant de commencer, suivez ces étapes rapides :",
-          step1: "Installez un fournisseur local (Ollama recommandé)",
-          step2: "Téléchargez un modèle (ex. <code>ollama run llama3</code>)",
-          step3: "Revenez ici et cliquez sur <b>Actualiser</b>",
-          full_guide_link: "Guide de Configuration Complet"
+          title: "Configuration Rapide (Ollama)",
+          intro:
+            "Vous aurez besoin d'Ollama en cours d'exécution avec un modèle de chat et un modèle d'embeddings.",
+          step1: "Installez Ollama et démarrez-le (<code>ollama serve</code>)",
+          step2:
+            "Téléchargez un modèle de chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Téléchargez un modèle d'embeddings (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Revenez ici et cliquez sur <b>Actualiser</b>",
+          hint: "Suivez le guide de configuration ci-dessous pour installer Ollama et les modèles.",
+          full_guide_link: "Guide de Configuration Complet",
+          firefox_warning:
+            "Utilisateurs Firefox : exécutez le script ollama-env.sh pour activer CORS avant de commencer."
         },
         features: {
           private: {
@@ -5400,11 +5433,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
-          step1: "एक स्थानीय प्रदाता इंस्टॉल करें (Ollama अनुशंसित)",
-          step2: "एक मॉडल डाउनलोड करें (उदा. <code>ollama run llama3</code>)",
-          step3: "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
-          full_guide_link: "संपूर्ण सेटअप गाइड"
+          title: "त्वरित सेटअप (Ollama)",
+          intro:
+            "आपको एक चैट मॉडल और एक एम्बेडिंग मॉडल के साथ Ollama चालू रखना होगा।",
+          step1: "Ollama इंस्टॉल करें और इसे शुरू करें (<code>ollama serve</code>)",
+          step2: "एक चैट मॉडल खींचें (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "एक एम्बेडिंग मॉडल खींचें (<code>ollama pull all-minilm:latest</code>)",
+          step4: "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
+          hint: "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
+          full_guide_link: "पूर्ण सेटअप गाइड",
+          firefox_warning:
+            "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
         },
         features: {
           private: {
@@ -6698,11 +6738,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Prima di iniziare, segui questi semplici passaggi:",
-          step1: "Installa un provider locale (Ollama consigliato)",
-          step2: "Scarica un modello (es. <code>ollama run llama3</code>)",
-          step3: "Torna qui e clicca su <b>Aggiorna</b>",
-          full_guide_link: "Guida Completa all'Installazione"
+          title: "Configurazione Rapida (Ollama)",
+          intro:
+            "Avrai bisogno di Ollama in esecuzione con un modello di chat e un modello di embedding.",
+          step1: "Installa Ollama e avvialo (<code>ollama serve</code>)",
+          step2:
+            "Scarica un modello di chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Scarica un modello di embedding (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Torna qui e clicca su <b>Aggiorna</b>",
+          hint: "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
+          full_guide_link: "Guida Completa alla Configurazione",
+          firefox_warning:
+            "Utenti Firefox: eseguire lo script ollama-env.sh per abilitare CORS prima di iniziare."
         },
         features: {
           private: {
@@ -8022,11 +8070,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "開始する前に、以下の簡単な手順に従ってください：",
-          step1: "ローカルプロバイダーをインストールします（Ollama推奨）",
-          step2: "モデルを取得します（例: <code>ollama run llama3</code>）",
-          step3: "ここに戻って <b>更新</b> をクリックする",
-          full_guide_link: "完全なセットアップガイド"
+          title: "クイックセットアップ (Ollama)",
+          intro:
+            "Ollamaを実行し、チャットモデルと埋め込みモデルをそれぞれ1つずつ用意する必要があります。",
+          step1: "Ollamaをインストールして起動する (<code>ollama serve</code>)",
+          step2:
+            "チャットモデルをプルする (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "埋め込みモデルをプルする (<code>ollama pull all-minilm:latest</code>)",
+          step4: "ここに戻って <b>更新</b> をクリックする",
+          hint: "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
+          full_guide_link: "完全なセットアップガイド",
+          firefox_warning:
+            "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。"
         },
         features: {
           private: {
@@ -9326,11 +9382,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Прежде чем начать, выполните эти быстрые шаги:",
-          step1: "Установите локального провайдера (рекомендуется Ollama)",
-          step2: "Скачайте модель (например, <code>ollama run llama3</code>)",
-          step3: "Вернитесь сюда и нажмите <b>Обновить</b>",
-          full_guide_link: "Полное руководство по установке"
+          title: "Быстрая настройка (Ollama)",
+          intro:
+            "Вам понадобится запущенный Ollama с одной моделью чата и одной моделью эмбеддингов.",
+          step1: "Установите Ollama и запустите (<code>ollama serve</code>)",
+          step2: "Скачайте модель чата (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Скачайте модель эмбеддингов (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Вернитесь сюда и нажмите <b>Обновить</b>",
+          hint: "Следуйте руководству по настройке ниже, чтобы установить Ollama и модели.",
+          full_guide_link: "Полное руководство по настройке",
+          firefox_warning:
+            "Пользователи Firefox: запустите скрипт ollama-env.sh для включения CORS перед началом работы."
         },
         features: {
           private: {
@@ -10630,11 +10693,16 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "开始之前，请遵循以下快速步骤：",
-          step1: "安装本地提供方（推荐 Ollama）",
-          step2: "拉取模型（例如 <code>ollama run llama3</code>）",
-          step3: "返回此处并点击<b>刷新</b>",
-          full_guide_link: "完整设置指南"
+          title: "快速设置 (Ollama)",
+          intro: "您需要运行Ollama外加一个聊天模型和一个嵌入模型。",
+          step1: "安装Ollama并启动它 (<code>ollama serve</code>)",
+          step2: "拉取聊天模型 (<code>ollama pull qwen2.5:3b</code>)",
+          step3: "拉取嵌入模型 (<code>ollama pull all-minilm:latest</code>)",
+          step4: "返回此处并点击 <b>刷新</b>",
+          hint: "按照以下设置指南安装Ollama和模型。",
+          full_guide_link: "完整设置指南",
+          firefox_warning:
+            "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。"
         },
         features: {
           private: {

@@ -76,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
-      "step1": "एक स्थानीय प्रदाता इंस्टॉल करें (Ollama अनुशंसित)",
-      "step2": "एक मॉडल डाउनलोड करें (उदा. <code>ollama run llama3</code>)",
-      "step3": "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
-      "full_guide_link": "संपूर्ण सेटअप गाइड"
+      "title": "त्वरित सेटअप (Ollama)",
+      "intro": "आपको एक चैट मॉडल और एक एम्बेडिंग मॉडल के साथ Ollama चालू रखना होगा।",
+      "step1": "Ollama इंस्टॉल करें और इसे शुरू करें (<code>ollama serve</code>)",
+      "step2": "एक चैट मॉडल खींचें (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "एक एम्बेडिंग मॉडल खींचें (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
+      "hint": "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
+      "full_guide_link": "पूर्ण सेटअप गाइड",
+      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
     },
     "features": {
       "private": {

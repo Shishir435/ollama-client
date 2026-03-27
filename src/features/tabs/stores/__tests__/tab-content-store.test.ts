@@ -6,7 +6,7 @@ import { useTabContent, useTabContentStore } from "../tab-content-store"
 vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
   useTabContents: vi.fn(() => ({
     tabContents: {},
-    loading: false,
+    loadingIds: {},
     errors: {}
   }))
 }))
@@ -57,7 +57,7 @@ describe("useTabContentStore", () => {
       tabContents: {
         1: { title: "Test Page", html: "<p>Content</p>" }
       },
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 
@@ -93,7 +93,7 @@ describe("useTabContentStore", () => {
       tabContents: {
         1: { title: "Error Page", html: "" }
       },
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 
@@ -120,7 +120,7 @@ describe("useTabContentStore", () => {
 
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 

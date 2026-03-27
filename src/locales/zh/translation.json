@@ -76,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "开始之前，请遵循以下快速步骤：",
-      "step1": "安装本地提供方（推荐 Ollama）",
-      "step2": "拉取模型（例如 <code>ollama run llama3</code>）",
-      "step3": "返回此处并点击<b>刷新</b>",
-      "full_guide_link": "完整设置指南"
+      "title": "快速设置 (Ollama)",
+      "intro": "您需要运行Ollama外加一个聊天模型和一个嵌入模型。",
+      "step1": "安装Ollama并启动它 (<code>ollama serve</code>)",
+      "step2": "拉取聊天模型 (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "拉取嵌入模型 (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "返回此处并点击 <b>刷新</b>",
+      "hint": "按照以下设置指南安装Ollama和模型。",
+      "full_guide_link": "完整设置指南",
+      "firefox_warning": "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。"
     },
     "features": {
       "private": {

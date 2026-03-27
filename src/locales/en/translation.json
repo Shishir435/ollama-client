@@ -55,7 +55,8 @@
   },
   "welcome": {
     "title": "Welcome to Local LLM Chat",
-    "subtitle": "Local AI conversations made simple",
+    "subtitle": "Private, local-first chat with your own models",
+    "badge": "Local-first chat",
     "start_chatting": "Start Chatting",
     "status": {
       "connecting": {
@@ -68,7 +69,7 @@
       },
       "no_models": {
         "title": "No Models Found",
-        "message": "Please pull a model to get started"
+        "message": "Install at least one chat model and one embeddings model to continue"
       },
       "ready": {
         "title": "Ready to Chat",
@@ -76,11 +77,15 @@
       }
     },
     "setup_guide": {
-      "intro": "Before you start, follow these quick steps:",
-      "step1": "Install a local provider (Ollama recommended)",
-      "step2": "Pull a model (e.g. <code>ollama run llama3</code>)",
-      "step3": "Return here and click <b>Refresh</b>",
-      "full_guide_link": "Full Setup Guide"
+      "title": "Quick Setup (Ollama)",
+      "intro": "You'll need Ollama running with one chat model and one embeddings model.",
+      "step1": "Install Ollama and start it (<code>ollama serve</code>)",
+      "step2": "Pull a chat model (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "Pull an embeddings model (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "Return here and click <b>Refresh</b>",
+      "hint": "Follow the setup guide below to install Ollama and models.",
+      "full_guide_link": "Full Setup Guide",
+      "firefox_warning": "Firefox users: run the ollama-env.sh script to enable CORS before starting."
     },
     "features": {
       "private": {

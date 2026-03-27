@@ -76,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "開始する前に、以下の簡単な手順に従ってください：",
-      "step1": "ローカルプロバイダーをインストールします（Ollama推奨）",
-      "step2": "モデルを取得します（例: <code>ollama run llama3</code>）",
-      "step3": "ここに戻って <b>更新</b> をクリックする",
-      "full_guide_link": "完全なセットアップガイド"
+      "title": "クイックセットアップ (Ollama)",
+      "intro": "Ollamaを実行し、チャットモデルと埋め込みモデルをそれぞれ1つずつ用意する必要があります。",
+      "step1": "Ollamaをインストールして起動する (<code>ollama serve</code>)",
+      "step2": "チャットモデルをプルする (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "埋め込みモデルをプルする (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "ここに戻って <b>更新</b> をクリックする",
+      "hint": "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
+      "full_guide_link": "完全なセットアップガイド",
+      "firefox_warning": "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。"
     },
     "features": {
       "private": {

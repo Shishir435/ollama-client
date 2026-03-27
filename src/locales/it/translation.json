@@ -76,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "Prima di iniziare, segui questi semplici passaggi:",
-      "step1": "Installa un provider locale (Ollama consigliato)",
-      "step2": "Scarica un modello (es. <code>ollama run llama3</code>)",
-      "step3": "Torna qui e clicca su <b>Aggiorna</b>",
-      "full_guide_link": "Guida Completa all'Installazione"
+      "title": "Configurazione Rapida (Ollama)",
+      "intro": "Avrai bisogno di Ollama in esecuzione con un modello di chat e un modello di embedding.",
+      "step1": "Installa Ollama e avvialo (<code>ollama serve</code>)",
+      "step2": "Scarica un modello di chat (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "Scarica un modello di embedding (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "Torna qui e clicca su <b>Aggiorna</b>",
+      "hint": "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
+      "full_guide_link": "Guida Completa alla Configurazione",
+      "firefox_warning": "Utenti Firefox: eseguire lo script ollama-env.sh per abilitare CORS prima di iniziare."
     },
     "features": {
       "private": {
