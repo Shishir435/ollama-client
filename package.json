@@ -135,9 +135,9 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json}": [
+      "bash -lc \"pnpm typecheck\"",
       "pnpm format:fix",
       "pnpm lint:fix",
-      "pnpm typecheck --",
       "pnpm test:related"
     ]
   },
