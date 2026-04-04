@@ -280,6 +280,74 @@ describe("Vector Store - Advanced Tests", () => {
       expect(results.length).toBe(5)
     })
 
+    it("should filter by embedding model and provider", async () => {
+      const doc1 = {
+        id: 1,
+        content: "Doc Ollama",
+        embedding: [0, 1],
+        metadata: {
+          source: "",
+          type: "chat",
+          timestamp: 1,
+          embeddingModel: "all-minilm:latest",
+          embeddingProviderId: "ollama",
+          embeddingDim: 2
+        }
+      }
+      const doc2 = {
+        id: 2,
+        content: "Doc LM Studio",
+        embedding: [1, 0],
+        metadata: {
+          source: "",
+          type: "chat",
+          timestamp: 2,
+          embeddingModel: "nomic-embed-text",
+          embeddingProviderId: "lm studio",
+          embeddingDim: 2
+        }
+      }
+
+      await vectorDb.vectors.bulkAdd([doc1, doc2] as any)
+
+      const results = await searchSimilarVectors([1, 0], {
+        limit: 5,
+        embeddingModel: "nomic-embed-text",
+        embeddingProviderId: "lm studio",
+        embeddingDimension: 2
+      })
+
+      expect(results.length).toBe(1)
+      expect(results[0].document.id).toBe(2)
+    })
+
+    it("should allow legacy vectors without providerId when model matches", async () => {
+      const legacyDoc = {
+        id: 1,
+        content: "Legacy doc",
+        embedding: [1, 0],
+        metadata: {
+          source: "",
+          type: "chat",
+          timestamp: 1,
+          embeddingModel: "all-minilm:latest",
+          embeddingDim: 2
+        }
+      }
+
+      await vectorDb.vectors.bulkAdd([legacyDoc] as any)
+
+      const results = await searchSimilarVectors([1, 0], {
+        limit: 5,
+        embeddingModel: "all-minilm:latest",
+        embeddingProviderId: "ollama",
+        embeddingDimension: 2
+      })
+
+      expect(results.length).toBe(1)
+      expect(results[0].document.id).toBe(1)
+    })
+
     it("should fallback to brute force if HNSW search fails", async () => {
       const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
       vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(true)

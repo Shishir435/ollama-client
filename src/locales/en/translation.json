@@ -283,6 +283,7 @@
       "ready": "Embedding model ready: {{model}}",
       "missing": "Model missing: {{model}}",
       "checking_model": "Checking embedding model...",
+      "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
       "download_button": "Download Model"
     },
@@ -956,7 +957,15 @@
         "placeholder": "Select a model",
         "description": "Choose a model to generate embeddings. You may need to download it first.",
         "recommended_group": "Recommended Models",
-        "all_models_group": "All Models"
+        "all_models_group": "All Models",
+        "show_advanced_label": "Show all provider models",
+        "show_advanced_description": "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
+      },
+      "model_change_confirm": {
+        "title": "Rebuild embeddings now?",
+        "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
+        "switch_only": "Switch Without Rebuild",
+        "switch_and_rebuild": "Switch & Rebuild"
       }
     },
     "prompts": {

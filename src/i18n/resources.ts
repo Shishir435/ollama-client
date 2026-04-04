@@ -308,6 +308,8 @@ export const resources = {
           ready: "Embedding-Modell bereit: {{model}}",
           missing: "Modell fehlt: {{model}}",
           checking_model: "Embedding-Modell wird geprüft...",
+          error:
+            "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
           required_for_rag:
             "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
           download_button: "Modell herunterladen"
@@ -1039,7 +1041,19 @@ export const resources = {
             label: "Embedding-Modell",
             placeholder: "Ein Modell auswählen",
             description:
-              "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen."
+              "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen.",
+            recommended_group: "Empfohlene Modelle",
+            all_models_group: "Alle Modelle",
+            show_advanced_label: "Alle Anbieter-Modelle anzeigen",
+            show_advanced_description:
+              "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse."
+          },
+          model_change_confirm: {
+            title: "Einbettungen jetzt neu erstellen?",
+            description:
+              "Beim Wechsel des Einbettungsmodells können vorhandene Vektoren inkompatibel werden. Erstelle den Index neu, um Suchergebnisse korrekt zu halten, oder wechsle ohne Neuaufbau.",
+            switch_only: "Wechseln ohne Neuaufbau",
+            switch_and_rebuild: "Wechseln und Neuaufbau"
           }
         },
         prompts: {
@@ -1637,6 +1651,7 @@ export const resources = {
           ready: "Embedding model ready: {{model}}",
           missing: "Model missing: {{model}}",
           checking_model: "Checking embedding model...",
+          error: "Unable to check status. Click to retry.",
           required_for_rag: "The embedding model is required for RAG features.",
           download_button: "Download Model"
         },
@@ -2408,7 +2423,17 @@ export const resources = {
             description:
               "Choose a model to generate embeddings. You may need to download it first.",
             recommended_group: "Recommended Models",
-            all_models_group: "All Models"
+            all_models_group: "All Models",
+            show_advanced_label: "Show all provider models",
+            show_advanced_description:
+              "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
+          },
+          model_change_confirm: {
+            title: "Rebuild embeddings now?",
+            description:
+              "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
+            switch_only: "Switch Without Rebuild",
+            switch_and_rebuild: "Switch & Rebuild"
           }
         },
         prompts: {
@@ -2985,6 +3010,7 @@ export const resources = {
           ready: "Modelo de incrustación listo: {{model}}",
           missing: "Modelo faltante: {{model}}",
           checking_model: "Comprobando modelo de incrustación...",
+          error: "No se pudo comprobar el estado. Haz clic para reintentar.",
           required_for_rag:
             "El modelo de incrustación es necesario para las funciones RAG.",
           download_button: "Descargar Modelo"
@@ -3718,7 +3744,19 @@ export const resources = {
             label: "Modelo de Incrustación",
             placeholder: "Seleccionar un modelo",
             description:
-              "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero."
+              "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero.",
+            recommended_group: "Modelos recomendados",
+            all_models_group: "Todos los modelos",
+            show_advanced_label: "Mostrar todos los modelos del proveedor",
+            show_advanced_description:
+              "Habilita la selección avanzada de cualquier modelo de embeddings expuesto por tus proveedores. Los modelos recomendados ofrecen la calidad de búsqueda más consistente."
+          },
+          model_change_confirm: {
+            title: "¿Reconstruir embeddings ahora?",
+            description:
+              "Cambiar el modelo de embeddings puede volver incompatibles los vectores existentes. Reconstruye el índice para mantener resultados precisos o cambia sin reconstruir.",
+            switch_only: "Cambiar sin reconstruir",
+            switch_and_rebuild: "Cambiar y reconstruir"
           }
         },
         prompts: {
@@ -4319,6 +4357,7 @@ export const resources = {
           ready: "Modèle d'incrustation prêt : {{model}}",
           missing: "Modèle manquant : {{model}}",
           checking_model: "Vérification du modèle d'incrustation...",
+          error: "Impossible de vérifier l'état. Cliquez pour réessayer.",
           required_for_rag:
             "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
           download_button: "Télécharger le Modèle"
@@ -5057,7 +5096,19 @@ export const resources = {
             label: "Modèle d'Incrustation",
             placeholder: "Sélectionner un modèle",
             description:
-              "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord."
+              "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord.",
+            recommended_group: "Modèles recommandés",
+            all_models_group: "Tous les modèles",
+            show_advanced_label: "Afficher tous les modèles du fournisseur",
+            show_advanced_description:
+              "Active la sélection avancée de tout modèle d'embedding fourni par vos fournisseurs. Les modèles recommandés offrent la qualité de recherche la plus cohérente."
+          },
+          model_change_confirm: {
+            title: "Reconstruire les embeddings maintenant ?",
+            description:
+              "Changer de modèle d'embeddings peut rendre les vecteurs existants incompatibles. Reconstruisez l'index pour garder des résultats précis, ou changez sans reconstruire.",
+            switch_only: "Changer sans reconstruire",
+            switch_and_rebuild: "Changer et reconstruire"
           }
         },
         prompts: {
@@ -5652,6 +5703,7 @@ export const resources = {
           ready: "एम्बेडिंग मॉडल तैयार: {{model}}",
           missing: "मॉडल गुम है: {{model}}",
           checking_model: "एम्बेडिंग मॉडल जाँच रहा है...",
+          error: "स्थिति जाँची नहीं जा सकी। पुनः प्रयास के लिए क्लिक करें।",
           required_for_rag: "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
           download_button: "मॉडल डाउनलोड करें"
         },
@@ -6372,7 +6424,19 @@ export const resources = {
             label: "एम्बेडिंग मॉडल",
             placeholder: "एक मॉडल चुनें",
             description:
-              "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।"
+              "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।",
+            recommended_group: "अनुशंसित मॉडल",
+            all_models_group: "सभी मॉडल",
+            show_advanced_label: "सभी प्रोवाइडर मॉडल दिखाएँ",
+            show_advanced_description:
+              "अपने प्रोवाइडर्स द्वारा उपलब्ध किसी भी एम्बेडिंग मॉडल के लिए उन्नत चयन सक्षम करें। अनुशंसित मॉडल सबसे सुसंगत खोज गुणवत्ता देते हैं।"
+          },
+          model_change_confirm: {
+            title: "क्या अब एम्बेडिंग्स रीबिल्ड करें?",
+            description:
+              "एंबेडिंग मॉडल बदलने से मौजूदा वेक्टर असंगत हो सकते हैं। सटीक खोज परिणामों के लिए इंडेक्स रीबिल्ड करें, या बिना रीबिल्ड किए स्विच करें।",
+            switch_only: "बिना रीबिल्ड स्विच करें",
+            switch_and_rebuild: "स्विच करें और रीबिल्ड करें"
           }
         },
         prompts: {
@@ -6960,6 +7024,7 @@ export const resources = {
           ready: "Modello di embedding pronto: {{model}}",
           missing: "Modello mancante: {{model}}",
           checking_model: "Verifica modello di embedding in corso...",
+          error: "Impossibile verificare lo stato. Fai clic per riprovare.",
           required_for_rag:
             "Il modello di embedding è richiesto per le funzionalità RAG.",
           download_button: "Scarica Modello"
@@ -7694,7 +7759,19 @@ export const resources = {
             label: "Modello di Embedding",
             placeholder: "Seleziona un modello",
             description:
-              "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima."
+              "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima.",
+            recommended_group: "Modelli consigliati",
+            all_models_group: "Tutti i modelli",
+            show_advanced_label: "Mostra tutti i modelli del provider",
+            show_advanced_description:
+              "Abilita la selezione avanzata per qualsiasi modello di embedding esposto dai tuoi provider. I modelli consigliati offrono la qualità di ricerca più coerente."
+          },
+          model_change_confirm: {
+            title: "Ricostruire gli embedding ora?",
+            description:
+              "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
+            switch_only: "Cambia senza ricostruire",
+            switch_and_rebuild: "Cambia e ricostruisci"
           }
         },
         prompts: {
@@ -8289,6 +8366,8 @@ export const resources = {
           ready: "エンベディングモデル準備完了: {{model}}",
           missing: "モデル欠落: {{model}}",
           checking_model: "エンベディングモデルを確認中...",
+          error:
+            "ステータスを確認できませんでした。再試行するにはクリックしてください。",
           required_for_rag: "エンベディングモデルはRAG機能に必要です。",
           download_button: "モデルをダウンロード"
         },
@@ -9011,7 +9090,19 @@ export const resources = {
             label: "エンベディングモデル",
             placeholder: "モデルを選択",
             description:
-              "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。"
+              "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。",
+            recommended_group: "推奨モデル",
+            all_models_group: "すべてのモデル",
+            show_advanced_label: "すべてのプロバイダーモデルを表示",
+            show_advanced_description:
+              "プロバイダーが提供する任意の埋め込みモデルの詳細な選択を有効にします。推奨モデルは最も一貫した検索品質を提供します。"
+          },
+          model_change_confirm: {
+            title: "今すぐ埋め込みを再構築しますか？",
+            description:
+              "埋め込みモデルを変更すると既存のベクトルが互換性を失う可能性があります。検索結果の精度を保つために再構築するか、再構築せずに切り替えます。",
+            switch_only: "再構築せずに切り替え",
+            switch_and_rebuild: "切り替えて再構築"
           }
         },
         prompts: {
@@ -9601,6 +9692,7 @@ export const resources = {
           ready: "Модель эмбеддингов готова: {{model}}",
           missing: "Модель отсутствует: {{model}}",
           checking_model: "Проверка модели эмбеддингов...",
+          error: "Не удалось проверить статус. Нажмите, чтобы повторить.",
           required_for_rag: "Модель эмбеддингов необходима для функций RAG.",
           download_button: "Скачать модель"
         },
@@ -10326,7 +10418,19 @@ export const resources = {
             label: "Модель эмбеддингов",
             placeholder: "Выберите модель",
             description:
-              "Выберите модель для генерации эмбеддингов. Возможно, вам придется сначала её скачать."
+              "Выберите модель для генерации эмбеддингов. Возможно, вам придется сначала её скачать.",
+            recommended_group: "Рекомендуемые модели",
+            all_models_group: "Все модели",
+            show_advanced_label: "Показывать все модели провайдера",
+            show_advanced_description:
+              "Включает расширенный выбор любых моделей эмбеддингов, доступных у ваших провайдеров. Рекомендуемые модели дают наиболее стабильное качество поиска."
+          },
+          model_change_confirm: {
+            title: "Перестроить эмбеддинги сейчас?",
+            description:
+              "Смена модели эмбеддингов может сделать существующие векторы несовместимыми. Перестройте индекс для точных результатов поиска или переключитесь без перестройки.",
+            switch_only: "Переключить без перестройки",
+            switch_and_rebuild: "Переключить и перестроить"
           }
         },
         prompts: {
@@ -10902,6 +11006,7 @@ export const resources = {
           ready: "嵌入模型就绪: {{model}}",
           missing: "模型缺失: {{model}}",
           checking_model: "正在检查嵌入模型...",
+          error: "无法检查状态。点击重试。",
           required_for_rag: "RAG 功能需要嵌入模型。",
           download_button: "下载模型"
         },
@@ -11571,7 +11676,19 @@ export const resources = {
           model_select: {
             label: "嵌入模型",
             placeholder: "选择一个模型",
-            description: "选择一个模型来生成嵌入。您可能需要先下载它。"
+            description: "选择一个模型来生成嵌入。您可能需要先下载它。",
+            recommended_group: "推荐模型",
+            all_models_group: "所有模型",
+            show_advanced_label: "显示所有提供方模型",
+            show_advanced_description:
+              "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。"
+          },
+          model_change_confirm: {
+            title: "现在重建嵌入吗？",
+            description:
+              "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
+            switch_only: "直接切换不重建",
+            switch_and_rebuild: "切换并重建"
           }
         },
         prompts: {

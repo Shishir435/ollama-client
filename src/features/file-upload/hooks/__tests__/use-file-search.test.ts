@@ -49,7 +49,8 @@ describe("useFileSearch", () => {
   it("should search for files successfully", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const mockResults = [
@@ -102,7 +103,8 @@ describe("useFileSearch", () => {
   it("should respect search options", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2],
-      model: "test"
+      model: "test",
+      providerId: "ollama"
     })
 
     vi.mocked(searchSimilarVectors).mockResolvedValue([])
@@ -120,7 +122,10 @@ describe("useFileSearch", () => {
       expect.objectContaining({
         limit: 5,
         minSimilarity: 0.8,
-        fileId: "specific-file"
+        fileId: "specific-file",
+        embeddingModel: "test",
+        embeddingProviderId: "ollama",
+        embeddingDimension: 2
       })
     )
   })

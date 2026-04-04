@@ -23,11 +23,7 @@ export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = DEFAULT_PROVIDER_ID
 // Default provider model catalog (Ollama public library).
 export const DEFAULT_MODEL_LIBRARY_BASE_URL = "https://ollama.com"
 
-export const RECOMMENDED_EMBEDDING_MODELS = [
-  DEFAULT_EMBEDDING_MODEL,
-  "mxbai-embed-large",
-  "nomic-embed-text"
-] as const
+export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
 
 export const LEGACY_CONTEXT_MENU_ID = "add-to-ollama-client"
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-local-llm-client"

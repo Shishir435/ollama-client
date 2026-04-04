@@ -281,6 +281,7 @@
       "ready": "エンベディングモデル準備完了: {{model}}",
       "missing": "モデル欠落: {{model}}",
       "checking_model": "エンベディングモデルを確認中...",
+      "error": "ステータスを確認できませんでした。再試行するにはクリックしてください。",
       "required_for_rag": "エンベディングモデルはRAG機能に必要です。",
       "download_button": "モデルをダウンロード"
     },
@@ -908,7 +909,17 @@
       "model_select": {
         "label": "エンベディングモデル",
         "placeholder": "モデルを選択",
-        "description": "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。"
+        "description": "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。",
+        "recommended_group": "推奨モデル",
+        "all_models_group": "すべてのモデル",
+        "show_advanced_label": "すべてのプロバイダーモデルを表示",
+        "show_advanced_description": "プロバイダーが提供する任意の埋め込みモデルの詳細な選択を有効にします。推奨モデルは最も一貫した検索品質を提供します。"
+      },
+      "model_change_confirm": {
+        "title": "今すぐ埋め込みを再構築しますか？",
+        "description": "埋め込みモデルを変更すると既存のベクトルが互換性を失う可能性があります。検索結果の精度を保つために再構築するか、再構築せずに切り替えます。",
+        "switch_only": "再構築せずに切り替え",
+        "switch_and_rebuild": "切り替えて再構築"
       }
     },
     "prompts": {

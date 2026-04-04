@@ -62,7 +62,10 @@ export const useSemanticChatSearch = () => {
           minSimilarity:
             options.minSimilarity ?? config?.defaultMinSimilarity ?? 0.7,
           type: "chat" as const,
-          sessionId: options.sessionId
+          sessionId: options.sessionId,
+          embeddingModel: embeddingResult.model,
+          embeddingProviderId: embeddingResult.providerId,
+          embeddingDimension: embeddingResult.embedding.length
         }
 
         // Auto-build keyword index on first use (backward compatibility)

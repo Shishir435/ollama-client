@@ -1,4 +1,8 @@
 import type Dexie from "dexie"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  normalizeEmbeddingModelName
+} from "@/lib/constants"
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { logger } from "@/lib/logger"
@@ -128,6 +132,9 @@ export const searchSimilarVectors = async (
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
     fileId?: string | string[]
+    embeddingModel?: string
+    embeddingProviderId?: string
+    embeddingDimension?: number
   } = {}
 ): Promise<SearchResult[]> => {
   const config = await getEmbeddingConfig()
@@ -179,10 +186,50 @@ export const searchSimilarVectors = async (
     }
   }
 
-  const vectorCount = await vectorQuery.count()
-  const queryDimension = queryEmbedding.length
+  const queryDimension = options.embeddingDimension ?? queryEmbedding.length
+  const normalizedEmbeddingModel = options.embeddingModel
+    ? normalizeEmbeddingModelName(options.embeddingModel)
+    : null
+  const embeddingProviderId = options.embeddingProviderId || null
+  const allowHNSW = !normalizedEmbeddingModel && !embeddingProviderId
 
   if (
+    normalizedEmbeddingModel ||
+    embeddingProviderId ||
+    options.embeddingDimension
+  ) {
+    vectorQuery = vectorQuery.filter((doc) => {
+      const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
+      if (docDimension !== queryDimension) return false
+
+      const docProviderId = doc.metadata.embeddingProviderId
+      const docModel = normalizeEmbeddingModelName(
+        doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
+      )
+
+      if (embeddingProviderId) {
+        if (docProviderId && docProviderId !== embeddingProviderId) {
+          return false
+        }
+
+        if (!docProviderId && normalizedEmbeddingModel) {
+          // Backward compatibility: allow legacy vectors without providerId
+          if (docModel !== normalizedEmbeddingModel) return false
+        }
+      }
+
+      if (normalizedEmbeddingModel && docModel !== normalizedEmbeddingModel) {
+        return false
+      }
+
+      return true
+    })
+  }
+
+  const vectorCount = await vectorQuery.count()
+
+  if (
+    allowHNSW &&
     config.useHNSW &&
     config.annBackend !== "bruteforce" &&
     config.hnswAutoRebuild &&
@@ -215,6 +262,7 @@ export const searchSimilarVectors = async (
 
   // Decide search strategy
   const useHNSW =
+    allowHNSW &&
     (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
     hnswIndexManager.isCompatibleDimension(queryDimension)
 
@@ -299,6 +347,9 @@ export const searchHybrid = async (
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
     fileId?: string | string[]
+    embeddingModel?: string
+    embeddingProviderId?: string
+    embeddingDimension?: number
   } = {}
 ): Promise<SearchResult[]> => {
   const config = await getEmbeddingConfig()

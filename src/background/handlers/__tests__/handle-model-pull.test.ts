@@ -42,6 +42,9 @@ describe("Handle Model Pull", () => {
       id: "ollama",
       config: {
         baseUrl: "http://localhost:11434"
+      },
+      capabilities: {
+        modelPull: true
       }
     } as any)
   })

@@ -83,7 +83,10 @@ export const EmbeddingTestTools = ({
       // Search
       const results = await searchSimilarVectors(embeddingResult.embedding, {
         limit: 5,
-        minSimilarity: 0.3
+        minSimilarity: 0.3,
+        embeddingModel: embeddingResult.model,
+        embeddingProviderId: embeddingResult.providerId,
+        embeddingDimension: embeddingResult.embedding.length
       })
 
       console.log(`[Search Test] Found ${results.length} results`)

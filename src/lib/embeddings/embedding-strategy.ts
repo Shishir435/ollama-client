@@ -10,6 +10,7 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
 import type { LLMProvider } from "@/lib/providers/types"
 import { getEmbeddingConfig } from "./config"
 
@@ -101,10 +102,23 @@ const getActiveProvider = async (): Promise<LLMProvider | null> => {
 }
 
 const getStoredEmbeddingModel = async (): Promise<string> => {
+  const config = await getEmbeddingConfig()
   const stored = await plasmoGlobalStorage.get<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
   )
-  return stored || DEFAULT_EMBEDDING_MODEL
+  const configModel = config.sharedEmbeddingModel
+
+  if (
+    stored &&
+    stored !== DEFAULT_EMBEDDING_MODEL &&
+    configModel === DEFAULT_EMBEDDING_MODEL
+  ) {
+    return normalizeEmbeddingModelName(stored)
+  }
+
+  return normalizeEmbeddingModelName(
+    configModel || stored || DEFAULT_EMBEDDING_MODEL
+  )
 }
 
 const isContextLengthError = (error: unknown): boolean => {
@@ -259,10 +273,26 @@ const buildAttempts = async (
 }> => {
   const config = await getEmbeddingConfig()
   const activeProvider = await getActiveProvider()
-  const sharedProviderId =
+  let sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
   const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
+
+  if (sharedProviderId === DEFAULT_SHARED_EMBEDDING_PROVIDER_ID) {
+    try {
+      const mapped = await ProviderManager.getModelMapping(storedEmbeddingModel)
+      if (mapped?.providerId) {
+        sharedProviderId = mapped.providerId
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.debug("Failed to resolve embedding model provider mapping", {
+          error: error.message,
+          model: storedEmbeddingModel
+        })
+      }
+    }
+  }
 
   const providerNativeModel = normalizeModelForProvider(
     activeProvider?.id || DEFAULT_PROVIDER_ID,

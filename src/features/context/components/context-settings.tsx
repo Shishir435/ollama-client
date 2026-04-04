@@ -2,6 +2,16 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
@@ -17,6 +27,7 @@ import { DatabaseManagementCard } from "@/features/model/components/embedding-co
 import { EmbeddingLimitsConfig } from "@/features/model/components/embedding-config/embedding-limits-config"
 import { StorageStatsCard } from "@/features/model/components/embedding-config/storage-stats-card"
 import { EmbeddingIndexControls } from "@/features/model/components/embedding-index-controls"
+import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
@@ -66,6 +77,7 @@ const useEmbeddingConfig = () => {
 
 export const ContextSettings = () => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const { config, updateConfig } = useEmbeddingConfig()
   const [memoryEnabled] = useStorage<boolean>(
     {
@@ -100,6 +112,10 @@ export const ContextSettings = () => {
   const [rebuildError, setRebuildError] = useState<string | null>(null)
   const [rebuildComplete, setRebuildComplete] = useState(false)
   const isLoadingRef = useRef(false)
+  const [confirmAction, setConfirmAction] = useState<
+    "removeDuplicates" | "clearChat" | "clearAll" | "rebuild" | null
+  >(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const loadStats = useCallback(async () => {
     if (isLoadingRef.current) return
@@ -142,92 +158,73 @@ export const ContextSettings = () => {
   }, [loadStats])
 
   const handleRemoveDuplicates = useCallback(async () => {
-    if (
-      !confirm(
-        t(
-          "model.embedding_config.database_management.remove_duplicates_confirm"
-        )
-      )
-    ) {
-      return
-    }
-
     setIsCleaning(true)
     try {
       const { deleted, kept } = await removeDuplicateVectors()
-      alert(
-        t(
+      toast({
+        title: t(
           "model.embedding_config.database_management.remove_duplicates_success",
-          {
-            deleted,
-            kept
-          }
+          { deleted, kept }
         )
-      )
+      })
       await loadStats()
     } catch (error) {
       console.error("Failed to remove duplicates:", error)
-      alert(
-        t("model.embedding_config.database_management.remove_duplicates_error")
-      )
+      toast({
+        title: t(
+          "model.embedding_config.database_management.remove_duplicates_error"
+        ),
+        variant: "destructive"
+      })
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats, t])
+  }, [loadStats, t, toast])
 
   const handleClearChatVectors = useCallback(async () => {
-    if (
-      !confirm(
-        t("model.embedding_config.database_management.clear_chat_confirm")
-      )
-    ) {
-      return
-    }
-
     setIsCleaning(true)
     try {
       const deleted = await clearAllVectors("chat")
-      alert(
-        t("model.embedding_config.database_management.clear_chat_success", {
-          count: deleted
-        })
-      )
+      toast({
+        title: t(
+          "model.embedding_config.database_management.clear_chat_success",
+          {
+            count: deleted
+          }
+        )
+      })
       await loadStats()
     } catch (error) {
       console.error("Failed to clear chat vectors:", error)
-      alert(t("model.embedding_config.database_management.clear_chat_error"))
+      toast({
+        title: t("model.embedding_config.database_management.clear_chat_error"),
+        variant: "destructive"
+      })
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats, t])
+  }, [loadStats, t, toast])
 
   const handleClearAllVectors = useCallback(async () => {
-    if (
-      !confirm(
-        t("model.embedding_config.database_management.clear_all_confirm")
-      )
-    ) {
-      return
-    }
-
     setIsCleaning(true)
     try {
       await clearAllVectors()
-      alert(t("model.embedding_config.database_management.clear_all_success"))
+      toast({
+        title: t("model.embedding_config.database_management.clear_all_success")
+      })
       await loadStats()
     } catch (error) {
       console.error("Failed to clear all vectors:", error)
-      alert(t("model.embedding_config.database_management.clear_all_error"))
+      toast({
+        title: t("model.embedding_config.database_management.clear_all_error"),
+        variant: "destructive"
+      })
     } finally {
       setIsCleaning(false)
     }
-  }, [loadStats, t])
+  }, [loadStats, t, toast])
 
   const handleRebuildEmbeddings = useCallback(async () => {
-    if (!confirm(t("settings.context.embedding_health.confirm"))) {
-      return
-    }
-
     setIsRebuilding(true)
     setRebuildError(null)
     setRebuildComplete(false)
@@ -268,7 +265,63 @@ export const ContextSettings = () => {
     } finally {
       setIsRebuilding(false)
     }
-  }, [embedMessages, loadStats, memoryEnabled, t])
+  }, [embedMessages, loadStats, memoryEnabled])
+
+  const openConfirm = useCallback(
+    (action: "removeDuplicates" | "clearChat" | "clearAll" | "rebuild") => {
+      setConfirmAction(action)
+      setConfirmOpen(true)
+    },
+    []
+  )
+
+  const closeConfirm = useCallback(() => {
+    setConfirmOpen(false)
+    setConfirmAction(null)
+  }, [])
+
+  const confirmConfig = (() => {
+    switch (confirmAction) {
+      case "removeDuplicates":
+        return {
+          title: t(
+            "model.embedding_config.database_management.remove_duplicates_confirm"
+          ),
+          confirmLabel: t(
+            "model.embedding_config.database_management.remove_duplicates_button"
+          ),
+          onConfirm: handleRemoveDuplicates
+        }
+      case "clearChat":
+        return {
+          title: t(
+            "model.embedding_config.database_management.clear_chat_confirm"
+          ),
+          confirmLabel: t(
+            "model.embedding_config.database_management.clear_chat_button"
+          ),
+          onConfirm: handleClearChatVectors
+        }
+      case "clearAll":
+        return {
+          title: t(
+            "model.embedding_config.database_management.clear_all_confirm"
+          ),
+          confirmLabel: t(
+            "model.embedding_config.database_management.clear_all_button"
+          ),
+          onConfirm: handleClearAllVectors
+        }
+      case "rebuild":
+        return {
+          title: t("settings.context.embedding_health.confirm"),
+          confirmLabel: t("settings.context.embedding_health.action"),
+          onConfirm: handleRebuildEmbeddings
+        }
+      default:
+        return null
+    }
+  })()
 
   const showMixedDimensions =
     !!dimensionStats?.mixedDimensions && (dimensionStats?.totalVectors ?? 0) > 0
@@ -310,7 +363,7 @@ export const ContextSettings = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRebuildEmbeddings}
+                onClick={() => openConfirm("rebuild")}
                 disabled={isRebuilding || isCleaning}>
                 {isRebuilding ? (
                   <>
@@ -395,9 +448,9 @@ export const ContextSettings = () => {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <DatabaseManagementCard
-          onRemoveDuplicates={handleRemoveDuplicates}
-          onClearChat={handleClearChatVectors}
-          onClearAll={handleClearAllVectors}
+          onRemoveDuplicates={() => openConfirm("removeDuplicates")}
+          onClearChat={() => openConfirm("clearChat")}
+          onClearAll={() => openConfirm("clearAll")}
           isCleaning={isCleaning || isRebuilding}
           hasVectors={!!storageStats?.totalVectors}
           hasChatVectors={!!storageStats?.byType?.chat}
@@ -407,6 +460,28 @@ export const ContextSettings = () => {
       </div>
 
       <EmbeddingIndexControls />
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmConfig?.title || ""}</AlertDialogTitle>
+            <AlertDialogDescription />
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={closeConfirm}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!confirmConfig) return
+                closeConfirm()
+                await confirmConfig.onConfirm()
+              }}>
+              {confirmConfig?.confirmLabel || t("common.save")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -95,7 +95,10 @@ export async function retrieveContextEnhanced(
         fileId,
         sessionId,
         type: type ?? "file",
-        minSimilarity
+        minSimilarity,
+        embeddingModel: fullEmbeddingResult.model,
+        embeddingProviderId: fullEmbeddingResult.providerId,
+        embeddingDimension: fullEmbeddingResult.embedding.length
       }
     )
 
@@ -138,7 +141,10 @@ export async function retrieveContextEnhanced(
     fileId,
     sessionId,
     type: searchType,
-    minSimilarity: minSimilarity * 0.7 // Lower threshold for recall
+    minSimilarity: minSimilarity * 0.7, // Lower threshold for recall
+    embeddingModel: embeddingResult.model,
+    embeddingProviderId: embeddingResult.providerId,
+    embeddingDimension: embeddingResult.embedding.length
   })
 
   // ===== STAGE 1.5: Memory Search (if enabled) =====
@@ -153,7 +159,10 @@ export async function retrieveContextEnhanced(
       keywordWeight: 0.6,
       semanticWeight: 0.4,
       type: "chat",
-      minSimilarity: minSimilarity * 0.5 // Lower threshold for memory
+      minSimilarity: minSimilarity * 0.5, // Lower threshold for memory
+      embeddingModel: embeddingResult.model,
+      embeddingProviderId: embeddingResult.providerId,
+      embeddingDimension: embeddingResult.embedding.length
     })
 
     memoryCandidates = memResults.map((c) => ({

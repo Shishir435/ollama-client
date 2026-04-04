@@ -25,6 +25,7 @@ export interface VectorDocument {
     qualityScore?: number
     qualityReasons?: string
     embeddingModel?: string
+    embeddingProviderId?: string
     embeddingDim?: number
   }
 }

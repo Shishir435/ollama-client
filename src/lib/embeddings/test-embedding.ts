@@ -53,7 +53,10 @@ export const testEmbeddingGeneration = async (
       url: metadata?.title ? undefined : undefined,
       title: metadata?.title || "Test Embedding",
       source: "test-embedding",
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      embeddingModel: result.model,
+      embeddingProviderId: result.providerId,
+      embeddingDim: result.embedding.length
     })
 
     logger.info(
@@ -120,7 +123,10 @@ export const testBatchEmbeddingGeneration = async (
           source: "test-embedding",
           timestamp: Date.now(),
           chunkIndex: i,
-          totalChunks: texts.length
+          totalChunks: texts.length,
+          embeddingModel: result.model,
+          embeddingProviderId: result.providerId,
+          embeddingDim: result.embedding.length
         })
         successCount++
       } catch (error) {

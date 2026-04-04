@@ -282,6 +282,7 @@
       "ready": "Modello di embedding pronto: {{model}}",
       "missing": "Modello mancante: {{model}}",
       "checking_model": "Verifica modello di embedding in corso...",
+      "error": "Impossibile verificare lo stato. Fai clic per riprovare.",
       "required_for_rag": "Il modello di embedding è richiesto per le funzionalità RAG.",
       "download_button": "Scarica Modello"
     },
@@ -909,7 +910,17 @@
       "model_select": {
         "label": "Modello di Embedding",
         "placeholder": "Seleziona un modello",
-        "description": "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima."
+        "description": "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima.",
+        "recommended_group": "Modelli consigliati",
+        "all_models_group": "Tutti i modelli",
+        "show_advanced_label": "Mostra tutti i modelli del provider",
+        "show_advanced_description": "Abilita la selezione avanzata per qualsiasi modello di embedding esposto dai tuoi provider. I modelli consigliati offrono la qualità di ricerca più coerente."
+      },
+      "model_change_confirm": {
+        "title": "Ricostruire gli embedding ora?",
+        "description": "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
+        "switch_only": "Cambia senza ricostruire",
+        "switch_and_rebuild": "Cambia e ricostruisci"
       }
     },
     "prompts": {

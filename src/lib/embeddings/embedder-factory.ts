@@ -15,6 +15,7 @@ export interface EmbeddingResult {
   embedding: number[]
   dimension: number
   model: string
+  providerId: string
 }
 
 export interface EmbeddingError {
@@ -48,7 +49,8 @@ export async function generateEmbeddingUnified(
   return {
     embedding: result.embedding,
     dimension: result.embedding.length,
-    model: result.model
+    model: result.model,
+    providerId: result.providerId
   }
 }
 
@@ -71,7 +73,8 @@ export async function generateBatchEmbeddingsUnified(
     processed.push({
       embedding: res.embedding,
       dimension: res.embedding.length,
-      model: res.model
+      model: res.model,
+      providerId: res.providerId
     })
   }
 

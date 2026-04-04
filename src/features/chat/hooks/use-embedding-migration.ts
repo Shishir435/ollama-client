@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 
 import { db } from "@/lib/db"
+import { chunkTextAsync } from "@/lib/embeddings/chunker"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
@@ -105,15 +107,28 @@ export const useEmbeddingMigration = () => {
 
             // Generate new embedding
             try {
-              const result = await generateEmbedding(message.content)
-              if (!("error" in result)) {
-                await storeVector(message.content, result.embedding, {
+              const embeddingConfig = await getEmbeddingConfig()
+              const chunks = await chunkTextAsync(message.content, {
+                chunkSize: embeddingConfig.chunkSize,
+                chunkOverlap: embeddingConfig.chunkOverlap,
+                strategy: embeddingConfig.chunkingStrategy
+              })
+
+              for (let index = 0; index < chunks.length; index += 1) {
+                const chunk = chunks[index]
+                const result = await generateEmbedding(chunk.text)
+                if ("error" in result) {
+                  continue
+                }
+                await storeVector(chunk.text, result.embedding, {
                   type: "chat",
                   source: "chat",
                   sessionId: message.sessionId,
                   timestamp: message.timestamp || Date.now(),
                   role: message.role as Role,
                   messageId: message.id,
+                  chunkIndex: index,
+                  totalChunks: chunks.length,
                   title:
                     message.role === "user"
                       ? "User message"

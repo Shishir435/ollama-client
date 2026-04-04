@@ -281,6 +281,7 @@
       "ready": "Modelo de incrustación listo: {{model}}",
       "missing": "Modelo faltante: {{model}}",
       "checking_model": "Comprobando modelo de incrustación...",
+      "error": "No se pudo comprobar el estado. Haz clic para reintentar.",
       "required_for_rag": "El modelo de incrustación es necesario para las funciones RAG.",
       "download_button": "Descargar Modelo"
     },
@@ -908,7 +909,17 @@
       "model_select": {
         "label": "Modelo de Incrustación",
         "placeholder": "Seleccionar un modelo",
-        "description": "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero."
+        "description": "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero.",
+        "recommended_group": "Modelos recomendados",
+        "all_models_group": "Todos los modelos",
+        "show_advanced_label": "Mostrar todos los modelos del proveedor",
+        "show_advanced_description": "Habilita la selección avanzada de cualquier modelo de embeddings expuesto por tus proveedores. Los modelos recomendados ofrecen la calidad de búsqueda más consistente."
+      },
+      "model_change_confirm": {
+        "title": "¿Reconstruir embeddings ahora?",
+        "description": "Cambiar el modelo de embeddings puede volver incompatibles los vectores existentes. Reconstruye el índice para mantener resultados precisos o cambia sin reconstruir.",
+        "switch_only": "Cambiar sin reconstruir",
+        "switch_and_rebuild": "Cambiar y reconstruir"
       }
     },
     "prompts": {

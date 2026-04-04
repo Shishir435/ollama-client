@@ -14,19 +14,168 @@ import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
  * Checks if the embedding model is already downloaded
  */
 export const checkEmbeddingModelExists = async (
-  modelName: string = DEFAULT_EMBEDDING_MODEL
+  modelName: string = DEFAULT_EMBEDDING_MODEL,
+  providerId?: string
 ): Promise<{ exists: boolean; debug?: object }> => {
   const normalizedModelName = normalizeEmbeddingModelName(modelName)
   let providerDebug: object | null = null
+  let providerBaseUrl: string | undefined
+  let resolvedProviderId = providerId
+  const startTime = Date.now()
+  const CHECK_TIMEOUT_MS = 4000
+
+  const withTimeout = async <T>(
+    promise: Promise<T>,
+    label: string
+  ): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error(`${label} timed out`)),
+        CHECK_TIMEOUT_MS
+      )
+    })
+    try {
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }
+
+  logger.info("Checking embedding model", "checkEmbeddingModelExists", {
+    modelName: normalizedModelName,
+    providerId
+  })
+
+  const checkDefaultProviderTags = async (): Promise<{
+    exists: boolean
+    debug: object
+  } | null> => {
+    try {
+      const baseUrl = providerBaseUrl || (await getBaseUrl())
+      const controller = new AbortController()
+      const timeoutId = setTimeout(
+        () => controller.abort("Status check timed out"),
+        CHECK_TIMEOUT_MS
+      )
+      const res = await fetch(`${baseUrl}/api/tags`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        return {
+          exists: false,
+          debug: {
+            ...providerDebug,
+            fallback: { baseUrl, status: res.status, method: "fallback-failed" }
+          }
+        }
+      }
+
+      const data = await res.json()
+      const providerModels = Array.isArray(data.models) ? data.models : []
+
+      const normalizeModelName = (name: string): string =>
+        name.split(":")[0] || name
+      const normalizedSearchName = normalizeModelName(normalizedModelName)
+
+      const found = providerModels
+        .map((model: unknown) => {
+          if (typeof model === "string") return model
+          if (model && typeof model === "object") {
+            const maybeName = (model as { name?: string; model?: string }).name
+            const maybeModel = (model as { model?: string }).model
+            return maybeName || maybeModel || ""
+          }
+          return ""
+        })
+        .filter((name) => name.length > 0)
+        .some((name) => {
+          const normalizedCandidate = normalizeModelName(name)
+          return (
+            name === normalizedModelName ||
+            normalizedCandidate === normalizedSearchName ||
+            name.startsWith(`${normalizedModelName}:`) ||
+            name.startsWith(`${normalizedSearchName}:`)
+          )
+        })
+
+      const result = {
+        exists: found,
+        debug: {
+          ...providerDebug,
+          fallback: {
+            found,
+            normalizedModelName,
+            models: providerModels
+              .map((model: unknown) => {
+                if (typeof model === "string") return model
+                if (model && typeof model === "object") {
+                  return (
+                    (model as { name?: string; model?: string }).name ||
+                    (model as { model?: string }).model ||
+                    ""
+                  )
+                }
+                return ""
+              })
+              .filter((name) => name.length > 0),
+            method: "fallback"
+          }
+        }
+      }
+
+      logger.info(
+        "Embedding model fallback result",
+        "checkEmbeddingModelExists",
+        {
+          modelName: normalizedModelName,
+          providerId: resolvedProviderId || DEFAULT_PROVIDER_ID,
+          exists: result.exists,
+          durationMs: Date.now() - startTime,
+          method: "fallback"
+        }
+      )
+      return result
+    } catch (error) {
+      logger.error(
+        "Error checking embedding model (fallback)",
+        "checkEmbeddingModelExists",
+        { error }
+      )
+      return {
+        exists: false,
+        debug: { ...providerDebug, fallbackError: error }
+      }
+    }
+  }
+
+  // For default provider, prefer direct tag check to avoid slow provider resolution.
+  if (
+    (resolvedProviderId && resolvedProviderId === DEFAULT_PROVIDER_ID) ||
+    normalizedModelName === DEFAULT_EMBEDDING_MODEL
+  ) {
+    const fallbackResult = await checkDefaultProviderTags()
+    if (fallbackResult) {
+      return fallbackResult
+    }
+  }
 
   // Try High-Level Provider Check
   try {
     const { ProviderFactory } = await import("@/lib/providers/factory")
-    // Default provider handles embedding checks in current runtime
-    const provider = await ProviderFactory.getProvider(DEFAULT_PROVIDER_ID)
+    const provider = providerId
+      ? await ProviderFactory.getProvider(providerId)
+      : await ProviderFactory.getProviderForModel(normalizedModelName)
 
     if (provider) {
-      const models = await provider.getModels()
+      resolvedProviderId = provider.id
+      providerBaseUrl = provider.config.baseUrl
+      const models = await withTimeout(
+        provider.getModels(),
+        "Provider model list"
+      )
       const modelNames = models
         .map((model: unknown) => {
           if (typeof model === "string") return model
@@ -64,10 +213,20 @@ export const checkEmbeddingModelExists = async (
       })
 
       if (found) {
+        logger.info(
+          "Embedding model found via provider",
+          "checkEmbeddingModelExists",
+          {
+            modelName: normalizedModelName,
+            providerId: provider.id,
+            durationMs: Date.now() - startTime,
+            method: "provider"
+          }
+        )
         return {
           exists: true,
           debug: {
-            provider: provider.config.id,
+            provider: provider.config.id || provider.id,
             models: modelNames,
             method: "provider"
           }
@@ -75,7 +234,7 @@ export const checkEmbeddingModelExists = async (
       }
 
       providerDebug = {
-        provider: provider.config.id,
+        provider: provider.config.id || provider.id,
         models: modelNames,
         method: "provider-failed-not-found"
       }
@@ -93,70 +252,22 @@ export const checkEmbeddingModelExists = async (
 
   // Fallback/Legacy: If provider check didn't find it, or failed, try direct default-provider check
   try {
-    const baseUrl = await getBaseUrl()
-    const res = await fetch(`${baseUrl}/api/tags`)
-
-    if (!res.ok) {
+    if (resolvedProviderId && resolvedProviderId !== DEFAULT_PROVIDER_ID) {
       return {
         exists: false,
         debug: {
           ...providerDebug,
-          fallback: { baseUrl, status: res.status, method: "fallback-failed" }
+          fallback: {
+            method: "fallback-skipped",
+            providerId: resolvedProviderId
+          }
         }
       }
     }
 
-    const data = await res.json()
-    const providerModels = Array.isArray(data.models) ? data.models : []
-
-    const normalizeModelName = (name: string): string =>
-      name.split(":")[0] || name
-    const normalizedSearchName = normalizeModelName(normalizedModelName)
-
-    const found = providerModels
-      .map((model: unknown) => {
-        if (typeof model === "string") return model
-        if (model && typeof model === "object") {
-          const maybeName = (model as { name?: string; model?: string }).name
-          const maybeModel = (model as { model?: string }).model
-          return maybeName || maybeModel || ""
-        }
-        return ""
-      })
-      .filter((name) => name.length > 0)
-      .some((name) => {
-        const normalizedCandidate = normalizeModelName(name)
-        return (
-          name === normalizedModelName ||
-          normalizedCandidate === normalizedSearchName ||
-          name.startsWith(`${normalizedModelName}:`) ||
-          name.startsWith(`${normalizedSearchName}:`)
-        )
-      })
-
-    return {
-      exists: found,
-      debug: {
-        ...providerDebug,
-        fallback: {
-          found,
-          normalizedModelName,
-          models: providerModels
-            .map((model: unknown) => {
-              if (typeof model === "string") return model
-              if (model && typeof model === "object") {
-                return (
-                  (model as { name?: string; model?: string }).name ||
-                  (model as { model?: string }).model ||
-                  ""
-                )
-              }
-              return ""
-            })
-            .filter((name) => name.length > 0),
-          method: "fallback"
-        }
-      }
+    const fallbackResult = await checkDefaultProviderTags()
+    if (fallbackResult) {
+      return fallbackResult
     }
   } catch (error) {
     logger.error(
@@ -164,7 +275,10 @@ export const checkEmbeddingModelExists = async (
       "checkEmbeddingModelExists",
       { error }
     )
-    return { exists: false, debug: { ...providerDebug, fallbackError: error } }
+    return {
+      exists: false,
+      debug: { ...providerDebug, fallbackError: error }
+    }
   }
 }
 

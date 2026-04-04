@@ -281,6 +281,7 @@
       "ready": "嵌入模型就绪: {{model}}",
       "missing": "模型缺失: {{model}}",
       "checking_model": "正在检查嵌入模型...",
+      "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
       "download_button": "下载模型"
     },
@@ -908,7 +909,17 @@
       "model_select": {
         "label": "嵌入模型",
         "placeholder": "选择一个模型",
-        "description": "选择一个模型来生成嵌入。您可能需要先下载它。"
+        "description": "选择一个模型来生成嵌入。您可能需要先下载它。",
+        "recommended_group": "推荐模型",
+        "all_models_group": "所有模型",
+        "show_advanced_label": "显示所有提供方模型",
+        "show_advanced_description": "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。"
+      },
+      "model_change_confirm": {
+        "title": "现在重建嵌入吗？",
+        "description": "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
+        "switch_only": "直接切换不重建",
+        "switch_and_rebuild": "切换并重建"
       }
     },
     "prompts": {

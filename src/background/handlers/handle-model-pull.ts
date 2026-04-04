@@ -38,6 +38,15 @@ export const handleModelPull = async (
     modelName,
     providerId
   )
+  if (!provider.capabilities.modelPull) {
+    safePostMessage(port, {
+      error: {
+        status: 400,
+        message: "Model download is not supported by this provider"
+      }
+    })
+    return
+  }
   const baseUrl = providerId
     ? provider.config.baseUrl || (await getBaseUrl())
     : await getBaseUrl()

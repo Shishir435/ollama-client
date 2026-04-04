@@ -26,11 +26,13 @@ vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
     getProviderForModel: vi.fn(() =>
       Promise.resolve({
+        id: "ollama",
         embed: (...args: unknown[]) => mockEmbed(...args)
       })
     ),
     getProvider: vi.fn(() =>
       Promise.resolve({
+        id: "ollama",
         embed: (...args: unknown[]) => mockEmbed(...args)
       })
     )
@@ -54,6 +56,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("embedding")
       expect(result).toHaveProperty("model")
+      expect(result).toHaveProperty("providerId")
       if ("embedding" in result) {
         expect(result.embedding).toEqual([0.1, 0.2, 0.3, 0.4, 0.5])
       }
@@ -66,6 +69,7 @@ describe("Embedding Client", () => {
       expect(mockEmbed).toHaveBeenCalledWith("test", "custom-model")
       if ("model" in result) {
         expect(result.model).toBe("custom-model")
+        expect(result.providerId).toBe("ollama")
       }
     })
 

@@ -52,7 +52,8 @@ describe("useSemanticChatSearch", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     vi.mocked(searchHybrid).mockResolvedValue([
@@ -129,7 +130,11 @@ describe("useSemanticChatSearch", () => {
     expect(result.current.isSearching).toBe(true)
 
     // Resolve the embedding
-    resolveEmbedding({ embedding: [0.1, 0.2, 0.3], model: "test-model" })
+    resolveEmbedding({
+      embedding: [0.1, 0.2, 0.3],
+      model: "test-model",
+      providerId: "ollama"
+    })
 
     await searchPromise
 
@@ -146,7 +151,8 @@ describe("useSemanticChatSearch", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 
@@ -158,7 +164,12 @@ describe("useSemanticChatSearch", () => {
       expect(searchHybrid).toHaveBeenCalledWith(
         "test",
         [0.1, 0.2, 0.3],
-        expect.objectContaining({ sessionId: "specific-session" })
+        expect.objectContaining({
+          sessionId: "specific-session",
+          embeddingModel: "test-model",
+          embeddingProviderId: "ollama",
+          embeddingDimension: 3
+        })
       )
     })
   })
@@ -171,7 +182,8 @@ describe("useSemanticChatSearch", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 
@@ -183,7 +195,13 @@ describe("useSemanticChatSearch", () => {
       expect(searchHybrid).toHaveBeenCalledWith(
         "test",
         [0.1, 0.2, 0.3],
-        expect.objectContaining({ limit: 5, minSimilarity: 0.8 })
+        expect.objectContaining({
+          limit: 5,
+          minSimilarity: 0.8,
+          embeddingModel: "test-model",
+          embeddingProviderId: "ollama",
+          embeddingDimension: 3
+        })
       )
     })
   })
@@ -196,7 +214,8 @@ describe("useSemanticChatSearch", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     vi.mocked(searchHybrid).mockResolvedValue([
@@ -241,7 +260,8 @@ describe("useSemanticChatSearch", () => {
     )
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 

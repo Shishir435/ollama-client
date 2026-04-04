@@ -315,26 +315,43 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL:
       case MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL: {
-        if (typeof message.payload === "string") {
-          // Handle async operation separately to maintain correct return type
-          checkEmbeddingModelExists(message.payload as string)
-            .then((result) => {
-              safeSendResponse(sendResponse, {
-                success: true,
-                data: result
-              })
-            })
-            .catch((error) => {
-              safeSendResponse(sendResponse, {
-                success: false,
-                error: {
-                  status: 0,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                }
-              })
-            })
+        const payload = message.payload
+        const modelName =
+          typeof payload === "string"
+            ? payload
+            : payload && typeof payload === "object" && "model" in payload
+              ? (payload as { model: string }).model
+              : null
+        const providerId =
+          payload && typeof payload === "object" && "providerId" in payload
+            ? (payload as { providerId?: string }).providerId
+            : undefined
+
+        if (typeof modelName !== "string") {
+          safeSendResponse(sendResponse, {
+            success: false,
+            error: { status: 400, message: "Invalid embedding model request" }
+          })
+          return true
         }
+
+        // Handle async operation separately to maintain correct return type
+        checkEmbeddingModelExists(modelName, providerId)
+          .then((result) => {
+            safeSendResponse(sendResponse, {
+              success: true,
+              data: result
+            })
+          })
+          .catch((error) => {
+            safeSendResponse(sendResponse, {
+              success: false,
+              error: {
+                status: 0,
+                message: error instanceof Error ? error.message : String(error)
+              }
+            })
+          })
         return true
       }
 

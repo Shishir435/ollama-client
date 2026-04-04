@@ -465,6 +465,7 @@ export const fromDocuments = async (
         timestamp: Date.now(),
         fileId: fileId || doc.metadata.fileId,
         embeddingModel: embeddingResult.model,
+        embeddingProviderId: embeddingResult.providerId,
         embeddingDim: embeddingResult.embedding.length
       }
 
@@ -514,6 +515,7 @@ export const storeChatMessage = async (
       source: "chat",
       timestamp: Date.now(),
       embeddingModel: embeddingResult.model,
+      embeddingProviderId: embeddingResult.providerId,
       embeddingDim: embeddingResult.embedding.length
     })
   } catch (error) {

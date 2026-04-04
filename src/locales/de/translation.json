@@ -282,6 +282,7 @@
       "ready": "Embedding-Modell bereit: {{model}}",
       "missing": "Modell fehlt: {{model}}",
       "checking_model": "Embedding-Modell wird geprüft...",
+      "error": "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
       "required_for_rag": "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
       "download_button": "Modell herunterladen"
     },
@@ -909,7 +910,17 @@
       "model_select": {
         "label": "Embedding-Modell",
         "placeholder": "Ein Modell auswählen",
-        "description": "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen."
+        "description": "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen.",
+        "recommended_group": "Empfohlene Modelle",
+        "all_models_group": "Alle Modelle",
+        "show_advanced_label": "Alle Anbieter-Modelle anzeigen",
+        "show_advanced_description": "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse."
+      },
+      "model_change_confirm": {
+        "title": "Einbettungen jetzt neu erstellen?",
+        "description": "Beim Wechsel des Einbettungsmodells können vorhandene Vektoren inkompatibel werden. Erstelle den Index neu, um Suchergebnisse korrekt zu halten, oder wechsle ohne Neuaufbau.",
+        "switch_only": "Wechseln ohne Neuaufbau",
+        "switch_and_rebuild": "Wechseln und Neuaufbau"
       }
     },
     "prompts": {

@@ -37,6 +37,9 @@ export const hashSearchQuery = (
     type?: VectorDocument["metadata"]["type"]
     sessionId?: string
     fileId?: string | string[]
+    embeddingModel?: string
+    embeddingProviderId?: string
+    embeddingDimension?: number
   }
 ): string => {
   // Create a simple hash from query embedding and options

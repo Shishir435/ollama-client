@@ -60,7 +60,8 @@ describe("useAutoEmbedMessages", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())
@@ -129,7 +130,8 @@ describe("useAutoEmbedMessages", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())
@@ -204,7 +206,8 @@ describe("useAutoEmbedMessages", () => {
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())

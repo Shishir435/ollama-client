@@ -11,7 +11,18 @@ import type { ChromeSidePanel } from "@/types"
 
 export const initializeContextMenu = () => {
   try {
-    browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID)
+    const removal = browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID)
+    if (removal && typeof removal.catch === "function") {
+      removal.catch((error) => {
+        logger.debug(
+          "Legacy context menu cleanup skipped",
+          "initializeContextMenu",
+          {
+            error: error instanceof Error ? error.message : String(error)
+          }
+        )
+      })
+    }
   } catch (error) {
     logger.debug(
       "Legacy context menu cleanup skipped",

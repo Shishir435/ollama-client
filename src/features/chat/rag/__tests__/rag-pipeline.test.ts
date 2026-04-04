@@ -83,7 +83,8 @@ describe("retrieveContextEnhanced — full mode", () => {
     const fakeEmbedding = [0.5, 0.5]
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: fakeEmbedding,
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const doc1 = makeDoc(1, "First result")

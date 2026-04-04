@@ -27,6 +27,7 @@ export interface EmbeddingConfig {
   sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-minilm)
   sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: default provider)
   warmupEmbeddingsInBackground: boolean // Best-effort background model preparation (default: true)
+  showAdvancedEmbeddingModels: boolean // Allow selecting any embedding model (default: false)
 
   // Performance settings
   enableCaching: boolean // Cache embeddings for identical content (default: true)
@@ -101,6 +102,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   sharedEmbeddingModel: DEFAULT_EMBEDDING_MODEL,
   sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   warmupEmbeddingsInBackground: true,
+  showAdvancedEmbeddingModels: false,
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision

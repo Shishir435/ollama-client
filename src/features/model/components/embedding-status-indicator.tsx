@@ -9,13 +9,24 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
+import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
+import type { EmbeddingConfig } from "@/lib/constants"
 import {
+  DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
   MESSAGE_KEYS,
+  normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { Database, Download, Loader2, RefreshCw } from "@/lib/lucide-icon"
+import {
+  AlertTriangle,
+  Database,
+  Download,
+  Loader2,
+  RefreshCw
+} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ModelCheckResponse } from "@/types"
 
@@ -28,8 +39,21 @@ export const EmbeddingStatusIndicator = () => {
     },
     DEFAULT_EMBEDDING_MODEL
   )
+  const [config] = useStorage<EmbeddingConfig>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_EMBEDDING_CONFIG
+  )
 
-  const modelName = selectedModel || DEFAULT_EMBEDDING_MODEL
+  const modelName = normalizeEmbeddingModelName(
+    config?.sharedEmbeddingModel || selectedModel || DEFAULT_EMBEDDING_MODEL
+  )
+  const providerId =
+    modelName === DEFAULT_EMBEDDING_MODEL
+      ? DEFAULT_PROVIDER_ID
+      : config?.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
 
   const [isChecking, setIsChecking] = useState(false)
   const [modelExists, setModelExists] = useState<boolean | null>(null)
@@ -40,16 +64,40 @@ export const EmbeddingStatusIndicator = () => {
 
   const [retryCount, setRetryCount] = useState(0)
   const retryTimerRef = useRef<number | null>(null)
+  const lastPullErrorRef = useRef<string | null>(null)
   const MAX_RETRIES = 3
+  const CHECK_TIMEOUT_MS = 6000
+  const { toast } = useToast()
 
   const checkModel = useCallback(async () => {
     setIsChecking(true)
     setError(null)
     try {
-      const resp = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
-        payload: modelName
-      })) as ModelCheckResponse
+      console.info("[EmbeddingStatus] Checking model", {
+        model: modelName,
+        providerId
+      })
+
+      const resp = (await Promise.race([
+        browser.runtime.sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
+          payload: { model: modelName, providerId }
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Status check timed out")),
+            CHECK_TIMEOUT_MS
+          )
+        )
+      ])) as ModelCheckResponse
+
+      console.info("[EmbeddingStatus] Check response", {
+        model: modelName,
+        providerId,
+        success: resp?.success,
+        exists: resp?.data?.exists,
+        error: resp?.error
+      })
 
       if (resp?.success && resp.data && resp.data.exists === true) {
         setModelExists(true)
@@ -60,12 +108,18 @@ export const EmbeddingStatusIndicator = () => {
         }
       }
     } catch (err) {
-      setModelExists(false)
-      setError(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn("[EmbeddingStatus] Check failed", {
+        model: modelName,
+        providerId,
+        error: message
+      })
+      setModelExists(null)
+      setError(message)
     } finally {
       setIsChecking(false)
     }
-  }, [modelName])
+  }, [modelName, providerId])
 
   useEffect(() => {
     checkModel()
@@ -99,22 +153,28 @@ export const EmbeddingStatusIndicator = () => {
     e?.stopPropagation()
     setError(null)
     setRetryCount(0)
+    console.info("[EmbeddingStatus] Manual retry", {
+      model: modelName,
+      providerId
+    })
     checkModel()
   }
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
-    pullModel(modelName)
+    pullModel(modelName, providerId)
   }
 
   const status =
     isChecking || isDownloading
       ? "loading"
-      : modelExists === true
-        ? "ready"
-        : modelExists === false
-          ? "missing"
-          : "default"
+      : error
+        ? "error"
+        : modelExists === true
+          ? "ready"
+          : modelExists === false
+            ? "missing"
+            : "default"
 
   const statusConfig = {
     loading: {
@@ -137,6 +197,11 @@ export const EmbeddingStatusIndicator = () => {
       color: "text-red-500",
       text: t("model.embedding_status.missing", { model: modelName })
     },
+    error: {
+      icon: <AlertTriangle className="size-4 text-red-500" />,
+      color: "text-red-500",
+      text: t("model.embedding_status.error")
+    },
     default: {
       icon: <Database className="size-4 text-muted-foreground" />,
       color: "text-muted-foreground",
@@ -145,6 +210,23 @@ export const EmbeddingStatusIndicator = () => {
   }
 
   const { icon, text: statusText, color: statusColor } = statusConfig[status]
+
+  useEffect(() => {
+    if (!progress || !progress.startsWith("❌")) {
+      return
+    }
+
+    if (lastPullErrorRef.current === progress) {
+      return
+    }
+
+    lastPullErrorRef.current = progress
+    toast({
+      title: "Embedding download failed",
+      description: progress.replace(/^❌\s*/, ""),
+      variant: "destructive"
+    })
+  }, [progress, toast])
 
   return (
     <Tooltip>
