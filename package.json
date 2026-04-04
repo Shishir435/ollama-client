@@ -44,9 +44,11 @@
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "lint:check": "biome check .",
+    "test:related": "vitest related --run",
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
     "prepare": "husky",
     "generate:resources": "npx tsx tools/generate-i18n-resources.ts"
@@ -133,8 +135,10 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json}": [
-      "biome check --write --diagnostic-level=warn",
-      "vitest related --run"
+      "pnpm format:fix",
+      "pnpm lint:fix",
+      "pnpm typecheck --",
+      "pnpm test:related"
     ]
   },
   "manifest": {

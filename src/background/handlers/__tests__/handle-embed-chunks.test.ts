@@ -34,7 +34,7 @@ describe("Handle Embed Chunks", () => {
       const sendResponse = vi.fn()
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
-        { embedding: [0.1], model: "test-model" }
+        { embedding: [0.1], model: "test-model", providerId: "ollama" }
       ])
 
       await handleEmbedFileChunks(message, sendResponse)
@@ -143,8 +143,8 @@ describe("Handle Embed Chunks", () => {
       })
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
-        { embedding: [0.1], model: "default" },
-        { embedding: [0.2], model: "default" }
+        { embedding: [0.1], model: "default", providerId: "ollama" },
+        { embedding: [0.2], model: "default", providerId: "ollama" }
       ])
 
       // Send batch
@@ -235,7 +235,7 @@ describe("Handle Embed Chunks", () => {
       listeners.disconnect?.()
 
       vi.mocked(generateEmbeddingsBatch).mockResolvedValue([
-        { embedding: [0.1], model: "default" }
+        { embedding: [0.1], model: "default", providerId: "ollama" }
       ])
 
       await listeners.message?.({

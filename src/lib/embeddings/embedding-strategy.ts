@@ -286,10 +286,14 @@ const buildAttempts = async (
       }
     } catch (error) {
       if (error instanceof Error) {
-        logger.debug("Failed to resolve embedding model provider mapping", {
-          error: error.message,
-          model: storedEmbeddingModel
-        })
+        logger.debug(
+          "Failed to resolve embedding model provider mapping",
+          "EmbeddingStrategy",
+          {
+            error: error.message,
+            model: storedEmbeddingModel
+          }
+        )
       }
     }
   }
