@@ -1,4 +1,3 @@
-import html2pdf from "html2pdf.js"
 import type { TFunction } from "i18next"
 
 import type { ChatMessage, ChatSession } from "@/types"
@@ -7,6 +6,22 @@ import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
 import { getPdfStyles } from "./styles"
 import type { Exporter, ExportOptions } from "./types"
 
+const renderPdf = async (html: string, filename: string) => {
+  localStorage.setItem("print_html", html)
+  localStorage.setItem("print_filename", filename)
+
+  const printPageUrl = chrome.runtime.getURL("print.html")
+  const printWindow = window.open(printPageUrl, "_blank")
+
+  if (!printWindow) {
+    localStorage.removeItem("print_html")
+    localStorage.removeItem("print_filename")
+    throw new Error(
+      "Failed to open print window. Please check if popups are blocked."
+    )
+  }
+}
+
 export const pdfExporter: Exporter = {
   exportSession: (
     session: ChatSession,
@@ -14,8 +29,7 @@ export const pdfExporter: Exporter = {
     options?: ExportOptions
   ) => {
     const md = createMarkdownParser()
-    const element = document.createElement("div")
-    element.innerHTML = `
+    const html = `
       ${getPdfStyles()}
       <div class="chat-container">
         <h1 class="chat-title">${session.title || t("sessions.export.default_title")}</h1>
@@ -38,34 +52,12 @@ export const pdfExporter: Exporter = {
       options?.fileName ||
       `${session.title || t("sessions.export.default_title")}.pdf`
 
-    html2pdf()
-      .from(element)
-      .set({
-        margin: [15, 15, 15, 15],
-        filename,
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          allowTaint: false
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-          compress: true
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"]
-        }
-      })
-      .save()
+    void renderPdf(html, filename)
   },
 
   exportAllSessions: (sessions: ChatSession[], t: TFunction) => {
     const md = createMarkdownParser()
-    const element = document.createElement("div")
-    element.innerHTML = `
+    const html = `
       ${getPdfStyles()}
       <div class="chat-container">
         <h1 class="chat-title">${t("sessions.export.all_sessions_title")}</h1>
@@ -92,28 +84,7 @@ export const pdfExporter: Exporter = {
       </div>
     `
 
-    html2pdf()
-      .from(element)
-      .set({
-        margin: [15, 15, 15, 15],
-        filename: "all-chat-sessions.pdf",
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          allowTaint: false
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-          compress: true
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"]
-        }
-      })
-      .save()
+    void renderPdf(html, "all-chat-sessions.pdf")
   },
 
   exportMessage: (
@@ -122,8 +93,7 @@ export const pdfExporter: Exporter = {
     options?: ExportOptions
   ) => {
     const md = createMarkdownParser()
-    const element = document.createElement("div")
-    element.innerHTML = `
+    const html = `
       ${getPdfStyles()}
       <div class="chat-container">
         <div class="message ${message.role === "user" ? "user-message" : "ai-message"}">
@@ -138,27 +108,6 @@ export const pdfExporter: Exporter = {
     const filename =
       options?.fileName || `message-${message.id || "export"}.pdf`
 
-    html2pdf()
-      .from(element)
-      .set({
-        margin: [15, 15, 15, 15],
-        filename,
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          allowTaint: false
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-          compress: true
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"]
-        }
-      })
-      .save()
+    void renderPdf(html, filename)
   }
 }

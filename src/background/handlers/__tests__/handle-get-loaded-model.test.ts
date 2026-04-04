@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { handleGetLoadedModels } from "../handle-get-loaded-model"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { handleGetLoadedModels } from "../handle-get-loaded-model"
 
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn(),
   safeSendResponse: vi.fn()
+}))
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProvider: vi.fn()
+  }
 }))
 
 global.fetch = vi.fn()
@@ -13,22 +19,26 @@ describe("handleGetLoadedModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getBaseUrl).mockResolvedValue("http://localhost:11434")
+    vi.mocked(ProviderFactory.getProvider).mockResolvedValue({
+      id: "ollama",
+      config: {
+        baseUrl: "http://localhost:11434"
+      }
+    } as any)
   })
 
   it("should get loaded models successfully", async () => {
     const mockData = {
-      models: [
-        { name: "llama2:latest", size: 3825819519 }
-      ]
+      models: [{ name: "llama2:latest", size: 3825819519 }]
     }
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue(mockData)
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetLoadedModels(sendResponse)
+    await handleGetLoadedModels(undefined, sendResponse)
 
     expect(fetch).toHaveBeenCalledWith("http://localhost:11434/api/ps")
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
@@ -45,7 +55,7 @@ describe("handleGetLoadedModels", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetLoadedModels(sendResponse)
+    await handleGetLoadedModels(undefined, sendResponse)
 
     expect(fetch).toHaveBeenCalledWith("http://custom:8080/api/ps")
   })
@@ -58,7 +68,7 @@ describe("handleGetLoadedModels", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetLoadedModels(sendResponse)
+    await handleGetLoadedModels(undefined, sendResponse)
 
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: false,
@@ -70,7 +80,7 @@ describe("handleGetLoadedModels", () => {
     vi.mocked(fetch).mockRejectedValue(new Error("Network error"))
 
     const sendResponse = vi.fn()
-    await handleGetLoadedModels(sendResponse)
+    await handleGetLoadedModels(undefined, sendResponse)
 
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: false,
@@ -85,7 +95,7 @@ describe("handleGetLoadedModels", () => {
     } as any)
 
     const sendResponse = vi.fn()
-    await handleGetLoadedModels(sendResponse)
+    await handleGetLoadedModels(undefined, sendResponse)
 
     expect(safeSendResponse).toHaveBeenCalledWith(sendResponse, {
       success: false,

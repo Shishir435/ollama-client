@@ -219,7 +219,7 @@ const ContentExtractionSettingsForm = ({
                 hover:bg-accent/50 hover:border-accent-foreground/20
                 ${
                   isSelected
-                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-sm"
+                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
                     : "border-border"
                 }
               `}>
@@ -327,7 +327,9 @@ const ContentExtractionSettingsForm = ({
           max={100}
           step={5}
           value={[depthPercent]}
-          onValueChange={([value]) => onValueChange(value / 100)}
+          onValueChange={(value) =>
+            onValueChange((Array.isArray(value) ? value[0] : value) / 100)
+          }
           className="py-2"
         />
         <div className="flex justify-between text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { handleScrapeModel } from "../handle-scrape-model"
 import { safeSendResponse } from "@/background/lib/utils"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
+import { handleScrapeModel } from "../handle-scrape-model"
 
 vi.mock("@/background/lib/utils", () => ({
   safeSendResponse: vi.fn()

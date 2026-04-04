@@ -32,10 +32,12 @@ export function EmbeddingSourceSettings() {
               <div className="font-medium">
                 {t("model.embedding_config.embedding_source_default_provider")}
               </div>
-              <Badge variant="secondary">Active</Badge>
+              <Badge variant="secondary">
+                {t("knowledge.embedding_source.status_active")}
+              </Badge>
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              High quality embeddings • 768-1024 dimensions • Consistent results
+              {t("knowledge.embedding_source.provider_details")}
             </div>
           </div>
         </div>
@@ -44,22 +46,23 @@ export function EmbeddingSourceSettings() {
         <Alert>
           <InfoIcon className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            <strong>WebGPU embedding generation is unavailable</strong> due to
-            Chrome Extension Content Security Policy constraints. WebGPU
-            re-ranking is still active and working. Embeddings are generated via
-            the provider fallback chain, using the default provider when native
-            support is unavailable.
+            <strong>
+              {t("knowledge.embedding_source.webgpu_warning_title")}
+            </strong>{" "}
+            {t("knowledge.embedding_source.webgpu_warning_text")}
           </AlertDescription>
         </Alert>
 
         {/* Performance Info */}
         <div className="rounded-md bg-muted p-3 space-y-2">
-          <div className="text-xs font-medium">Performance</div>
-          <div className="text-xs text-muted-foreground">
-            Default provider embedding generation: ~500ms per chunk
+          <div className="text-xs font-medium">
+            {t("knowledge.embedding_source.performance_title")}
           </div>
           <div className="text-xs text-muted-foreground">
-            Ensure your local provider is running (default: localhost:11434)
+            {t("knowledge.embedding_source.performance_default")}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {t("knowledge.embedding_source.provider_hint")}
           </div>
         </div>
       </CardContent>

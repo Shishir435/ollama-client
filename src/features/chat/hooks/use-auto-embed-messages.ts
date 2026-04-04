@@ -2,6 +2,8 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useRef } from "react"
 
 import { STORAGE_KEYS } from "@/lib/constants"
+import { chunkTextAsync } from "@/lib/embeddings/chunker"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
@@ -15,14 +17,20 @@ import type { ChatMessage } from "@/types"
 const checkDuplicateEmbedding = async (
   content: string,
   sessionId: string,
-  messageId?: number
+  messageId?: number,
+  chunkIndex?: number
 ): Promise<boolean> => {
   try {
     const query = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
 
     if (messageId) {
       const existing = await query
-        .filter((doc) => doc.metadata.messageId === messageId)
+        .filter((doc) =>
+          chunkIndex === undefined
+            ? doc.metadata.messageId === messageId
+            : doc.metadata.messageId === messageId &&
+              doc.metadata.chunkIndex === chunkIndex
+        )
         .first()
       return !!existing
     }
@@ -43,9 +51,9 @@ const checkDuplicateEmbedding = async (
  * NOW WITH QUALITY FILTERING: Filters out low-quality content before embedding
  */
 export const useAutoEmbedMessages = () => {
-  const [autoEmbedEnabled] = useStorage<boolean>(
+  const [memoryEnabled] = useStorage<boolean>(
     {
-      key: STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT,
+      key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
     true // Default to enabled
@@ -58,7 +66,7 @@ export const useAutoEmbedMessages = () => {
   const embedMessage = useCallback(
     async (message: ChatMessage, sessionId: string): Promise<void> => {
       // Skip if auto-embedding is disabled
-      if (!autoEmbedEnabled) return
+      if (!memoryEnabled) return
 
       // Skip system messages
       if (message.role === "system") return
@@ -103,47 +111,60 @@ export const useAutoEmbedMessages = () => {
         return
       }
 
-      // Check for duplicate embedding
-      const isDuplicate = await checkDuplicateEmbedding(
-        content,
-        sessionId,
-        messageId
-      )
-      if (isDuplicate) {
-        return // Skip if already embedded
-      }
-
       // Mark as processing
       processingMessagesRef.current.add(messageKey)
 
       try {
-        // Generate embedding
-        const result = await generateEmbedding(content)
-
-        if ("error" in result) {
-          logger.warn(
-            "Failed to embed message:",
-            "useAutoEmbedMessages",
-            result.error
-          )
-          return
-        }
-
-        const embedding = result.embedding
-
-        // Store vector with metadata (including quality score)
-        await storeVector(message.content, embedding, {
-          type: "chat",
-          source: "chat",
-          sessionId,
-          timestamp: Date.now(),
-          title:
-            message.role === "user" ? "User message" : "Assistant response",
-          messageId,
-          role: message.role,
-          qualityScore: qualityAssessment.score,
-          qualityReasons: qualityAssessment.reasons.join(", ")
+        const embeddingConfig = await getEmbeddingConfig()
+        const chunks = await chunkTextAsync(content, {
+          chunkSize: embeddingConfig.chunkSize,
+          chunkOverlap: embeddingConfig.chunkOverlap,
+          strategy: embeddingConfig.chunkingStrategy
         })
+
+        for (let index = 0; index < chunks.length; index += 1) {
+          const chunk = chunks[index]
+          const isDuplicate = await checkDuplicateEmbedding(
+            chunk.text,
+            sessionId,
+            messageId,
+            index
+          )
+          if (isDuplicate) {
+            continue
+          }
+
+          const result = await generateEmbedding(chunk.text)
+
+          if ("error" in result) {
+            logger.warn(
+              "Failed to embed message chunk:",
+              "useAutoEmbedMessages",
+              result.error
+            )
+            continue
+          }
+
+          const embedding = result.embedding
+
+          await storeVector(chunk.text, embedding, {
+            type: "chat",
+            source: "chat",
+            sessionId,
+            timestamp: Date.now(),
+            title:
+              message.role === "user" ? "User message" : "Assistant response",
+            messageId,
+            role: message.role,
+            chunkIndex: index,
+            totalChunks: chunks.length,
+            qualityScore: qualityAssessment.score,
+            qualityReasons: qualityAssessment.reasons.join(", "),
+            embeddingModel: result.model,
+            embeddingProviderId: result.providerId,
+            embeddingDim: embedding.length
+          })
+        }
       } catch (error) {
         logger.error("Error embedding message:", "useAutoEmbedMessages", {
           error
@@ -156,7 +177,7 @@ export const useAutoEmbedMessages = () => {
         }, 1000)
       }
     },
-    [autoEmbedEnabled]
+    [memoryEnabled]
   )
 
   const embedMessages = useCallback(
@@ -165,7 +186,7 @@ export const useAutoEmbedMessages = () => {
       sessionId: string,
       isStreaming: boolean = false
     ): Promise<void> => {
-      if (!autoEmbedEnabled) return
+      if (!memoryEnabled) return
 
       // Skip if streaming - we'll embed when streaming completes
       if (isStreaming) return
@@ -192,12 +213,12 @@ export const useAutoEmbedMessages = () => {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
     },
-    [autoEmbedEnabled, embedMessage]
+    [memoryEnabled, embedMessage]
   )
 
   return {
     embedMessage,
     embedMessages,
-    isEnabled: autoEmbedEnabled
+    isEnabled: memoryEnabled
   }
 }

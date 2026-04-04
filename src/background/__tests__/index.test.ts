@@ -41,52 +41,82 @@ vi.mock("@/lib/browser-api", () => ({
 }))
 
 // Mock Handlers
-vi.mock("@/background/handlers/handle-chat-with-model", () => ({ handleChatWithModel: vi.fn() }))
-vi.mock("@/background/handlers/handle-context-menu", () => ({ initializeContextMenu: vi.fn() }))
-vi.mock("@/background/handlers/handle-delete-model", () => ({ handleDeleteModel: vi.fn() }))
-vi.mock("@/background/handlers/handle-embed-chunks", () => ({ 
-  handleEmbedFileChunks: vi.fn().mockResolvedValue(undefined),
-  handleEmbedFileChunksPort: vi.fn() 
+vi.mock("@/background/handlers/handle-chat-with-model", () => ({
+  handleChatWithModel: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-embedding-download", () => ({ 
+vi.mock("@/background/handlers/handle-context-menu", () => ({
+  initializeContextMenu: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-delete-model", () => ({
+  handleDeleteModel: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-embed-chunks", () => ({
+  handleEmbedFileChunks: vi.fn().mockResolvedValue(undefined),
+  handleEmbedFileChunksPort: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-embedding-download", () => ({
   checkEmbeddingModelExists: vi.fn().mockResolvedValue(true),
   downloadEmbeddingModelSilently: vi.fn().mockResolvedValue({ success: true })
 }))
-vi.mock("@/background/handlers/handle-get-loaded-model", () => ({ handleGetLoadedModels: vi.fn() }))
-vi.mock("@/background/handlers/handle-get-models", () => ({ handleGetModels: vi.fn() }))
-vi.mock("@/background/handlers/handle-get-provider-version", () => ({ handleGetProviderVersion: vi.fn() }))
-vi.mock("@/background/handlers/handle-model-pull", () => ({ handleModelPull: vi.fn() }))
-vi.mock("@/background/handlers/handle-scrape-model", () => ({ handleScrapeModel: vi.fn() }))
-vi.mock("@/background/handlers/handle-scrape-model-variants", () => ({ handleScrapeModelVariants: vi.fn() }))
-vi.mock("@/background/handlers/handle-show-model-details", () => ({ handleShowModelDetails: vi.fn() }))
-vi.mock("@/background/handlers/handle-unload-model", () => ({ handleUnloadModel: vi.fn() }))
-vi.mock("@/background/handlers/handle-update-base-url", () => ({ handleUpdateBaseUrl: vi.fn() }))
+vi.mock("@/background/handlers/handle-get-loaded-model", () => ({
+  handleGetLoadedModels: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-get-models", () => ({
+  handleGetModels: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-get-provider-version", () => ({
+  handleGetProviderVersion: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-model-pull", () => ({
+  handleModelPull: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-scrape-model", () => ({
+  handleScrapeModel: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-scrape-model-variants", () => ({
+  handleScrapeModelVariants: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-show-model-details", () => ({
+  handleShowModelDetails: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-unload-model", () => ({
+  handleUnloadModel: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-warmup-model", () => ({
+  handleWarmupModel: vi.fn()
+}))
+vi.mock("@/background/handlers/handle-update-base-url", () => ({
+  handleUpdateBaseUrl: vi.fn()
+}))
 vi.mock("@/background/lib/dnr", () => ({ updateDNRRules: vi.fn() }))
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(false)
+    get: vi.fn().mockResolvedValue(false),
+    set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined)
   }
 }))
 
 // Import handlers to verify calls
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
+import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
+import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
+import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
+import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
-import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
-import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
-import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
+import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
-import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
-import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
-import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
+import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
+import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 
 describe("Background Script Entry Point", () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    
+
     // Re-import to trigger top-level code if not already loaded
     if (listeners.onConnect.length === 0) {
       await import("../index")
@@ -97,9 +127,9 @@ describe("Background Script Entry Point", () => {
     it("should route GET_MODELS", () => {
       const onMessage = listeners.onMessage[0]
       const sendResponse = vi.fn()
-      
+
       onMessage({ type: MESSAGE_KEYS.PROVIDER.GET_MODELS }, {}, sendResponse)
-      
+
       expect(handleGetModels).toHaveBeenCalledWith(sendResponse)
     })
 
@@ -110,15 +140,15 @@ describe("Background Script Entry Point", () => {
         onMessage: { addListener: vi.fn() },
         onDisconnect: { addListener: vi.fn() }
       }
-      
+
       onConnect(port)
-      
+
       // Get the message listener registered on the port
       const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
-      
+
       const msg = { type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL }
       portMessageListener(msg)
-      
+
       expect(handleChatWithModel).toHaveBeenCalled()
     })
 
@@ -129,41 +159,57 @@ describe("Background Script Entry Point", () => {
         onMessage: { addListener: vi.fn() },
         onDisconnect: { addListener: vi.fn() }
       }
-      
+
       onConnect(port)
-      
-      // For named ports, it registers a specific listener. 
+
+      // For named ports, it registers a specific listener.
       // Note: The generic listener is also registered first, so we want the last one.
       const calls = port.onMessage.addListener.mock.calls
       const portMessageListener = calls[calls.length - 1][0]
-      
+
       const msg = { name: "llama2" }
       portMessageListener(msg)
-      
+
       expect(handleModelPull).toHaveBeenCalled()
     })
 
     it("should route SHOW_MODEL_DETAILS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS, payload: "model" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS, payload: "model" },
+        {},
+        vi.fn()
+      )
       expect(handleShowModelDetails).toHaveBeenCalled()
     })
 
     it("should route SCRAPE_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, query: "q" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, query: "q" },
+        {},
+        vi.fn()
+      )
       expect(handleScrapeModel).toHaveBeenCalled()
     })
 
     it("should route SCRAPE_MODEL_VARIANTS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS, name: "m" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS, name: "m" },
+        {},
+        vi.fn()
+      )
       expect(handleScrapeModelVariants).toHaveBeenCalled()
     })
 
     it("should route UPDATE_BASE_URL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, payload: "url" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, payload: "url" },
+        {},
+        vi.fn()
+      )
       expect(handleUpdateBaseUrl).toHaveBeenCalled()
     })
 
@@ -175,13 +221,31 @@ describe("Background Script Entry Point", () => {
 
     it("should route UNLOAD_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" },
+        {},
+        vi.fn()
+      )
       expect(handleUnloadModel).toHaveBeenCalled()
+    })
+
+    it("should route WARMUP_MODEL", () => {
+      const onMessage = listeners.onMessage[0]
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL, payload: { model: "m" } },
+        {},
+        vi.fn()
+      )
+      expect(handleWarmupModel).toHaveBeenCalled()
     })
 
     it("should route DELETE_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "m" },
+        {},
+        vi.fn()
+      )
       expect(handleDeleteModel).toHaveBeenCalled()
     })
 
@@ -197,7 +261,11 @@ describe("Background Script Entry Point", () => {
 
     it("should route CHECK_EMBEDDING_MODEL", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, payload: "m" }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, payload: "m" },
+        {},
+        vi.fn()
+      )
       expect(checkEmbeddingModelExists).toHaveBeenCalled()
     })
 

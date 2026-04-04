@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DocxProcessor } from "../docx-processor"
 
 // Mock mammoth
@@ -19,7 +19,9 @@ describe("DocxProcessor", () => {
   })
 
   it("should identify DOCX files", () => {
-    const file = new File([""], "test.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+    const file = new File([""], "test.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    })
     expect(processor.canProcess(file)).toBe(true)
   })
 
@@ -32,7 +34,9 @@ describe("DocxProcessor", () => {
     mockExtractRawText.mockResolvedValue({ value: "Raw text content" })
     mockConvertToHtml.mockResolvedValue({ value: "<p>HTML content</p>" })
 
-    const file = new File(["content"], "test.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+    const file = new File(["content"], "test.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    })
     const result = await processor.process(file)
 
     expect(result.text).toBe("Raw text content")
@@ -43,7 +47,9 @@ describe("DocxProcessor", () => {
     mockExtractRawText.mockResolvedValue({ value: "  " }) // Empty/whitespace
     mockConvertToHtml.mockResolvedValue({ value: "<p>HTML content</p>" })
 
-    const file = new File(["content"], "test.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+    const file = new File(["content"], "test.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    })
     const result = await processor.process(file)
 
     expect(result.text).toBe("<p>HTML content</p>")
@@ -53,7 +59,9 @@ describe("DocxProcessor", () => {
     mockExtractRawText.mockResolvedValue({ value: "" })
     mockConvertToHtml.mockResolvedValue({ value: "" })
 
-    const file = new File(["content"], "test.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+    const file = new File(["content"], "test.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    })
     const result = await processor.process(file)
 
     expect(result.text).toContain("No text content found")
@@ -62,8 +70,12 @@ describe("DocxProcessor", () => {
   it("should handle processing errors", async () => {
     mockExtractRawText.mockRejectedValue(new Error("Corrupt file"))
 
-    const file = new File(["content"], "test.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
-    
-    await expect(processor.process(file)).rejects.toThrow("Failed to process DOCX: Corrupt file")
+    const file = new File(["content"], "test.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    })
+
+    await expect(processor.process(file)).rejects.toThrow(
+      "Failed to process DOCX: Corrupt file"
+    )
   })
 })

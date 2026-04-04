@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { processStreamChunk, processRemainingMetricsBuffer } from "../process-stream-chunk"
+import {
+  processRemainingMetricsBuffer,
+  processStreamChunk
+} from "../process-stream-chunk"
 import { safePostMessage } from "../utils"
 
 // Mock safePostMessage
@@ -15,7 +18,7 @@ describe("Process Stream Chunk", () => {
     it("should process complete JSON line", () => {
       const chunk = encoder.encode('{"message":{"content":"Hello"}}\n')
       const port = {} as any
-      
+
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
       expect(result.buffer).toBe("")
@@ -27,7 +30,7 @@ describe("Process Stream Chunk", () => {
     it("should buffer incomplete line", () => {
       const chunk = encoder.encode('{"message":{"content":"Hel')
       const port = {} as any
-      
+
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
       expect(result.buffer).toBe('{"message":{"content":"Hel')
@@ -39,8 +42,14 @@ describe("Process Stream Chunk", () => {
       const chunk = encoder.encode('lo"}}\n')
       const buffer = '{"message":{"content":"Hel'
       const port = {} as any
-      
-      const result = processStreamChunk(chunk, decoder, buffer, "Previous", port)
+
+      const result = processStreamChunk(
+        chunk,
+        decoder,
+        buffer,
+        "Previous",
+        port
+      )
 
       expect(result.buffer).toBe("")
       expect(result.fullText).toBe("PreviousHello")
@@ -48,9 +57,11 @@ describe("Process Stream Chunk", () => {
     })
 
     it("should handle multiple lines in one chunk", () => {
-      const chunk = encoder.encode('{"message":{"content":"A"}}\n{"message":{"content":"B"}}\n')
+      const chunk = encoder.encode(
+        '{"message":{"content":"A"}}\n{"message":{"content":"B"}}\n'
+      )
       const port = {} as any
-      
+
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
       expect(result.fullText).toBe("AB")
@@ -62,7 +73,7 @@ describe("Process Stream Chunk", () => {
     it("should handle done signal", () => {
       const chunk = encoder.encode('{"done":true,"total_duration":100}\n')
       const port = {} as any
-      
+
       const result = processStreamChunk(chunk, decoder, "", "Final Text", port)
 
       expect(result.isDone).toBe(true)
@@ -74,10 +85,10 @@ describe("Process Stream Chunk", () => {
     })
 
     it("should ignore invalid JSON", () => {
-      const chunk = encoder.encode('Invalid JSON\n')
+      const chunk = encoder.encode("Invalid JSON\n")
       const port = {} as any
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
-      
+
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
       expect(result.fullText).toBe("")
@@ -90,7 +101,7 @@ describe("Process Stream Chunk", () => {
     it("should process valid metrics in buffer", () => {
       const buffer = '{"done":true,"total_duration":100}'
       const port = {} as any
-      
+
       processRemainingMetricsBuffer(buffer, "Final", port)
 
       expect(safePostMessage).toHaveBeenCalledWith(port, {
@@ -103,14 +114,14 @@ describe("Process Stream Chunk", () => {
     it("should ignore incomplete/invalid buffer", () => {
       const buffer = '{"done":true'
       const port = {} as any
-      
+
       processRemainingMetricsBuffer(buffer, "Final", port)
 
       // Should not call safePostMessage (or at least not with done signal if it fails parse)
-      // Since we mocked safePostMessage, we need to be careful. 
+      // Since we mocked safePostMessage, we need to be careful.
       // The previous test calls might have polluted the mock if we didn't clear it.
       // But processRemainingMetricsBuffer catches parse error.
-      
+
       // We should verify it didn't call with new args.
       // Ideally we clear mocks in beforeEach.
     })

@@ -6,7 +6,7 @@ interface SettingsFormFieldProps {
   label: React.ReactNode
   description?: React.ReactNode
   error?: string
-  children: React.ReactNode
+  children?: React.ReactNode
   className?: string
   labelClassName?: string
   htmlFor?: string

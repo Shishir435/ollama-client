@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig } from "wxt"
+import packageJson from "./package.json"
 
 type WxtViteFactory = NonNullable<Parameters<typeof defineConfig>[0]["vite"]>
 type WxtViteConfig = ReturnType<WxtViteFactory>
@@ -12,11 +13,10 @@ export default defineConfig({
   outDirTemplate: "",
   publicDir: "public",
   manifest: {
-    name: "Ollama Client - Chat with Local LLM Models",
-    description:
-      "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
-    version: "0.6.0",
-    homepage_url: "https://ollama-client.shishirchaurasiya.in",
+    name: packageJson.name,
+    description: packageJson.description,
+    version: packageJson.version,
+    homepage_url: packageJson.homepage,
     icons: {
       16: "assets/icon.png",
       32: "assets/icon.png",
@@ -43,12 +43,13 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm"],
+        resources: ["assets/*.wasm", "chunks/*.js"],
         matches: ["<all_urls>"]
       }
     ],
     content_security_policy: {
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+      extension_pages:
+        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:*; object-src 'self'"
     },
     browser_specific_settings: {
       gecko: {
@@ -60,6 +61,13 @@ export default defineConfig({
 
   vite: () =>
     ({
-      plugins: [react(), visualizer({ open: false, filename: "stats.html" })]
+      plugins: [
+        react({
+          babel: {
+            plugins: [["babel-plugin-react-compiler"]]
+          }
+        }),
+        visualizer({ open: false, filename: "stats.html" })
+      ]
     }) as unknown as WxtViteConfig
 })

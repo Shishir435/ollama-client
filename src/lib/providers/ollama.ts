@@ -9,12 +9,24 @@ import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
+  type ProviderCapabilities,
   type ProviderConfig,
   ProviderId
 } from "./types"
 
 export class OllamaProvider implements LLMProvider {
   id = ProviderId.OLLAMA
+  capabilities: ProviderCapabilities = {
+    chat: true,
+    embeddings: true,
+    modelDiscovery: true,
+    modelDetails: true,
+    modelPull: true,
+    modelUnload: true,
+    modelDelete: true,
+    providerVersion: true,
+    toolCalling: false
+  }
 
   constructor(public config: ProviderConfig) {}
 
@@ -41,17 +53,54 @@ export class OllamaProvider implements LLMProvider {
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const { model, messages, temperature, top_p } = request
+    const {
+      model,
+      messages,
+      temperature,
+      top_p,
+      top_k,
+      repeat_penalty,
+      repeat_last_n,
+      seed,
+      num_ctx,
+      num_predict,
+      min_p,
+      stop,
+      num_thread,
+      num_gpu,
+      num_batch,
+      keep_alive
+    } = request
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
+
+    const options: OllamaChatRequest["options"] = {
+      temperature,
+      top_p,
+      top_k,
+      repeat_penalty,
+      repeat_last_n,
+      seed,
+      num_ctx,
+      num_predict,
+      min_p,
+      stop,
+      num_thread,
+      num_gpu,
+      num_batch
+    }
+
+    // Remove undefined values to keep payload concise
+    const filteredOptions = Object.fromEntries(
+      Object.entries(options).filter(([, value]) => value !== undefined)
+    )
 
     const body: OllamaChatRequest = {
       model,
       messages,
       stream: true,
-      options: {
-        temperature,
-        top_p
-      }
+      keep_alive,
+      options:
+        Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }
 
     const response = await fetch(`${baseUrl}/api/chat`, {
@@ -86,6 +135,18 @@ export class OllamaProvider implements LLMProvider {
           try {
             const data = JSON.parse(line)
             if (data.error) throw new Error(data.error)
+
+            const thinkingDelta =
+              data.message?.thinking ||
+              data.message?.reasoning ||
+              data.message?.reasoning_content
+
+            if (thinkingDelta) {
+              onChunk({
+                thinkingDelta,
+                done: false
+              })
+            }
 
             onChunk({
               delta: data.message?.content || "",
@@ -146,10 +207,11 @@ export class OllamaProvider implements LLMProvider {
 
     // Prefer current endpoint and fall back to legacy endpoint for compatibility.
     try {
+      const requestBody = { model: targetModel, input: text }
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: targetModel, input: text })
+        body: JSON.stringify(requestBody)
       })
 
       if (response.ok) {
@@ -161,26 +223,46 @@ export class OllamaProvider implements LLMProvider {
         if (Array.isArray(vector) && vector.length > 0) {
           return vector
         }
+      } else {
+        const errorText = await response.text()
+        console.warn(
+          `[Ollama] /api/embed failed: ${response.status}`,
+          errorText
+        )
       }
     } catch (_error) {
       // Continue to legacy fallback.
     }
 
-    const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: targetModel, prompt: text })
-    })
+    try {
+      const legacyBody = { model: targetModel, prompt: text }
+      const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(legacyBody)
+      })
 
-    if (!legacyResponse.ok) {
-      throw new Error(`Ollama Embedding Error: ${legacyResponse.status}`)
-    }
+      if (!legacyResponse.ok) {
+        const errorText = await legacyResponse.text()
+        console.warn(
+          `[Ollama] /api/embeddings failed: ${legacyResponse.status}`,
+          errorText
+        )
+        const message = errorText
+          ? `Ollama Embedding Error: ${legacyResponse.status} ${errorText}`
+          : `Ollama Embedding Error: ${legacyResponse.status}`
+        throw new Error(message)
+      }
 
-    const legacyData = await legacyResponse.json()
-    if (!Array.isArray(legacyData.embedding)) {
-      throw new Error("Ollama Embedding Error: invalid embedding response")
+      const legacyData = await legacyResponse.json()
+      if (!Array.isArray(legacyData.embedding)) {
+        throw new Error("Ollama Embedding Error: invalid embedding response")
+      }
+      return legacyData.embedding
+    } catch (error) {
+      console.error("[Ollama] Both embed endpoints failed", error)
+      throw error
     }
-    return legacyData.embedding
   }
 
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {

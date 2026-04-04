@@ -53,7 +53,9 @@ export const handleEmbedFileChunks = async (
             source: payload.metadata.title || payload.metadata.fileId,
             timestamp: payload.metadata.timestamp || Date.now(),
             chunkIndex: chunk.index,
-            totalChunks: payload.chunks.length
+            totalChunks: payload.chunks.length,
+            embeddingModel: "model" in res ? res.model : undefined,
+            embeddingDim: res.embedding.length
           })
         } catch (e) {
           logger.warn(
@@ -164,7 +166,9 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
                 source: metadata?.title || metadata?.fileId || "Unknown File",
                 timestamp: metadata?.timestamp || Date.now(),
                 chunkIndex: chunk.index,
-                totalChunks: totalChunks
+                totalChunks: totalChunks,
+                embeddingModel: "model" in res ? res.model : undefined,
+                embeddingDim: res.embedding.length
               })
             } catch (e) {
               logger.warn(

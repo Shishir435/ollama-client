@@ -16,6 +16,7 @@ export interface KnowledgeProcessorOptions {
   fileId: string
   fileName: string
   content: string
+  pages?: Array<{ pageNumber: number; text: string }>
   contentType: string
   onProgress?: (progress: ProcessingProgress) => void
 }
@@ -32,7 +33,7 @@ export async function processKnowledge(
   chunkCount: number
   error?: string
 }> {
-  const { fileId, fileName, content, contentType, onProgress } = options
+  const { fileId, fileName, content, pages, contentType, onProgress } = options
 
   try {
     // Report initial status
@@ -44,24 +45,42 @@ export async function processKnowledge(
       totalChunks: 0
     })
 
-    // 1. Create a document from the content
-    const document: Document = {
-      pageContent: content,
-      metadata: {
-        fileId,
-        source: fileName,
-        title: fileName,
-        type: contentType,
-        timestamp: Date.now()
-      }
+    // 1. Create documents from content (preserve page metadata when available)
+    const baseMetadata = {
+      fileId,
+      source: fileName,
+      title: fileName,
+      type: contentType
     }
+
+    const pageDocuments = (pages || [])
+      .filter((page) => page.text.trim().length > 0)
+      .map(
+        (page): Document => ({
+          pageContent: page.text,
+          metadata: {
+            ...baseMetadata,
+            page: page.pageNumber
+          }
+        })
+      )
+
+    const documents: Document[] =
+      pageDocuments.length > 0
+        ? pageDocuments
+        : [
+            {
+              pageContent: content,
+              metadata: baseMetadata
+            }
+          ]
 
     // 2. Get configured text splitter
     const textSplitter = await getTextSplitter()
 
     // 3. Split document into chunks
     logger.verbose("Splitting document", "processKnowledge", { fileName })
-    const chunks = await textSplitter.splitDocuments([document])
+    const chunks = await textSplitter.splitDocuments(documents)
     logger.verbose("Created chunks from document", "processKnowledge", {
       fileName,
       chunkCount: chunks.length
@@ -147,6 +166,7 @@ export async function processKnowledgeBatch(
     fileId: string
     fileName: string
     content: string
+    pages?: Array<{ pageNumber: number; text: string }>
     contentType: string
   }>,
   onProgress?: (fileId: string, progress: ProcessingProgress) => void

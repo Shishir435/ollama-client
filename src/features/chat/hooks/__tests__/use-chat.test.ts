@@ -1,17 +1,23 @@
-import { renderHook, act, waitFor } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useChat } from "../use-chat"
-import { db } from "@/lib/db"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
-import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { STORAGE_KEYS } from "@/lib/constants"
-import type { Role } from "@/types"
-
+import { useChat } from "../use-chat"
 
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn((config, defaultValue) => [defaultValue, vi.fn()])
+  useStorage: vi.fn((config, defaultValue) => {
+    const key = config?.key
+    if (key === "provider-selected-model") {
+      return ["llama3:latest", vi.fn()]
+    }
+    if (key === "provider-selected-model-ref") {
+      return [{ providerId: "ollama", modelId: "llama3:latest" }, vi.fn()]
+    }
+    if (key === "provider-selection-conflict-model") {
+      return [null, vi.fn()]
+    }
+    return [defaultValue, vi.fn()]
+  })
 }))
 
 vi.mock("@/lib/db", () => ({
@@ -19,7 +25,9 @@ vi.mock("@/lib/db", () => ({
     sessions: {
       orderBy: vi.fn().mockReturnValue({
         reverse: vi.fn().mockReturnValue({
-          first: vi.fn().mockResolvedValue({ id: "session-1", title: "New Chat" })
+          first: vi
+            .fn()
+            .mockResolvedValue({ id: "session-1", title: "New Chat" })
         })
       })
     }
@@ -39,7 +47,20 @@ vi.mock("@/features/chat/rag/rag-retriever", () => ({
     documents: [],
     formattedContext: "",
     sources: []
+  }),
+  retrieveContextFromSources: vi.fn().mockResolvedValue({
+    documents: [],
+    formattedContext: "",
+    sources: []
   })
+}))
+
+vi.mock("@/lib/knowledge/knowledge-sets", () => ({
+  DEFAULT_RAG_PROMPT:
+    "Use ONLY the following context in <doc> blocks. If the answer is not in the context, say you don't know.",
+  DEFAULT_KNOWLEDGE_SET_ID: "default",
+  getActiveKnowledgeSet: vi.fn().mockResolvedValue(undefined),
+  getKnowledgeSetFileIds: vi.fn().mockResolvedValue([])
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -80,7 +101,15 @@ vi.mock("@/features/chat/stores/load-stream-store", () => ({
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
   useChatSessions: vi.fn(() => ({
     currentSessionId: "session-1",
-    sessions: [{ id: "session-1", title: "New Chat", messages: [], createdAt: 0, updatedAt: 0 }],
+    sessions: [
+      {
+        id: "session-1",
+        title: "New Chat",
+        messages: [],
+        createdAt: 0,
+        updatedAt: 0
+      }
+    ],
     updateMessages: vi.fn().mockResolvedValue(undefined),
     renameSessionTitle: vi.fn().mockResolvedValue(undefined),
     createSession: vi.fn().mockResolvedValue(undefined),
@@ -110,7 +139,8 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 
 vi.mock("@/features/tabs/stores/tab-content-store", () => ({
   useTabContent: vi.fn(() => ({
-    builtContent: ""
+    builtContent: "",
+    documents: []
   }))
 }))
 
@@ -130,9 +160,14 @@ describe("useChat", () => {
   })
 
   it("should not send empty message", async () => {
-    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
     const startStream = vi.fn()
-    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
 
     const { result } = renderHook(() => useChat())
 
@@ -144,37 +179,48 @@ describe("useChat", () => {
   })
 
   it("should send message with text", async () => {
-    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
     const startStream = vi.fn()
     const updateMessages = vi.fn().mockResolvedValue(undefined)
-    
-    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
     vi.mocked(useChatSessions).mockReturnValue({
-        currentSessionId: "session-1",
-        sessions: [{
-            id: "session-1", title: "Test", messages: [],
-            createdAt: 0,
-            updatedAt: 0
-        }],
-        updateMessages,
-        renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-        createSession: vi.fn().mockResolvedValue(undefined),
-        setCurrentSessionId: vi.fn(),
-        hasSession: true,
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        loadSessions: vi.fn().mockResolvedValue(undefined),
-        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-        addMessage: vi.fn().mockResolvedValue(123),
-        highlightedMessage: null,
-        setHighlightedMessage: vi.fn(),
-        updateMessage: vi.fn().mockResolvedValue(undefined),
-        deleteMessage: vi.fn().mockResolvedValue(undefined),
-        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
-        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false,
-        forkMessage: vi.fn().mockResolvedValue(undefined),
-        navigateToNode: vi.fn().mockResolvedValue(undefined)
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Test",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages,
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue(undefined),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      addMessage: vi.fn().mockResolvedValue(123),
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -184,23 +230,28 @@ describe("useChat", () => {
     })
 
     expect(useChatSessions().addMessage).toHaveBeenCalled()
-    expect(startStream).toHaveBeenCalledWith(expect.objectContaining({
-      model: "",
-      sessionId: "session-1",
-      messages: expect.arrayContaining([
-        expect.objectContaining({
-          role: "user",
-          content: "Hello"
-        })
-      ])
-    }))
+    expect(startStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "llama3:latest",
+        providerId: "ollama",
+        sessionId: "session-1",
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: "user",
+            content: "Hello"
+          })
+        ])
+      })
+    )
   })
 
   it("should create session if none exists", async () => {
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
     const createSession = vi.fn().mockResolvedValue(undefined)
     const setCurrentSessionId = vi.fn()
-    
+
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: null,
       sessions: [],
@@ -235,9 +286,11 @@ describe("useChat", () => {
   })
 
   it("should handle session creation failure", async () => {
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
     const { db } = await import("@/lib/db")
-    
+
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: null,
       sessions: [],
@@ -262,7 +315,9 @@ describe("useChat", () => {
     })
 
     // Mock db to return null for latest session
-    vi.mocked(db.sessions.orderBy("createdAt").reverse().first).mockResolvedValue(undefined)
+    vi.mocked(
+      db.sessions.orderBy("createdAt").reverse().first
+    ).mockResolvedValue(undefined)
 
     const { result } = renderHook(() => useChat())
 
@@ -271,7 +326,7 @@ describe("useChat", () => {
     })
 
     // Should return early and not send message
-    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
+    await import("@/features/chat/hooks/use-chat-stream")
     // We need to get the mock to check calls
     // But since we can't easily access the internal startStream mock from here without re-mocking,
     // we rely on the fact that if sessionId is null, it returns early.
@@ -280,37 +335,47 @@ describe("useChat", () => {
     // Actually, ensureSessionId calls createSession, then db.first().
     // If db.first() returns null, it returns null.
     // sendMessage checks if sessionId is null and returns.
-    
+
     // Let's verify startStream is NOT called
     // We need to ensure useChatStream mock is set up for this test if not global
     // It is global, but we can spy on it or re-mock it.
   })
 
   it("should rename session from 'New Chat' to first message", async () => {
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
     const renameSessionTitle = vi.fn().mockResolvedValue(undefined)
-    
+
     vi.mocked(useChatSessions).mockReturnValue({
-        currentSessionId: "session-1",
-        sessions: [{ id: "session-1", title: "New Chat", messages: [], createdAt: Date.now(), updatedAt: Date.now() }],
-        updateMessages: vi.fn().mockResolvedValue(undefined),
-        renameSessionTitle,
-        createSession: vi.fn().mockResolvedValue(undefined),
-        setCurrentSessionId: vi.fn(),
-        hasSession: true,
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        loadSessions: vi.fn().mockResolvedValue(undefined),
-        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-        highlightedMessage: null,
-        setHighlightedMessage: vi.fn(),
-        addMessage: vi.fn().mockResolvedValue(undefined),
-        updateMessage: vi.fn().mockResolvedValue(undefined),
-        deleteMessage: vi.fn().mockResolvedValue(undefined),
-        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
-        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false,
-        forkMessage: vi.fn().mockResolvedValue(undefined),
-        navigateToNode: vi.fn().mockResolvedValue(undefined)
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "New Chat",
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle,
+      createSession: vi.fn().mockResolvedValue(undefined),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      addMessage: vi.fn().mockResolvedValue(undefined),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -326,30 +391,40 @@ describe("useChat", () => {
   })
 
   it("should not rename session if title is not 'New Chat'", async () => {
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
     const renameSessionTitle = vi.fn().mockResolvedValue(undefined)
-    
+
     vi.mocked(useChatSessions).mockReturnValue({
-        currentSessionId: "session-1",
-        sessions: [{ id: "session-1", title: "Custom Title", messages: [], createdAt: Date.now(), updatedAt: Date.now() }],
-        updateMessages: vi.fn().mockResolvedValue(undefined),
-        renameSessionTitle,
-        createSession: vi.fn().mockResolvedValue(undefined),
-        setCurrentSessionId: vi.fn(),
-        hasSession: true,
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        loadSessions: vi.fn().mockResolvedValue(undefined),
-        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-        highlightedMessage: null,
-        setHighlightedMessage: vi.fn(),
-        addMessage: vi.fn().mockResolvedValue(undefined),
-        updateMessage: vi.fn().mockResolvedValue(undefined),
-        deleteMessage: vi.fn().mockResolvedValue(undefined),
-        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
-        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false,
-        forkMessage: vi.fn().mockResolvedValue(undefined),
-        navigateToNode: vi.fn().mockResolvedValue(undefined)
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Custom Title",
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle,
+      createSession: vi.fn().mockResolvedValue(undefined),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      addMessage: vi.fn().mockResolvedValue(undefined),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -362,13 +437,24 @@ describe("useChat", () => {
   })
 
   it("should include context from tabs when enabled", async () => {
-    const { useSelectedTabs } = await import("@/features/tabs/stores/selected-tabs-store")
-    const { useTabContent } = await import("@/features/tabs/stores/tab-content-store")
-    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
-    const { useChatInput } = await import("@/features/chat/stores/chat-input-store")
-    
+    const { useSelectedTabs } = await import(
+      "@/features/tabs/stores/selected-tabs-store"
+    )
+    const { useTabContent } = await import(
+      "@/features/tabs/stores/tab-content-store"
+    )
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatInput } = await import(
+      "@/features/chat/stores/chat-input-store"
+    )
+
     const startStream = vi.fn()
-    vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -377,7 +463,8 @@ describe("useChat", () => {
       setErrors: vi.fn()
     })
     vi.mocked(useTabContent).mockReturnValue({
-      builtContent: "Page content"
+      builtContent: "Page content",
+      documents: [{ id: "1", title: "Tab 1", content: "Page content" }]
     })
     vi.mocked(useChatInput).mockReturnValue({
       input: "Summarize this",
@@ -403,12 +490,20 @@ describe("useChat", () => {
   })
 
   it("should handle error during message embedding", async () => {
-    const { useAutoEmbedMessages } = await import("@/features/chat/hooks/use-auto-embed-messages")
-    const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
-    const { useChatSessions } = await import("@/features/sessions/stores/chat-session-store")
+    const { useAutoEmbedMessages } = await import(
+      "@/features/chat/hooks/use-auto-embed-messages"
+    )
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
 
-    const embedMessages = vi.fn().mockRejectedValue(new Error("Embedding failed"))
-    
+    const embedMessages = vi
+      .fn()
+      .mockRejectedValue(new Error("Embedding failed"))
+
     vi.mocked(useAutoEmbedMessages).mockReturnValue({
       embedMessages,
       embedMessage: vi.fn(),
@@ -425,29 +520,37 @@ describe("useChat", () => {
         stopStream: vi.fn()
       }
     })
-    
+
     // Ensure we have a valid session and addMessage returns an ID
     vi.mocked(useChatSessions).mockReturnValue({
-        currentSessionId: "session-1",
-        sessions: [{ id: "session-1", title: "New Chat", messages: [], createdAt: 0, updatedAt: 0 }],
-        updateMessages: vi.fn().mockResolvedValue(undefined),
-        renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-        createSession: vi.fn().mockResolvedValue(undefined),
-        setCurrentSessionId: vi.fn(),
-        hasSession: true,
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        loadSessions: vi.fn().mockResolvedValue(undefined),
-        loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-        highlightedMessage: null,
-        setHighlightedMessage: vi.fn(),
-        addMessage: vi.fn().mockResolvedValue(123), // Return number as ID
-        updateMessage: vi.fn().mockResolvedValue(undefined),
-        deleteMessage: vi.fn().mockResolvedValue(undefined),
-        ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
-        loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-        hasMoreMessages: false,
-        forkMessage: vi.fn().mockResolvedValue(undefined),
-        navigateToNode: vi.fn().mockResolvedValue(undefined)
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "New Chat",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue(undefined),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      addMessage: vi.fn().mockResolvedValue(123), // Return number as ID
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useChat())
@@ -459,14 +562,16 @@ describe("useChat", () => {
 
     // Manually trigger the callback with a 'done' message to trigger embedding
     await act(async () => {
-        if (setMessagesCallback) {
-            await (setMessagesCallback as any)([{ role: "assistant", content: "Response", done: true }])
-        }
+      if (setMessagesCallback) {
+        await (setMessagesCallback as any)([
+          { role: "assistant", content: "Response", done: true }
+        ])
+      }
     })
 
     // Should catch error and log it with structured logger format
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to embed messages"), 
+      expect.stringContaining("Failed to embed messages"),
       expect.objectContaining({
         error: expect.any(Error)
       })
@@ -476,9 +581,14 @@ describe("useChat", () => {
 
   describe("File attachments", () => {
     it("should send message with files only (no text)", async () => {
-      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
+      const { useChatStream } = await import(
+        "@/features/chat/hooks/use-chat-stream"
+      )
       const startStream = vi.fn()
-      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
+      vi.mocked(useChatStream).mockReturnValue({
+        startStream,
+        stopStream: vi.fn()
+      })
 
       const { result } = renderHook(() => useChat())
 
@@ -501,24 +611,36 @@ describe("useChat", () => {
     })
 
     it("should use RAG when enabled", async () => {
-      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
-      
+      const { retrieveContext } = await import(
+        "@/features/chat/rag/rag-retriever"
+      )
+
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
       vi.mocked(retrieveContext).mockResolvedValue({
         documents: [
           {
             content: "Relevant chunk",
             embedding: [0.1, 0.2, 0.3],
-            metadata: { source: "test.txt", title: "test.txt", type: "file", timestamp: Date.now() }
+            metadata: {
+              source: "test.txt",
+              title: "test.txt",
+              type: "file",
+              timestamp: Date.now()
+            }
           }
         ],
-        formattedContext: "[Document 1] test.txt\nRelevant chunk",
-        sources: [{
-          title: "test.txt", type: "file", fileId: "file-1",
-          id: "",
-          content: "",
-          score: 0
-        }]
+        formattedContext:
+          '<doc id="1" source="test.txt" score="0.900">\nRelevant chunk\n</doc>',
+        sources: [
+          {
+            title: "test.txt",
+            type: "file",
+            fileId: "file-1",
+            id: "",
+            content: "",
+            score: 0
+          }
+        ]
       })
 
       const { result } = renderHook(() => useChat())
@@ -538,19 +660,30 @@ describe("useChat", () => {
         await result.current.sendMessage("Summarize", undefined, [file])
       })
 
-      expect(retrieveContext).toHaveBeenCalledWith("Summarize", ["file-1"], {
-        mode: "similarity",
-        topK: 5,
-        useReranking: true
-      })
+      expect(retrieveContext).toHaveBeenCalledWith(
+        "Summarize",
+        ["file-1"],
+        expect.objectContaining({
+          mode: "similarity",
+          topK: 5,
+          useReranking: true
+        })
+      )
     })
 
     it("should fallback to full text when RAG fails", async () => {
-      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
-      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
+      const { retrieveContext } = await import(
+        "@/features/chat/rag/rag-retriever"
+      )
+      const { useChatStream } = await import(
+        "@/features/chat/hooks/use-chat-stream"
+      )
       const startStream = vi.fn()
-      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
-      
+      vi.mocked(useChatStream).mockReturnValue({
+        startStream,
+        stopStream: vi.fn()
+      })
+
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockRejectedValue(new Error("RAG Error"))
 
@@ -584,11 +717,18 @@ describe("useChat", () => {
     })
 
     it("should fallback to full text when RAG finds no results", async () => {
-      const { retrieveContext } = await import("@/features/chat/rag/rag-retriever")
-      const { useChatStream } = await import("@/features/chat/hooks/use-chat-stream")
+      const { retrieveContext } = await import(
+        "@/features/chat/rag/rag-retriever"
+      )
+      const { useChatStream } = await import(
+        "@/features/chat/hooks/use-chat-stream"
+      )
       const startStream = vi.fn()
-      vi.mocked(useChatStream).mockReturnValue({ startStream, stopStream: vi.fn() })
-      
+      vi.mocked(useChatStream).mockReturnValue({
+        startStream,
+        stopStream: vi.fn()
+      })
+
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockResolvedValue({
         documents: [],

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, act } from "@testing-library/react"
-import { useModelPull } from "../use-model-pull"
+import { act, renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
+import { useModelPull } from "../use-model-pull"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -45,7 +45,9 @@ describe("useModelPull", () => {
 
     expect(result.current.pullingModel).toBe("llama2")
     expect(result.current.progress).toBe("Starting...")
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ payload: "llama2" })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      payload: { model: "llama2", providerId: undefined }
+    })
   })
 
   it("should handle progress updates", () => {

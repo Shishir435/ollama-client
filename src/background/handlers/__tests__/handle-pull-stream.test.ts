@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { handlePullStream } from "../handle-pull-stream"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { clearAbortController } from "@/background/lib/abort-controller-registry"
+import { handlePullStream } from "../handle-pull-stream"
 
 // Mock dependencies
 vi.mock("@/background/lib/abort-controller-registry", () => ({
@@ -21,7 +21,7 @@ vi.mock("@/background/lib/utils", () => ({
 }))
 
 describe("Handle Pull Stream", () => {
-  const mockPort = { 
+  const mockPort = {
     name: "test-port",
     postMessage: vi.fn(),
     onDisconnect: { addListener: vi.fn() }
@@ -36,8 +36,8 @@ describe("Handle Pull Stream", () => {
   const createMockResponseWithReader = (chunks: string[]) => {
     console.log("Creating mock response with chunks:", chunks)
     const encoder = new TextEncoder()
-    const encodedChunks = chunks.map(c => encoder.encode(c))
-    
+    const encodedChunks = chunks.map((c) => encoder.encode(c))
+
     let index = 0
     const reader = {
       read: vi.fn().mockImplementation(async () => {
@@ -62,37 +62,38 @@ describe("Handle Pull Stream", () => {
     const encoder = new TextEncoder()
     const chunk1 = encoder.encode("part1")
     const chunk2 = encoder.encode("part2\n")
-    
+
     let buffer = ""
     buffer += decoder.decode(chunk1, { stream: true })
     buffer += decoder.decode(chunk2, { stream: true })
-    
+
     expect(buffer).toBe("part1part2\n")
   })
 
   it("should process successful stream", async () => {
     const chunks = [
-      JSON.stringify({ status: "pulling manifest" }) + "\n",
-      JSON.stringify({ status: "downloading", completed: 10, total: 100 }) + "\n",
-      JSON.stringify({ status: "success" }) + "\n"
+      `${JSON.stringify({ status: "pulling manifest" })}\n`,
+      JSON.stringify({ status: "downloading", completed: 10, total: 100 }) +
+        "\n",
+      `${JSON.stringify({ status: "success" })}\n`
     ]
     const res = createMockResponseWithReader(chunks)
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ status: "pulling manifest" })
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ 
-      status: "Downloading: 10%", 
-      progress: 10 
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      status: "pulling manifest"
+    })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      status: "Downloading: 10%",
+      progress: 10
     })
     expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
     expect(clearAbortController).toHaveBeenCalled()
   })
 
   it("should handle stream errors", async () => {
-    const chunks = [
-      JSON.stringify({ error: "Pull failed" }) + "\n"
-    ]
+    const chunks = [`${JSON.stringify({ error: "Pull failed" })}\n`]
     const res = createMockResponseWithReader(chunks)
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
@@ -104,15 +105,19 @@ describe("Handle Pull Stream", () => {
   it("should handle port closed during stream", async () => {
     const encoder = new TextEncoder()
     const reader = {
-      read: vi.fn()
-        .mockResolvedValueOnce({ value: encoder.encode(JSON.stringify({ status: "start" }) + "\n"), done: false })
+      read: vi
+        .fn()
+        .mockResolvedValueOnce({
+          value: encoder.encode(`${JSON.stringify({ status: "start" })}\n`),
+          done: false
+        })
         .mockImplementation(async () => {
           isPortClosed.mockReturnValue(true)
           return { value: undefined, done: false }
         }),
       cancel: vi.fn().mockResolvedValue(undefined)
     }
-    
+
     const res = {
       body: {
         getReader: vi.fn().mockReturnValue(reader)
@@ -127,8 +132,8 @@ describe("Handle Pull Stream", () => {
   it("should handle split chunks", async () => {
     const json = JSON.stringify({ status: "success" })
     const part1 = json.slice(0, 10)
-    const part2 = json.slice(10) + "\n"
-    
+    const part2 = `${json.slice(10)}\n`
+
     const res = createMockResponseWithReader([part1, part2])
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
@@ -137,7 +142,10 @@ describe("Handle Pull Stream", () => {
   })
 
   it("should ignore empty lines", async () => {
-    const res = createMockResponseWithReader(["\n", JSON.stringify({ status: "success" }) + "\n"])
+    const res = createMockResponseWithReader([
+      "\n",
+      `${JSON.stringify({ status: "success" })}\n`
+    ])
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
@@ -145,7 +153,10 @@ describe("Handle Pull Stream", () => {
   })
 
   it("should handle invalid JSON gracefully", async () => {
-    const res = createMockResponseWithReader(["invalid-json\n", JSON.stringify({ status: "success" }) + "\n"])
+    const res = createMockResponseWithReader([
+      "invalid-json\n",
+      `${JSON.stringify({ status: "success" })}\n`
+    ])
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")

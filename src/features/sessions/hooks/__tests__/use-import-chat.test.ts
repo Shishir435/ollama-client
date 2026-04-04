@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, act } from "@testing-library/react"
-import { useImportChat } from "../use-import-chat"
-import { db } from "@/lib/db"
+import { act, renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
+import { db } from "@/lib/db"
+import { useImportChat } from "../use-import-chat"
 
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
@@ -133,13 +133,17 @@ describe("useImportChat", () => {
   it("should skip invalid sessions", async () => {
     const { result } = renderHook(() => useImportChat())
     const invalidSession = {
-      id: "session-1",
+      id: "session-1"
       // Missing title, createdAt, updatedAt, messages
     }
 
-    const mockFile = new File([JSON.stringify(invalidSession)], "invalid.json", {
-      type: "application/json"
-    })
+    const mockFile = new File(
+      [JSON.stringify(invalidSession)],
+      "invalid.json",
+      {
+        type: "application/json"
+      }
+    )
     const fileList = {
       0: mockFile,
       length: 1,

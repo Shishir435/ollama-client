@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import {
-  getStorageStats,
   type SearchResult,
-  searchSimilarVectors,
-  storeVector
+  searchSimilarVectors
 } from "@/lib/embeddings/vector-store"
 import { Loader2, Search, Sparkles } from "@/lib/lucide-icon"
 
@@ -55,16 +53,7 @@ export const EmbeddingTestTools = ({
         "dimensions"
       )
 
-      // Store in vector database
-      const id = await storeVector(testText, result.embedding, {
-        type: "chat",
-        title: "Test Embedding",
-        timestamp: Date.now(),
-        source: ""
-      })
-
-      const stats = await getStorageStats()
-      const successMsg = `✅ Success! Embedding generated (${result.embedding.length}D) and stored (ID: ${id}). Total vectors: ${stats.totalVectors}`
+      const successMsg = `✅ Success! Embedding generated (${result.embedding.length}D).`
       console.log("[Embedding Test]", successMsg)
       setTestResult(successMsg)
     } catch (error) {
@@ -94,7 +83,10 @@ export const EmbeddingTestTools = ({
       // Search
       const results = await searchSimilarVectors(embeddingResult.embedding, {
         limit: 5,
-        minSimilarity: 0.3
+        minSimilarity: 0.3,
+        embeddingModel: embeddingResult.model,
+        embeddingProviderId: embeddingResult.providerId,
+        embeddingDimension: embeddingResult.embedding.length
       })
 
       console.log(`[Search Test] Found ${results.length} results`)

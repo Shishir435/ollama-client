@@ -1,17 +1,10 @@
-import * as pdfjsLib from "pdfjs-dist"
-import type {
-  PDFDocumentProxy,
-  TextItem
-} from "pdfjs-dist/types/src/display/api"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 
-import "pdfjs-dist/build/pdf.worker.min.mjs"
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString()
+// Define necessary types from pdfjs-dist
+type PDFDocumentProxy =
+  import("pdfjs-dist/types/src/display/api").PDFDocumentProxy
+type TextItem = import("pdfjs-dist/types/src/display/api").TextItem
 
 export class PdfProcessor implements FileProcessor {
   canProcess(file: File): boolean {
@@ -21,6 +14,17 @@ export class PdfProcessor implements FileProcessor {
 
   async process(file: File): Promise<ProcessedFile> {
     try {
+      // Lazy load pdfjs-dist
+      const pdfjsLib = await import("pdfjs-dist")
+
+      // Import worker
+      await import("pdfjs-dist/build/pdf.worker.min.mjs")
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url
+      ).toString()
+
       const arrayBuffer = await file.arrayBuffer()
 
       // Try loading PDF with worker first; if worker fails (CSP/packaging), fallback to disableWorker
@@ -43,6 +47,7 @@ export class PdfProcessor implements FileProcessor {
       const numPages = pdf.numPages
 
       const textParts: string[] = []
+      const pages: Array<{ pageNumber: number; text: string }> = []
 
       // Extract text from each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
@@ -58,6 +63,7 @@ export class PdfProcessor implements FileProcessor {
           .join(" ")
 
         if (pageText.trim()) {
+          pages.push({ pageNumber: pageNum, text: pageText })
           textParts.push(`--- Page ${pageNum} ---\n${pageText}`)
         }
       }
@@ -67,6 +73,7 @@ export class PdfProcessor implements FileProcessor {
 
       return {
         text: fullText,
+        pages,
         metadata: {
           fileName: file.name,
           fileType: file.type || "application/pdf",

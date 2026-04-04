@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  clearEmbeddingCache,
+  cosineSimilarity,
   generateEmbedding,
   generateEmbeddingsBatch,
-  clearEmbeddingCache,
-  getCacheStats,
   getCacheSize,
-  cosineSimilarity
+  getCacheStats
 } from "../embedding-client"
 
 // Use vi.hoisted to ensure mockEmbed is defined before vi.mock runs
@@ -26,11 +26,13 @@ vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
     getProviderForModel: vi.fn(() =>
       Promise.resolve({
+        id: "ollama",
         embed: (...args: unknown[]) => mockEmbed(...args)
       })
     ),
     getProvider: vi.fn(() =>
       Promise.resolve({
+        id: "ollama",
         embed: (...args: unknown[]) => mockEmbed(...args)
       })
     )
@@ -41,7 +43,7 @@ describe("Embedding Client", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     clearEmbeddingCache()
-    
+
     // Default successful response
     mockEmbed.mockReset()
     mockEmbed.mockResolvedValue([0.1, 0.2, 0.3, 0.4, 0.5])
@@ -54,6 +56,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("embedding")
       expect(result).toHaveProperty("model")
+      expect(result).toHaveProperty("providerId")
       if ("embedding" in result) {
         expect(result.embedding).toEqual([0.1, 0.2, 0.3, 0.4, 0.5])
       }
@@ -66,12 +69,13 @@ describe("Embedding Client", () => {
       expect(mockEmbed).toHaveBeenCalledWith("test", "custom-model")
       if ("model" in result) {
         expect(result.model).toBe("custom-model")
+        expect(result.providerId).toBe("ollama")
       }
     })
 
     it("should cache embeddings", async () => {
       const text = "Same text"
-      
+
       await generateEmbedding(text)
       await generateEmbedding(text)
 
@@ -135,14 +139,14 @@ describe("Embedding Client", () => {
       clearEmbeddingCache()
       mockEmbed.mockReset()
       mockEmbed.mockResolvedValue([0.1, 0.2, 0.3])
-      
+
       const texts = ["batch_text1", "batch_text2", "batch_text3"]
 
       const results = await generateEmbeddingsBatch(texts)
 
       expect(results).toHaveLength(3)
       // Check that all results have either embedding or error
-      results.forEach(result => {
+      results.forEach((result) => {
         expect("embedding" in result || "error" in result).toBe(true)
       })
     })
@@ -151,7 +155,7 @@ describe("Embedding Client", () => {
       clearEmbeddingCache()
       mockEmbed.mockReset()
       mockEmbed.mockResolvedValue([0.1])
-      
+
       const texts = ["progress_text1", "progress_text2", "progress_text3"]
       const progressCallback = vi.fn()
 
@@ -166,7 +170,7 @@ describe("Embedding Client", () => {
       clearEmbeddingCache()
       mockEmbed.mockReset()
       mockEmbed.mockResolvedValue([0.5, 0.5])
-      
+
       const texts = ["a", "b"]
       const results = await generateEmbeddingsBatch(texts)
       expect(results).toHaveLength(texts.length)
@@ -176,7 +180,7 @@ describe("Embedding Client", () => {
   describe("cache management", () => {
     it("should clear embedding cache", () => {
       clearEmbeddingCache()
-      
+
       const size = getCacheSize()
       expect(size).toBe(0)
     })
@@ -193,10 +197,10 @@ describe("Embedding Client", () => {
 
     it("should return cache size", async () => {
       clearEmbeddingCache()
-      
+
       await generateEmbedding("test1")
       const size1 = getCacheSize()
-      
+
       await generateEmbedding("test2")
       const size2 = getCacheSize()
 
@@ -210,7 +214,7 @@ describe("Embedding Client", () => {
       const v1 = [1, 0, 0]
       const v2 = [0, 1, 0]
       const v3 = [1, 0, 0]
-      
+
       expect(cosineSimilarity(v1, v2)).toBe(0)
       expect(cosineSimilarity(v1, v3)).toBe(1)
     })
@@ -221,8 +225,8 @@ describe("Embedding Client", () => {
       expect(cosineSimilarity(v1, v2)).toBe(0)
     })
 
-    it("should throw on dimension mismatch", () => {
-      expect(() => cosineSimilarity([1], [1, 2])).toThrow()
+    it("should return 0 on dimension mismatch", () => {
+      expect(cosineSimilarity([1], [1, 2])).toBe(0)
     })
   })
 
@@ -237,11 +241,11 @@ describe("Embedding Client", () => {
     it("should handle long string hashing", async () => {
       const longText = "a".repeat(2000)
       await generateEmbedding(longText)
-      
+
       // Should be cached
       const size = getCacheSize()
       expect(size).toBe(1)
-      
+
       // Second call should hit cache
       await generateEmbedding(longText)
       expect(mockEmbed).toHaveBeenCalledTimes(1)

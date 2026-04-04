@@ -55,15 +55,3 @@ export interface HtmlLoaderOptions {
   /** Source URL or filename */
   url: string
 }
-
-/**
- * Image loader options (for OCR)
- */
-export interface ImageLoaderOptions {
-  /** Base64 data URL of the image */
-  url: string
-  /** Display name of the file */
-  name: string
-  /** OCR language (optional, uses default if not specified) */
-  language?: string
-}

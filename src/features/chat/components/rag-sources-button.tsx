@@ -7,6 +7,11 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import {
   type RetrievedChunk,
   RetrievedContextCard
 } from "@/features/chat/components/retrieved-context-card"
@@ -15,12 +20,14 @@ interface RAGSourcesButtonProps {
   sources: RetrievedChunk[]
   query?: string
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RAGSourcesButton({
   sources,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RAGSourcesButtonProps) {
   const [open, setOpen] = useState(false)
 
@@ -30,22 +37,31 @@ export function RAGSourcesButton({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-          title={`${sources.length} RAG source${sources.length > 1 ? "s" : ""}`}>
-          <div className="relative">
-            <Info className="h-3.5 w-3.5" />
-            <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
-              {sources.length}
-            </span>
-          </div>
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              aria-label={`View ${sources.length} retrieved source${
+                sources.length > 1 ? "s" : ""
+              }`}>
+              <div className="relative">
+                <Info className="h-3.5 w-3.5" />
+                <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+                  {sources.length}
+                </span>
+              </div>
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          {`${sources.length} RAG source${sources.length > 1 ? "s" : ""}`}
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent
-        className="w-96 max-h-[400px] overflow-y-auto"
+        className="w-80 max-h-[400px] overflow-y-auto"
         align="start">
         <div className="space-y-2">
           <div className="text-xs font-semibold text-muted-foreground mb-2">
@@ -58,6 +74,7 @@ export function RAGSourcesButton({
               query={query || ""}
               index={index}
               sessionId={sessionId}
+              enableFeedback={enableFeedback}
             />
           ))}
         </div>

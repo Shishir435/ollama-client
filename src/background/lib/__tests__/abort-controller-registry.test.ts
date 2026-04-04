@@ -37,9 +37,9 @@ describe("Abort Controller Registry", () => {
     const controller = new AbortController()
     const abortSpy = vi.spyOn(controller, "abort")
     setAbortController("test-3", controller)
-    
+
     abortAndClearController("test-3")
-    
+
     expect(abortSpy).toHaveBeenCalled()
     expect(getAbortController("test-3")).toBeUndefined()
   })

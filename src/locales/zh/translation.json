@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "重试",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "close": "关闭"
     },
+    "updated_at": "已更新",
     "social": {
       "title": "联系我",
       "visit_profile": "访问我的 {{platform}} 个人资料"
@@ -33,7 +35,19 @@
       "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
     },
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "continue": "继续导入",
+    "reload": "重新加载扩展",
+    "close": "关闭",
+    "status": {
+      "active": "活动"
+    },
+    "labels": {
+      "performance": "性能"
+    },
+    "nav": {
+      "settings_aria": "设置导航"
+    }
   },
   "selection_button": {
     "label": "询问本地 LLM",
@@ -62,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "开始之前，请遵循以下快速步骤：",
-      "step1": "安装本地提供方（推荐 Ollama）",
-      "step2": "拉取模型（例如 <code>ollama run llama3</code>）",
-      "step3": "返回此处并点击<b>刷新</b>",
-      "full_guide_link": "完整设置指南"
+      "title": "快速设置 (Ollama)",
+      "intro": "您需要运行Ollama外加一个聊天模型和一个嵌入模型。",
+      "step1": "安装Ollama并启动它 (<code>ollama serve</code>)",
+      "step2": "拉取聊天模型 (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "拉取嵌入模型 (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "返回此处并点击 <b>刷新</b>",
+      "hint": "按照以下设置指南安装Ollama和模型。",
+      "full_guide_link": "完整设置指南",
+      "firefox_warning": "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。"
     },
     "features": {
       "private": {
@@ -113,6 +131,7 @@
       "switch_model_tooltip": "切换模型",
       "edit": "编辑",
       "export_as": "导出为...",
+      "more": "更多",
       "delete": "删除消息"
     },
     "metrics": {
@@ -131,11 +150,30 @@
       "prompt_tokens": "{{value}} 提示词",
       "generated_tokens": "{{value}} 生成",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} 条消息",
       "tooltip_tokens": "本次会话使用的总 Token",
       "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
       "tooltip_messages": "AI 回复数量"
+    },
+    "file": {
+      "loading_content": "正在加载完整内容..."
+    },
+    "reasoning": {
+      "aria_label": "模型思维过程",
+      "title": "思维过程",
+      "thinking": "思考中…",
+      "done": "完成",
+      "hide": "隐藏",
+      "explore": "探索",
+      "loading_thinking": "正在思考",
+      "loading_typing": "正在输入",
+      "loading_queued": "排队中"
+    },
+    "feedback": {
+      "helpful_tooltip": "很有帮助",
+      "not_helpful_tooltip": "没有帮助"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -148,7 +186,9 @@
       "scope_current": "当前聊天",
       "searching": "正在搜索聊天记录...",
       "no_results": "未找到结果。请尝试不同的搜索查询。",
+      "no_results_description": "请尝试调整您的关键词或搜索范围。",
       "start_typing": "开始输入以语义搜索您的聊天记录...",
+      "start_typing_description": "通过语义搜索在您的聊天记录中进行查找。",
       "result_badge": "个结果",
       "results_badge": "个结果",
       "match_percentage": "匹配度",
@@ -214,7 +254,7 @@
   "file_upload": {
     "button": {
       "aria_label": "上传文件",
-      "tooltip": "上传文件 (PDF, DOCX, 文本文件)"
+      "tooltip": "上传文件（PDF、DOCX、CSV、HTML、文本）"
     },
     "preview": {
       "remove_aria_label": "移除文件",
@@ -241,6 +281,7 @@
       "ready": "嵌入模型就绪: {{model}}",
       "missing": "模型缺失: {{model}}",
       "checking_model": "正在检查嵌入模型...",
+      "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
       "download_button": "下载模型"
     },
@@ -307,6 +348,17 @@
       "clear_chat_description": "删除所有聊天嵌入。您可以稍后回填以重新生成它们",
       "clear_all_button": "清除所有嵌入",
       "clear_all_description": "删除所有嵌入（聊天、文件、网页）。此操作无法撤消",
+      "database_management": {
+        "remove_duplicates_confirm": "删除重复的嵌入？这将仅保留每个唯一消息的第一次出现。",
+        "remove_duplicates_success": "已删除 {{deleted}} 个重复项。保留了 {{kept}} 个唯一的嵌入。",
+        "remove_duplicates_error": "删除重复项失败。有关详细信息，请查看控制台。",
+        "clear_chat_confirm": "清除所有聊天嵌入？这将删除聊天的所有语义搜索数据。您稍后可以进行回填。",
+        "clear_chat_success": "已清除 {{count}} 个聊天嵌入。",
+        "clear_chat_error": "清除聊天向量失败。有关详细信息，请查看控制台。",
+        "clear_all_confirm": "清除所有嵌入？这将删除所有语义搜索数据（聊天、文件、网页）。此操作无法撤销。",
+        "clear_all_success": "所有嵌入已清除。",
+        "clear_all_error": "清除所有向量失败。有关详细信息，请查看控制台。"
+      },
       "chunking_title": "分块设置",
       "chunking_description": "配置如何将文本拆分成块以进行嵌入",
       "chunk_size_label": "块大小 (tokens)",
@@ -366,7 +418,7 @@
       "adaptive_weights_description": "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
       "temporal_boosting_label": "时间相关性增强",
       "temporal_boosting_description": "使用指数衰减评分优先考虑较新的文档",
-      "reranking_label": "启用重新排序 (Transformers.js)",
+      "reranking_label": "启用重新排序",
       "reranking_description": "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
       "hybrid_search_label": "启用混合搜索",
       "hybrid_search_description": "将关键字搜索 (BM25) 与语义搜索相结合，以获得更好的召回率。",
@@ -383,7 +435,19 @@
       "min_quality_score_label": "最低质量分数",
       "min_quality_score_description": "嵌入内容所需的最低质量分数 (0-1)。",
       "embedding_source_description": "嵌入由本地提供方生成（默认 Ollama）",
-      "embedding_source_default_provider": "默认提供方（Ollama）"
+      "embedding_source_default_provider": "默认提供方（Ollama）",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "正在检查 Provider 状态...",
@@ -454,7 +518,8 @@
       "label_off": "标签页",
       "label_on": "标签页+",
       "tooltip": "与打开的标签页进行交互"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {
@@ -637,6 +702,17 @@
           "label": "重复最后 N 个",
           "validation_min": "必须至少为 {{min}}。"
         }
+      },
+      "runtime": {
+        "title": "运行与预热",
+        "description": "控制模型预热和运行时选项。",
+        "keep_alive_label": "保持连接畅通",
+        "keep_alive_description": "请求后将模型保持在内存中的时间长度。使用秒或类似 5m 的持续时间。",
+        "keep_alive_placeholder": "例如 300、5m、0 卸载",
+        "warm_on_select_label": "选择时预热模型",
+        "warm_on_select_description": "切换时预加载模型，以获得更快的初次响应速度。",
+        "unload_on_switch_label": "切换时卸载先前的模型",
+        "unload_on_switch_description": "在切换模型时卸载上个模型以释放内存。"
       }
     },
     "base_url": {
@@ -709,7 +785,8 @@
       "guides": "指南",
       "memory": "记忆",
       "shortcuts": "快捷键",
-      "providers": "服务商"
+      "providers": "服务商",
+      "context": "上下文"
     },
     "memory": {
       "title": "上下文记忆",
@@ -832,7 +909,17 @@
       "model_select": {
         "label": "嵌入模型",
         "placeholder": "选择一个模型",
-        "description": "选择一个模型来生成嵌入。您可能需要先下载它。"
+        "description": "选择一个模型来生成嵌入。您可能需要先下载它。",
+        "recommended_group": "推荐模型",
+        "all_models_group": "所有模型",
+        "show_advanced_label": "显示所有提供方模型",
+        "show_advanced_description": "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。"
+      },
+      "model_change_confirm": {
+        "title": "现在重建嵌入吗？",
+        "description": "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
+        "switch_only": "直接切换不重建",
+        "switch_and_rebuild": "切换并重建"
       }
     },
     "prompts": {
@@ -895,22 +982,31 @@
       },
       "modules": {
         "theme": {
+          "title": "主题与界面",
           "description": "UI 外观偏好设置"
         },
         "browser": {
+          "title": "浏览器设置",
           "description": "标签页访问和 URL 模式"
         },
         "tts": {
+          "title": "文本转语音",
           "description": "文本转语音设置"
         },
         "chat_sessions": {
+          "title": "聊天记录",
           "description": "对话历史记录"
         },
         "default": {
           "description": "模块设置"
         },
         "provider": {
+          "title": "服务商设置",
           "description": "模型设置和配置"
+        },
+        "feedback": {
+          "title": "用户反馈",
+          "description": "清除所有学习和检索到的块反馈"
         }
       },
       "item_count": "{{count}} 个项目",
@@ -946,6 +1042,41 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "未找到模型",
         "no_models_description": "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。"
+      }
+    },
+    "migration": {
+      "title": "数据迁移",
+      "description": "导出或导入您所有的扩展程序数据，包括首选项、聊天记录和嵌入数据库。",
+      "export": {
+        "label": "导出完整备份",
+        "description": "将所有扩展程序数据的完整备份下载为 ZIP 文件。",
+        "button": "全部导出"
+      },
+      "import": {
+        "label": "导入备份",
+        "description": "从之前导出的 ZIP 备份中恢复数据。这将覆盖现有数据。",
+        "button": "全部导入"
+      },
+      "import_confirm": {
+        "title": "您完全确定吗？",
+        "description": "此操作将用备份文件的内容完全覆盖您现有的首选项、聊天记录和数据库。此操作无法撤销。"
+      },
+      "import_result": {
+        "title": "导入结果",
+        "description": "查看下面您的数据导入状态：",
+        "labels": {
+          "sync": "偏好设置 (Sync)",
+          "local": "本地存储",
+          "database": "数据库 (SQLite)",
+          "chatDb": "聊天记录 (Dexie)",
+          "vectorDb": "向量嵌入 (Dexie)",
+          "knowledgeDb": "知识库 (Dexie)"
+        },
+        "status": {
+          "success": "成功",
+          "failed": "失败",
+          "aborted": "已中止"
+        }
       }
     }
   },
@@ -986,6 +1117,63 @@
     "linkedin": "领英",
     "twitter": "推特",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "文件导入",
+        "description": "配置如何处理文件以进行知识检索。"
+      },
+      "embedding_health": {
+        "title": "检测到混合嵌入维度",
+        "description": "嵌入以多个维度 ({{dimensions}}) 存储。在重建所有内容之前，搜索和记忆可能会失败。",
+        "note": "重建将清除所有嵌入并重新嵌入聊天记录。需要重新上传文件以恢复知识。",
+        "memory_disabled": "记忆已关闭，因此未重建聊天嵌入。",
+        "action": "重建嵌入",
+        "action_rebuilding": "正在重建...",
+        "confirm": "重建嵌入？这将清除所有嵌入并重新嵌入聊天历史记录。需要重新上传文件以恢复知识。",
+        "progress": "正在重建聊天嵌入 ({{current}}/{{total}})",
+        "success": "嵌入重建成功。",
+        "error": "重建嵌入失败。"
+      }
+    },
     "bug_report": "报告错误 / 功能"
+  },
+  "knowledge_sets": {
+    "title": "知识集",
+    "active_label": "当前知识集",
+    "active_description": "在未附加文件时选择使用的知识集。",
+    "active_placeholder": "选择知识集",
+    "create_label": "创建知识集",
+    "create_description": "创建用于分组文件的新知识集。",
+    "create_placeholder": "知识集名称",
+    "create_button": "创建",
+    "rename_label": "重命名知识集",
+    "rename_description": "修改当前知识集的名称。",
+    "rename_placeholder": "新名称",
+    "rename_button": "重命名",
+    "delete_label": "删除知识集",
+    "delete_description": "删除当前知识集及其文件映射（嵌入仍保留）。",
+    "delete_button": "删除",
+    "delete_confirm": "确定删除“{{name}}”吗？此操作无法撤销。",
+    "prompt_label": "RAG 指令提示词",
+    "prompt_description": "在该知识集的检索上下文前插入的指令。",
+    "question_prompt_label": "问题改写提示词",
+    "question_prompt_description": "用于将追问改写为独立问题的提示词。",
+    "topk_label": "检索 Top‑K",
+    "topk_description": "该知识集检索的分块数量。",
+    "min_similarity_label": "最小相似度",
+    "min_similarity_description": "该知识集分块的最小相似度阈值。",
+    "min_rerank_label": "最小重排分数",
+    "min_rerank_description": "该知识集分块的最小重排置信度。"
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "活动",
+      "provider_details": "高质量嵌入 • 768-1024 维度 • 结果一致",
+      "webgpu_warning_title": "WebGPU 嵌入生成不可用",
+      "webgpu_warning_text": "由于 Chrome 扩展程序的內容安全策略 (CSP) 限制。WebGPU 重新排序仍然处于激活状态且功能正常。嵌入是通过回退链生成的，当原生支持不可用时，将使用默认提供方。",
+      "performance_title": "性能",
+      "performance_default": "默认提供方嵌入生成：每个分块约 500 毫秒",
+      "provider_hint": "确保您的本地提供方正在运行（默认：localhost:11434）"
+    }
   }
 }

@@ -15,6 +15,7 @@ import {
 export interface EmbeddingResult {
   embedding: number[]
   model: string
+  providerId: string
 }
 
 export interface EmbeddingError {
@@ -27,6 +28,7 @@ interface CacheEntry {
   embedding: number[]
   timestamp: number
   modelKey: string
+  providerId: string
 }
 
 const embeddingCache = new Map<string, CacheEntry>()
@@ -85,14 +87,17 @@ const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
 }
 
 const getCacheModelKey = async (modelName?: string): Promise<string> => {
+  const config = await getEmbeddingConfig()
+  const providerId = config.sharedEmbeddingProviderId || "default"
+
   if (modelName) {
-    return modelName
+    return `${providerId}:${modelName}`
   }
 
   const stored = await plasmoGlobalStorage.get<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
   )
-  return stored || "default"
+  return `${providerId}:${stored || "default"}`
 }
 
 /**
@@ -119,7 +124,8 @@ export const generateEmbedding = async (
       ) {
         return {
           embedding: cached.embedding,
-          model: modelName || modelKey
+          model: modelName || modelKey.split(":").slice(1).join(":"),
+          providerId: cached.providerId
         }
       } else {
         // Remove expired entry
@@ -162,13 +168,15 @@ export const generateEmbedding = async (
       embeddingCache.set(contentHash, {
         embedding,
         timestamp: now,
-        modelKey
+        modelKey,
+        providerId: resolved.providerId
       })
     }
 
     return {
       embedding,
-      model: resolved.model
+      model: resolved.model,
+      providerId: resolved.providerId
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -222,7 +230,7 @@ export const cosineSimilarity = (
   embedding2: number[]
 ): number => {
   if (embedding1.length !== embedding2.length) {
-    throw new Error("Embeddings must have the same dimension")
+    return 0
   }
 
   const len = embedding1.length

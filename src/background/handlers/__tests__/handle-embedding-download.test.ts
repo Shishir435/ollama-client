@@ -1,7 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { checkEmbeddingModelExists, downloadEmbeddingModelSilently } from "../handle-embedding-download"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  checkEmbeddingModelExists,
+  downloadEmbeddingModelSilently
+} from "../handle-embedding-download"
 
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({
@@ -22,11 +25,19 @@ vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
     getProviderForModel: vi.fn().mockResolvedValue({
       getModels: mockGetModels,
-      config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
+      config: {
+        id: "ollama",
+        type: "ollama",
+        baseUrl: "http://localhost:11434"
+      }
     }),
     getProvider: vi.fn().mockResolvedValue({
       getModels: mockGetModels,
-      config: { id: "ollama", type: "ollama", baseUrl: "http://localhost:11434" }
+      config: {
+        id: "ollama",
+        type: "ollama",
+        baseUrl: "http://localhost:11434"
+      }
     })
   }
 }))

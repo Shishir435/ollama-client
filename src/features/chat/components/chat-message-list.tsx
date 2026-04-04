@@ -1,6 +1,15 @@
-import { useRef, useState } from "react"
+import { useStorage } from "@plasmohq/storage/hook"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
+import { Button } from "@/components/ui/button"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
+import {
+  DEFAULT_EMBEDDING_CONFIG,
+  type EmbeddingConfig,
+  STORAGE_KEYS
+} from "@/lib/constants"
+import { ChevronDown } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChatMessage } from "@/types"
 
 interface ChatMessageListProps {
@@ -14,6 +23,12 @@ interface ChatMessageListProps {
   onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
   onLoadMore: () => void
+}
+
+const ChatListFooter = () => <div className="h-28 sm:h-32" />
+
+const virtuosoComponents = {
+  Footer: ChatListFooter
 }
 
 export const ChatMessageList = ({
@@ -30,60 +45,112 @@ export const ChatMessageList = ({
 }: ChatMessageListProps) => {
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
-  const filteredMessages = messages.filter((msg) => msg.role !== "system")
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [userDetachedFromBottom, setUserDetachedFromBottom] = useState(false)
+  const restoreBottomTimeoutRef = useRef<number | null>(null)
+  const [embeddingConfig] = useStorage<EmbeddingConfig>(
+    {
+      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_EMBEDDING_CONFIG
+  )
+  const filteredMessages = useMemo(
+    () => messages.filter((msg) => msg.role !== "system"),
+    [messages]
+  )
+  const lastVirtualIndex = firstItemIndex + filteredMessages.length - 1
   const internalMessagesRef = useRef(filteredMessages)
+  const showRetrievedChunks =
+    embeddingConfig?.showRetrievedChunks ??
+    DEFAULT_EMBEDDING_CONFIG.showRetrievedChunks
+  const feedbackEnabled =
+    embeddingConfig?.feedbackEnabled ?? DEFAULT_EMBEDDING_CONFIG.feedbackEnabled
 
-  // Update firstItemIndex when prepending items to ensure stable indices
-  if (filteredMessages.length > internalMessagesRef.current.length) {
+  useEffect(() => {
     const newMessages = filteredMessages
     const oldMessages = internalMessagesRef.current
-    const diff = newMessages.length - oldMessages.length
 
-    // specific check for prepend: if the old first message is now at index `diff`
-    const isPrepend =
-      oldMessages.length > 0 && newMessages[diff] === oldMessages[0]
+    if (newMessages.length > oldMessages.length) {
+      const diff = newMessages.length - oldMessages.length
+      // specific check for prepend: if the old first message is now at index `diff`
+      const isPrepend =
+        oldMessages.length > 0 && newMessages[diff] === oldMessages[0]
 
-    if (isPrepend) {
-      setFirstItemIndex((prev) => prev - diff)
+      if (isPrepend) {
+        setFirstItemIndex((prev) => prev - diff)
+      }
     }
-  }
 
-  // Update ref after render
-  internalMessagesRef.current = filteredMessages
+    internalMessagesRef.current = newMessages
+  }, [filteredMessages])
+
+  useEffect(() => {
+    return () => {
+      if (restoreBottomTimeoutRef.current !== null) {
+        window.clearTimeout(restoreBottomTimeoutRef.current)
+        restoreBottomTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  const handleAtBottomStateChange = useCallback((bottom: boolean) => {
+    if (restoreBottomTimeoutRef.current !== null) {
+      window.clearTimeout(restoreBottomTimeoutRef.current)
+      restoreBottomTimeoutRef.current = null
+    }
+
+    if (!bottom) {
+      setIsAtBottom((prev) => (prev ? false : prev))
+      setUserDetachedFromBottom((prev) => (prev ? prev : true))
+      return
+    }
+
+    // Avoid bottom-edge oscillation by only restoring after stable bottom.
+    restoreBottomTimeoutRef.current = window.setTimeout(() => {
+      setIsAtBottom((prev) => (prev ? prev : true))
+      setUserDetachedFromBottom((prev) => (prev ? false : prev))
+      restoreBottomTimeoutRef.current = null
+    }, 300)
+  }, [])
 
   return (
-    <div className="flex-1 px-4 py-2 h-full">
+    <div className="relative flex-1 h-full px-4 py-2">
       <Virtuoso
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
         data={filteredMessages}
-        initialTopMostItemIndex={filteredMessages.length - 1} // We'll rely on alignToBottom/followOutput mostly
+        initialTopMostItemIndex={lastVirtualIndex}
         startReached={() => {
           if (hasMore) {
             onLoadMore()
           }
         }}
-        followOutput={isStreaming ? "smooth" : "auto"} // Prioritize smooth scrolling during streaming
-        alignToBottom={true} // Initial alignment
+        followOutput={isStreaming && !userDetachedFromBottom ? "smooth" : false}
+        alignToBottom={false}
         className="scrollbar-none"
-        atBottomThreshold={50} // Distance to trigger stick-to-bottom
-        components={{
-          // Optional: Header/Footer if needed
-          Footer: () => <div className="h-4" />
-        }}
+        atBottomThreshold={24}
+        atBottomStateChange={handleAtBottomStateChange}
+        computeItemKey={(index, msg) =>
+          msg.id !== undefined
+            ? String(msg.id)
+            : `${msg.role}:${String(msg.timestamp ?? index)}`
+        }
+        components={virtuosoComponents}
         itemContent={(index, msg) => {
-          // Calculate relative index since we use firstItemIndex to handle prepending
-          const firstIndex = 10000000 - filteredMessages.length
-          const relativeIndex = index - firstIndex
+          // Convert virtuoso absolute index into local array index.
+          const relativeIndex = index - firstItemIndex
+          const isLastAssistantMessage =
+            msg.role === "assistant" &&
+            relativeIndex === filteredMessages.length - 1
 
-          // Calculate margins - logic moved inside
-          let className = "mt-2"
-          if (relativeIndex === 0) className = "mt-3"
+          let paddingTop = "pt-2"
+          if (relativeIndex === 0) paddingTop = "pt-3"
           else if (
             relativeIndex > 0 &&
             filteredMessages[relativeIndex - 1]?.role !== msg.role
           )
-            className = "mt-6"
+            paddingTop = "pt-6"
 
           // Check for highlight
           const isHighlighted =
@@ -91,36 +158,57 @@ export const ChatMessageList = ({
             highlightedMessage.role === msg.role &&
             highlightedMessage.content === msg.content
 
-          if (isHighlighted) {
-            className += " bg-accent/20"
-          }
-
           return (
-            <div
-              className={`${className} transition-colors duration-500 rounded-lg pr-2`}>
-              <ChatMessageBubble
-                msg={msg}
-                isLoading={
-                  isLoading &&
-                  msg.role === "assistant" &&
-                  index === filteredMessages.length - 1
-                }
-                onRegenerate={
-                  msg.role === "assistant"
-                    ? (model) => {
-                        if (isLoading || isStreaming) return
-                        onRegenerate(msg, model)
-                      }
-                    : undefined
-                }
-                onUpdate={(content) => onUpdateMessage(msg, content)}
-                onDelete={() => onDeleteMessage(msg)}
-                onNavigate={onNavigate}
-              />
+            <div className={`${paddingTop} pr-2`}>
+              <div className={isHighlighted ? "rounded-lg bg-accent/20" : ""}>
+                <ChatMessageBubble
+                  msg={msg}
+                  isLoading={isLoading && isLastAssistantMessage}
+                  isStreaming={isStreaming && isLastAssistantMessage}
+                  showRetrievedChunks={showRetrievedChunks}
+                  feedbackEnabled={feedbackEnabled}
+                  onRegenerate={
+                    msg.role === "assistant"
+                      ? (model) => {
+                          if (isLoading || isStreaming) return
+                          onRegenerate(msg, model)
+                        }
+                      : undefined
+                  }
+                  onUpdate={(content) => onUpdateMessage(msg, content)}
+                  onDelete={() => onDeleteMessage(msg)}
+                  onNavigate={onNavigate}
+                />
+              </div>
             </div>
           )
         }}
       />
+      {userDetachedFromBottom && !isAtBottom && filteredMessages.length > 0 && (
+        <div className="pointer-events-none absolute bottom-4 right-4">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto h-8 gap-1 rounded-full px-3 text-xs shadow-md"
+            onClick={() => {
+              if (restoreBottomTimeoutRef.current !== null) {
+                window.clearTimeout(restoreBottomTimeoutRef.current)
+                restoreBottomTimeoutRef.current = null
+              }
+              setUserDetachedFromBottom(false)
+              setIsAtBottom(true)
+              virtuosoRef.current?.scrollToIndex({
+                index: lastVirtualIndex,
+                align: "end",
+                behavior: "smooth"
+              })
+            }}>
+            <ChevronDown className="h-3.5 w-3.5" />
+            Bottom
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -12,8 +12,29 @@ export const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
   const stored = await plasmoGlobalStorage.get<EmbeddingConfig>(
     STORAGE_KEYS.EMBEDDINGS.CONFIG
   )
-  return {
+  const merged: EmbeddingConfig = {
     ...DEFAULT_EMBEDDING_CONFIG,
     ...stored
+  }
+
+  const rawAnnBackend = merged.annBackend as string | undefined
+  const annBackend: EmbeddingConfig["annBackend"] =
+    rawAnnBackend === "bruteforce" ? "bruteforce" : "ts-hnsw"
+
+  const rawRerankerBackend = merged.rerankerBackend as string | undefined
+  const rerankerBackend: EmbeddingConfig["rerankerBackend"] =
+    rawRerankerBackend === "cosine" ||
+    rawRerankerBackend === "transformers-js" ||
+    rawRerankerBackend === "onnxruntime-web"
+      ? "cosine"
+      : "none"
+
+  return {
+    ...merged,
+    annBackend,
+    rerankerBackend:
+      merged.useReranking && rerankerBackend === "none"
+        ? "cosine"
+        : rerankerBackend
   }
 }

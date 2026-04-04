@@ -10,7 +10,9 @@ import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 
 export const ProviderVersion = () => {
   const { t } = useTranslation()
-  const { version, versionError } = useProviderModels()
+  const { version, versionError, selectedProviderCapabilities } =
+    useProviderModels()
+  if (!selectedProviderCapabilities?.providerVersion) return null
   if (versionError || !version) return null
   return (
     <div>

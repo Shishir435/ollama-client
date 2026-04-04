@@ -1,24 +1,24 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useModelConfig } from "../use-model-config"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
+import { useModelConfig } from "../use-model-config"
 
 // Mock useStorage hook from @plasmohq/storage
 vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn()
+  useStorage: vi.fn() as any
 }))
 
 describe("useModelConfig", () => {
-  let mockSetModelConfigs: ReturnType<typeof vi.fn>
+  let mockSetModelConfigs: any
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSetModelConfigs = vi.fn()
+    mockSetModelConfigs = vi.fn() as any
   })
 
   it("should return default config when no stored config exists", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -36,7 +36,10 @@ describe("useModelConfig", () => {
     }
 
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([storedConfigs, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([
+      storedConfigs,
+      mockSetModelConfigs
+    ] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -51,7 +54,7 @@ describe("useModelConfig", () => {
 
   it("should update config correctly", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -80,7 +83,10 @@ describe("useModelConfig", () => {
     }
 
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([existingConfigs, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([
+      existingConfigs,
+      mockSetModelConfigs
+    ] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -103,10 +109,14 @@ describe("useModelConfig", () => {
     }
 
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([configs, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([configs, mockSetModelConfigs] as any)
 
-    const { result: result1 } = renderHook(() => useModelConfig("llama3:latest"))
-    const { result: result2 } = renderHook(() => useModelConfig("mistral:latest"))
+    const { result: result1 } = renderHook(() =>
+      useModelConfig("llama3:latest")
+    )
+    const { result: result2 } = renderHook(() =>
+      useModelConfig("mistral:latest")
+    )
 
     expect(result1.current[0].temperature).toBe(0.8)
     expect(result2.current[0].temperature).toBe(0.6)
@@ -114,7 +124,10 @@ describe("useModelConfig", () => {
 
   it("should handle undefined stored config", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([undefined, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([
+      undefined,
+      mockSetModelConfigs
+    ] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -125,7 +138,7 @@ describe("useModelConfig", () => {
 
   it("should update partial config fields", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 
@@ -143,7 +156,7 @@ describe("useModelConfig", () => {
 
   it("should handle system prompt updates", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs])
+    vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs] as any)
 
     const { result } = renderHook(() => useModelConfig("llama3:latest"))
 

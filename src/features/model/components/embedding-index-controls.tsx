@@ -1,16 +1,11 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
 import { Database, Loader2 } from "@/lib/lucide-icon"
 
-interface EmbeddingIndexControlsProps {
-  modelExists: boolean
-}
-
-export const EmbeddingIndexControls = ({
-  modelExists
-}: EmbeddingIndexControlsProps) => {
+export const EmbeddingIndexControls = () => {
   const { t } = useTranslation()
 
   const [isRebuildingIndex, setIsRebuildingIndex] = useState(false)
@@ -52,14 +47,12 @@ export const EmbeddingIndexControls = ({
     }
   }
 
-  if (!modelExists) return null
-
   return (
-    <div className="rounded-lg border border-muted bg-muted/30 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium">
-          {t("settings.embeddings.rebuild_index.title")}
-        </h4>
+    <SettingsCard
+      icon={Database}
+      title={t("settings.embeddings.rebuild_index.title")}
+      description={t("settings.embeddings.rebuild_index.description")}
+      headerActions={
         <Button
           variant="outline"
           size="sm"
@@ -77,10 +70,7 @@ export const EmbeddingIndexControls = ({
             </>
           )}
         </Button>
-      </div>
-      <p className="text-xs text-muted-foreground mb-2">
-        {t("settings.embeddings.rebuild_index.description")}
-      </p>
+      }>
       {rebuildProgress && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -104,7 +94,7 @@ export const EmbeddingIndexControls = ({
       )}
       {rebuildResult && (
         <div
-          className={`text-xs p-2 rounded mt-2 ${
+          className={`text-xs p-2 rounded ${
             rebuildResult.startsWith("✅")
               ? "bg-green-500/10 text-green-600 dark:text-green-400"
               : "bg-red-500/10 text-red-600 dark:text-red-400"
@@ -112,6 +102,6 @@ export const EmbeddingIndexControls = ({
           {rebuildResult}
         </div>
       )}
-    </div>
+    </SettingsCard>
   )
 }

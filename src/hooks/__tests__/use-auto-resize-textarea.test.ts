@@ -1,7 +1,6 @@
 import { renderHook } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { useAutoResizeTextarea } from "../use-auto-resize-textarea"
-import { createRef } from "react"
 
 describe("useAutoResizeTextarea", () => {
   let textareaRef: React.RefObject<HTMLTextAreaElement>
@@ -13,10 +12,14 @@ describe("useAutoResizeTextarea", () => {
       style: {
         height: "",
         overflowY: ""
-      } as CSSStyleDeclaration,
-      scrollHeight: 150
+      } as CSSStyleDeclaration
     }
-    
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 150,
+      writable: true,
+      configurable: true
+    })
+
     textareaRef = { current: mockTextarea as HTMLTextAreaElement }
   })
 
@@ -28,14 +31,19 @@ describe("useAutoResizeTextarea", () => {
   })
 
   it("should resize based on content", () => {
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Some content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Some content", 100, 300)
+    )
 
     // Should set to auto first, then to scrollHeight
     expect(mockTextarea.style?.height).toBe("150px")
   })
 
   it("should respect minimum height", () => {
-    mockTextarea.scrollHeight = 50 // Less than minHeight
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 50,
+      writable: true
+    })
 
     renderHook(() => useAutoResizeTextarea(textareaRef, "Short", 100, 300))
 
@@ -43,18 +51,28 @@ describe("useAutoResizeTextarea", () => {
   })
 
   it("should respect maximum height", () => {
-    mockTextarea.scrollHeight = 400 // More than maxHeight
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 400,
+      writable: true
+    })
 
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Very long content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Very long content", 100, 300)
+    )
 
     expect(mockTextarea.style?.height).toBe("300px")
     expect(mockTextarea.style?.overflowY).toBe("auto")
   })
 
   it("should hide overflow when within bounds", () => {
-    mockTextarea.scrollHeight = 200 // Within bounds
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 200,
+      writable: true
+    })
 
-    renderHook(() => useAutoResizeTextarea(textareaRef, "Medium content", 100, 300))
+    renderHook(() =>
+      useAutoResizeTextarea(textareaRef, "Medium content", 100, 300)
+    )
 
     expect(mockTextarea.style?.overflowY).toBe("hidden")
   })
@@ -72,7 +90,10 @@ describe("useAutoResizeTextarea", () => {
     expect(mockTextarea.style?.height).toBe("100px")
 
     // Change back to content
-    mockTextarea.scrollHeight = 200
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 200,
+      writable: true
+    })
     rerender({ value: "New content" })
     expect(mockTextarea.style?.height).toBe("200px")
   })
@@ -86,7 +107,10 @@ describe("useAutoResizeTextarea", () => {
   })
 
   it("should update when min/max heights change", () => {
-    mockTextarea.scrollHeight = 250
+    Object.defineProperty(mockTextarea, "scrollHeight", {
+      value: 250,
+      writable: true
+    })
 
     const { rerender } = renderHook(
       ({ min, max }) => useAutoResizeTextarea(textareaRef, "Content", min, max),

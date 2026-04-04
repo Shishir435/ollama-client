@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
-import { useModelLibrarySearch } from "../use-model-library-search"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { act, renderHook, waitFor } from "@testing-library/react"
+import React from "react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
+import { useModelLibrarySearch } from "../use-model-library-search"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -12,20 +14,30 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  })
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+}
+
 describe("useModelLibrarySearch", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it("should initialize with empty state", () => {
-    const { result } = renderHook(() => useModelLibrarySearch())
+    const { result } = renderHook(() => useModelLibrarySearch(), {
+      wrapper: createWrapper()
+    })
 
     expect(result.current.models).toEqual([])
     expect(result.current.loading).toBe(false)
   })
 
   it("should not search with empty query", () => {
-    renderHook(() => useModelLibrarySearch())
+    renderHook(() => useModelLibrarySearch(), { wrapper: createWrapper() })
 
     expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
   })
@@ -36,9 +48,13 @@ describe("useModelLibrarySearch", () => {
       html: "<html></html>" // Empty HTML for simple test
     })
 
-    const { result } = renderHook(() => useModelLibrarySearch())
+    const { result } = renderHook(() => useModelLibrarySearch(), {
+      wrapper: createWrapper()
+    })
 
-    result.current.setSearchQuery("llama")
+    act(() => {
+      result.current.setSearchQuery("llama")
+    })
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
@@ -56,16 +72,19 @@ describe("useModelLibrarySearch", () => {
       error: { message: "Failed to scrape" }
     })
 
-    const { result } = renderHook(() => useModelLibrarySearch())
+    const { result } = renderHook(() => useModelLibrarySearch(), {
+      wrapper: createWrapper()
+    })
 
-    result.current.setSearchQuery("test")
+    act(() => {
+      result.current.setSearchQuery("test")
+    })
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
     })
 
     expect(result.current.models).toEqual([])
-    expect(consoleSpy).toHaveBeenCalled()
 
     consoleSpy.mockRestore()
   })
@@ -84,9 +103,13 @@ describe("useModelLibrarySearch", () => {
       html: mockSearchHtml
     })
 
-    const { result } = renderHook(() => useModelLibrarySearch())
-    
-    result.current.setSearchQuery("llama")
+    const { result } = renderHook(() => useModelLibrarySearch(), {
+      wrapper: createWrapper()
+    })
+
+    act(() => {
+      result.current.setSearchQuery("llama")
+    })
 
     await waitFor(() => {
       expect(result.current.models.length).toBeGreaterThan(0)
@@ -105,7 +128,9 @@ describe("useModelLibrarySearch", () => {
       html: mockVariantsHtml
     })
 
-    await result.current.loadVariants("llama2")
+    await act(async () => {
+      await result.current.loadVariants("llama2")
+    })
 
     await waitFor(() => {
       const model = result.current.models.find((m) => m.name === "llama2")

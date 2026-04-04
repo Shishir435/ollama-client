@@ -1,11 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 import {
   getProcessor,
-  processFile,
+  getSupportedExtensions,
   isFileTypeSupported,
-  getSupportedExtensions
+  processFile
 } from "../index"
-import { TextProcessor } from "@/features/file-upload/processors/text-processor"
 
 // Mock the processors
 vi.mock("@/features/file-upload/processors/text-processor", () => ({
@@ -13,15 +13,30 @@ vi.mock("@/features/file-upload/processors/text-processor", () => ({
     canProcess = vi.fn().mockImplementation((file: File) => {
       const type = file.type
       const name = file.name
-      if (type.startsWith("image/") || type.startsWith("video/") || type === "application/xyz") return false
-      if (name.endsWith(".png") || name.endsWith(".mp4") || name.endsWith(".xyz")) return false
+      if (
+        type.startsWith("image/") ||
+        type.startsWith("video/") ||
+        type === "application/xyz"
+      )
+        return false
+      if (
+        name.endsWith(".png") ||
+        name.endsWith(".mp4") ||
+        name.endsWith(".xyz")
+      )
+        return false
       if (type === "application/pdf" || name.endsWith(".pdf")) return false
-      if (type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx")) return false
+      if (
+        type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        name.endsWith(".docx")
+      )
+        return false
       return true
     })
     process = vi.fn().mockImplementation(async (file: File) => ({
       text: await file.text(),
-      metadata: { 
+      metadata: {
         fileName: file.name,
         fileType: file.type || "text/plain",
         fileSize: file.size,
@@ -32,7 +47,12 @@ vi.mock("@/features/file-upload/processors/text-processor", () => ({
 }))
 vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
   PdfProcessor: class {
-    canProcess = vi.fn().mockImplementation((file: File) => file.type === "application/pdf" || file.name.endsWith(".pdf"))
+    canProcess = vi
+      .fn()
+      .mockImplementation(
+        (file: File) =>
+          file.type === "application/pdf" || file.name.endsWith(".pdf")
+      )
     process = vi.fn().mockResolvedValue({
       text: "PDF content",
       metadata: { pageCount: 1 }
@@ -42,10 +62,14 @@ vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
 
 vi.mock("@/features/file-upload/processors/docx-processor", () => ({
   DocxProcessor: class {
-    canProcess = vi.fn().mockImplementation((file: File) => 
-      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 
-      file.name.endsWith(".docx")
-    )
+    canProcess = vi
+      .fn()
+      .mockImplementation(
+        (file: File) =>
+          file.type ===
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+          file.name.endsWith(".docx")
+      )
     process = vi.fn().mockResolvedValue({
       text: "DOCX content",
       metadata: { wordCount: 100 }
@@ -93,12 +117,6 @@ describe("File Processors - Infrastructure", () => {
 
       expect(processor).not.toBeNull()
       expect(processor?.constructor.name).toBe("DocxProcessor")
-    })
-
-    it("should return false for image files (OCR disabled)", () => {
-      const file = new File([""], "test.png", { type: "image/png" })
-      const processor = getProcessor(file)
-      expect(processor).toBeNull()
     })
 
     it("should handle files by extension when MIME type is missing", () => {
@@ -186,10 +204,10 @@ describe("File Processors - Infrastructure", () => {
 
     it("should handle processor errors gracefully", async () => {
       const file = new File(["content"], "test.txt", { type: "text/plain" })
-      
+
       // Processor should handle errors internally
       const result = await processFile(file)
-      
+
       // Should either succeed or return structured error
       expect(result).toBeDefined()
     })
@@ -236,11 +254,6 @@ describe("File Processors - Infrastructure", () => {
       expect(isFileTypeSupported(pyFile)).toBe(true)
     })
 
-    it("should return false for image files (OCR disabled)", () => {
-      const file = new File([""], "test.png", { type: "image/png" })
-      expect(isFileTypeSupported(file)).toBe(false)
-    })
-
     it("should return false for video files", () => {
       const file = new File(["data"], "video.mp4", { type: "video/mp4" })
 
@@ -270,7 +283,7 @@ describe("File Processors - Infrastructure", () => {
 
     it("should include common text extensions", () => {
       const exts = getSupportedExtensions()
-      
+
       // Implementation returns specific list
       expect(exts).toContain("*") // Wildcard for text files
     })
@@ -286,16 +299,6 @@ describe("File Processors - Infrastructure", () => {
       const extensions = getSupportedExtensions()
 
       expect(extensions).toContain("*")
-    })
-
-    it("should NOT include image extensions (OCR disabled)", () => {
-      const extensions = getSupportedExtensions()
-
-      // Image extensions are now supported
-      expect(extensions).not.toContain(".png")
-      expect(extensions).not.toContain(".jpg")
-      // But video is still not supported
-      expect(extensions).not.toContain(".mp4")
     })
 
     it("should return unique extensions", () => {

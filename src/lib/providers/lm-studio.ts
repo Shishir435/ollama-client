@@ -8,6 +8,12 @@ import { ProviderId } from "./types"
  */
 export class LMStudioProvider extends OpenAIProvider {
   id = ProviderId.LM_STUDIO
+  override capabilities = {
+    ...this.capabilities,
+    modelPull: true,
+    modelUnload: true,
+    providerVersion: false
+  }
 
   async getEmbeddingSupport(): Promise<EmbeddingSupport> {
     return {

@@ -16,6 +16,9 @@ export enum ProviderId {
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
+  VLLM = "vllm",
+  LOCALAI = "localai",
+  KOBOLDCPP = "koboldcpp",
   OPENAI = "openai",
   ANTHROPIC = "anthropic"
 }
@@ -44,6 +47,18 @@ export interface ChatRequest {
   messages: ChatMessage[]
   temperature?: number
   top_p?: number
+  top_k?: number
+  repeat_penalty?: number
+  repeat_last_n?: number
+  seed?: number
+  num_ctx?: number
+  num_predict?: number
+  min_p?: number
+  stop?: string[]
+  num_thread?: number
+  num_gpu?: number
+  num_batch?: number
+  keep_alive?: string | number
   max_tokens?: number
   stream?: boolean
 }
@@ -54,9 +69,22 @@ export interface EmbeddingSupport {
   notes?: string
 }
 
+export interface ProviderCapabilities {
+  chat: boolean
+  embeddings: boolean
+  modelDiscovery: boolean
+  modelDetails: boolean
+  modelPull: boolean
+  modelUnload: boolean
+  modelDelete: boolean
+  providerVersion: boolean
+  toolCalling: boolean
+}
+
 export interface LLMProvider {
   id: string
   config: ProviderConfig
+  capabilities: ProviderCapabilities
 
   streamChat(
     request: ChatRequest,

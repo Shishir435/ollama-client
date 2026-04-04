@@ -1,11 +1,11 @@
 import { logger } from "@/lib/logger"
-import { query as dbQuery, run as dbRun, initSQLite } from "@/lib/sqlite/db"
+import { query as dbQuery, run as dbRun, saveDatabase } from "@/lib/sqlite/db"
 
 /**
  * Privacy-First Feedback Service
  *
  * Stores user feedback on retrieved chunks to improve future retrieval.
- * All data stored locally, queries are hashed for privacy.
+ * All data stored locally in SQLite; queries are hashed for privacy.
  */
 
 export interface ChunkFeedback {
@@ -66,6 +66,10 @@ class FeedbackService {
         ]
       )
 
+      // Ensure feedback is durably persisted so it is available
+      // to the options page immediately after collection.
+      await saveDatabase()
+
       logger.info(
         `Recorded feedback for chunk ${chunkVectorId}`,
         "FeedbackService",
@@ -81,8 +85,8 @@ class FeedbackService {
   }
 
   /**
-   * Get feedback score for a specific chunk + query combination
-   * Uses Bayesian smoothing to avoid extreme scores with little data
+   * Get feedback score for a specific chunk + query combination.
+   * Uses Bayesian smoothing to avoid extreme scores with little data.
    */
   async getFeedbackScore(
     chunkVectorId: string,
@@ -92,7 +96,7 @@ class FeedbackService {
       const queryHash = await this.hashQuery(query)
 
       const results = await dbQuery(
-        `SELECT 
+        `SELECT
           COUNT(*) as total,
           SUM(was_helpful) as helpful
          FROM chunk_feedback
@@ -115,37 +119,25 @@ class FeedbackService {
   }
 
   /**
-   * Get aggregate quality score for a chunk (all queries)
+   * Get aggregate quality score for a chunk (across all queries)
    */
   async getAggregateScore(
     chunkVectorId: string
   ): Promise<AggregatedScore | null> {
     try {
-      const db = await initSQLite()
+      const results = await dbQuery(
+        `SELECT * FROM chunk_quality_scores WHERE chunk_vector_id = ?`,
+        [chunkVectorId]
+      )
 
-      const result = await new Promise<{
-        chunk_vector_id: string
-        total_feedback: number
-        helpful_count: number
-        avg_score: number
-      } | null>((resolve, reject) => {
-        db.get(
-          `SELECT * FROM chunk_quality_scores WHERE chunk_vector_id = ?`,
-          [chunkVectorId],
-          (err: Error | null, row: unknown) => {
-            if (err) reject(err)
-            else
-              resolve(
-                row as {
-                  chunk_vector_id: string
-                  total_feedback: number
-                  helpful_count: number
-                  avg_score: number
-                } | null
-              )
+      const result = results[0] as
+        | {
+            chunk_vector_id: string
+            total_feedback: number
+            helpful_count: number
+            avg_score: number
           }
-        )
-      })
+        | undefined
 
       if (!result) {
         return null
@@ -170,20 +162,12 @@ class FeedbackService {
    */
   async exportFeedback(): Promise<ChunkFeedback[]> {
     try {
-      const db = await initSQLite()
-
-      const rows = await new Promise<FeedbackRow[]>((resolve, reject) => {
-        db.all(
-          `SELECT id, chunk_vector_id, query_hash, was_helpful, timestamp, session_id
-           FROM chunk_feedback
-           ORDER BY timestamp DESC`,
-          [],
-          (err: Error | null, rows: FeedbackRow[]) => {
-            if (err) reject(err)
-            else resolve(rows || [])
-          }
-        )
-      })
+      const rows = (await dbQuery(
+        `SELECT id, chunk_vector_id, query_hash, was_helpful, timestamp, session_id
+         FROM chunk_feedback
+         ORDER BY timestamp DESC`,
+        []
+      )) as unknown as FeedbackRow[]
 
       return rows.map((row) => ({
         id: row.id,
@@ -191,11 +175,11 @@ class FeedbackService {
         queryHash: row.query_hash,
         wasHelpful: row.was_helpful === 1,
         timestamp: row.timestamp,
-        sessionId: row.session_id
+        sessionId: row.session_id ?? undefined
       }))
     } catch (error) {
       logger.error("Failed to export feedback", "FeedbackService", { error })
-      return []
+      throw error
     }
   }
 
@@ -204,15 +188,8 @@ class FeedbackService {
    */
   async clearAllFeedback(): Promise<void> {
     try {
-      const db = await initSQLite()
-
-      await new Promise<void>((resolve, reject) => {
-        db.run(`DELETE FROM chunk_feedback`, [], (err: Error | null) => {
-          if (err) reject(err)
-          else resolve()
-        })
-      })
-
+      await dbRun(`DELETE FROM chunk_feedback`, [])
+      await saveDatabase()
       logger.info("Cleared all feedback data", "FeedbackService")
     } catch (error) {
       logger.error("Failed to clear feedback", "FeedbackService", { error })
@@ -225,18 +202,9 @@ class FeedbackService {
    */
   async clearFeedbackForChunk(chunkVectorId: string): Promise<void> {
     try {
-      const db = await initSQLite()
-
-      await new Promise<void>((resolve, reject) => {
-        db.run(
-          `DELETE FROM chunk_feedback WHERE chunk_vector_id = ?`,
-          [chunkVectorId],
-          (err: Error | null) => {
-            if (err) reject(err)
-            else resolve()
-          }
-        )
-      })
+      await dbRun(`DELETE FROM chunk_feedback WHERE chunk_vector_id = ?`, [
+        chunkVectorId
+      ])
 
       logger.info(
         `Cleared feedback for chunk ${chunkVectorId}`,
@@ -262,7 +230,7 @@ class FeedbackService {
   }
 
   /**
-   * Get feedback statistics
+   * Get feedback statistics — computed directly from SQLite.
    */
   async getStatistics(): Promise<{
     totalFeedback: number
@@ -271,23 +239,15 @@ class FeedbackService {
     uniqueQueries: number
   }> {
     try {
-      const db = await initSQLite()
-
-      const stats = await new Promise<FeedbackStatsRow>((resolve, reject) => {
-        db.get(
-          `SELECT 
-            COUNT(*) as total,
-            SUM(was_helpful) as helpful,
-            COUNT(DISTINCT chunk_vector_id) as unique_chunks,
-            COUNT(DISTINCT query_hash) as unique_queries
-           FROM chunk_feedback`,
-          [],
-          (err: Error | null, row: unknown) => {
-            if (err) reject(err)
-            else resolve(row as FeedbackStatsRow)
-          }
-        )
-      })
+      const [stats] = (await dbQuery(
+        `SELECT
+          COUNT(*) as total,
+          SUM(was_helpful) as helpful,
+          COUNT(DISTINCT chunk_vector_id) as unique_chunks,
+          COUNT(DISTINCT query_hash) as unique_queries
+         FROM chunk_feedback`,
+        []
+      )) as unknown as [FeedbackStatsRow]
 
       return {
         totalFeedback: stats.total || 0,

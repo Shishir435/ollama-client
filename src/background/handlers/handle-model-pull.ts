@@ -9,6 +9,8 @@ import {
   getPullAbortControllerKey,
   safePostMessage
 } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderId } from "@/lib/providers/types"
 import type {
   ChromePort,
   DefaultProviderPullRequest,
@@ -22,33 +24,65 @@ export const handleModelPull = async (
   port: ChromePort,
   isPortClosed: PortStatusFunction
 ): Promise<void> => {
-  const modelName = msg.payload
+  const payload = msg.payload
+  const modelName = typeof payload === "string" ? payload : payload.model
+  const providerId =
+    typeof payload === "string" ? undefined : payload.providerId
+
   if (msg.cancel) {
     abortAndClearController(modelName)
     return
   }
 
-  const baseUrl = await getBaseUrl()
+  const provider = await ProviderFactory.getProviderForModel(
+    modelName,
+    providerId
+  )
+  if (!provider.capabilities.modelPull) {
+    safePostMessage(port, {
+      error: {
+        status: 400,
+        message: "Model download is not supported by this provider"
+      }
+    })
+    return
+  }
+  const baseUrl = providerId
+    ? provider.config.baseUrl || (await getBaseUrl())
+    : await getBaseUrl()
 
   const controller = new AbortController()
   const controllerKey = getPullAbortControllerKey(port.name, modelName)
   setAbortController(controllerKey, controller)
 
   try {
-    const requestBody: DefaultProviderPullRequest = {
-      name: modelName
-    }
+    const requestBody: DefaultProviderPullRequest = { name: modelName }
+    const isLmStudio = provider.id === ProviderId.LM_STUDIO
+    const endpoint = isLmStudio
+      ? `${baseUrl.replace(/\/v1\/?$/, "")}/api/v1/models/download`
+      : `${baseUrl}/api/pull`
+    const body = isLmStudio
+      ? JSON.stringify({ model: modelName })
+      : JSON.stringify(requestBody)
 
-    const res = await fetch(`${baseUrl}/api/pull`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
+      body,
       signal: controller.signal
     })
 
     if (!res.ok) {
       safePostMessage(port, {
         error: { status: res.status, message: res.statusText }
+      })
+      return
+    }
+
+    if (isLmStudio) {
+      safePostMessage(port, {
+        status: "Download requested",
+        done: true
       })
       return
     }

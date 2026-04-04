@@ -23,17 +23,29 @@ export interface RetrievalOptions {
   diversityLambda?: number
   recencyBoost?: number
   fileId?: string | string[]
+  sessionId?: string
+  type?: VectorDocument["metadata"]["type"]
+  includeMemory?: boolean
+  memoryTopK?: number
   minSimilarity?: number
+  minRerankScore?: number
 }
 
 export interface EnhancedSearchResult {
   document: VectorDocument
   score: number
   originalSimilarity?: number
+  isMemory?: boolean
 }
 
 /**
- * Retrieve context with multi-stage pipeline
+ * Retrieve context with a multi-stage RAG pipeline.
+ * Stages:
+ * 1. Hybrid Search: Recall-optimized retrieval of candidates (5x topK).
+ * 2. Cross-Encoder Re-Ranking: (Optional) Re-scores candidates for high precision.
+ * 3. Temporal Boosting: Boosts scores for more recent documents.
+ * 4. Feedback Blending: Adjusts scores based on historical user feedback.
+ * 5. MMR Diversity Filtering: Selects final subset while minimizing structural redundancy.
  */
 export async function retrieveContextEnhanced(
   query: string,
@@ -45,13 +57,61 @@ export async function retrieveContextEnhanced(
     diversityEnabled = true,
     diversityLambda = 0.7,
     fileId,
-    minSimilarity = 0.3
+    sessionId,
+    type,
+    includeMemory = false,
+    memoryTopK = 3,
+    minSimilarity = 0.3,
+    minRerankScore
   } = options
 
-  // Full mode: return all documents (no re-ranking needed)
+  // Full mode: return all documents above minSimilarity without re-ranking or MMR.
+  // Useful for bulk retrieval (e.g., knowledge-base export, diagnostics).
   if (mode === "full") {
-    logger.info("Full mode selected, skipping re-ranking", "RAGPipeline")
-    return []
+    logger.info(
+      "Full mode selected, skipping re-ranking and MMR",
+      "RAGPipeline"
+    )
+
+    const fullEmbeddingResult = await generateEmbedding(query)
+    if ("error" in fullEmbeddingResult) {
+      logger.error(
+        "Failed to generate query embedding (full mode)",
+        "RAGPipeline",
+        {
+          error: fullEmbeddingResult.error
+        }
+      )
+      return []
+    }
+
+    const fullResults = await searchHybrid(
+      query,
+      fullEmbeddingResult.embedding,
+      {
+        limit: topK,
+        keywordWeight: 0.6,
+        semanticWeight: 0.4,
+        fileId,
+        sessionId,
+        type: type ?? "file",
+        minSimilarity,
+        embeddingModel: fullEmbeddingResult.model,
+        embeddingProviderId: fullEmbeddingResult.providerId,
+        embeddingDimension: fullEmbeddingResult.embedding.length
+      }
+    )
+
+    logger.info(
+      `Full mode complete: ${fullResults.length} results (no re-ranking)`,
+      "RAGPipeline"
+    )
+
+    return fullResults.map((c) => ({
+      document: c.document,
+      score: c.similarity,
+      originalSimilarity: c.similarity
+    }))
   }
 
   // Generate query embedding
@@ -68,19 +128,57 @@ export async function retrieveContextEnhanced(
 
   logger.verbose("Stage 1: Hybrid search", "RAGPipeline", {
     candidateK,
-    topK
+    topK,
+    includeMemory
   })
 
+  // Primary search (files/webpages)
+  const searchType = type ?? "file"
   const candidates = await searchHybrid(query, embeddingResult.embedding, {
     limit: candidateK,
     keywordWeight: 0.6,
     semanticWeight: 0.4,
     fileId,
-    type: "file",
-    minSimilarity: minSimilarity * 0.7 // Lower threshold for recall
+    sessionId,
+    type: searchType,
+    minSimilarity: minSimilarity * 0.7, // Lower threshold for recall
+    embeddingModel: embeddingResult.model,
+    embeddingProviderId: embeddingResult.providerId,
+    embeddingDimension: embeddingResult.embedding.length
   })
 
-  if (candidates.length === 0) {
+  // ===== STAGE 1.5: Memory Search (if enabled) =====
+  let memoryCandidates: EnhancedSearchResult[] = []
+  if (includeMemory) {
+    logger.verbose("Stage 1.5: Memory search", "RAGPipeline", {
+      memoryTopK
+    })
+
+    const memResults = await searchHybrid(query, embeddingResult.embedding, {
+      limit: memoryTopK * 3,
+      keywordWeight: 0.6,
+      semanticWeight: 0.4,
+      type: "chat",
+      minSimilarity: minSimilarity * 0.5, // Lower threshold for memory
+      embeddingModel: embeddingResult.model,
+      embeddingProviderId: embeddingResult.providerId,
+      embeddingDimension: embeddingResult.embedding.length
+    })
+
+    memoryCandidates = memResults.map((c) => ({
+      document: c.document,
+      score: c.similarity,
+      originalSimilarity: c.similarity,
+      isMemory: true
+    }))
+
+    logger.info(
+      `Stage 1.5 complete: ${memoryCandidates.length} memory candidates`,
+      "RAGPipeline"
+    )
+  }
+
+  if (candidates.length === 0 && memoryCandidates.length === 0) {
     logger.info("No candidates found in hybrid search", "RAGPipeline")
     return []
   }
@@ -90,45 +188,65 @@ export async function retrieveContextEnhanced(
     "RAGPipeline"
   )
 
-  // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
-  logger.verbose("Stage 2: Re-ranking with transformers.js", "RAGPipeline")
+  const embeddingConfig = await getEmbeddingConfig()
+  const useReranking = embeddingConfig.useReranking ?? false
+  const rerankerBackend = embeddingConfig.rerankerBackend ?? "none"
+  let rerankedResults: EnhancedSearchResult[] = []
 
-  const reranked = await rerankerService.rerank(
-    query,
-    candidates.map((c) => ({
-      content: c.document.content,
-      metadata: c.document.metadata
-    })),
-    Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
-  )
+  if (!useReranking) {
+    logger.info("Re-ranking disabled, using hybrid scores", "RAGPipeline")
 
-  logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
-    topScore: reranked[0]?.score.toFixed(3),
-    avgScore: (
-      reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
-    ).toFixed(3)
-  })
+    rerankedResults = candidates.slice(0, topK).map((candidate) => ({
+      document: candidate.document,
+      score: candidate.similarity,
+      originalSimilarity: candidate.similarity
+    }))
+  } else {
+    // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
+    logger.verbose(`Stage 2: Re-ranking with ${rerankerBackend}`, "RAGPipeline")
+    rerankerService.setBackend(rerankerBackend)
+    rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
 
-  const configForThreshold = await getEmbeddingConfig()
-  const MIN_RERANK_SCORE = configForThreshold.minRerankScore || 0.6
-  const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
+    const reranked = await rerankerService.rerank(
+      embeddingResult.embedding,
+      candidates.map((c) => ({
+        content: c.document.content,
+        embedding: c.document.embedding,
+        metadata: c.document.metadata
+      })),
+      Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
+    )
 
-  if (confidentResults.length === 0) {
-    logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
-      minScore: MIN_RERANK_SCORE,
-      topScore: reranked[0]?.score
+    const topScore = reranked[0]?.score ?? 0
+    const avgScore =
+      reranked.length > 0
+        ? reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
+        : 0
+
+    logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
+      topScore: topScore.toFixed(3),
+      avgScore: avgScore.toFixed(3)
     })
-    return [] // Return empty if no confident matches
-  }
 
-  logger.info(
-    `Filtered to ${confidentResults.length} confident results (score >= ${MIN_RERANK_SCORE})`,
-    "RAGPipeline"
-  )
+    const MIN_RERANK_SCORE =
+      minRerankScore ?? embeddingConfig.minRerankScore ?? 0.6
+    const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
 
-  // Convert to EnhancedSearchResult format
-  const rerankedResults: EnhancedSearchResult[] = confidentResults.map(
-    (r, _idx) => {
+    if (confidentResults.length === 0) {
+      logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
+        minScore: MIN_RERANK_SCORE,
+        topScore
+      })
+      return [] // Return empty if no confident matches
+    }
+
+    logger.info(
+      `Filtered to ${confidentResults.length} confident results (score >= ${MIN_RERANK_SCORE})`,
+      "RAGPipeline"
+    )
+
+    // Convert to EnhancedSearchResult format
+    rerankedResults = confidentResults.map((r, _idx) => {
       const originalCandidate = candidates.find(
         (c) => c.document.content === r.content
       )
@@ -142,17 +260,33 @@ export async function retrieveContextEnhanced(
         score: r.score,
         originalSimilarity: originalCandidate?.similarity
       }
-    }
-  )
+    })
+  }
+
+  // ===== STAGE 1.6: Add Memory Candidates =====
+  // Memory is kept separate (not reranked) for Option B - separate context blocks
+  if (memoryCandidates.length > 0) {
+    // Add memory with a slight score boost to prioritize files first
+    const boostedMemory = memoryCandidates.map((m) => ({
+      ...m,
+      score: m.score * 0.9 // Slightly lower priority than file results
+    }))
+    rerankedResults = [...rerankedResults, ...boostedMemory]
+    logger.info(
+      `Added ${boostedMemory.length} memory results to pool`,
+      "RAGPipeline"
+    )
+  }
 
   // ===== STAGE 2.5: Feedback Score Blending =====
   // Blend user feedback scores with model scores
-  const embeddingConfig = await getEmbeddingConfig()
-
   if (embeddingConfig.feedbackEnabled) {
     logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
 
     for (const result of rerankedResults) {
+      // Skip feedback for memory - it's based on chat content
+      if (result.isMemory) continue
+
       // Get feedback score for this chunk + query combination
       const chunkId = result.document.id?.toString()
       if (chunkId) {
@@ -181,18 +315,18 @@ export async function retrieveContextEnhanced(
   }
 
   // ===== STAGE 2.6: Temporal Relevance Boosting =====
-  const embeddingConfig2 = await getEmbeddingConfig()
-
-  if (embeddingConfig2.useTemporalBoosting) {
+  if (embeddingConfig.useTemporalBoosting) {
     logger.verbose(
       "Stage 2.6: Applying temporal relevance boost",
       "RAGPipeline"
     )
 
+    // Only apply to non-memory results
+    const fileResults = rerankedResults.filter((r) => !r.isMemory)
     applyRecencyBoost(
-      rerankedResults,
-      embeddingConfig2.temporalBoostWeight || 0.3,
-      embeddingConfig2.temporalHalfLife || 90
+      fileResults,
+      embeddingConfig.temporalBoostWeight || 0.3,
+      embeddingConfig.temporalHalfLife || 90
     )
 
     // Re-sort after boosting
@@ -200,18 +334,35 @@ export async function retrieveContextEnhanced(
   }
 
   // ===== STAGE 3: MMR Diversity Filtering =====
+  // Memory results are kept separate from MMR to preserve them
+  const fileResults = rerankedResults.filter((r) => !r.isMemory)
+  const memoryResults = rerankedResults.filter((r) => r.isMemory)
+
   if (!diversityEnabled) {
-    return rerankedResults.slice(0, topK)
+    const finalResults = [
+      ...fileResults.slice(0, topK),
+      ...memoryResults.slice(0, 1) // Add 1 memory result max
+    ]
+    return finalResults
   }
 
   logger.verbose("Stage 3: MMR diversity filtering", "RAGPipeline", {
     lambda: diversityLambda
   })
 
-  const diversified = applyMMR(rerankedResults, topK, diversityLambda)
+  const diversifiedFileResults = applyMMR(fileResults, topK, diversityLambda)
+
+  // Combine: top file results + memory results (separate blocks for Option B)
+  const diversified = [
+    ...diversifiedFileResults,
+    ...memoryResults.slice(0, 1) // Add 1 memory result max
+  ]
+
+  const fileCount = diversified.filter((r) => !r.isMemory).length
+  const memoryCount = diversified.filter((r) => r.isMemory).length
 
   logger.info(
-    `Stage 3 complete: ${diversified.length} final results`,
+    `Stage 3 complete: ${diversified.length} final results (${fileCount} files, ${memoryCount} memory)`,
     "RAGPipeline"
   )
 
@@ -219,8 +370,11 @@ export async function retrieveContextEnhanced(
 }
 
 /**
- * Maximal Marginal Relevance (MMR) for diversity
- * Balances relevance with diversity to avoid redundant results
+ * Maximal Marginal Relevance (MMR) for diversity filtering.
+ * Balances relevance with diversity to avoid redundant results in the context window.
+ * The algorithm selects a document i that maximizes:
+ * MMR(i) = λ * Similarity(i, Query) - (1-λ) * max_j[Similarity(i, j)]
+ * where j are documents already selected.
  */
 function applyMMR(
   results: EnhancedSearchResult[],
@@ -297,7 +451,8 @@ function semanticSimilarity(
 import { estimateTokens } from "@/lib/embeddings/chunker"
 
 /**
- * Format enhanced results back to standard format with token limits
+ * Format enhanced search results into standard VectorDocument objects and formatted prompt strings with token limits.
+ * Estimates token usage for each chunk to fit the target context window perfectly.
  */
 export function formatEnhancedResults(
   results: EnhancedSearchResult[],
@@ -312,6 +467,7 @@ export function formatEnhancedResults(
     score: number
     source?: string
     chunkIndex?: number
+    page?: number
     fileId?: string
     type?: string
   }>
@@ -327,11 +483,9 @@ export function formatEnhancedResults(
 
     if (maxTokens && currentTokens + tokens > maxTokens) {
       if (includedResults.length === 0) {
-        // Always include at least one result if possible, or truncate it?
-        // For now, if even the first one is too big, we might skip or let it pass
-        // (but usually chunks are small enough).
-        // Let's include it but warn/truncate if we were doing fancy truncation.
-        // Here we just stop adding more.
+        // Always include at least one result even if it exceeds the budget.
+        // A single over-budget chunk is better than returning zero context.
+        includedResults.push(result)
       }
       break
     }
@@ -344,24 +498,50 @@ export function formatEnhancedResults(
 
   const formattedContext = includedResults
     .map((r, i) => {
-      const source =
-        r.document.metadata.title || r.document.metadata.source || "Unknown"
-      const scoreText = r.score
-        ? ` (relevance: ${(r.score * 100).toFixed(0)}%)`
-        : ""
-      return `[Document ${i + 1}] ${source}${scoreText}\n${r.document.content}`
+      const isMemory = r.isMemory
+      const source = isMemory
+        ? `Previous conversation${r.document.metadata.sessionId ? ` (session)` : ""}`
+        : r.document.metadata.title || r.document.metadata.source || "Unknown"
+      const page = r.document.metadata.page
+      const chunkIndex = r.document.metadata.chunkIndex
+      const totalChunks = r.document.metadata.totalChunks
+      const chunkLabel =
+        chunkIndex !== undefined
+          ? `${chunkIndex + 1}${totalChunks ? `/${totalChunks}` : ""}`
+          : undefined
+
+      const attrs = [
+        `id="${i + 1}"`,
+        `source="${escapeAttribute(source)}"`,
+        page ? `page="${page}"` : undefined,
+        chunkLabel ? `chunk="${chunkLabel}"` : undefined,
+        r.score ? `score="${r.score.toFixed(3)}"` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
+
+      // For memory results, wrap with special tags for separation
+      if (isMemory) {
+        return `<doc ${attrs}>\n${r.document.content}\n</doc>`
+      }
+
+      return `<doc ${attrs}>\n${r.document.content}\n</doc>`
     })
-    .join("\n\n---\n\n")
+    .join("\n\n")
 
   const sources = includedResults.map((r) => ({
     id: r.document.id || 0,
-    title: r.document.metadata.title || r.document.metadata.source || "Unknown",
+    title: r.isMemory
+      ? "Previous Conversation"
+      : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
     score: r.score,
     source: r.document.metadata.source,
     chunkIndex: r.document.metadata.chunkIndex,
+    page: r.document.metadata.page,
     fileId: r.document.metadata.fileId,
-    type: r.document.metadata.type
+    type: r.isMemory ? "memory" : r.document.metadata.type,
+    isMemory: r.isMemory
   }))
 
   return {
@@ -369,4 +549,8 @@ export function formatEnhancedResults(
     formattedContext,
     sources
   }
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/"/g, "'").replace(/\s+/g, " ").trim()
 }

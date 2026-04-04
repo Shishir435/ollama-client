@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 import { useTabStatusMap } from "../use-tab-status-map"
 
 // Mock useTabContents
@@ -13,7 +13,7 @@ describe("useTabStatusMap", () => {
   it("should return status map function", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 
@@ -25,7 +25,7 @@ describe("useTabStatusMap", () => {
   it("should return loading status", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
-      loading: true,
+      loadingIds: { 123: true },
       errors: {}
     })
 
@@ -38,7 +38,7 @@ describe("useTabStatusMap", () => {
   it("should return error for tab", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
-      loading: false,
+      loadingIds: {},
       errors: { 123: "Error message" }
     })
 
@@ -52,7 +52,7 @@ describe("useTabStatusMap", () => {
     const tabData = { title: "Test", html: "<p>content</p>" }
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: { 123: tabData },
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 
@@ -65,7 +65,7 @@ describe("useTabStatusMap", () => {
   it("should return null for missing tab", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
-      loading: false,
+      loadingIds: {},
       errors: {}
     })
 

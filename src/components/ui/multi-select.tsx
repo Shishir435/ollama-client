@@ -1,12 +1,13 @@
-import { useState } from "react"
-
+import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandGroup,
   CommandInput,
-  CommandItem
+  CommandItem,
+  CommandSeparator
 } from "@/components/ui/command"
 import {
   Popover,
@@ -55,16 +56,24 @@ export const MultiSelect = ({
   variant: _variant = "default",
   statusForValue
 }: MultiSelectProps) => {
+  const { t } = useTranslation()
   const [selectedValues, setSelectedValues] = useState<string[]>(defaultValue)
   const [open, setOpen] = useState(false)
 
-  const toggleOption = (value: string) => {
-    const newValues = selectedValues.includes(value)
-      ? selectedValues.filter((v) => v !== value)
-      : [...selectedValues, value]
+  // Sync internal state with defaultValue when it changes from outside
+  useEffect(() => {
+    setSelectedValues(defaultValue)
+  }, [defaultValue])
 
-    setSelectedValues(newValues)
-    onValueChange?.(newValues)
+  const toggleOption = (value: string) => {
+    setSelectedValues((prev) => {
+      const newValues = prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
+
+      onValueChange?.(newValues)
+      return newValues
+    })
   }
 
   return (
@@ -72,7 +81,7 @@ export const MultiSelect = ({
       <PopoverTrigger asChild>
         <div
           className={cn(
-            "flex h-auto w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm",
+            "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm",
             "cursor-pointer"
           )}>
           {selectedValues.length === 0 ? (
@@ -104,15 +113,25 @@ export const MultiSelect = ({
                     {isSuccess && (
                       <CheckIcon className="h-4 w-4 text-green-500" />
                     )}
-                    {isError && <XCircle className="h-4 w-4 text-red-500" />}
 
-                    <XCircle
-                      className="h-4 w-4 cursor-pointer"
+                    <button
+                      type="button"
+                      className="ml-0.5 cursor-pointer pointer-events-auto rounded-full p-0.5 hover:bg-muted-foreground/10 transition-colors duration-200 outline-none focus-visible:ring-1 focus-visible:ring-primary"
                       onClick={(e) => {
                         e.stopPropagation()
+                        e.preventDefault()
                         toggleOption(value)
                       }}
-                    />
+                      aria-label={t("common.remove")}>
+                      <XCircle
+                        className={cn(
+                          "h-3.5 w-3.5 transition-colors duration-200",
+                          isError
+                            ? "text-red-500"
+                            : "text-muted-foreground group-hover/badge:text-foreground"
+                        )}
+                      />
+                    </button>
                   </Badge>
                 )
               })}
@@ -126,30 +145,39 @@ export const MultiSelect = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
-        <Command>
+      <PopoverContent className="w-[300px] p-0 shadow-lg" align="center">
+        <Command className="rounded-lg border-0">
           <div className="relative w-full">
             <Button
               variant="ghost"
               size="icon"
               onClick={onRefresh}
               className="z-2 absolute right-0 rounded-full bg-transparent text-xs hover:bg-transparent">
-              <RefreshCw />
+              <RefreshCw className="h-4 w-4 opacity-50" />
             </Button>
-            <CommandInput placeholder={placeholder} />
+            <CommandInput
+              placeholder={placeholder}
+              className="border-0 focus:outline-hidden focus:ring-0"
+            />
           </div>
-          <CommandGroup>
-            <ScrollArea className="max-h-[300px] overflow-y-scroll">
+          <CommandSeparator className="mt-2" />
+          <CommandGroup className="px-1 py-1">
+            <ScrollArea className="max-h-[300px] overflow-y-auto scrollbar-none">
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  onSelect={() => toggleOption(option.value)}>
-                  <div className="flex items-center gap-2">
-                    {option.icon && <option.icon className="h-4 w-4" />}
-                    <span>{option.label}</span>
+                  onSelect={() => toggleOption(option.value)}
+                  className="mx-1 my-0.5 rounded-md py-2.5 transition-all aria-selected:bg-accent/50">
+                  <div className="flex items-center gap-3">
+                    {option.icon && (
+                      <option.icon className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="truncate text-sm font-medium">
+                      {option.label}
+                    </span>
                   </div>
                   {selectedValues.includes(option.value) && (
-                    <Check className="ml-auto h-4 w-4" />
+                    <Check className="ml-auto h-4 w-4 text-primary" />
                   )}
                 </CommandItem>
               ))}

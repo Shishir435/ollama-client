@@ -61,7 +61,7 @@ export const SessionMetricsBar = ({
     {
       icon: Zap,
       iconColor: "text-emerald-600 dark:text-emerald-400",
-      value: `${metrics.averageSpeed.toFixed(1)} t/s`,
+      value: `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit", "t/s")}`,
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
     {
@@ -75,7 +75,7 @@ export const SessionMetricsBar = ({
   return (
     <div
       className={cn(
-        "mb-2 flex w-full items-center justify-around gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground",
+        "mb-1.5 flex w-full items-center justify-around gap-1 px-1 py-1 text-[10px] text-muted-foreground/80",
         className
       )}>
       {metricItems.map((item, index) => {

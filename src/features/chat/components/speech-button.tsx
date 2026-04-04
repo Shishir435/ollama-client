@@ -30,18 +30,18 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          size="sm"
-          variant="link"
-          className="h-6 px-2"
+          size="icon"
+          variant="ghost"
+          className="size-7"
           aria-label={getLabel()}
           title={getLabel()}
           onClick={() => !isLoadingVoices && toggle(text)}
           disabled={isLoadingVoices}
           type="button">
           {speaking ? (
-            <MicOff size={16} className="text-destructive" />
+            <MicOff size={14} className="text-destructive" />
           ) : (
-            <Mic size={16} />
+            <Mic size={14} />
           )}
         </Button>
       </TooltipTrigger>

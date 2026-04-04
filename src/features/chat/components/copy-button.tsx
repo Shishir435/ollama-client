@@ -23,14 +23,14 @@ export const CopyButton = ({ text }: { text: string }) => {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          size="sm"
-          variant="link"
-          className="h-6 px-2"
+          size="icon"
+          variant="ghost"
+          className="size-7"
           onClick={handleCopy}>
           {copied ? (
-            <Check size={16} className="text-green-400" />
+            <Check size={14} className="text-green-400" />
           ) : (
-            <Copy size={16} />
+            <Copy size={14} />
           )}
         </Button>
       </TooltipTrigger>

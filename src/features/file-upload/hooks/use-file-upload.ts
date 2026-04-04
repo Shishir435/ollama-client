@@ -14,6 +14,11 @@ import type {
   ProcessedFile
 } from "@/lib/file-processors/types"
 import { processKnowledge } from "@/lib/knowledge"
+import {
+  addFileToKnowledgeSet,
+  getActiveKnowledgeSetId,
+  markKnowledgeFileEmbedded
+} from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
@@ -45,7 +50,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     DEFAULT_EMBEDDING_CONFIG
   )
 
-  const { onFileProcessed, onError, maxFileSize = config.maxFileSize } = options
+  const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
+  const {
+    onFileProcessed,
+    onError,
+    maxFileSize = safeConfig.maxFileSize
+  } = options
 
   const [processingStates, setProcessingStates] = useState<
     Map<File, FileProcessingState>
@@ -61,7 +71,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         // Check if file type is supported
         if (!isFileTypeSupported(file)) {
           const error = new Error(
-            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), and DOCX (.docx).`
+            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), DOCX (.docx), CSV/TSV (.csv, .tsv), and HTML (.html).`
           )
           newStates.set(file, {
             file,
@@ -102,13 +112,38 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
         try {
           const result = await processFile(file)
+          const fallbackId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? `file-${crypto.randomUUID()}`
+              : `file-${Date.now()}-${Math.random().toString(16).slice(2)}`
+          const fileId = result.metadata.fileId || fallbackId
+          result.metadata.fileId = fileId
+
+          try {
+            const knowledgeSetId = await getActiveKnowledgeSetId()
+            result.metadata.knowledgeSetId = knowledgeSetId
+            await addFileToKnowledgeSet({
+              id: fileId,
+              knowledgeSetId,
+              fileName: result.metadata.fileName,
+              fileType: result.metadata.fileType,
+              fileSize: result.metadata.fileSize,
+              createdAt: result.metadata.processedAt || Date.now()
+            })
+          } catch (err) {
+            logger.warn("Failed to register knowledge file", "useFileUpload", {
+              error: err
+            })
+          }
 
           // Generate embeddings if enabled
-          if (config.autoEmbedFiles && embeddingConfig) {
+          const safeEmbeddingConfig =
+            embeddingConfig || DEFAULT_EMBEDDING_CONFIG
+          if (safeConfig.autoEmbedFiles) {
             try {
               // Check if using new knowledge processor (enhanced text splitters)
               const useNewProcessor =
-                embeddingConfig.useEnhancedChunking || false
+                safeEmbeddingConfig.useEnhancedChunking || false
 
               if (useNewProcessor) {
                 // Use new knowledge processor with enhanced text splitters
@@ -121,10 +156,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   fileId: result.metadata.fileId || file.name,
                   fileName: result.metadata.fileName,
                   content: result.text,
+                  pages: result.pages,
                   contentType: file.type || "text/plain",
                   onProgress: (progress) => {
                     if (
-                      config.showEmbeddingProgress &&
+                      safeConfig.showEmbeddingProgress &&
                       progress.status === "processing"
                     ) {
                       const progressPercent =
@@ -155,6 +191,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`,
                     "useFileUpload"
                   )
+                  await markKnowledgeFileEmbedded(fileId)
                 } else {
                   logger.error(
                     `Failed to process "${file.name}"`,
@@ -164,7 +201,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                 }
 
                 // Mark as complete
-                if (config.showEmbeddingProgress) {
+                if (safeConfig.showEmbeddingProgress) {
                   setProcessingStates((prev) => {
                     const next = new Map(prev)
                     next.set(file, {
@@ -184,9 +221,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
               // Use old chunking system (backward compatibility)
               const chunks = await chunkTextAsync(result.text, {
-                chunkSize: embeddingConfig.chunkSize,
-                chunkOverlap: embeddingConfig.chunkOverlap,
-                strategy: embeddingConfig.chunkingStrategy
+                chunkSize: safeEmbeddingConfig.chunkSize,
+                chunkOverlap: safeEmbeddingConfig.chunkOverlap,
+                strategy: safeEmbeddingConfig.chunkingStrategy
               })
 
               logger.info(
@@ -195,7 +232,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
               )
 
               // Mark status as queued so UI doesn't block while background processes embeddings
-              if (config.showEmbeddingProgress) {
+              if (safeConfig.showEmbeddingProgress) {
                 setProcessingStates((prev) => {
                   const next = new Map(prev)
                   next.set(file, {
@@ -234,7 +271,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     const total = m.total || 0
                     const progress =
                       total > 0 ? Math.round((processed / total) * 100) : 0
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -248,7 +285,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     }
                   } else if (m?.status === "done") {
                     // Embedding complete
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -270,7 +307,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     logger.warn("Background embedding error", "useFileUpload", {
                       error: m?.message
                     })
-                    if (config.showEmbeddingProgress) {
+                    if (safeConfig.showEmbeddingProgress) {
                       setProcessingStates((prev) => {
                         const next = new Map(prev)
                         next.set(file, {
@@ -294,7 +331,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
               })
 
               // Stream batches to background to avoid sending a huge single message
-              const batchSize = config.embeddingBatchSize || 3
+              const batchSize = safeConfig.embeddingBatchSize || 3
               for (let i = 0; i < chunks.length; i += batchSize) {
                 const batch = chunks
                   .slice(i, i + batchSize)
@@ -374,7 +411,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       onFileProcessed,
       onError,
       processingStates,
-      config,
+      safeConfig.autoEmbedFiles,
+      safeConfig.embeddingBatchSize,
+      safeConfig.showEmbeddingProgress,
       embeddingConfig
     ]
   )

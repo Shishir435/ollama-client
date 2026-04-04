@@ -8,6 +8,7 @@ import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
   model: string
+  providerId?: string
   messages: ChatMessage[]
   sessionId?: string
   generatedMessage?: ChatMessage
@@ -29,6 +30,7 @@ interface StreamMessage {
     query?: string
   }
   delta?: string
+  thinkingDelta?: string
   done?: boolean
   error?: {
     status: number
@@ -38,11 +40,99 @@ interface StreamMessage {
   metrics?: Record<string, unknown>
 }
 
-interface UseChatStreamProps {
+export interface UseChatStreamProps {
   setMessages: (messages: ChatMessage[]) => void
   setIsLoading: (v: boolean) => void
   setIsStreaming: (v: boolean) => void
   onToken?: (token: string) => void
+}
+
+type ThinkingParserState = {
+  inThinking: boolean
+  pending: string
+}
+
+const THINK_OPEN_TAGS = ["<think>", "<thinking>", "<reasoning>"]
+const THINK_CLOSE_TAGS = ["</think>", "</thinking>", "</reasoning>"]
+const MAX_TAG_LENGTH = Math.max(
+  ...THINK_OPEN_TAGS.map((tag) => tag.length),
+  ...THINK_CLOSE_TAGS.map((tag) => tag.length)
+)
+
+const findTag = (text: string, tags: string[]) => {
+  let foundIndex = -1
+  let foundTag = ""
+
+  for (const tag of tags) {
+    const index = text.indexOf(tag)
+    if (index === -1) continue
+    if (foundIndex === -1 || index < foundIndex) {
+      foundIndex = index
+      foundTag = tag
+    }
+  }
+
+  if (foundIndex === -1) {
+    return null
+  }
+
+  return { index: foundIndex, tag: foundTag }
+}
+
+const splitPartialTag = (text: string, tags: string[]) => {
+  const maxCheck = Math.min(MAX_TAG_LENGTH - 1, text.length)
+
+  for (let length = maxCheck; length > 0; length -= 1) {
+    const tail = text.slice(-length)
+    if (tags.some((tag) => tag.startsWith(tail))) {
+      return { chunk: text.slice(0, -length), pending: tail }
+    }
+  }
+
+  return { chunk: text, pending: "" }
+}
+
+const splitThinkingDelta = (delta: string, state: ThinkingParserState) => {
+  let text = `${state.pending}${delta}`
+  state.pending = ""
+
+  if (!state.inThinking && !text.includes("<")) {
+    return { visible: text, thinking: "" }
+  }
+
+  let visible = ""
+  let thinking = ""
+
+  while (text.length > 0) {
+    if (state.inThinking) {
+      const closeMatch = findTag(text, THINK_CLOSE_TAGS)
+      if (!closeMatch) {
+        const { chunk, pending } = splitPartialTag(text, THINK_CLOSE_TAGS)
+        thinking += chunk
+        state.pending = pending
+        break
+      }
+
+      thinking += text.slice(0, closeMatch.index)
+      text = text.slice(closeMatch.index + closeMatch.tag.length)
+      state.inThinking = false
+      continue
+    }
+
+    const openMatch = findTag(text, THINK_OPEN_TAGS)
+    if (!openMatch) {
+      const { chunk, pending } = splitPartialTag(text, THINK_OPEN_TAGS)
+      visible += chunk
+      state.pending = pending
+      break
+    }
+
+    visible += text.slice(0, openMatch.index)
+    text = text.slice(openMatch.index + openMatch.tag.length)
+    state.inThinking = true
+  }
+
+  return { visible, thinking }
 }
 
 export const useChatStream = ({
@@ -51,6 +141,7 @@ export const useChatStream = ({
   setIsStreaming,
   onToken
 }: UseChatStreamProps) => {
+  const DEBUG_THINKING_STREAM = false
   const { t } = useTranslation()
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
@@ -58,6 +149,7 @@ export const useChatStream = ({
 
   const startStream = ({
     model,
+    providerId,
     messages,
     sessionId,
     generatedMessage
@@ -82,8 +174,30 @@ export const useChatStream = ({
     setMessages(currentMessagesRef.current)
 
     let firstChunk = true
+    const thinkingState: ThinkingParserState = {
+      inThinking: false,
+      pending: ""
+    }
 
     const listener = (msg: StreamMessage) => {
+      if (DEBUG_THINKING_STREAM) {
+        console.debug("[Stream] msg", {
+          type: msg.type,
+          hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
+          deltaPreview:
+            typeof msg.delta === "string" ? msg.delta.slice(0, 120) : undefined,
+          hasThinkingDelta:
+            typeof msg.thinkingDelta === "string" &&
+            msg.thinkingDelta.length > 0,
+          thinkingPreview:
+            typeof msg.thinkingDelta === "string"
+              ? msg.thinkingDelta.slice(0, 120)
+              : undefined,
+          done: msg.done,
+          error: msg.error
+        })
+        console.log("MSG", JSON.stringify(msg, null, 3))
+      }
       if (firstChunk) {
         setIsStreaming(true)
         firstChunk = false
@@ -98,12 +212,41 @@ export const useChatStream = ({
         return
       }
 
+      let didUpdate = false
+
+      if (msg.thinkingDelta) {
+        if (DEBUG_THINKING_STREAM) {
+          console.debug("[ThinkingStream] delta", msg.thinkingDelta)
+        }
+        assistantMessage.thinking = `${assistantMessage.thinking || ""}${msg.thinkingDelta}`
+        didUpdate = true
+      }
+
       if (msg.delta !== undefined) {
-        if (onToken) {
-          onToken(msg.delta)
+        const { visible, thinking } = splitThinkingDelta(
+          msg.delta,
+          thinkingState
+        )
+
+        if (thinking) {
+          if (DEBUG_THINKING_STREAM) {
+            console.debug("[ThinkingStream] parsed", thinking)
+          }
+          assistantMessage.thinking = `${assistantMessage.thinking || ""}${thinking}`
+          didUpdate = true
         }
 
-        assistantMessage.content += msg.delta
+        if (visible) {
+          if (onToken) {
+            onToken(visible)
+          }
+
+          assistantMessage.content += visible
+          didUpdate = true
+        }
+      }
+
+      if (didUpdate) {
         const updated = [
           ...currentMessagesRef.current.slice(0, -1),
           { ...assistantMessage }
@@ -163,6 +306,7 @@ export const useChatStream = ({
       type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
       payload: {
         model,
+        providerId,
         messages,
         sessionId
       }

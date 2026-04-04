@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "Wiederholen",
-      "refresh": "Aktualisieren"
+      "refresh": "Aktualisieren",
+      "close": "Schließen"
     },
+    "updated_at": "Aktualisiert",
     "social": {
       "title": "Verbinde Dich mit mir",
       "visit_profile": "Besuche mein {{platform}}-Profil"
@@ -33,7 +35,19 @@
       "help_text": "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
     },
     "cancel": "Abbrechen",
-    "save": "Speichern"
+    "save": "Speichern",
+    "continue": "Import Fortsetzen",
+    "reload": "Erweiterung Neu Laden",
+    "close": "Schließen",
+    "status": {
+      "active": "Aktiv"
+    },
+    "labels": {
+      "performance": "Leistung"
+    },
+    "nav": {
+      "settings_aria": "Einstellungen-Navigation"
+    }
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",
@@ -62,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "Bevor Sie beginnen, folgen Sie diesen schnellen Schritten:",
-      "step1": "Installieren Sie einen lokalen Provider (Ollama empfohlen)",
-      "step2": "Ziehen Sie ein Modell (z. B. <code>ollama run llama3</code>)",
-      "step3": "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
-      "full_guide_link": "Vollständige Einrichtungsanleitung"
+      "title": "Schnelleinrichtung (Ollama)",
+      "intro": "Sie benötigen Ollama, das mit einem Chat-Modell und einem Embeddings-Modell läuft.",
+      "step1": "Ollama installieren und starten (<code>ollama serve</code>)",
+      "step2": "Ein Chat-Modell herunterladen (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "Ein Embeddings-Modell herunterladen (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
+      "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
+      "full_guide_link": "Vollständige Einrichtungsanleitung",
+      "firefox_warning": "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren."
     },
     "features": {
       "private": {
@@ -114,6 +132,7 @@
       "fork": "Konversation abzweigen",
       "edit": "Bearbeiten",
       "export_as": "Exportieren als...",
+      "more": "Mehr",
       "delete": "Nachricht löschen"
     },
     "metrics": {
@@ -132,11 +151,30 @@
       "prompt_tokens": "{{value}} Prompt",
       "generated_tokens": "{{value}} generiert",
       "avg_speed": "{{speed}} T/s",
+      "speed_unit": "T/s",
       "messages": "{{value}} Nachrichten",
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten"
+    },
+    "file": {
+      "loading_content": "Vollständiger Inhalt wird geladen..."
+    },
+    "reasoning": {
+      "aria_label": "Modell-Überlegungen",
+      "title": "Denkprozess",
+      "thinking": "Überlegt…",
+      "done": "Fertig",
+      "hide": "Ausblenden",
+      "explore": "Erkunden",
+      "loading_thinking": "Überlegt",
+      "loading_typing": "Tippt",
+      "loading_queued": "Warteschlange"
+    },
+    "feedback": {
+      "helpful_tooltip": "Das war hilfreich",
+      "not_helpful_tooltip": "Das war nicht hilfreich"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -149,7 +187,9 @@
       "scope_current": "Aktueller Chat",
       "searching": "Chat-Verlauf wird durchsucht...",
       "no_results": "Keine Ergebnisse gefunden. Versuchen Sie eine andere Suchanfrage.",
+      "no_results_description": "Versuchen Sie, Ihre Schlüsselwörter oder den Suchbereich anzupassen.",
       "start_typing": "Beginnen Sie mit der Eingabe, um Ihren Chat-Verlauf semantisch zu durchsuchen...",
+      "start_typing_description": "Durchsuchen Sie Ihren Chat-Verlauf mithilfe der semantischen Suche.",
       "result_badge": "Ergebnis",
       "results_badge": "Ergebnisse",
       "match_percentage": "% Übereinstimmung",
@@ -215,7 +255,7 @@
   "file_upload": {
     "button": {
       "aria_label": "Datei hochladen",
-      "tooltip": "Datei hochladen (PDF, DOCX, Textdateien)"
+      "tooltip": "Datei hochladen (PDF, DOCX, CSV, HTML, Text)"
     },
     "preview": {
       "remove_aria_label": "Datei entfernen",
@@ -242,6 +282,7 @@
       "ready": "Embedding-Modell bereit: {{model}}",
       "missing": "Modell fehlt: {{model}}",
       "checking_model": "Embedding-Modell wird geprüft...",
+      "error": "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
       "required_for_rag": "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
       "download_button": "Modell herunterladen"
     },
@@ -308,6 +349,17 @@
       "clear_chat_description": "Löschen Sie alle Chat-Embeddings. Sie können sie später durch Nachfüllen neu generieren",
       "clear_all_button": "Alle Embeddings löschen",
       "clear_all_description": "Löschen Sie alle Embeddings (Chats, Dateien, Webseiten). Diese Aktion kann nicht rückgängig gemacht werden",
+      "database_management": {
+        "remove_duplicates_confirm": "Doppelte Einbettungen entfernen? Dadurch wird nur das erste Vorkommen jeder eindeutigen Nachricht beibehalten.",
+        "remove_duplicates_success": "{{deleted}} Duplikat(e) entfernt. {{kept}} eindeutige Einbettung(en) behalten.",
+        "remove_duplicates_error": "Duplikate konnten nicht entfernt werden. Details finden Sie in der Konsole.",
+        "clear_chat_confirm": "Alle Chat-Einbettungen löschen? Dadurch werden alle semantischen Suchdaten für Chats gelöscht. Sie können später eine Nachfüllung vornehmen.",
+        "clear_chat_success": "{{count}} Chat-Einbettung(en) gelöscht.",
+        "clear_chat_error": "Chat-Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole.",
+        "clear_all_confirm": "ALLE Einbettungen löschen? Dadurch werden alle semantischen Suchdaten (Chats, Dateien, Webseiten) gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "clear_all_success": "Alle Einbettungen gelöscht.",
+        "clear_all_error": "Alle Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole."
+      },
       "chunking_title": "Chunking-Einstellungen",
       "chunking_description": "Konfigurieren Sie, wie Text zur Einbettung in Chunks aufgeteilt wird",
       "chunk_size_label": "Chunk-Größe (Tokens)",
@@ -353,19 +405,21 @@
       "cache_ttl_description": "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
       "cache_max_size_label": "Max. zwischengespeicherte Abfragen",
       "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
-      "enhanced_chunking_label": "Enhanced Chunking",
-      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
-      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_enable_label": "Enable RAG",
-      "rag_enable_description": "Use retrieved context to answer questions about your files",
-      "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "enhanced_chunking_label": "Erweitertes Chunking",
+      "enhanced_chunking_description": "Verwenden Sie fortgeschrittene rekursive Zeichenteilung für besseren Kontext",
+      "enhanced_chunking_info": "Erweitertes Chunking teilt Text hierarchisch auf (Absätze → Sätze → Wörter), um die semantische Bedeutung zu bewahren. Dies wird für RAG empfohlen.",
+      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_description": "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
+      "rag_enable_label": "RAG aktivieren",
+      "rag_enable_description": "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
+      "rag_system_prompt_label": "RAG-System-Prompt",
+      "rag_system_prompt_description": "Vorlage für den System-Prompt. Verwenden Sie {context} für abgerufenen Text und {question} für die Benutzeranfrage.",
       "advanced_retrieval_title": "Erweiterte Abrufeinstellungen",
       "adaptive_weights_label": "Adaptive Hybrid-Gewichtung",
       "adaptive_weights_description": "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
       "temporal_boosting_label": "Zeitliche Relevanzverstärkung",
       "temporal_boosting_description": "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
-      "reranking_label": "Re-Ranking aktivieren (Transformers.js)",
+      "reranking_label": "Re-Ranking aktivieren",
       "reranking_description": "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
       "hybrid_search_label": "Hybrid-Suche aktivieren",
       "hybrid_search_description": "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",
@@ -382,7 +436,19 @@
       "min_quality_score_label": "Mindest-Qualitätsfaktor",
       "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
       "embedding_source_description": "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
-      "embedding_source_default_provider": "Standard-Provider (Ollama)"
+      "embedding_source_default_provider": "Standard-Provider (Ollama)",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Provider-Status wird geprüft...",
@@ -453,7 +519,8 @@
       "label_off": "Tabs",
       "label_on": "Tab+",
       "tooltip": "Mit offenen Tabs interagieren"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {
@@ -636,6 +703,17 @@
           "label": "Letzte N wiederholen",
           "validation_min": "Muss mindestens {{min}} sein."
         }
+      },
+      "runtime": {
+        "title": "Laufzeit & Aufwärmen",
+        "description": "Steuern Sie das Aufwärmen und die Laufzeitoptionen für das Modell.",
+        "keep_alive_label": "Geladen halten",
+        "keep_alive_description": "Wie lange das Modell nach einer Anfrage im Speicher bleiben soll. Verwenden Sie Sekunden oder Dauer wie 5m.",
+        "keep_alive_placeholder": "z.B. 300, 5m, 0 zum Entladen",
+        "warm_on_select_label": "Modell beim Auswählen aufwärmen",
+        "warm_on_select_description": "Das Modell beim Wechseln vorladen, um die erste Antwort zu beschleunigen.",
+        "unload_on_switch_label": "Vorheriges Modell beim Wechsel entladen",
+        "unload_on_switch_description": "Speicher durch Entladen des vorherigen Modells beim Wechseln freigeben."
       }
     },
     "base_url": {
@@ -708,7 +786,8 @@
       "guides": "Anleitungen",
       "memory": "Gedächtnis",
       "shortcuts": "Tastaturkürzel",
-      "providers": "Anbieter"
+      "providers": "Anbieter",
+      "context": "Kontext"
     },
     "memory": {
       "title": "Kontextuelles Gedächtnis",
@@ -831,7 +910,17 @@
       "model_select": {
         "label": "Embedding-Modell",
         "placeholder": "Ein Modell auswählen",
-        "description": "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen."
+        "description": "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen.",
+        "recommended_group": "Empfohlene Modelle",
+        "all_models_group": "Alle Modelle",
+        "show_advanced_label": "Alle Anbieter-Modelle anzeigen",
+        "show_advanced_description": "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse."
+      },
+      "model_change_confirm": {
+        "title": "Einbettungen jetzt neu erstellen?",
+        "description": "Beim Wechsel des Einbettungsmodells können vorhandene Vektoren inkompatibel werden. Erstelle den Index neu, um Suchergebnisse korrekt zu halten, oder wechsle ohne Neuaufbau.",
+        "switch_only": "Wechseln ohne Neuaufbau",
+        "switch_and_rebuild": "Wechseln und Neuaufbau"
       }
     },
     "prompts": {
@@ -894,22 +983,31 @@
       },
       "modules": {
         "theme": {
+          "title": "Thema & Benutzeroberfläche",
           "description": "UI-Erscheinungspräferenzen"
         },
         "browser": {
+          "title": "Browser-Einstellungen",
           "description": "Tab-Zugriff und URL-Muster"
         },
         "tts": {
+          "title": "Text-zu-Sprache",
           "description": "Text-to-Speech-Einstellungen"
         },
         "chat_sessions": {
+          "title": "Chat-Verlauf",
           "description": "Konversationsverlauf"
         },
         "default": {
           "description": "Moduleinstellungen"
         },
         "provider": {
+          "title": "Provider-Einstellungen",
           "description": "Modelleinstellungen und Konfigurationen"
+        },
+        "feedback": {
+          "title": "Benutzer-Feedback",
+          "description": "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
         }
       },
       "item_count": "{{count}} Element",
@@ -945,6 +1043,41 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "Keine Modelle gefunden",
         "no_models_description": "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
+      }
+    },
+    "migration": {
+      "title": "Datenmigration",
+      "description": "Exportieren oder importieren Sie alle Ihre Erweiterungsdaten einschließlich Einstellungen, Chat-Verlauf und Einbettungsdatenbanken.",
+      "export": {
+        "label": "Vollständiges Backup Exportieren",
+        "description": "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
+        "button": "Alles Exportieren"
+      },
+      "import": {
+        "label": "Backup Importieren",
+        "description": "Stellen Sie Daten aus einem zuvor exportierten ZIP-Backup wieder her. Dies überschreibt vorhandene Daten.",
+        "button": "Alles Importieren"
+      },
+      "import_confirm": {
+        "title": "Sind Sie absolut sicher?",
+        "description": "Diese Aktion überschreibt Ihre vorhandenen Einstellungen, den Chat-Verlauf und die Datenbanken vollständig mit dem Inhalt der Backup-Datei. Diese Aktion kann nicht rückgängig gemacht werden."
+      },
+      "import_result": {
+        "title": "Import-Ergebnisse",
+        "description": "Überprüfen Sie den Status Ihres Datenimports unten:",
+        "labels": {
+          "sync": "Einstellungen (Sync)",
+          "local": "Lokaler Speicher",
+          "database": "Datenbank (SQLite)",
+          "chatDb": "Chat-Verlauf (Dexie)",
+          "vectorDb": "Vektor-Embeddings (Dexie)",
+          "knowledgeDb": "Wissensdatenbanken (Dexie)"
+        },
+        "status": {
+          "success": "Erfolg",
+          "failed": "Fehlgeschlagen",
+          "aborted": "Abgebrochen"
+        }
       }
     }
   },
@@ -985,6 +1118,63 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "Datei-Ingestion",
+        "description": "Konfigurieren Sie, wie Dateien für den Wissensabruf verarbeitet werden."
+      },
+      "embedding_health": {
+        "title": "Gemischte Embedding-Dimensionen erkannt",
+        "description": "Embeddings sind in mehreren Dimensionen gespeichert ({{dimensions}}). Suche und Gedächtnis können fehlschlagen, bis alles neu aufgebaut ist.",
+        "note": "Neu aufbauen löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+        "memory_disabled": "Gedächtnis ist ausgeschaltet, daher wurden Chat-Embeddings nicht neu aufgebaut.",
+        "action": "Embeddings neu aufbauen",
+        "action_rebuilding": "Baue neu auf...",
+        "confirm": "Embeddings neu aufbauen? Dies löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+        "progress": "Baue Chat-Embeddings neu auf ({{current}}/{{total}})",
+        "success": "Embeddings erfolgreich neu aufgebaut.",
+        "error": "Fehler beim Neuaufbau der Embeddings."
+      }
+    },
     "bug_report": "Fehler / Funktion melden"
+  },
+  "knowledge_sets": {
+    "title": "Wissenssammlungen",
+    "active_label": "Aktive Wissenssammlung",
+    "active_description": "Wählen Sie die Wissenssammlung, die verwendet wird, wenn keine Dateien angehängt sind.",
+    "active_placeholder": "Wissenssammlung auswählen",
+    "create_label": "Wissenssammlung erstellen",
+    "create_description": "Erstellen Sie eine neue Wissenssammlung zum Gruppieren von Dateien.",
+    "create_placeholder": "Name der Wissenssammlung",
+    "create_button": "Erstellen",
+    "rename_label": "Wissenssammlung umbenennen",
+    "rename_description": "Ändern Sie den Namen der aktiven Wissenssammlung.",
+    "rename_placeholder": "Neuer Name",
+    "rename_button": "Umbenennen",
+    "delete_label": "Wissenssammlung löschen",
+    "delete_description": "Löscht die aktive Wissenssammlung und ihre Dateizuordnung (Einbettungen bleiben).",
+    "delete_button": "Löschen",
+    "delete_confirm": "„{{name}}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+    "prompt_label": "RAG‑Anweisungsprompt",
+    "prompt_description": "Anweisungen, die vor dem abgerufenen Kontext für diese Wissenssammlung eingefügt werden.",
+    "question_prompt_label": "Prompt zur Frage‑Umformulierung",
+    "question_prompt_description": "Prompt zum Umschreiben von Folgefragen in eigenständige Abfragen für diese Wissenssammlung.",
+    "topk_label": "Retrieval Top‑K",
+    "topk_description": "Wie viele Chunks für diese Wissenssammlung abgerufen werden.",
+    "min_similarity_label": "Min. Ähnlichkeit",
+    "min_similarity_description": "Minimale Ähnlichkeitsschwelle für Chunks in dieser Wissenssammlung.",
+    "min_rerank_label": "Min. Rerank‑Score",
+    "min_rerank_description": "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "Aktiv",
+      "provider_details": "Hochwertige Embeddings • 768-1024 Dimensionen • Konsistente Ergebnisse",
+      "webgpu_warning_title": "WebGPU-Embedding-Generierung ist nicht verfügbar",
+      "webgpu_warning_text": "aufgrund von Chrome Extension Content Security Policy Einschränkungen. WebGPU Re-Ranking ist weiterhin aktiv und funktioniert. Embeddings werden über die Provider-Fallback-Kette generiert, wobei der Standard-Provider verwendet wird, wenn keine native Unterstützung verfügbar ist.",
+      "performance_title": "Leistung",
+      "performance_default": "Standard-Provider-Embedding-Generierung: ~500ms pro Chunk",
+      "provider_hint": "Stellen Sie sicher, dass Ihr lokaler Provider läuft (Standard: localhost:11434)"
+    }
   }
 }

@@ -11,15 +11,18 @@ import type { ChromeSidePanel } from "@/types"
 
 export const initializeContextMenu = () => {
   try {
-    browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID, () => {
-      if (browser.runtime.lastError) {
+    const removal = browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID)
+    if (removal && typeof removal.catch === "function") {
+      removal.catch((error) => {
         logger.debug(
-          "Legacy context menu cleanup failed",
+          "Legacy context menu cleanup skipped",
           "initializeContextMenu",
-          { error: browser.runtime.lastError.message }
+          {
+            error: error instanceof Error ? error.message : String(error)
+          }
         )
-      }
-    })
+      })
+    }
   } catch (error) {
     logger.debug(
       "Legacy context menu cleanup skipped",
@@ -30,24 +33,11 @@ export const initializeContextMenu = () => {
     )
   }
 
-  browser.contextMenus.create(
-    {
-      id: DEFAULT_CONTEXT_MENU_ID,
-      title: "Ask Local LLM",
-      contexts: ["selection"]
-    },
-    () => {
-      if (browser.runtime.lastError) {
-        logger.verbose(
-          "Context menu already exists or error",
-          "initializeContextMenu",
-          {
-            error: browser.runtime.lastError.message
-          }
-        )
-      }
-    }
-  )
+  browser.contextMenus.create({
+    id: DEFAULT_CONTEXT_MENU_ID,
+    title: "Ask Local LLM",
+    contexts: ["selection"]
+  })
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (

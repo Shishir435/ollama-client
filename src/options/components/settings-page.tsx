@@ -9,21 +9,24 @@ import {
   SettingsSidebar
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
+import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
-import { MemorySettings } from "@/features/memory/components/memory-settings"
+import { ContextSettings } from "@/features/context/components/context-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
+import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
   BookOpen,
   Brain,
   Database,
   FileText,
+  Github,
   RefreshCcw,
   Server,
   Settings,
@@ -43,28 +46,29 @@ export const SettingsPage = () => {
     {
       title: t("settings.sections.app"),
       items: [
-        { key: "general", label: t("settings.tabs.general"), icon: Settings },
-        {
-          key: "providers",
-          label: t("settings.tabs.providers"),
-          icon: Server,
-          badge: "New"
-        }
+        { key: "general", label: t("settings.tabs.general"), icon: Settings }
       ]
     },
     {
       title: t("settings.sections.ai_models"),
       items: [
+        { key: "models", label: t("settings.tabs.models"), icon: Sparkles },
+        {
+          key: "providers",
+          label: t("settings.tabs.providers"),
+          icon: Server,
+          badge: "New"
+        },
+        {
+          key: "context",
+          label: t("settings.tabs.context"),
+          icon: Brain,
+          badge: "Beta"
+        },
         {
           key: "embeddings",
           label: t("settings.tabs.embeddings"),
           icon: Database,
-          badge: "Beta"
-        },
-        {
-          key: "memory",
-          label: t("settings.tabs.memory"),
-          icon: Brain,
           badge: "Beta"
         },
         {
@@ -77,7 +81,7 @@ export const SettingsPage = () => {
     {
       title: t("settings.sections.customize"),
       items: [
-        { key: "templates", label: t("settings.tabs.prompts"), icon: FileText },
+        { key: "prompts", label: t("settings.tabs.prompts"), icon: FileText },
         { key: "shortcuts", label: t("settings.tabs.shortcuts"), icon: Zap },
         { key: "voices", label: t("settings.tabs.voices"), icon: Volume2 }
       ]
@@ -86,31 +90,68 @@ export const SettingsPage = () => {
       title: t("settings.sections.system"),
       items: [
         { key: "reset", label: t("settings.tabs.reset"), icon: RefreshCcw },
-        { key: "setup", label: t("settings.tabs.guides"), icon: BookOpen }
+        { key: "guides", label: t("settings.tabs.guides"), icon: BookOpen }
       ]
     }
   ]
 
   const tabContent: Record<string, ReactNode> = {
     general: (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <PerformanceWarning />
-        <LanguageSelector />
-        <ChatDisplaySettings />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <LanguageSelector />
+          <ChatDisplaySettings />
+        </div>
+      </div>
+    ),
+    models: (
+      <div className="space-y-8">
         <ModelSettingsForm />
       </div>
     ),
-    providers: <ProviderSettings />,
-    shortcuts: <ShortcutsSettings />,
-    templates: <PromptTemplateManager />,
-    contentExtraction: <ContentExtractionSettings />,
-    embeddings: <EmbeddingSettings />,
-    memory: <MemorySettings />,
-    voices: <SpeechSettings />,
-    reset: <ResetStorage />,
-    setup: (
-      <div className="space-y-6">
-        <PerformanceWarning />
+    providers: (
+      <div className="space-y-8">
+        <ProviderSettings />
+      </div>
+    ),
+    shortcuts: (
+      <div className="space-y-8">
+        <ShortcutsSettings />
+      </div>
+    ),
+    prompts: (
+      <div className="space-y-8">
+        <PromptTemplateManager />
+      </div>
+    ),
+    contentExtraction: (
+      <div className="space-y-8">
+        <ContentExtractionSettings />
+      </div>
+    ),
+    context: (
+      <div className="space-y-8">
+        <ContextSettings />
+      </div>
+    ),
+    embeddings: (
+      <div className="space-y-8">
+        <EmbeddingSettings />
+      </div>
+    ),
+    voices: (
+      <div className="space-y-8">
+        <SpeechSettings />
+      </div>
+    ),
+    reset: (
+      <div className="space-y-8">
+        <ResetStorage />
+      </div>
+    ),
+    guides: (
+      <div className="space-y-8">
         <Guides />
         <SocialHandles />
       </div>
@@ -118,10 +159,13 @@ export const SettingsPage = () => {
   }
 
   const allNavItems = navSections.flatMap((s) => s.items)
+  const githubLink =
+    SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
+    "https://github.com/Shishir435/ollama-client"
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <header className="flex-none border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+      <header className="flex-none border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60 z-50">
         <div className="flex bg-background items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -131,7 +175,22 @@ export const SettingsPage = () => {
               {t("settings.page.description")}
             </p>
           </div>
-          <ThemeToggle showText={false} />
+          <div className="flex items-center gap-2">
+            <SocialLinkButton
+              href={githubLink}
+              icon={Github}
+              buttonVariant="ghost"
+              size="compact"
+              iconSize={16}
+              iconOnly
+              showShadow={false}
+              label={t("social.github")}
+              aria-label={t("common.social.visit_profile", {
+                platform: t("social.github")
+              })}
+            />
+            <ThemeToggle showText={false} />
+          </div>
         </div>
       </header>
 
@@ -152,7 +211,7 @@ export const SettingsPage = () => {
             className="flex-none px-4 pt-4 sm:px-6"
           />
           <main className="flex-1 overflow-y-auto min-w-0">
-            <div className="container max-w-4xl py-6 lg:py-8 px-4 sm:px-6 lg:px-8 mx-auto">
+            <div className="container max-w-5xl py-6 lg:py-8 px-4 sm:px-6 lg:px-8 mx-auto">
               <div key={activeTab}>{tabContent[activeTab]}</div>
             </div>
           </main>

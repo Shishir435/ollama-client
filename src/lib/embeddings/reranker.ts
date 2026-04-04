@@ -1,26 +1,14 @@
-import type { TextClassificationPipeline } from "@xenova/transformers"
+import { cosineSimilarity } from "@/lib/embeddings/embedding-client"
 import { logger } from "@/lib/logger"
 
-// Configure transformers.js to use CDN models
-// Moved to loadModel to avoid top-level import side-effects
-// env.allowLocalModels = false
-// env.allowRemoteModels = true
+export type RerankerBackend = "none" | "cosine"
 
-/**
- * Re-ranker service using transformers.js cross-encoder models
- *
- * ⚠️ DISABLED BY DEFAULT in Chrome extensions due to CSP constraints
- * Transformers.js requires worker blob URLs which violate extension CSP
- * Falls back to similarity-only scoring
- */
 class RerankerService {
-  private model: TextClassificationPipeline | null = null
-  private loading: Promise<TextClassificationPipeline> | null = null
-  private enabled: boolean = false // DISABLED: CSP prevents transformers.js in extensions
-  private modelName = "Xenova/bge-reranker-base"
+  private enabled: boolean = false
+  private backend: RerankerBackend = "none"
 
   private disposeTimeout: NodeJS.Timeout | null = null
-  private readonly DISPOSE_DELAY = 5 * 60 * 1000 // 5 minutes
+  private readonly DISPOSE_DELAY = 5 * 60 * 1000
 
   private updateAccess() {
     if (this.disposeTimeout) {
@@ -32,88 +20,17 @@ class RerankerService {
     }, this.DISPOSE_DELAY)
   }
 
-  /**
-   * Get or load the re-ranker model (lazy loading)
-   */
-  async getModel(): Promise<TextClassificationPipeline> {
-    this.updateAccess()
-
-    if (this.model) return this.model
-    if (this.loading) return this.loading
-
-    this.loading = this.loadModel()
-    this.model = await this.loading
-    this.loading = null
-    return this.model
-  }
-
-  /**
-   * Load the re-ranker model with WebGPU fallback
-   */
-  private async loadModel(): Promise<TextClassificationPipeline> {
-    logger.info(
-      `Loading transformers.js re-ranker: ${this.modelName}`,
-      "RerankerService"
-    )
-
-    try {
-      const { env, pipeline } = await import("@xenova/transformers")
-
-      // Configure environment
-      env.allowLocalModels = false
-      env.allowRemoteModels = true
-
-      // Load the model (transformers.js handles device selection automatically)
-      // WebGPU is used automatically if available, otherwise falls back to WASM
-      const model = await pipeline("text-classification", this.modelName)
-
-      logger.info("✅ Re-ranker model loaded successfully", "RerankerService")
-      return model
-    } catch (error) {
-      logger.error("Failed to load re-ranker model", "RerankerService", {
-        error
-      })
-      throw new Error("Re-ranker model failed to load")
-    }
-  }
-
-  /**
-   * Dispose the model to free memory
-   */
   async dispose() {
-    if (!this.model && !this.loading) return
-
-    logger.info("Auto-disposing unused re-ranker model...", "RerankerService")
-
-    // Clear references
-    this.model = null
-    this.loading = null
-
-    // Explicitly try to dispose if the library supports it
-    // Explicitly try to dispose if the library supports it
-    try {
-      const { env } = await import("@xenova/transformers")
-      if (env.backends?.onnx?.sessions) {
-        // Placeholder for deep cleanup if needed
-      }
-    } catch (_e) {
-      // ignore
-    }
-
-    logger.info("Re-ranker disposed (memory freed)", "RerankerService")
+    logger.info("Reranker disposed", "RerankerService")
   }
 
-  /**
-   * Re-rank documents using cross-encoder relevance scoring
-   *
-   * @param query - User query
-   * @param documents - Candidate documents to re-rank
-   * @param topK - Number of top results to return
-   * @returns Sorted documents with relevance scores
-   */
   async rerank(
-    query: string,
-    documents: Array<{ content: string; metadata?: Record<string, unknown> }>,
+    queryEmbedding: number[],
+    documents: Array<{
+      content: string
+      embedding?: number[]
+      metadata?: Record<string, unknown>
+    }>,
     topK: number
   ): Promise<
     Array<{
@@ -124,84 +41,87 @@ class RerankerService {
   > {
     this.updateAccess()
 
-    if (!this.enabled || documents.length === 0) {
+    if (!this.enabled || this.backend === "none" || documents.length === 0) {
       return documents.map((d) => ({ ...d, score: 0.5 }))
     }
 
     try {
-      const model = await this.getModel()
+      if (!queryEmbedding || queryEmbedding.length === 0) {
+        logger.verbose(
+          "No query embedding available, using uniform scores",
+          "RerankerService"
+        )
+        return documents.map((d) => ({ ...d, score: 0.5 }))
+      }
 
-      logger.verbose(
-        `Re-ranking ${documents.length} documents`,
-        "RerankerService"
+      const docsWithEmbedding = documents.filter(
+        (d) => d.embedding && Array.isArray(d.embedding)
       )
 
-      // Batch score all query-document pairs
-      const scores = await Promise.all(
-        documents.map(async (doc) => {
-          // Cross-encoder inputs: query and document concatenated
-          // Format: "query [SEP] document" (model handles special tokens)
-          const input = `${query} [SEP] ${doc.content}`
-          const result = (await model(input)) as Array<{
-            label: string
-            score: number
-          }>
+      if (docsWithEmbedding.length === 0) {
+        logger.verbose(
+          "No embeddings in documents, using uniform scores",
+          "RerankerService"
+        )
+        return documents.map((d) => ({ ...d, score: 0.5 }))
+      }
 
-          // Extract relevance score (typically the positive class)
-          const score = result[0]?.score || 0.5
-
+      const scored = docsWithEmbedding.map((doc) => {
+        if (!doc.embedding || doc.embedding.length === 0) {
           return {
             ...doc,
-            score
+            score: 0.5
           }
-        })
-      )
+        }
 
-      // Sort by relevance score (descending) and return top-K
-      const ranked = scores.sort((a, b) => b.score - a.score).slice(0, topK)
+        const similarity = cosineSimilarity(queryEmbedding, doc.embedding)
+        return {
+          ...doc,
+          score: (similarity + 1) / 2
+        }
+      })
+
+      const ranked = scored.sort((a, b) => b.score - a.score).slice(0, topK)
 
       logger.info(
-        `Re-ranking complete: top score = ${ranked[0]?.score.toFixed(3)}`,
+        `Cosine reranking complete: top score = ${ranked[0]?.score.toFixed(3)}`,
         "RerankerService"
       )
 
       return ranked
     } catch (error) {
-      logger.error(
-        "Re-ranking failed, returning original order",
-        "RerankerService",
-        { error }
-      )
-      // Graceful fallback: return documents as-is
+      logger.error("Reranking failed, using fallback", "RerankerService", {
+        error: error instanceof Error ? error.message : String(error)
+      })
       return documents.map((d) => ({ ...d, score: 0.5 }))
     }
   }
 
-  /**
-   * Enable or disable re-ranking
-   */
   setEnabled(enabled: boolean) {
     this.enabled = enabled
     logger.info(
-      `Re-ranker ${enabled ? "enabled" : "disabled"}`,
+      `Reranker ${enabled ? "enabled" : "disabled"}`,
       "RerankerService"
     )
   }
 
-  /**
-   * Check if re-ranker is enabled
-   */
+  setBackend(backend: RerankerBackend) {
+    if (this.backend === backend) return
+    this.backend = backend
+    logger.info(`Reranker backend set to ${backend}`, "RerankerService")
+  }
+
+  setModelName(_modelName: string) {
+    // Not used for cosine similarity
+  }
+
   isEnabled(): boolean {
     return this.enabled
   }
 
-  /**
-   * Clear cached model (for testing or debugging)
-   */
   clearCache() {
     this.dispose()
   }
 }
 
-// Singleton instance
 export const rerankerService = new RerankerService()

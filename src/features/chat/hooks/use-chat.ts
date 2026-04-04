@@ -2,7 +2,11 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
-import { retrieveContext } from "@/features/chat/rag"
+import {
+  reformulateQuestion,
+  retrieveContext,
+  retrieveContextFromSources
+} from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -13,11 +17,19 @@ import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import {
+  DEFAULT_KNOWLEDGE_SET_ID,
+  DEFAULT_RAG_PROMPT,
+  getActiveKnowledgeSet,
+  getKnowledgeSetFileIds
+} from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { ChatMessage, FileAttachment } from "@/types"
+import { ProviderFactory } from "@/lib/providers/factory"
+import type { ChatMessage, FileAttachment, SelectedModelRef } from "@/types"
 
 export const useChat = () => {
+  const DEBUG_THINKING_STREAM = process.env.NODE_ENV === "development" && false
   const [selectedModel] = useStorage<string>(
     {
       key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
@@ -25,11 +37,32 @@ export const useChat = () => {
     },
     ""
   )
+  const [selectedModelRef] = useStorage<SelectedModelRef | null>(
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
+      instance: plasmoGlobalStorage
+    },
+    null
+  )
+  const [selectionConflictModel] = useStorage<string | null>(
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
+      instance: plasmoGlobalStorage
+    },
+    null
+  )
+  const [memoryEnabled] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.MEMORY.ENABLED,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
   const { toast } = useToast()
 
   const { input, setInput } = useChatInput()
   const { selectedTabIds } = useSelectedTabs()
-  const { builtContent: contextText } = useTabContent()
+  const { builtContent: contextText, documents: tabDocuments } = useTabContent()
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 
@@ -67,13 +100,18 @@ export const useChat = () => {
     query: string
   } | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const thinkingLogRef = useRef<Map<number, number>>(new Map())
 
-  const debouncedDbUpdate = (id: number, content: string) => {
+  const debouncedDbUpdate = (
+    id: number,
+    content: string,
+    thinking?: string
+  ) => {
     if (dbUpdateTimeoutRef.current) {
       clearTimeout(dbUpdateTimeoutRef.current)
     }
     dbUpdateTimeoutRef.current = setTimeout(() => {
-      updateMessage(id, { content }, false) // false = write to DB
+      updateMessage(id, { content, thinking }, false) // false = write to DB
     }, 1000) // 1 second debounce
   }
 
@@ -82,11 +120,24 @@ export const useChat = () => {
       // Logic to update UI state immediately (skip DB)
       if (currentStreamingMessageId.current && newMessages.length > 0) {
         const lastMsg = newMessages[newMessages.length - 1]
+        if (DEBUG_THINKING_STREAM && lastMsg.thinking) {
+          const id = currentStreamingMessageId.current
+          const nextLen = lastMsg.thinking.length
+          const prevLen = thinkingLogRef.current.get(id) ?? 0
+          if (nextLen !== prevLen) {
+            console.log("[ThinkingStore] len", nextLen, {
+              id,
+              tail: lastMsg.thinking.slice(-120)
+            })
+            thinkingLogRef.current.set(id, nextLen)
+          }
+        }
         // Update local state ONLY (fast)
         updateMessage(
           currentStreamingMessageId.current,
           {
             content: lastMsg.content,
+            thinking: lastMsg.thinking,
             metrics: lastMsg.metrics,
             done: lastMsg.done
           },
@@ -95,14 +146,23 @@ export const useChat = () => {
 
         // Debounce DB update
         if (!lastMsg.done) {
-          debouncedDbUpdate(currentStreamingMessageId.current, lastMsg.content)
+          debouncedDbUpdate(
+            currentStreamingMessageId.current,
+            lastMsg.content,
+            lastMsg.thinking
+          )
         } else {
           // Final update should flush DB immediately
           if (dbUpdateTimeoutRef.current)
             clearTimeout(dbUpdateTimeoutRef.current)
           updateMessage(
             currentStreamingMessageId.current,
-            { content: lastMsg.content, metrics: lastMsg.metrics, done: true },
+            {
+              content: lastMsg.content,
+              thinking: lastMsg.thinking,
+              metrics: lastMsg.metrics,
+              done: true
+            },
             false
           )
           // Also embed if needed
@@ -149,11 +209,15 @@ export const useChat = () => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
 
+    const modelForRequest =
+      customModel || selectedModelRef?.modelId || selectedModel
+    if (!modelForRequest) return
+
     // 1. Add Assistant Shell
     const assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
-      model: customModel || selectedModel,
+      model: modelForRequest,
       metrics: ragSourcesRef.current
         ? {
             ragSources: ragSourcesRef.current.sources,
@@ -177,7 +241,8 @@ export const useChat = () => {
     const history = contextMessages || messages
 
     startStream({
-      model: customModel || selectedModel,
+      model: modelForRequest,
+      providerId: selectedModelRef?.providerId,
       messages: history,
       sessionId: sessionId,
       generatedMessage: { ...assistantMessage, id: assistantId }
@@ -194,6 +259,15 @@ export const useChat = () => {
 
     const rawInput = customInput?.trim() ?? input.trim()
 
+    if (selectionConflictModel) {
+      toast({
+        variant: "destructive",
+        title: "Model provider selection required",
+        description: `Select a provider for "${selectionConflictModel}" in the model menu before sending a message.`
+      })
+      return
+    }
+
     // Allow sending message with just files (no text input)
     if (!rawInput && (!files || files.length === 0)) return
 
@@ -201,13 +275,8 @@ export const useChat = () => {
       !customInput && selectedTabIds.length > 0 && contextText?.trim()
 
     // Build initial user message content (without RAG context yet)
-    let userContent = rawInput || ""
-
-    if (includeContext) {
-      userContent = userContent
-        ? `${userContent}\n\n---\n\n${contextText}`
-        : contextText
-    }
+    const userContent = rawInput || ""
+    const hasTabContext = includeContext && tabDocuments.length > 0
 
     // Create file attachments metadata
     const attachments: FileAttachment[] | undefined =
@@ -240,18 +309,68 @@ export const useChat = () => {
 
     // 🔄 2. Calculate RAG context asynchronously (in background)
     let contentWithRAG = userContent
+
     const useRag =
       (await plasmoGlobalStorage.get<boolean>(
         STORAGE_KEYS.EMBEDDINGS.USE_RAG
       )) ?? true
 
+    let ragInstruction = DEFAULT_RAG_PROMPT
+    let ragInstructionAdded = false
+    const invokeModelOnce = async (prompt: string): Promise<string> => {
+      try {
+        const modelId =
+          customModel || selectedModelRef?.modelId || selectedModel
+        if (!modelId) return ""
+
+        const provider = await ProviderFactory.getProviderForModel(
+          modelId,
+          selectedModelRef?.providerId
+        )
+        let response = ""
+        await provider.streamChat(
+          {
+            model: modelId,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2
+          },
+          (chunk) => {
+            if (chunk.delta) {
+              response += chunk.delta
+            }
+          }
+        )
+        return response.trim()
+      } catch (err) {
+        logger.warn("Failed to reformulate question", "useChat", {
+          error: err
+        })
+        return ""
+      }
+    }
+    const appendRagContext = (current: string, context: string) => {
+      const block =
+        !ragInstructionAdded && ragInstruction
+          ? `${ragInstruction}\n\n${context}`
+          : context
+      ragInstructionAdded = true
+      return current ? `${current}\n\n---\n\n${block}` : block
+    }
+
+    let pageContextAdded = false
+
+    let queryForRag = rawInput || "summary"
+
     if (useRag) {
       try {
         // Get recent chat history for context
-        const recentHistory = messages.slice(-5).map((m) => ({
-          role: m.role,
-          content: m.content
-        }))
+        const recentHistory = messages
+          .filter((m) => m.role !== "system")
+          .slice(-5)
+          .map((m) => ({
+            role: m.role,
+            content: m.content
+          })) as Array<{ role: "user" | "assistant"; content: string }>
 
         const queryClassification = classifyQuery(rawInput || "", recentHistory)
 
@@ -265,13 +384,86 @@ export const useChat = () => {
         if (!queryClassification.shouldUseRAG) {
           logger.info("Skipping RAG for conversational query", "useChat")
         } else {
+          const activeKnowledgeSet = await getActiveKnowledgeSet()
+          if (activeKnowledgeSet?.ragPrompt?.trim()) {
+            ragInstruction = activeKnowledgeSet.ragPrompt.trim()
+          }
+
+          const retrievalOverrides = activeKnowledgeSet?.retrieval
+
+          if (
+            activeKnowledgeSet?.questionPrompt?.trim() &&
+            recentHistory.length >= 2
+          ) {
+            const reformulated = await reformulateQuestion(
+              rawInput || "summary",
+              recentHistory,
+              invokeModelOnce,
+              activeKnowledgeSet.questionPrompt
+            )
+            if (reformulated) {
+              queryForRag = reformulated
+              logger.info("Reformulated query for RAG", "useChat", {
+                queryForRag
+              })
+            }
+          }
+
+          // Page-only context (ephemeral, not persisted)
+          if (hasTabContext) {
+            const pageContext = await retrieveContextFromSources(
+              queryForRag,
+              tabDocuments,
+              {
+                topK: Math.min(
+                  queryClassification.suggestedTopK,
+                  retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+                  4
+                ),
+                minSimilarity: retrievalOverrides?.minSimilarity
+              }
+            )
+
+            if (pageContext.documents.length > 0) {
+              contentWithRAG = appendRagContext(
+                contentWithRAG,
+                pageContext.formattedContext
+              )
+              ragSourcesRef.current = {
+                sources: [
+                  ...(ragSourcesRef.current?.sources || []),
+                  ...pageContext.sources
+                ],
+                query: rawInput || "summary"
+              }
+              pageContextAdded = true
+            }
+          }
+
           // Determine scope: specific files or global
-          const fileIds =
+          let fileIds =
             files && files.length > 0
               ? (files
                   .map((f) => f.metadata.fileId)
                   .filter(Boolean) as string[])
               : undefined
+
+          if (!fileIds && activeKnowledgeSet?.id) {
+            const setFileIds = await getKnowledgeSetFileIds(
+              activeKnowledgeSet.id
+            )
+            if (setFileIds.length > 0) {
+              fileIds = setFileIds
+            }
+          }
+
+          if (
+            fileIds &&
+            activeKnowledgeSet?.id === DEFAULT_KNOWLEDGE_SET_ID &&
+            fileIds.length === 0
+          ) {
+            fileIds = undefined
+          }
 
           logger.verbose("RAG searching for context", "useChat", {
             scope: fileIds ? "Specific Files" : "Global",
@@ -279,16 +471,16 @@ export const useChat = () => {
             suggestedMode: queryClassification.suggestedMode
           })
 
-          // Retrieve RAG context
-          const context = await retrieveContext(
-            rawInput || "summary",
-            fileIds,
-            {
-              mode: queryClassification.suggestedMode,
-              topK: queryClassification.suggestedTopK,
-              useReranking: true
-            }
-          )
+          // Retrieve RAG context (include memory if enabled)
+          const context = await retrieveContext(queryForRag, fileIds, {
+            mode: queryClassification.suggestedMode,
+            topK: retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+            useReranking: true,
+            minSimilarity: retrievalOverrides?.minSimilarity,
+            minRerankScore: retrievalOverrides?.minRerankScore,
+            includeMemory: memoryEnabled,
+            memoryTopK: 2
+          })
 
           if (context.documents.length > 0) {
             logger.info("RAG found relevant chunks", "useChat", {
@@ -297,11 +489,14 @@ export const useChat = () => {
             const fileContext = context.formattedContext
             // Store sources for display in "i" button
             ragSourcesRef.current = {
-              sources: context.sources,
-              query: rawInput || "summary"
+              sources: [
+                ...(ragSourcesRef.current?.sources || []),
+                ...context.sources
+              ],
+              query: queryForRag
             }
             // Append RAG context to user message for LLM
-            contentWithRAG = `${contentWithRAG}\n\n---\n\n${fileContext}`
+            contentWithRAG = appendRagContext(contentWithRAG, fileContext)
           }
         }
       } catch (e) {
@@ -315,9 +510,16 @@ export const useChat = () => {
       }
     }
 
+    if (!pageContextAdded && includeContext && contextText?.trim()) {
+      contentWithRAG = contentWithRAG
+        ? `${contentWithRAG}\n\n---\n\n${contextText}`
+        : contextText
+    }
+
     // Fallback to full text ONLY if specific files attached AND no RAG context found
     if (contentWithRAG === userContent && files && files.length > 0) {
-      const fullTextContext = files
+      const fallbackFiles = files
+      const fullTextContext = fallbackFiles
         .map(
           (file) =>
             `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${

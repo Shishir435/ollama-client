@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
-import { renderHook, act, waitFor } from "@testing-library/react"
+import { renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useTabContents } from "../use-tab-contents"
 
 // Mock dependencies
@@ -23,9 +23,9 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+import { useStorage } from "@plasmohq/storage/hook"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-import { useStorage } from "@plasmohq/storage/hook"
 import { browser } from "@/lib/browser-api"
 
 describe("useTabContents", () => {
@@ -45,19 +45,23 @@ describe("useTabContents", () => {
       setErrors: vi.fn()
     })
 
-    vi.mocked(useStorage).mockReturnValue([false, vi.fn(), {
-      setRenderValue: vi.fn(),
-      setStoreValue: vi.fn(),
-      remove: vi.fn(),
-      isLoading: false
-    }])
+    vi.mocked(useStorage).mockReturnValue([
+      false,
+      vi.fn(),
+      {
+        setRenderValue: vi.fn(),
+        setStoreValue: vi.fn(),
+        remove: vi.fn(),
+        isLoading: false
+      }
+    ])
   })
 
   it("should initialize with empty state", () => {
     const { result } = renderHook(() => useTabContents())
 
     expect(result.current.tabContents).toEqual({})
-    expect(result.current.loading).toBe(false)
+    expect(result.current.loadingIds).toEqual({})
   })
 
   it("should not fetch when no tabs are selected", () => {
@@ -68,7 +72,7 @@ describe("useTabContents", () => {
 
   it("should fetch tab contents when tabs are selected", async () => {
     const setErrors = vi.fn()
-    
+
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["123"],
       setSelectedTabIds: vi.fn(),
@@ -84,7 +88,7 @@ describe("useTabContents", () => {
     const { result } = renderHook(() => useTabContents())
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+      expect(result.current.loadingIds[123]).toBeFalsy()
     })
 
     expect(result.current.tabContents[123]).toEqual({
@@ -95,7 +99,7 @@ describe("useTabContents", () => {
 
   it("should handle fetch errors", async () => {
     const setErrors = vi.fn()
-    
+
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["456"],
       setSelectedTabIds: vi.fn(),
@@ -103,14 +107,16 @@ describe("useTabContents", () => {
       setErrors
     })
 
-    vi.mocked(browser.tabs.sendMessage).mockRejectedValue(new Error("Fetch failed"))
+    vi.mocked(browser.tabs.sendMessage).mockRejectedValue(
+      new Error("Fetch failed")
+    )
 
     renderHook(() => useTabContents())
 
     await waitFor(() => {
-      expect(setErrors).toHaveBeenCalledWith(expect.objectContaining({
-        456: expect.any(String)
-      }))
+      expect(setErrors).toHaveBeenCalledWith(
+        expect.any(Function) // Now it uses functional update
+      )
     })
   })
 

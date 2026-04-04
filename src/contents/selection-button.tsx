@@ -1,10 +1,7 @@
-// import "@/i18n/config" // Removed to reduce bundle size
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-// import { useTranslation } from "react-i18next" // Removed
 import { useLiteTranslation } from "@/contents/i18n-lite"
-// import { useLanguageSync } from "@/hooks/use-language-sync" // Removed
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   MESSAGE_KEYS,
@@ -15,7 +12,6 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ContentExtractionConfig } from "@/types"
 
 const SelectionButton = () => {
-  // useLanguageSync() // Not needed with lite translation reading from storage directly
   const { t } = useLiteTranslation()
   const [showButton, setShowButton] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })

@@ -3,7 +3,7 @@
  *
  * This script simulates the RAG pipeline to verify:
  * 1. Hybrid Search (Keyword + Semantic)
- * 2. Transformers.js Re-ranking
+ * 2. Re-ranking
  * 3. MMR Diversity Filtering
  * 4. Content Quality Filtering
  */

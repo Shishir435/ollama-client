@@ -1,11 +1,17 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { handleUnloadModel } from "../handle-unload-model"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { handleUnloadModel } from "../handle-unload-model"
 
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn().mockResolvedValue("http://localhost:11434"),
   safeSendResponse: vi.fn()
+}))
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn()
+  }
 }))
 
 global.fetch = vi.fn()
@@ -15,6 +21,12 @@ describe("Handle Unload Model", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: "ollama",
+      config: {
+        baseUrl: "http://localhost:11434"
+      }
+    } as any)
   })
 
   it("should successfully unload a model", async () => {

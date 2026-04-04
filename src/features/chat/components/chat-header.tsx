@@ -13,15 +13,17 @@ export const ChatHeader = () => {
   const { currentSessionId } = useChatSessions()
 
   return (
-    <>
-      <div className="fixed left-2 top-2 z-50">
+    <div className="sticky top-0 z-30 px-2 pt-2">
+      <div className="flex items-center justify-between rounded-lg border border-border/40 bg-background px-2 py-2 shadow-xs">
         <ChatSessionSelector searchTrigger={<SemanticChatSearchButton />} />
+        <div className="flex items-center gap-2">
+          {currentSessionId && (
+            <ChatExportButton sessionId={currentSessionId} />
+          )}
+          <EmbeddingStatusIndicator />
+          <ProviderStatusIndicator />
+        </div>
       </div>
-      <div className="fixed right-2 top-2 z-50 flex items-center gap-2">
-        {currentSessionId && <ChatExportButton sessionId={currentSessionId} />}
-        <EmbeddingStatusIndicator />
-        <ProviderStatusIndicator />
-      </div>
-    </>
+    </div>
   )
 }

@@ -28,9 +28,9 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
               size={showText ? "default" : "icon"}
               aria-label={t("common.theme.toggle_aria_label")}
               autoFocus={false}>
-              <div className="relative h-[1.2rem] w-[1.2rem]">
-                <Sun className="absolute inset-0 h-full w-full rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute inset-0 h-full w-full rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <div className="relative size-[1.2rem]">
+                <Sun className="absolute inset-0 size-full rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute inset-0 size-full rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               </div>
               {showText && (
                 <span className="-translate-y-0.5 capitalize">{theme}</span>

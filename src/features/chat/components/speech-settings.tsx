@@ -111,7 +111,9 @@ export const SpeechSettings = () => {
               max={2}
               step={0.1}
               value={[rate]}
-              onValueChange={([val]) => setRate(val)}
+              onValueChange={(value) =>
+                setRate(Array.isArray(value) ? value[0] : value)
+              }
               className="w-full"
             />
             <div className="mt-1 flex justify-between text-xs text-muted-foreground">
@@ -145,7 +147,9 @@ export const SpeechSettings = () => {
               max={2}
               step={0.1}
               value={[pitch]}
-              onValueChange={([val]) => setPitch(val)}
+              onValueChange={(value) =>
+                setPitch(Array.isArray(value) ? value[0] : value)
+              }
               className="w-full"
             />
             <div className="mt-1 flex justify-between text-xs text-muted-foreground">

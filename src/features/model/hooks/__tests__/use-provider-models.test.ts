@@ -1,20 +1,48 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
+import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useProviderModels } from "../use-provider-models"
 
-const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
+const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
   const ollamaProvider = {
     id: "ollama",
-    config: { id: "ollama", type: "ollama", enabled: true, baseUrl: "http://localhost:11434", name: "Ollama" },
+    config: {
+      id: "ollama",
+      type: "ollama",
+      enabled: true,
+      baseUrl: "http://localhost:11434",
+      name: "Ollama"
+    },
+    capabilities: {
+      chat: true,
+      embeddings: true,
+      modelDiscovery: true,
+      modelDetails: true,
+      modelPull: true,
+      modelUnload: true,
+      modelDelete: true,
+      providerVersion: true,
+      toolCalling: false
+    },
     getModels: vi.fn().mockResolvedValue([
-      { name: "llama3:latest", model: "llama3:latest", size: 0, details: { family: "llama" } },
-      { name: "mistral:latest", model: "mistral:latest", size: 0, details: { family: "mistral" } }
+      {
+        name: "llama3:latest",
+        model: "llama3:latest",
+        size: 0,
+        details: { family: "llama" }
+      },
+      {
+        name: "mistral:latest",
+        model: "mistral:latest",
+        size: 0,
+        details: { family: "mistral" }
+      }
     ]),
     streamChat: vi.fn()
   }
   return {
     mockOllamaProvider: ollamaProvider,
-    mockProvider: ollamaProvider,
     mockProviderConfig: [ollamaProvider.config] // Stable reference
   }
 })
@@ -23,10 +51,18 @@ const { mockProvider, mockOllamaProvider, mockProviderConfig } = vi.hoisted(() =
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn((config, initialValue) => {
     // Return stable references to prevent infinite loops in useEffect
-    if (config.key === "llm_providers_config_v1" || config.key?.includes("provider")) {
-        return [mockProviderConfig, vi.fn().mockResolvedValue(undefined)]
+    if (config.key === "llm_providers_config_v1") {
+      return [
+        mockProviderConfig,
+        vi.fn().mockResolvedValue(undefined),
+        { isLoading: false }
+      ]
     }
-    return [initialValue, vi.fn().mockResolvedValue(undefined)]
+    return [
+      initialValue,
+      vi.fn().mockResolvedValue(undefined),
+      { isLoading: false }
+    ]
   })
 }))
 
@@ -35,6 +71,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
     watch: vi.fn().mockReturnValue(() => {})
   }
 }))
@@ -61,8 +98,23 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+// Prevent the shared singleton from leaking state between tests.
+vi.mock("@/lib/query-client", () => ({
+  queryClient: new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  })
+}))
+
 // Mock fetch globally
 global.fetch = vi.fn()
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  })
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+}
 
 describe("useProviderModels", () => {
   beforeEach(() => {
@@ -84,12 +136,17 @@ describe("useProviderModels", () => {
 
   describe("fetchModels", () => {
     it("should fetch models successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       // Wait for loading to finish
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      }, { timeout: 5000 })
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false)
+        },
+        { timeout: 5000 }
+      )
 
       expect(result.current.models).toHaveLength(2)
       expect(result.current.models?.[0].name).toBe("llama3:latest")
@@ -99,7 +156,9 @@ describe("useProviderModels", () => {
     it("should handle empty models list", async () => {
       vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([])
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -110,9 +169,13 @@ describe("useProviderModels", () => {
     })
 
     it("should handle fetch errors", async () => {
-      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(new Error("API Error"))
+      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(
+        new Error("API Error")
+      )
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -124,7 +187,9 @@ describe("useProviderModels", () => {
 
   describe("deleteModel", () => {
     it("should delete model successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -144,7 +209,9 @@ describe("useProviderModels", () => {
 
   describe("fetchProviderVersion", () => {
     it("should fetch version successfully", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.version).toBe("0.1.23")
@@ -159,7 +226,9 @@ describe("useProviderModels", () => {
         return { ok: true, json: async () => ({}) } as Response
       })
 
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.versionError).toBeTruthy()
@@ -169,16 +238,23 @@ describe("useProviderModels", () => {
 
   describe("refresh", () => {
     it("should refetch models when refresh is called", async () => {
-      const { result } = renderHook(() => useProviderModels())
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
 
       await waitFor(() => {
         expect(result.current.status).toBe("ready")
       })
 
       vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([
-        { name: "new-model", model: "new-model", size: 0, details: { family: "llama" } }
+        {
+          name: "new-model",
+          model: "new-model",
+          size: 0,
+          details: { family: "llama" }
+        }
       ])
-      
+
       await result.current.refresh()
 
       await waitFor(() => {

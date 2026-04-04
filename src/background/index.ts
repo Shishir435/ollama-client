@@ -21,9 +21,11 @@ import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-m
 import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
+import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { safeSendResponse } from "@/background/lib/utils"
+import { runEmbeddingDimensionMigration } from "@/background/migrations/embedding-dimension-migration"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -56,6 +58,7 @@ const actionAPI =
     .browserAction
 
 void migrateLegacyProviderStorage()
+void runEmbeddingDimensionMigration()
 
 if (isChromiumBased() && "sidePanel" in browser) {
   // Type assertion for Chrome-specific sidePanel API
@@ -218,8 +221,16 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS:
       case MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS: {
-        if (typeof message.payload === "string") {
-          handleShowModelDetails(message.payload, sendResponse)
+        if (
+          typeof message.payload === "string" ||
+          (typeof message.payload === "object" &&
+            message.payload !== null &&
+            "model" in message.payload)
+        ) {
+          handleShowModelDetails(
+            message.payload as string | { model: string; providerId?: string },
+            sendResponse
+          )
         }
         return true
       }
@@ -259,15 +270,32 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS:
       case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
-        handleGetLoadedModels(sendResponse)
+        handleGetLoadedModels(
+          message.payload as { providerId?: string } | undefined,
+          sendResponse
+        )
         return true
       }
 
       case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL:
       case MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL: {
-        if (typeof message.payload === "string") {
-          handleUnloadModel(message.payload, sendResponse)
+        if (
+          typeof message.payload === "string" ||
+          (typeof message.payload === "object" &&
+            message.payload !== null &&
+            "model" in message.payload)
+        ) {
+          handleUnloadModel(
+            message.payload as string | { model: string; providerId?: string },
+            sendResponse
+          )
         }
+        return true
+      }
+
+      case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL:
+      case MESSAGE_KEYS.OLLAMA.WARMUP_MODEL: {
+        handleWarmupModel(message.payload as { model: string }, sendResponse)
         return true
       }
 
@@ -287,26 +315,43 @@ browser.runtime.onMessage.addListener(
 
       case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL:
       case MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL: {
-        if (typeof message.payload === "string") {
-          // Handle async operation separately to maintain correct return type
-          checkEmbeddingModelExists(message.payload as string)
-            .then((result) => {
-              safeSendResponse(sendResponse, {
-                success: true,
-                data: result
-              })
-            })
-            .catch((error) => {
-              safeSendResponse(sendResponse, {
-                success: false,
-                error: {
-                  status: 0,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                }
-              })
-            })
+        const payload = message.payload
+        const modelName =
+          typeof payload === "string"
+            ? payload
+            : payload && typeof payload === "object" && "model" in payload
+              ? (payload as { model: string }).model
+              : null
+        const providerId =
+          payload && typeof payload === "object" && "providerId" in payload
+            ? (payload as { providerId?: string }).providerId
+            : undefined
+
+        if (typeof modelName !== "string") {
+          safeSendResponse(sendResponse, {
+            success: false,
+            error: { status: 400, message: "Invalid embedding model request" }
+          })
+          return true
         }
+
+        // Handle async operation separately to maintain correct return type
+        checkEmbeddingModelExists(modelName, providerId)
+          .then((result) => {
+            safeSendResponse(sendResponse, {
+              success: true,
+              data: result
+            })
+          })
+          .catch((error) => {
+            safeSendResponse(sendResponse, {
+              success: false,
+              error: {
+                status: 0,
+                message: error instanceof Error ? error.message : String(error)
+              }
+            })
+          })
         return true
       }
 

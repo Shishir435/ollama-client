@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "Retry",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "close": "Close"
     },
+    "updated_at": "Updated",
     "social": {
       "title": "Connect With Me",
       "visit_profile": "Visit my {{platform}} profile"
@@ -33,7 +35,19 @@
       "help_text": "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
     },
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "continue": "Continue Import",
+    "reload": "Reload Extension",
+    "close": "Close",
+    "status": {
+      "active": "Active"
+    },
+    "labels": {
+      "performance": "Performance"
+    },
+    "nav": {
+      "settings_aria": "Settings navigation"
+    }
   },
   "selection_button": {
     "label": "Ask Local LLM",
@@ -41,7 +55,8 @@
   },
   "welcome": {
     "title": "Welcome to Local LLM Chat",
-    "subtitle": "Local AI conversations made simple",
+    "subtitle": "Private, local-first chat with your own models",
+    "badge": "Local-first chat",
     "start_chatting": "Start Chatting",
     "status": {
       "connecting": {
@@ -54,7 +69,7 @@
       },
       "no_models": {
         "title": "No Models Found",
-        "message": "Please pull a model to get started"
+        "message": "Install at least one chat model and one embeddings model to continue"
       },
       "ready": {
         "title": "Ready to Chat",
@@ -62,11 +77,15 @@
       }
     },
     "setup_guide": {
-      "intro": "Before you start, follow these quick steps:",
-      "step1": "Install a local provider (Ollama recommended)",
-      "step2": "Pull a model (e.g. <code>ollama run llama3</code>)",
-      "step3": "Return here and click <b>Refresh</b>",
-      "full_guide_link": "Full Setup Guide"
+      "title": "Quick Setup (Ollama)",
+      "intro": "You'll need Ollama running with one chat model and one embeddings model.",
+      "step1": "Install Ollama and start it (<code>ollama serve</code>)",
+      "step2": "Pull a chat model (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "Pull an embeddings model (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "Return here and click <b>Refresh</b>",
+      "hint": "Follow the setup guide below to install Ollama and models.",
+      "full_guide_link": "Full Setup Guide",
+      "firefox_warning": "Firefox users: run the ollama-env.sh script to enable CORS before starting."
     },
     "features": {
       "private": {
@@ -114,6 +133,7 @@
       "fork": "Fork Conversation",
       "edit": "Edit",
       "export_as": "Export as...",
+      "more": "More",
       "delete": "Delete Message"
     },
     "metrics": {
@@ -132,11 +152,30 @@
       "prompt_tokens": "{{value}} prompt",
       "generated_tokens": "{{value}} generated",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} msgs",
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
       "tooltip_messages": "Number of AI responses"
+    },
+    "file": {
+      "loading_content": "Loading full content..."
+    },
+    "reasoning": {
+      "aria_label": "Model reasoning",
+      "title": "Thought Process",
+      "thinking": "Thinking…",
+      "done": "Done",
+      "hide": "Hide",
+      "explore": "Explore",
+      "loading_thinking": "Thinking",
+      "loading_typing": "Typing",
+      "loading_queued": "Queued"
+    },
+    "feedback": {
+      "helpful_tooltip": "This was helpful",
+      "not_helpful_tooltip": "This was not helpful"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
@@ -149,7 +188,9 @@
       "scope_current": "Current Chat",
       "searching": "Searching chat history...",
       "no_results": "No results found. Try a different search query.",
+      "no_results_description": "Try adjusting your keywords or search scope.",
       "start_typing": "Start typing to search your chat history semantically...",
+      "start_typing_description": "Search through your chat history using semantic search.",
       "result_badge": "result",
       "results_badge": "results",
       "match_percentage": "% match",
@@ -215,7 +256,7 @@
   "file_upload": {
     "button": {
       "aria_label": "Upload file",
-      "tooltip": "Upload file (PDF, DOCX, Text files)"
+      "tooltip": "Upload file (PDF, DOCX, CSV, HTML, Text)"
     },
     "preview": {
       "remove_aria_label": "Remove file",
@@ -242,6 +283,7 @@
       "ready": "Embedding model ready: {{model}}",
       "missing": "Model missing: {{model}}",
       "checking_model": "Checking embedding model...",
+      "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
       "download_button": "Download Model"
     },
@@ -308,6 +350,17 @@
       "clear_chat_description": "Delete all chat embeddings. You can backfill later to regenerate them",
       "clear_all_button": "Clear All Embeddings",
       "clear_all_description": "Delete all embeddings (chats, files, webpages). This action cannot be undone",
+      "database_management": {
+        "remove_duplicates_confirm": "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
+        "remove_duplicates_success": "Removed {{deleted}} duplicate(s). Kept {{kept}} unique embedding(s).",
+        "remove_duplicates_error": "Failed to remove duplicates. Check console for details.",
+        "clear_chat_confirm": "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
+        "clear_chat_success": "Cleared {{count}} chat embedding(s).",
+        "clear_chat_error": "Failed to clear chat vectors. Check console for details.",
+        "clear_all_confirm": "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
+        "clear_all_success": "All embeddings cleared.",
+        "clear_all_error": "Failed to clear all vectors. Check console for details."
+      },
       "chunking_title": "Chunking Settings",
       "chunking_description": "Configure how text is split into chunks for embedding",
       "chunk_size_label": "Chunk Size (tokens)",
@@ -353,6 +406,15 @@
       "cache_ttl_description": "How long to cache search results (1-60 minutes). Cached queries return instantly.",
       "cache_max_size_label": "Max Cached Queries",
       "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+      "ann_backend_label": "ANN Backend",
+      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
+      "ann_backend_placeholder": "Select a backend",
+      "ann_backend_group": "Backends",
+      "ann_backend_wasm": "WASM HNSW (Recommended)",
+      "ann_backend_ts": "TypeScript HNSW",
+      "ann_backend_bruteforce": "Brute Force",
+      "ann_min_vectors_label": "ANN Min Vectors",
+      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
       "enhanced_chunking_label": "Enhanced Chunking",
       "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
       "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
@@ -367,8 +429,13 @@
       "adaptive_weights_description": "Automatically adjust keyword vs. semantic search based on query type (e.g., code vs. concepts)",
       "temporal_boosting_label": "Temporal Relevance Boosting",
       "temporal_boosting_description": "Prioritize newer documentation using exponential decay scoring",
-      "reranking_label": "Enable Re-Ranking (Transformers.js)",
+      "reranking_label": "Enable Re-Ranking",
       "reranking_description": "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+      "reranker_backend_label": "Reranker Backend",
+      "reranker_backend_description": "Choose the backend used to run the reranker model.",
+      "reranker_backend_placeholder": "Select a reranker backend",
+      "reranker_backend_group": "Backends",
+      "reranker_backend_none": "Disabled",
       "hybrid_search_label": "Enable Hybrid Search",
       "hybrid_search_description": "Combine keyword search (BM25) with semantic search for better recall.",
       "keyword_weight_label": "Keyword Weight",
@@ -396,7 +463,19 @@
       "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
       "feedback_export_button": "Export Feedback Data",
       "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
+      "feedback_stats_title": "Feedback statistics",
+      "feedback_stats_total": "Total feedback",
+      "feedback_stats_helpful": "Helpful rate",
+      "feedback_stats_chunks": "Unique chunks",
+      "feedback_stats_queries": "Unique queries",
+      "feedback_privacy_title": "Privacy",
+      "feedback_export_success": "Feedback exported",
+      "feedback_export_error": "Failed to export feedback",
+      "feedback_clear_confirm_title": "Clear feedback?",
+      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
+      "feedback_clear_success": "Feedback cleared",
+      "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
       "checking": "Checking Provider status...",
@@ -467,7 +546,8 @@
       "label_off": "Tabs",
       "label_on": "Tab+",
       "tooltip": "Interact with open tabs"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {
@@ -610,6 +690,17 @@
         "title": "Context and Generation",
         "description": "Memory and Output Control Settings"
       },
+      "runtime": {
+        "title": "Runtime & Warmup",
+        "description": "Control model warmup and runtime options.",
+        "keep_alive_label": "Keep alive",
+        "keep_alive_description": "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
+        "keep_alive_placeholder": "e.g. 300, 5m, 0 to unload",
+        "warm_on_select_label": "Warm model on select",
+        "warm_on_select_description": "Preload the model when you switch to it for faster first response.",
+        "unload_on_switch_label": "Unload previous model on switch",
+        "unload_on_switch_description": "Free memory by unloading the last model when switching."
+      },
       "parameters": {
         "temperature": {
           "label": "Temperature",
@@ -716,6 +807,7 @@
       "prompts": "Prompts",
       "models": "Models",
       "extraction": "Extraction",
+      "context": "Context",
       "embeddings": "Embeddings",
       "providers": "Providers",
       "voices": "Voices",
@@ -723,6 +815,24 @@
       "guides": "Guides",
       "memory": "Memory",
       "shortcuts": "Shortcuts"
+    },
+    "context": {
+      "file_upload": {
+        "title": "File Ingestion",
+        "description": "Configure how files are processed for knowledge retrieval."
+      },
+      "embedding_health": {
+        "title": "Mixed embedding dimensions detected",
+        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
+        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
+        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
+        "action": "Rebuild embeddings",
+        "action_rebuilding": "Rebuilding...",
+        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
+        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
+        "success": "Embeddings rebuilt successfully.",
+        "error": "Failed to rebuild embeddings."
+      }
     },
     "memory": {
       "title": "Contextual Memory",
@@ -847,7 +957,15 @@
         "placeholder": "Select a model",
         "description": "Choose a model to generate embeddings. You may need to download it first.",
         "recommended_group": "Recommended Models",
-        "all_models_group": "All Models"
+        "all_models_group": "All Models",
+        "show_advanced_label": "Show all provider models",
+        "show_advanced_description": "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
+      },
+      "model_change_confirm": {
+        "title": "Rebuild embeddings now?",
+        "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
+        "switch_only": "Switch Without Rebuild",
+        "switch_and_rebuild": "Switch & Rebuild"
       }
     },
     "prompts": {
@@ -915,22 +1033,31 @@
       },
       "modules": {
         "theme": {
+          "title": "Theme & UI",
           "description": "UI appearance preferences"
         },
         "browser": {
+          "title": "Browser Settings",
           "description": "Tab access & URL patterns"
         },
         "tts": {
+          "title": "Text to Speech",
           "description": "Text-to-speech settings"
         },
         "chat_sessions": {
+          "title": "Chat History",
           "description": "Conversation history"
         },
         "default": {
           "description": "Module settings"
         },
         "provider": {
+          "title": "Provider Settings",
           "description": "Model settings & configurations"
+        },
+        "feedback": {
+          "title": "User Feedback",
+          "description": "Clear all learning and retrieved chunk feedback"
         }
       },
       "item_count": "{{count}} item",
@@ -960,6 +1087,45 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "No Models Found",
         "no_models_description": "Connected to {{url}} but no models were found. Check if the service is running correctly."
+      }
+    },
+    "migration": {
+      "title": "Data Migration",
+      "description": "Export or import all your extension data including preferences, chat history, and embedding databases.",
+      "export": {
+        "label": "Export Full Backup",
+        "description": "Download a complete backup of all extension data as a ZIP file.",
+        "button": "Export All"
+      },
+      "import": {
+        "label": "Import Backup",
+        "description": "Restore data from a previously exported ZIP backup. This will overwrite existing data.",
+        "button": "Import All"
+      },
+      "import_confirm": {
+        "title": "Are you absolutely sure?",
+        "description": "This action will completely overwrite your existing preferences, chat history, and databases with the contents of the backup file. This action cannot be undone."
+      },
+      "import_result": {
+        "title": "Import Results",
+        "description": "Review the status of your data import below:",
+        "sync": "Settings",
+        "vector": "Knowledge Base (Vectors)",
+        "sqlite": "Chat History & Data",
+        "errors": "Errors encountered ({{count}})",
+        "labels": {
+          "sync": "Preferences (Sync)",
+          "local": "Local Storage",
+          "database": "Database (SQLite)",
+          "chatDb": "Chat History (Dexie)",
+          "vectorDb": "Vector Embeddings (Dexie)",
+          "knowledgeDb": "Knowledge Sets (Dexie)"
+        },
+        "status": {
+          "success": "Success",
+          "failed": "Failed",
+          "aborted": "Aborted"
+        }
       }
     }
   },
@@ -1006,5 +1172,44 @@
     "title": "Something went wrong",
     "description": "An unexpected error occurred. We've logged this issue internally.",
     "reload": "Reload"
+  },
+  "knowledge_sets": {
+    "title": "Knowledge Sets",
+    "active_label": "Active knowledge set",
+    "active_description": "Select which knowledge set to use when no files are attached.",
+    "active_placeholder": "Select a knowledge set",
+    "create_label": "Create knowledge set",
+    "create_description": "Create a new knowledge set for grouping files.",
+    "create_placeholder": "Knowledge set name",
+    "create_button": "Create",
+    "rename_label": "Rename knowledge set",
+    "rename_description": "Change the name of the active knowledge set.",
+    "rename_placeholder": "New name",
+    "rename_button": "Rename",
+    "delete_label": "Delete knowledge set",
+    "delete_description": "Delete the active knowledge set and its file mapping (embeddings remain).",
+    "delete_button": "Delete",
+    "delete_confirm": "Delete \"{{name}}\"? This cannot be undone.",
+    "prompt_label": "RAG instruction prompt",
+    "prompt_description": "Instructions that will be injected before retrieved context for this knowledge set.",
+    "question_prompt_label": "Question reformulation prompt",
+    "question_prompt_description": "Prompt used to rewrite follow-up questions into standalone queries for this knowledge set.",
+    "topk_label": "Retrieval top-K",
+    "topk_description": "How many chunks to retrieve for this knowledge set.",
+    "min_similarity_label": "Min similarity",
+    "min_similarity_description": "Minimum similarity threshold for chunks in this knowledge set.",
+    "min_rerank_label": "Min rerank score",
+    "min_rerank_description": "Minimum reranker confidence for chunks in this knowledge set."
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "Active",
+      "provider_details": "High quality embeddings • 768-1024 dimensions • Consistent results",
+      "webgpu_warning_title": "WebGPU embedding generation is unavailable",
+      "webgpu_warning_text": "due to Chrome Extension Content Security Policy constraints. WebGPU re-ranking is still active and working. Embeddings are generated via the provider fallback chain, using the default provider when native support is unavailable.",
+      "performance_title": "Performance",
+      "performance_default": "Default provider embedding generation: ~500ms per chunk",
+      "provider_hint": "Ensure your local provider is running (default: localhost:11434)"
+    }
   }
 }

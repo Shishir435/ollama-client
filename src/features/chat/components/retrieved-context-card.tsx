@@ -26,17 +26,20 @@ interface RetrievedContextCardProps {
   query: string
   index: number
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RetrievedContextCard({
   chunk,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RetrievedContextCardProps) {
   const [feedback, setFeedback] = useState<boolean | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleFeedback = async (wasHelpful: boolean) => {
+    if (!enableFeedback) return
     if (isSubmitting) return
 
     setIsSubmitting(true)
@@ -62,60 +65,67 @@ export function RetrievedContextCard({
     }
   }
 
+  const relevance = Math.max(0, Math.min(100, Math.round(chunk.score * 100)))
+  const title = chunk.title?.trim() || chunk.source || "Source"
+
   return (
-    <Card className="mb-2 border-l-4 border-l-primary/50">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-sm truncate">{chunk.title}</CardTitle>
-            <CardDescription className="text-xs flex items-center gap-2">
-              <span>
-                Relevance:{" "}
-                <span className="font-mono">
-                  {(chunk.score * 100).toFixed(0)}%
-                </span>
+    <Card
+      size="sm"
+      className="mb-1.5 gap-2 border border-muted/40 bg-muted/10 py-2 shadow-sm transition hover:border-muted/60 hover:bg-muted/20">
+      <CardHeader className="px-3 py-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate text-xs font-medium">
+              {title}
+            </CardTitle>
+            <CardDescription className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="font-mono">{relevance}%</span>
               </span>
               {chunk.chunkIndex !== undefined && (
-                <span className="text-muted-foreground">
-                  • Chunk {chunk.chunkIndex + 1}
-                </span>
+                <span>• #{chunk.chunkIndex + 1}</span>
+              )}
+              {chunk.source && (
+                <span className="truncate">• {chunk.source}</span>
               )}
             </CardDescription>
           </div>
 
           {/* Feedback Buttons */}
-          <div className="flex gap-1 shrink-0">
-            <Button
-              size="icon"
-              variant={feedback === true ? "default" : "ghost"}
-              className={cn(
-                "h-7 w-7",
-                feedback === true &&
-                  "bg-green-500 hover:bg-green-600 text-white"
-              )}
-              onClick={() => handleFeedback(true)}
-              disabled={isSubmitting}
-              title="This was helpful">
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant={feedback === false ? "default" : "ghost"}
-              className={cn(
-                "h-7 w-7",
-                feedback === false && "bg-red-500 hover:bg-red-600 text-white"
-              )}
-              onClick={() => handleFeedback(false)}
-              disabled={isSubmitting}
-              title="This was not helpful">
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
-          </div>
+          {enableFeedback && (
+            <div className="flex shrink-0 gap-1">
+              <Button
+                size="icon"
+                variant={feedback === true ? "default" : "ghost"}
+                className={cn(
+                  "h-7 w-7",
+                  feedback === true &&
+                    "bg-green-500 hover:bg-green-600 text-white"
+                )}
+                onClick={() => handleFeedback(true)}
+                disabled={isSubmitting}
+                title="This was helpful">
+                <ThumbsUp className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant={feedback === false ? "default" : "ghost"}
+                className={cn(
+                  "h-7 w-7",
+                  feedback === false && "bg-red-500 hover:bg-red-600 text-white"
+                )}
+                onClick={() => handleFeedback(false)}
+                disabled={isSubmitting}
+                title="This was not helpful">
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
-      <CardContent className="text-xs pt-2">
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p className="line-clamp-3 text-muted-foreground whitespace-pre-wrap">
+      <CardContent className="px-3 pb-1 pt-0 text-xs">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <p className="mt-0 mb-0 line-clamp-3 whitespace-pre-wrap text-muted-foreground leading-snug">
             {chunk.content}
           </p>
         </div>
@@ -128,19 +138,21 @@ interface RetrievedContextListProps {
   chunks: RetrievedChunk[]
   query: string
   sessionId?: string
+  enableFeedback?: boolean
 }
 
 export function RetrievedContextList({
   chunks,
   query,
-  sessionId
+  sessionId,
+  enableFeedback = true
 }: RetrievedContextListProps) {
   if (chunks.length === 0) {
     return null
   }
 
   return (
-    <div className="space-y-2 mb-4">
+    <div className="space-y-1.5">
       <div className="text-xs font-medium text-muted-foreground">
         Retrieved Context ({chunks.length})
       </div>
@@ -151,6 +163,7 @@ export function RetrievedContextList({
           query={query}
           index={index}
           sessionId={sessionId}
+          enableFeedback={enableFeedback}
         />
       ))}
     </div>

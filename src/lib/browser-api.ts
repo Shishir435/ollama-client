@@ -62,3 +62,15 @@ export const openOptionsInTab = async (): Promise<void> => {
 // Type-safe browser runtime API
 export const runtime = browser.runtime
 export const action = browser.action
+
+/**
+ * Opens an external URL in a new browser tab.
+ * Regular <a target="_blank"> links don't work in extension sidepanels/popups;
+ * tabs.create is the correct cross-browser approach.
+ */
+export const openExternalUrl = (url: string): void => {
+  browser.tabs.create({ url }).catch(() => {
+    // Fallback: let the browser handle it natively
+    globalThis.open(url, "_blank", "noopener,noreferrer")
+  })
+}

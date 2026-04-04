@@ -3,7 +3,6 @@ import { Globe } from "lucide-react"
 import { describe, expect, it } from "vitest"
 import { SettingsCard } from "../settings-card"
 
-
 describe("SettingsCard", () => {
   it("renders with title and description", () => {
     render(

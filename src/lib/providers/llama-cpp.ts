@@ -20,6 +20,14 @@ interface LlamaCppModel {
 
 export class LlamaCppProvider extends OpenAIProvider {
   id = ProviderId.LLAMA_CPP
+  override capabilities = {
+    ...this.capabilities,
+    modelPull: false,
+    modelUnload: false,
+    modelDelete: false,
+    providerVersion: false,
+    toolCalling: true
+  }
 
   async getEmbeddingSupport(): Promise<EmbeddingSupport> {
     return {

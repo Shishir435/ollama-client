@@ -1,13 +1,13 @@
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 
 export const useTabStatusMap = () => {
-  const { tabContents, loading, errors } = useTabContents()
+  const { tabContents, loadingIds, errors } = useTabContents()
 
   return (tabId: string) => {
     const tabIdNum = parseInt(tabId, 10)
 
     return {
-      loading,
+      loading: loadingIds?.[tabIdNum] || false,
       error: errors?.[tabIdNum] || null,
       data: tabContents?.[tabIdNum] || null
     }

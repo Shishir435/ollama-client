@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useAutoEmbedMessages } from "../use-auto-embed-messages"
 
 // Mock dependencies
@@ -29,15 +29,19 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
 describe("useAutoEmbedMessages", () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    
+
     // Reset to default enabled state
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([true, vi.fn(), { 
-      setRenderValue: vi.fn(), 
-      setStoreValue: vi.fn(),
-      remove: vi.fn(),
-      isLoading: false
-    }])
+    vi.mocked(useStorage).mockReturnValue([
+      true,
+      vi.fn(),
+      {
+        setRenderValue: vi.fn(),
+        setStoreValue: vi.fn(),
+        remove: vi.fn(),
+        isLoading: false
+      }
+    ])
   })
 
   it("should initialize with default state", () => {
@@ -49,12 +53,15 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed a user message", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { storeVector } = await import("@/lib/embeddings/vector-store")
-    
+
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())
@@ -71,8 +78,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip system messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     await result.current.embedMessage(
@@ -84,8 +93,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip short messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     await result.current.embedMessage(
@@ -97,8 +108,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip incomplete assistant messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     await result.current.embedMessage(
@@ -110,12 +123,15 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed complete assistant messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { storeVector } = await import("@/lib/embeddings/vector-store")
-    
+
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())
@@ -132,8 +148,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should handle embedding errors gracefully", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding failed"
     })
@@ -156,15 +174,21 @@ describe("useAutoEmbedMessages", () => {
 
   it("should skip messages when auto-embed is disabled", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([false, vi.fn(), { 
-      setRenderValue: vi.fn(), 
-      setStoreValue: vi.fn(),
-      remove: vi.fn(),
-      isLoading: false
-    }])
+    vi.mocked(useStorage).mockReturnValue([
+      false,
+      vi.fn(),
+      {
+        setRenderValue: vi.fn(),
+        setStoreValue: vi.fn(),
+        remove: vi.fn(),
+        isLoading: false
+      }
+    ])
 
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     await result.current.embedMessage(
@@ -176,18 +200,25 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should embed multiple messages", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     const messages = [
       { role: "user" as const, content: "First message content", done: true },
-      { role: "assistant" as const, content: "Second message content", done: true }
+      {
+        role: "assistant" as const,
+        content: "Second message content",
+        done: true
+      }
     ]
 
     await result.current.embedMessages(messages, "session-1", false)
@@ -198,8 +229,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip embedding when streaming", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
-    
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+
     const { result } = renderHook(() => useAutoEmbedMessages())
 
     const messages = [

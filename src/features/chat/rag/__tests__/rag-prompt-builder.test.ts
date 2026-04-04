@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from "vitest"
-
+import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
   buildRAGMessages,
   buildRAGPrompt,
   formatSources
 } from "../rag-prompt-builder"
-import { knowledgeConfig } from "@/lib/config/knowledge-config"
 
 vi.mock("@/lib/config/knowledge-config", () => ({
   knowledgeConfig: {
-    getSystemPrompt: vi.fn().mockResolvedValue("Context: {context}\nQuestion: {question}")
+    getSystemPrompt: vi
+      .fn()
+      .mockResolvedValue("Context: {context}\nQuestion: {question}")
   }
 }))
 
@@ -50,6 +51,10 @@ describe("formatSources", () => {
   it("formats sources for UI", () => {
     const sources = [
       {
+        id: "1",
+        content: "retrieved content",
+        score: 1.0,
+        source: "",
         title: "Doc 1",
         type: "pdf",
         chunkIndex: 0,

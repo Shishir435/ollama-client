@@ -18,6 +18,11 @@ export type ProviderModel = {
   }
 }
 
+export interface SelectedModelRef {
+  providerId: string
+  modelId: string
+}
+
 // Legacy alias for provider-agnostic model metadata
 export type OllamaModel = ProviderModel
 
@@ -33,6 +38,12 @@ export type ModelConfig = {
   seed: number
   num_predict: number
   min_p: number
+  num_thread?: number
+  num_gpu?: number
+  num_batch?: number
+  keep_alive?: string | number
+  warm_on_select?: boolean
+  unload_on_switch?: boolean
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>
@@ -56,6 +67,7 @@ export interface ChatMessage {
   id?: number | string
   role: Role
   content: string
+  thinking?: string
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
@@ -162,6 +174,9 @@ export interface OllamaChatRequest {
     seed?: number
     num_predict?: number
     min_p?: number
+    num_thread?: number
+    num_gpu?: number
+    num_batch?: number
   }
 }
 
@@ -194,6 +209,9 @@ export interface OllamaChatResponse {
     role: "assistant" | "user" | "system"
     content: string
     images?: string[]
+    thinking?: string
+    reasoning?: string
+    reasoning_content?: string
   }
   done: boolean
   total_duration?: number
@@ -257,6 +275,7 @@ export type ProviderModelListResponse = DefaultProviderTagsResponse
 
 export interface ChatStreamMessage {
   delta?: string
+  thinkingDelta?: string
   done?: boolean
   content?: string
   aborted?: boolean
@@ -293,7 +312,7 @@ export interface PullStreamMessage {
 }
 
 export interface ModelPullMessage {
-  payload: string
+  payload: string | { model: string; providerId?: string }
   cancel?: boolean
 }
 
@@ -301,6 +320,7 @@ export interface ChatWithModelMessage {
   type: string
   payload: {
     model: string
+    providerId?: string
     messages: ChatMessage[]
     sessionId?: string
     chatId?: string
@@ -403,7 +423,11 @@ export interface SelectedTabsState {
   selectedTabIds: string[]
   errors: Record<number, string>
   setSelectedTabIds: (tabs: string[]) => void
-  setErrors: (errors: Record<number, string>) => void
+  setErrors: (
+    errors:
+      | Record<number, string>
+      | ((prev: Record<number, string>) => Record<number, string>)
+  ) => void
 }
 
 export type Theme = "dark" | "light" | "system"
@@ -427,7 +451,11 @@ export type PromptTemplate = {
 
 export interface TabContentState {
   builtContent: string
+  documents: Array<{ id: string; title: string; content: string }>
   setBuiltContent: (builtContent: string) => void
+  setDocuments: (
+    documents: Array<{ id: string; title: string; content: string }>
+  ) => void
 }
 
 export interface LoadStreamState {

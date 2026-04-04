@@ -27,6 +27,8 @@ export const FormSlider = ({
 }: FormSliderProps) => {
   const { watch, setValue } = useFormContext()
   const value = watch(name)
+  const safeValue =
+    typeof value === "number" && !Number.isNaN(value) ? value : min
 
   return (
     <SettingsFormField
@@ -47,15 +49,19 @@ export const FormSlider = ({
         min={min}
         max={max}
         step={step}
-        value={[value]}
-        onValueChange={([v]) => setValue(name, v, { shouldValidate: true })}
+        value={[safeValue]}
+        onValueChange={(value) =>
+          setValue(name, Array.isArray(value) ? value[0] : value, {
+            shouldValidate: true
+          })
+        }
         className="py-2"
       />
       {(leftLabel || rightLabel) && (
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{leftLabel}</span>
           <Badge variant="outline" className="font-mono">
-            {value}
+            {safeValue}
           </Badge>
           <span>{rightLabel}</span>
         </div>

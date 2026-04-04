@@ -4,17 +4,26 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { CopyButton } from "@/features/chat/components/copy-button"
 import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import {
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Download,
+  Code,
+  FileDown,
+  FileText,
   GitFork,
   MoreHorizontal,
   SquarePen,
@@ -26,6 +35,8 @@ export const ChatMessageFooter = ({
   msg,
   isUser,
   isLoading,
+  showRetrievedChunks = true,
+  feedbackEnabled = true,
   onRegenerate,
   onEdit,
   onDelete,
@@ -35,6 +46,8 @@ export const ChatMessageFooter = ({
   msg: ChatMessage
   isUser: boolean
   isLoading?: boolean
+  showRetrievedChunks?: boolean
+  feedbackEnabled?: boolean
   onRegenerate?: (model: string) => void
   onEdit?: () => void
   onDelete?: () => void
@@ -56,6 +69,60 @@ export const ChatMessageFooter = ({
     onNavigate?.(targetNodeId)
   }
 
+  const actionItems = [
+    onExport
+      ? {
+          key: "markdown",
+          label: "Markdown",
+          onClick: () => onExport("markdown"),
+          icon: <BookOpen className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "pdf",
+          label: "PDF",
+          onClick: () => onExport("pdf"),
+          icon: <FileDown className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "json",
+          label: "JSON",
+          onClick: () => onExport("json"),
+          icon: <Code className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onExport
+      ? {
+          key: "text",
+          label: "Text",
+          onClick: () => onExport("text"),
+          icon: <FileText className="size-4" />,
+          destructive: false
+        }
+      : null,
+    onDelete
+      ? {
+          key: "delete",
+          label: t("chat.actions.delete"),
+          onClick: () => onDelete(),
+          icon: <Trash2 className="size-4" />,
+          destructive: true
+        }
+      : null
+  ].filter(Boolean) as Array<{
+    key: string
+    label: string
+    onClick: () => void
+    icon: React.ReactNode
+    destructive: boolean
+  }>
+
   return (
     <div
       className={
@@ -64,7 +131,7 @@ export const ChatMessageFooter = ({
       }>
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex items-center gap-0.5 rounded-full border bg-background px-1.5 py-0.5 shadow-sm">
+        <div className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5">
           <Button
             variant="ghost"
             size="icon"
@@ -75,7 +142,7 @@ export const ChatMessageFooter = ({
             }}>
             <ChevronLeft className="h-3 w-3" />
           </Button>
-          <span className="min-w-[1.5rem] text-center text-[10px] font-medium text-muted-foreground">
+          <span className="min-w-6 text-center text-[10px] font-medium text-muted-foreground">
             {siblingIndex + 1} / {siblingIds.length}
           </span>
           <Button
@@ -93,91 +160,113 @@ export const ChatMessageFooter = ({
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex items-center gap-1 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
 
         {/* RAG Sources Button - Show for messages with RAG context */}
-        {msg.metrics?.ragSources && msg.metrics.ragSources.length > 0 && (
-          <RAGSourcesButton
-            sources={msg.metrics.ragSources}
-            query={msg.metrics.ragQuery}
-          />
-        )}
+        {showRetrievedChunks &&
+          msg.metrics?.ragSources &&
+          msg.metrics.ragSources.length > 0 && (
+            <RAGSourcesButton
+              sources={msg.metrics.ragSources}
+              query={msg.metrics.ragQuery}
+              enableFeedback={feedbackEnabled}
+            />
+          )}
 
         {onEdit && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-            onClick={onEdit}
-            title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}>
-            {isUser ? (
-              <GitFork className="size-3.5" />
-            ) : (
-              <SquarePen className="size-3.5" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                onClick={onEdit}
+                title={
+                  isUser ? t("chat.actions.fork") : t("chat.actions.edit")
+                }>
+                {isUser ? (
+                  <GitFork className="size-3.5" />
+                ) : (
+                  <SquarePen className="size-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {!isUser && msg.model && !isLoading && (
-          <RegenerateButton
-            model={msg.model}
-            onSelectModel={(model) => onRegenerate?.(model)}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <RegenerateButton
+                  model={msg.model}
+                  onSelectModel={(model) => onRegenerate?.(model)}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("chat.actions.switch_model_tooltip")}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6 text-muted-foreground hover:text-foreground">
-              <MoreHorizontal className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <span className="flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    aria-label={t("chat.actions.more")}>
+                    <MoreHorizontal className="size-3" />
+                  </Button>
+                </span>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
-            className="w-48">
-            {onExport && (
-              <>
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  {t("chat.actions.export_as")}
+            sideOffset={6}
+            className="w-auto rounded-lg border-muted/60 p-1.5 shadow-lg data-open:animate-none data-closed:animate-none">
+            {actionItems.length > 0 && (
+              <DropdownMenuGroup>
+                <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">
+                  {actionItems.map((item) => (
+                    <Tooltip key={item.key}>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          onClick={item.onClick}
+                          aria-label={item.label}
+                          className={
+                            item.destructive
+                              ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
+                              : "size-8 justify-center rounded-md hover:bg-muted/60"
+                          }>
+                          {item.icon}
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={10}>
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
                 </div>
-                <DropdownMenuItem onClick={() => onExport("markdown")}>
-                  <Download className="mr-2  size-3.5" />
-                  Markdown
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("pdf")}>
-                  <Download className="mr-2 size-3.5" />
-                  PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("json")}>
-                  <Download className="mr-2 size-3.5" />
-                  JSON
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("text")}>
-                  <Download className="mr-2 size-3.5" />
-                  Text
-                </DropdownMenuItem>
-                <div className="my-1 h-px bg-muted" />
-              </>
-            )}
-
-            {onDelete && (
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 size-3.5" />
-                {t("chat.actions.delete")}
-              </DropdownMenuItem>
+              </DropdownMenuGroup>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="ml-auto text-[10px] text-muted-foreground/60">
+      <div className="ml-auto text-[10px] text-muted-foreground/60 tabular-nums">
         {isUser
           ? new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
               hour: "2-digit",

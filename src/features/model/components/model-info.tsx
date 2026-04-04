@@ -152,15 +152,24 @@ const DetailRow = ({
   <div className="flex items-start gap-2 py-1">
     {icon}
     <span className="min-w-0 flex-1 text-xs font-medium">{label}</span>
-    <span className="max-w-[12rem] whitespace-normal break-words rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+    <span className="max-w-48 whitespace-normal wrap-break-word rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
       {String(value)}
     </span>
   </div>
 )
 
-export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
+export const ModelInfo = ({
+  selectedModel,
+  selectedProviderId
+}: {
+  selectedModel: string
+  selectedProviderId?: string
+}) => {
   const { t } = useTranslation()
-  const { error, loading, modelInfo, refresh } = useModelInfo(selectedModel)
+  const { error, loading, modelInfo, refresh } = useModelInfo(
+    selectedModel,
+    selectedProviderId
+  )
   const [isExpanded, setIsExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -222,7 +231,7 @@ export const ModelInfo = ({ selectedModel }: { selectedModel: string }) => {
   }
 
   return (
-    <Card className="w-full rounded-lg border-border bg-card text-card-foreground">
+    <Card className="w-full rounded-lg border-border bg-card text-card-foreground py-0">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">

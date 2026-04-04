@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi, beforeAll } from "vitest"
-import { renderHook, act } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import type { useThemeStore as UseThemeStoreType } from "../theme"
 
 // Mock plasmo storage

@@ -1,5 +1,4 @@
-import { useStorage } from "@plasmohq/storage/hook"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +9,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList
+  CommandList,
+  CommandSeparator
 } from "@/components/ui/command"
 import {
   Popover,
@@ -23,13 +23,17 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
+import { browser } from "@/lib/browser-api"
+import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 
-import { formatFileSize, getModelIcon } from "../lib/model-utils"
+import {
+  formatFileSize,
+  getModelIcon,
+  isEmbeddingModel
+} from "../lib/model-utils"
 
 interface ModelMenuProps {
   trigger?: React.ReactNode
@@ -46,57 +50,71 @@ export const ModelMenu = ({
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    ""
+  const {
+    models,
+    refresh,
+    isLoading,
+    selectedModel,
+    selectedModelRef,
+    setSelectedModel,
+    selectionConflictModel,
+    clearSelectionConflict
+  } = useProviderModels()
+
+  const filteredDefaultModels = models.filter(
+    (model) => !isEmbeddingModel(model.name, model.details?.families || [])
   )
 
-  const { status, models, refresh, isLoading } = useProviderModels()
-
-  useEffect(() => {
-    if (status === "ready" && models.length > 0 && !selectedModel) {
-      setSelectedModel(models[0].name)
-    }
-  }, [status, models, selectedModel, setSelectedModel])
-
-  const handleSelect = (modelName: string) => {
+  const handleSelect = async (modelName: string, providerId?: string) => {
+    const previousModel = selectedModel
+    const previousProviderId = selectedModelRef?.providerId
     if (_onSelectModel) {
       _onSelectModel(modelName)
     } else {
-      setSelectedModel(modelName)
+      await setSelectedModel(modelName, providerId)
+      if (selectionConflictModel) {
+        await clearSelectionConflict()
+      }
     }
     setOpen(false)
+
+    if (modelName && modelName !== previousModel) {
+      browser.runtime
+        .sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL,
+          payload: {
+            model: modelName,
+            providerId,
+            previousModel,
+            previousProviderId
+          }
+        })
+        .catch((error) => {
+          console.warn("Failed to trigger model warmup", error)
+        })
+    }
   }
 
   if (!models) return null
 
-  const groupedModels = models
-    .filter((model) => {
-      if (
-        model.details?.families?.some((f) =>
-          ["bert", "nomic-bert", "xlm-roberta"].includes(f)
-        )
-      )
-        return false
-      if (model.name.includes("embed")) return false
-      return true
-    })
-    .reduce(
-      (groups, model) => {
-        const providerId = model.providerId || DEFAULT_PROVIDER_ID
-        const providerName =
-          model.providerName || getProviderDisplayName(providerId)
-        if (!groups[providerId]) {
-          groups[providerId] = { name: providerName, models: [] }
-        }
-        groups[providerId].models.push(model)
-        return groups
-      },
-      {} as Record<string, { name: string; models: typeof models }>
-    )
+  const groupedModels = filteredDefaultModels.reduce(
+    (groups, model) => {
+      const providerId = model.providerId || DEFAULT_PROVIDER_ID
+      const providerName =
+        model.providerName || getProviderDisplayName(providerId)
+      if (!groups[providerId]) {
+        groups[providerId] = { name: providerName, models: [] }
+      }
+      groups[providerId].models.push(model)
+      return groups
+    },
+    {} as Record<string, { name: string; models: typeof models }>
+  )
+  const duplicateModelNames = new Set(
+    filteredDefaultModels
+      .map((model) => model.name)
+      .filter((name, index, arr) => arr.indexOf(name) !== index)
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -105,13 +123,13 @@ export const ModelMenu = ({
           <PopoverTrigger asChild aria-label={tooltipTextContent}>
             {trigger ?? (
               <Button
-                variant="outline"
+                variant="ghost"
                 role="combobox"
                 aria-expanded={open}
-                className="h-8 justify-between gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-sm px-3 font-normal hover:bg-accent/50 hover:text-accent-foreground items-center">
+                className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all">
                 {selectedModel ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg leading-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">
                       {getModelIcon(selectedModel)}
                     </span>
                     <span className="truncate font-medium">
@@ -139,39 +157,47 @@ export const ModelMenu = ({
       </Tooltip>
 
       <PopoverContent className="w-[320px] p-0" align="start">
-        <div className="flex items-center justify-between border-b px-3 py-2">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {t("model.menu.models_label")}
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={refresh}
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                aria-label={t("model.menu.refresh_aria_label")}>
-                <RotateCcw
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform",
-                    isLoading && "animate-spin"
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("model.menu.refresh_tooltip")}</TooltipContent>
-          </Tooltip>
-        </div>
-
-        <Command className="max-h-[400px]">
-          <div className="flex items-center border-b px-3">
+        <Command className="max-h-[400px] w-full">
+          <div className="flex flex-col justify-between w-full h-full p-1">
+            {selectionConflictModel && (
+              <div className="mb-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1.5 text-xs text-yellow-900 dark:text-yellow-200">
+                Provider selection required for{" "}
+                <strong>{selectionConflictModel}</strong>.
+              </div>
+            )}
+            <div className="flex items-center justify-between p-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {t("model.menu.models_label")}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => refresh()}
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    aria-label={t("model.menu.refresh_aria_label")}>
+                    <RotateCcw
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        isLoading && "animate-spin"
+                      )}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t("model.menu.refresh_tooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <CommandInput
               placeholder={t("model.menu.search_placeholder")}
-              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-transparent rounded-md text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               autoFocus
             />
           </div>
-          <CommandList className="max-h-[300px] overflow-y-auto p-1">
+          <CommandSeparator className="mt-2" />
+          <CommandList className="max-h-[300px] overflow-y-auto p-1 scrollbar-none">
             <CommandEmpty className="py-6 text-center text-sm">
               {t("model.menu.no_model_found")}
             </CommandEmpty>
@@ -182,7 +208,7 @@ export const ModelMenu = ({
                   <CommandItem
                     key={`${providerId}-${model.name}`}
                     value={model.name}
-                    onSelect={() => handleSelect(model.name)}
+                    onSelect={() => handleSelect(model.name, providerId)}
                     className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
                       {getModelIcon(model.name)}
@@ -193,7 +219,17 @@ export const ModelMenu = ({
                         <span className="truncate font-medium text-sm">
                           {model.name}
                         </span>
-                        {selectedModel === model.name && (
+                        {duplicateModelNames.has(model.name) && (
+                          <Badge
+                            variant="secondary"
+                            className="h-4 px-1 text-[10px]">
+                            Conflict
+                          </Badge>
+                        )}
+                        {(selectedModelRef
+                          ? selectedModelRef.modelId === model.name &&
+                            selectedModelRef.providerId === providerId
+                          : selectedModel === model.name) && (
                           <Check className="h-3.5 w-3.5 text-primary" />
                         )}
                       </div>

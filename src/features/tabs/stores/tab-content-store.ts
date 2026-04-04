@@ -9,18 +9,23 @@ import type { TabContentState } from "@/types"
 
 export const useTabContentStore = create<TabContentState>((set) => ({
   builtContent: "",
-  setBuiltContent: (builtContent: string) => set({ builtContent })
+  documents: [],
+  setBuiltContent: (builtContent: string) => set({ builtContent }),
+  setDocuments: (documents) => set({ documents })
 }))
 
 export const useTabContent = () => {
   const { selectedTabIds, errors } = useSelectedTabs()
   const { tabContents } = useTabContents()
-  const { builtContent, setBuiltContent } = useTabContentStore(
-    useShallow((s) => ({
-      builtContent: s.builtContent,
-      setBuiltContent: s.setBuiltContent
-    }))
-  )
+  const { builtContent, documents, setBuiltContent, setDocuments } =
+    useTabContentStore(
+      useShallow((s) => ({
+        builtContent: s.builtContent,
+        documents: s.documents,
+        setBuiltContent: s.setBuiltContent,
+        setDocuments: s.setDocuments
+      }))
+    )
 
   useEffect(() => {
     const built = selectedTabIds
@@ -43,7 +48,20 @@ export const useTabContent = () => {
       .join("\n\n---\n\n")
 
     setBuiltContent(built)
-  }, [selectedTabIds, errors, tabContents, setBuiltContent])
+    const docs = selectedTabIds
+      .map((id) => {
+        const tabId = parseInt(id, 10)
+        const content = tabContents[tabId]
+        if (!content || errors[tabId]) return null
+        return {
+          id,
+          title: content.title || "Untitled",
+          content: content.html
+        }
+      })
+      .filter(Boolean) as Array<{ id: string; title: string; content: string }>
+    setDocuments(docs)
+  }, [selectedTabIds, errors, tabContents, setBuiltContent, setDocuments])
 
-  return { builtContent }
+  return { builtContent, documents }
 }

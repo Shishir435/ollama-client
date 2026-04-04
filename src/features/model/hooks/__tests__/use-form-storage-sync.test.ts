@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from "vitest"
 import { renderHook } from "@testing-library/react"
-import { useDebouncedFormUpdate, useSyncFormWithConfig } from "../use-form-storage-sync"
+import { describe, expect, it, vi } from "vitest"
+import {
+  useDebouncedFormUpdate,
+  useSyncFormWithConfig
+} from "../use-form-storage-sync"
 
 describe("useDebouncedFormUpdate", () => {
   it("should not call updateConfig if value hasn't changed", () => {
@@ -28,7 +31,13 @@ describe("useDebouncedFormUpdate", () => {
     const validation = vi.fn().mockReturnValue(false)
 
     renderHook(() =>
-      useDebouncedFormUpdate("temperature" as any, -1, 0.7, updateConfig, validation)
+      useDebouncedFormUpdate(
+        "temperature" as any,
+        -1,
+        0.7,
+        updateConfig,
+        validation
+      )
     )
 
     expect(validation).toHaveBeenCalledWith(-1)
@@ -52,13 +61,13 @@ describe("useSyncFormWithConfig", () => {
       repeat_last_n: 64
     } as any
 
-    renderHook(() =>
-      useSyncFormWithConfig(config, reset, "llama2")
-    )
+    renderHook(() => useSyncFormWithConfig(config, reset, "llama2"))
 
-    expect(reset).toHaveBeenCalledWith(expect.objectContaining({
-      system: "Test",
-      temperature: 0.7
-    }))
+    expect(reset).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: "Test",
+        temperature: 0.7
+      })
+    )
   })
 })

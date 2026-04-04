@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import Dexie from "dexie"
-import { runDexieToSQLiteMigration, getMigrationStatus } from "../dexie-to-sqlite"
-import { SQLiteChatRepository } from "@/lib/repositories/sqlite-chat-repository"
 import { db as dexieDb } from "@/lib/db"
-import * as sqliteDbModule from "@/lib/sqlite/db"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import * as sqliteDbModule from "@/lib/sqlite/db"
+import {
+  getMigrationStatus,
+  runDexieToSQLiteMigration
+} from "../dexie-to-sqlite"
 
 // Mock dependencies
 vi.mock("@/lib/sqlite/db", () => {
@@ -55,7 +56,7 @@ describe("Dexie v2 → SQLite Migration", () => {
     // Clear migration status
     await plasmoGlobalStorage.remove("sqlite_migration_status")
     await plasmoGlobalStorage.remove("sqlite_migration_progress")
-    
+
     // Clear Dexie database
     await dexieDb.sessions.clear()
     await dexieDb.messages.clear()
@@ -123,7 +124,7 @@ describe("Dexie v2 → SQLite Migration", () => {
         { sessionId, role: "assistant", content: "Message 2", timestamp: 2000 },
         { sessionId, role: "user", content: "Message 3", timestamp: 3000 }
       ]
-      
+
       for (const msg of messages) {
         await dexieDb.messages.add(msg as any)
       }
@@ -142,15 +143,15 @@ describe("Dexie v2 → SQLite Migration", () => {
       await runDexieToSQLiteMigration()
 
       // Verify: Messages were inserted with parentId linking
-      const insertCalls = vi.mocked(sqliteDbModule.run).mock.calls.filter(
-        call => call[0].includes("INSERT INTO messages")
-      )
-      
+      const insertCalls = vi
+        .mocked(sqliteDbModule.run)
+        .mock.calls.filter((call) => call[0].includes("INSERT INTO messages"))
+
       expect(insertCalls.length).toBe(3)
-      
+
       // First message should have no parentId (null/undefined)
       expect(insertCalls[0][1]).toContain(null)
-      
+
       // Second and third messages should have parentIds
       // Note: In actual migration, parentId would be set to previous message's ID
     })
@@ -205,7 +206,7 @@ describe("Dexie v2 → SQLite Migration", () => {
         { sessionId, role: "assistant", content: "First", timestamp: 1000 },
         { sessionId, role: "user", content: "Second", timestamp: 2000 }
       ]
-      
+
       for (const msg of messages) {
         await dexieDb.messages.add(msg as any)
       }
@@ -214,10 +215,10 @@ describe("Dexie v2 → SQLite Migration", () => {
       await runDexieToSQLiteMigration()
 
       // Verify: Messages were sorted by timestamp before insertion
-      const insertCalls = vi.mocked(sqliteDbModule.run).mock.calls.filter(
-        call => call[0].includes("INSERT INTO messages")
-      )
-      
+      const insertCalls = vi
+        .mocked(sqliteDbModule.run)
+        .mock.calls.filter((call) => call[0].includes("INSERT INTO messages"))
+
       // Check that content order follows timestamp order
       expect(insertCalls[0][1]).toContain("First")
       expect(insertCalls[1][1]).toContain("Second")
@@ -281,7 +282,7 @@ describe("Dexie v2 → SQLite Migration", () => {
 
       // Run migration first time
       await runDexieToSQLiteMigration()
-      const firstRunCalls = vi.mocked(sqliteDbModule.run).mock.calls.length
+      const _firstRunCalls = vi.mocked(sqliteDbModule.run).mock.calls.length
 
       // Clear migration status to simulate re-run
       await plasmoGlobalStorage.set("sqlite_migration_status", "pending")
@@ -303,9 +304,9 @@ describe("Dexie v2 → SQLite Migration", () => {
       await runDexieToSQLiteMigration()
 
       // Verify: No duplicate inserts (session already exists, message skipped)
-      const insertCalls = vi.mocked(sqliteDbModule.run).mock.calls.filter(
-        call => call[0].includes("INSERT")
-      )
+      const insertCalls = vi
+        .mocked(sqliteDbModule.run)
+        .mock.calls.filter((call) => call[0].includes("INSERT"))
       expect(insertCalls.length).toBe(0) // No new inserts
     })
   })
@@ -324,7 +325,7 @@ describe("Dexie v2 → SQLite Migration", () => {
       }
 
       const progressUpdates: any[] = []
-      
+
       // Run migration with progress callback
       await runDexieToSQLiteMigration((progress) => {
         progressUpdates.push({ ...progress })
@@ -399,10 +400,10 @@ describe("Dexie v2 → SQLite Migration", () => {
   })
 
   describe("Edge Cases", () => {
-    it("should handle sessions with no messages",  async () => {
+    it("should handle sessions with no messages", async () => {
       // Clear mocks to reset  default mock behavior
       vi.clearAllMocks()
-      
+
       // Setup: Empty session
       await dexieDb.sessions.add({
         id: "empty-session",
@@ -428,7 +429,6 @@ describe("Dexie v2 → SQLite Migration", () => {
         expect.arrayContaining(["empty-session"])
       )
     })
-
 
     it("should handle large datasets efficiently", async () => {
       // Setup: Many messages

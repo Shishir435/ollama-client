@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { SQLiteChatRepository } from "../../repositories/sqlite-chat-repository"
 import * as dbModule from "../db"
 
@@ -9,30 +9,41 @@ vi.mock("../db", () => {
       // Simple mock for testing SQL generation/flow
       // In a real test we'd use an in-memory SQLite instance
       if (opts.callback && opts.sql.includes("SELECT")) {
-         // Return mock data based on query
-         if (opts.sql.includes("sessions")) {
-           opts.callback({ id: "session-1", title: "Test Session" })
-         }
-         if (opts.sql.includes("messages")) {
-           opts.callback({ id: 1, sessionId: "session-1", content: "Hello" })
-         }
-         if (opts.sql.includes("last_insert_rowid")) {
-           opts.callback({ id: 1 })
-         }
+        // Return mock data based on query
+        if (opts.sql.includes("sessions")) {
+          opts.callback({ id: "session-1", title: "Test Session" })
+        }
+        if (opts.sql.includes("messages")) {
+          opts.callback({ id: 1, sessionId: "session-1", content: "Hello" })
+        }
+        if (opts.sql.includes("last_insert_rowid")) {
+          opts.callback({ id: 1 })
+        }
       }
     })
   }
-  
+
   return {
     getDb: vi.fn().mockResolvedValue(mockDb),
-    run: vi.fn().mockImplementation(async (sql, bind) => {
+    run: vi.fn().mockImplementation(async (_sql, _bind) => {
       // Just verify call happened
       return
     }),
-    query: vi.fn().mockImplementation(async (sql, bind) => {
+    query: vi.fn().mockImplementation(async (sql, _bind) => {
       if (sql.includes("last_insert_rowid")) return [{ id: 1 }]
-      if (sql.includes("SELECT * FROM sessions")) return [{ id: "session-1", title: "Test Session" }]
-      if (sql.includes("SELECT * FROM messages")) return [{ id: 1, sessionId: "session-1", content: "Hello", role: "user", timestamp: 123, done: 1 }]
+      if (sql.includes("SELECT * FROM sessions"))
+        return [{ id: "session-1", title: "Test Session" }]
+      if (sql.includes("SELECT * FROM messages"))
+        return [
+          {
+            id: 1,
+            sessionId: "session-1",
+            content: "Hello",
+            role: "user",
+            timestamp: 123,
+            done: 1
+          }
+        ]
       return []
     }),
     initSQLite: vi.fn()
@@ -55,9 +66,9 @@ describe("SQLiteChatRepository", () => {
       updatedAt: 1000,
       messages: []
     }
-    
+
     await repo.createSession(session as any)
-    
+
     expect(dbModule.run).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO sessions"),
       expect.arrayContaining(["session-1", "llama2"])
@@ -77,9 +88,9 @@ describe("SQLiteChatRepository", () => {
       timestamp: 1000,
       done: true
     }
-    
+
     const id = await repo.addMessage("session-1", message as any)
-    
+
     expect(id).toBe(1)
     expect(dbModule.run).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO messages"),

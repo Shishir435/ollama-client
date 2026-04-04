@@ -3,12 +3,24 @@ import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
+  type ProviderCapabilities,
   type ProviderConfig,
   ProviderId
 } from "./types"
 
 export class OpenAIProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
+  capabilities: ProviderCapabilities = {
+    chat: true,
+    embeddings: true,
+    modelDiscovery: true,
+    modelDetails: false,
+    modelPull: false,
+    modelUnload: false,
+    modelDelete: false,
+    providerVersion: false,
+    toolCalling: false
+  }
 
   constructor(public config: ProviderConfig) {}
 
@@ -131,6 +143,16 @@ export class OpenAIProvider implements LLMProvider {
             try {
               const data = JSON.parse(trimmed.slice(6))
               const delta = data.choices?.[0]?.delta
+
+              const thinkingDelta =
+                delta?.reasoning ||
+                delta?.reasoning_content ||
+                delta?.thinking ||
+                delta?.thoughts
+
+              if (thinkingDelta) {
+                onChunk({ thinkingDelta, done: false })
+              }
 
               if (delta?.content) {
                 if (!firstTokenTime) {

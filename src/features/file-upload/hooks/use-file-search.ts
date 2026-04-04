@@ -63,7 +63,10 @@ export const useFileSearch = () => {
             embeddingConfig?.defaultMinSimilarity ??
             0.5,
           type: "file" as const,
-          fileId: options.fileId
+          fileId: options.fileId,
+          embeddingModel: embeddingResult.model,
+          embeddingProviderId: embeddingResult.providerId,
+          embeddingDimension: embeddingResult.embedding.length
         }
 
         // Search for similar vectors

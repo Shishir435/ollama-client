@@ -1,16 +1,16 @@
 import { browser } from "@/lib/browser-api"
 import {
-  CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL,
-  CANONICAL_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   MESSAGE_KEYS,
+  normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
 import type { LLMProvider } from "@/lib/providers/types"
 import { getEmbeddingConfig } from "./config"
 
@@ -52,21 +52,20 @@ interface EmbedAttempt {
 const WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 const warmupThrottle = new Map<string, number>()
 
+/**
+ * Normalizes model names for specific providers, handling default aliases.
+ * @param _providerId Current provider ID (hooks for future per-provider logic).
+ * @param model The raw model name string.
+ */
 const normalizeModelForProvider = (
-  providerId: string,
+  _providerId: string,
   model: string
 ): string => {
-  const normalized = model.trim()
+  const normalized = normalizeEmbeddingModelName(model)
+  const baseModel = DEFAULT_EMBEDDING_MODEL.split(":")[0]?.toLowerCase()
 
-  if (providerId === DEFAULT_PROVIDER_ID) {
-    if (normalized.toLowerCase() === CANONICAL_EMBEDDING_MODEL.toLowerCase()) {
-      return CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL
-    }
-  } else if (
-    normalized.toLowerCase() ===
-    CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL.toLowerCase()
-  ) {
-    return CANONICAL_EMBEDDING_MODEL
+  if (baseModel && normalized.toLowerCase() === baseModel) {
+    return DEFAULT_EMBEDDING_MODEL
   }
 
   return normalized
@@ -74,6 +73,17 @@ const normalizeModelForProvider = (
 
 const getActiveProvider = async (): Promise<LLMProvider | null> => {
   try {
+    const selectedModelRef = await plasmoGlobalStorage.get<{
+      providerId?: string
+      modelId?: string
+    }>(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
+    if (selectedModelRef?.modelId) {
+      return await ProviderFactory.getProviderForModel(
+        selectedModelRef.modelId,
+        selectedModelRef.providerId
+      )
+    }
+
     const selectedChatModel = await plasmoGlobalStorage.get<string>(
       STORAGE_KEYS.PROVIDER.SELECTED_MODEL
     )
@@ -92,15 +102,73 @@ const getActiveProvider = async (): Promise<LLMProvider | null> => {
 }
 
 const getStoredEmbeddingModel = async (): Promise<string> => {
+  const config = await getEmbeddingConfig()
   const stored = await plasmoGlobalStorage.get<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
   )
-  return stored || DEFAULT_EMBEDDING_MODEL
+  const configModel = config.sharedEmbeddingModel
+
+  if (
+    stored &&
+    stored !== DEFAULT_EMBEDDING_MODEL &&
+    configModel === DEFAULT_EMBEDDING_MODEL
+  ) {
+    return normalizeEmbeddingModelName(stored)
+  }
+
+  return normalizeEmbeddingModelName(
+    configModel || stored || DEFAULT_EMBEDDING_MODEL
+  )
 }
 
+const isContextLengthError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error)
+  return /context length|input length|too long|max(?:imum)? context/i.test(
+    message
+  )
+}
+
+/**
+ * Generates an array of character limits used for recursive truncation.
+ * Used when an embedding request fails due to context length limits; the strategy
+ * will attempt to re-embed the text at these decreasing character boundaries.
+ */
+const buildTruncationPlan = (maxChars: number): number[] => {
+  const targets = [
+    maxChars,
+    2048,
+    1536,
+    1024,
+    768,
+    512,
+    384,
+    256,
+    192,
+    160,
+    128,
+    96,
+    64,
+    48,
+    32
+  ]
+  const unique: number[] = []
+  for (const value of targets) {
+    if (value <= 0) continue
+    if (!unique.includes(value)) {
+      unique.push(value)
+    }
+  }
+  return unique
+}
+
+/**
+ * Attempts to generate an embedding using a specific route.
+ * Implements exponential back-off via truncation for context length errors.
+ */
 const tryEmbed = async (
   text: string,
-  attempt: EmbedAttempt
+  attempt: EmbedAttempt,
+  maxChars: number
 ): Promise<EmbeddingStrategyResult | null> => {
   const provider = await ProviderFactory.getProvider(attempt.providerId)
 
@@ -108,18 +176,40 @@ const tryEmbed = async (
     return null
   }
 
-  const vector = await provider.embed(text, attempt.model)
-  if (!Array.isArray(vector) || vector.length === 0) {
-    return null
+  const truncationPlan = buildTruncationPlan(maxChars)
+  let lastError: unknown
+
+  for (let index = 0; index < truncationPlan.length; index++) {
+    const limit = truncationPlan[index]
+    const truncatedText =
+      text.length > limit ? `${text.slice(0, limit)}...` : text
+
+    try {
+      const vector = await provider.embed(truncatedText, attempt.model)
+      if (!Array.isArray(vector) || vector.length === 0) {
+        return null
+      }
+
+      return {
+        embedding: vector,
+        model: attempt.model,
+        providerId: provider.id,
+        route: attempt.route,
+        attemptedRoutes: [attempt.route]
+      }
+    } catch (error) {
+      lastError = error
+      if (!isContextLengthError(error)) {
+        throw error
+      }
+    }
   }
 
-  return {
-    embedding: vector,
-    model: attempt.model,
-    providerId: provider.id,
-    route: attempt.route,
-    attemptedRoutes: [attempt.route]
+  if (lastError) {
+    throw lastError
   }
+
+  return null
 }
 
 const scheduleSharedModelWarmup = async (
@@ -170,6 +260,11 @@ const scheduleSharedModelWarmup = async (
   }
 }
 
+/**
+ * Resolves the sequence of embedding attempts based on the user's configured strategy.
+ * Possible routes include provider-native (LLM's matching model), shared-model
+ * (a secondary dedicated embedding provider like Ollama), and default-provider (last-resort).
+ */
 const buildAttempts = async (
   requestedModel?: string
 ): Promise<{
@@ -178,10 +273,30 @@ const buildAttempts = async (
 }> => {
   const config = await getEmbeddingConfig()
   const activeProvider = await getActiveProvider()
-  const sharedProviderId =
+  let sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-  const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+  const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
+
+  if (sharedProviderId === DEFAULT_SHARED_EMBEDDING_PROVIDER_ID) {
+    try {
+      const mapped = await ProviderManager.getModelMapping(storedEmbeddingModel)
+      if (mapped?.providerId) {
+        sharedProviderId = mapped.providerId
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.debug(
+          "Failed to resolve embedding model provider mapping",
+          "EmbeddingStrategy",
+          {
+            error: error.message,
+            model: storedEmbeddingModel
+          }
+        )
+      }
+    }
+  }
 
   const providerNativeModel = normalizeModelForProvider(
     activeProvider?.id || DEFAULT_PROVIDER_ID,
@@ -200,7 +315,11 @@ const buildAttempts = async (
   )
 
   const baseAttempts: EmbedAttempt[] = []
-  const providerNativeAttempt = activeProvider?.embed
+  const allowProviderNative =
+    !!activeProvider?.embed &&
+    (activeProvider.id === DEFAULT_PROVIDER_ID ||
+      config.embeddingStrategy === "provider-native")
+  const providerNativeAttempt = allowProviderNative
     ? {
         providerId: activeProvider.id,
         route: "provider-native" as const,
@@ -252,7 +371,7 @@ export const getEmbeddingCapabilities =
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
-    const sharedModel = config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+    const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
 
     let sharedProviderAvailable = false
     try {
@@ -272,10 +391,19 @@ export const getEmbeddingCapabilities =
     }
   }
 
+/**
+ * Robust embedding generation that tries multiple providers and models based on user preference.
+ * Use this as the primary entry point for vectorizing text in the extension.
+ * @param text The input string to vectorize.
+ * @param requestedModel Optional target model (e.g. if forcing specific document dimension).
+ * @throws Error if all configured routes and fallbacks fail.
+ */
 export const generateEmbeddingWithStrategy = async (
   text: string,
   requestedModel?: string
 ): Promise<EmbeddingStrategyResult> => {
+  const config = await getEmbeddingConfig()
+  const maxChars = Math.max(256, Math.floor(config.chunkSize * 4))
   const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
   const attemptedRoutes: EmbeddingRoute[] = []
   const routeErrors: string[] = []
@@ -284,7 +412,7 @@ export const generateEmbeddingWithStrategy = async (
     attemptedRoutes.push(attempt.route)
 
     try {
-      const result = await tryEmbed(text, attempt)
+      const result = await tryEmbed(text, attempt, maxChars)
       if (result) {
         result.attemptedRoutes = [...attemptedRoutes]
         return result
@@ -324,6 +452,10 @@ export const generateEmbeddingWithStrategy = async (
   )
 }
 
+/**
+ * Ensures the shared embedding model is loaded and ready in the background.
+ * Prevents first-use latency by "warming up" the model if configured.
+ */
 export const ensureEmbeddingStrategyReady =
   async (): Promise<EmbeddingStrategyReadiness> => {
     const config = await getEmbeddingConfig()
@@ -331,7 +463,7 @@ export const ensureEmbeddingStrategyReady =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
     const sharedModel = normalizeModelForProvider(
       sharedProviderId,
-      config.sharedEmbeddingModel || CANONICAL_EMBEDDING_MODEL
+      config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
     )
 
     if (!config.warmupEmbeddingsInBackground) {

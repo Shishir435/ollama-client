@@ -1,21 +1,29 @@
 import type { ModelConfig } from "@/types"
 
-// Default embedding model - use `mxbai-embed-large` for improved semantics
-export const DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
-export const CANONICAL_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-export const CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL = "all-minilm"
-export const CANONICAL_OLLAMA_EMBEDDING_MODEL =
-  CANONICAL_DEFAULT_PROVIDER_EMBEDDING_MODEL
+// Default embedding model - local-friendly default
+export const DEFAULT_EMBEDDING_MODEL = "all-minilm:latest"
+export const EMBEDDING_MODEL_ALIASES: Record<string, string> = {
+  "all-minilm": DEFAULT_EMBEDDING_MODEL,
+  "all-minilm-l6-v2": DEFAULT_EMBEDDING_MODEL,
+  "sentence-transformers/all-minilm-l6-v2": DEFAULT_EMBEDDING_MODEL
+}
+
+export const normalizeEmbeddingModelName = (modelName?: string): string => {
+  const trimmed = (modelName || "").trim()
+  if (!trimmed) return DEFAULT_EMBEDDING_MODEL
+
+  const normalized = trimmed.toLowerCase()
+  const alias = EMBEDDING_MODEL_ALIASES[normalized]
+  if (alias) return alias
+
+  return trimmed
+}
 export const DEFAULT_PROVIDER_ID = "ollama"
 export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = DEFAULT_PROVIDER_ID
 // Default provider model catalog (Ollama public library).
 export const DEFAULT_MODEL_LIBRARY_BASE_URL = "https://ollama.com"
 
-export const RECOMMENDED_EMBEDDING_MODELS = [
-  CANONICAL_EMBEDDING_MODEL,
-  "mxbai-embed-large",
-  "nomic-embed-text"
-] as const
+export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
 
 export const LEGACY_CONTEXT_MENU_ID = "add-to-ollama-client"
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-local-llm-client"
@@ -48,7 +56,13 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   repeat_last_n: 64,
   seed: 0,
   num_predict: -1,
-  min_p: 0.0
+  min_p: 0.0,
+  num_thread: undefined,
+  num_gpu: undefined,
+  num_batch: undefined,
+  keep_alive: undefined,
+  warm_on_select: false,
+  unload_on_switch: false
 }
 
 export const FILE_UPLOAD = {
@@ -59,12 +73,6 @@ export const FILE_UPLOAD = {
     CSV: "csv",
     TSV: "tsv",
     HTML: "html",
-    HTM: "htm",
-    PNG: "png",
-    JPG: "jpg",
-    JPEG: "jpeg",
-    WEBP: "webp",
-    GIF: "gif",
-    BMP: "bmp"
+    HTM: "htm"
   }
 }

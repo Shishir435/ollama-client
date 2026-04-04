@@ -19,8 +19,10 @@
     },
     "actions": {
       "retry": "पुनः प्रयास करें",
-      "refresh": "रिफ्रेश करें"
+      "refresh": "रिफ्रेश करें",
+      "close": "बंद करें"
     },
+    "updated_at": "अपडेट किया गया",
     "social": {
       "title": "मुझसे जुड़ें",
       "visit_profile": "मेरी {{platform}} प्रोफाइल देखें"
@@ -33,7 +35,19 @@
       "help_text": "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
     },
     "cancel": "रद्द करें",
-    "save": "सहेजें"
+    "save": "सहेजें",
+    "continue": "आयात जारी रखें",
+    "reload": "एक्सटेंशन पुनः लोड करें",
+    "close": "बंद करें",
+    "status": {
+      "active": "सक्रिय"
+    },
+    "labels": {
+      "performance": "प्रदर्शन"
+    },
+    "nav": {
+      "settings_aria": "सेटिंग्स नेविगेशन"
+    }
   },
   "selection_button": {
     "label": "स्थानीय LLM से पूछें",
@@ -62,11 +76,15 @@
       }
     },
     "setup_guide": {
-      "intro": "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
-      "step1": "एक स्थानीय प्रदाता इंस्टॉल करें (Ollama अनुशंसित)",
-      "step2": "एक मॉडल डाउनलोड करें (उदा. <code>ollama run llama3</code>)",
-      "step3": "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
-      "full_guide_link": "संपूर्ण सेटअप गाइड"
+      "title": "त्वरित सेटअप (Ollama)",
+      "intro": "आपको एक चैट मॉडल और एक एम्बेडिंग मॉडल के साथ Ollama चालू रखना होगा।",
+      "step1": "Ollama इंस्टॉल करें और इसे शुरू करें (<code>ollama serve</code>)",
+      "step2": "एक चैट मॉडल खींचें (<code>ollama pull qwen2.5:3b</code>)",
+      "step3": "एक एम्बेडिंग मॉडल खींचें (<code>ollama pull all-minilm:latest</code>)",
+      "step4": "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
+      "hint": "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
+      "full_guide_link": "पूर्ण सेटअप गाइड",
+      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
     },
     "features": {
       "private": {
@@ -113,6 +131,7 @@
       "switch_model_tooltip": "मॉडल बदलें",
       "edit": "संपादित करें",
       "export_as": "इस रूप में निर्यात करें...",
+      "more": "और",
       "delete": "संदेश हटाएँ"
     },
     "metrics": {
@@ -131,11 +150,30 @@
       "prompt_tokens": "{{value}} प्रॉम्प्ट",
       "generated_tokens": "{{value}} उत्पन्न",
       "avg_speed": "{{speed}} t/s",
+      "speed_unit": "t/s",
       "messages": "{{value}} संदेश",
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
       "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
       "tooltip_speed": "औसत उत्पन्न करने की गति",
       "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
+    },
+    "file": {
+      "loading_content": "पूरी सामग्री लोड हो रही है..."
+    },
+    "reasoning": {
+      "aria_label": "मॉडल विचार प्रक्रिया",
+      "title": "सोचने की प्रक्रिया",
+      "thinking": "सोच रहा हूँ…",
+      "done": "पूर्ण",
+      "hide": "छिपाएं",
+      "explore": "अन्वेषण करें",
+      "loading_thinking": "सोच रहा हूँ",
+      "loading_typing": "टाइपिंग",
+      "loading_queued": "कतार में"
+    },
+    "feedback": {
+      "helpful_tooltip": "यह मददगार था",
+      "not_helpful_tooltip": "यह मददगार नहीं था"
     },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -148,7 +186,9 @@
       "scope_current": "वर्तमान चैट",
       "searching": "चैट इतिहास खोजा जा रहा है...",
       "no_results": "कोई परिणाम नहीं मिला। कोई भिन्न खोज क्वेरी आज़माएँ।",
+      "no_results_description": "अपने कीवर्ड या खोज के दायरे को समायोजित करने का प्रयास करें।",
       "start_typing": "सिमेंटिक रूप से अपना चैट इतिहास खोजने के लिए टाइप करना शुरू करें...",
+      "start_typing_description": "सिमेंटिक खोज के माध्यम से अपने चैट इतिहास को खोजें।",
       "result_badge": "परिणाम",
       "results_badge": "परिणाम",
       "match_percentage": "% मिलान",
@@ -214,7 +254,7 @@
   "file_upload": {
     "button": {
       "aria_label": "फ़ाइल अपलोड करें",
-      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, टेक्स्ट फ़ाइलें)"
+      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)"
     },
     "preview": {
       "remove_aria_label": "फ़ाइल हटाएँ",
@@ -241,6 +281,7 @@
       "ready": "एम्बेडिंग मॉडल तैयार: {{model}}",
       "missing": "मॉडल गुम है: {{model}}",
       "checking_model": "एम्बेडिंग मॉडल जाँच रहा है...",
+      "error": "स्थिति जाँची नहीं जा सकी। पुनः प्रयास के लिए क्लिक करें।",
       "required_for_rag": "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
       "download_button": "मॉडल डाउनलोड करें"
     },
@@ -307,6 +348,17 @@
       "clear_chat_description": "सभी चैट एम्बेडिंग हटाएँ। आप उन्हें बाद में पुनः जेनरेट करने के लिए बैकफ़िल कर सकते हैं",
       "clear_all_button": "सभी एम्बेडिंग साफ़ करें",
       "clear_all_description": "सभी एम्बेडिंग (चैट, फ़ाइलें, वेबपृष्ठ) हटाएँ। यह कार्रवाई पूर्ववत नहीं की जा सकती",
+      "database_management": {
+        "remove_duplicates_confirm": "डुप्लिकेट एम्बेडिंग हटाएं? यह प्रत्येक अद्वितीय संदेश की केवल पहली घटना को रखेगा।",
+        "remove_duplicates_success": "{{deleted}} डुप्लिकेट हटा दिए गए। {{kept}} अद्वितीय एम्बेडिंग रखे गए।",
+        "remove_duplicates_error": "डुप्लिकेट हटाने में विफल। विवरण के लिए कंसोल देखें।",
+        "clear_chat_confirm": "सभी चैट एम्बेडिंग साफ़ करें? यह चैट के लिए सभी सिमेंटिक खोज डेटा हटा देगा। आप बाद में बैकफिल कर सकते हैं।",
+        "clear_chat_success": "{{count}} चैट एम्बेडिंग साफ़ किए गए।",
+        "clear_chat_error": "चैट वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।",
+        "clear_all_confirm": "सभी एम्बेडिंग साफ़ करें? यह सभी सिमेंटिक खोज डेटा (चैट, फ़ाइलें, वेब पेज) हटा देगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+        "clear_all_success": "सभी एम्बेडिंग साफ़ कर दिए गए।",
+        "clear_all_error": "सभी वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।"
+      },
       "chunking_title": "चंकिंग सेटिंग्स",
       "chunking_description": "एम्बेडिंग के लिए टेक्स्ट को चंक्स में कैसे विभाजित किया जाता है, इसे कॉन्फ़िगर करें",
       "chunk_size_label": "चंक्स साइज़ (टोकन)",
@@ -352,19 +404,21 @@
       "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
       "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
       "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
-      "enhanced_chunking_label": "Enhanced Chunking",
-      "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
-      "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_enable_label": "Enable RAG",
-      "rag_enable_description": "Use retrieved context to answer questions about your files",
-      "rag_system_prompt_label": "RAG System Prompt",
-      "rag_system_prompt_description": "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+      "enhanced_chunking_label": "बेहतर चंकिंग",
+      "enhanced_chunking_description": "बेहतर संदर्भ के लिए उन्नत पुनरावर्ती वर्ण विभाजन का उपयोग करें",
+      "enhanced_chunking_info": "बेहतर चंकिंग अर्थपूर्ण अर्थ को बनाए रखने के लिए टेक्स्ट को श्रेणीबद्ध रूप से (पैराग्राफ → वाक्य → शब्द) विभाजित करती है। यह RAG के लिए अनुशंसित है।",
+      "rag_settings_title": "RAG (रिट्रीवल ऑगमेंटेड जेनरेशन)",
+      "rag_settings_description": "कॉन्फ़िगर करें कि पुनर्प्राप्त संदर्भ के साथ प्रश्नों के उत्तर देने के लिए फ़ाइलों का उपयोग कैसे किया जाता है",
+      "rag_enable_label": "RAG सक्षम करें",
+      "rag_enable_description": "अपनी फ़ाइलों के बारे में प्रश्नों के उत्तर देने के लिए प्राप्त संदर्भ का उपयोग करें",
+      "rag_system_prompt_label": "RAG सिस्टम प्रॉम्प्ट",
+      "rag_system_prompt_description": "सिस्टम प्रॉम्प्ट के लिए टेम्पलेट। प्राप्त टेक्स्ट के लिए {context} और उपयोगकर्ता क्वेरी के लिए {question} का उपयोग करें।",
       "advanced_retrieval_title": "उन्नत पुनर्प्राप्ति सेटिंग्स",
       "adaptive_weights_label": "अनुकूली हाइब्रिड भार",
       "adaptive_weights_description": "क्वेरी प्रकार (जैसे, कोड बनाम अवधारणाएं) के आधार पर कीवर्ड बनाम शब्दार्थ खोज को स्वचालित रूप से समायोजित करें",
       "temporal_boosting_label": "कालिक प्रासंगिकता बढ़ावा",
       "temporal_boosting_description": "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
-      "reranking_label": "री-रैंकिंग सक्षम करें (Transformers.js)",
+      "reranking_label": "री-रैंकिंग सक्षम करें",
       "reranking_description": "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
       "hybrid_search_label": "हाइब्रिड खोज सक्षम करें",
       "hybrid_search_description": "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
@@ -381,7 +435,30 @@
       "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
       "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
       "embedding_source_description": "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
-      "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)"
+      "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)",
+      "feedback_learning_title": "उपयोगकर्ता फीडबैक लर्निंग",
+      "feedback_learning_description": "अपने फीडबैक से सीखकर खोज गुणवत्ता में सुधार करें",
+      "feedback_enable_label": "फीडबैक संग्रह सक्षम करें",
+      "feedback_enable_description": "याद रखें कि भविष्य की पुनर्प्राप्ति में सुधार के लिए कौन से चंक्स सहायक थे",
+      "feedback_show_chunks_label": "पुनर्प्राप्त चंक्स दिखाएं",
+      "feedback_show_chunks_description": "फीडबैक बटन के साथ चैट में स्रोत चंक्स प्रदर्शित करें",
+      "feedback_blend_weight_label": "फीडबैक लर्निंग भार",
+      "feedback_blend_weight_description": "सीखे गए फीडबैक बनाम मॉडल स्कोर (0-1) पर कितना भरोसा करना है",
+      "feedback_export_button": "फीडबैक डेटा निर्यात करें",
+      "feedback_clear_button": "सभी फीडबैक साफ़ करें",
+      "feedback_privacy_note": "सभी फीडबैक स्थानीय रूप से संग्रहीत हैं। गोपनीयता के लिए प्रश्नों को हैश किया गया है। कोई भी डेटा आपके डिवाइस को नहीं छोड़ता है।",
+      "feedback_stats_title": "फीडबैक आँकड़े",
+      "feedback_stats_total": "कुल फीडबैक",
+      "feedback_stats_helpful": "सहायक दर",
+      "feedback_stats_chunks": "अद्वितीय चंक्स",
+      "feedback_stats_queries": "अद्वितीय प्रश्न",
+      "feedback_privacy_title": "गोपनीयता",
+      "feedback_export_success": "फीडबैक निर्यात किया गया",
+      "feedback_export_error": "फीडबैक निर्यात करने में विफल",
+      "feedback_clear_confirm_title": "फीडबैक साफ़ करें?",
+      "feedback_clear_confirm_description": "यह स्थायी रूप से सभी फीडबैक को हटा देगा। इसे पूर्ववत नहीं किया जा सकता।",
+      "feedback_clear_success": "फीडबैक साफ़ किया गया",
+      "feedback_clear_error": "फीडबैक साफ़ करने में विफल"
     },
     "provider_status": {
       "checking": "Provider स्थिति जाँच रहा है...",
@@ -452,7 +529,8 @@
       "label_off": "टैब",
       "label_on": "टैब+",
       "tooltip": "खुले टैब के साथ इंटरैक्ट करें"
-    }
+    },
+    "context": "Context"
   },
   "settings": {
     "chat_display": {
@@ -635,6 +713,17 @@
           "label": "पिछले N दोहराएँ",
           "validation_min": "कम से कम {{min}} होना चाहिए।"
         }
+      },
+      "runtime": {
+        "title": "रनटाइम और वार्मअप",
+        "description": "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
+        "keep_alive_label": "जीवित रखें",
+        "keep_alive_description": "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
+        "keep_alive_placeholder": "जैसे 300, 5m, अनलोड के लिए 0",
+        "warm_on_select_label": "चयन पर मॉडल को वार्म करें",
+        "warm_on_select_description": "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
+        "unload_on_switch_label": "बदलते समय पिछले मॉडल को अनलोड करें",
+        "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
       }
     },
     "base_url": {
@@ -707,7 +796,8 @@
       "guides": "गाइड",
       "memory": "मेमोरी",
       "shortcuts": "शॉर्टकट",
-      "providers": "प्रदाता"
+      "providers": "प्रदाता",
+      "context": "संदर्भ"
     },
     "memory": {
       "title": "प्रासंगिक मेमोरी",
@@ -830,7 +920,17 @@
       "model_select": {
         "label": "एम्बेडिंग मॉडल",
         "placeholder": "एक मॉडल चुनें",
-        "description": "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।"
+        "description": "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।",
+        "recommended_group": "अनुशंसित मॉडल",
+        "all_models_group": "सभी मॉडल",
+        "show_advanced_label": "सभी प्रोवाइडर मॉडल दिखाएँ",
+        "show_advanced_description": "अपने प्रोवाइडर्स द्वारा उपलब्ध किसी भी एम्बेडिंग मॉडल के लिए उन्नत चयन सक्षम करें। अनुशंसित मॉडल सबसे सुसंगत खोज गुणवत्ता देते हैं।"
+      },
+      "model_change_confirm": {
+        "title": "क्या अब एम्बेडिंग्स रीबिल्ड करें?",
+        "description": "एंबेडिंग मॉडल बदलने से मौजूदा वेक्टर असंगत हो सकते हैं। सटीक खोज परिणामों के लिए इंडेक्स रीबिल्ड करें, या बिना रीबिल्ड किए स्विच करें।",
+        "switch_only": "बिना रीबिल्ड स्विच करें",
+        "switch_and_rebuild": "स्विच करें और रीबिल्ड करें"
       }
     },
     "prompts": {
@@ -893,22 +993,31 @@
       },
       "modules": {
         "theme": {
+          "title": "थीम और इंटरफ़ेस",
           "description": "UI स्वरूपण प्राथमिकताएँ"
         },
         "browser": {
+          "title": "ब्राउज़र सेटिंग्स",
           "description": "टैब एक्सेस और URL पैटर्न"
         },
         "tts": {
+          "title": "टेक्स्ट-टू-स्पीच",
           "description": "टेक्स्ट-टू-स्पीच सेटिंग्स"
         },
         "chat_sessions": {
+          "title": "चैट इतिहास",
           "description": "बातचीत का इतिहास"
         },
         "default": {
           "description": "मॉड्यूल सेटिंग्स"
         },
         "provider": {
+          "title": "प्रदाता सेटिंग्स",
           "description": "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
+        },
+        "feedback": {
+          "title": "उपयोगकर्ता फीडबैक",
+          "description": "सभी सीखने और प्राप्त किए गए खंड प्रतिक्रिया को साफ़ करें"
         }
       },
       "item_count": "{{count}} आइटम",
@@ -944,6 +1053,41 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "कोई मॉडल नहीं मिला",
         "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+      }
+    },
+    "migration": {
+      "title": "डेटा माइग्रेशन",
+      "description": "वरीयताओं, चैट इतिहास और एम्बेडिंग डेटाबेस सहित अपने सभी एक्सटेंशन डेटा को निर्यात या आयात करें।",
+      "export": {
+        "label": "पूर्ण बैकअप निर्यात करें",
+        "description": "सभी एक्सटेंशन डेटा का एक पूर्ण बैकअप एक ज़िप फ़ाइल के रूप में डाउनलोड करें।",
+        "button": "सभी निर्यात करें"
+      },
+      "import": {
+        "label": "बैकअप आयात करें",
+        "description": "पहले से निर्यातित ज़िप बैकअप से डेटा पुनर्स्थापित करें। यह मौजूदा डेटा को अधिलेखित कर देगा।",
+        "button": "सभी आयात करें"
+      },
+      "import_confirm": {
+        "title": "क्या आप बिल्कुल सुनिश्चित हैं?",
+        "description": "यह क्रिया बैकअप फ़ाइल की सामग्री के साथ आपकी मौजूदा प्राथमिकताओं, चैट इतिहास और डेटाबेस को पूरी तरह से अधिलेखित कर देगी। इस क्रिया को पूर्ववत नहीं किया जा सकता है।"
+      },
+      "import_result": {
+        "title": "आयात परिणाम",
+        "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+        "labels": {
+          "sync": "प्राथमिकताएँ (Sync)",
+          "local": "स्थानीय संग्रहण",
+          "database": "डेटाबेस (SQLite)",
+          "chatDb": "चैट इतिहास (Dexie)",
+          "vectorDb": "वेक्टर एम्बेडिंग (Dexie)",
+          "knowledgeDb": "ज्ञान सेट (Dexie)"
+        },
+        "status": {
+          "success": "सफल",
+          "failed": "विफल",
+          "aborted": "निरस्त"
+        }
       }
     }
   },
@@ -984,6 +1128,63 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
+    "context": {
+      "file_upload": {
+        "title": "फ़ाइल इनजेशन",
+        "description": "कॉन्फ़िगर करें कि ज्ञान पुनर्प्राप्ति के लिए फ़ाइलों को कैसे संसाधित किया जाता है।"
+      },
+      "embedding_health": {
+        "title": "मिश्रित एम्बेडिंग आयाम पाए गए",
+        "description": "एम्बेडिंग कई आयामों ({{dimensions}}) पर संग्रहीत हैं। सब कुछ पुनर्निर्माण होने तक खोज और मेमोरी विफल हो सकती है।",
+        "note": "पुनर्निर्माण सभी एम्बेडिंग को साफ़ करता है और चैट इतिहास को फिर से एम्बेड करता है। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+        "memory_disabled": "मेमोर बंद है, इसलिए चैट एम्बेडिंग का पुनर्निर्माण नहीं किया गया था।",
+        "action": "एम्बेडिंग फिर से बनाएं",
+        "action_rebuilding": "फिर से बना रहा है...",
+        "confirm": "एम्बेडिंग फिर से बनाएं? यह सभी एम्बेडिंग को साफ़ कर देगा और चैट इतिहास को फिर से एम्बेड करेगा। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+        "progress": "चैट एम्बेडिंग फिर से बन रहे हैं ({{current}}/{{total}})",
+        "success": "एम्बेडिंग सफलतापूर्वक फिर से बन गए।",
+        "error": "एम्बेडिंग फिर से बनाने में विफल।"
+      }
+    },
     "bug_report": "बग / सुविधा रिपोर्ट करें"
+  },
+  "knowledge_sets": {
+    "title": "ज्ञान सेट",
+    "active_label": "सक्रिय ज्ञान सेट",
+    "active_description": "जब कोई फ़ाइल संलग्न न हो, तब उपयोग होने वाला ज्ञान सेट चुनें।",
+    "active_placeholder": "ज्ञान सेट चुनें",
+    "create_label": "ज्ञान सेट बनाएं",
+    "create_description": "फ़ाइलों को समूहित करने के लिए नया ज्ञान सेट बनाएं।",
+    "create_placeholder": "ज्ञान सेट का नाम",
+    "create_button": "बनाएं",
+    "rename_label": "ज्ञान सेट का नाम बदलें",
+    "rename_description": "सक्रिय ज्ञान सेट का नाम बदलें।",
+    "rename_placeholder": "नया नाम",
+    "rename_button": "नाम बदलें",
+    "delete_label": "ज्ञान सेट हटाएं",
+    "delete_description": "सक्रिय ज्ञान सेट और उसका फ़ाइल मैपिंग हटाएं (एम्बेडिंग्स रहेंगी)।",
+    "delete_button": "हटाएं",
+    "delete_confirm": "\"{{name}}\" हटाएं? यह वापस नहीं किया जा सकता।",
+    "prompt_label": "RAG निर्देश प्रॉम्प्ट",
+    "prompt_description": "इस ज्ञान सेट के लिए प्राप्त संदर्भ से पहले जोड़े जाने वाले निर्देश।",
+    "question_prompt_label": "प्रश्न पुनः‑रचना प्रॉम्प्ट",
+    "question_prompt_description": "इस ज्ञान सेट के लिए फ़ॉलो‑अप प्रश्नों को स्वतंत्र प्रश्नों में बदलने वाला प्रॉम्प्ट।",
+    "topk_label": "Retrieval Top‑K",
+    "topk_description": "इस ज्ञान सेट के लिए कितने चंक प्राप्त करें।",
+    "min_similarity_label": "न्यूनतम समानता",
+    "min_similarity_description": "इस ज्ञान सेट के चंक्स के लिए न्यूनतम समानता सीमा।",
+    "min_rerank_label": "न्यूनतम rerank स्कोर",
+    "min_rerank_description": "इस ज्ञान सेट के चंक्स के लिए reranker का न्यूनतम भरोसा।"
+  },
+  "knowledge": {
+    "embedding_source": {
+      "status_active": "सक्रिय",
+      "provider_details": "उच्च गुणवत्ता वाली एम्बेडिंग • 768-1024 आयाम • सुसंगत परिणाम",
+      "webgpu_warning_title": "WebGPU एम्बेडिंग जनरेशन उपलब्ध नहीं है",
+      "webgpu_warning_text": "Chrome एक्सटेंशन की सामग्री सुरक्षा नीति प्रतिबंधों के कारण। WebGPU री-रैंकिंग अभी भी सक्रिय और कार्यात्मक है। एम्बेडिंग प्रदाता फ़ॉलबैक श्रृंखला के माध्यम से जेनरेट किए जाते हैं, जब मूल समर्थन उपलब्ध नहीं होता है तो डिफ़ॉल्ट प्रदाता का उपयोग किया जाता है।",
+      "performance_title": "प्रदर्शन",
+      "performance_default": "डिफ़ॉल्ट प्रदाता एम्बेडिंग जनरेशन: प्रति चंक ~500ms",
+      "provider_hint": "सुनिश्चित करें कि आपका स्थानीय प्रदाता चल रहा है (डिफ़ॉल्ट: localhost:11434)"
+    }
   }
 }

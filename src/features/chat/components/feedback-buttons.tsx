@@ -1,5 +1,6 @@
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -25,6 +26,7 @@ export const FeedbackButtons = ({
   query,
   className
 }: FeedbackButtonsProps) => {
+  const { t } = useTranslation()
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null)
 
   // If no sources with IDs, we can't record specific feedback
@@ -51,9 +53,9 @@ export const FeedbackButtons = ({
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <TooltipProvider>
-        <Tooltip delayDuration={300}>
+    <TooltipProvider delay={300}>
+      <div className={cn("flex items-center gap-1", className)}>
+        <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
@@ -69,12 +71,10 @@ export const FeedbackButtons = ({
               <ThumbsUp className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Helpful Response</TooltipContent>
+          <TooltipContent>{t("chat.feedback.helpful_tooltip")}</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
 
-      <TooltipProvider>
-        <Tooltip delayDuration={300}>
+        <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
@@ -90,9 +90,11 @@ export const FeedbackButtons = ({
               <ThumbsDown className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Not Helpful</TooltipContent>
+          <TooltipContent>
+            {t("chat.feedback.not_helpful_tooltip")}
+          </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

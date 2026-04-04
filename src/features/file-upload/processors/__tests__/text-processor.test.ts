@@ -10,7 +10,9 @@ describe("TextProcessor", () => {
 
   describe("canProcess", () => {
     it("should accept text files", () => {
-      const file = new File(["test content"], "test.txt", { type: "text/plain" })
+      const file = new File(["test content"], "test.txt", {
+        type: "text/plain"
+      })
       expect(processor.canProcess(file)).toBe(true)
     })
 
@@ -25,36 +27,44 @@ describe("TextProcessor", () => {
     })
 
     it("should reject PDF files by extension", () => {
-      const file = new File([new ArrayBuffer(10)], "document.pdf", { type: "application/pdf" })
+      const file = new File([new ArrayBuffer(10)], "document.pdf", {
+        type: "application/pdf"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
     it("should reject PDF files by mime type", () => {
-      const file = new File([new ArrayBuffer(10)], "document.unknown", { type: "application/pdf" })
+      const file = new File([new ArrayBuffer(10)], "document.unknown", {
+        type: "application/pdf"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
     it("should reject DOCX files", () => {
-      const file = new File(
-        [new ArrayBuffer(10)],
-        "document.docx",
-        { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
-      )
+      const file = new File([new ArrayBuffer(10)], "document.docx", {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
     it("should reject image files", () => {
-      const file = new File([new ArrayBuffer(10)], "image.png", { type: "image/png" })
+      const file = new File([new ArrayBuffer(10)], "image.png", {
+        type: "image/png"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
     it("should reject binary files", () => {
-      const file = new File([new ArrayBuffer(10)], "app.exe", { type: "application/x-msdownload" })
+      const file = new File([new ArrayBuffer(10)], "app.exe", {
+        type: "application/x-msdownload"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
     it("should reject zip files", () => {
-      const file = new File([new ArrayBuffer(10)], "archive.zip", { type: "application/zip" })
+      const file = new File([new ArrayBuffer(10)], "archive.zip", {
+        type: "application/zip"
+      })
       expect(processor.canProcess(file)).toBe(false)
     })
 
@@ -64,12 +74,16 @@ describe("TextProcessor", () => {
     })
 
     it("should accept JSON files", () => {
-      const file = new File(['{"key": "value"}'], "data.json", { type: "application/json" })
+      const file = new File(['{"key": "value"}'], "data.json", {
+        type: "application/json"
+      })
       expect(processor.canProcess(file)).toBe(true)
     })
 
     it("should accept JavaScript files", () => {
-      const file = new File(['console.log("test")'], "script.js", { type: "text/javascript" })
+      const file = new File(['console.log("test")'], "script.js", {
+        type: "text/javascript"
+      })
       expect(processor.canProcess(file)).toBe(true)
     })
   })
@@ -162,7 +176,9 @@ describe("TextProcessor", () => {
       // Mock the text() method to throw error
       vi.spyOn(file, "text").mockRejectedValue(new Error("Read failed"))
 
-      await expect(processor.process(file)).rejects.toThrow("Failed to process text file")
+      await expect(processor.process(file)).rejects.toThrow(
+        "Failed to process text file"
+      )
     })
   })
 })

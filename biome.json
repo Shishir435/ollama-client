@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!docs", "!tools", "!src/globals.css", "!**/__tests__"]
+    "includes": ["**", "!docs", "!tools", "!src/globals.css", "!public"]
   },
   "formatter": {
     "enabled": true,
@@ -32,5 +32,17 @@
       "quoteProperties": "asNeeded",
       "arrowParentheses": "always"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -24,8 +24,10 @@ export const resources = {
         },
         actions: {
           retry: "Wiederholen",
-          refresh: "Aktualisieren"
+          refresh: "Aktualisieren",
+          close: "Schließen"
         },
+        updated_at: "Aktualisiert",
         social: {
           title: "Verbinde Dich mit mir",
           visit_profile: "Besuche mein {{platform}}-Profil"
@@ -40,7 +42,19 @@ export const resources = {
             "Übersetzungen sind KI-generiert. Helfen Sie uns, uns zu verbessern, indem Sie auf <0>GitHub</0> einen Beitrag leisten!"
         },
         cancel: "Abbrechen",
-        save: "Speichern"
+        save: "Speichern",
+        continue: "Import Fortsetzen",
+        reload: "Erweiterung Neu Laden",
+        close: "Schließen",
+        status: {
+          active: "Aktiv"
+        },
+        labels: {
+          performance: "Leistung"
+        },
+        nav: {
+          settings_aria: "Einstellungen-Navigation"
+        }
       },
       selection_button: {
         label: "Lokalen LLM fragen",
@@ -69,12 +83,20 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Bevor Sie beginnen, folgen Sie diesen schnellen Schritten:",
-          step1: "Installieren Sie einen lokalen Provider (Ollama empfohlen)",
-          step2: "Ziehen Sie ein Modell (z. B. <code>ollama run llama3</code>)",
+          title: "Schnelleinrichtung (Ollama)",
+          intro:
+            "Sie benötigen Ollama, das mit einem Chat-Modell und einem Embeddings-Modell läuft.",
+          step1: "Ollama installieren und starten (<code>ollama serve</code>)",
+          step2:
+            "Ein Chat-Modell herunterladen (<code>ollama pull qwen2.5:3b</code>)",
           step3:
+            "Ein Embeddings-Modell herunterladen (<code>ollama pull all-minilm:latest</code>)",
+          step4:
             "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
-          full_guide_link: "Vollständige Einrichtungsanleitung"
+          hint: "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
+          full_guide_link: "Vollständige Einrichtungsanleitung",
+          firefox_warning:
+            "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren."
         },
         features: {
           private: {
@@ -124,6 +146,7 @@ export const resources = {
           fork: "Konversation abzweigen",
           edit: "Bearbeiten",
           export_as: "Exportieren als...",
+          more: "Mehr",
           delete: "Nachricht löschen"
         },
         metrics: {
@@ -142,11 +165,30 @@ export const resources = {
           prompt_tokens: "{{value}} Prompt",
           generated_tokens: "{{value}} generiert",
           avg_speed: "{{speed}} T/s",
+          speed_unit: "T/s",
           messages: "{{value}} Nachrichten",
           tooltip_tokens: "Insgesamt in dieser Sitzung genutzte Token",
           tooltip_time: "Gesamte Antwortzeit",
           tooltip_speed: "Durchschnittliche Generierungsgeschwindigkeit",
           tooltip_messages: "Anzahl der KI-Antworten"
+        },
+        file: {
+          loading_content: "Vollständiger Inhalt wird geladen..."
+        },
+        reasoning: {
+          aria_label: "Modell-Überlegungen",
+          title: "Denkprozess",
+          thinking: "Überlegt…",
+          done: "Fertig",
+          hide: "Ausblenden",
+          explore: "Erkunden",
+          loading_thinking: "Überlegt",
+          loading_typing: "Tippt",
+          loading_queued: "Warteschlange"
+        },
+        feedback: {
+          helpful_tooltip: "Das war hilfreich",
+          not_helpful_tooltip: "Das war nicht hilfreich"
         },
         search: {
           button_title: "Chat-Verlauf suchen (semantische Suche)",
@@ -161,8 +203,12 @@ export const resources = {
           searching: "Chat-Verlauf wird durchsucht...",
           no_results:
             "Keine Ergebnisse gefunden. Versuchen Sie eine andere Suchanfrage.",
+          no_results_description:
+            "Versuchen Sie, Ihre Schlüsselwörter oder den Suchbereich anzupassen.",
           start_typing:
             "Beginnen Sie mit der Eingabe, um Ihren Chat-Verlauf semantisch zu durchsuchen...",
+          start_typing_description:
+            "Durchsuchen Sie Ihren Chat-Verlauf mithilfe der semantischen Suche.",
           result_badge: "Ergebnis",
           results_badge: "Ergebnisse",
           match_percentage: "% Übereinstimmung",
@@ -234,7 +280,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Datei hochladen",
-          tooltip: "Datei hochladen (PDF, DOCX, Textdateien)"
+          tooltip: "Datei hochladen (PDF, DOCX, CSV, HTML, Text)"
         },
         preview: {
           remove_aria_label: "Datei entfernen",
@@ -262,6 +308,8 @@ export const resources = {
           ready: "Embedding-Modell bereit: {{model}}",
           missing: "Modell fehlt: {{model}}",
           checking_model: "Embedding-Modell wird geprüft...",
+          error:
+            "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
           required_for_rag:
             "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
           download_button: "Modell herunterladen"
@@ -338,6 +386,24 @@ export const resources = {
           clear_all_button: "Alle Embeddings löschen",
           clear_all_description:
             "Löschen Sie alle Embeddings (Chats, Dateien, Webseiten). Diese Aktion kann nicht rückgängig gemacht werden",
+          database_management: {
+            remove_duplicates_confirm:
+              "Doppelte Einbettungen entfernen? Dadurch wird nur das erste Vorkommen jeder eindeutigen Nachricht beibehalten.",
+            remove_duplicates_success:
+              "{{deleted}} Duplikat(e) entfernt. {{kept}} eindeutige Einbettung(en) behalten.",
+            remove_duplicates_error:
+              "Duplikate konnten nicht entfernt werden. Details finden Sie in der Konsole.",
+            clear_chat_confirm:
+              "Alle Chat-Einbettungen löschen? Dadurch werden alle semantischen Suchdaten für Chats gelöscht. Sie können später eine Nachfüllung vornehmen.",
+            clear_chat_success: "{{count}} Chat-Einbettung(en) gelöscht.",
+            clear_chat_error:
+              "Chat-Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole.",
+            clear_all_confirm:
+              "ALLE Einbettungen löschen? Dadurch werden alle semantischen Suchdaten (Chats, Dateien, Webseiten) gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+            clear_all_success: "Alle Einbettungen gelöscht.",
+            clear_all_error:
+              "Alle Vektoren konnten nicht gelöscht werden. Details finden Sie in der Konsole."
+          },
           chunking_title: "Chunking-Einstellungen",
           chunking_description:
             "Konfigurieren Sie, wie Text zur Einbettung in Chunks aufgeteilt wird",
@@ -403,17 +469,20 @@ export const resources = {
           cache_max_size_label: "Max. zwischengespeicherte Abfragen",
           cache_max_size_description:
             "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Erweitertes Chunking",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Verwenden Sie fortgeschrittene rekursive Zeichenteilung für besseren Kontext",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Erweitertes Chunking teilt Text hierarchisch auf (Absätze → Sätze → Wörter), um die semantische Bedeutung zu bewahren. Dies wird für RAG empfohlen.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
+          rag_enable_label: "RAG aktivieren",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
+          rag_system_prompt_label: "RAG-System-Prompt",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Vorlage für den System-Prompt. Verwenden Sie {context} für abgerufenen Text und {question} für die Benutzeranfrage.",
           advanced_retrieval_title: "Erweiterte Abrufeinstellungen",
           adaptive_weights_label: "Adaptive Hybrid-Gewichtung",
           adaptive_weights_description:
@@ -421,7 +490,7 @@ export const resources = {
           temporal_boosting_label: "Zeitliche Relevanzverstärkung",
           temporal_boosting_description:
             "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
-          reranking_label: "Re-Ranking aktivieren (Transformers.js)",
+          reranking_label: "Re-Ranking aktivieren",
           reranking_description:
             "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
           hybrid_search_label: "Hybrid-Suche aktivieren",
@@ -446,7 +515,20 @@ export const resources = {
             "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
           embedding_source_description:
             "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
-          embedding_source_default_provider: "Standard-Provider (Ollama)"
+          embedding_source_default_provider: "Standard-Provider (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Provider-Status wird geprüft...",
@@ -520,7 +602,8 @@ export const resources = {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Mit offenen Tabs interagieren"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -720,6 +803,21 @@ export const resources = {
               label: "Letzte N wiederholen",
               validation_min: "Muss mindestens {{min}} sein."
             }
+          },
+          runtime: {
+            title: "Laufzeit & Aufwärmen",
+            description:
+              "Steuern Sie das Aufwärmen und die Laufzeitoptionen für das Modell.",
+            keep_alive_label: "Geladen halten",
+            keep_alive_description:
+              "Wie lange das Modell nach einer Anfrage im Speicher bleiben soll. Verwenden Sie Sekunden oder Dauer wie 5m.",
+            keep_alive_placeholder: "z.B. 300, 5m, 0 zum Entladen",
+            warm_on_select_label: "Modell beim Auswählen aufwärmen",
+            warm_on_select_description:
+              "Das Modell beim Wechseln vorladen, um die erste Antwort zu beschleunigen.",
+            unload_on_switch_label: "Vorheriges Modell beim Wechsel entladen",
+            unload_on_switch_description:
+              "Speicher durch Entladen des vorherigen Modells beim Wechseln freigeben."
           }
         },
         base_url: {
@@ -795,7 +893,8 @@ export const resources = {
           guides: "Anleitungen",
           memory: "Gedächtnis",
           shortcuts: "Tastaturkürzel",
-          providers: "Anbieter"
+          providers: "Anbieter",
+          context: "Kontext"
         },
         memory: {
           title: "Kontextuelles Gedächtnis",
@@ -942,7 +1041,19 @@ export const resources = {
             label: "Embedding-Modell",
             placeholder: "Ein Modell auswählen",
             description:
-              "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen."
+              "Wählen Sie ein Modell zum Generieren von Embeddings. Möglicherweise müssen Sie es zuerst herunterladen.",
+            recommended_group: "Empfohlene Modelle",
+            all_models_group: "Alle Modelle",
+            show_advanced_label: "Alle Anbieter-Modelle anzeigen",
+            show_advanced_description:
+              "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse."
+          },
+          model_change_confirm: {
+            title: "Einbettungen jetzt neu erstellen?",
+            description:
+              "Beim Wechsel des Einbettungsmodells können vorhandene Vektoren inkompatibel werden. Erstelle den Index neu, um Suchergebnisse korrekt zu halten, oder wechsle ohne Neuaufbau.",
+            switch_only: "Wechseln ohne Neuaufbau",
+            switch_and_rebuild: "Wechseln und Neuaufbau"
           }
         },
         prompts: {
@@ -1012,22 +1123,31 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Thema & Benutzeroberfläche",
               description: "UI-Erscheinungspräferenzen"
             },
             browser: {
+              title: "Browser-Einstellungen",
               description: "Tab-Zugriff und URL-Muster"
             },
             tts: {
+              title: "Text-zu-Sprache",
               description: "Text-to-Speech-Einstellungen"
             },
             chat_sessions: {
+              title: "Chat-Verlauf",
               description: "Konversationsverlauf"
             },
             default: {
               description: "Moduleinstellungen"
             },
             provider: {
+              title: "Provider-Einstellungen",
               description: "Modelleinstellungen und Konfigurationen"
+            },
+            feedback: {
+              title: "Benutzer-Feedback",
+              description: "Alle Lern- und abgerufenen Chunk-Feedbacks löschen"
             }
           },
           item_count: "{{count}} Element",
@@ -1066,6 +1186,45 @@ export const resources = {
             no_models_title: "Keine Modelle gefunden",
             no_models_description:
               "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft."
+          }
+        },
+        migration: {
+          title: "Datenmigration",
+          description:
+            "Exportieren oder importieren Sie alle Ihre Erweiterungsdaten einschließlich Einstellungen, Chat-Verlauf und Einbettungsdatenbanken.",
+          export: {
+            label: "Vollständiges Backup Exportieren",
+            description:
+              "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
+            button: "Alles Exportieren"
+          },
+          import: {
+            label: "Backup Importieren",
+            description:
+              "Stellen Sie Daten aus einem zuvor exportierten ZIP-Backup wieder her. Dies überschreibt vorhandene Daten.",
+            button: "Alles Importieren"
+          },
+          import_confirm: {
+            title: "Sind Sie absolut sicher?",
+            description:
+              "Diese Aktion überschreibt Ihre vorhandenen Einstellungen, den Chat-Verlauf und die Datenbanken vollständig mit dem Inhalt der Backup-Datei. Diese Aktion kann nicht rückgängig gemacht werden."
+          },
+          import_result: {
+            title: "Import-Ergebnisse",
+            description: "Überprüfen Sie den Status Ihres Datenimports unten:",
+            labels: {
+              sync: "Einstellungen (Sync)",
+              local: "Lokaler Speicher",
+              database: "Datenbank (SQLite)",
+              chatDb: "Chat-Verlauf (Dexie)",
+              vectorDb: "Vektor-Embeddings (Dexie)",
+              knowledgeDb: "Wissensdatenbanken (Dexie)"
+            },
+            status: {
+              success: "Erfolg",
+              failed: "Fehlgeschlagen",
+              aborted: "Abgebrochen"
+            }
           }
         }
       },
@@ -1111,7 +1270,82 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Datei-Ingestion",
+            description:
+              "Konfigurieren Sie, wie Dateien für den Wissensabruf verarbeitet werden."
+          },
+          embedding_health: {
+            title: "Gemischte Embedding-Dimensionen erkannt",
+            description:
+              "Embeddings sind in mehreren Dimensionen gespeichert ({{dimensions}}). Suche und Gedächtnis können fehlschlagen, bis alles neu aufgebaut ist.",
+            note: "Neu aufbauen löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+            memory_disabled:
+              "Gedächtnis ist ausgeschaltet, daher wurden Chat-Embeddings nicht neu aufgebaut.",
+            action: "Embeddings neu aufbauen",
+            action_rebuilding: "Baue neu auf...",
+            confirm:
+              "Embeddings neu aufbauen? Dies löscht alle Embeddings und formatiert den Chatverlauf neu. Datei-Uploads müssen erneut hochgeladen werden, um das Wissen wiederherzustellen.",
+            progress: "Baue Chat-Embeddings neu auf ({{current}}/{{total}})",
+            success: "Embeddings erfolgreich neu aufgebaut.",
+            error: "Fehler beim Neuaufbau der Embeddings."
+          }
+        },
         bug_report: "Fehler / Funktion melden"
+      },
+      knowledge_sets: {
+        title: "Wissenssammlungen",
+        active_label: "Aktive Wissenssammlung",
+        active_description:
+          "Wählen Sie die Wissenssammlung, die verwendet wird, wenn keine Dateien angehängt sind.",
+        active_placeholder: "Wissenssammlung auswählen",
+        create_label: "Wissenssammlung erstellen",
+        create_description:
+          "Erstellen Sie eine neue Wissenssammlung zum Gruppieren von Dateien.",
+        create_placeholder: "Name der Wissenssammlung",
+        create_button: "Erstellen",
+        rename_label: "Wissenssammlung umbenennen",
+        rename_description: "Ändern Sie den Namen der aktiven Wissenssammlung.",
+        rename_placeholder: "Neuer Name",
+        rename_button: "Umbenennen",
+        delete_label: "Wissenssammlung löschen",
+        delete_description:
+          "Löscht die aktive Wissenssammlung und ihre Dateizuordnung (Einbettungen bleiben).",
+        delete_button: "Löschen",
+        delete_confirm:
+          "„{{name}}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+        prompt_label: "RAG‑Anweisungsprompt",
+        prompt_description:
+          "Anweisungen, die vor dem abgerufenen Kontext für diese Wissenssammlung eingefügt werden.",
+        question_prompt_label: "Prompt zur Frage‑Umformulierung",
+        question_prompt_description:
+          "Prompt zum Umschreiben von Folgefragen in eigenständige Abfragen für diese Wissenssammlung.",
+        topk_label: "Retrieval Top‑K",
+        topk_description:
+          "Wie viele Chunks für diese Wissenssammlung abgerufen werden.",
+        min_similarity_label: "Min. Ähnlichkeit",
+        min_similarity_description:
+          "Minimale Ähnlichkeitsschwelle für Chunks in dieser Wissenssammlung.",
+        min_rerank_label: "Min. Rerank‑Score",
+        min_rerank_description:
+          "Minimales Reranker‑Vertrauensmaß für Chunks in dieser Wissenssammlung."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Aktiv",
+          provider_details:
+            "Hochwertige Embeddings • 768-1024 Dimensionen • Konsistente Ergebnisse",
+          webgpu_warning_title:
+            "WebGPU-Embedding-Generierung ist nicht verfügbar",
+          webgpu_warning_text:
+            "aufgrund von Chrome Extension Content Security Policy Einschränkungen. WebGPU Re-Ranking ist weiterhin aktiv und funktioniert. Embeddings werden über die Provider-Fallback-Kette generiert, wobei der Standard-Provider verwendet wird, wenn keine native Unterstützung verfügbar ist.",
+          performance_title: "Leistung",
+          performance_default:
+            "Standard-Provider-Embedding-Generierung: ~500ms pro Chunk",
+          provider_hint:
+            "Stellen Sie sicher, dass Ihr lokaler Provider läuft (Standard: localhost:11434)"
+        }
       }
     }
   },
@@ -1137,8 +1371,10 @@ export const resources = {
         },
         actions: {
           retry: "Retry",
-          refresh: "Refresh"
+          refresh: "Refresh",
+          close: "Close"
         },
+        updated_at: "Updated",
         social: {
           title: "Connect With Me",
           visit_profile: "Visit my {{platform}} profile"
@@ -1152,7 +1388,19 @@ export const resources = {
             "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
         },
         cancel: "Cancel",
-        save: "Save"
+        save: "Save",
+        continue: "Continue Import",
+        reload: "Reload Extension",
+        close: "Close",
+        status: {
+          active: "Active"
+        },
+        labels: {
+          performance: "Performance"
+        },
+        nav: {
+          settings_aria: "Settings navigation"
+        }
       },
       selection_button: {
         label: "Ask Local LLM",
@@ -1160,7 +1408,8 @@ export const resources = {
       },
       welcome: {
         title: "Welcome to Local LLM Chat",
-        subtitle: "Local AI conversations made simple",
+        subtitle: "Private, local-first chat with your own models",
+        badge: "Local-first chat",
         start_chatting: "Start Chatting",
         status: {
           connecting: {
@@ -1173,7 +1422,8 @@ export const resources = {
           },
           no_models: {
             title: "No Models Found",
-            message: "Please pull a model to get started"
+            message:
+              "Install at least one chat model and one embeddings model to continue"
           },
           ready: {
             title: "Ready to Chat",
@@ -1181,11 +1431,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Before you start, follow these quick steps:",
-          step1: "Install a local provider (Ollama recommended)",
-          step2: "Pull a model (e.g. <code>ollama run llama3</code>)",
-          step3: "Return here and click <b>Refresh</b>",
-          full_guide_link: "Full Setup Guide"
+          title: "Quick Setup (Ollama)",
+          intro:
+            "You'll need Ollama running with one chat model and one embeddings model.",
+          step1: "Install Ollama and start it (<code>ollama serve</code>)",
+          step2: "Pull a chat model (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Pull an embeddings model (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Return here and click <b>Refresh</b>",
+          hint: "Follow the setup guide below to install Ollama and models.",
+          full_guide_link: "Full Setup Guide",
+          firefox_warning:
+            "Firefox users: run the ollama-env.sh script to enable CORS before starting."
         },
         features: {
           private: {
@@ -1234,6 +1491,7 @@ export const resources = {
           fork: "Fork Conversation",
           edit: "Edit",
           export_as: "Export as...",
+          more: "More",
           delete: "Delete Message"
         },
         metrics: {
@@ -1252,11 +1510,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generated",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total tokens used in this session",
           tooltip_time: "Total response generation time",
           tooltip_speed: "Average generation speed",
           tooltip_messages: "Number of AI responses"
+        },
+        file: {
+          loading_content: "Loading full content..."
+        },
+        reasoning: {
+          aria_label: "Model reasoning",
+          title: "Thought Process",
+          thinking: "Thinking…",
+          done: "Done",
+          hide: "Hide",
+          explore: "Explore",
+          loading_thinking: "Thinking",
+          loading_typing: "Typing",
+          loading_queued: "Queued"
+        },
+        feedback: {
+          helpful_tooltip: "This was helpful",
+          not_helpful_tooltip: "This was not helpful"
         },
         search: {
           button_title: "Search chat history (semantic search)",
@@ -1270,8 +1547,12 @@ export const resources = {
           scope_current: "Current Chat",
           searching: "Searching chat history...",
           no_results: "No results found. Try a different search query.",
+          no_results_description:
+            "Try adjusting your keywords or search scope.",
           start_typing:
             "Start typing to search your chat history semantically...",
+          start_typing_description:
+            "Search through your chat history using semantic search.",
           result_badge: "result",
           results_badge: "results",
           match_percentage: "% match",
@@ -1342,7 +1623,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Upload file",
-          tooltip: "Upload file (PDF, DOCX, Text files)"
+          tooltip: "Upload file (PDF, DOCX, CSV, HTML, Text)"
         },
         preview: {
           remove_aria_label: "Remove file",
@@ -1370,6 +1651,7 @@ export const resources = {
           ready: "Embedding model ready: {{model}}",
           missing: "Model missing: {{model}}",
           checking_model: "Checking embedding model...",
+          error: "Unable to check status. Click to retry.",
           required_for_rag: "The embedding model is required for RAG features.",
           download_button: "Download Model"
         },
@@ -1445,6 +1727,24 @@ export const resources = {
           clear_all_button: "Clear All Embeddings",
           clear_all_description:
             "Delete all embeddings (chats, files, webpages). This action cannot be undone",
+          database_management: {
+            remove_duplicates_confirm:
+              "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
+            remove_duplicates_success:
+              "Removed {{deleted}} duplicate(s). Kept {{kept}} unique embedding(s).",
+            remove_duplicates_error:
+              "Failed to remove duplicates. Check console for details.",
+            clear_chat_confirm:
+              "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
+            clear_chat_success: "Cleared {{count}} chat embedding(s).",
+            clear_chat_error:
+              "Failed to clear chat vectors. Check console for details.",
+            clear_all_confirm:
+              "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
+            clear_all_success: "All embeddings cleared.",
+            clear_all_error:
+              "Failed to clear all vectors. Check console for details."
+          },
           chunking_title: "Chunking Settings",
           chunking_description:
             "Configure how text is split into chunks for embedding",
@@ -1507,6 +1807,17 @@ export const resources = {
           cache_max_size_label: "Max Cached Queries",
           cache_max_size_description:
             "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
+          ann_backend_label: "ANN Backend",
+          ann_backend_description:
+            "Choose the approximate nearest neighbor backend used for vector search.",
+          ann_backend_placeholder: "Select a backend",
+          ann_backend_group: "Backends",
+          ann_backend_wasm: "WASM HNSW (Recommended)",
+          ann_backend_ts: "TypeScript HNSW",
+          ann_backend_bruteforce: "Brute Force",
+          ann_min_vectors_label: "ANN Min Vectors",
+          ann_min_vectors_description:
+            "Minimum number of vectors before ANN is used (0 = always).",
           enhanced_chunking_label: "Enhanced Chunking",
           enhanced_chunking_description:
             "Use advanced recursive character splitting for better context",
@@ -1528,9 +1839,15 @@ export const resources = {
           temporal_boosting_label: "Temporal Relevance Boosting",
           temporal_boosting_description:
             "Prioritize newer documentation using exponential decay scoring",
-          reranking_label: "Enable Re-Ranking (Transformers.js)",
+          reranking_label: "Enable Re-Ranking",
           reranking_description:
             "Use a cross-encoder model to score relevance of retrieved results. Significantly improves precision.",
+          reranker_backend_label: "Reranker Backend",
+          reranker_backend_description:
+            "Choose the backend used to run the reranker model.",
+          reranker_backend_placeholder: "Select a reranker backend",
+          reranker_backend_group: "Backends",
+          reranker_backend_none: "Disabled",
           hybrid_search_label: "Enable Hybrid Search",
           hybrid_search_description:
             "Combine keyword search (BM25) with semantic search for better recall.",
@@ -1570,7 +1887,20 @@ export const resources = {
           feedback_export_button: "Export Feedback Data",
           feedback_clear_button: "Clear All Feedback",
           feedback_privacy_note:
-            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device."
+            "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Checking Provider status...",
@@ -1643,7 +1973,8 @@ export const resources = {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Interact with open tabs"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -1798,6 +2129,20 @@ export const resources = {
             title: "Context and Generation",
             description: "Memory and Output Control Settings"
           },
+          runtime: {
+            title: "Runtime & Warmup",
+            description: "Control model warmup and runtime options.",
+            keep_alive_label: "Keep alive",
+            keep_alive_description:
+              "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
+            keep_alive_placeholder: "e.g. 300, 5m, 0 to unload",
+            warm_on_select_label: "Warm model on select",
+            warm_on_select_description:
+              "Preload the model when you switch to it for faster first response.",
+            unload_on_switch_label: "Unload previous model on switch",
+            unload_on_switch_description:
+              "Free memory by unloading the last model when switching."
+          },
           parameters: {
             temperature: {
               label: "Temperature",
@@ -1906,6 +2251,7 @@ export const resources = {
           prompts: "Prompts",
           models: "Models",
           extraction: "Extraction",
+          context: "Context",
           embeddings: "Embeddings",
           providers: "Providers",
           voices: "Voices",
@@ -1913,6 +2259,28 @@ export const resources = {
           guides: "Guides",
           memory: "Memory",
           shortcuts: "Shortcuts"
+        },
+        context: {
+          file_upload: {
+            title: "File Ingestion",
+            description:
+              "Configure how files are processed for knowledge retrieval."
+          },
+          embedding_health: {
+            title: "Mixed embedding dimensions detected",
+            description:
+              "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
+            note: "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
+            memory_disabled:
+              "Memory is off, so chat embeddings were not rebuilt.",
+            action: "Rebuild embeddings",
+            action_rebuilding: "Rebuilding...",
+            confirm:
+              "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
+            progress: "Rebuilding chat embeddings ({{current}}/{{total}})",
+            success: "Embeddings rebuilt successfully.",
+            error: "Failed to rebuild embeddings."
+          }
         },
         memory: {
           title: "Contextual Memory",
@@ -2055,7 +2423,17 @@ export const resources = {
             description:
               "Choose a model to generate embeddings. You may need to download it first.",
             recommended_group: "Recommended Models",
-            all_models_group: "All Models"
+            all_models_group: "All Models",
+            show_advanced_label: "Show all provider models",
+            show_advanced_description:
+              "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
+          },
+          model_change_confirm: {
+            title: "Rebuild embeddings now?",
+            description:
+              "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
+            switch_only: "Switch Without Rebuild",
+            switch_and_rebuild: "Switch & Rebuild"
           }
         },
         prompts: {
@@ -2127,22 +2505,31 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Theme & UI",
               description: "UI appearance preferences"
             },
             browser: {
+              title: "Browser Settings",
               description: "Tab access & URL patterns"
             },
             tts: {
+              title: "Text to Speech",
               description: "Text-to-speech settings"
             },
             chat_sessions: {
+              title: "Chat History",
               description: "Conversation history"
             },
             default: {
               description: "Module settings"
             },
             provider: {
+              title: "Provider Settings",
               description: "Model settings & configurations"
+            },
+            feedback: {
+              title: "User Feedback",
+              description: "Clear all learning and retrieved chunk feedback"
             }
           },
           item_count: "{{count}} item",
@@ -2175,6 +2562,49 @@ export const resources = {
             no_models_title: "No Models Found",
             no_models_description:
               "Connected to {{url}} but no models were found. Check if the service is running correctly."
+          }
+        },
+        migration: {
+          title: "Data Migration",
+          description:
+            "Export or import all your extension data including preferences, chat history, and embedding databases.",
+          export: {
+            label: "Export Full Backup",
+            description:
+              "Download a complete backup of all extension data as a ZIP file.",
+            button: "Export All"
+          },
+          import: {
+            label: "Import Backup",
+            description:
+              "Restore data from a previously exported ZIP backup. This will overwrite existing data.",
+            button: "Import All"
+          },
+          import_confirm: {
+            title: "Are you absolutely sure?",
+            description:
+              "This action will completely overwrite your existing preferences, chat history, and databases with the contents of the backup file. This action cannot be undone."
+          },
+          import_result: {
+            title: "Import Results",
+            description: "Review the status of your data import below:",
+            sync: "Settings",
+            vector: "Knowledge Base (Vectors)",
+            sqlite: "Chat History & Data",
+            errors: "Errors encountered ({{count}})",
+            labels: {
+              sync: "Preferences (Sync)",
+              local: "Local Storage",
+              database: "Database (SQLite)",
+              chatDb: "Chat History (Dexie)",
+              vectorDb: "Vector Embeddings (Dexie)",
+              knowledgeDb: "Knowledge Sets (Dexie)"
+            },
+            status: {
+              success: "Success",
+              failed: "Failed",
+              aborted: "Aborted"
+            }
           }
         }
       },
@@ -2225,6 +2655,55 @@ export const resources = {
         description:
           "An unexpected error occurred. We've logged this issue internally.",
         reload: "Reload"
+      },
+      knowledge_sets: {
+        title: "Knowledge Sets",
+        active_label: "Active knowledge set",
+        active_description:
+          "Select which knowledge set to use when no files are attached.",
+        active_placeholder: "Select a knowledge set",
+        create_label: "Create knowledge set",
+        create_description: "Create a new knowledge set for grouping files.",
+        create_placeholder: "Knowledge set name",
+        create_button: "Create",
+        rename_label: "Rename knowledge set",
+        rename_description: "Change the name of the active knowledge set.",
+        rename_placeholder: "New name",
+        rename_button: "Rename",
+        delete_label: "Delete knowledge set",
+        delete_description:
+          "Delete the active knowledge set and its file mapping (embeddings remain).",
+        delete_button: "Delete",
+        delete_confirm: 'Delete "{{name}}"? This cannot be undone.',
+        prompt_label: "RAG instruction prompt",
+        prompt_description:
+          "Instructions that will be injected before retrieved context for this knowledge set.",
+        question_prompt_label: "Question reformulation prompt",
+        question_prompt_description:
+          "Prompt used to rewrite follow-up questions into standalone queries for this knowledge set.",
+        topk_label: "Retrieval top-K",
+        topk_description: "How many chunks to retrieve for this knowledge set.",
+        min_similarity_label: "Min similarity",
+        min_similarity_description:
+          "Minimum similarity threshold for chunks in this knowledge set.",
+        min_rerank_label: "Min rerank score",
+        min_rerank_description:
+          "Minimum reranker confidence for chunks in this knowledge set."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Active",
+          provider_details:
+            "High quality embeddings • 768-1024 dimensions • Consistent results",
+          webgpu_warning_title: "WebGPU embedding generation is unavailable",
+          webgpu_warning_text:
+            "due to Chrome Extension Content Security Policy constraints. WebGPU re-ranking is still active and working. Embeddings are generated via the provider fallback chain, using the default provider when native support is unavailable.",
+          performance_title: "Performance",
+          performance_default:
+            "Default provider embedding generation: ~500ms per chunk",
+          provider_hint:
+            "Ensure your local provider is running (default: localhost:11434)"
+        }
       }
     }
   },
@@ -2250,8 +2729,10 @@ export const resources = {
         },
         actions: {
           retry: "Reintentar",
-          refresh: "Actualizar"
+          refresh: "Actualizar",
+          close: "Cerrar"
         },
+        updated_at: "Actualizado",
         social: {
           title: "Conecta Conmigo",
           visit_profile: "Visitar mi perfil de {{platform}}"
@@ -2265,7 +2746,19 @@ export const resources = {
             "Las traducciones son generadas por IA. ¡Ayúdanos a mejorar contribuyendo en <0>GitHub</0>!"
         },
         cancel: "Cancelar",
-        save: "Guardar"
+        save: "Guardar",
+        continue: "Continuar Importación",
+        reload: "Recargar Extensión",
+        close: "Cerrar",
+        status: {
+          active: "Activo"
+        },
+        labels: {
+          performance: "Rendimiento"
+        },
+        nav: {
+          settings_aria: "Navegación de ajustes"
+        }
       },
       selection_button: {
         label: "Preguntar al LLM local",
@@ -2295,11 +2788,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Antes de empezar, sigue estos pasos rápidos:",
-          step1: "Instala un proveedor local (Ollama recomendado)",
-          step2: "Descarga un modelo (p. ej., <code>ollama run llama3</code>)",
-          step3: "Vuelve aquí y haz clic en <b>Actualizar</b>",
-          full_guide_link: "Guía Completa de Configuración"
+          title: "Configuración Rápida (Ollama)",
+          intro:
+            "Necesitarás tener Ollama en ejecución con un modelo de chat y un modelo de incrustaciones.",
+          step1: "Instala Ollama e inícialo (<code>ollama serve</code>)",
+          step2:
+            "Descarga un modelo de chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Descarga un modelo de incrustaciones (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Vuelve aquí y haz clic en <b>Actualizar</b>",
+          hint: "Sigue la guía de configuración a continuación para instalar Ollama y los modelos.",
+          full_guide_link: "Guía Completa de Configuración",
+          firefox_warning:
+            "Usuarios de Firefox: ejecute el script ollama-env.sh para habilitar CORS antes de comenzar."
         },
         features: {
           private: {
@@ -2348,6 +2849,7 @@ export const resources = {
           fork: "Bifurcar conversación",
           edit: "Editar",
           export_as: "Exportar como...",
+          more: "Más",
           delete: "Eliminar mensaje"
         },
         metrics: {
@@ -2366,11 +2868,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generados",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total de tokens usados en esta sesión",
           tooltip_time: "Tiempo total de generación de respuestas",
           tooltip_speed: "Velocidad media de generación",
           tooltip_messages: "Número de respuestas de IA"
+        },
+        file: {
+          loading_content: "Cargando contenido completo..."
+        },
+        reasoning: {
+          aria_label: "Razonamiento del modelo",
+          title: "Proceso de Pensamiento",
+          thinking: "Pensando…",
+          done: "Listo",
+          hide: "Ocultar",
+          explore: "Explorar",
+          loading_thinking: "Pensando",
+          loading_typing: "Escribiendo",
+          loading_queued: "En cola"
+        },
+        feedback: {
+          helpful_tooltip: "Esto fue útil",
+          not_helpful_tooltip: "Esto no fue útil"
         },
         search: {
           button_title: "Buscar historial de chat (búsqueda semántica)",
@@ -2385,8 +2906,12 @@ export const resources = {
           searching: "Buscando historial de chat...",
           no_results:
             "No se encontraron resultados. Intenta una consulta de búsqueda diferente.",
+          no_results_description:
+            "Intente ajustar sus palabras clave o el alcance de la búsqueda.",
           start_typing:
             "Empieza a escribir para buscar semánticamente en tu historial de chat...",
+          start_typing_description:
+            "Busque en su historial de chat mediante la búsqueda semántica.",
           result_badge: "resultado",
           results_badge: "resultados",
           match_percentage: "% de coincidencia",
@@ -2457,7 +2982,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Subir archivo",
-          tooltip: "Subir archivo (PDF, DOCX, archivos de texto)"
+          tooltip: "Subir archivo (PDF, DOCX, CSV, HTML, Texto)"
         },
         preview: {
           remove_aria_label: "Eliminar archivo",
@@ -2485,6 +3010,7 @@ export const resources = {
           ready: "Modelo de incrustación listo: {{model}}",
           missing: "Modelo faltante: {{model}}",
           checking_model: "Comprobando modelo de incrustación...",
+          error: "No se pudo comprobar el estado. Haz clic para reintentar.",
           required_for_rag:
             "El modelo de incrustación es necesario para las funciones RAG.",
           download_button: "Descargar Modelo"
@@ -2561,6 +3087,24 @@ export const resources = {
           clear_all_button: "Borrar Todas las Incrustaciones",
           clear_all_description:
             "Elimina todas las incrustaciones (chats, archivos, páginas web). Esta acción no se puede deshacer",
+          database_management: {
+            remove_duplicates_confirm:
+              "¿Eliminar incrustaciones duplicadas? Esto mantendrá solo la primera ocurrencia de cada mensaje único.",
+            remove_duplicates_success:
+              "Se eliminaron {{deleted}} duplicados. Se mantuvieron {{kept}} incrustaciones únicas.",
+            remove_duplicates_error:
+              "Error al eliminar duplicados. Consulte la consola para obtener más detalles.",
+            clear_chat_confirm:
+              "¿Borrar todas las incrustaciones de chat? Esto eliminará todos los datos de búsqueda semántica de los chats. Puede realizar un llenado posterior más adelante.",
+            clear_chat_success: "Se borraron {{count}} incrustaciones de chat.",
+            clear_chat_error:
+              "Error al borrar los vectores de chat. Consulte la consola para obtener más detalles.",
+            clear_all_confirm:
+              "¿Borrar TODAS las incrustaciones? Esto eliminará todos los datos de búsqueda semántica (chats, archivos, páginas web). Esta acción no se puede deshacer.",
+            clear_all_success: "Se borraron todas las incrustaciones.",
+            clear_all_error:
+              "Error al borrar todos los vectores. Consulte la consola para obtener más detalles."
+          },
           chunking_title: "Ajustes de Fragmentación (Chunking)",
           chunking_description:
             "Configura cómo se divide el texto en fragmentos para la incrustación",
@@ -2627,17 +3171,20 @@ export const resources = {
           cache_max_size_label: "Máx. Consultas en Caché",
           cache_max_size_description:
             "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Chunking Mejorado",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Usar división de caracteres recursiva avanzada para un mejor contexto",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "El chunking mejorado divide el texto de forma jerárquica (párrafos → oraciones → palabras) para preservar el significado semántico. Se recomienda para RAG.",
+          rag_settings_title: "RAG (Generación Aumentada por Recuperación)",
+          rag_settings_description:
+            "Configurar cómo se utilizan los archivos para responder preguntas con el contexto recuperado",
+          rag_enable_label: "Habilitar RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Usar el contexto recuperado para responder preguntas sobre sus archivos",
+          rag_system_prompt_label: "Prompt de sistema RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Plantilla para el prompt del sistema. Use {context} para el texto recuperado y {question} para la consulta del usuario.",
           advanced_retrieval_title: "Configuración avanzada de recuperación",
           adaptive_weights_label: "Pesos Híbridos Adaptativos",
           adaptive_weights_description:
@@ -2645,7 +3192,7 @@ export const resources = {
           temporal_boosting_label: "Impulso de Relevancia Temporal",
           temporal_boosting_description:
             "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
-          reranking_label: "Habilitar Re-Ranking (Transformers.js)",
+          reranking_label: "Habilitar Re-Ranking",
           reranking_description:
             "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
           hybrid_search_label: "Habilitar búsqueda híbrida",
@@ -2670,7 +3217,21 @@ export const resources = {
             "Puntuación de calidad mínima (0-1) requerida para incrustar contenido.",
           embedding_source_description:
             "Las incrustaciones se generan usando tu proveedor local (Ollama por defecto)",
-          embedding_source_default_provider: "Proveedor predeterminado (Ollama)"
+          embedding_source_default_provider:
+            "Proveedor predeterminado (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Comprobando estado de Provider...",
@@ -2744,7 +3305,8 @@ export const resources = {
           label_off: "Pestañas",
           label_on: "Pestaña+",
           tooltip: "Interactuar con pestañas abiertas"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -2946,6 +3508,21 @@ export const resources = {
               label: "Repetir Últimos N",
               validation_min: "Debe ser al menos {{min}}."
             }
+          },
+          runtime: {
+            title: "Tiempo de Ejecución y Calentamiento",
+            description:
+              "Controlar el calentamiento del modelo y las opciones del tiempo de ejecución.",
+            keep_alive_label: "Mantener cargado",
+            keep_alive_description:
+              "Cuánto tiempo mantener el modelo cargado después de una solicitud. Usa segundos o duraciones como 5m.",
+            keep_alive_placeholder: "ej. 300, 5m, 0 para descargar",
+            warm_on_select_label: "Calentar modelo al seleccionar",
+            warm_on_select_description:
+              "Pre-cargar el modelo al cambiar para recibir la primera respuesta más rápido.",
+            unload_on_switch_label: "Descargar modelo anterior al cambiar",
+            unload_on_switch_description:
+              "Liberar memoria descargando el último modelo al cambiar de modelo."
           }
         },
         base_url: {
@@ -3021,7 +3598,8 @@ export const resources = {
           guides: "Guías",
           memory: "Memoria",
           shortcuts: "Atajos",
-          providers: "Proveedores"
+          providers: "Proveedores",
+          context: "Contexto"
         },
         errorBoundary: {
           title: "Algo salió mal",
@@ -3166,7 +3744,19 @@ export const resources = {
             label: "Modelo de Incrustación",
             placeholder: "Seleccionar un modelo",
             description:
-              "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero."
+              "Elige un modelo para generar incrustaciones. Puede que necesites descargarlo primero.",
+            recommended_group: "Modelos recomendados",
+            all_models_group: "Todos los modelos",
+            show_advanced_label: "Mostrar todos los modelos del proveedor",
+            show_advanced_description:
+              "Habilita la selección avanzada de cualquier modelo de embeddings expuesto por tus proveedores. Los modelos recomendados ofrecen la calidad de búsqueda más consistente."
+          },
+          model_change_confirm: {
+            title: "¿Reconstruir embeddings ahora?",
+            description:
+              "Cambiar el modelo de embeddings puede volver incompatibles los vectores existentes. Reconstruye el índice para mantener resultados precisos o cambia sin reconstruir.",
+            switch_only: "Cambiar sin reconstruir",
+            switch_and_rebuild: "Cambiar y reconstruir"
           }
         },
         prompts: {
@@ -3234,23 +3824,33 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Tema e Interfaz",
               description:
                 "Preferencias de apariencia de la interfaz de usuario"
             },
             browser: {
+              title: "Ajustes del Navegador",
               description: "Acceso a pestañas y patrones de URL"
             },
             tts: {
+              title: "Texto a Voz",
               description: "Ajustes de texto a voz"
             },
             chat_sessions: {
+              title: "Historial de Chat",
               description: "Historial de conversación"
             },
             default: {
               description: "Ajustes del módulo"
             },
             provider: {
+              title: "Ajustes del Proveedor",
               description: "Ajustes y configuraciones del modelo"
+            },
+            feedback: {
+              title: "Comentarios del Usuario",
+              description:
+                "Borrar todos los comentarios de aprendizaje y fragmentos recuperados"
             }
           },
           item_count: "{{count}} elemento",
@@ -3289,6 +3889,46 @@ export const resources = {
             no_models_title: "No se encontraron modelos",
             no_models_description:
               "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
+          }
+        },
+        migration: {
+          title: "Migración de Datos",
+          description:
+            "Exportar o importar todos los datos de su extensión, incluyendo preferencias, historial de chat y bases de datos de incrustaciones.",
+          export: {
+            label: "Exportar Copia de Seguridad Completa",
+            description:
+              "Descargar una copia de seguridad completa de todos los datos de la extensión como un archivo ZIP.",
+            button: "Exportar Todo"
+          },
+          import: {
+            label: "Importar Copia de Seguridad",
+            description:
+              "Restaurar datos desde una copia de seguridad ZIP exportada previamente. Esto sobrescribirá los datos existentes.",
+            button: "Importar Todo"
+          },
+          import_confirm: {
+            title: "¿Está absolutamente seguro?",
+            description:
+              "Esta acción sobrescribirá completamente sus preferencias existentes, el historial de chat y las bases de datos con el contenido del archivo de copia de seguridad. Esta acción no se puede deshacer."
+          },
+          import_result: {
+            title: "Resultados de la Importación",
+            description:
+              "Revise el estado de su importación de datos a continuación:",
+            labels: {
+              sync: "Preferencias (Sync)",
+              local: "Almacenamiento Local",
+              database: "Base de datos (SQLite)",
+              chatDb: "Historial de chat (Dexie)",
+              vectorDb: "Incrustaciones vectoriales (Dexie)",
+              knowledgeDb: "Bases de conocimiento (Dexie)"
+            },
+            status: {
+              success: "Éxito",
+              failed: "Fallido",
+              aborted: "Abortado"
+            }
           }
         }
       },
@@ -3334,7 +3974,81 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingesta de Archivos",
+            description:
+              "Configurar cómo se procesan los archivos para la recuperación de conocimientos."
+          },
+          embedding_health: {
+            title: "Se detectaron dimensiones de incrustación mixtas",
+            description:
+              "Las incrustaciones se almacenan en múltiples dimensiones ({{dimensions}}). La búsqueda y la memoria pueden fallar hasta que se reconstruya todo.",
+            note: "Reconstruir borra todas las incrustaciones y vuelve a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+            memory_disabled:
+              "La memoria está desactivada, por lo que no se reconstruyeron las incrustaciones de chat.",
+            action: "Reconstruir incrustaciones",
+            action_rebuilding: "Reconstruyendo...",
+            confirm:
+              "¿Reconstruir incrustaciones? Esto borrará todas las incrustaciones y volverá a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
+            progress:
+              "Reconstruyendo incrustaciones de chat ({{current}}/{{total}})",
+            success: "Incrustaciones reconstruidas con éxito.",
+            error: "Error al reconstruir las incrustaciones."
+          }
+        },
         bug_report: "Reportar Error / Función"
+      },
+      knowledge_sets: {
+        title: "Conjuntos de conocimiento",
+        active_label: "Conjunto de conocimiento activo",
+        active_description:
+          "Selecciona qué conjunto se usa cuando no hay archivos adjuntos.",
+        active_placeholder: "Seleccionar conjunto",
+        create_label: "Crear conjunto de conocimiento",
+        create_description: "Crea un nuevo conjunto para agrupar archivos.",
+        create_placeholder: "Nombre del conjunto",
+        create_button: "Crear",
+        rename_label: "Renombrar conjunto",
+        rename_description: "Cambia el nombre del conjunto activo.",
+        rename_placeholder: "Nuevo nombre",
+        rename_button: "Renombrar",
+        delete_label: "Eliminar conjunto",
+        delete_description:
+          "Elimina el conjunto activo y su vínculo de archivos (las incrustaciones se mantienen).",
+        delete_button: "Eliminar",
+        delete_confirm:
+          '¿Eliminar "{{name}}"? Esta acción no se puede deshacer.',
+        prompt_label: "Prompt de instrucciones RAG",
+        prompt_description:
+          "Instrucciones que se insertarán antes del contexto recuperado para este conjunto.",
+        question_prompt_label: "Prompt de reformulación de preguntas",
+        question_prompt_description:
+          "Prompt para reescribir preguntas de seguimiento como consultas independientes para este conjunto.",
+        topk_label: "Top‑K de recuperación",
+        topk_description: "Cuántos fragmentos recuperar para este conjunto.",
+        min_similarity_label: "Similitud mínima",
+        min_similarity_description:
+          "Umbral mínimo de similitud para fragmentos en este conjunto.",
+        min_rerank_label: "Puntuación mínima de rerank",
+        min_rerank_description:
+          "Confianza mínima del reranker para fragmentos en este conjunto."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Activo",
+          provider_details:
+            "Incrustaciones de alta calidad • 768-1024 dimensiones • Resultados consistentes",
+          webgpu_warning_title:
+            "La generación de incrustaciones WebGPU no está disponible",
+          webgpu_warning_text:
+            "debido a las restricciones de la Política de seguridad de contenido de la extensión de Chrome. La reclasificación de WebGPU todavía está activa y funcionando. Las incrustaciones se generan a través de la cadena de respaldo del proveedor, utilizando el proveedor predeterminado cuando el soporte nativo no está disponible.",
+          performance_title: "Rendimiento",
+          performance_default:
+            "Generación de incrustaciones del proveedor predeterminado: ~500ms por fragmento",
+          provider_hint:
+            "Asegúrate de que tu proveedor local esté funcionando (predeterminado: localhost:11434)"
+        }
       }
     }
   },
@@ -3360,8 +4074,10 @@ export const resources = {
         },
         actions: {
           retry: "Réessayer",
-          refresh: "Actualiser"
+          refresh: "Actualiser",
+          close: "Fermer"
         },
+        updated_at: "Mis à jour",
         social: {
           title: "Connectez-vous avec Moi",
           visit_profile: "Visiter mon profil {{platform}}"
@@ -3375,7 +4091,19 @@ export const resources = {
             "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
         },
         cancel: "Annuler",
-        save: "Enregistrer"
+        save: "Enregistrer",
+        continue: "Continuer l'Importation",
+        reload: "Recharger l'Extension",
+        close: "Fermer",
+        status: {
+          active: "Actif"
+        },
+        labels: {
+          performance: "Rendement"
+        },
+        nav: {
+          settings_aria: "Navigation des paramètres"
+        }
       },
       selection_button: {
         label: "Demander au LLM local",
@@ -3405,11 +4133,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Avant de commencer, suivez ces étapes rapides :",
-          step1: "Installez un fournisseur local (Ollama recommandé)",
-          step2: "Téléchargez un modèle (ex. <code>ollama run llama3</code>)",
-          step3: "Revenez ici et cliquez sur <b>Actualiser</b>",
-          full_guide_link: "Guide de Configuration Complet"
+          title: "Configuration Rapide (Ollama)",
+          intro:
+            "Vous aurez besoin d'Ollama en cours d'exécution avec un modèle de chat et un modèle d'embeddings.",
+          step1: "Installez Ollama et démarrez-le (<code>ollama serve</code>)",
+          step2:
+            "Téléchargez un modèle de chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Téléchargez un modèle d'embeddings (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Revenez ici et cliquez sur <b>Actualiser</b>",
+          hint: "Suivez le guide de configuration ci-dessous pour installer Ollama et les modèles.",
+          full_guide_link: "Guide de Configuration Complet",
+          firefox_warning:
+            "Utilisateurs Firefox : exécutez le script ollama-env.sh pour activer CORS avant de commencer."
         },
         features: {
           private: {
@@ -3459,6 +4195,7 @@ export const resources = {
           fork: "Fourcher la conversation",
           edit: "Modifier",
           export_as: "Exporter sous...",
+          more: "Plus",
           delete: "Supprimer le message"
         },
         metrics: {
@@ -3477,11 +4214,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} générés",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msgs",
           tooltip_tokens: "Total des tokens utilisés dans cette session",
           tooltip_time: "Temps total de génération des réponses",
           tooltip_speed: "Vitesse moyenne de génération",
           tooltip_messages: "Nombre de réponses IA"
+        },
+        file: {
+          loading_content: "Chargement du contenu complet..."
+        },
+        reasoning: {
+          aria_label: "Raisonnement du modèle",
+          title: "Processus de Pensée",
+          thinking: "Réflexion…",
+          done: "Terminé",
+          hide: "Masquer",
+          explore: "Explorer",
+          loading_thinking: "Réflexion",
+          loading_typing: "Écriture",
+          loading_queued: "En attente"
+        },
+        feedback: {
+          helpful_tooltip: "C'était utile",
+          not_helpful_tooltip: "Ce n'était pas utile"
         },
         search: {
           button_title:
@@ -3497,8 +4253,12 @@ export const resources = {
           searching: "Recherche de l'historique de chat...",
           no_results:
             "Aucun résultat trouvé. Essayez une requête de recherche différente.",
+          no_results_description:
+            "Essayez d'ajuster vos mots-clés ou le périmètre de recherche.",
           start_typing:
             "Commencez à taper pour rechercher sémantiquement dans votre historique de chat...",
+          start_typing_description:
+            "Recherchez dans votre historique de chat via la recherche sémantique.",
           result_badge: "résultat",
           results_badge: "résultats",
           match_percentage: "% de correspondance",
@@ -3569,7 +4329,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Téléverser un fichier",
-          tooltip: "Téléverser un fichier (PDF, DOCX, fichiers texte)"
+          tooltip: "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte)"
         },
         preview: {
           remove_aria_label: "Retirer le fichier",
@@ -3597,6 +4357,7 @@ export const resources = {
           ready: "Modèle d'incrustation prêt : {{model}}",
           missing: "Modèle manquant : {{model}}",
           checking_model: "Vérification du modèle d'incrustation...",
+          error: "Impossible de vérifier l'état. Cliquez pour réessayer.",
           required_for_rag:
             "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
           download_button: "Télécharger le Modèle"
@@ -3673,6 +4434,24 @@ export const resources = {
           clear_all_button: "Effacer Toutes les Incrustations",
           clear_all_description:
             "Supprime toutes les incrustations (chats, fichiers, pages web). Cette action est irréversible",
+          database_management: {
+            remove_duplicates_confirm:
+              "Supprimer les embeddings en double ? Cela ne conservera que la première occurrence de chaque message unique.",
+            remove_duplicates_success:
+              "{{deleted}} doublon(s) supprimé(s). {{kept}} embedding(s) unique(s) conservé(s).",
+            remove_duplicates_error:
+              "Échec de la suppression des doublons. Consultez la console pour plus de détails.",
+            clear_chat_confirm:
+              "Effacer tous les embeddings de chat ? Cela supprimera toutes les données de recherche sémantique pour les chats. Vous pourrez effectuer un remplissage ultérieurement.",
+            clear_chat_success: "{{count}} embedding(s) de chat effacé(s).",
+            clear_chat_error:
+              "Échec de l'effacement des vecteurs de chat. Consultez la console pour plus de détails.",
+            clear_all_confirm:
+              "Effacer TOUS les embeddings ? Cela supprimera toutes les données de recherche sémantique (chats, fichiers, pages Web). Cette action ne peut pas être annulée.",
+            clear_all_success: "Tous les embeddings ont été effacés.",
+            clear_all_error:
+              "Échec de l'effacement de tous les vecteurs. Consultez la console pour plus de détails."
+          },
           chunking_title: "Paramètres de Fragmentation",
           chunking_description:
             "Configure la manière dont le texte est divisé en fragments pour l'incrustation",
@@ -3739,17 +4518,20 @@ export const resources = {
           cache_max_size_label: "Max Requêtes Mises en Cache",
           cache_max_size_description:
             "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Découpage Amélioré",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Utiliser le découpage récursif avancé des caractères pour un meilleur contexte",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Le découpage amélioré divise le texte de manière hiérarchique (paragraphes → phrases → mots) pour préserver la signification sémantique. Ceci est recommandé pour le RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configurez la manière dont les fichiers sont utilisés pour répondre aux questions avec le contexte récupéré",
+          rag_enable_label: "Activer le RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Utiliser le contexte récupéré pour répondre aux questions sur vos fichiers",
+          rag_system_prompt_label: "Prompt système RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Modèle pour le prompt système. Utilisez {context} pour le texte récupéré et {question} pour la requête de l'utilisateur.",
           advanced_retrieval_title: "Paramètres de récupération avancés",
           adaptive_weights_label: "Poids Hybrides Adaptatifs",
           adaptive_weights_description:
@@ -3757,7 +4539,7 @@ export const resources = {
           temporal_boosting_label: "Renforcement de la Pertinence Temporelle",
           temporal_boosting_description:
             "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
-          reranking_label: "Activer le ré-classement (Transformers.js)",
+          reranking_label: "Activer le ré-classement",
           reranking_description:
             "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
           hybrid_search_label: "Activer la recherche hybride",
@@ -3782,7 +4564,20 @@ export const resources = {
             "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
           embedding_source_description:
             "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
-          embedding_source_default_provider: "Fournisseur par défaut (Ollama)"
+          embedding_source_default_provider: "Fournisseur par défaut (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Vérification du statut d'Provider...",
@@ -3857,7 +4652,8 @@ export const resources = {
           label_off: "Onglets",
           label_on: "Onglet+",
           tooltip: "Interagir avec les onglets ouverts"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -4060,6 +4856,22 @@ export const resources = {
               label: "Répéter les Derniers N",
               validation_min: "Doit être au moins {{min}}."
             }
+          },
+          runtime: {
+            title: "Exécution & Préchauffage",
+            description:
+              "Contrôler le préchauffage du modèle et les options d'exécution.",
+            keep_alive_label: "Maintien en mémoire",
+            keep_alive_description:
+              "Combien de temps garder le modèle chargé après une requête. Utilisez des secondes ou une durée comme 5m.",
+            keep_alive_placeholder: "ex. 300, 5m, 0 pour décharger",
+            warm_on_select_label: "Préchauffer le modèle à la sélection",
+            warm_on_select_description:
+              "Précharger le modèle lors du changement pour une première réponse plus rapide.",
+            unload_on_switch_label:
+              "Décharger le précédent modèle lors du changement",
+            unload_on_switch_description:
+              "Libérer la mémoire en déchargeant le dernier modèle lors d'un changement."
           }
         },
         base_url: {
@@ -4136,7 +4948,8 @@ export const resources = {
           guides: "Guides",
           memory: "Mémoire",
           shortcuts: "Raccourcis",
-          providers: "Fournisseurs"
+          providers: "Fournisseurs",
+          context: "Contexte"
         },
         errorBoundary: {
           title: "Une erreur est survenue",
@@ -4283,7 +5096,19 @@ export const resources = {
             label: "Modèle d'Incrustation",
             placeholder: "Sélectionner un modèle",
             description:
-              "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord."
+              "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord.",
+            recommended_group: "Modèles recommandés",
+            all_models_group: "Tous les modèles",
+            show_advanced_label: "Afficher tous les modèles du fournisseur",
+            show_advanced_description:
+              "Active la sélection avancée de tout modèle d'embedding fourni par vos fournisseurs. Les modèles recommandés offrent la qualité de recherche la plus cohérente."
+          },
+          model_change_confirm: {
+            title: "Reconstruire les embeddings maintenant ?",
+            description:
+              "Changer de modèle d'embeddings peut rendre les vecteurs existants incompatibles. Reconstruisez l'index pour garder des résultats précis, ou changez sans reconstruire.",
+            switch_only: "Changer sans reconstruire",
+            switch_and_rebuild: "Changer et reconstruire"
           }
         },
         prompts: {
@@ -4352,22 +5177,32 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Thème & Interface",
               description: "Préférences d'apparence de l'interface utilisateur"
             },
             browser: {
+              title: "Paramètres du Navigateur",
               description: "Accès aux onglets et motifs d'URL"
             },
             tts: {
+              title: "Synthèse Vocale",
               description: "Paramètres de synthèse vocale (text-to-speech)"
             },
             chat_sessions: {
+              title: "Historique des Chats",
               description: "Historique des conversations"
             },
             default: {
               description: "Paramètres du module"
             },
             provider: {
+              title: "Paramètres du Fournisseur",
               description: "Paramètres et configurations du modèle"
+            },
+            feedback: {
+              title: "Commentaires de l'utilisateur",
+              description:
+                "Effacer tous les commentaires d'apprentissage et les fragments récupérés"
             }
           },
           item_count: "{{count}} élément",
@@ -4406,6 +5241,46 @@ export const resources = {
             no_models_title: "Aucun modèle trouvé",
             no_models_description:
               "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement."
+          }
+        },
+        migration: {
+          title: "Migration de Données",
+          description:
+            "Exportez ou importez toutes les données de votre extension, y compris les préférences, l'historique des discussions et les bases de données d'intégration.",
+          export: {
+            label: "Exporter la Sauvegarde Complète",
+            description:
+              "Télécharger une sauvegarde complète de toutes les données de l'extension sous forme de fichier ZIP.",
+            button: "Tout Exporter"
+          },
+          import: {
+            label: "Importer la Sauvegarde",
+            description:
+              "Restaurer les données à partir d'une sauvegarde ZIP précédemment exportée. Cela écrasera les données existantes.",
+            button: "Tout Importer"
+          },
+          import_confirm: {
+            title: "Êtes-vous absolument sûr ?",
+            description:
+              "Cette action écrasera complètement vos préférences existantes, votre historique de discussion et vos bases de données avec le contenu du fichier de sauvegarde. Cette action est irréversible."
+          },
+          import_result: {
+            title: "Résultats de l'Importation",
+            description:
+              "Passez en revue l'état de votre importation de données ci-dessous :",
+            labels: {
+              sync: "Préférences (Sync)",
+              local: "Stockage Local",
+              database: "Base de données (SQLite)",
+              chatDb: "Historique des chats (Dexie)",
+              vectorDb: "Intégrations vectorielles (Dexie)",
+              knowledgeDb: "Bases de connaissances (Dexie)"
+            },
+            status: {
+              success: "Succès",
+              failed: "Échoué",
+              aborted: "Avorté"
+            }
           }
         }
       },
@@ -4450,7 +5325,82 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingestion de Fichiers",
+            description:
+              "Configurez la manière dont les fichiers sont traités pour la récupération des connaissances."
+          },
+          embedding_health: {
+            title: "Dimensions d'incrustation mixtes détectées",
+            description:
+              "Les incrustations sont stockées avec plusieurs dimensions ({{dimensions}}). La recherche et la mémoire peuvent échouer jusqu'à ce que tout soit reconstruit.",
+            note: "La reconstruction efface toutes les incrustations et ré-incruste l'historique du chat. Les fichiers devront être téléchargés à nouveau pour restaurer les connaissances.",
+            memory_disabled:
+              "La mémoire est désactivée, donc les incrustations de chat n'ont pas été reconstruites.",
+            action: "Reconstruire les incrustations",
+            action_rebuilding: "Reconstruction...",
+            confirm:
+              "Reconstruire les incrustations ? Cela effacera toutes les incrustations et ré-incrustera l'historique du chat. Les fichiers devront être téléchargés à nouveau pour restaurer les connaissances.",
+            progress:
+              "Reconstruction des incrustations de chat ({{current}}/{{total}})",
+            success: "Incrustations reconstruites avec succès.",
+            error: "Échec de la reconstruction des incrustations."
+          }
+        },
         bug_report: "Signaler un Bogue / une Fonctionnalité"
+      },
+      knowledge_sets: {
+        title: "Ensembles de connaissances",
+        active_label: "Ensemble actif",
+        active_description:
+          "Choisissez l’ensemble utilisé quand aucun fichier n’est joint.",
+        active_placeholder: "Sélectionner un ensemble",
+        create_label: "Créer un ensemble",
+        create_description:
+          "Créez un nouvel ensemble pour regrouper des fichiers.",
+        create_placeholder: "Nom de l’ensemble",
+        create_button: "Créer",
+        rename_label: "Renommer l’ensemble",
+        rename_description: "Modifiez le nom de l’ensemble actif.",
+        rename_placeholder: "Nouveau nom",
+        rename_button: "Renommer",
+        delete_label: "Supprimer l’ensemble",
+        delete_description:
+          "Supprime l’ensemble actif et son lien de fichiers (les embeddings restent).",
+        delete_button: "Supprimer",
+        delete_confirm:
+          "Supprimer « {{name}} » ? Cette action est irréversible.",
+        prompt_label: "Invite d’instructions RAG",
+        prompt_description:
+          "Instructions insérées avant le contexte récupéré pour cet ensemble.",
+        question_prompt_label: "Invite de reformulation des questions",
+        question_prompt_description:
+          "Invite pour reformuler les questions de suivi en requêtes autonomes pour cet ensemble.",
+        topk_label: "Top‑K de récupération",
+        topk_description: "Nombre de segments à récupérer pour cet ensemble.",
+        min_similarity_label: "Similarité minimale",
+        min_similarity_description:
+          "Seuil minimal de similarité pour les segments de cet ensemble.",
+        min_rerank_label: "Score minimal de rerank",
+        min_rerank_description:
+          "Confiance minimale du reranker pour les segments de cet ensemble."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Activo",
+          provider_details:
+            "Embeddings de haute qualité • 768-1024 dimensions • Résultats cohérents",
+          webgpu_warning_title:
+            "La génération d'embeddings WebGPU n'est pas disponible",
+          webgpu_warning_text:
+            "en raison des restrictions de la politique de sécurité du contenu de l'extension Chrome. Le reclassement WebGPU est toujours actif et fonctionnel. Les embeddings sont générés via la chaîne de secours du fournisseur, en utilisant le fournisseur par défaut lorsque la prise en charge native n'est pas disponible.",
+          performance_title: "Rendement",
+          performance_default:
+            "Génération d'embeddings du fournisseur par défaut : ~500 ms par morceau",
+          provider_hint:
+            "Assurez-vous que votre fournisseur local est en cours d'exécution (par défaut : localhost:11434)"
+        }
       }
     }
   },
@@ -4476,8 +5426,10 @@ export const resources = {
         },
         actions: {
           retry: "पुनः प्रयास करें",
-          refresh: "रिफ्रेश करें"
+          refresh: "रिफ्रेश करें",
+          close: "बंद करें"
         },
+        updated_at: "अपडेट किया गया",
         social: {
           title: "मुझसे जुड़ें",
           visit_profile: "मेरी {{platform}} प्रोफाइल देखें"
@@ -4491,7 +5443,19 @@ export const resources = {
             "अनुवाद AI द्वारा बनाए गए हैं। <0>GitHub</0> पर योगदान देकर हमें बेहतर बनाने में मदद करें!"
         },
         cancel: "रद्द करें",
-        save: "सहेजें"
+        save: "सहेजें",
+        continue: "आयात जारी रखें",
+        reload: "एक्सटेंशन पुनः लोड करें",
+        close: "बंद करें",
+        status: {
+          active: "सक्रिय"
+        },
+        labels: {
+          performance: "प्रदर्शन"
+        },
+        nav: {
+          settings_aria: "सेटिंग्स नेविगेशन"
+        }
       },
       selection_button: {
         label: "स्थानीय LLM से पूछें",
@@ -4520,11 +5484,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "शुरू करने से पहले, इन त्वरित चरणों का पालन करें:",
-          step1: "एक स्थानीय प्रदाता इंस्टॉल करें (Ollama अनुशंसित)",
-          step2: "एक मॉडल डाउनलोड करें (उदा. <code>ollama run llama3</code>)",
-          step3: "यहां वापस आएं और <b>रिफ्रेश</b> पर क्लिक करें",
-          full_guide_link: "संपूर्ण सेटअप गाइड"
+          title: "त्वरित सेटअप (Ollama)",
+          intro:
+            "आपको एक चैट मॉडल और एक एम्बेडिंग मॉडल के साथ Ollama चालू रखना होगा।",
+          step1: "Ollama इंस्टॉल करें और इसे शुरू करें (<code>ollama serve</code>)",
+          step2: "एक चैट मॉडल खींचें (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "एक एम्बेडिंग मॉडल खींचें (<code>ollama pull all-minilm:latest</code>)",
+          step4: "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
+          hint: "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
+          full_guide_link: "पूर्ण सेटअप गाइड",
+          firefox_warning:
+            "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
         },
         features: {
           private: {
@@ -4573,6 +5544,7 @@ export const resources = {
           switch_model_tooltip: "मॉडल बदलें",
           edit: "संपादित करें",
           export_as: "इस रूप में निर्यात करें...",
+          more: "और",
           delete: "संदेश हटाएँ"
         },
         metrics: {
@@ -4591,11 +5563,30 @@ export const resources = {
           prompt_tokens: "{{value}} प्रॉम्प्ट",
           generated_tokens: "{{value}} उत्पन्न",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} संदेश",
           tooltip_tokens: "इस सत्र में कुल उपयोग किए गए टोकन",
           tooltip_time: "कुल प्रतिक्रिया उत्पन्न करने का समय",
           tooltip_speed: "औसत उत्पन्न करने की गति",
           tooltip_messages: "एआई प्रतिक्रियाओं की संख्या"
+        },
+        file: {
+          loading_content: "पूरी सामग्री लोड हो रही है..."
+        },
+        reasoning: {
+          aria_label: "मॉडल विचार प्रक्रिया",
+          title: "सोचने की प्रक्रिया",
+          thinking: "सोच रहा हूँ…",
+          done: "पूर्ण",
+          hide: "छिपाएं",
+          explore: "अन्वेषण करें",
+          loading_thinking: "सोच रहा हूँ",
+          loading_typing: "टाइपिंग",
+          loading_queued: "कतार में"
+        },
+        feedback: {
+          helpful_tooltip: "यह मददगार था",
+          not_helpful_tooltip: "यह मददगार नहीं था"
         },
         search: {
           button_title: "चैट इतिहास खोजें (सिमेंटिक खोज)",
@@ -4609,8 +5600,12 @@ export const resources = {
           scope_current: "वर्तमान चैट",
           searching: "चैट इतिहास खोजा जा रहा है...",
           no_results: "कोई परिणाम नहीं मिला। कोई भिन्न खोज क्वेरी आज़माएँ।",
+          no_results_description:
+            "अपने कीवर्ड या खोज के दायरे को समायोजित करने का प्रयास करें।",
           start_typing:
             "सिमेंटिक रूप से अपना चैट इतिहास खोजने के लिए टाइप करना शुरू करें...",
+          start_typing_description:
+            "सिमेंटिक खोज के माध्यम से अपने चैट इतिहास को खोजें।",
           result_badge: "परिणाम",
           results_badge: "परिणाम",
           match_percentage: "% मिलान",
@@ -4680,7 +5675,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "फ़ाइल अपलोड करें",
-          tooltip: "फ़ाइल अपलोड करें (PDF, DOCX, टेक्स्ट फ़ाइलें)"
+          tooltip: "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)"
         },
         preview: {
           remove_aria_label: "फ़ाइल हटाएँ",
@@ -4708,6 +5703,7 @@ export const resources = {
           ready: "एम्बेडिंग मॉडल तैयार: {{model}}",
           missing: "मॉडल गुम है: {{model}}",
           checking_model: "एम्बेडिंग मॉडल जाँच रहा है...",
+          error: "स्थिति जाँची नहीं जा सकी। पुनः प्रयास के लिए क्लिक करें।",
           required_for_rag: "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
           download_button: "मॉडल डाउनलोड करें"
         },
@@ -4782,6 +5778,21 @@ export const resources = {
           clear_all_button: "सभी एम्बेडिंग साफ़ करें",
           clear_all_description:
             "सभी एम्बेडिंग (चैट, फ़ाइलें, वेबपृष्ठ) हटाएँ। यह कार्रवाई पूर्ववत नहीं की जा सकती",
+          database_management: {
+            remove_duplicates_confirm:
+              "डुप्लिकेट एम्बेडिंग हटाएं? यह प्रत्येक अद्वितीय संदेश की केवल पहली घटना को रखेगा।",
+            remove_duplicates_success:
+              "{{deleted}} डुप्लिकेट हटा दिए गए। {{kept}} अद्वितीय एम्बेडिंग रखे गए।",
+            remove_duplicates_error: "डुप्लिकेट हटाने में विफल। विवरण के लिए कंसोल देखें।",
+            clear_chat_confirm:
+              "सभी चैट एम्बेडिंग साफ़ करें? यह चैट के लिए सभी सिमेंटिक खोज डेटा हटा देगा। आप बाद में बैकफिल कर सकते हैं।",
+            clear_chat_success: "{{count}} चैट एम्बेडिंग साफ़ किए गए।",
+            clear_chat_error: "चैट वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।",
+            clear_all_confirm:
+              "सभी एम्बेडिंग साफ़ करें? यह सभी सिमेंटिक खोज डेटा (चैट, फ़ाइलें, वेब पेज) हटा देगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+            clear_all_success: "सभी एम्बेडिंग साफ़ कर दिए गए।",
+            clear_all_error: "सभी वैक्टर साफ़ करने में विफल। विवरण के लिए कंसोल देखें।"
+          },
           chunking_title: "चंकिंग सेटिंग्स",
           chunking_description:
             "एम्बेडिंग के लिए टेक्स्ट को चंक्स में कैसे विभाजित किया जाता है, इसे कॉन्फ़िगर करें",
@@ -4842,17 +5853,20 @@ export const resources = {
           cache_max_size_label: "अधिकतम कैश की गई क्वेरी",
           cache_max_size_description:
             "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "बेहतर चंकिंग",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "बेहतर संदर्भ के लिए उन्नत पुनरावर्ती वर्ण विभाजन का उपयोग करें",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "बेहतर चंकिंग अर्थपूर्ण अर्थ को बनाए रखने के लिए टेक्स्ट को श्रेणीबद्ध रूप से (पैराग्राफ → वाक्य → शब्द) विभाजित करती है। यह RAG के लिए अनुशंसित है।",
+          rag_settings_title: "RAG (रिट्रीवल ऑगमेंटेड जेनरेशन)",
+          rag_settings_description:
+            "कॉन्फ़िगर करें कि पुनर्प्राप्त संदर्भ के साथ प्रश्नों के उत्तर देने के लिए फ़ाइलों का उपयोग कैसे किया जाता है",
+          rag_enable_label: "RAG सक्षम करें",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "अपनी फ़ाइलों के बारे में प्रश्नों के उत्तर देने के लिए प्राप्त संदर्भ का उपयोग करें",
+          rag_system_prompt_label: "RAG सिस्टम प्रॉम्प्ट",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "सिस्टम प्रॉम्प्ट के लिए टेम्पलेट। प्राप्त टेक्स्ट के लिए {context} और उपयोगकर्ता क्वेरी के लिए {question} का उपयोग करें।",
           advanced_retrieval_title: "उन्नत पुनर्प्राप्ति सेटिंग्स",
           adaptive_weights_label: "अनुकूली हाइब्रिड भार",
           adaptive_weights_description:
@@ -4860,7 +5874,7 @@ export const resources = {
           temporal_boosting_label: "कालिक प्रासंगिकता बढ़ावा",
           temporal_boosting_description:
             "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
-          reranking_label: "री-रैंकिंग सक्षम करें (Transformers.js)",
+          reranking_label: "री-रैंकिंग सक्षम करें",
           reranking_description:
             "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
           hybrid_search_label: "हाइब्रिड खोज सक्षम करें",
@@ -4884,7 +5898,36 @@ export const resources = {
             "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
           embedding_source_description:
             "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
-          embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)"
+          embedding_source_default_provider: "डिफ़ॉल्ट प्रदाता (Ollama)",
+          feedback_learning_title: "उपयोगकर्ता फीडबैक लर्निंग",
+          feedback_learning_description:
+            "अपने फीडबैक से सीखकर खोज गुणवत्ता में सुधार करें",
+          feedback_enable_label: "फीडबैक संग्रह सक्षम करें",
+          feedback_enable_description:
+            "याद रखें कि भविष्य की पुनर्प्राप्ति में सुधार के लिए कौन से चंक्स सहायक थे",
+          feedback_show_chunks_label: "पुनर्प्राप्त चंक्स दिखाएं",
+          feedback_show_chunks_description:
+            "फीडबैक बटन के साथ चैट में स्रोत चंक्स प्रदर्शित करें",
+          feedback_blend_weight_label: "फीडबैक लर्निंग भार",
+          feedback_blend_weight_description:
+            "सीखे गए फीडबैक बनाम मॉडल स्कोर (0-1) पर कितना भरोसा करना है",
+          feedback_export_button: "फीडबैक डेटा निर्यात करें",
+          feedback_clear_button: "सभी फीडबैक साफ़ करें",
+          feedback_privacy_note:
+            "सभी फीडबैक स्थानीय रूप से संग्रहीत हैं। गोपनीयता के लिए प्रश्नों को हैश किया गया है। कोई भी डेटा आपके डिवाइस को नहीं छोड़ता है।",
+          feedback_stats_title: "फीडबैक आँकड़े",
+          feedback_stats_total: "कुल फीडबैक",
+          feedback_stats_helpful: "सहायक दर",
+          feedback_stats_chunks: "अद्वितीय चंक्स",
+          feedback_stats_queries: "अद्वितीय प्रश्न",
+          feedback_privacy_title: "गोपनीयता",
+          feedback_export_success: "फीडबैक निर्यात किया गया",
+          feedback_export_error: "फीडबैक निर्यात करने में विफल",
+          feedback_clear_confirm_title: "फीडबैक साफ़ करें?",
+          feedback_clear_confirm_description:
+            "यह स्थायी रूप से सभी फीडबैक को हटा देगा। इसे पूर्ववत नहीं किया जा सकता।",
+          feedback_clear_success: "फीडबैक साफ़ किया गया",
+          feedback_clear_error: "फीडबैक साफ़ करने में विफल"
         },
         provider_status: {
           checking: "Provider स्थिति जाँच रहा है...",
@@ -4957,7 +6000,8 @@ export const resources = {
           label_off: "टैब",
           label_on: "टैब+",
           tooltip: "खुले टैब के साथ इंटरैक्ट करें"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -5150,6 +6194,20 @@ export const resources = {
               label: "पिछले N दोहराएँ",
               validation_min: "कम से कम {{min}} होना चाहिए।"
             }
+          },
+          runtime: {
+            title: "रनटाइम और वार्मअप",
+            description: "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
+            keep_alive_label: "जीवित रखें",
+            keep_alive_description:
+              "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
+            keep_alive_placeholder: "जैसे 300, 5m, अनलोड के लिए 0",
+            warm_on_select_label: "चयन पर मॉडल को वार्म करें",
+            warm_on_select_description:
+              "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
+            unload_on_switch_label: "बदलते समय पिछले मॉडल को अनलोड करें",
+            unload_on_switch_description:
+              "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
           }
         },
         base_url: {
@@ -5223,7 +6281,8 @@ export const resources = {
           guides: "गाइड",
           memory: "मेमोरी",
           shortcuts: "शॉर्टकट",
-          providers: "प्रदाता"
+          providers: "प्रदाता",
+          context: "संदर्भ"
         },
         memory: {
           title: "प्रासंगिक मेमोरी",
@@ -5365,7 +6424,19 @@ export const resources = {
             label: "एम्बेडिंग मॉडल",
             placeholder: "एक मॉडल चुनें",
             description:
-              "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।"
+              "एम्बेडिंग जेनरेट करने के लिए एक मॉडल चुनें। आपको इसे पहले डाउनलोड करने की आवश्यकता हो सकती है।",
+            recommended_group: "अनुशंसित मॉडल",
+            all_models_group: "सभी मॉडल",
+            show_advanced_label: "सभी प्रोवाइडर मॉडल दिखाएँ",
+            show_advanced_description:
+              "अपने प्रोवाइडर्स द्वारा उपलब्ध किसी भी एम्बेडिंग मॉडल के लिए उन्नत चयन सक्षम करें। अनुशंसित मॉडल सबसे सुसंगत खोज गुणवत्ता देते हैं।"
+          },
+          model_change_confirm: {
+            title: "क्या अब एम्बेडिंग्स रीबिल्ड करें?",
+            description:
+              "एंबेडिंग मॉडल बदलने से मौजूदा वेक्टर असंगत हो सकते हैं। सटीक खोज परिणामों के लिए इंडेक्स रीबिल्ड करें, या बिना रीबिल्ड किए स्विच करें।",
+            switch_only: "बिना रीबिल्ड स्विच करें",
+            switch_and_rebuild: "स्विच करें और रीबिल्ड करें"
           }
         },
         prompts: {
@@ -5432,22 +6503,31 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "थीम और इंटरफ़ेस",
               description: "UI स्वरूपण प्राथमिकताएँ"
             },
             browser: {
+              title: "ब्राउज़र सेटिंग्स",
               description: "टैब एक्सेस और URL पैटर्न"
             },
             tts: {
+              title: "टेक्स्ट-टू-स्पीच",
               description: "टेक्स्ट-टू-स्पीच सेटिंग्स"
             },
             chat_sessions: {
+              title: "चैट इतिहास",
               description: "बातचीत का इतिहास"
             },
             default: {
               description: "मॉड्यूल सेटिंग्स"
             },
             provider: {
+              title: "प्रदाता सेटिंग्स",
               description: "मॉडल सेटिंग्स और कॉन्फ़िगरेशन"
+            },
+            feedback: {
+              title: "उपयोगकर्ता फीडबैक",
+              description: "सभी सीखने और प्राप्त किए गए खंड प्रतिक्रिया को साफ़ करें"
             }
           },
           item_count: "{{count}} आइटम",
@@ -5486,6 +6566,45 @@ export const resources = {
             no_models_title: "कोई मॉडल नहीं मिला",
             no_models_description:
               "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+          }
+        },
+        migration: {
+          title: "डेटा माइग्रेशन",
+          description:
+            "वरीयताओं, चैट इतिहास और एम्बेडिंग डेटाबेस सहित अपने सभी एक्सटेंशन डेटा को निर्यात या आयात करें।",
+          export: {
+            label: "पूर्ण बैकअप निर्यात करें",
+            description:
+              "सभी एक्सटेंशन डेटा का एक पूर्ण बैकअप एक ज़िप फ़ाइल के रूप में डाउनलोड करें।",
+            button: "सभी निर्यात करें"
+          },
+          import: {
+            label: "बैकअप आयात करें",
+            description:
+              "पहले से निर्यातित ज़िप बैकअप से डेटा पुनर्स्थापित करें। यह मौजूदा डेटा को अधिलेखित कर देगा।",
+            button: "सभी आयात करें"
+          },
+          import_confirm: {
+            title: "क्या आप बिल्कुल सुनिश्चित हैं?",
+            description:
+              "यह क्रिया बैकअप फ़ाइल की सामग्री के साथ आपकी मौजूदा प्राथमिकताओं, चैट इतिहास और डेटाबेस को पूरी तरह से अधिलेखित कर देगी। इस क्रिया को पूर्ववत नहीं किया जा सकता है।"
+          },
+          import_result: {
+            title: "आयात परिणाम",
+            description: "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+            labels: {
+              sync: "प्राथमिकताएँ (Sync)",
+              local: "स्थानीय संग्रहण",
+              database: "डेटाबेस (SQLite)",
+              chatDb: "चैट इतिहास (Dexie)",
+              vectorDb: "वेक्टर एम्बेडिंग (Dexie)",
+              knowledgeDb: "ज्ञान सेट (Dexie)"
+            },
+            status: {
+              success: "सफल",
+              failed: "विफल",
+              aborted: "निरस्त"
+            }
           }
         }
       },
@@ -5529,7 +6648,76 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "फ़ाइल इनजेशन",
+            description:
+              "कॉन्फ़िगर करें कि ज्ञान पुनर्प्राप्ति के लिए फ़ाइलों को कैसे संसाधित किया जाता है।"
+          },
+          embedding_health: {
+            title: "मिश्रित एम्बेडिंग आयाम पाए गए",
+            description:
+              "एम्बेडिंग कई आयामों ({{dimensions}}) पर संग्रहीत हैं। सब कुछ पुनर्निर्माण होने तक खोज और मेमोरी विफल हो सकती है।",
+            note: "पुनर्निर्माण सभी एम्बेडिंग को साफ़ करता है और चैट इतिहास को फिर से एम्बेड करता है। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+            memory_disabled:
+              "मेमोर बंद है, इसलिए चैट एम्बेडिंग का पुनर्निर्माण नहीं किया गया था।",
+            action: "एम्बेडिंग फिर से बनाएं",
+            action_rebuilding: "फिर से बना रहा है...",
+            confirm:
+              "एम्बेडिंग फिर से बनाएं? यह सभी एम्बेडिंग को साफ़ कर देगा और चैट इतिहास को फिर से एम्बेड करेगा। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
+            progress: "चैट एम्बेडिंग फिर से बन रहे हैं ({{current}}/{{total}})",
+            success: "एम्बेडिंग सफलतापूर्वक फिर से बन गए।",
+            error: "एम्बेडिंग फिर से बनाने में विफल।"
+          }
+        },
         bug_report: "बग / सुविधा रिपोर्ट करें"
+      },
+      knowledge_sets: {
+        title: "ज्ञान सेट",
+        active_label: "सक्रिय ज्ञान सेट",
+        active_description:
+          "जब कोई फ़ाइल संलग्न न हो, तब उपयोग होने वाला ज्ञान सेट चुनें।",
+        active_placeholder: "ज्ञान सेट चुनें",
+        create_label: "ज्ञान सेट बनाएं",
+        create_description: "फ़ाइलों को समूहित करने के लिए नया ज्ञान सेट बनाएं।",
+        create_placeholder: "ज्ञान सेट का नाम",
+        create_button: "बनाएं",
+        rename_label: "ज्ञान सेट का नाम बदलें",
+        rename_description: "सक्रिय ज्ञान सेट का नाम बदलें।",
+        rename_placeholder: "नया नाम",
+        rename_button: "नाम बदलें",
+        delete_label: "ज्ञान सेट हटाएं",
+        delete_description:
+          "सक्रिय ज्ञान सेट और उसका फ़ाइल मैपिंग हटाएं (एम्बेडिंग्स रहेंगी)।",
+        delete_button: "हटाएं",
+        delete_confirm: '"{{name}}" हटाएं? यह वापस नहीं किया जा सकता।',
+        prompt_label: "RAG निर्देश प्रॉम्प्ट",
+        prompt_description:
+          "इस ज्ञान सेट के लिए प्राप्त संदर्भ से पहले जोड़े जाने वाले निर्देश।",
+        question_prompt_label: "प्रश्न पुनः‑रचना प्रॉम्प्ट",
+        question_prompt_description:
+          "इस ज्ञान सेट के लिए फ़ॉलो‑अप प्रश्नों को स्वतंत्र प्रश्नों में बदलने वाला प्रॉम्प्ट।",
+        topk_label: "Retrieval Top‑K",
+        topk_description: "इस ज्ञान सेट के लिए कितने चंक प्राप्त करें।",
+        min_similarity_label: "न्यूनतम समानता",
+        min_similarity_description: "इस ज्ञान सेट के चंक्स के लिए न्यूनतम समानता सीमा।",
+        min_rerank_label: "न्यूनतम rerank स्कोर",
+        min_rerank_description:
+          "इस ज्ञान सेट के चंक्स के लिए reranker का न्यूनतम भरोसा।"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "सक्रिय",
+          provider_details:
+            "उच्च गुणवत्ता वाली एम्बेडिंग • 768-1024 आयाम • सुसंगत परिणाम",
+          webgpu_warning_title: "WebGPU एम्बेडिंग जनरेशन उपलब्ध नहीं है",
+          webgpu_warning_text:
+            "Chrome एक्सटेंशन की सामग्री सुरक्षा नीति प्रतिबंधों के कारण। WebGPU री-रैंकिंग अभी भी सक्रिय और कार्यात्मक है। एम्बेडिंग प्रदाता फ़ॉलबैक श्रृंखला के माध्यम से जेनरेट किए जाते हैं, जब मूल समर्थन उपलब्ध नहीं होता है तो डिफ़ॉल्ट प्रदाता का उपयोग किया जाता है।",
+          performance_title: "प्रदर्शन",
+          performance_default: "डिफ़ॉल्ट प्रदाता एम्बेडिंग जनरेशन: प्रति चंक ~500ms",
+          provider_hint:
+            "सुनिश्चित करें कि आपका स्थानीय प्रदाता चल रहा है (डिफ़ॉल्ट: localhost:11434)"
+        }
       }
     }
   },
@@ -5555,8 +6743,10 @@ export const resources = {
         },
         actions: {
           retry: "Riprova",
-          refresh: "Aggiorna"
+          refresh: "Aggiorna",
+          close: "Chiudi"
         },
+        updated_at: "Aggiornato",
         social: {
           title: "Connettiti con Me",
           visit_profile: "Visita il mio profilo {{platform}}"
@@ -5570,7 +6760,19 @@ export const resources = {
             "Le traduzioni sono generate dall'IA. Aiutaci a migliorare contribuendo su <0>GitHub</0>!"
         },
         cancel: "Annulla",
-        save: "Salva"
+        save: "Salva",
+        continue: "Continua Importazione",
+        reload: "Ricarica Estensione",
+        close: "Chiudi",
+        status: {
+          active: "Attivo"
+        },
+        labels: {
+          performance: "Prestazioni"
+        },
+        nav: {
+          settings_aria: "Navigazione impostazioni"
+        }
       },
       selection_button: {
         label: "Chiedi al LLM locale",
@@ -5600,11 +6802,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Prima di iniziare, segui questi semplici passaggi:",
-          step1: "Installa un provider locale (Ollama consigliato)",
-          step2: "Scarica un modello (es. <code>ollama run llama3</code>)",
-          step3: "Torna qui e clicca su <b>Aggiorna</b>",
-          full_guide_link: "Guida Completa all'Installazione"
+          title: "Configurazione Rapida (Ollama)",
+          intro:
+            "Avrai bisogno di Ollama in esecuzione con un modello di chat e un modello di embedding.",
+          step1: "Installa Ollama e avvialo (<code>ollama serve</code>)",
+          step2:
+            "Scarica un modello di chat (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Scarica un modello di embedding (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Torna qui e clicca su <b>Aggiorna</b>",
+          hint: "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
+          full_guide_link: "Guida Completa alla Configurazione",
+          firefox_warning:
+            "Utenti Firefox: eseguire lo script ollama-env.sh per abilitare CORS prima di iniziare."
         },
         features: {
           private: {
@@ -5653,6 +6863,7 @@ export const resources = {
           fork: "Biforca conversazione",
           edit: "Modifica",
           export_as: "Esporta come...",
+          more: "Altro",
           delete: "Elimina messaggio"
         },
         metrics: {
@@ -5671,11 +6882,30 @@ export const resources = {
           prompt_tokens: "{{value}} prompt",
           generated_tokens: "{{value}} generati",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} msg",
           tooltip_tokens: "Token totali utilizzati in questa sessione",
           tooltip_time: "Tempo totale generazione risposte",
           tooltip_speed: "Velocità media di generazione",
           tooltip_messages: "Numero di risposte AI"
+        },
+        file: {
+          loading_content: "Caricamento contenuto completo..."
+        },
+        reasoning: {
+          aria_label: "Ragionamento del modello",
+          title: "Processo di Pensiero",
+          thinking: "Pensando…",
+          done: "Fatto",
+          hide: "Nascondi",
+          explore: "Esplora",
+          loading_thinking: "Pensando",
+          loading_typing: "Scrittura",
+          loading_queued: "In coda"
+        },
+        feedback: {
+          helpful_tooltip: "È stato utile",
+          not_helpful_tooltip: "Non è stato utile"
         },
         search: {
           button_title: "Cerca nella cronologia chat (ricerca semantica)",
@@ -5690,8 +6920,12 @@ export const resources = {
           searching: "Ricerca cronologia chat in corso...",
           no_results:
             "Nessun risultato trovato. Prova una query di ricerca diversa.",
+          no_results_description:
+            "Prova a modificare le parole chiave o l'ambito della ricerca.",
           start_typing:
             "Inizia a digitare per cercare semanticamente nella cronologia chat...",
+          start_typing_description:
+            "Cerca nella cronologia della chat tramite la ricerca semantica.",
           result_badge: "risultato",
           results_badge: "risultati",
           match_percentage: "% corrispondenza",
@@ -5762,7 +6996,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Carica file",
-          tooltip: "Carica file (PDF, DOCX, file di testo)"
+          tooltip: "Carica file (PDF, DOCX, CSV, HTML, Testo)"
         },
         preview: {
           remove_aria_label: "Rimuovi file",
@@ -5790,6 +7024,7 @@ export const resources = {
           ready: "Modello di embedding pronto: {{model}}",
           missing: "Modello mancante: {{model}}",
           checking_model: "Verifica modello di embedding in corso...",
+          error: "Impossibile verificare lo stato. Fai clic per riprovare.",
           required_for_rag:
             "Il modello di embedding è richiesto per le funzionalità RAG.",
           download_button: "Scarica Modello"
@@ -5866,6 +7101,24 @@ export const resources = {
           clear_all_button: "Cancella Tutti gli Embeddings",
           clear_all_description:
             "Elimina tutti gli embeddings (chat, file, pagine web). Questa azione non può essere annullata",
+          database_management: {
+            remove_duplicates_confirm:
+              "Rimuovere gli embedding duplicati? Verrà mantenuta solo la prima occorrenza di ogni messaggio univoco.",
+            remove_duplicates_success:
+              "Rimossi {{deleted}} duplicati. Mantenuti {{kept}} embedding univoci.",
+            remove_duplicates_error:
+              "Impossibile rimuovere i duplicati. Controlla la console per i dettagli.",
+            clear_chat_confirm:
+              "Cancellare tutti gli embedding della chat? Questo eliminerà tutti i dati di ricerca semantica per le chat. Puoi eseguire il backfill in seguito.",
+            clear_chat_success: "Cancellati {{count}} embedding della chat.",
+            clear_chat_error:
+              "Impossibile cancellare i vettori della chat. Controlla la console per i dettagli.",
+            clear_all_confirm:
+              "Cancellare TUTTI gli embedding? Questo eliminerà tutti i dati di ricerca semantica (chat, file, pagine web). Questa azione non può essere annullata.",
+            clear_all_success: "Tutti gli embedding sono stati cancellati.",
+            clear_all_error:
+              "Impossibile cancellare tutti i vettori. Controlla la console per i dettagli."
+          },
           chunking_title: "Impostazioni di Suddivisione (Chunking)",
           chunking_description:
             "Configura come il testo viene suddiviso in frammenti per l'embedding",
@@ -5932,17 +7185,20 @@ export const resources = {
           cache_max_size_label: "Max Query Memorizzate nella Cache",
           cache_max_size_description:
             "Numero massimo di query di ricerca da memorizzare nella cache (10-200). Le voci più vecchie vengono rimosse automaticamente al raggiungimento del limite.",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "Chunking Avanzato",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "Usa la suddivisione ricorsiva avanzata dei caratteri per un migliore contesto",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "Il chunking avanzato divide il testo in modo gerarchico (paragrafi → frasi → parole) per preservare il significato semantico. Raccomandato per RAG.",
+          rag_settings_title: "RAG (Retrieval Augmented Generation)",
+          rag_settings_description:
+            "Configura come i file vengono utilizzati per rispondere alle domande con il contesto recuperato",
+          rag_enable_label: "Abilita RAG",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "Usa il contesto recuperato per rispondere alle domande sui tuoi file",
+          rag_system_prompt_label: "Prompt di sistema RAG",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "Modello per il prompt di sistema. Usa {context} per il testo recuperato e {question} per la query dell'utente.",
           advanced_retrieval_title: "Impostazioni di Recupero Avanzate",
           adaptive_weights_label: "Pesi Ibridi Adattivi",
           adaptive_weights_description:
@@ -5950,7 +7206,7 @@ export const resources = {
           temporal_boosting_label: "Potenziamento Rilevanza Temporale",
           temporal_boosting_description:
             "Priorità alla documentazione più recente utilizzando il punteggio di decadimento esponenziale",
-          reranking_label: "Abilita Re-Ranking (Transformers.js)",
+          reranking_label: "Abilita Re-Ranking",
           reranking_description:
             "Usa un modello cross-encoder per valutare la rilevanza dei risultati recuperati. Migliora significativamente la precisione.",
           hybrid_search_label: "Abilita ricerca ibrida",
@@ -5975,7 +7231,20 @@ export const resources = {
             "Punteggio di qualità minimo (0-1) richiesto per incorporare il contenuto.",
           embedding_source_description:
             "Gli embedding vengono generati usando il tuo provider locale (Ollama per impostazione predefinita)",
-          embedding_source_default_provider: "Provider predefinito (Ollama)"
+          embedding_source_default_provider: "Provider predefinito (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Verifica stato Provider in corso...",
@@ -6049,7 +7318,8 @@ export const resources = {
           label_off: "Schede",
           label_on: "Scheda+",
           tooltip: "Interagisci con le schede aperte"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -6252,6 +7522,21 @@ export const resources = {
               label: "Ripeti Ultimi N",
               validation_min: "Deve essere almeno {{min}}."
             }
+          },
+          runtime: {
+            title: "Esecuzione e Riscaldamento",
+            description:
+              "Controlla il riscaldamento del modello e le opzioni di runtime.",
+            keep_alive_label: "Mantieni attivo",
+            keep_alive_description:
+              "Quanto tempo mantenere il modello caricato dopo una richiesta. Usa secondi o una durata come 5m.",
+            keep_alive_placeholder: "es. 300, 5m, 0 per scaricare",
+            warm_on_select_label: "Riscalda modello alla selezione",
+            warm_on_select_description:
+              "Precarica il modello al cambio per avere la prima risposta più veloce.",
+            unload_on_switch_label: "Scarica il modello precedente al cambio",
+            unload_on_switch_description:
+              "Libera memoria scaricando l'ultimo modello quando lo cambi."
           }
         },
         base_url: {
@@ -6327,7 +7612,8 @@ export const resources = {
           guides: "Guide",
           memory: "Memoria",
           shortcuts: "Scorciatoie",
-          providers: "Provider"
+          providers: "Provider",
+          context: "Contesto"
         },
         memory: {
           title: "Memoria Contestuale",
@@ -6473,7 +7759,19 @@ export const resources = {
             label: "Modello di Embedding",
             placeholder: "Seleziona un modello",
             description:
-              "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima."
+              "Scegli un modello per generare embeddings. Potrebbe essere necessario scaricarlo prima.",
+            recommended_group: "Modelli consigliati",
+            all_models_group: "Tutti i modelli",
+            show_advanced_label: "Mostra tutti i modelli del provider",
+            show_advanced_description:
+              "Abilita la selezione avanzata per qualsiasi modello di embedding esposto dai tuoi provider. I modelli consigliati offrono la qualità di ricerca più coerente."
+          },
+          model_change_confirm: {
+            title: "Ricostruire gli embedding ora?",
+            description:
+              "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
+            switch_only: "Cambia senza ricostruire",
+            switch_and_rebuild: "Cambia e ricostruisci"
           }
         },
         prompts: {
@@ -6543,22 +7841,32 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Tema e Interfaccia",
               description: "Preferenze di aspetto dell'interfaccia utente"
             },
             browser: {
+              title: "Impostazioni Browser",
               description: "Accesso alle schede e pattern URL"
             },
             tts: {
+              title: "Sintesi Vocale",
               description: "Impostazioni text-to-speech"
             },
             chat_sessions: {
+              title: "Cronologia Chat",
               description: "Cronologia conversazioni"
             },
             default: {
               description: "Impostazioni modulo"
             },
             provider: {
+              title: "Impostazioni Provider",
               description: "Impostazioni e configurazioni del modello"
+            },
+            feedback: {
+              title: "Feedback Utente",
+              description:
+                "Cancella tutti i feedback di apprendimento e dei frammenti recuperati"
             }
           },
           item_count: "{{count}} elemento",
@@ -6597,6 +7905,46 @@ export const resources = {
             no_models_title: "Nessun modello trovato",
             no_models_description:
               "Connesso a {{url}} ma nessun modello trovato. Controlla se il servizio è in esecuzione correttamente."
+          }
+        },
+        migration: {
+          title: "Migrazione dei Dati",
+          description:
+            "Esporta o importa tutti i dati della tua estensione, incluse le preferenze, la cronologia delle chat e le directory delle incorporazioni.",
+          export: {
+            label: "Esporta Backup Completo",
+            description:
+              "Scarica un backup completo di tutti i dati dell'estensione come file ZIP.",
+            button: "Esporta Tutto"
+          },
+          import: {
+            label: "Importa Backup",
+            description:
+              "Ripristina i dati da un backup ZIP esportato in precedenza. Questo sovrascriverà i dati esistenti.",
+            button: "Importa Tutto"
+          },
+          import_confirm: {
+            title: "Sei assolutamente sicuro?",
+            description:
+              "Questa azione sovrascriverà completamente le tue preferenze, la cronologia delle chat e i database esistenti con il contenuto del file di backup. Questa azione non può essere annullata."
+          },
+          import_result: {
+            title: "Risultati dell'Importazione",
+            description:
+              "Rivedi lo stato della tua importazione di dati di seguito:",
+            labels: {
+              sync: "Preferenze (Sync)",
+              local: "Archiviazione Locale",
+              database: "Database (SQLite)",
+              chatDb: "Cronologia chat (Dexie)",
+              vectorDb: "Incorporamenti vettoriali (Dexie)",
+              knowledgeDb: "Set di conoscenze (Dexie)"
+            },
+            status: {
+              success: "Successo",
+              failed: "Fallito",
+              aborted: "Annullato"
+            }
           }
         }
       },
@@ -6642,7 +7990,80 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Ingestione File",
+            description:
+              "Configura come i file vengono elaborati per il recupero della conoscenza."
+          },
+          embedding_health: {
+            title: "Rilevate dimensioni di embedding miste",
+            description:
+              "Gli embedding sono memorizzati in più dimensioni ({{dimensions}}). La ricerca e la memoria possono fallire finché tutto non viene ricostruito.",
+            note: "La ricostruzione cancella tutti gli embedding e reinserisce la cronologia della chat. I caricamenti di file dovranno essere ricaricati per ripristinare la conoscenza.",
+            memory_disabled:
+              "La memoria è disattivata, quindi gli embedding della chat non sono stati ricostruiti.",
+            action: "Ricostruisci embedding",
+            action_rebuilding: "Ricostruzione in corso...",
+            confirm:
+              "Ricostruire gli embedding? Questo cancellerà tutti gli embedding e reinserirà la cronologia della chat. I caricamenti di file dovranno essere ricaricati per ripristinare la conoscenza.",
+            progress: "Ricostruzione embedding chat ({{current}}/{{total}})",
+            success: "Embedding ricostruiti con successo.",
+            error: "Impossibile ricostruire gli embedding."
+          }
+        },
         bug_report: "Segnala Bug / Funzionalità"
+      },
+      knowledge_sets: {
+        title: "Set di conoscenza",
+        active_label: "Set di conoscenza attivo",
+        active_description:
+          "Seleziona il set da usare quando non ci sono file allegati.",
+        active_placeholder: "Seleziona un set",
+        create_label: "Crea set di conoscenza",
+        create_description: "Crea un nuovo set per raggruppare i file.",
+        create_placeholder: "Nome del set",
+        create_button: "Crea",
+        rename_label: "Rinomina set",
+        rename_description: "Cambia il nome del set attivo.",
+        rename_placeholder: "Nuovo nome",
+        rename_button: "Rinomina",
+        delete_label: "Elimina set",
+        delete_description:
+          "Elimina il set attivo e la mappatura dei file (le embedding restano).",
+        delete_button: "Elimina",
+        delete_confirm:
+          'Eliminare "{{name}}"? Questa azione non può essere annullata.',
+        prompt_label: "Prompt di istruzioni RAG",
+        prompt_description:
+          "Istruzioni inserite prima del contesto recuperato per questo set.",
+        question_prompt_label: "Prompt di riformulazione delle domande",
+        question_prompt_description:
+          "Prompt per riscrivere le domande di follow‑up in query autonome per questo set.",
+        topk_label: "Top‑K di recupero",
+        topk_description: "Quanti chunk recuperare per questo set.",
+        min_similarity_label: "Somiglianza minima",
+        min_similarity_description:
+          "Soglia minima di somiglianza per i chunk di questo set.",
+        min_rerank_label: "Punteggio minimo di rerank",
+        min_rerank_description:
+          "Confianza minima del reranker per i chunk di questo set."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Attivo",
+          provider_details:
+            "Embedding di alta qualità • 768-1024 dimensioni • Risultati coerenti",
+          webgpu_warning_title:
+            "La generazione di embedding WebGPU non è disponibile",
+          webgpu_warning_text:
+            "a causa delle restrizioni della Content Security Policy dell'estensione Chrome. Il re-ranking WebGPU è ancora attivo e funzionante. Gli embedding vengono generati tramite la catena di fallback del provider, utilizzando il provider predefinito quando il supporto nativo non è disponibile.",
+          performance_title: "Prestazioni",
+          performance_default:
+            "Generazione embedding provider predefinito: ~500ms per chunk",
+          provider_hint:
+            "Assicurati che il tuo provider locale sia in esecuzione (predefinito: localhost:11434)"
+        }
       }
     }
   },
@@ -6668,8 +8089,10 @@ export const resources = {
         },
         actions: {
           retry: "再試行",
-          refresh: "更新"
+          refresh: "更新",
+          close: "閉じる"
         },
+        updated_at: "更新済み",
         social: {
           title: "私とつながる",
           visit_profile: "私の {{platform}} プロフィールを見る"
@@ -6683,7 +8106,19 @@ export const resources = {
             "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
         },
         cancel: "キャンセル",
-        save: "保存"
+        save: "保存",
+        continue: "インポートを続行",
+        reload: "拡張機能を再読み込み",
+        close: "閉じる",
+        status: {
+          active: "アクティブ"
+        },
+        labels: {
+          performance: "パフォーマンス"
+        },
+        nav: {
+          settings_aria: "設定ナビゲーション"
+        }
       },
       selection_button: {
         label: "ローカルLLMに聞く",
@@ -6712,11 +8147,19 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "開始する前に、以下の簡単な手順に従ってください：",
-          step1: "ローカルプロバイダーをインストールします（Ollama推奨）",
-          step2: "モデルを取得します（例: <code>ollama run llama3</code>）",
-          step3: "ここに戻って <b>更新</b> をクリックする",
-          full_guide_link: "完全なセットアップガイド"
+          title: "クイックセットアップ (Ollama)",
+          intro:
+            "Ollamaを実行し、チャットモデルと埋め込みモデルをそれぞれ1つずつ用意する必要があります。",
+          step1: "Ollamaをインストールして起動する (<code>ollama serve</code>)",
+          step2:
+            "チャットモデルをプルする (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "埋め込みモデルをプルする (<code>ollama pull all-minilm:latest</code>)",
+          step4: "ここに戻って <b>更新</b> をクリックする",
+          hint: "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
+          full_guide_link: "完全なセットアップガイド",
+          firefox_warning:
+            "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。"
         },
         features: {
           private: {
@@ -6765,6 +8208,7 @@ export const resources = {
           switch_model_tooltip: "モデルを切り替え",
           edit: "編集",
           export_as: "エクスポート...",
+          more: "その他",
           delete: "メッセージを削除"
         },
         metrics: {
@@ -6783,11 +8227,30 @@ export const resources = {
           prompt_tokens: "{{value}} プロンプト",
           generated_tokens: "{{value}} 生成済",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} 件",
           tooltip_tokens: "このセッションで使用された合計トークン",
           tooltip_time: "合計応答生成時間",
           tooltip_speed: "平均生成速度",
           tooltip_messages: "AI応答数"
+        },
+        file: {
+          loading_content: "コンテンツを読み込み中..."
+        },
+        reasoning: {
+          aria_label: "モデルの思考プロセス",
+          title: "思考プロセス",
+          thinking: "思考中…",
+          done: "完了",
+          hide: "隠す",
+          explore: "詳細表示",
+          loading_thinking: "思考中",
+          loading_typing: "入力中",
+          loading_queued: "待機中"
+        },
+        feedback: {
+          helpful_tooltip: "役に立った",
+          not_helpful_tooltip: "役に立たなかった"
         },
         search: {
           button_title: "チャット履歴を検索 (セマンティック検索)",
@@ -6801,7 +8264,11 @@ export const resources = {
           scope_current: "現在のチャット",
           searching: "チャット履歴を検索中...",
           no_results: "結果が見つかりません。別の検索クエリを試してください。",
+          no_results_description:
+            "キーワードまたは検索範囲を調整してみてください。",
           start_typing: "入力を開始してチャット履歴をセマンティック検索...",
+          start_typing_description:
+            "セマンティック検索を使用してチャット履歴を検索します。",
           result_badge: "件",
           results_badge: "件",
           match_percentage: "% 一致",
@@ -6871,7 +8338,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "ファイルをアップロード",
-          tooltip: "ファイルをアップロード (PDF, DOCX, テキストファイル)"
+          tooltip: "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)"
         },
         preview: {
           remove_aria_label: "ファイルを削除",
@@ -6899,6 +8366,8 @@ export const resources = {
           ready: "エンベディングモデル準備完了: {{model}}",
           missing: "モデル欠落: {{model}}",
           checking_model: "エンベディングモデルを確認中...",
+          error:
+            "ステータスを確認できませんでした。再試行するにはクリックしてください。",
           required_for_rag: "エンベディングモデルはRAG機能に必要です。",
           download_button: "モデルをダウンロード"
         },
@@ -6974,6 +8443,25 @@ export const resources = {
           clear_all_button: "全エンベディングをクリア",
           clear_all_description:
             "すべてのエンベディング（チャット、ファイル、Webページ）を削除します。この操作は取り消せません",
+          database_management: {
+            remove_duplicates_confirm:
+              "重複した埋め込みを削除しますか？各ユニークなメッセージの最初の出現のみが保持されます。",
+            remove_duplicates_success:
+              "{{deleted}}個の重複を削除しました。{{kept}}個のユニークな埋め込みを保持しました。",
+            remove_duplicates_error:
+              "重複の削除に失敗しました。詳細はコンソールを確認してください。",
+            clear_chat_confirm:
+              "すべてのチャットの埋め込みを消去しますか？これにより、チャットのすべてのセマンティック検索データが削除されます。後でバックフィルが可能です。",
+            clear_chat_success:
+              "{{count}}個のチャットの埋め込みを消去しました。",
+            clear_chat_error:
+              "チャットベクトルの消去に失敗しました。詳細はコンソールを確認してください。",
+            clear_all_confirm:
+              "すべての埋め込みを消去しますか？これにより、すべてのセマンティック検索データ（チャット、ファイル、ウェブページ）が削除されます。この操作は取り消せません。",
+            clear_all_success: "すべての埋め込みを消去しました。",
+            clear_all_error:
+              "すべてのベクトルの消去に失敗しました。詳細はコンソールを確認してください。"
+          },
           chunking_title: "チャンク設定",
           chunking_description:
             "テキストをエンベディング用にチャンク分割する方法を設定します",
@@ -7039,17 +8527,20 @@ export const resources = {
           cache_max_size_label: "最大キャッシュクエリ数",
           cache_max_size_description:
             "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
-          enhanced_chunking_label: "Enhanced Chunking",
+          enhanced_chunking_label: "拡張チャンキング",
           enhanced_chunking_description:
-            "Use advanced recursive character splitting for better context",
+            "高度な再帰的文字分割を使用して、より良いコンテキストを維持します",
           enhanced_chunking_info:
-            "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-          rag_enable_label: "Enable RAG",
+            "拡張チャンキングは、テキストを階層的に分割（段落→文→単語）し、セマンティックな意味を保持します。RAGに推奨されます。",
+          rag_settings_title: "RAG (検索拡張生成)",
+          rag_settings_description:
+            "取得されたコンテキストを使用して、ファイルに関する質問に答える方法を設定します",
+          rag_enable_label: "RAGを有効にする",
           rag_enable_description:
-            "Use retrieved context to answer questions about your files",
-          rag_system_prompt_label: "RAG System Prompt",
+            "取得されたコンテキストを使用して、ファイルに関する質問に答えます",
+          rag_system_prompt_label: "RAGシステムプロンプト",
           rag_system_prompt_description:
-            "Template for the system prompt. Use {context} for retrieved text and {question} for the user query.",
+            "システムプロンプトのテンプレート。取得されたテキストには {context}、ユーザーのクエリには {question} を使用します。",
           advanced_retrieval_title: "高度な検索設定",
           adaptive_weights_label: "適応型ハイブリッド重み付け",
           adaptive_weights_description:
@@ -7057,7 +8548,7 @@ export const resources = {
           temporal_boosting_label: "時間的関連性の向上",
           temporal_boosting_description:
             "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
-          reranking_label: "再ランク付けを有効にする (Transformers.js)",
+          reranking_label: "再ランク付けを有効にする",
           reranking_description:
             "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
           hybrid_search_label: "ハイブリッド検索を有効にする",
@@ -7082,7 +8573,20 @@ export const resources = {
             "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
           embedding_source_description:
             "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
-          embedding_source_default_provider: "既定のプロバイダー（Ollama）"
+          embedding_source_default_provider: "既定のプロバイダー（Ollama）",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Providerの状態を確認中...",
@@ -7154,7 +8658,8 @@ export const resources = {
           label_off: "タブ",
           label_on: "タブ+",
           tooltip: "開いているタブと対話する"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -7352,6 +8857,21 @@ export const resources = {
               label: "Repeat Last N",
               validation_min: "少なくとも {{min}} である必要があります。"
             }
+          },
+          runtime: {
+            title: "ランタイムとウォームアップ",
+            description:
+              "モデルのウォームアップとランタイムオプションを制御します。",
+            keep_alive_label: "キープアライブ",
+            keep_alive_description:
+              "リクエスト後にモデルをロードしたままにする時間。秒数または「5m」のような期間を使用します。",
+            keep_alive_placeholder: "例：300、5m、アンロードする場合は0",
+            warm_on_select_label: "選択時にモデルをウォームアップ",
+            warm_on_select_description:
+              "切り替え時にモデルをプリロードして、初回の応答を高速化します。",
+            unload_on_switch_label: "切り替え時に前のモデルをアンロード",
+            unload_on_switch_description:
+              "切り替え時に最後のモデルをアンロードしてメモリを解放します。"
           }
         },
         base_url: {
@@ -7426,7 +8946,8 @@ export const resources = {
           guides: "ガイド",
           memory: "メモリ",
           shortcuts: "ショートカット",
-          providers: "プロバイダー"
+          providers: "プロバイダー",
+          context: "コンテキスト"
         },
         errorBoundary: {
           title: "問題が発生しました",
@@ -7569,7 +9090,19 @@ export const resources = {
             label: "エンベディングモデル",
             placeholder: "モデルを選択",
             description:
-              "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。"
+              "エンベディングを生成するモデルを選択します。最初にダウンロードする必要がある場合があります。",
+            recommended_group: "推奨モデル",
+            all_models_group: "すべてのモデル",
+            show_advanced_label: "すべてのプロバイダーモデルを表示",
+            show_advanced_description:
+              "プロバイダーが提供する任意の埋め込みモデルの詳細な選択を有効にします。推奨モデルは最も一貫した検索品質を提供します。"
+          },
+          model_change_confirm: {
+            title: "今すぐ埋め込みを再構築しますか？",
+            description:
+              "埋め込みモデルを変更すると既存のベクトルが互換性を失う可能性があります。検索結果の精度を保つために再構築するか、再構築せずに切り替えます。",
+            switch_only: "再構築せずに切り替え",
+            switch_and_rebuild: "切り替えて再構築"
           }
         },
         prompts: {
@@ -7638,22 +9171,32 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "テーマとインターフェース",
               description: "UIの外観設定"
             },
             browser: {
+              title: "ブラウザ設定",
               description: "タブアクセスとURLパターン"
             },
             tts: {
+              title: "音声読み上げ",
               description: "テキスト読み上げ設定"
             },
             chat_sessions: {
+              title: "チャット履歴",
               description: "会話履歴"
             },
             default: {
               description: "モジュール設定"
             },
             provider: {
+              title: "プロバイダー設定",
               description: "モデル設定と構成"
+            },
+            feedback: {
+              title: "ユーザーフィードバック",
+              description:
+                "すべての学習および取得されたチャックのフィードバックをクリアする"
             }
           },
           item_count: "{{count}} 項目",
@@ -7692,6 +9235,46 @@ export const resources = {
             no_models_title: "モデルが見つかりません",
             no_models_description:
               "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。"
+          }
+        },
+        migration: {
+          title: "データ移行",
+          description:
+            "設定、チャット履歴、埋め込みデータベースを含む、すべての拡張機能データをエクスポートまたはインポートします。",
+          export: {
+            label: "完全なバックアップをエクスポート",
+            description:
+              "すべての拡張機能データの完全なバックアップをZIPファイルとしてダウンロードします。",
+            button: "すべてエクスポート"
+          },
+          import: {
+            label: "バックアップをインポート",
+            description:
+              "以前にエクスポートしたZIPバックアップからデータを復元します。これにより既存のデータが上書きされます。",
+            button: "すべてインポート"
+          },
+          import_confirm: {
+            title: "本当によろしいですか？",
+            description:
+              "この操作により、既存の設定、チャット履歴、データベースがバックアップファイルの内容で完全に上書きされます。この操作は元に戻すことができません。"
+          },
+          import_result: {
+            title: "インポート結果",
+            description:
+              "以下のデータインポートのステータスを確認してください:",
+            labels: {
+              sync: "環境設定 (Sync)",
+              local: "ローカルストレージ",
+              database: "データベース (SQLite)",
+              chatDb: "チャット履歴 (Dexie)",
+              vectorDb: "ベクトル埋め込み (Dexie)",
+              knowledgeDb: "ナレッジセット (Dexie)"
+            },
+            status: {
+              success: "成功",
+              failed: "失敗",
+              aborted: "中止"
+            }
           }
         }
       },
@@ -7735,7 +9318,78 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "ファイル取り込み",
+            description:
+              "知識取得のためにファイルがどのように処理されるかを設定します。"
+          },
+          embedding_health: {
+            title: "混合エンベディング次元が検出されました",
+            description:
+              "エンベディングが複数の次元（{{dimensions}}）で保存されています。すべてが再構築されるまで、検索やメモリが失敗する可能性があります。",
+            note: "再構築するとすべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+            memory_disabled:
+              "メモリがオフになっているため、チャットのエンベディングは再構築されませんでした。",
+            action: "エンベディングを再構築",
+            action_rebuilding: "再構築中...",
+            confirm:
+              "エンベディングを再構築しますか？これにより、すべてのエンベディングが消去され、チャット履歴が再エンベディングされます。知識を復元するには、ファイルの再アップロードが必要になります。",
+            progress:
+              "チャットエンベディングを再構築中（{{current}}/{{total}}）",
+            success: "エンベディングの再構築が正常に完了しました。",
+            error: "エンベディングの再構築に失敗しました。"
+          }
+        },
         bug_report: "バグ報告 / 機能リクエスト"
+      },
+      knowledge_sets: {
+        title: "ナレッジセット",
+        active_label: "アクティブなナレッジセット",
+        active_description:
+          "ファイルが添付されていない場合に使用するセットを選択します。",
+        active_placeholder: "ナレッジセットを選択",
+        create_label: "ナレッジセットを作成",
+        create_description: "ファイルをまとめる新しいセットを作成します。",
+        create_placeholder: "ナレッジセット名",
+        create_button: "作成",
+        rename_label: "ナレッジセット名を変更",
+        rename_description: "アクティブなナレッジセット名を変更します。",
+        rename_placeholder: "新しい名前",
+        rename_button: "変更",
+        delete_label: "ナレッジセットを削除",
+        delete_description:
+          "アクティブなナレッジセットとファイル関連付けを削除します（埋め込みは残ります）。",
+        delete_button: "削除",
+        delete_confirm: "「{{name}}」を削除しますか？元に戻せません。",
+        prompt_label: "RAG 指示プロンプト",
+        prompt_description:
+          "このセットの取得コンテキストの前に挿入される指示。",
+        question_prompt_label: "質問の再定式化プロンプト",
+        question_prompt_description:
+          "フォローアップ質問を独立した質問に書き換えるためのプロンプト。",
+        topk_label: "取得 Top‑K",
+        topk_description: "このセットで取得するチャンク数。",
+        min_similarity_label: "最小類似度",
+        min_similarity_description:
+          "このセットのチャンクに対する最小類似度しきい値。",
+        min_rerank_label: "最小再ランクスコア",
+        min_rerank_description:
+          "このセットのチャンクに対する再ランカーの最小信頼度。"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "アクティブ",
+          provider_details: "高品質な埋め込み • 768-1024次元 • 一貫した結果",
+          webgpu_warning_title: "WebGPUによる埋め込み生成は利用できません",
+          webgpu_warning_text:
+            "Chrome拡張機能のコンテンツセキュリティポリシー（CSP）の制限によるものです。WebGPUによる再ランク付けは引き続き有効です。埋め込み生成は、ネイティブサポートが利用できない場合にデフォルトのプロバイダーを使用するフォールバックチェーンを通じて行われます。",
+          performance_title: "パフォーマンス",
+          performance_default:
+            "デフォルトプロバイダーの埋め込み生成：1チャンクあたり約500ms",
+          provider_hint:
+            "現在、ローカルプロバイダーが実行されていることを確認してください（デフォルト：localhost:11434）"
+        }
       }
     }
   },
@@ -7761,8 +9415,10 @@ export const resources = {
         },
         actions: {
           retry: "Повторить",
-          refresh: "Обновить"
+          refresh: "Обновить",
+          close: "Закрыть"
         },
+        updated_at: "Обновлено",
         social: {
           title: "Связаться со мной",
           visit_profile: "Посетить мой профиль {{platform}}"
@@ -7776,7 +9432,19 @@ export const resources = {
             "Переводы созданы ИИ. Помогите нам улучшить их на <0>GitHub</0>!"
         },
         cancel: "Отмена",
-        save: "Сохранить"
+        save: "Сохранить",
+        continue: "Продолжить импорт",
+        reload: "Перезагрузить расширение",
+        close: "Закрыть",
+        status: {
+          active: "Активен"
+        },
+        labels: {
+          performance: "Производительность"
+        },
+        nav: {
+          settings_aria: "Навигация настроек"
+        }
       },
       selection_button: {
         label: "Спросить локальный LLM",
@@ -7805,11 +9473,18 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "Прежде чем начать, выполните эти быстрые шаги:",
-          step1: "Установите локального провайдера (рекомендуется Ollama)",
-          step2: "Скачайте модель (например, <code>ollama run llama3</code>)",
-          step3: "Вернитесь сюда и нажмите <b>Обновить</b>",
-          full_guide_link: "Полное руководство по установке"
+          title: "Быстрая настройка (Ollama)",
+          intro:
+            "Вам понадобится запущенный Ollama с одной моделью чата и одной моделью эмбеддингов.",
+          step1: "Установите Ollama и запустите (<code>ollama serve</code>)",
+          step2: "Скачайте модель чата (<code>ollama pull qwen2.5:3b</code>)",
+          step3:
+            "Скачайте модель эмбеддингов (<code>ollama pull all-minilm:latest</code>)",
+          step4: "Вернитесь сюда и нажмите <b>Обновить</b>",
+          hint: "Следуйте руководству по настройке ниже, чтобы установить Ollama и модели.",
+          full_guide_link: "Полное руководство по настройке",
+          firefox_warning:
+            "Пользователи Firefox: запустите скрипт ollama-env.sh для включения CORS перед началом работы."
         },
         features: {
           private: {
@@ -7858,6 +9533,7 @@ export const resources = {
           switch_model_tooltip: "Переключить модель",
           edit: "Редактировать",
           export_as: "Экспортировать как...",
+          more: "Ещё",
           delete: "Удалить сообщение"
         },
         metrics: {
@@ -7876,11 +9552,30 @@ export const resources = {
           prompt_tokens: "{{value}} промпт",
           generated_tokens: "{{value}} сгенер.",
           avg_speed: "{{speed}} т/с",
+          speed_unit: "т/с",
           messages: "{{value}} сообщ.",
           tooltip_tokens: "Всего токенов в текущей сессии",
           tooltip_time: "Общее время генерации",
           tooltip_speed: "Средняя скорость генерации",
           tooltip_messages: "Количество ответов ИИ"
+        },
+        file: {
+          loading_content: "Загрузка содержимого..."
+        },
+        reasoning: {
+          aria_label: "Процесс мышления модели",
+          title: "Ход мыслей",
+          thinking: "Думаю…",
+          done: "Готово",
+          hide: "Скрыть",
+          explore: "Подробнее",
+          loading_thinking: "Думаю",
+          loading_typing: "Печатаю",
+          loading_queued: "В очереди"
+        },
+        feedback: {
+          helpful_tooltip: "Это было полезно",
+          not_helpful_tooltip: "Это не было полезно"
         },
         search: {
           button_title: "Поиск по истории чатов (семантический)",
@@ -7894,7 +9589,11 @@ export const resources = {
           scope_current: "Текущий чат",
           searching: "Поиск по истории чатов...",
           no_results: "Результатов не найдено. Попробуйте другой запрос.",
+          no_results_description:
+            "Попробуйте скорректировать ключевые слова или область поиска.",
           start_typing: "Начните печатать для семантического поиска...",
+          start_typing_description:
+            "Ищите в истории вашего чата с помощью семантического поиска.",
           result_badge: "результат",
           results_badge: "результатов",
           match_percentage: "% совпадения",
@@ -7965,7 +9664,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "Загрузить файл",
-          tooltip: "Загрузить файл (PDF, DOCX, Text)"
+          tooltip: "Загрузить файл (PDF, DOCX, CSV, HTML, Текст)"
         },
         preview: {
           remove_aria_label: "Удалить файл",
@@ -7993,6 +9692,7 @@ export const resources = {
           ready: "Модель эмбеддингов готова: {{model}}",
           missing: "Модель отсутствует: {{model}}",
           checking_model: "Проверка модели эмбеддингов...",
+          error: "Не удалось проверить статус. Нажмите, чтобы повторить.",
           required_for_rag: "Модель эмбеддингов необходима для функций RAG.",
           download_button: "Скачать модель"
         },
@@ -8068,6 +9768,24 @@ export const resources = {
           clear_all_button: "Очистить все эмбеддинги",
           clear_all_description:
             "Удалить все эмбеддинги (чаты, файлы, веб-страницы). Это действие нельзя отменить",
+          database_management: {
+            remove_duplicates_confirm:
+              "Удалить дубликаты встраиваний? Будет сохранено только первое вхождение каждого уникального сообщения.",
+            remove_duplicates_success:
+              "Удалено дубликатов: {{deleted}}. Сохранено уникальных встраиваний: {{kept}}.",
+            remove_duplicates_error:
+              "Не удалось удалить дубликаты. Подробности см. в консоли.",
+            clear_chat_confirm:
+              "Очистить все встраивания чатов? Это удалит все данные семантического поиска для чатов. Вы сможете выполнить обратную засыпку позже.",
+            clear_chat_success: "Очищено встраиваний чатов: {{count}}.",
+            clear_chat_error:
+              "Не удалось очистить векторы чатов. Подробности см. в консоли.",
+            clear_all_confirm:
+              "Очистить ВСЕ встраивания? Это удалит все данные семантического поиска (чаты, файлы, веб-страницы). Это действие нельзя отменить.",
+            clear_all_success: "Все встраивания очищены.",
+            clear_all_error:
+              "Не удалось очистить все векторы. Подробности см. в консоли."
+          },
           chunking_title: "Настройки разбиения (Chunking)",
           chunking_description:
             "Настройте, как текст разбивается на части для создания эмбеддингов",
@@ -8153,7 +9871,7 @@ export const resources = {
           temporal_boosting_label: "Усиление Временной Релевантности",
           temporal_boosting_description:
             "Приоритет более новой документации с использованием оценки экспоненциального затухания",
-          reranking_label: "Включить переранжирование (Transformers.js)",
+          reranking_label: "Включить переранжирование",
           reranking_description:
             "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
           hybrid_search_label: "Включить гибридный поиск",
@@ -8178,7 +9896,20 @@ export const resources = {
             "Минимальная оценка качества (0-1), необходимая для встраивания контента.",
           embedding_source_description:
             "Эмбеддинги генерируются с помощью вашего локального провайдера (по умолчанию Ollama)",
-          embedding_source_default_provider: "Провайдер по умолчанию (Ollama)"
+          embedding_source_default_provider: "Провайдер по умолчанию (Ollama)",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "Проверка статуса Provider...",
@@ -8252,7 +9983,8 @@ export const resources = {
           label_off: "Вкладки",
           label_on: "Вкладка+",
           tooltip: "Взаимодействие с открытыми вкладками"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -8451,6 +10183,21 @@ export const resources = {
               label: "Repeat Last N",
               validation_min: "Должно быть не менее {{min}}."
             }
+          },
+          runtime: {
+            title: "Среда выполнения и запуск",
+            description:
+              "Настройки запуска и параметров среды выполнения модели.",
+            keep_alive_label: "Сохранять в памяти",
+            keep_alive_description:
+              "Как долго модель должна находиться в памяти после запроса. В секундах или формат как 5m.",
+            keep_alive_placeholder: "напр. 300, 5m, 0 для выгрузки",
+            warm_on_select_label: "Запускать модель при выборе",
+            warm_on_select_description:
+              "Предварительно загружать модель при переключении для ускорения первого ответа.",
+            unload_on_switch_label: "Выгружать предыдущую модель при смене",
+            unload_on_switch_description:
+              "Освобождать память, выгружая последнюю модель при переключении на новую."
           }
         },
         base_url: {
@@ -8524,7 +10271,8 @@ export const resources = {
           guides: "Руководства",
           memory: "Память",
           shortcuts: "Горячие клавиши",
-          providers: "Провайдеры"
+          providers: "Провайдеры",
+          context: "Контекст"
         },
         memory: {
           title: "Контекстная память",
@@ -8670,7 +10418,19 @@ export const resources = {
             label: "Модель эмбеддингов",
             placeholder: "Выберите модель",
             description:
-              "Выберите модель для генерации эмбеддингов. Возможно, вам придется сначала её скачать."
+              "Выберите модель для генерации эмбеддингов. Возможно, вам придется сначала её скачать.",
+            recommended_group: "Рекомендуемые модели",
+            all_models_group: "Все модели",
+            show_advanced_label: "Показывать все модели провайдера",
+            show_advanced_description:
+              "Включает расширенный выбор любых моделей эмбеддингов, доступных у ваших провайдеров. Рекомендуемые модели дают наиболее стабильное качество поиска."
+          },
+          model_change_confirm: {
+            title: "Перестроить эмбеддинги сейчас?",
+            description:
+              "Смена модели эмбеддингов может сделать существующие векторы несовместимыми. Перестройте индекс для точных результатов поиска или переключитесь без перестройки.",
+            switch_only: "Переключить без перестройки",
+            switch_and_rebuild: "Переключить и перестроить"
           }
         },
         prompts: {
@@ -8737,22 +10497,32 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "Тема и интерфейс",
               description: "Настройки внешнего вида UI"
             },
             browser: {
+              title: "Настройки браузера",
               description: "Доступ к вкладкам и шаблоны URL"
             },
             tts: {
+              title: "Текст в речь",
               description: "Настройки синтеза речи (TTS)"
             },
             chat_sessions: {
+              title: "История чатов",
               description: "История разговоров"
             },
             default: {
               description: "Настройки модуля"
             },
             provider: {
+              title: "Настройки провайдера",
               description: "Настройки моделей и конфигурации"
+            },
+            feedback: {
+              title: "Отзывы пользователей",
+              description:
+                "Очистить все отзывы об обучении и полученных фрагментах"
             }
           },
           item_count: "{{count}} элемент",
@@ -8791,6 +10561,45 @@ export const resources = {
             no_models_title: "Модели не найдены",
             no_models_description:
               "Подключено к {{url}}, но модели не найдены. Проверьте, правильно ли работает сервис."
+          }
+        },
+        migration: {
+          title: "Перенос данных",
+          description:
+            "Экспортируйте или импортируйте все данные вашего расширения, включая настройки, историю чата и базы данных векторных представлений.",
+          export: {
+            label: "Экспортировать полную резервную копию",
+            description:
+              "Скачать полную резервную копию всех данных расширения в виде ZIP-файла.",
+            button: "Экспортировать все"
+          },
+          import: {
+            label: "Импортировать резервную копию",
+            description:
+              "Восстановить данные из ранее экспортированной ZIP-копии. Это перезапишет существующие данные.",
+            button: "Импортировать все"
+          },
+          import_confirm: {
+            title: "Вы абсолютно уверены?",
+            description:
+              "Это действие полностью перезапишет ваши существующие настройки, историю чатов и базы данных содержимым файла резервной копии. Это действие нельзя отменить."
+          },
+          import_result: {
+            title: "Результаты импорта",
+            description: "Ознакомьтесь со статусом импорта данных ниже:",
+            labels: {
+              sync: "Настройки (Sync)",
+              local: "Локальное хранилище",
+              database: "База данных (SQLite)",
+              chatDb: "История чата (Dexie)",
+              vectorDb: "Векторные вложения (Dexie)",
+              knowledgeDb: "Базы знаний (Dexie)"
+            },
+            status: {
+              success: "Успех",
+              failed: "Провалено",
+              aborted: "Прервано"
+            }
           }
         }
       },
@@ -8834,7 +10643,78 @@ export const resources = {
         linkedin: "LinkedIn",
         twitter: "Twitter",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "Загрузка файлов",
+            description:
+              "Настройте, как файлы обрабатываются для извлечения знаний."
+          },
+          embedding_health: {
+            title: "Обнаружены смешанные измерения эмбеддингов",
+            description:
+              "Эмбеддинги хранятся в нескольких измерениях ({{dimensions}}). Поиск и память могут не работать до полного перестроения.",
+            note: "Перестроение удаляет все эмбеддинги и заново индексирует историю чата. Загруженные файлы потребуется загрузить повторно для восстановления знаний.",
+            memory_disabled:
+              "Память отключена, поэтому эмбеддинги чата не были перестроены.",
+            action: "Перестроить эмбеддинги",
+            action_rebuilding: "Перестроение...",
+            confirm:
+              "Перестроить эмбеддинги? Это удалит все существующие эмбеддинги и заново проиндексирует историю чата. Файлы потребуется загрузить повторно.",
+            progress: "Перестроение эмбеддингов чата ({{current}}/{{total}})",
+            success: "Эмбеддинги успешно перестроены.",
+            error: "Не удалось перестроить эмбеддинги."
+          }
+        },
         bug_report: "Сообщить о баге / фиче"
+      },
+      knowledge_sets: {
+        title: "Наборы знаний",
+        active_label: "Активный набор",
+        active_description:
+          "Выберите набор, который используется, когда файлы не прикреплены.",
+        active_placeholder: "Выберите набор",
+        create_label: "Создать набор знаний",
+        create_description: "Создайте новый набор для группировки файлов.",
+        create_placeholder: "Название набора",
+        create_button: "Создать",
+        rename_label: "Переименовать набор",
+        rename_description: "Измените имя активного набора.",
+        rename_placeholder: "Новое имя",
+        rename_button: "Переименовать",
+        delete_label: "Удалить набор",
+        delete_description:
+          "Удалить активный набор и его привязку файлов (эмбеддинги останутся).",
+        delete_button: "Удалить",
+        delete_confirm: "Удалить «{{name}}»? Это действие нельзя отменить.",
+        prompt_label: "Промпт инструкций RAG",
+        prompt_description:
+          "Инструкции, вставляемые перед извлечённым контекстом для этого набора.",
+        question_prompt_label: "Промпт переформулировки вопроса",
+        question_prompt_description:
+          "Промпт для переписывания уточняющих вопросов в самостоятельные запросы для этого набора.",
+        topk_label: "Top‑K извлечения",
+        topk_description: "Сколько чанков извлекать для этого набора.",
+        min_similarity_label: "Минимальная схожесть",
+        min_similarity_description:
+          "Минимальный порог схожести для чанков этого набора.",
+        min_rerank_label: "Минимальный rerank‑score",
+        min_rerank_description:
+          "Минимальная уверенность reranker для чанков этого набора."
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "Активен",
+          provider_details:
+            "Высококачественные эмбеддинги • 768-1024 измерений • Стабильные результаты",
+          webgpu_warning_title: "Генерация эмбеддингов через WebGPU недоступна",
+          webgpu_warning_text:
+            "Из-за ограничений политики безопасности контента (CSP) расширения Chrome. Переранжирование через WebGPU по-прежнему активно. Эмбеддинги генерируются через цепочку фоллбэков, используя провайдера по умолчанию, когда нативная поддержка недоступна.",
+          performance_title: "Производительность",
+          performance_default:
+            "Генерация эмбеддингов провайдером по умолчанию: ~500мс на фрагмент",
+          provider_hint:
+            "Убедитесь, что ваш локальный провайдер запущен (по умолчанию: localhost:11434)"
+        }
       }
     }
   },
@@ -8860,8 +10740,10 @@ export const resources = {
         },
         actions: {
           retry: "重试",
-          refresh: "刷新"
+          refresh: "刷新",
+          close: "关闭"
         },
+        updated_at: "已更新",
         social: {
           title: "联系我",
           visit_profile: "访问我的 {{platform}} 个人资料"
@@ -8874,7 +10756,19 @@ export const resources = {
           help_text: "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
         },
         cancel: "取消",
-        save: "保存"
+        save: "保存",
+        continue: "继续导入",
+        reload: "重新加载扩展",
+        close: "关闭",
+        status: {
+          active: "活动"
+        },
+        labels: {
+          performance: "性能"
+        },
+        nav: {
+          settings_aria: "设置导航"
+        }
       },
       selection_button: {
         label: "询问本地 LLM",
@@ -8903,11 +10797,16 @@ export const resources = {
           }
         },
         setup_guide: {
-          intro: "开始之前，请遵循以下快速步骤：",
-          step1: "安装本地提供方（推荐 Ollama）",
-          step2: "拉取模型（例如 <code>ollama run llama3</code>）",
-          step3: "返回此处并点击<b>刷新</b>",
-          full_guide_link: "完整设置指南"
+          title: "快速设置 (Ollama)",
+          intro: "您需要运行Ollama外加一个聊天模型和一个嵌入模型。",
+          step1: "安装Ollama并启动它 (<code>ollama serve</code>)",
+          step2: "拉取聊天模型 (<code>ollama pull qwen2.5:3b</code>)",
+          step3: "拉取嵌入模型 (<code>ollama pull all-minilm:latest</code>)",
+          step4: "返回此处并点击 <b>刷新</b>",
+          hint: "按照以下设置指南安装Ollama和模型。",
+          full_guide_link: "完整设置指南",
+          firefox_warning:
+            "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。"
         },
         features: {
           private: {
@@ -8955,6 +10854,7 @@ export const resources = {
           switch_model_tooltip: "切换模型",
           edit: "编辑",
           export_as: "导出为...",
+          more: "更多",
           delete: "删除消息"
         },
         metrics: {
@@ -8973,11 +10873,30 @@ export const resources = {
           prompt_tokens: "{{value}} 提示词",
           generated_tokens: "{{value}} 生成",
           avg_speed: "{{speed}} t/s",
+          speed_unit: "t/s",
           messages: "{{value}} 条消息",
           tooltip_tokens: "本次会话使用的总 Token",
           tooltip_time: "总生成时间",
           tooltip_speed: "平均生成速度",
           tooltip_messages: "AI 回复数量"
+        },
+        file: {
+          loading_content: "正在加载完整内容..."
+        },
+        reasoning: {
+          aria_label: "模型思维过程",
+          title: "思维过程",
+          thinking: "思考中…",
+          done: "完成",
+          hide: "隐藏",
+          explore: "探索",
+          loading_thinking: "正在思考",
+          loading_typing: "正在输入",
+          loading_queued: "排队中"
+        },
+        feedback: {
+          helpful_tooltip: "很有帮助",
+          not_helpful_tooltip: "没有帮助"
         },
         search: {
           button_title: "搜索聊天记录 (语义搜索)",
@@ -8990,7 +10909,9 @@ export const resources = {
           scope_current: "当前聊天",
           searching: "正在搜索聊天记录...",
           no_results: "未找到结果。请尝试不同的搜索查询。",
+          no_results_description: "请尝试调整您的关键词或搜索范围。",
           start_typing: "开始输入以语义搜索您的聊天记录...",
+          start_typing_description: "通过语义搜索在您的聊天记录中进行查找。",
           result_badge: "个结果",
           results_badge: "个结果",
           match_percentage: "匹配度",
@@ -9057,7 +10978,7 @@ export const resources = {
       file_upload: {
         button: {
           aria_label: "上传文件",
-          tooltip: "上传文件 (PDF, DOCX, 文本文件)"
+          tooltip: "上传文件（PDF、DOCX、CSV、HTML、文本）"
         },
         preview: {
           remove_aria_label: "移除文件",
@@ -9085,6 +11006,7 @@ export const resources = {
           ready: "嵌入模型就绪: {{model}}",
           missing: "模型缺失: {{model}}",
           checking_model: "正在检查嵌入模型...",
+          error: "无法检查状态。点击重试。",
           required_for_rag: "RAG 功能需要嵌入模型。",
           download_button: "下载模型"
         },
@@ -9156,6 +11078,22 @@ export const resources = {
           clear_all_button: "清除所有嵌入",
           clear_all_description:
             "删除所有嵌入（聊天、文件、网页）。此操作无法撤消",
+          database_management: {
+            remove_duplicates_confirm:
+              "删除重复的嵌入？这将仅保留每个唯一消息的第一次出现。",
+            remove_duplicates_success:
+              "已删除 {{deleted}} 个重复项。保留了 {{kept}} 个唯一的嵌入。",
+            remove_duplicates_error:
+              "删除重复项失败。有关详细信息，请查看控制台。",
+            clear_chat_confirm:
+              "清除所有聊天嵌入？这将删除聊天的所有语义搜索数据。您稍后可以进行回填。",
+            clear_chat_success: "已清除 {{count}} 个聊天嵌入。",
+            clear_chat_error: "清除聊天向量失败。有关详细信息，请查看控制台。",
+            clear_all_confirm:
+              "清除所有嵌入？这将删除所有语义搜索数据（聊天、文件、网页）。此操作无法撤销。",
+            clear_all_success: "所有嵌入已清除。",
+            clear_all_error: "清除所有向量失败。有关详细信息，请查看控制台。"
+          },
           chunking_title: "分块设置",
           chunking_description: "配置如何将文本拆分成块以进行嵌入",
           chunk_size_label: "块大小 (tokens)",
@@ -9228,7 +11166,7 @@ export const resources = {
             "根据查询类型（例如代码与概念）自动调整关键字与语义搜索的比例",
           temporal_boosting_label: "时间相关性增强",
           temporal_boosting_description: "使用指数衰减评分优先考虑较新的文档",
-          reranking_label: "启用重新排序 (Transformers.js)",
+          reranking_label: "启用重新排序",
           reranking_description:
             "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
           hybrid_search_label: "启用混合搜索",
@@ -9249,7 +11187,20 @@ export const resources = {
           min_quality_score_label: "最低质量分数",
           min_quality_score_description: "嵌入内容所需的最低质量分数 (0-1)。",
           embedding_source_description: "嵌入由本地提供方生成（默认 Ollama）",
-          embedding_source_default_provider: "默认提供方（Ollama）"
+          embedding_source_default_provider: "默认提供方（Ollama）",
+          feedback_stats_title: "Feedback statistics",
+          feedback_stats_total: "Total feedback",
+          feedback_stats_helpful: "Helpful rate",
+          feedback_stats_chunks: "Unique chunks",
+          feedback_stats_queries: "Unique queries",
+          feedback_privacy_title: "Privacy",
+          feedback_export_success: "Feedback exported",
+          feedback_export_error: "Failed to export feedback",
+          feedback_clear_confirm_title: "Clear feedback?",
+          feedback_clear_confirm_description:
+            "This will permanently delete all feedback. This cannot be undone.",
+          feedback_clear_success: "Feedback cleared",
+          feedback_clear_error: "Failed to clear feedback"
         },
         provider_status: {
           checking: "正在检查 Provider 状态...",
@@ -9321,7 +11272,8 @@ export const resources = {
           label_off: "标签页",
           label_on: "标签页+",
           tooltip: "与打开的标签页进行交互"
-        }
+        },
+        context: "Context"
       },
       settings: {
         chat_display: {
@@ -9508,6 +11460,19 @@ export const resources = {
               label: "重复最后 N 个",
               validation_min: "必须至少为 {{min}}。"
             }
+          },
+          runtime: {
+            title: "运行与预热",
+            description: "控制模型预热和运行时选项。",
+            keep_alive_label: "保持连接畅通",
+            keep_alive_description:
+              "请求后将模型保持在内存中的时间长度。使用秒或类似 5m 的持续时间。",
+            keep_alive_placeholder: "例如 300、5m、0 卸载",
+            warm_on_select_label: "选择时预热模型",
+            warm_on_select_description:
+              "切换时预加载模型，以获得更快的初次响应速度。",
+            unload_on_switch_label: "切换时卸载先前的模型",
+            unload_on_switch_description: "在切换模型时卸载上个模型以释放内存。"
           }
         },
         base_url: {
@@ -9580,7 +11545,8 @@ export const resources = {
           guides: "指南",
           memory: "记忆",
           shortcuts: "快捷键",
-          providers: "服务商"
+          providers: "服务商",
+          context: "上下文"
         },
         memory: {
           title: "上下文记忆",
@@ -9710,7 +11676,19 @@ export const resources = {
           model_select: {
             label: "嵌入模型",
             placeholder: "选择一个模型",
-            description: "选择一个模型来生成嵌入。您可能需要先下载它。"
+            description: "选择一个模型来生成嵌入。您可能需要先下载它。",
+            recommended_group: "推荐模型",
+            all_models_group: "所有模型",
+            show_advanced_label: "显示所有提供方模型",
+            show_advanced_description:
+              "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。"
+          },
+          model_change_confirm: {
+            title: "现在重建嵌入吗？",
+            description:
+              "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
+            switch_only: "直接切换不重建",
+            switch_and_rebuild: "切换并重建"
           }
         },
         prompts: {
@@ -9774,22 +11752,31 @@ export const resources = {
           },
           modules: {
             theme: {
+              title: "主题与界面",
               description: "UI 外观偏好设置"
             },
             browser: {
+              title: "浏览器设置",
               description: "标签页访问和 URL 模式"
             },
             tts: {
+              title: "文本转语音",
               description: "文本转语音设置"
             },
             chat_sessions: {
+              title: "聊天记录",
               description: "对话历史记录"
             },
             default: {
               description: "模块设置"
             },
             provider: {
+              title: "服务商设置",
               description: "模型设置和配置"
+            },
+            feedback: {
+              title: "用户反馈",
+              description: "清除所有学习和检索到的块反馈"
             }
           },
           item_count: "{{count}} 个项目",
@@ -9828,6 +11815,43 @@ export const resources = {
             no_models_title: "未找到模型",
             no_models_description:
               "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。"
+          }
+        },
+        migration: {
+          title: "数据迁移",
+          description:
+            "导出或导入您所有的扩展程序数据，包括首选项、聊天记录和嵌入数据库。",
+          export: {
+            label: "导出完整备份",
+            description: "将所有扩展程序数据的完整备份下载为 ZIP 文件。",
+            button: "全部导出"
+          },
+          import: {
+            label: "导入备份",
+            description: "从之前导出的 ZIP 备份中恢复数据。这将覆盖现有数据。",
+            button: "全部导入"
+          },
+          import_confirm: {
+            title: "您完全确定吗？",
+            description:
+              "此操作将用备份文件的内容完全覆盖您现有的首选项、聊天记录和数据库。此操作无法撤销。"
+          },
+          import_result: {
+            title: "导入结果",
+            description: "查看下面您的数据导入状态：",
+            labels: {
+              sync: "偏好设置 (Sync)",
+              local: "本地存储",
+              database: "数据库 (SQLite)",
+              chatDb: "聊天记录 (Dexie)",
+              vectorDb: "向量嵌入 (Dexie)",
+              knowledgeDb: "知识库 (Dexie)"
+            },
+            status: {
+              success: "成功",
+              failed: "失败",
+              aborted: "已中止"
+            }
           }
         }
       },
@@ -9868,7 +11892,67 @@ export const resources = {
         linkedin: "领英",
         twitter: "推特",
         instagram: "Instagram",
+        context: {
+          file_upload: {
+            title: "文件导入",
+            description: "配置如何处理文件以进行知识检索。"
+          },
+          embedding_health: {
+            title: "检测到混合嵌入维度",
+            description:
+              "嵌入以多个维度 ({{dimensions}}) 存储。在重建所有内容之前，搜索和记忆可能会失败。",
+            note: "重建将清除所有嵌入并重新嵌入聊天记录。需要重新上传文件以恢复知识。",
+            memory_disabled: "记忆已关闭，因此未重建聊天嵌入。",
+            action: "重建嵌入",
+            action_rebuilding: "正在重建...",
+            confirm:
+              "重建嵌入？这将清除所有嵌入并重新嵌入聊天历史记录。需要重新上传文件以恢复知识。",
+            progress: "正在重建聊天嵌入 ({{current}}/{{total}})",
+            success: "嵌入重建成功。",
+            error: "重建嵌入失败。"
+          }
+        },
         bug_report: "报告错误 / 功能"
+      },
+      knowledge_sets: {
+        title: "知识集",
+        active_label: "当前知识集",
+        active_description: "在未附加文件时选择使用的知识集。",
+        active_placeholder: "选择知识集",
+        create_label: "创建知识集",
+        create_description: "创建用于分组文件的新知识集。",
+        create_placeholder: "知识集名称",
+        create_button: "创建",
+        rename_label: "重命名知识集",
+        rename_description: "修改当前知识集的名称。",
+        rename_placeholder: "新名称",
+        rename_button: "重命名",
+        delete_label: "删除知识集",
+        delete_description: "删除当前知识集及其文件映射（嵌入仍保留）。",
+        delete_button: "删除",
+        delete_confirm: "确定删除“{{name}}”吗？此操作无法撤销。",
+        prompt_label: "RAG 指令提示词",
+        prompt_description: "在该知识集的检索上下文前插入的指令。",
+        question_prompt_label: "问题改写提示词",
+        question_prompt_description: "用于将追问改写为独立问题的提示词。",
+        topk_label: "检索 Top‑K",
+        topk_description: "该知识集检索的分块数量。",
+        min_similarity_label: "最小相似度",
+        min_similarity_description: "该知识集分块的最小相似度阈值。",
+        min_rerank_label: "最小重排分数",
+        min_rerank_description: "该知识集分块的最小重排置信度。"
+      },
+      knowledge: {
+        embedding_source: {
+          status_active: "活动",
+          provider_details: "高质量嵌入 • 768-1024 维度 • 结果一致",
+          webgpu_warning_title: "WebGPU 嵌入生成不可用",
+          webgpu_warning_text:
+            "由于 Chrome 扩展程序的內容安全策略 (CSP) 限制。WebGPU 重新排序仍然处于激活状态且功能正常。嵌入是通过回退链生成的，当原生支持不可用时，将使用默认提供方。",
+          performance_title: "性能",
+          performance_default: "默认提供方嵌入生成：每个分块约 500 毫秒",
+          provider_hint: "确保您的本地提供方正在运行（默认：localhost:11434）"
+        }
       }
     }
   }

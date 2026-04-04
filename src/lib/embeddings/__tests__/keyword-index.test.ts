@@ -15,6 +15,7 @@ describe("Keyword Index Manager", () => {
         content: "The quick brown fox jumps over the lazy dog",
         embedding: [0.1, 0.2, 0.3],
         metadata: {
+          source: "",
           type: "chat",
           sessionId: "test-session",
           timestamp: Date.now()
@@ -32,13 +33,23 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "First version",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
       const doc2: VectorDocument = {
         id: 1,
         content: "Second version",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc1.content, doc1)
@@ -54,7 +65,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(i, doc.content, doc)
       }
@@ -80,7 +96,12 @@ describe("Keyword Index Manager", () => {
           id,
           content,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(id, content, doc)
       })
@@ -90,7 +111,9 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("Python")
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some(r => r.document.content.includes("Python"))).toBe(true)
+      expect(results.some((r) => r.document.content.includes("Python"))).toBe(
+        true
+      )
     })
 
     it("should be case-insensitive", () => {
@@ -106,21 +129,31 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("programming")
 
       expect(results.length).toBeGreaterThanOrEqual(2)
-      expect(results.every(r => r.document.content.toLowerCase().includes("programming"))).toBe(true)
+      expect(
+        results.every((r) =>
+          r.document.content.toLowerCase().includes("programming")
+        )
+      ).toBe(true)
     })
 
     it("should support fuzzy search for typos", () => {
       const results = keywordIndexManager.search("Pythn", { fuzzy: 0.3 })
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some(r => r.document.content.includes("Python"))).toBe(true)
+      expect(results.some((r) => r.document.content.includes("Python"))).toBe(
+        true
+      )
     })
 
     it("should support prefix matching", () => {
       const results = keywordIndexManager.search("prog", { prefix: true })
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some(r => r.document.content.toLowerCase().includes("programming"))).toBe(true)
+      expect(
+        results.some((r) =>
+          r.document.content.toLowerCase().includes("programming")
+        )
+      ).toBe(true)
     })
 
     it("should respect limit option", () => {
@@ -133,7 +166,7 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("Python")
 
       expect(results.length).toBeGreaterThan(0)
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toHaveProperty("score")
         expect(result.score).toBeGreaterThan(0)
       })
@@ -143,7 +176,7 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("Python programming")
 
       expect(results.length).toBeGreaterThan(0)
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toHaveProperty("terms")
         expect(Array.isArray(result.terms)).toBe(true)
       })
@@ -166,9 +199,11 @@ describe("Keyword Index Manager", () => {
         combineWith: "AND"
       })
 
-      results.forEach(result => {
+      results.forEach((result) => {
         const content = result.document.content.toLowerCase()
-        expect(content.includes("python") && content.includes("programming")).toBe(true)
+        expect(
+          content.includes("python") && content.includes("programming")
+        ).toBe(true)
       })
     })
 
@@ -178,9 +213,11 @@ describe("Keyword Index Manager", () => {
       })
 
       expect(results.length).toBeGreaterThan(0)
-      results.forEach(result => {
+      results.forEach((result) => {
         const content = result.document.content.toLowerCase()
-        expect(content.includes("python") || content.includes("javascript")).toBe(true)
+        expect(
+          content.includes("python") || content.includes("javascript")
+        ).toBe(true)
       })
     })
   })
@@ -191,7 +228,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -211,7 +253,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -229,7 +276,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         }
         keywordIndexManager.addDocument(i, doc.content, doc)
       }
@@ -256,7 +308,12 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Test document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
 
       keywordIndexManager.addDocument(1, doc.content, doc)
@@ -275,7 +332,12 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i} content`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         })
       }
 
@@ -292,14 +354,22 @@ describe("Keyword Index Manager", () => {
           id: i,
           content: `Document ${i}`,
           embedding: [0.1, 0.2, 0.3],
-          metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
         })
       }
 
       const progressUpdates: number[] = []
-      await keywordIndexManager.buildFromDocuments(documents, (current, total) => {
-        progressUpdates.push(current / total)
-      })
+      await keywordIndexManager.buildFromDocuments(
+        documents,
+        (current, total) => {
+          progressUpdates.push(current / total)
+        }
+      )
 
       expect(progressUpdates.length).toBeGreaterThan(0)
       expect(progressUpdates[progressUpdates.length - 1]).toBe(1) // Final progress should be 100%
@@ -311,17 +381,29 @@ describe("Keyword Index Manager", () => {
         id: 1,
         content: "Initial document",
         embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "test",
+          timestamp: Date.now()
+        }
       }
       keywordIndexManager.addDocument(1, doc1.content, doc1)
 
       // Build from new documents
-      const newDocuments: VectorDocument[] = [{
-        id: 2,
-        content: "New document",
-        embedding: [0.1, 0.2, 0.3],
-        metadata: { type: "chat", sessionId: "test", timestamp: Date.now() }
-      }]
+      const newDocuments: VectorDocument[] = [
+        {
+          id: 2,
+          content: "New document",
+          embedding: [0.1, 0.2, 0.3],
+          metadata: {
+            source: "",
+            type: "chat",
+            sessionId: "test",
+            timestamp: Date.now()
+          }
+        }
+      ]
 
       await keywordIndexManager.buildFromDocuments(newDocuments)
 

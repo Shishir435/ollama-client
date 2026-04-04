@@ -3,7 +3,7 @@ import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface StatusAlertProps {
-  variant?: "default" | "destructive" | "success" | "warning"
+  variant?: "default" | "destructive" | "success" | "warning" | "info"
   title: string
   description?: React.ReactNode
   icon?: LucideIcon
@@ -26,7 +26,8 @@ export const StatusAlert = ({
     success:
       "border-green-500/20 bg-green-500/5 text-green-600 dark:text-green-400",
     warning:
-      "border-yellow-500/20 bg-yellow-500/5 text-yellow-600 dark:text-yellow-400"
+      "border-yellow-500/20 bg-yellow-500/5 text-yellow-600 dark:text-yellow-400",
+    info: "border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400"
   }
 
   return (

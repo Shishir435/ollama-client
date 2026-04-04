@@ -152,7 +152,7 @@ export const Chat = () => {
   const hasSession = !!currentSessionId
 
   return (
-    <div className="flex h-screen flex-col rounded-lg bg-gradient-to-br from-background via-background to-background/95 p-1">
+    <div className="flex h-screen flex-col bg-background">
       <ChatHeader />
 
       {hasSession ? (
@@ -170,7 +170,7 @@ export const Chat = () => {
             onNavigate={handleNavigateBranch}
           />
 
-          <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background/80 pb-2 pt-3 backdrop-blur-md">
+          <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background pb-2 pt-3">
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
                 messages={messages}

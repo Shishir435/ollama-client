@@ -7,7 +7,10 @@ export const useSelectedTabsStore = create<SelectedTabsState>((set) => ({
   selectedTabIds: [],
   errors: {},
   setSelectedTabIds: (tabs) => set({ selectedTabIds: tabs }),
-  setErrors: (errors) => set({ errors })
+  setErrors: (errors) =>
+    set((state) => ({
+      errors: typeof errors === "function" ? errors(state.errors) : errors
+    }))
 }))
 
 export const useSelectedTabs = () =>

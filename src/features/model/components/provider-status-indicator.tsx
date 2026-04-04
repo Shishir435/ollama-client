@@ -49,8 +49,8 @@ export const ProviderStatusIndicator = () => {
         <Button
           variant="secondary"
           size="icon"
-          onClick={refresh}
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent/50">
+          onClick={() => refresh()}
+          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
           {iconMap[status]}
         </Button>
       </TooltipTrigger>

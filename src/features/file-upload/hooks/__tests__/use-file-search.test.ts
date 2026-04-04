@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useFileSearch } from "../use-file-search"
 
 // Mock dependencies
@@ -49,7 +49,8 @@ describe("useFileSearch", () => {
   it("should search for files successfully", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     const mockResults = [
@@ -59,6 +60,7 @@ describe("useFileSearch", () => {
           embedding: [0.1, 0.2, 0.3],
           text: "test content",
           metadata: {
+            source: "",
             fileId: "file-1",
             title: "Test File",
             chunkIndex: 0,
@@ -70,7 +72,7 @@ describe("useFileSearch", () => {
       }
     ]
 
-    vi.mocked(searchSimilarVectors).mockResolvedValue(mockResults)
+    vi.mocked(searchSimilarVectors).mockResolvedValue(mockResults as any)
 
     const { result } = renderHook(() => useFileSearch())
 
@@ -101,7 +103,8 @@ describe("useFileSearch", () => {
   it("should respect search options", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2],
-      model: "test"
+      model: "test",
+      providerId: "ollama"
     })
 
     vi.mocked(searchSimilarVectors).mockResolvedValue([])
@@ -119,7 +122,10 @@ describe("useFileSearch", () => {
       expect.objectContaining({
         limit: 5,
         minSimilarity: 0.8,
-        fileId: "specific-file"
+        fileId: "specific-file",
+        embeddingModel: "test",
+        embeddingProviderId: "ollama",
+        embeddingDimension: 2
       })
     )
   })

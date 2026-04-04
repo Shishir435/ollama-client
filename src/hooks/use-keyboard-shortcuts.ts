@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 import { type ShortcutAction, useShortcutStore } from "@/stores/shortcut-store"
 
@@ -6,6 +6,11 @@ export const useKeyboardShortcuts = (
   handlers: Partial<Record<ShortcutAction, (e: KeyboardEvent) => void>>
 ) => {
   const { shortcuts } = useShortcutStore()
+  const handlersRef = useRef(handlers)
+
+  useEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -87,7 +92,7 @@ export const useKeyboardShortcuts = (
         return true
       }
 
-      for (const [action, handler] of Object.entries(handlers)) {
+      for (const [action, handler] of Object.entries(handlersRef.current)) {
         if (handler && matches(action as ShortcutAction)) {
           // Allow default for some actions if needed, but usually prevent default
           // especially for browser shortcuts
@@ -102,5 +107,5 @@ export const useKeyboardShortcuts = (
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handlers, shortcuts])
+  }, [shortcuts])
 }

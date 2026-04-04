@@ -17,12 +17,16 @@ export interface VectorDocument {
     timestamp: number
     chunkIndex?: number
     totalChunks?: number
+    page?: number
     role?: "user" | "assistant" | "system"
     chatId?: string
     messageId?: number
     // Quality assessment metadata (added during migration/embedding)
     qualityScore?: number
     qualityReasons?: string
+    embeddingModel?: string
+    embeddingProviderId?: string
+    embeddingDim?: number
   }
 }
 

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useSemanticChatSearch } from "../use-semantic-chat-search"
 
 // Mock dependencies
@@ -45,12 +45,15 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should perform search with results", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     vi.mocked(searchHybrid).mockResolvedValue([
@@ -60,6 +63,7 @@ describe("useSemanticChatSearch", () => {
           content: "Test message",
           embedding: [0.1, 0.2, 0.3],
           metadata: {
+            source: "",
             sessionId: "session-1",
             timestamp: Date.now(),
             title: "User message",
@@ -82,7 +86,9 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should handle search errors", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding failed"
@@ -99,7 +105,9 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should set searching state during search", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     let resolveEmbedding: any
@@ -116,13 +124,17 @@ describe("useSemanticChatSearch", () => {
     const searchPromise = result.current.search("test")
 
     // Small delay to let state update
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await new Promise((resolve) => setTimeout(resolve, 10))
 
     // Now check if searching
     expect(result.current.isSearching).toBe(true)
 
     // Resolve the embedding
-    resolveEmbedding({ embedding: [0.1, 0.2, 0.3], model: "test-model" })
+    resolveEmbedding({
+      embedding: [0.1, 0.2, 0.3],
+      model: "test-model",
+      providerId: "ollama"
+    })
 
     await searchPromise
 
@@ -132,12 +144,15 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should filter by session ID", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 
@@ -149,18 +164,26 @@ describe("useSemanticChatSearch", () => {
       expect(searchHybrid).toHaveBeenCalledWith(
         "test",
         [0.1, 0.2, 0.3],
-        expect.objectContaining({ sessionId: "specific-session" })
+        expect.objectContaining({
+          sessionId: "specific-session",
+          embeddingModel: "test-model",
+          embeddingProviderId: "ollama",
+          embeddingDimension: 3
+        })
       )
     })
   })
 
   it("should use custom limit and similarity", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 
@@ -172,18 +195,27 @@ describe("useSemanticChatSearch", () => {
       expect(searchHybrid).toHaveBeenCalledWith(
         "test",
         [0.1, 0.2, 0.3],
-        expect.objectContaining({ limit: 5, minSimilarity: 0.8 })
+        expect.objectContaining({
+          limit: 5,
+          minSimilarity: 0.8,
+          embeddingModel: "test-model",
+          embeddingProviderId: "ollama",
+          embeddingDimension: 3
+        })
       )
     })
   })
 
   it("should identify assistant messages correctly", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
 
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
 
     vi.mocked(searchHybrid).mockResolvedValue([
@@ -193,10 +225,12 @@ describe("useSemanticChatSearch", () => {
           content: "Assistant response",
           embedding: [0.1, 0.2, 0.3],
           metadata: {
+            source: "",
             sessionId: "session-1",
             timestamp: Date.now(),
             title: "Assistant response",
-            type: "chat"
+            type: "chat",
+            role: "assistant"
           }
         },
         similarity: 0.9
@@ -213,16 +247,21 @@ describe("useSemanticChatSearch", () => {
   })
 
   it("should handle keyword index build failure gracefully", async () => {
-    const { generateEmbedding } = await import("@/lib/embeddings/embedding-client")
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
-    const { ensureKeywordIndexBuilt } = await import("@/lib/embeddings/auto-index")
+    const { ensureKeywordIndexBuilt } = await import(
+      "@/lib/embeddings/auto-index"
+    )
 
     vi.mocked(ensureKeywordIndexBuilt).mockRejectedValue(
       new Error("Index build failed")
     )
     vi.mocked(generateEmbedding).mockResolvedValue({
       embedding: [0.1, 0.2, 0.3],
-      model: "test-model"
+      model: "test-model",
+      providerId: "ollama"
     })
     vi.mocked(searchHybrid).mockResolvedValue([])
 

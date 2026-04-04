@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   clearAllVectors,
   deleteVectors,
@@ -13,6 +14,7 @@ describe("Vector Store - Baseline Tests", () => {
   beforeEach(async () => {
     // Clear database before each test
     await clearAllVectors()
+    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
   })
 
   describe("storeVector", () => {
@@ -22,7 +24,8 @@ describe("Vector Store - Baseline Tests", () => {
       const metadata = {
         type: "chat" as const,
         sessionId: "test-session",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: "test"
       }
 
       const id = await storeVector(content, embedding, metadata)
@@ -43,7 +46,8 @@ describe("Vector Store - Baseline Tests", () => {
       const metadata = {
         type: "file" as const,
         fileId: "test-file",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: "test"
       }
 
       const id = await storeVector(content, embedding, metadata)
@@ -61,7 +65,8 @@ describe("Vector Store - Baseline Tests", () => {
       const metadata = {
         type: "chat" as const,
         sessionId: "same-session",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: "test"
       }
 
       const id1 = await storeVector(content, embedding, metadata)
@@ -79,17 +84,20 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("The quick brown fox", [1, 0, 0], {
         type: "chat",
         sessionId: "session1",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("The lazy dog", [0, 1, 0], {
         type: "chat",
         sessionId: "session1",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("Cats and dogs", [0, 0, 1], {
         type: "chat",
         sessionId: "session2",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
     })
 
@@ -149,21 +157,24 @@ describe("Vector Store - Baseline Tests", () => {
 
     it("should filter by fileId array", async () => {
       await clearAllVectors()
-      
+
       await storeVector("File A content", [1, 0, 0], {
         type: "file",
         fileId: "file-A",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File B content", [0, 1, 0], {
         type: "file",
         fileId: "file-B",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File C content", [0, 0, 1], {
         type: "file",
         fileId: "file-C",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const queryEmbedding = [0.5, 0.5, 0]
@@ -180,10 +191,10 @@ describe("Vector Store - Baseline Tests", () => {
 
     it("should use search cache on repeated queries", async () => {
       const queryEmbedding = [1, 0, 0]
-      
+
       // First query
       const results1 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
-      
+
       // Second query (should use cache)
       const results2 = await searchSimilarVectors(queryEmbedding, { limit: 3 })
 
@@ -196,12 +207,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Test 1", [1, 0, 0], {
         type: "chat",
         sessionId: "delete-me",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("Test 2", [0, 1, 0], {
         type: "chat",
         sessionId: "keep-me",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const deleted = await deleteVectors({ sessionId: "delete-me" })
@@ -218,7 +231,8 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("File chunk", [1, 0, 0], {
         type: "file",
         fileId: "file-123",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const deleted = await deleteVectors({ fileId: "file-123" })
@@ -229,12 +243,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Chat message", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File content", [0, 1, 0], {
         type: "file",
         fileId: "test-file",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const deleted = await deleteVectors({ type: "chat" })
@@ -248,7 +264,8 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Webpage content", [1, 0, 0], {
         type: "webpage",
         url: "https://example.com",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const deleted = await deleteVectors({ url: "https://example.com" })
@@ -259,13 +276,15 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Chat in session", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File in session", [0, 1, 0], {
         type: "file",
         sessionId: "test",
         fileId: "test-file",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const deleted = await deleteVectors({ type: "chat", sessionId: "test" })
@@ -281,12 +300,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Chat message", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File content", [0, 1, 0], {
         type: "file",
         fileId: "file-1",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const stats = await getStorageStats()
@@ -310,14 +331,16 @@ describe("Vector Store - Baseline Tests", () => {
         await storeVector(`Chat ${i}`, [i, 0, 0], {
           type: "chat",
           sessionId: "test",
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          source: ""
         })
       }
       for (let i = 0; i < 3; i++) {
         await storeVector(`File ${i}`, [0, i, 0], {
           type: "file",
           fileId: `file-${i}`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          source: ""
         })
       }
 
@@ -335,12 +358,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Message 1", [1, 0, 0], {
         type: "chat",
         sessionId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("Message 2", [0, 1, 0], {
         type: "chat",
         sessionId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const vectors = await getVectorsByContext({ sessionId })
@@ -357,13 +382,15 @@ describe("Vector Store - Baseline Tests", () => {
         type: "file",
         fileId,
         timestamp: Date.now(),
-        chunkIndex: 0
+        chunkIndex: 0,
+        source: ""
       })
       await storeVector("Chunk 2", [0, 1, 0], {
         type: "file",
         fileId,
         timestamp: Date.now(),
-        chunkIndex: 1
+        chunkIndex: 1,
+        source: ""
       })
 
       const vectors = await getVectorsByContext({ fileId })
@@ -377,12 +404,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Chat", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File", [0, 1, 0], {
         type: "file",
         fileId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const chatVectors = await getVectorsByContext({ type: "chat" })
@@ -404,12 +433,14 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Test 1", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("Test 2", [0, 1, 0], {
         type: "file",
         fileId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const count = await clearAllVectors()
@@ -423,95 +454,105 @@ describe("Vector Store - Baseline Tests", () => {
       await storeVector("Chat", [1, 0, 0], {
         type: "chat",
         sessionId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
       await storeVector("File", [0, 1, 0], {
         type: "file",
         fileId: "test",
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        source: ""
       })
 
       const count = await clearAllVectors("chat")
       expect(count).toBe(1)
 
-      const chatCount = await vectorDb.vectors.where("metadata.type").equals("chat").count()
+      const chatCount = await vectorDb.vectors
+        .where("metadata.type")
+        .equals("chat")
+        .count()
       expect(chatCount).toBe(0)
 
-      const fileCount = await vectorDb.vectors.where("metadata.type").equals("file").count()
+      const fileCount = await vectorDb.vectors
+        .where("metadata.type")
+        .equals("file")
+        .count()
       expect(fileCount).toBe(1)
     })
   })
-  })
+})
 
-  describe("Advanced Features", () => {
-    it("should respect storage limits", async () => {
-      const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-      const { STORAGE_KEYS } = await import("@/lib/constants")
-      
-      // Mock config with small storage limit (e.g., 0.001 MB = 1KB)
-      vi.spyOn(plasmoGlobalStorage, "get").mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.EMBEDDINGS.CONFIG) {
-          return { maxStorageSize: 0.001, autoCleanup: true }
-        }
-        return undefined
-      })
+describe("Advanced Features", () => {
+  it("should respect storage limits", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    const { STORAGE_KEYS } = await import("@/lib/constants")
 
-      // Store enough vectors to exceed limit
-      // Each vector is ~100-200 bytes + overhead
-      for (let i = 0; i < 20; i++) {
-        await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
-          type: "chat",
-          timestamp: Date.now() + i // Increasing timestamps
-        })
+    // Mock config with small storage limit (e.g., 0.001 MB = 1KB)
+    vi.spyOn(plasmoGlobalStorage, "get").mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.EMBEDDINGS.CONFIG) {
+        return { maxStorageSize: 0.001, autoCleanup: true }
       }
-
-      // Check if some were deleted (oldest first)
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(20)
-      
-      // Verify oldest are gone
-      const first = await vectorDb.vectors.orderBy("metadata.timestamp").first()
-      expect(first?.content).not.toBe("Content 0")
+      return undefined
     })
 
-    it("should perform hybrid search", async () => {
-      const { searchHybrid } = await import("../vector-store")
-      const { keywordIndexManager } = await import("@/lib/embeddings/keyword-index")
-      
-      // Add documents
-      const id1 = await storeVector("The quick brown fox", [1, 0, 0], {
+    // Store enough vectors to exceed limit
+    // Each vector is ~100-200 bytes + overhead
+    for (let i = 0; i < 20; i++) {
+      await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
         type: "chat",
-        timestamp: Date.now()
+        timestamp: Date.now() + i,
+        source: "test"
       })
-      const id2 = await storeVector("The lazy dog", [0, 1, 0], {
-        type: "chat",
-        timestamp: Date.now()
-      })
+    }
 
-      // Keyword match "fox" (id1), Semantic match [0, 1, 0] (id2)
-      // Hybrid should return both, ranked by weights
-      const results = await searchHybrid("fox", [0, 1, 0], {
-        limit: 2,
-        keywordWeight: 0.5,
-        semanticWeight: 0.5
-      })
+    // Check if some were deleted (oldest first)
+    const count = await vectorDb.vectors.count()
+    expect(count).toBeLessThan(20)
 
-      expect(results.length).toBeGreaterThan(0)
-      const hasFox = results.some(r => r.document.content.includes("fox"))
-      const hasDog = results.some(r => r.document.content.includes("dog"))
-      expect(hasFox || hasDog).toBe(true)
-    })
-
-    it("should handle normalization edge cases", async () => {
-      // Zero vector
-      const id = await storeVector("Zero", [0, 0, 0], {
-        type: "chat",
-        timestamp: Date.now()
-      })
-      const stored = await vectorDb.vectors.get(id)
-      expect(stored?.norm).toBe(0)
-      expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
-    })
+    // Verify oldest are gone
+    const first = await vectorDb.vectors.orderBy("metadata.timestamp").first()
+    expect(first?.content).not.toBe("Content 0")
   })
 
+  it("should perform hybrid search", async () => {
+    const { searchHybrid } = await import("../vector-store")
+    await import("@/lib/embeddings/keyword-index")
 
+    // Add documents
+    const _id1 = await storeVector("The quick brown fox", [1, 0, 0], {
+      type: "chat",
+      timestamp: Date.now(),
+      source: ""
+    })
+    const _id2 = await storeVector("The lazy dog", [0, 1, 0], {
+      type: "chat",
+      timestamp: Date.now(),
+      source: ""
+    })
+
+    // Keyword match "fox" (id1), Semantic match [0, 1, 0] (id2)
+    // Hybrid should return both, ranked by weights
+    const results = await searchHybrid("fox", [0, 1, 0], {
+      limit: 2,
+      keywordWeight: 0.5,
+      semanticWeight: 0.5
+    })
+
+    expect(results.length).toBeGreaterThan(0)
+    const hasFox = results.some((r) => r.document.content.includes("fox"))
+    const hasDog = results.some((r) => r.document.content.includes("dog"))
+    expect(hasFox || hasDog).toBe(true)
+  })
+
+  it("should handle normalization edge cases", async () => {
+    // Zero vector
+    const id = await storeVector("Zero", [0, 0, 0], {
+      type: "chat",
+      timestamp: Date.now(),
+      source: "test"
+    })
+    const stored = await vectorDb.vectors.get(id)
+    expect(stored?.norm).toBe(0)
+    expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
+  })
+})

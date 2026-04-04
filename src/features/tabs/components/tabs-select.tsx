@@ -70,22 +70,20 @@ export const TabsSelect = () => {
   }
 
   const tabOptions = openTabs
-    .filter((tab) => isAccessibleTab(tab.url))
+    .filter((tab) => tab.id !== undefined && isAccessibleTab(tab.url))
     .map((tab) => ({
       label: trimTitle(tab.title),
-      value: tab.id?.toString() || tab.title
+      value: String(tab.id)
     }))
 
   return (
-    <div className="mb-2 w-full">
-      <MultiSelect
-        options={tabOptions}
-        onValueChange={setSelectedTabIds}
-        onRefresh={refreshTabs}
-        defaultValue={selectedTabIds}
-        placeholder={t("tabs.select.placeholder")}
-        statusForValue={getTabStatus}
-      />
-    </div>
+    <MultiSelect
+      options={tabOptions}
+      onValueChange={setSelectedTabIds}
+      onRefresh={refreshTabs}
+      defaultValue={selectedTabIds}
+      placeholder={t("tabs.select.placeholder")}
+      statusForValue={getTabStatus}
+    />
   )
 }

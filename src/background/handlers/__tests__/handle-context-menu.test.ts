@@ -36,7 +36,7 @@ describe("handle-context-menu", () => {
     vi.resetModules()
     const { initializeContextMenu } = await import("../handle-context-menu")
     initializeContextMenu()
-    
+
     // Capture the listener immediately after initialization
     if (mocks.addListener.mock.calls.length > 0) {
       clickListener = mocks.addListener.mock.calls[0][0]
@@ -50,14 +50,11 @@ describe("handle-context-menu", () => {
   })
 
   it("should create context menu with correct configuration", () => {
-    expect(mocks.create).toHaveBeenCalledWith(
-      {
-        id: "add-to-local-llm-client",
-        title: "Ask Local LLM",
-        contexts: ["selection"]
-      },
-      expect.any(Function)
-    )
+    expect(mocks.create).toHaveBeenCalledWith({
+      id: "add-to-local-llm-client",
+      title: "Ask Local LLM",
+      contexts: ["selection"]
+    })
   })
 
   it("should register click listener", () => {

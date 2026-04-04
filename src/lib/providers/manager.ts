@@ -28,8 +28,47 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
     name: "llama.cpp",
     enabled: false,
     baseUrl: "http://localhost:8000/v1"
+  },
+  {
+    id: ProviderId.VLLM,
+    type: ProviderType.OPENAI,
+    name: "vLLM",
+    enabled: false,
+    baseUrl: "http://localhost:8001/v1"
+  },
+  {
+    id: ProviderId.LOCALAI,
+    type: ProviderType.OPENAI,
+    name: "LocalAI",
+    enabled: false,
+    baseUrl: "http://localhost:8080/v1"
+  },
+  {
+    id: ProviderId.KOBOLDCPP,
+    type: ProviderType.OPENAI,
+    name: "KoboldCpp",
+    enabled: false,
+    baseUrl: "http://localhost:5001/v1"
   }
 ]
+
+const validateProviderBaseUrl = (baseUrl?: string): void => {
+  if (!baseUrl) return
+  let parsed: URL
+  try {
+    parsed = new URL(baseUrl)
+  } catch {
+    throw new Error(`Invalid provider URL: ${baseUrl}`)
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Only HTTP(S) provider URLs are supported")
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error("Provider URL must not include embedded credentials")
+  }
+}
 
 /**
  * Manages persistence and retrieval of provider configurations.
@@ -108,6 +147,9 @@ export const ProviderManager = {
     const providers = await ProviderManager.getProviders()
     const index = providers.findIndex((p) => p.id === id)
     if (index !== -1) {
+      if (updates.baseUrl !== undefined) {
+        validateProviderBaseUrl(updates.baseUrl)
+      }
       const updatedConfig = { ...providers[index], ...updates }
       providers[index] = updatedConfig
       await ProviderManager.saveProviders(providers)

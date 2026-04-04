@@ -43,7 +43,7 @@ export const ChatMessageEditor = ({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-xl border bg-background p-3 shadow-sm sm:max-w-2xl sm:p-4">
+    <div className="flex w-full flex-col gap-2 rounded-xl border bg-background p-3 shadow-xs sm:max-w-2xl sm:p-4">
       <Textarea
         ref={textareaRef}
         value={content}

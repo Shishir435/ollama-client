@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-
-import {
-  processKnowledge,
-  processKnowledgeBatch
-} from "../knowledge-processor"
 import * as vectorStore from "@/lib/embeddings/vector-store"
 import * as textProcessing from "@/lib/text-processing"
+import { processKnowledge, processKnowledgeBatch } from "../knowledge-processor"
 
 // Mock dependencies
 vi.mock("@/lib/embeddings/vector-store")
@@ -13,38 +9,50 @@ vi.mock("@/lib/text-processing")
 
 describe("processKnowledge", () => {
   const mockSplitter = {
-    splitDocuments: vi.fn().mockResolvedValue([
-      { pageContent: "chunk1", metadata: {} },
-      { pageContent: "chunk2", metadata: {} }
-    ])
+    splitDocuments: vi.fn().mockImplementation(async (docs: any[]) => {
+      return docs.map((doc) => ({
+        pageContent: "chunk1",
+        metadata: doc.metadata
+      }))
+    })
   }
 
   it("processes document successfully", async () => {
-    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
-      vectorIds: [1, 2],
-      documentCount: 0
-    })
+    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(
+      mockSplitter as any
+    )
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1, 2])
 
     const onProgress = vi.fn()
     const result = await processKnowledge({
       fileId: "file1",
       fileName: "test.txt",
       content: "content",
+      pages: [{ pageNumber: 2, text: "page content" }],
       contentType: "text/plain",
       onProgress
     })
 
     expect(result.success).toBe(true)
-    expect(result.chunkCount).toBe(2)
-    expect(mockSplitter.splitDocuments).toHaveBeenCalled()
+    expect(result.chunkCount).toBe(1)
+    expect(mockSplitter.splitDocuments).toHaveBeenCalledWith([
+      expect.objectContaining({
+        metadata: expect.objectContaining({ page: 2 })
+      })
+    ])
     expect(vectorStore.fromDocuments).toHaveBeenCalled()
-    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "processing" }))
-    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }))
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "processing" })
+    )
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "completed" })
+    )
   })
 
   it("handles errors gracefully", async () => {
-    vi.mocked(textProcessing.getTextSplitter).mockRejectedValue(new Error("Split error"))
+    vi.mocked(textProcessing.getTextSplitter).mockRejectedValue(
+      new Error("Split error")
+    )
 
     const onProgress = vi.fn()
     const result = await processKnowledge({
@@ -57,7 +65,9 @@ describe("processKnowledge", () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toBe("Split error")
-    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "error" }))
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "error" })
+    )
   })
 })
 
@@ -67,13 +77,14 @@ describe("processKnowledgeBatch", () => {
     // We can't easily mock processKnowledge directly since it's in the same module
     // But we can rely on the mocked dependencies behaving correctly
     const mockSplitter = {
-      splitDocuments: vi.fn().mockResolvedValue([{ pageContent: "chunk", metadata: {} }])
+      splitDocuments: vi
+        .fn()
+        .mockResolvedValue([{ pageContent: "chunk", metadata: {} }])
     }
-    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(mockSplitter as any)
-    vi.mocked(vectorStore.fromDocuments).mockResolvedValue({
-      vectorIds: [1],
-      documentCount: 0
-    })
+    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(
+      mockSplitter as any
+    )
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1])
 
     const files = [
       { fileId: "f1", fileName: "1.txt", content: "c1", contentType: "txt" },

@@ -6,5 +6,6 @@ export {
 export {
   type RetrievedContext,
   reformulateQuestion,
-  retrieveContext
+  retrieveContext,
+  retrieveContextFromSources
 } from "./rag-retriever"

@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "react"
 
 export const useAutoResizeTextarea = (
-  ref: React.RefObject<HTMLTextAreaElement>,
+  ref: React.RefObject<HTMLTextAreaElement | null>,
   value: string,
   minHeight = 100,
   maxHeight = 300

@@ -230,7 +230,7 @@ export const ChatInputBox = ({
         if (validFiles.length < files.length) {
           toast({
             variant: "destructive",
-            description: "Images are currently not supported via drag and drop"
+            description: "Images are currently not supported"
           })
         }
 
@@ -290,11 +290,11 @@ export const ChatInputBox = ({
 
   return (
     <div className="relative">
-      <div className="mb-2">
+      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
+
+      <div className="mb-1">
         <TabsSelect />
       </div>
-
-      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
 
       <ChatInputAttachmentList
         processingStates={processingStates}
@@ -315,11 +315,11 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative rounded-xl border-2 bg-card/50 backdrop-blur-sm transition-all duration-200",
+          "relative rounded-2xl border bg-card/40 backdrop-blur-md transition-all duration-300",
           isFocused
-            ? "border-primary/50 shadow-lg shadow-primary/10"
-            : "border-border/50 hover:border-border",
-          isDragging && "border-primary border-dashed bg-primary/5"
+            ? "border-primary/40 shadow-xl shadow-primary/5"
+            : "border-border/40 hover:border-border/80",
+          isDragging && "border-primary border-dashed bg-primary/10"
         )}>
         <ChatInputDragOverlay isDragging={isDragging} />
 
@@ -341,8 +341,8 @@ export const ChatInputBox = ({
           }}
           onBlur={() => setIsFocused(false)}
           className={cn(
-            "max-h-[300px] min-h-[100px] w-full resize-none border-0 bg-transparent",
-            "pb-12 pl-4 pr-16 pt-4 text-sm leading-relaxed scrollbar-none",
+            "max-h-[300px] min-h-[44px] w-full resize-none border-0 bg-transparent",
+            "pb-14 pl-4 pr-14 pt-3 text-sm leading-relaxed scrollbar-none",
             "focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-muted-foreground/70"
           )}

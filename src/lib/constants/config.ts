@@ -1,6 +1,6 @@
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
-  CANONICAL_EMBEDDING_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   FILE_UPLOAD
@@ -24,12 +24,12 @@ export interface EmbeddingConfig {
     | "shared-model"
     | "default-provider-only"
     | "ollama-only" // Legacy value for compatibility
-  sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-MiniLM-L6-v2)
+  sharedEmbeddingModel: string // Provider-agnostic shared model target (default: all-minilm)
   sharedEmbeddingProviderId: string // Provider used for shared model strategy (default: default provider)
   warmupEmbeddingsInBackground: boolean // Best-effort background model preparation (default: true)
+  showAdvancedEmbeddingModels: boolean // Allow selecting any embedding model (default: false)
 
   // Performance settings
-  useWebWorker: boolean // Use Web Worker for embedding generation (default: true)
   enableCaching: boolean // Cache embeddings for identical content (default: true)
 
   // Search settings
@@ -39,6 +39,10 @@ export interface EmbeddingConfig {
   // Search cache settings
   searchCacheTTL: number // Cache TTL in minutes (default: 5)
   searchCacheMaxSize: number // Max cached queries (default: 50)
+
+  // ANN Backend Settings
+  annBackend: "ts-hnsw" | "bruteforce" // ANN backend selection (default: ts-hnsw)
+  annMinVectors: number // Min vectors before ANN activates (default: 0)
 
   // Storage settings
   maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
@@ -54,7 +58,7 @@ export interface EmbeddingConfig {
   hnswAutoRebuild: boolean // Auto rebuild on schema changes (default: true)
 
   // RAG Advanced Settings (Phase 3)
-  useReranking: boolean // Enable transformers.js re-ranking (default: true)
+  useReranking: boolean // Enable cosine re-ranking (default: false)
   useHybridSearch: boolean // Enable hybrid search (keyword + semantic) (default: true)
   keywordWeight: number // Hybrid search keyword weight 0-1 (default: 0.6)
   semanticWeight: number // Hybrid search semantic weight 0-1 (default: 0.4)
@@ -69,6 +73,9 @@ export interface EmbeddingConfig {
 
   // Re-ranking Quality
   minRerankScore: number // Minimum re-ranking confidence threshold 0-1 (default: 0.6)
+
+  // Re-ranking Backend
+  rerankerBackend: "none" | "cosine" // Reranker backend (default: cosine)
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: boolean // Enable adaptive hybrid weights based on query type (default: true)
@@ -92,15 +99,17 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   batchSize: 5, // Process 5 at a time
   maxEmbeddingsPerFile: 1000, // Limit to prevent memory issues
   embeddingStrategy: "auto",
-  sharedEmbeddingModel: CANONICAL_EMBEDDING_MODEL,
+  sharedEmbeddingModel: DEFAULT_EMBEDDING_MODEL,
   sharedEmbeddingProviderId: DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   warmupEmbeddingsInBackground: true,
-  useWebWorker: true, // Offload to worker thread
+  showAdvancedEmbeddingModels: false,
   enableCaching: true, // Cache duplicate content
   defaultSearchLimit: 10,
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
   searchCacheTTL: 5, // 5 minutes
   searchCacheMaxSize: 50, // Max 50 cached queries
+  annBackend: "ts-hnsw",
+  annMinVectors: 0,
   maxStorageSize: 100, // 100MB limit
   autoCleanup: false,
   cleanupDaysOld: 30,
@@ -113,7 +122,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
-  useReranking: false, // DISABLED: transformers.js incompatible with Chrome extension CSP
+  useReranking: true, // Enabled by default
   useHybridSearch: true,
   keywordWeight: 0.6,
   semanticWeight: 0.4,
@@ -122,6 +131,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   diversityEnabled: true,
   diversityLambda: 0.7,
   minRerankScore: 0.6, // Prevent low-confidence results
+  rerankerBackend: "cosine",
 
   // Adaptive Search (RAG v3.0)
   useAdaptiveWeights: true,

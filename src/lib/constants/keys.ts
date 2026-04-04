@@ -10,6 +10,7 @@ export const PROVIDER_MESSAGE_KEYS = {
   UPDATE_BASE_URL: "provider-update-base-url",
   GET_LOADED_MODELS: "get-loaded-models",
   UNLOAD_MODEL: "unload-model",
+  WARMUP_MODEL: "warmup-model",
   DELETE_MODEL: "delete-model",
   GET_PROVIDER_VERSION: "get-provider-version",
   CHECK_EMBEDDING_MODEL: "check-embedding-model",
@@ -29,6 +30,7 @@ export const LEGACY_OLLAMA_MESSAGE_KEYS = {
   UPDATE_BASE_URL: "ollama-update-base-url",
   GET_LOADED_MODELS: "get-loaded-model",
   UNLOAD_MODEL: "unload-model",
+  WARMUP_MODEL: "warmup-model",
   DELETE_MODEL: "delete-model",
   GET_OLLAMA_VERSION: "get-ollama-version",
   CHECK_EMBEDDING_MODEL: "check-embedding-model",
@@ -43,6 +45,9 @@ export const MESSAGE_KEYS = {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat"
+  },
+  APP: {
+    RELOAD: "app-reload"
   }
 }
 
@@ -59,6 +64,8 @@ export const STORAGE_KEYS = {
   PROVIDER: {
     BASE_URL: "provider-base-url",
     SELECTED_MODEL: "provider-selected-model",
+    SELECTED_MODEL_REF: "provider-selected-model-ref",
+    SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",
     PROMPT_TEMPLATES: "provider-prompt-templates",
     MODEL_CONFIGS: "provider-model-config"
   },
@@ -95,6 +102,9 @@ export const STORAGE_KEYS = {
   },
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics"
+  },
+  KNOWLEDGE: {
+    ACTIVE_SET: "knowledge-active-set"
   },
   SHORTCUTS: "keyboard-shortcuts"
 }

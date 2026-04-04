@@ -1,7 +1,11 @@
-import initSqlJs, { type Database } from "sql.js"
+import type { SqlJsStatic } from "sql.js"
+import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { SCHEMA_SQL } from "./schema"
+
+// Dynamic type for Database
+type Database = import("sql.js").Database
 
 let db: Database | null = null
 let initPromise: Promise<Database> | null = null
@@ -72,10 +76,16 @@ export const initSQLite = async (): Promise<Database> => {
     try {
       logger.info("Initializing SQLite (sql.js)...", "SQLite")
 
-      // Initialize sql.js with locally bundled WASM
-      const SQL = await initSqlJs({
-        // Load WASM from assets folder (bundled with extension)
-        locateFile: (file) => chrome.runtime.getURL(`assets/${file}`)
+      const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
+      const response = await fetch(wasmUrl)
+      const wasmBinary = await response.arrayBuffer()
+
+      const SQL = await (
+        initSqlJs as unknown as (config: {
+          wasmBinary: Uint8Array
+        }) => Promise<SqlJsStatic>
+      )({
+        wasmBinary: new Uint8Array(wasmBinary)
       })
 
       // Try to load existing database from IndexedDB
@@ -174,6 +184,32 @@ export const saveDatabase = async (): Promise<void> => {
   if (db) {
     await saveDatabaseToIndexedDB(db.export())
   }
+}
+
+/**
+ * Export raw database bytes for backup
+ */
+export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
+  const database = await getDb()
+  return database.export()
+}
+
+/**
+ * Import raw database bytes from backup and reload memory DB
+ */
+export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
+  logger.info("Importing database bytes...", "SQLite")
+
+  // Save to IndexedDB
+  await saveDatabaseToIndexedDB(bytes)
+
+  // Reset singletons to force reload
+  db = null
+  initPromise = null
+
+  // Reinitialize DB
+  await initSQLite()
+  logger.info("Database imported successfully", "SQLite")
 }
 
 const isDevelopment = process.env.NODE_ENV === "development"

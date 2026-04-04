@@ -1,11 +1,12 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { handleModelPull } from "../handle-model-pull"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handlePullStream } from "@/background/handlers/handle-pull-stream"
 import {
   abortAndClearController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
-import { getBaseUrl, safePostMessage } from "@/background/lib/utils"
+import { safePostMessage } from "@/background/lib/utils"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { handleModelPull } from "../handle-model-pull"
 
 // Mock dependencies
 vi.mock("@/background/handlers/handle-pull-stream", () => ({
@@ -23,6 +24,11 @@ vi.mock("@/background/lib/utils", () => ({
   getPullAbortControllerKey: vi.fn().mockReturnValue("key"),
   safePostMessage: vi.fn()
 }))
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn()
+  }
+}))
 
 global.fetch = vi.fn()
 
@@ -32,11 +38,20 @@ describe("Handle Model Pull", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: "ollama",
+      config: {
+        baseUrl: "http://localhost:11434"
+      },
+      capabilities: {
+        modelPull: true
+      }
+    } as any)
   })
 
   it("should initiate pull successfully", async () => {
     const msg = { payload: "llama2" } as any
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       body: "stream"
@@ -66,7 +81,7 @@ describe("Handle Model Pull", () => {
 
   it("should handle fetch errors", async () => {
     const msg = { payload: "llama2" } as any
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
       status: 404,
@@ -83,7 +98,7 @@ describe("Handle Model Pull", () => {
 
   it("should handle missing body", async () => {
     const msg = { payload: "llama2" } as any
-    
+
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       body: null
@@ -98,7 +113,7 @@ describe("Handle Model Pull", () => {
 
   it("should handle network errors", async () => {
     const msg = { payload: "llama2" } as any
-    
+
     vi.mocked(fetch).mockRejectedValue(new Error("Network Error"))
 
     await handleModelPull(msg, mockPort, isPortClosed)
@@ -112,7 +127,7 @@ describe("Handle Model Pull", () => {
     const msg = { payload: "llama2" } as any
     const abortError = new Error("Aborted")
     abortError.name = "AbortError"
-    
+
     vi.mocked(fetch).mockRejectedValue(abortError)
 
     await handleModelPull(msg, mockPort, isPortClosed)

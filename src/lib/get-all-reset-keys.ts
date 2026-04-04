@@ -20,6 +20,7 @@ export const getAllResetKeys = (): ModuleKeyMap => {
   })
 
   map.CHAT_SESSIONS = ["CHAT_SESSIONS"]
+  map.FEEDBACK = ["FEEDBACK"]
 
   return map
 }
