@@ -1,0 +1,132 @@
+---
+const { title, description, jsonLd } = Astro.props
+const canonical = Astro.url?.href
+const ogImage = "https://ollama-client.shishirchaurasiya.in/assets/og-image.png"
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title ?? "Ollama Client Docs"}</title>
+    {description && <meta name="description" content={description} />}
+    <meta name="theme-color" content="#0b0b0b" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:type" content="website" />
+    {title && <meta property="og:title" content={title} />}
+    {description && <meta property="og:description" content={description} />}
+    {canonical && <meta property="og:url" content={canonical} />}
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {title && <meta name="twitter:title" content={title} />}
+    {description && <meta name="twitter:description" content={description} />}
+    <meta name="twitter:image" content={ogImage} />
+    {jsonLd && (
+      <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    )}
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/assets/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.min.js"
+    ></script>
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+      const root = document.documentElement
+      const storedTheme = localStorage.getItem("theme")
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+
+      if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
+        root.classList.add("dark")
+      }
+
+      const updateMermaidTheme = (isDark) => {
+        if (!window.mermaid) return
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? "dark" : "neutral"
+        })
+        window.mermaid.run({ querySelector: ".mermaid" })
+      }
+
+      const renderMermaidBlocks = () => {
+        if (!window.mermaid) return false
+        document.querySelectorAll("pre[data-language=\"mermaid\"]").forEach((pre) => {
+          const container = document.createElement("div")
+          container.className = "mermaid"
+          container.textContent = pre.textContent || ""
+          pre.replaceWith(container)
+        })
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "neutral"
+        })
+        window.mermaid.run({ querySelector: ".mermaid" })
+        return true
+      }
+
+      const tryRenderMermaid = () => {
+        if (renderMermaidBlocks()) return
+        setTimeout(() => {
+          renderMermaidBlocks()
+        }, 150)
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const toggle = document.getElementById("theme-toggle")
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            root.classList.toggle("dark")
+            const isDark = root.classList.contains("dark")
+            localStorage.setItem("theme", isDark ? "dark" : "light")
+            updateMermaidTheme(isDark)
+          })
+        }
+
+        document.querySelectorAll("pre > code").forEach((codeBlock) => {
+          const pre = codeBlock.parentElement
+          if (!pre || pre.querySelector(".code-copy")) return
+          if (pre.dataset.language === "mermaid") return
+          const button = document.createElement("button")
+          button.type = "button"
+          button.className = "code-copy"
+          button.textContent = "Copy"
+          button.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(codeBlock.textContent || "")
+              button.textContent = "Copied"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            } catch {
+              button.textContent = "Failed"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            }
+          })
+          pre.appendChild(button)
+        })
+
+        tryRenderMermaid()
+      })
+    </script>
+  </body>
+</html>

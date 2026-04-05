@@ -1,0 +1,35 @@
+---
+import "@/styles/globals.css"
+import Footer from "@/components/Footer.astro"
+import SideNav from "@/components/SideNav.astro"
+import TopNav from "@/components/TopNav.astro"
+import BaseLayout from "@/layouts/BaseLayout.astro"
+
+const { title, description, frontmatter } = Astro.props
+const resolvedTitle = title ?? frontmatter?.title
+const resolvedDescription = description ?? frontmatter?.description
+---
+
+<BaseLayout title={resolvedTitle} description={resolvedDescription}>
+  <div class="min-h-screen bg-background">
+    <TopNav />
+    <div class="flex">
+      <SideNav />
+      <main class="flex-1">
+        {Astro.slots.has("hero") && (
+          <section class="border-b border-border py-10">
+            <div class="container-docs">
+              <slot name="hero" />
+            </div>
+          </section>
+        )}
+        <section class="container-docs py-10">
+          <div class="prose-docs">
+            <slot />
+          </div>
+        </section>
+      </main>
+    </div>
+    <Footer />
+  </div>
+</BaseLayout>
