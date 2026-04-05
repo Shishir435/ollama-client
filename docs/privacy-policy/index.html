@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Privacy Policy</title><meta name="description" content="Privacy policy for Ollama Client, a local-first browser extension for local LLM chat with Ollama, LM Studio, and llama.cpp endpoints."><meta name="theme-color" content="#0b0b0b"><link rel="canonical" href="https://ollama-client.shishirchaurasiya.in/privacy-policy/"><meta property="og:type" content="website"><meta property="og:title" content="Privacy Policy"><meta property="og:description" content="Privacy policy for Ollama Client, a local-first browser extension for local LLM chat with Ollama, LM Studio, and llama.cpp endpoints."><meta property="og:url" content="https://ollama-client.shishirchaurasiya.in/privacy-policy/"><meta property="og:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Privacy Policy"><meta name="twitter:description" content="Privacy policy for Ollama Client, a local-first browser extension for local LLM chat with Ollama, LM Studio, and llama.cpp endpoints."><meta name="twitter:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png"><link rel="manifest" href="/assets/site.webmanifest"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.min.js"></script><link rel="stylesheet" href="/_astro/DocLayout.Doirp1_z.css"></head> <body>  <div class="min-h-screen bg-background"> <header class="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur"> <div class="container-docs flex h-16 items-center justify-between"> <a href="/" class="flex items-center gap-3"> <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold">
+OC
+</span> <div> <p class="text-sm font-semibold">Ollama Client Docs</p> <p class="text-xs text-muted-foreground">Local-first extension playbook</p> </div> </a> <nav class="hidden items-center gap-3 text-sm md:flex"> <a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/"> Home </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/architecture"> Architecture </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/ollama-setup-guide"> Setup Guide </a> <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">
+Theme
+</button> </nav> </div> </header> <div class="flex"> <aside class="hidden w-64 shrink-0 border-r border-border bg-background md:block"> <div class="flex h-full flex-col gap-6 px-6 py-8"> <div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Overview </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Home </a> </li><li> <a href="/architecture" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Architecture </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Guides </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/ollama-setup-guide" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Setup Guide </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Legal </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/privacy-policy" class="block rounded-lg px-3 py-2 transition bg-foreground text-background"> Privacy Policy </a> </li> </ul> </div> </div> </aside> <main class="flex-1"> <section class="border-b border-border py-10"> <div class="container-docs"> <div class="hero-grid"> <div class="hero-surface"> <span class="pill">Privacy</span> <h1 class="hero-title">Privacy Policy</h1> <p class="hero-subtitle">
+Ollama Client is designed as a local-first extension. This policy
+        explains what data is processed, where it is stored, and when it leaves
+        your device.
+</p> <p class="text-sm text-muted-foreground">Effective date: February 7, 2026</p> </div> </div> </div> </section> <section class="container-docs py-10"> <div class="prose-docs">   <section class="mt-10 space-y-6"> <div class="feature-card"> <h2 class="section-title">1. Scope</h2> <p class="feature-meta">
+This policy applies to the Ollama Client browser extension and related
+        documentation pages.
+</p> </div> <div class="feature-card"> <h2 class="section-title">2. Data We Collect</h2> <p class="feature-meta">
+The extension does not run first-party analytics, ad trackers, or
+        telemetry collection pipelines.
+</p> <ul class="feature-list"> <li>Chat prompts and model responses generated during use</li> <li>Session metadata (titles, timestamps, branch state)</li> <li>Optional uploaded file content for local retrieval workflows</li> <li>Settings and provider configuration values</li> </ul> </div> <div class="feature-card"> <h2 class="section-title">3. Where Data Is Stored</h2> <ul class="feature-list"> <li>Local browser storage backed by SQL WASM (sql.js)</li> <li>Optional ZIP backups stored locally when you export</li> <li>No default cloud sync from the extension itself</li> </ul> </div> <div class="feature-card"> <h2 class="section-title">4. Network Communication</h2> <p class="feature-meta">
+The extension sends prompts to provider endpoints you configure in the
+        app.
+</p> <ul class="feature-list"> <li>Common local endpoints: Ollama, LM Studio, and llama.cpp servers</li> <li>LAN endpoints are supported when configured by the user</li> <li>
+If you manually point to a remote endpoint, your prompt data will be
+          sent to that endpoint
+</li> </ul> <div class="ghost-panel">
+Privacy outcome depends on your configured provider endpoint, not only
+        on extension code.
+</div> </div> <div class="feature-card"> <h2 class="section-title">5. Permissions</h2> <p class="feature-meta">
+The extension requests browser permissions for chat UX, optional page
+        extraction, and provider connectivity.
+</p> <ul class="feature-list"> <li><code>storage</code> for settings and local state</li> <li><code>tabs</code> and content extraction related permissions</li> <li>Network/host permissions to reach provider endpoints</li> </ul> </div> <div class="feature-card"> <h2 class="section-title">6. Retention and User Control</h2> <ul class="feature-list"> <li>You can delete chats and associated local artifacts in the UI</li> <li>You can disable RAG and related indexing features</li> <li>You can reset storage/configuration from settings</li> </ul> </div> <div class="feature-card"> <h2 class="section-title">7. Security Notes</h2> <ul class="feature-list"> <li>Do not expose provider APIs publicly without access controls</li> <li>Treat LAN endpoints as sensitive infrastructure</li> <li>Review provider privacy policies for non-local endpoints</li> </ul> </div> <div class="feature-card"> <h2 class="section-title">8. Policy Changes</h2> <p class="feature-meta">
+This policy may be updated as architecture evolves. The latest version
+        is published at this URL.
+</p> </div> <div class="feature-card"> <h2 class="section-title">9. Contact</h2> <p class="feature-meta">
+Questions:
+<a href="mailto:shishirchaurasiya435@gmail.com">
+shishirchaurasiya435@gmail.com
+</a> </p> </div> </section> <p class="mt-10 text-sm text-muted-foreground">
+© 2026 Ollama Client. Local-first by design, with endpoint behavior
+    controlled by the user.
+</p>  </div> </section> </main> </div> <footer class="border-t border-border py-8"> <div class="container-docs flex flex-col gap-2 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between"> <p>Ollama Client Docs · Built for local-first workflows.</p> <p>Need help? Email shishirchaurasiya435@gmail.com</p> </div> </footer> </div>  <script>
+      const root = document.documentElement
+      const storedTheme = localStorage.getItem("theme")
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+
+      if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
+        root.classList.add("dark")
+      }
+
+      const updateMermaidTheme = (isDark) => {
+        if (!window.mermaid) return
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? "dark" : "neutral"
+        })
+        window.mermaid.run({ querySelector: ".mermaid" })
+      }
+
+      const renderMermaidBlocks = () => {
+        if (!window.mermaid) return false
+        document.querySelectorAll("pre[data-language=\"mermaid\"]").forEach((pre) => {
+          const container = document.createElement("div")
+          container.className = "mermaid"
+          container.textContent = pre.textContent || ""
+          pre.replaceWith(container)
+        })
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "neutral"
+        })
+        window.mermaid.run({ querySelector: ".mermaid" })
+        return true
+      }
+
+      const tryRenderMermaid = () => {
+        if (renderMermaidBlocks()) return
+        setTimeout(() => {
+          renderMermaidBlocks()
+        }, 150)
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const toggle = document.getElementById("theme-toggle")
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            root.classList.toggle("dark")
+            const isDark = root.classList.contains("dark")
+            localStorage.setItem("theme", isDark ? "dark" : "light")
+            updateMermaidTheme(isDark)
+          })
+        }
+
+        document.querySelectorAll("pre > code").forEach((codeBlock) => {
+          const pre = codeBlock.parentElement
+          if (!pre || pre.querySelector(".code-copy")) return
+          if (pre.dataset.language === "mermaid") return
+          const button = document.createElement("button")
+          button.type = "button"
+          button.className = "code-copy"
+          button.textContent = "Copy"
+          button.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(codeBlock.textContent || "")
+              button.textContent = "Copied"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            } catch {
+              button.textContent = "Failed"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            }
+          })
+          pre.appendChild(button)
+        })
+
+        tryRenderMermaid()
+      })
+    </script> </body> </html>

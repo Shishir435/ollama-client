@@ -1,0 +1,315 @@
+---
+import DocLayout from "@/layouts/DocLayout.astro"
+
+const title = "Ollama Client - Local AI Chat Extension"
+const description =
+  "Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Ollama Client",
+  description:
+    "Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. It includes enhanced content extraction, voice features, and semantic retrieval workflows directly in your browser.",
+  applicationCategory: "BrowserApplication",
+  operatingSystem: "Chrome",
+  author: {
+    "@type": "Person",
+    name: "Shishir Chaurasiya",
+    url: "https://www.shishirchaurasiya.in/"
+  },
+  url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
+  downloadUrl:
+    "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
+  codeRepository: "https://github.com/Shishir435/ollama-client"
+}
+---
+
+<DocLayout title={title} description={description} jsonLd={jsonLd}>
+  <div slot="hero" class="hero-grid">
+    <div class="hero-surface">
+      <div class="space-y-6">
+        <span class="pill">Local-first</span>
+        <h1 class="hero-title">
+          Chat with local LLM models right inside your browser.
+        </h1>
+        <p class="hero-subtitle">
+          Privacy-first extension for local AI chat with multi-provider support.
+          Connect Ollama, LM Studio, llama.cpp, or OpenAI-compatible servers
+          (vLLM, LocalAI, KoboldCPP) and run conversations directly in your
+          browser with provider-aware routing and local-first workflows.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            class="button-primary"
+            href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+            target="_blank"
+            rel="noopener"
+          >
+            Install Extension
+          </a>
+          <a
+            class="button-secondary"
+            href="https://github.com/Shishir435/ollama-client"
+            target="_blank"
+            rel="noopener"
+          >
+            View Source
+          </a>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-value">Local-first</span>
+            <span class="stat-label">Privacy model</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">∞</span>
+            <span class="stat-label">AI models</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">0*</span>
+            <span class="stat-label">Mandatory cloud APIs</span>
+          </div>
+        </div>
+        <p class="text-sm text-muted-foreground">
+          *You control the endpoint. If you configure a remote provider, your
+          data will go to that provider.
+        </p>
+        <div class="ghost-panel">
+          <p class="text-sm text-muted-foreground">
+            Works on Chrome, Brave, Edge, Opera, and experimental Firefox.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="mt-12">
+    <div class="section-header">
+      <span class="section-kicker">Features</span>
+      <h2 class="section-title">Powerful, local-first capabilities</h2>
+      <p class="text-muted-foreground">
+        Everything you need for productive AI conversations, with full control
+        over provider endpoints.
+      </p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3 class="feature-title">Multi-Provider Local Models</h3>
+        <p class="feature-meta">
+          Use local models through Ollama, LM Studio, llama.cpp, or compatible
+          OpenAI servers with capability-aware routing.
+        </p>
+        <ul class="feature-list">
+          <li>Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP</li>
+          <li>Provider-aware model selection + capabilities</li>
+          <li>Streaming responses + stop control</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Multi-Chat Sessions</h3>
+        <p class="feature-meta">
+          Organize conversations with multiple sessions stored locally in
+          IndexedDB.
+        </p>
+        <ul class="feature-list">
+          <li>Multiple concurrent chats</li>
+          <li>Session persistence + history</li>
+          <li>Tab refresh awareness</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Enhanced Content Extraction</h3>
+        <p class="feature-meta">
+          Modern extraction with lazy-loading support and site-specific
+          strategies for clean context capture.
+        </p>
+        <ul class="feature-list">
+          <li>Defuddle integration for parsing</li>
+          <li>Smart scroll strategies</li>
+          <li>GitHub & YouTube extraction helpers</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Advanced Text-to-Speech</h3>
+        <p class="feature-meta">
+          Speech synthesis with searchable voices, pitch/rate controls, and
+          per-message playback.
+        </p>
+        <ul class="feature-list">
+          <li>Language grouping + search</li>
+          <li>Custom text preview</li>
+          <li>Cross-browser voice loading</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Prompt Templates</h3>
+        <p class="feature-meta">
+          Pre-built prompts for summarization, translation, and code help.
+        </p>
+        <ul class="feature-list">
+          <li>Summarize content</li>
+          <li>Translate text</li>
+          <li>Custom templates</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">File Upload & Processing</h3>
+        <p class="feature-meta">
+          Upload PDFs, text, and DOCX files and auto-embed them for semantic
+          retrieval (no OCR pipeline required).
+        </p>
+        <ul class="feature-list">
+          <li>PDF, TXT, MD, DOCX support</li>
+          <li>Background embedding progress</li>
+          <li>Configurable max file size</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Backup & Restore</h3>
+        <p class="feature-meta">
+          Export and restore full data snapshots with manifested ZIP backups.
+        </p>
+        <ul class="feature-list">
+          <li>Full backup/export flows</li>
+          <li>Restore with partial failure reporting</li>
+          <li>Versioned manifests</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Advanced Configuration</h3>
+        <p class="feature-meta">
+          Full control over provider base URLs, model settings, and exclusions.
+        </p>
+        <ul class="feature-list">
+          <li>Provider base URL control</li>
+          <li>Selected model ref + capability checks</li>
+          <li>Debug logging</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Search & Export</h3>
+        <p class="feature-meta">
+          Search UX enhancements with scoped tabs and print/PDF export.
+        </p>
+        <ul class="feature-list">
+          <li>Result grouping + scoped tabs</li>
+          <li>Print/PDF export entrypoint</li>
+          <li>Local-only processing</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <h3 class="feature-title">Privacy First</h3>
+        <p class="feature-meta">
+          Local-first by default with user-controlled endpoints.
+        </p>
+        <ul class="feature-list">
+          <li>No mandatory cloud APIs</li>
+          <li>Local data storage</li>
+          <li>Open source code</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="mt-16">
+    <div class="section-header">
+      <span class="section-kicker">Stack</span>
+      <h2 class="section-title">Built with modern technologies</h2>
+      <p class="text-muted-foreground">
+        Optimized for performance, reliability, and extensibility.
+      </p>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-item">React</div>
+      <div class="tech-item">WXT</div>
+      <div class="tech-item">TypeScript</div>
+      <div class="tech-item">shadcn/ui</div>
+      <div class="tech-item">Dexie.js</div>
+      <div class="tech-item">Readability</div>
+    </div>
+  </section>
+
+  <section class="mt-16">
+    <div class="section-header">
+      <span class="section-kicker">Setup</span>
+      <h2 class="section-title">Get started in 3 easy steps</h2>
+      <p class="text-muted-foreground">
+        Quick setup path to get chatting with local models.
+      </p>
+    </div>
+    <div class="step-grid">
+      <div class="step-card">
+        <div class="step-number">Step 1</div>
+        <h3 class="feature-title">Start a local provider</h3>
+        <p class="feature-meta">
+          Run Ollama, LM Studio, or llama.cpp and set the provider URL inside
+          the extension settings.
+        </p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">Step 2</div>
+        <h3 class="feature-title">Add the extension</h3>
+        <p class="feature-meta">
+          Install from the Chrome Web Store and pin the extension for easy
+          access.
+        </p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">Step 3</div>
+        <h3 class="feature-title">Start chatting</h3>
+        <p class="feature-meta">
+          Open the side panel, pick a model, and chat on any website. CORS
+          issue? Follow the setup guide.
+        </p>
+        <a class="button-secondary mt-4" href="/ollama-setup-guide">
+          Read the setup guide
+        </a>
+      </div>
+    </div>
+    <div class="mt-8">
+      <a
+        class="button-primary"
+        href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+        target="_blank"
+        rel="noopener"
+      >
+        Install Now - It’s Free
+      </a>
+    </div>
+  </section>
+
+  <section class="mt-16">
+    <div class="section-header">
+      <span class="section-kicker">Links</span>
+      <h2 class="section-title">Stay connected</h2>
+    </div>
+    <div class="footer-links">
+      <a
+        href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+        target="_blank"
+        rel="noopener"
+      >
+        Chrome Web Store
+      </a>
+      <a
+        href="https://github.com/Shishir435/ollama-client"
+        target="_blank"
+        rel="noopener"
+      >
+        GitHub Repository
+      </a>
+      <a
+        href="https://www.shishirchaurasiya.in/"
+        target="_blank"
+        rel="noopener"
+      >
+        Developer Portfolio
+      </a>
+      <a href="https://ollama.ai/" target="_blank" rel="noopener">Ollama</a>
+    </div>
+    <p class="mt-6 text-sm text-muted-foreground">
+      © 2026 Ollama Client. Open source • Privacy-first • Multi-provider local
+      AI
+    </p>
+  </section>
+</DocLayout>

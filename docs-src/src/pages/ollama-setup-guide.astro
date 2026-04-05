@@ -1,0 +1,237 @@
+---
+import DocLayout from "@/layouts/DocLayout.astro"
+
+const title = "Provider Setup Guide"
+const description =
+  "Setup guide for Ollama Client: configure Ollama, LM Studio, or llama.cpp local providers and start private browser-side AI chat."
+---
+
+<DocLayout title={title} description={description}>
+  <div slot="hero" class="hero-grid">
+    <div class="hero-surface">
+      <span class="pill">Setup</span>
+      <h1 class="hero-title">Provider Setup Guide</h1>
+      <p class="hero-subtitle">
+        Recommended setup for Ollama (primary), plus LM Studio and llama.cpp
+        local endpoints. OpenAI-compatible servers (vLLM, LocalAI, KoboldCPP)
+        also work when configured. This guide reflects v0.6.2 behavior.
+      </p>
+      <div class="ghost-panel">
+        <p class="text-sm text-muted-foreground">
+          Need the overview? Visit the <a href="/">landing page</a> or review the
+          <a href="/privacy-policy">privacy policy</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <section class="mt-10 space-y-6">
+    <div class="feature-card">
+      <h2 class="section-title">1. Install the Extension</h2>
+      <p class="feature-meta">
+        Install from the Chrome Web Store:
+        <a
+          href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+          target="_blank"
+          rel="noopener"
+        >
+          Ollama Client
+        </a>
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">2. Choose a Provider</h2>
+      <div class="feature-grid">
+        <div class="step-card">
+          <h3 class="feature-title">Ollama (recommended baseline)</h3>
+          <p class="feature-meta">Default endpoint:</p>
+          <div class="code-block">
+            <code>http://localhost:11434</code>
+          </div>
+        </div>
+        <div class="step-card">
+          <h3 class="feature-title">LM Studio</h3>
+          <p class="feature-meta">Default profile endpoint:</p>
+          <div class="code-block">
+            <code>http://localhost:1234/v1</code>
+          </div>
+        </div>
+        <div class="step-card">
+          <h3 class="feature-title">llama.cpp server</h3>
+          <p class="feature-meta">Default profile endpoint:</p>
+          <div class="code-block">
+            <code>http://localhost:8000/v1</code>
+          </div>
+        </div>
+        <div class="step-card">
+          <h3 class="feature-title">OpenAI-compatible servers</h3>
+          <p class="feature-meta">
+            vLLM, LocalAI, KoboldCPP (use your server URL).
+          </p>
+          <div class="code-block">
+            <code>http://localhost:8000/v1</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">Provider Connection Flow</h2>
+      <p class="feature-meta">
+        High-level flow from extension to provider and back.
+      </p>
+      <pre data-language="mermaid">
+flowchart LR
+  A["Extension UI"] --> B["Provider Config"]
+  B --> C["Choose Provider"]
+  C --> D["Ollama"]
+  C --> E["LM Studio"]
+  C --> F["llama.cpp"]
+  D --> G["Local API"]
+  E --> G
+  F --> G
+  G --> H["Streaming Response"]
+  H --> I["Chat UI + Local Storage"]
+      </pre>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">3. Start Ollama (primary path)</h2>
+      <p class="feature-meta">
+        Install Ollama from
+        <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a>,
+        then start it:
+      </p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>ollama serve</code></pre>
+      </div>
+      <p class="feature-meta">Pull at least one chat model:</p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>ollama pull qwen2.5:3b</code></pre>
+      </div>
+      <p class="feature-meta">Pull one embeddings model for RAG:</p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>ollama pull all-minilm:latest</code></pre>
+      </div>
+      <p class="feature-meta">
+        You need at least one chat model and one embeddings model installed for
+        the full experience.
+      </p>
+      <div class="ghost-panel">
+        Optional helper script in this repo:
+        <a
+          href="https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh"
+          target="_blank"
+          rel="noopener"
+        >
+          tools/ollama-env.sh
+        </a>
+        (helps with LAN and Firefox origin setup).
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">4. Configure Providers in Extension</h2>
+      <ol class="feature-list">
+        <li>Open extension settings.</li>
+        <li>Go to <strong>Providers</strong> tab.</li>
+        <li>Enable provider(s) you want.</li>
+        <li>Set base URL and run connection test.</li>
+        <li>Select a model from the model menu in chat.</li>
+      </ol>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">5. Verify Endpoints</h2>
+      <p class="feature-meta">Ollama check</p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>curl http://localhost:11434/api/tags</code></pre>
+      </div>
+      <p class="feature-meta">LM Studio check</p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>curl http://localhost:1234/v1/models</code></pre>
+      </div>
+      <p class="feature-meta">llama.cpp check</p>
+      <div class="code-block" data-copy>
+        <button class="copy-button" type="button" data-copy-button>Copy</button>
+        <pre><code>curl http://localhost:8000/v1/models</code></pre>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">6. Important Reality Checks</h2>
+      <ul class="feature-list">
+        <li>Chat generation is provider-routed.</li>
+        <li>Model pull/delete/unload/version features are Ollama-focused.</li>
+        <li>Embedding and indexing currently depend on Ollama embeddings.</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">7. CORS and Browser Notes</h2>
+      <p class="feature-meta">
+        Chrome-based browsers use DNR-based request handling. Firefox has
+        different extension API behavior.
+      </p>
+      <div class="ghost-panel">
+        For Firefox and strict environments, you may need explicit
+        <code>OLLAMA_ORIGINS</code> setup when using Ollama.
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">8. Troubleshooting</h2>
+      <ul class="feature-list">
+        <li>Confirm provider process is running.</li>
+        <li>Confirm endpoint URL matches runtime URL.</li>
+        <li>Use provider connection test before debugging model behavior.</li>
+        <li>Check background console for streaming/provider errors.</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <h2 class="section-title">9. Related Docs</h2>
+      <ul class="feature-list">
+        <li><a href="/">Project overview</a></li>
+        <li><a href="/privacy-policy">Privacy policy</a></li>
+        <li>
+          <a
+            href="https://github.com/Shishir435/ollama-client"
+            target="_blank"
+            rel="noopener"
+          >
+            GitHub repository
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <script>
+    document.querySelectorAll("[data-copy]").forEach((block) => {
+      const button = block.querySelector("[data-copy-button]")
+      const code = block.querySelector("code")
+      if (!button || !code) return
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent || "")
+          button.textContent = "Copied"
+          setTimeout(() => {
+            button.textContent = "Copy"
+          }, 1200)
+        } catch {
+          button.textContent = "Failed"
+          setTimeout(() => {
+            button.textContent = "Copy"
+          }, 1200)
+        }
+      })
+    })
+  </script>
+</DocLayout>

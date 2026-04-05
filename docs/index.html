@@ -1,1296 +1,153 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>
-      Ollama Client - Multi-Provider Local AI Chat Extension | Privacy-First
-      Browser Extension
-    </title>
-    <meta
-      name="google-site-verification"
-      content="PfZvc2lO7fTTnv7vTpfjlmSSHBvQV-mOC1wJn0C8Xsg" />
-    <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#6366f1" />
-    <meta
-      name="description"
-      content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search. No mandatory cloud backend." />
-    <meta
-      name="keywords"
-      content="ollama client, local ai extension, offline ai chat, ollama extension, lm studio extension, llama.cpp extension, local llm chat, privacy first ai, browser ai assistant, semantic search, rag extension" />
-    <meta name="author" content="Shishir Chaurasiya" />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="https://ollama-client.shishirchaurasiya.in/assets/apple-touch-icon.png" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="https://ollama-client.shishirchaurasiya.in/assets/favicon-32x32.png" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="https://ollama-client.shishirchaurasiya.in/assets/favicon-16x16.png" />
-    <link
-      rel="manifest"
-      href="https://ollama-client.shishirchaurasiya.in/assets/site.webmanifest" />
-
-    <!-- Open Graph / Social Media -->
-    <meta property="og:type" content="website" />
-    <meta
-      property="og:title"
-      content="Ollama Client - Multi-Provider Local AI Chat Extension" />
-    <meta
-      property="og:description"
-      content="Privacy-first extension for local AI chat with Ollama, LM Studio, and llama.cpp. Includes semantic search, content extraction, and voice features with local-first workflows." />
-    <meta
-      property="og:url"
-      content="https://ollama-client.shishirchaurasiya.in/" />
-    <meta
-      property="og:image"
-      content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
-
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:title"
-      content="Ollama Client - Multi-Provider Local AI Chat Extension" />
-    <meta
-      name="twitter:description"
-      content="Privacy-first local AI chat extension supporting Ollama, LM Studio, and llama.cpp with semantic search and advanced browser content extraction." />
-    <meta
-      name="twitter:image"
-      content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png" />
-
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet" />
-    <link rel="canonical" href="https://ollama-client.shishirchaurasiya.in/" />
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Ollama Client",
-        "description": "Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. It includes enhanced content extraction, voice features, and semantic retrieval workflows directly in your browser.",
-        "applicationCategory": "BrowserApplication",
-        "operatingSystem": "Chrome",
-        "author": {
-          "@type": "Person",
-          "name": "Shishir Chaurasiya",
-          "url": "https://www.shishirchaurasiya.in/"
-        },
-        "url": "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-        "downloadUrl": "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-        "codeRepository": "https://github.com/Shishir435/ollama-client"
-      }
-    </script>
-
-    <style>
-      :root {
-        --primary: #0f172a;
-        --primary-light: #1e293b;
-        --accent: #3b82f6;
-        --accent-dark: #1d4ed8;
-        --accent-light: #60a5fa;
-        --accent-glow: rgba(59, 130, 246, 0.3);
-        --bg: #ffffff;
-        --bg-secondary: #f8fafc;
-        --bg-tertiary: #f1f5f9;
-        --text: #0f172a;
-        --text-secondary: #475569;
-        --text-muted: #64748b;
-        --border: #e2e8f0;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --gradient-hero: linear-gradient(
-          135deg,
-          #667eea 0%,
-          #764ba2 50%,
-          #f093fb 100%
-        );
-        --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-          0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-          0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
-          0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          sans-serif;
-        background-color: var(--bg);
-        color: var(--text);
-        line-height: 1.6;
-        overflow-x: hidden;
-      }
-
-      /* Hero Section */
-      .hero {
-        background: var(--gradient-hero);
-        position: relative;
-        overflow: hidden;
-        padding: 5rem 1rem 7rem;
-        text-align: center;
-        color: white;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-      }
-
-      .hero::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: radial-gradient(
-            circle at 20% 20%,
-            rgba(255, 255, 255, 0.1) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            circle at 80% 80%,
-            rgba(255, 255, 255, 0.1) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            circle at 40% 60%,
-            rgba(255, 255, 255, 0.05) 0%,
-            transparent 50%
-          );
-        animation: float 20s ease-in-out infinite;
-      }
-
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0px) rotate(0deg);
-        }
-        33% {
-          transform: translateY(-10px) rotate(1deg);
-        }
-        66% {
-          transform: translateY(5px) rotate(-1deg);
-        }
-      }
-
-      .hero-content {
-        position: relative;
-        z-index: 1;
-        max-width: 1200px;
-        margin: 0 auto;
-        width: 100%;
-      }
-
-      .hero h1 {
-        font-size: clamp(2.5rem, 5vw, 4.5rem);
-        font-weight: 900;
-        margin-bottom: 1.5rem;
-        line-height: 1.1;
-        text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        background: linear-gradient(45deg, #ffffff, #e0e7ff, #ffffff);
-        background-size: 200% 200%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        animation: shimmer 3s ease-in-out infinite;
-      }
-
-      @keyframes shimmer {
-        0%,
-        100% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-      }
-
-      .hero-subtitle {
-        font-size: clamp(1.1rem, 2.5vw, 1.4rem);
-        margin-bottom: 3rem;
-        opacity: 0.95;
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-        font-weight: 400;
-        line-height: 1.7;
-      }
-
-      .cta-buttons {
-        display: flex;
-        gap: 1.5rem;
-        justify-content: center;
-        flex-wrap: wrap;
-        margin-bottom: 3rem;
-      }
-
-      .btn {
-        padding: 1rem 2.5rem;
-        font-size: 1.1rem;
-        font-weight: 600;
-        border: none;
-        border-radius: 1rem;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(10px);
-      }
-
-      .btn::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          rgba(255, 255, 255, 0.2),
-          transparent
-        );
-        transition: left 0.5s;
-      }
-
-      .btn:hover::before {
-        left: 100%;
-      }
-
-      .btn-primary {
-        background: rgba(255, 255, 255, 0.95);
-        color: var(--accent-dark);
-        box-shadow: var(--shadow-xl);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-
-      .btn-primary:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: var(--shadow-2xl);
-        background: rgba(255, 255, 255, 1);
-      }
-
-      .btn-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(20px);
-      }
-
-      .btn-secondary:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.6);
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: var(--shadow-xl);
-      }
-
-      /* Enhanced Chrome Web Store Badge */
-      .store-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-        background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 1rem;
-        padding: 0.75rem 1.5rem;
-        text-decoration: none;
-        color: white;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        margin: 1.5rem 0;
-        box-shadow: var(--shadow-lg);
-      }
-
-      .store-badge:hover {
-        background: rgba(255, 255, 255, 0.25);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-xl);
-      }
-
-      .store-badge-icon {
-        width: 24px;
-        height: 24px;
-        background: white;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-      }
-
-      .stats {
-        display: flex;
-        justify-content: center;
-        gap: 4rem;
-        flex-wrap: wrap;
-        margin: 3rem 0;
-      }
-
-      .stat {
-        text-align: center;
-        position: relative;
-      }
-
-      .stat::after {
-        content: "";
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 2px;
-        background: rgba(255, 255, 255, 0.5);
-        border-radius: 2px;
-      }
-
-      .stat-number {
-        font-size: 2.5rem;
-        font-weight: 800;
-        display: block;
-        margin-bottom: 0.5rem;
-        background: linear-gradient(45deg, #ffffff, #e0e7ff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .stat-label {
-        font-size: 1rem;
-        opacity: 0.9;
-        font-weight: 500;
-      }
-
-      /* Enhanced Browser Support Badges */
-      .browser-support {
-        margin-top: 2rem;
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-      }
-
-      .browser-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 2rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: white;
-        transition: all 0.3s ease;
-      }
-
-      .browser-badge:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: translateY(-1px);
-      }
-
-      .browser-badge.experimental {
-        opacity: 0.7;
-      }
-
-      .browser-icon {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-      }
-
-      .browser-icon.chrome {
-        background: #4285f4;
-      }
-      .browser-icon.brave {
-        background: #fb542b;
-      }
-      .browser-icon.edge {
-        background: #0078d4;
-      }
-      .browser-icon.opera {
-        background: #ff1b2d;
-      }
-      .browser-icon.firefox {
-        background: #ff9500;
-      }
-
-      /* Features Section */
-      .features {
-        padding: 8rem 1rem;
-        background: var(--bg-secondary);
-        position: relative;
-      }
-
-      .features::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 100px;
-        background: linear-gradient(
-          to bottom,
-          var(--gradient-hero),
-          var(--bg-secondary)
-        );
-      }
-
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        position: relative;
-        z-index: 1;
-      }
-
-      .section-header {
-        text-align: center;
-        margin-bottom: 5rem;
-      }
-
-      .section-title {
-        font-size: clamp(2.5rem, 4vw, 3.5rem);
-        font-weight: 800;
-        margin-bottom: 1.5rem;
-        color: var(--primary);
-        position: relative;
-      }
-
-      .section-title::after {
-        content: "";
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80px;
-        height: 4px;
-        background: var(--gradient-accent);
-        border-radius: 2px;
-      }
-
-      .section-subtitle {
-        font-size: 1.2rem;
-        color: var(--text-secondary);
-        max-width: 600px;
-        margin: 0 auto;
-        line-height: 1.7;
-      }
-
-      .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-        gap: 2.5rem;
-      }
-
-      .feature-card {
-        background: var(--gradient-card);
-        padding: 2.5rem;
-        border-radius: 1.5rem;
-        box-shadow: var(--shadow-lg);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 1px solid var(--border);
-        position: relative;
-        overflow: hidden;
-      }
-
-      .feature-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: var(--gradient-accent);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
-      }
-
-      .feature-card:hover::before {
-        transform: scaleX(1);
-      }
-
-      .feature-card:hover {
-        transform: translateY(-8px);
-        box-shadow: var(--shadow-2xl);
-      }
-
-      .feature-icon {
-        width: 4rem;
-        height: 4rem;
-        background: var(--gradient-accent);
-        border-radius: 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 2rem;
-        font-size: 1.75rem;
-        box-shadow: var(--shadow-md);
-      }
-
-      .feature-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin-bottom: 1rem;
-        color: var(--primary);
-      }
-
-      .feature-description {
-        color: var(--text-secondary);
-        line-height: 1.7;
-        margin-bottom: 1.5rem;
-      }
-
-      .feature-list {
-        list-style: none;
-      }
-
-      .feature-list li {
-        padding: 0.5rem 0;
-        color: var(--text-secondary);
-        position: relative;
-        padding-left: 2rem;
-        transition: color 0.3s ease;
-      }
-
-      .feature-list li::before {
-        content: "✓";
-        position: absolute;
-        left: 0;
-        color: var(--success);
-        font-weight: 700;
-        font-size: 1.1rem;
-      }
-
-      .feature-list li:hover {
-        color: var(--text);
-      }
-
-      /* Tech Stack */
-      .tech-stack {
-        padding: 6rem 1rem;
-        background: white;
-        position: relative;
-      }
-
-      .tech-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 2rem;
-        margin-top: 3rem;
-      }
-
-      .tech-item {
-        text-align: center;
-        padding: 2rem 1.5rem;
-        background: var(--bg-secondary);
-        border-radius: 1rem;
-        transition: all 0.3s ease;
-        border: 2px solid transparent;
-      }
-
-      .tech-item:hover {
-        transform: translateY(-4px) scale(1.05);
-        background: var(--bg-tertiary);
-        border-color: var(--accent-light);
-        box-shadow: var(--shadow-lg);
-      }
-
-      .tech-icon {
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-      }
-
-      .tech-name {
-        font-weight: 600;
-        color: var(--text);
-        font-size: 1.1rem;
-      }
-
-      /* Installation Section */
-      .installation {
-        padding: 8rem 1rem;
-        background: var(--primary);
-        color: white;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .installation::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: radial-gradient(
-            circle at 10% 20%,
-            rgba(59, 130, 246, 0.1) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            circle at 90% 80%,
-            rgba(120, 119, 198, 0.1) 0%,
-            transparent 50%
-          );
-      }
-
-      .install-steps {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 3rem;
-        margin-top: 4rem;
-        position: relative;
-        z-index: 1;
-      }
-
-      .install-step {
-        text-align: center;
-        padding: 3rem 2rem;
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(20px);
-        border-radius: 1.5rem;
-        position: relative;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-      }
-
-      .install-step:hover {
-        background: rgba(255, 255, 255, 0.1);
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-xl);
-      }
-
-      .step-number {
-        width: 4rem;
-        height: 4rem;
-        background: var(--gradient-accent);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 1.5rem;
-        margin: 0 auto 2rem;
-        box-shadow: var(--shadow-lg);
-      }
-
-      .step-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 1.5rem;
-      }
-
-      .step-description {
-        opacity: 0.9;
-        line-height: 1.7;
-        font-size: 1.1rem;
-      }
-
-      .step-description a {
-        color: var(--accent-light);
-        text-decoration: none;
-        font-weight: 600;
-      }
-
-      .step-description a:hover {
-        text-decoration: underline;
-      }
-
-      /* Footer */
-      .footer {
-        background: var(--primary);
-        color: white;
-        padding: 4rem 1rem 3rem;
-        text-align: center;
-        border-top: 1px solid var(--primary-light);
-      }
-
-      .footer-content {
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-
-      .footer-links {
-        display: flex;
-        justify-content: center;
-        gap: 3rem;
-        margin-bottom: 3rem;
-        flex-wrap: wrap;
-      }
-
-      .footer-link {
-        color: white;
-        text-decoration: none;
-        opacity: 0.8;
-        transition: all 0.3s ease;
-        font-weight: 500;
-      }
-
-      .footer-link:hover {
-        opacity: 1;
-        color: var(--accent-light);
-        transform: translateY(-2px);
-      }
-
-      .footer-bottom {
-        border-top: 1px solid var(--primary-light);
-        margin-top: 3rem;
-        padding-top: 2rem;
-        opacity: 0.8;
-      }
-
-      .footer-bottom a {
-        color: var(--accent-light);
-        text-decoration: none;
-        font-weight: 600;
-      }
-
-      .footer-bottom a:hover {
-        text-decoration: underline;
-      }
-
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .hero {
-          padding: 4rem 1rem 5rem;
-          min-height: auto;
-        }
-
-        .features {
-          padding: 5rem 1rem;
-        }
-
-        .features-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .stats {
-          gap: 2rem;
-        }
-
-        .cta-buttons {
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .btn {
-          width: 100%;
-          max-width: 300px;
-          justify-content: center;
-        }
-
-        .browser-support {
-          gap: 0.5rem;
-        }
-
-        .browser-badge {
-          font-size: 0.8rem;
-          padding: 0.4rem 0.8rem;
-        }
-      }
-
-      /* Animations */
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(40px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .fade-in-up {
-        animation: fadeInUp 0.8s ease-out;
-      }
-
-      /* Scroll animations */
-      .scroll-animate {
-        opacity: 0;
-        transform: translateY(40px);
-        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      .scroll-animate.visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      /* Stagger animation for feature cards */
-      .feature-card:nth-child(1) {
-        transition-delay: 0.1s;
-      }
-      .feature-card:nth-child(2) {
-        transition-delay: 0.2s;
-      }
-      .feature-card:nth-child(3) {
-        transition-delay: 0.3s;
-      }
-      .feature-card:nth-child(4) {
-        transition-delay: 0.4s;
-      }
-      .feature-card:nth-child(5) {
-        transition-delay: 0.5s;
-      }
-      .feature-card:nth-child(6) {
-        transition-delay: 0.6s;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="hero-content fade-in-up">
-        <h1>Chat with Local LLM Models<br />Right in Your Browser</h1>
-        <p class="hero-subtitle">
-          Privacy-first extension for <strong>local AI chat</strong> with
-          <strong>multi-provider support</strong>. Connect Ollama, LM Studio, or
-          llama.cpp and run conversations directly in your browser. Includes
-          <strong>enhanced content extraction</strong>, semantic retrieval, and
-          <strong>advanced text-to-speech</strong> workflows with local-first
-          data handling.
-        </p>
-
-        <div class="cta-buttons">
-          <a
-            href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-            class="btn btn-primary"
-            target="_blank"
-            rel="noopener">
-            🚀 Install Extension
-          </a>
-          <a
-            href="https://github.com/Shishir435/ollama-client"
-            class="btn btn-secondary"
-            target="_blank"
-            rel="noopener">
-            💻 View Source
-          </a>
-        </div>
-
-        <a
-          href="https://www.producthunt.com/products/ollama-client/reviews?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-ollama&#0045;client"
-          target="_blank"
-          ><img
-            src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1073773&theme=light"
-            alt="Ollama&#0032;Client - Chat&#0032;with&#0032;local&#0032;LLMs&#0032;—&#0032;right&#0032;inside&#0032;your&#0032;browser | Product Hunt"
-            style="width: 250px; height: 54px"
-            width="250"
-            height="54"
-        /></a>
-
-        <div class="stats">
-          <div class="stat">
-            <span class="stat-number">Local-First</span>
-            <span class="stat-label">Privacy Model</span>
-          </div>
-          <div class="stat">
-            <span class="stat-number">∞</span>
-            <span class="stat-label">AI Models</span>
-          </div>
-          <div class="stat">
-            <span class="stat-number">0*</span>
-            <span class="stat-label">Mandatory Cloud APIs</span>
-          </div>
-        </div>
-        <p class="hero-subtitle" style="margin-top: 1rem; margin-bottom: 2rem">
-          *You control the endpoint. If you configure a remote provider, your
+<!DOCTYPE html><html lang="en"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ollama Client - Local AI Chat Extension</title><meta name="description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta name="theme-color" content="#0b0b0b"><link rel="canonical" href="https://ollama-client.shishirchaurasiya.in/"><meta property="og:type" content="website"><meta property="og:title" content="Ollama Client - Local AI Chat Extension"><meta property="og:description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta property="og:url" content="https://ollama-client.shishirchaurasiya.in/"><meta property="og:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ollama Client - Local AI Chat Extension"><meta name="twitter:description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta name="twitter:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png"><link rel="manifest" href="/assets/site.webmanifest"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.min.js"></script><link rel="stylesheet" href="/_astro/DocLayout.Doirp1_z.css"></head> <body>  <div class="min-h-screen bg-background"> <header class="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur"> <div class="container-docs flex h-16 items-center justify-between"> <a href="/" class="flex items-center gap-3"> <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold">
+OC
+</span> <div> <p class="text-sm font-semibold">Ollama Client Docs</p> <p class="text-xs text-muted-foreground">Local-first extension playbook</p> </div> </a> <nav class="hidden items-center gap-3 text-sm md:flex"> <a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/"> Home </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/architecture"> Architecture </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/ollama-setup-guide"> Setup Guide </a> <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">
+Theme
+</button> </nav> </div> </header> <div class="flex"> <aside class="hidden w-64 shrink-0 border-r border-border bg-background md:block"> <div class="flex h-full flex-col gap-6 px-6 py-8"> <div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Overview </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/" class="block rounded-lg px-3 py-2 transition bg-foreground text-background"> Home </a> </li><li> <a href="/architecture" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Architecture </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Guides </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/ollama-setup-guide" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Setup Guide </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Legal </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/privacy-policy" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Privacy Policy </a> </li> </ul> </div> </div> </aside> <main class="flex-1"> <section class="border-b border-border py-10"> <div class="container-docs"> <div class="hero-grid"> <div class="hero-surface"> <div class="space-y-6"> <span class="pill">Local-first</span> <h1 class="hero-title">
+Chat with local LLM models right inside your browser.
+</h1> <p class="hero-subtitle">
+Privacy-first extension for local AI chat with multi-provider support.
+          Connect Ollama, LM Studio, llama.cpp, or OpenAI-compatible servers
+          (vLLM, LocalAI, KoboldCPP) and run conversations directly in your
+          browser with provider-aware routing and local-first workflows.
+</p> <div class="flex flex-wrap gap-3"> <a class="button-primary" href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
+Install Extension
+</a> <a class="button-secondary" href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
+View Source
+</a> </div> <div class="stat-grid"> <div class="stat-card"> <span class="stat-value">Local-first</span> <span class="stat-label">Privacy model</span> </div> <div class="stat-card"> <span class="stat-value">∞</span> <span class="stat-label">AI models</span> </div> <div class="stat-card"> <span class="stat-value">0*</span> <span class="stat-label">Mandatory cloud APIs</span> </div> </div> <p class="text-sm text-muted-foreground">
+*You control the endpoint. If you configure a remote provider, your
           data will go to that provider.
-        </p>
+</p> <div class="ghost-panel"> <p class="text-sm text-muted-foreground">
+Works on Chrome, Brave, Edge, Opera, and experimental Firefox.
+</p> </div> </div> </div> </div> </div> </section> <section class="container-docs py-10"> <div class="prose-docs">   <section class="mt-12"> <div class="section-header"> <span class="section-kicker">Features</span> <h2 class="section-title">Powerful, local-first capabilities</h2> <p class="text-muted-foreground">
+Everything you need for productive AI conversations, with full control
+        over provider endpoints.
+</p> </div> <div class="feature-grid"> <div class="feature-card"> <h3 class="feature-title">Multi-Provider Local Models</h3> <p class="feature-meta">
+Use local models through Ollama, LM Studio, llama.cpp, or compatible
+          OpenAI servers with capability-aware routing.
+</p> <ul class="feature-list"> <li>Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP</li> <li>Provider-aware model selection + capabilities</li> <li>Streaming responses + stop control</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Multi-Chat Sessions</h3> <p class="feature-meta">
+Organize conversations with multiple sessions stored locally in
+          IndexedDB.
+</p> <ul class="feature-list"> <li>Multiple concurrent chats</li> <li>Session persistence + history</li> <li>Tab refresh awareness</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Enhanced Content Extraction</h3> <p class="feature-meta">
+Modern extraction with lazy-loading support and site-specific
+          strategies for clean context capture.
+</p> <ul class="feature-list"> <li>Defuddle integration for parsing</li> <li>Smart scroll strategies</li> <li>GitHub & YouTube extraction helpers</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Advanced Text-to-Speech</h3> <p class="feature-meta">
+Speech synthesis with searchable voices, pitch/rate controls, and
+          per-message playback.
+</p> <ul class="feature-list"> <li>Language grouping + search</li> <li>Custom text preview</li> <li>Cross-browser voice loading</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Prompt Templates</h3> <p class="feature-meta">
+Pre-built prompts for summarization, translation, and code help.
+</p> <ul class="feature-list"> <li>Summarize content</li> <li>Translate text</li> <li>Custom templates</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">File Upload & Processing</h3> <p class="feature-meta">
+Upload PDFs, text, and DOCX files and auto-embed them for semantic
+          retrieval (no OCR pipeline required).
+</p> <ul class="feature-list"> <li>PDF, TXT, MD, DOCX support</li> <li>Background embedding progress</li> <li>Configurable max file size</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Backup & Restore</h3> <p class="feature-meta">
+Export and restore full data snapshots with manifested ZIP backups.
+</p> <ul class="feature-list"> <li>Full backup/export flows</li> <li>Restore with partial failure reporting</li> <li>Versioned manifests</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Advanced Configuration</h3> <p class="feature-meta">
+Full control over provider base URLs, model settings, and exclusions.
+</p> <ul class="feature-list"> <li>Provider base URL control</li> <li>Selected model ref + capability checks</li> <li>Debug logging</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Search & Export</h3> <p class="feature-meta">
+Search UX enhancements with scoped tabs and print/PDF export.
+</p> <ul class="feature-list"> <li>Result grouping + scoped tabs</li> <li>Print/PDF export entrypoint</li> <li>Local-only processing</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Privacy First</h3> <p class="feature-meta">
+Local-first by default with user-controlled endpoints.
+</p> <ul class="feature-list"> <li>No mandatory cloud APIs</li> <li>Local data storage</li> <li>Open source code</li> </ul> </div> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Stack</span> <h2 class="section-title">Built with modern technologies</h2> <p class="text-muted-foreground">
+Optimized for performance, reliability, and extensibility.
+</p> </div> <div class="tech-grid"> <div class="tech-item">React</div> <div class="tech-item">WXT</div> <div class="tech-item">TypeScript</div> <div class="tech-item">shadcn/ui</div> <div class="tech-item">Dexie.js</div> <div class="tech-item">Readability</div> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Setup</span> <h2 class="section-title">Get started in 3 easy steps</h2> <p class="text-muted-foreground">
+Quick setup path to get chatting with local models.
+</p> </div> <div class="step-grid"> <div class="step-card"> <div class="step-number">Step 1</div> <h3 class="feature-title">Start a local provider</h3> <p class="feature-meta">
+Run Ollama, LM Studio, or llama.cpp and set the provider URL inside
+          the extension settings.
+</p> </div> <div class="step-card"> <div class="step-number">Step 2</div> <h3 class="feature-title">Add the extension</h3> <p class="feature-meta">
+Install from the Chrome Web Store and pin the extension for easy
+          access.
+</p> </div> <div class="step-card"> <div class="step-number">Step 3</div> <h3 class="feature-title">Start chatting</h3> <p class="feature-meta">
+Open the side panel, pick a model, and chat on any website. CORS
+          issue? Follow the setup guide.
+</p> <a class="button-secondary mt-4" href="/ollama-setup-guide">
+Read the setup guide
+</a> </div> </div> <div class="mt-8"> <a class="button-primary" href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
+Install Now - It’s Free
+</a> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Links</span> <h2 class="section-title">Stay connected</h2> </div> <div class="footer-links"> <a href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
+Chrome Web Store
+</a> <a href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
+GitHub Repository
+</a> <a href="https://www.shishirchaurasiya.in/" target="_blank" rel="noopener">
+Developer Portfolio
+</a> <a href="https://ollama.ai/" target="_blank" rel="noopener">Ollama</a> </div> <p class="mt-6 text-sm text-muted-foreground">
+© 2026 Ollama Client. Open source • Privacy-first • Multi-provider local
+      AI
+</p> </section>  </div> </section> </main> </div> <footer class="border-t border-border py-8"> <div class="container-docs flex flex-col gap-2 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between"> <p>Ollama Client Docs · Built for local-first workflows.</p> <p>Need help? Email shishirchaurasiya435@gmail.com</p> </div> </footer> </div>  <script>
+      const root = document.documentElement
+      const storedTheme = localStorage.getItem("theme")
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
 
-        <!-- Enhanced Browser Support -->
-        <div class="browser-support">
-          <div class="browser-badge">
-            <div class="browser-icon chrome">🌐</div>
-            <span>Chrome</span>
-          </div>
-          <div class="browser-badge">
-            <div class="browser-icon brave">🦁</div>
-            <span>Brave</span>
-          </div>
-          <div class="browser-badge">
-            <div class="browser-icon edge">📘</div>
-            <span>Edge</span>
-          </div>
-          <div class="browser-badge">
-            <div class="browser-icon opera">🎭</div>
-            <span>Opera</span>
-          </div>
-          <div class="browser-badge experimental">
-            <div class="browser-icon firefox">🦊</div>
-            <span>Firefox</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="features">
-      <div class="container">
-        <div class="section-header scroll-animate">
-          <h2 class="section-title">Powerful Features</h2>
-          <p class="section-subtitle">
-            Everything you need for productive AI conversations, all running
-            with local-first defaults and user-controlled endpoints
-          </p>
-        </div>
-
-        <div class="features-grid">
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">🤖</div>
-            <h3 class="feature-title">Multi-Provider Local Models</h3>
-            <p class="feature-description">
-              Use local models through Ollama, LM Studio, or llama.cpp. Route
-              models by provider while keeping a single chat experience.
-            </p>
-            <ul class="feature-list">
-              <li>Ollama, LM Studio, llama.cpp support</li>
-              <li>Provider-aware model selection</li>
-              <li>Streaming responses</li>
-              <li>Stop generation control</li>
-            </ul>
-          </div>
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">💬</div>
-            <h3 class="feature-title">Multi-Chat Sessions</h3>
-            <p class="feature-description">
-              Organize your conversations with multiple chat sessions, all saved
-              locally using IndexedDB.
-            </p>
-            <ul class="feature-list">
-              <li>Multiple concurrent chats</li>
-              <li>Session persistence</li>
-              <li>Tab refresh awareness</li>
-              <li>Conversation history</li>
-            </ul>
-          </div>
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">🔧</div>
-            <h3 class="feature-title">Enhanced Content Extraction</h3>
-            <p class="feature-description">
-              Advanced content extraction with lazy loading support, site-specific
-              configuration, and intelligent fallback strategies for modern web
-              pages.
-            </p>
-            <ul class="feature-list">
-              <li>Defuddle integration for better parsing</li>
-              <li>Lazy loading & infinite scroll support</li>
-              <li>Site-specific extraction overrides</li>
-              <li>Automated YouTube transcript extraction</li>
-              <li>GitHub repository & profile support</li>
-              <li>Smart scroll strategies (none, instant, gradual, smart)</li>
-              <li>Network idle detection</li>
-            </ul>
-          </div>
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">🔊</div>
-            <h3 class="feature-title">Advanced Text-to-Speech</h3>
-            <p class="feature-description">
-              Built-in speech synthesis with searchable voice selection, customizable
-              rate and pitch controls, and seamless cross-browser compatibility for
-              an accessible AI chat experience.
-            </p>
-            <ul class="feature-list">
-              <li>Searchable voice selector with language grouping</li>
-              <li>Adjustable speech rate (0.5x - 2.0x)</li>
-              <li>Voice pitch control (0.0 - 2.0)</li>
-              <li>Custom text testing & preview</li>
-              <li>Cross-browser voice loading optimization</li>
-              <li>Per-message TTS controls</li>
-            </ul>
-          </div>
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">📝</div>
-            <h3 class="feature-title">Prompt Templates</h3>
-            <p class="feature-description">
-              Pre-built templates for common tasks to boost your productivity.
-            </p>
-            <ul class="feature-list">
-              <li>Summarize content</li>
-              <li>Translate text</li>
-              <li>Explain code</li>
-              <li>email-professional</li>
-              <li>Custom templates</li>
-            </ul>
-          </div>
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">📁</div>
-            <h3 class="feature-title">File Upload & Processing</h3>
-            <p class="feature-description">
-              Upload PDFs, text, and DOCX files, automatically chunk and embed them for semantic search and RAG.
-            </p>
-            <ul class="feature-list">
-              <li>PDF, TXT, MD, DOCX support</li>
-              <li>Automatic chunking strategies</li>
-              <li>Background embedding with progress UI</li>
-              <li>Configurable max file size</li>
-            </ul>
-          </div>
-
-          
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">⚙️</div>
-            <h3 class="feature-title">Advanced Configuration</h3>
-            <p class="feature-description">
-              Full control over AI behavior with comprehensive settings and
-              options.
-            </p>
-            <ul class="feature-list">
-              <li>Provider base URL and model controls</li>
-              <li>Excluded URLs (regex support)</li>
-              <li>Model-specific settings</li>
-              <li>Debug logging</li>
-            </ul>
-          </div>
-
-          <div class="feature-card scroll-animate">
-            <div class="feature-icon">🔒</div>
-            <h3 class="feature-title">Privacy First</h3>
-            <p class="feature-description">
-              Local-first by default with full endpoint control. If you point to
-              a remote provider, prompts are sent to that provider.
-            </p>
-            <ul class="feature-list">
-              <li>No mandatory cloud API calls</li>
-              <li>User-controlled provider endpoints</li>
-              <li>Local data storage</li>
-              <li>No telemetry</li>
-              <li>Open source code</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tech Stack Section -->
-    <section class="tech-stack">
-      <div class="container">
-        <div class="section-header scroll-animate">
-          <h2 class="section-title">Built with Modern Technologies</h2>
-          <p class="section-subtitle">
-            Leveraging the latest tools and frameworks for optimal performance
-            and developer experience
-          </p>
-        </div>
-
-        <div class="tech-grid">
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">⚛️</div>
-            <div class="tech-name">React</div>
-          </div>
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">🔧</div>
-            <div class="tech-name">WXT</div>
-          </div>
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">📘</div>
-            <div class="tech-name">TypeScript</div>
-          </div>
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">🎨</div>
-            <div class="tech-name">shadcn/ui</div>
-          </div>
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">🗃️</div>
-            <div class="tech-name">Dexie.js</div>
-          </div>
-          <div class="tech-item scroll-animate">
-            <div class="tech-icon">📖</div>
-            <div class="tech-name">Readability</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Installation Section -->
-    <section class="installation">
-      <div class="container">
-        <div class="section-header scroll-animate">
-          <h2 class="section-title" style="color: #f8fafc">
-            Get Started in 3 Easy Steps
-          </h2>
-          <p class="section-subtitle">
-            Simple setup process to get you chatting with AI models locally
-          </p>
-        </div>
-
-        <div class="install-steps">
-          <div class="install-step scroll-animate">
-            <div class="step-number">1</div>
-            <h3 class="step-title">Start a Local Provider</h3>
-            <p class="step-description">
-              Run Ollama, LM Studio, or llama.cpp with a local API endpoint.
-              Configure the matching provider URL in extension settings.
-            </p>
-          </div>
-
-          <div class="install-step scroll-animate">
-            <div class="step-number">2</div>
-            <h3 class="step-title">Add Extension</h3>
-            <p class="step-description">
-              Install the Ollama Client extension from the Chrome Web Store with
-              a single click.
-            </p>
-          </div>
-
-          <div class="install-step scroll-animate">
-            <div class="step-number">3</div>
-            <h3 class="step-title">Start Chatting</h3>
-            <p class="step-description">
-              Open the side panel, select a model, and start chatting on any
-              website.<br />
-              <small>
-                ⚠️ CORS issue? Follow the
-                <a
-                  href="https://ollama-client.shishirchaurasiya.in/ollama-setup-guide"
-                  target="_blank"
-                  rel="noopener noreferrer">
-                  setup guide </a
-                >.
-              </small>
-            </p>
-          </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 3rem">
-          <a
-            href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-            class="btn btn-primary"
-            target="_blank"
-            rel="noopener">
-            🚀 Install Now - It's Free
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <div class="footer-content">
-        <div class="footer-links">
-          <a
-            href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-            class="footer-link"
-            target="_blank"
-            rel="noopener"
-            >Chrome Web Store</a
-          >
-          <a
-            href="https://github.com/Shishir435/ollama-client"
-            class="footer-link"
-            target="_blank"
-            rel="noopener"
-            >GitHub Repository</a
-          >
-          <a
-            href="https://www.shishirchaurasiya.in/"
-            class="footer-link"
-            target="_blank"
-            rel="noopener"
-            >Developer Portfolio</a
-          >
-          <a
-            href="https://ollama.ai/"
-            class="footer-link"
-            target="_blank"
-            rel="noopener"
-            >Ollama</a
-          >
-        </div>
-
-        <div class="footer-bottom">
-          <p>
-            &copy; <span id="copyright-year">2026</span> Ollama Client. Built with ❤️ by
-            <a
-              href="https://www.shishirchaurasiya.in/"
-              target="_blank"
-              rel="noopener"
-              style="color: var(--accent-light)"
-              >Shishir Chaurasiya</a
-            >
-          </p>
-          <p style="margin-top: 0.5rem; font-size: 0.9rem">
-            Open source • Privacy-first • Multi-provider local AI
-          </p>
-        </div>
-      </div>
-    </footer>
-
-    <script>
-      // Smooth scroll animations
-      const observerOptions = {
-        threshold: 0.1,
-        rootMargin: "0px 0px -50px 0px"
+      if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
+        root.classList.add("dark")
       }
 
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("visible")
-          }
+      const updateMermaidTheme = (isDark) => {
+        if (!window.mermaid) return
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? "dark" : "neutral"
         })
-      }, observerOptions)
+        window.mermaid.run({ querySelector: ".mermaid" })
+      }
+
+      const renderMermaidBlocks = () => {
+        if (!window.mermaid) return false
+        document.querySelectorAll("pre[data-language=\"mermaid\"]").forEach((pre) => {
+          const container = document.createElement("div")
+          container.className = "mermaid"
+          container.textContent = pre.textContent || ""
+          pre.replaceWith(container)
+        })
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "neutral"
+        })
+        window.mermaid.run({ querySelector: ".mermaid" })
+        return true
+      }
+
+      const tryRenderMermaid = () => {
+        if (renderMermaidBlocks()) return
+        setTimeout(() => {
+          renderMermaidBlocks()
+        }, 150)
+      }
 
       document.addEventListener("DOMContentLoaded", () => {
-        const animateElements = document.querySelectorAll(".scroll-animate")
-        animateElements.forEach((el) => observer.observe(el))
-
-        // Add stagger effect to feature cards
-        const featureCards = document.querySelectorAll(".feature-card")
-        featureCards.forEach((card, index) => {
-          card.style.animationDelay = `${index * 0.1}s`
-        })
-
-        // Update copyright year
-        const yearElement = document.getElementById("copyright-year")
-        if (yearElement) {
-          yearElement.textContent = new Date().getFullYear().toString()
+        const toggle = document.getElementById("theme-toggle")
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            root.classList.toggle("dark")
+            const isDark = root.classList.contains("dark")
+            localStorage.setItem("theme", isDark ? "dark" : "light")
+            updateMermaidTheme(isDark)
+          })
         }
-      })
 
-      // Button click tracking (optional analytics)
-      document.querySelectorAll(".btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          // Add any analytics tracking here if needed
-          console.log("Button clicked:", e.target.textContent)
+        document.querySelectorAll("pre > code").forEach((codeBlock) => {
+          const pre = codeBlock.parentElement
+          if (!pre || pre.querySelector(".code-copy")) return
+          if (pre.dataset.language === "mermaid") return
+          const button = document.createElement("button")
+          button.type = "button"
+          button.className = "code-copy"
+          button.textContent = "Copy"
+          button.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(codeBlock.textContent || "")
+              button.textContent = "Copied"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            } catch {
+              button.textContent = "Failed"
+              setTimeout(() => (button.textContent = "Copy"), 1200)
+            }
+          })
+          pre.appendChild(button)
         })
+
+        tryRenderMermaid()
       })
-    </script>
-  </body>
-</html>
+    </script> </body> </html>

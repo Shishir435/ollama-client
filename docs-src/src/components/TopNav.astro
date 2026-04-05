@@ -1,0 +1,29 @@
+---
+import { navSections } from "@/data/nav"
+
+const quickLinks = navSections.flatMap((section) => section.items).slice(0, 3)
+---
+
+<header class="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
+  <div class="container-docs flex h-16 items-center justify-between">
+    <a href="/" class="flex items-center gap-3">
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold">
+        OC
+      </span>
+      <div>
+        <p class="text-sm font-semibold">Ollama Client Docs</p>
+        <p class="text-xs text-muted-foreground">Local-first extension playbook</p>
+      </div>
+    </a>
+    <nav class="hidden items-center gap-3 text-sm md:flex">
+      {quickLinks.map((item) => (
+        <a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href={item.href}>
+          {item.label}
+        </a>
+      ))}
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">
+        Theme
+      </button>
+    </nav>
+  </div>
+</header>
