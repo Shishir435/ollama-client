@@ -5,7 +5,6 @@ export default defineConfig({
   site: "https://ollama-client.shishirchaurasiya.in",
   base: "/",
   trailingSlash: "ignore",
-  outDir: "../../docs",
   build: {
     format: "directory"
   },
