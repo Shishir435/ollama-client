@@ -1,6 +1,12 @@
 {
   "exclude": ["node_modules", "build", ".plasmo", ".wxt", ".output"],
-  "include": [".wxt/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "wxt.config.ts"],
+  "include": [
+    ".wxt/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.d.ts",
+    "wxt.config.ts"
+  ],
   "compilerOptions": {
     "baseUrl": ".",
     "target": "ES2020",
