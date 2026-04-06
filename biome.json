@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!docs", "!tools", "!src/globals.css", "!public"]
+    "includes": [
+      "**",
+      "!docs",
+      "!apps/docs",
+      "!tools",
+      "!apps/extension/src/globals.css",
+      "!public"
+    ]
   },
   "formatter": {
     "enabled": true,

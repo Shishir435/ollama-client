@@ -10,26 +10,26 @@ Browser extension (Chrome/Firefox) for chatting with local LLM providers (Ollama
 
 ```bash
 pnpm install          # Install dependencies
-pnpm dev              # Start dev server (Chrome)
-pnpm dev:firefox      # Start dev server (Firefox)
-pnpm build            # Production build (Chrome)
-pnpm build:firefox    # Production build (Firefox)
-pnpm test:run         # Run all tests
-pnpm test -- path/to/file.test.ts  # Run single test file
-pnpm lint:check       # Check linting (Biome)
-pnpm lint:fix         # Fix lint issues
+pnpm -C apps/extension dev              # Start dev server (Chrome)
+pnpm -C apps/extension dev:firefox      # Start dev server (Firefox)
+pnpm -C apps/extension build            # Production build (Chrome)
+pnpm -C apps/extension build:firefox    # Production build (Firefox)
+pnpm -C apps/extension test:run         # Run all tests
+pnpm -C apps/extension test -- path/to/file.test.ts  # Run single test file
+pnpm -C apps/extension lint:check       # Check linting (Biome)
+pnpm -C apps/extension lint:fix         # Fix lint issues
 ```
 
-Run `pnpm lint:check && pnpm test:run` before opening PRs.
+Run `pnpm -C apps/extension lint:check && pnpm -C apps/extension test:run` before opening PRs.
 
 ## Architecture
 
 ### Entry Points (WXT Extension)
 
-- **Sidepanel** (`src/entrypoints/sidepanel.tsx` → `src/sidepanel/app.tsx`): Main chat UI
-- **Options** (`src/entrypoints/options.tsx` → `src/options/app.tsx`): Settings/configuration
-- **Background** (`src/background/index.ts`): Service worker for provider communication, streaming, embedding
-- **Content scripts** (`src/contents/`): Page extraction, selection capture
+- **Sidepanel** (`apps/extension/src/entrypoints/sidepanel.tsx` → `apps/extension/src/sidepanel/app.tsx`): Main chat UI
+- **Options** (`apps/extension/src/entrypoints/options.tsx` → `apps/extension/src/options/app.tsx`): Settings/configuration
+- **Background** (`apps/extension/src/background/index.ts`): Service worker for provider communication, streaming, embedding
+- **Content scripts** (`apps/extension/src/contents/`): Page extraction, selection capture
 
 ### Data Flow
 
@@ -38,7 +38,7 @@ Run `pnpm lint:check && pnpm test:run` before opening PRs.
 3. Provider streams tokens back through port
 4. UI updates state and persists to Dexie (IndexedDB)
 
-### Provider System (`src/lib/providers/`)
+### Provider System (`apps/extension/src/lib/providers/`)
 
 - `types.ts`: `LLMProvider` interface, `ProviderConfig`, `ProviderType`, `ProviderId` enums
 - `factory.ts`: `ProviderFactory` resolves provider by model mapping
@@ -49,49 +49,49 @@ Run `pnpm lint:check && pnpm test:run` before opening PRs.
 
 ### Storage
 
-- **Chat/sessions/files**: Dexie (`src/lib/db.ts`) - primary runtime store
-- **Vectors/embeddings**: Dexie (`src/lib/embeddings/db.ts`)
+- **Chat/sessions/files**: Dexie (`apps/extension/src/lib/db.ts`) - primary runtime store
+- **Vectors/embeddings**: Dexie (`apps/extension/src/lib/embeddings/db.ts`)
 - **Settings/config**: `@plasmohq/storage` via `plasmoGlobalStorage` wrapper
 - **SQLite**: Migration/auxiliary path only, not primary store
 
-### Key Constants (`src/lib/constants/`)
+### Key Constants (`apps/extension/src/lib/constants/`)
 
 - `keys.ts`: `MESSAGE_KEYS` for background messaging, `STORAGE_KEYS` for persistence
 - `config.ts`: `EmbeddingConfig`, `DEFAULT_EMBEDDING_CONFIG`
 
-### Feature Modules (`src/features/`)
+### Feature Modules (`apps/extension/src/features/`)
 
 - `chat/`: Chat UI components, hooks (`use-chat-stream.ts`), RAG pipeline
 - `sessions/`: Session management, `chat-session-store.ts`
 - `model/`: Model management UI
 - `file-upload/`: File processing for RAG
 
-### RAG/Embeddings (`src/lib/embeddings/`, `src/features/chat/rag/`)
+### RAG/Embeddings (`apps/extension/src/lib/embeddings/`, `apps/extension/src/features/chat/rag/`)
 
 - Embedding strategy chain: provider-native → shared model → Ollama fallback
 - Hybrid search: keyword + semantic with configurable weights
 - Cross-encoder reranker: Enabled by default using transformers.js with bundled ONNX Runtime WASM
-- Browser-first contracts: `src/lib/rag/core/interfaces.ts`
+- Browser-first contracts: `apps/extension/src/lib/rag/core/interfaces.ts`
 
 ## Key Conventions
 
 ### Legacy Naming
 
-Legacy `ollama-*` keys retained for backward compatibility alongside `provider-*` keys. Both are defined in `src/lib/constants/keys.ts`:
+Legacy `ollama-*` keys retained for backward compatibility alongside `provider-*` keys. Both are defined in `apps/extension/src/lib/constants/keys.ts`:
 - `MESSAGE_KEYS.PROVIDER.*` (current)
 - `MESSAGE_KEYS.OLLAMA.*` (legacy, still read for compatibility)
 - `STORAGE_KEYS.PROVIDER.*` vs `LEGACY_STORAGE_KEYS.OLLAMA.*`
 
-### Background Handlers (`src/background/handlers/`)
+### Background Handlers (`apps/extension/src/background/handlers/`)
 
-Each handler follows pattern: `handle-{action}.ts`. Handlers are registered in `src/background/index.ts`.
+Each handler follows pattern: `handle-{action}.ts`. Handlers are registered in `apps/extension/src/background/index.ts`.
 
 ### Testing
 
 - Framework: Vitest with happy-dom
-- Test files: `src/**/*.{test,spec}.{ts,tsx}`
-- Setup: `src/test/setup.ts` mocks chrome APIs and IndexedDB
-- Run related tests: `pnpm test -- --run src/path/to/module`
+- Test files: `apps/extension/src/**/*.{test,spec}.{ts,tsx}`
+- Setup: `apps/extension/src/test/setup.ts` mocks chrome APIs and IndexedDB
+- Run related tests: `pnpm -C apps/extension test -- --run apps/extension/src/path/to/module`
 
 ### Linting/Formatting
 

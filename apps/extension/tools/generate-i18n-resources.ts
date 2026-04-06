@@ -14,19 +14,19 @@ async function generateResources() {
 
   const resources: Record<string, any> = {}
   const liteResources: Record<string, any> = {}
-  
+
   if (!fs.existsSync(LOCALES_DIR)) {
     console.error(`❌ Locales directory not found: ${LOCALES_DIR}`)
     process.exit(1)
   }
 
-  const locales = fs.readdirSync(LOCALES_DIR).filter(item => {
+  const locales = fs.readdirSync(LOCALES_DIR).filter((item) => {
     return fs.statSync(path.join(LOCALES_DIR, item)).isDirectory()
   })
 
   for (const locale of locales) {
     const translationFile = path.join(LOCALES_DIR, locale, "translation.json")
-    
+
     if (fs.existsSync(translationFile)) {
       try {
         const content = fs.readFileSync(translationFile, "utf-8")
@@ -37,11 +37,11 @@ async function generateResources() {
 
         // Extract lite resources (only selection_button keys)
         if (json.selection_button) {
-           const flat: Record<string, string> = {}
-           for (const [key, value] of Object.entries(json.selection_button)) {
-             flat[`selection_button.${key}`] = value as string
-           }
-           liteResources[locale] = flat
+          const flat: Record<string, string> = {}
+          for (const [key, value] of Object.entries(json.selection_button)) {
+            flat[`selection_button.${key}`] = value as string
+          }
+          liteResources[locale] = flat
         }
 
         console.log(`  ✓ Loaded ${locale}`)
@@ -109,7 +109,9 @@ export const useLiteTranslation = () => {
   try {
     console.log("💅 Formatting with Biome...")
     const { execSync } = await import("child_process")
-    execSync(`npx biome check --write "${OUTPUT_FILE}" "${LITE_OUTPUT_FILE}"`, { stdio: "inherit" })
+    execSync(`npx biome check --write "${OUTPUT_FILE}" "${LITE_OUTPUT_FILE}"`, {
+      stdio: "inherit"
+    })
     console.log("✅ Formatting complete")
   } catch (error) {
     console.error("⚠️ Failed to format generated file:", error)
