@@ -252,7 +252,8 @@ export const useChat = () => {
   const sendMessage = async (
     customInput?: string,
     customModel?: string,
-    files?: ProcessedFile[]
+    files?: ProcessedFile[],
+    skipGeneration?: boolean
   ) => {
     const sessionId = await ensureSessionId()
     if (!sessionId) return
@@ -537,7 +538,9 @@ export const useChat = () => {
       { ...userMessage, content: contentWithRAG }
     ]
 
-    await generateResponse(customModel, sessionId, messagesForLLM)
+    if (!skipGeneration) {
+      await generateResponse(customModel, sessionId, messagesForLLM)
+    }
   }
 
   return {

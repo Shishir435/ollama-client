@@ -1,5 +1,6 @@
 import "webextension-polyfill"
 
+import { handleAgentTask } from "@/background/handlers/handle-agent-task"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
@@ -206,6 +207,19 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
       } catch (_) {}
       port.disconnect()
     }
+  }
+
+  if (port.name === MESSAGE_KEYS.AGENT.EXECUTE_TASK) {
+    port.onMessage.addListener(async (msg: ChromeMessage) => {
+      // Only start the task loop for the initial EXECUTE_TASK message.
+      // STOP and other signals are handled internally by handleAgentTask.
+      if (msg.type === MESSAGE_KEYS.AGENT.EXECUTE_TASK) {
+        await handleAgentTask(
+          port,
+          msg as unknown as import("@/lib/agent/types").AgentTaskMessage
+        )
+      }
+    })
   }
 })
 

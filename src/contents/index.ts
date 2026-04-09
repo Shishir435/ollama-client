@@ -11,6 +11,7 @@ import {
   extractContentWithLoading,
   getEffectiveConfig
 } from "@/lib/content-extractor"
+import { registerAgentActionListener } from "@/lib/agent/dom-actions"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import { normalizeWhitespaceForLLM } from "@/lib/utils"
@@ -496,12 +497,11 @@ browser.runtime.onMessage.addListener(
 
           // Final validation: ensure we have meaningful content
           if (!finalContent || finalContent.trim().length < 50) {
-            console.error(
-              `[Content Script] Extraction failed: Only ${finalContent?.length || 0} chars extracted`
+            console.log(
+              `[Content Script] Extraction skipped: Only ${finalContent?.length || 0} chars extracted`
             )
-            throw new Error(
-              `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
-            )
+            try { sendResponse({ html: finalContent || "", title: pageTitle || document.title || "Untitled" }) } catch (_) {}
+            return true
           }
 
           console.log(
@@ -534,3 +534,6 @@ browser.runtime.onMessage.addListener(
     }
   }
 )
+
+// Register agent DOM action handlers (allows background to control the page)
+registerAgentActionListener()

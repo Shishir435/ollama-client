@@ -46,6 +46,16 @@ export const MESSAGE_KEYS = {
     GET_PAGE_CONTENT: "get-page-content",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat"
   },
+  AGENT: {
+    EXECUTE_TASK: "agent-execute-task",
+    EXECUTE_ACTION: "agent-execute-action",
+    GET_ELEMENTS: "agent-get-elements",
+    GET_PAGE_TEXT: "agent-get-page-text",
+    READ_PAGE: "agent-read-page",
+    STOP: "agent-stop",
+    DRAW_MARKS: "agent-draw-marks",
+    REMOVE_MARKS: "agent-remove-marks"
+  },
   APP: {
     RELOAD: "app-reload"
   }
@@ -105,6 +115,10 @@ export const STORAGE_KEYS = {
   },
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"
+  },
+  AGENT: {
+    MODE_ENABLED: "agent-mode-enabled",
+    VISION_MODE_ENABLED: "agent-vision-mode-enabled"
   },
   SHORTCUTS: "keyboard-shortcuts"
 }

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Command,
   CommandEmpty,
@@ -25,12 +26,13 @@ import {
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
-import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
+import { AlertTriangle, Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 
 import {
   formatFileSize,
+  getModelSuitability,
   getModelIcon,
   isEmbeddingModel
 } from "../lib/model-utils"
@@ -64,6 +66,18 @@ export const ModelMenu = ({
   const filteredDefaultModels = models.filter(
     (model) => !isEmbeddingModel(model.name, model.details?.families || [])
   )
+
+  const selectedModelData = selectedModelRef
+    ? models.find(
+        (model) =>
+          model.name === selectedModelRef.modelId &&
+          (model.providerId || DEFAULT_PROVIDER_ID) === selectedModelRef.providerId
+      )
+    : models.find((model) => model.name === selectedModel)
+  const selectedSuitability = selectedModelData
+    ? getModelSuitability(selectedModelData)
+    : null
+  const selectedModelWarning = selectedSuitability?.summary || null
 
   const handleSelect = async (modelName: string, providerId?: string) => {
     const previousModel = selectedModel
@@ -165,6 +179,14 @@ export const ModelMenu = ({
                 <strong>{selectionConflictModel}</strong>.
               </div>
             )}
+            {selectedModelWarning && (
+              <Alert variant="default" className="mb-2 border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <AlertDescription className="text-xs">
+                  {selectedModelWarning}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex items-center justify-between p-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t("model.menu.models_label")}
@@ -205,58 +227,100 @@ export const ModelMenu = ({
             {Object.entries(groupedModels).map(([providerId, group]) => (
               <CommandGroup key={providerId} heading={group.name}>
                 {group.models.map((model) => (
-                  <CommandItem
-                    key={`${providerId}-${model.name}`}
-                    value={model.name}
-                    onSelect={() => handleSelect(model.name, providerId)}
-                    className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
-                      {getModelIcon(model.name)}
-                    </div>
+                  (() => {
+                    const modelSuitability = getModelSuitability(model)
+                    const modelWarning = modelSuitability.summary
 
-                    <div className="flex flex-1 flex-col overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-medium text-sm">
-                          {model.name}
-                        </span>
-                        {duplicateModelNames.has(model.name) && (
-                          <Badge
-                            variant="secondary"
-                            className="h-4 px-1 text-[10px]">
-                            Conflict
-                          </Badge>
-                        )}
-                        {(selectedModelRef
-                          ? selectedModelRef.modelId === model.name &&
-                            selectedModelRef.providerId === providerId
-                          : selectedModel === model.name) && (
-                          <Check className="h-3.5 w-3.5 text-primary" />
-                        )}
-                      </div>
+                    return (
+                      <CommandItem
+                        key={`${providerId}-${model.name}`}
+                        value={model.name}
+                        onSelect={() => handleSelect(model.name, providerId)}
+                        className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
+                          {getModelIcon(model.name)}
+                        </div>
 
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {model.details?.parameter_size && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
-                            {model.details.parameter_size}
-                          </Badge>
-                        )}
-                        {model.details?.quantization_level && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
-                            {model.details.quantization_level}
-                          </Badge>
-                        )}
-                        {model.size ? (
-                          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
-                            {formatFileSize(model.size, t)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </CommandItem>
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-medium text-sm">
+                              {model.name}
+                            </span>
+                            {modelSuitability.embeddingOnly && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                Embedding Only
+                              </Badge>
+                            )}
+                            {modelSuitability.weakForAgent && !modelSuitability.embeddingOnly && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                Agent Weak
+                              </Badge>
+                            )}
+                            {modelSuitability.lacksVisionSupport && !modelSuitability.embeddingOnly && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                No Vision
+                              </Badge>
+                            )}
+                            {modelSuitability.weakForVision &&
+                              !modelSuitability.lacksVisionSupport &&
+                              !modelSuitability.embeddingOnly && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                Vision Weak
+                              </Badge>
+                            )}
+                            {duplicateModelNames.has(model.name) && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 px-1 text-[10px]">
+                                Conflict
+                              </Badge>
+                            )}
+                            {(selectedModelRef
+                              ? selectedModelRef.modelId === model.name &&
+                                selectedModelRef.providerId === providerId
+                              : selectedModel === model.name) && (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {model.details?.parameter_size && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                                {model.details.parameter_size}
+                              </Badge>
+                            )}
+                            {model.details?.quantization_level && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                                {model.details.quantization_level}
+                              </Badge>
+                            )}
+                            {model.size ? (
+                              <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+                                {formatFileSize(model.size, t)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {modelWarning && (
+                            <div className="mt-1 text-[10px] text-amber-700 dark:text-amber-300 line-clamp-2">
+                              {modelWarning}
+                            </div>
+                          )}
+                        </div>
+                      </CommandItem>
+                    )
+                  })()
                 ))}
               </CommandGroup>
             ))}

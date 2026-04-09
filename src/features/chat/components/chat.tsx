@@ -2,13 +2,16 @@ import { ChatHeader } from "@/features/chat/components/chat-header"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageList } from "@/features/chat/components/chat-message-list"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
+import { AgentStepDisplay } from "@/features/chat/components/agent-step-display"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
+import { useAgent } from "@/features/chat/hooks/use-agent"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
+import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import type { ChatMessage } from "@/types"
 
 export const Chat = () => {
@@ -33,6 +36,22 @@ export const Chat = () => {
   } = useChatSessions()
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
+
+  const {
+    agentModeEnabled,
+    isAgentRunning,
+    agentSteps,
+    agentStatus,
+    agentFinalMessage,
+    elapsedMs,
+    isSlow,
+    waitContext,
+    agentMode,
+    runAgentTask,
+    stopAgent
+  } = useAgent()
+
+  const { input, setInput } = useChatInput()
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({
@@ -149,7 +168,29 @@ export const Chat = () => {
     }
   }
 
+  /**
+   * Intercept sends: if agent mode is enabled, run agent task instead of chat.
+   */
+  const handleSend = async (
+    customInput?: string,
+    customModel?: string,
+    files?: Parameters<typeof sendMessage>[2]
+  ) => {
+    const rawInput = customInput?.trim() ?? input.trim()
+
+    if (agentModeEnabled && rawInput) {
+      sendMessage(customInput, customModel, files, true)
+      runAgentTask(rawInput)
+      return
+    }
+    sendMessage(customInput, customModel, files)
+  }
+
   const hasSession = !!currentSessionId
+
+  const showAgentPanel =
+    agentModeEnabled &&
+    (isAgentRunning || agentSteps.length > 0 || agentStatus === "error" || agentStatus === "stopped")
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -171,11 +212,23 @@ export const Chat = () => {
           />
 
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-background pb-2 pt-3">
+            {showAgentPanel && (
+              <AgentStepDisplay
+                steps={agentSteps}
+                status={agentStatus}
+                finalMessage={agentFinalMessage}
+                elapsedMs={elapsedMs}
+                isSlow={isSlow}
+                waitContext={waitContext}
+                agentMode={agentMode}
+                onStop={stopAgent}
+              />
+            )}
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
                 messages={messages}
-                onSend={sendMessage}
-                stopGeneration={stopGeneration}
+                onSend={handleSend}
+                stopGeneration={isAgentRunning ? stopAgent : stopGeneration}
               />
             </div>
           </div>

@@ -8,6 +8,9 @@ global.chrome = {
     id: "test-extension-id",
     getURL: (path: string) => `chrome-extension://test/${path}`
   },
+  tabs: {
+    query: vi.fn()
+  },
   storage: {
     local: {
       get: vi.fn(),

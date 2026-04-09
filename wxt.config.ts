@@ -35,11 +35,15 @@ export default defineConfig({
     },
     host_permissions: ["<all_urls>"],
     permissions: [
+      "activeTab",
       "storage",
       "sidePanel",
       "tabs",
+      "downloads",
+      "scripting",
       "declarativeNetRequest",
-      "contextMenus"
+      "contextMenus",
+      "webNavigation"
     ],
     web_accessible_resources: [
       {

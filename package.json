@@ -130,6 +130,7 @@
     "happy-dom": "^20.0.10",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0",
+    "playwright": "^1.59.1",
     "postcss": "8.4.33",
     "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "4.2.1",
@@ -150,6 +151,7 @@
       "<all_urls>"
     ],
     "permissions": [
+      "activeTab",
       "storage",
       "sidePanel",
       "tabs",
