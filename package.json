@@ -19,26 +19,26 @@
     "test:run": "pnpm -C apps/extension test:run",
     "test:watch": "pnpm -C apps/extension test:watch",
     "test:coverage": "pnpm -C apps/extension test:coverage",
-    "lint": "pnpm -C apps/extension lint",
-    "lint:check": "pnpm -C apps/extension lint:check",
-    "lint:fix": "pnpm -C apps/extension lint:fix",
-    "format": "pnpm -C apps/extension format",
-    "format:check": "pnpm -C apps/extension format:check",
-    "format:fix": "pnpm -C apps/extension format:fix",
-    "typecheck": "pnpm -C apps/extension typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "lint:check": "pnpm -r --if-present lint:check",
+    "lint:fix": "pnpm -r --if-present lint:fix",
+    "format": "pnpm -r --if-present format",
+    "format:check": "pnpm -r --if-present format:check",
+    "format:fix": "pnpm -r --if-present format:fix",
+    "typecheck": "pnpm -r --if-present typecheck",
     "clean": "pnpm -C apps/extension clean",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json}": [
-      "bash -lc \"pnpm -C apps/extension typecheck\"",
-      "pnpm -C apps/extension format:fix",
-      "pnpm -C apps/extension lint:fix",
-      "pnpm -C apps/extension test:related"
+      "bash -lc \"pnpm format:fix\"",
+      "bash -lc \"pnpm lint:fix\"",
+      "bash -lc \"pnpm typecheck\""
     ]
   }
 }

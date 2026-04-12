@@ -1,0 +1,30 @@
+{
+  "name": "@olc/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run src/__tests__",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "pnpm -C ../.. exec biome check packages/olc-core",
+    "lint:check": "pnpm -C ../.. exec biome check packages/olc-core",
+    "lint:fix": "pnpm -C ../.. exec biome check packages/olc-core --write",
+    "format": "pnpm -C ../.. exec biome format packages/olc-core",
+    "format:check": "pnpm -C ../.. exec biome format packages/olc-core",
+    "format:fix": "pnpm -C ../.. exec biome format packages/olc-core --write"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

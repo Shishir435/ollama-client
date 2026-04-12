@@ -1,7 +1,21 @@
-export const runPromptCommand = async (prompt: string) => {
-  const output = prompt.trim().length
-    ? `You said: ${prompt}`
-    : "Please provide a prompt."
+import { RuntimeContext, runChat } from "@olc/core"
 
-  process.stdout.write(`${output}\n`)
+export const runPromptCommand = async (
+  prompt: string,
+  model: string,
+  providerId?: string
+) => {
+  if (!prompt.trim()) {
+    process.stdout.write("Please provide a prompt.\n")
+    return
+  }
+
+  const runtime = new RuntimeContext()
+  const result = await runChat(runtime, {
+    model,
+    providerId,
+    messages: [{ role: "user", content: prompt }]
+  })
+
+  process.stdout.write(`${result.text}\n`)
 }
