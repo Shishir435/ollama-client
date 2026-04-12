@@ -22,7 +22,9 @@ describe("AgentStepDisplay", () => {
 
     expect(screen.getByText(/Watching video/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/waiting for the current video to finish before moving to the next lesson/i)
+      screen.getByText(
+        /waiting for the current video to finish before moving to the next lesson/i
+      )
     ).toBeInTheDocument()
     expect(
       screen.queryByText(/The model hasn't responded/i)

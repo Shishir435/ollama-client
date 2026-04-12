@@ -1,13 +1,13 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
-  AgentStep,
   AgentStatus,
+  AgentStep,
   AgentStreamMessage,
   AgentWaitContext
 } from "@/lib/agent/types"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { SelectedModelRef } from "@/types"
 
 /** After this many ms with no update, show "slow" warning */
@@ -41,7 +41,10 @@ const resolveAgentTabId = async (): Promise<number | undefined> => {
           !!tab.url &&
           !/^chrome-extension:/i.test(tab.url)
       )
-      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0]
+      .sort(
+        (a, b) =>
+          ((b as any).lastAccessed || 0) - ((a as any).lastAccessed || 0)
+      )[0]
 
     if (bestActiveWebTab?.id) return bestActiveWebTab.id
 
@@ -53,7 +56,10 @@ const resolveAgentTabId = async (): Promise<number | undefined> => {
           !!tab.url &&
           !/^chrome-extension:/i.test(tab.url)
       )
-      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0]
+      .sort(
+        (a, b) =>
+          ((b as any).lastAccessed || 0) - ((a as any).lastAccessed || 0)
+      )[0]
 
     return bestRecentWebTab?.id
   } catch {
@@ -67,7 +73,10 @@ export const useAgent = (): UseAgentReturn => {
     false
   )
   const [visionModeEnabled] = useStorage<boolean>(
-    { key: STORAGE_KEYS.AGENT.VISION_MODE_ENABLED, instance: plasmoGlobalStorage },
+    {
+      key: STORAGE_KEYS.AGENT.VISION_MODE_ENABLED,
+      instance: plasmoGlobalStorage
+    },
     false
   )
   const [autoRepeatEnabled] = useStorage<boolean>(
@@ -75,21 +84,31 @@ export const useAgent = (): UseAgentReturn => {
     false
   )
   const [selectedModelRef] = useStorage<SelectedModelRef | null>(
-    { key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF, instance: plasmoGlobalStorage },
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
+      instance: plasmoGlobalStorage
+    },
     null
   )
   const [selectedModel] = useStorage<string>(
-    { key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL, instance: plasmoGlobalStorage },
+    {
+      key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
+      instance: plasmoGlobalStorage
+    },
     ""
   )
 
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle")
-  const [agentFinalMessage, setAgentFinalMessage] = useState<string | undefined>()
+  const [agentFinalMessage, setAgentFinalMessage] = useState<
+    string | undefined
+  >()
   const [elapsedMs, setElapsedMs] = useState(0)
   const [isSlow, setIsSlow] = useState(false)
   const [waitContext, setWaitContext] = useState<AgentWaitContext | undefined>()
-  const [agentMode, setAgentMode] = useState<"tool-calling" | "json-fallback" | undefined>()
+  const [agentMode, setAgentMode] = useState<
+    "tool-calling" | "json-fallback" | undefined
+  >()
 
   const portRef = useRef<chrome.runtime.Port | null>(null)
   const activeRunIdRef = useRef(0)
@@ -97,7 +116,7 @@ export const useAgent = (): UseAgentReturn => {
   const terminalStatusRef = useRef<AgentStatus>("idle")
   const waitContextRef = useRef<AgentWaitContext | undefined>(undefined)
   const lastActivityRef = useRef<number>(0)
-  const lastProgressMessageRef = useRef<string | undefined>()
+  const lastProgressMessageRef = useRef<string | undefined>(undefined)
   const startTimeRef = useRef<number>(0)
   const lastUpdateRef = useRef<number>(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -131,8 +150,8 @@ export const useAgent = (): UseAgentReturn => {
         terminalStatusRef.current = "error"
         setAgentFinalMessage(
           "Request timed out after 90 seconds with no response. " +
-          "Ollama may be offline or the model is unresponsive. " +
-          "Try: ollama run <model-name> in a terminal first."
+            "Ollama may be offline or the model is unresponsive. " +
+            "Try: ollama run <model-name> in a terminal first."
         )
         portRef.current?.disconnect()
         portRef.current = null
@@ -311,7 +330,9 @@ export const useAgent = (): UseAgentReturn => {
         if (terminalStatusRef.current !== "running") return
 
         const disconnectStatus = stopRequestedRef.current ? "stopped" : "error"
-        const msSinceProgress = Date.now() - (lastUpdateRef.current || startTimeRef.current || Date.now())
+        const msSinceProgress =
+          Date.now() -
+          (lastUpdateRef.current || startTimeRef.current || Date.now())
         const wasWaitingOnModel = msSinceProgress >= SLOW_THRESHOLD_MS
         terminalStatusRef.current = disconnectStatus
         setAgentStatus((prev) => {
@@ -346,7 +367,14 @@ export const useAgent = (): UseAgentReturn => {
         }
       })
     },
-    [selectedModel, selectedModelRef, startTimers, stopTimers, visionModeEnabled, autoRepeatEnabled]
+    [
+      selectedModel,
+      selectedModelRef,
+      startTimers,
+      stopTimers,
+      visionModeEnabled,
+      autoRepeatEnabled
+    ]
   )
 
   return {

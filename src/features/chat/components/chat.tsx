@@ -1,17 +1,17 @@
+import { AgentStepDisplay } from "@/features/chat/components/agent-step-display"
 import { ChatHeader } from "@/features/chat/components/chat-header"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 import { ChatMessageList } from "@/features/chat/components/chat-message-list"
 import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
-import { AgentStepDisplay } from "@/features/chat/components/agent-step-display"
+import { useAgent } from "@/features/chat/hooks/use-agent"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
-import { useAgent } from "@/features/chat/hooks/use-agent"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
+import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
-import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import type { ChatMessage } from "@/types"
 
 export const Chat = () => {
@@ -190,7 +190,10 @@ export const Chat = () => {
 
   const showAgentPanel =
     agentModeEnabled &&
-    (isAgentRunning || agentSteps.length > 0 || agentStatus === "error" || agentStatus === "stopped")
+    (isAgentRunning ||
+      agentSteps.length > 0 ||
+      agentStatus === "error" ||
+      agentStatus === "stopped")
 
   return (
     <div className="flex h-screen flex-col bg-background">

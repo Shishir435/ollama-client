@@ -1,13 +1,9 @@
 ---
 import "@/styles/globals.css"
-import Footer from "@/components/Footer.astro"
-import SideNav from "@/components/SideNav.astro"
-import TopNav from "@/components/TopNav.astro"
-import BaseLayout from "@/layouts/BaseLayout.astro"
 
 const { title, description, frontmatter } = Astro.props
-const resolvedTitle = title ?? frontmatter?.title
-const resolvedDescription = description ?? frontmatter?.description
+const _resolvedTitle = title ?? frontmatter?.title
+const _resolvedDescription = description ?? frontmatter?.description
 ---
 
 <BaseLayout title={resolvedTitle} description={resolvedDescription}>

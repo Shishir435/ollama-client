@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MESSAGE_KEYS } from "@/lib/constants"
 
 let onMessageListener:
-  | ((message: { type: string }, sender: unknown, sendResponse: (response: unknown) => void) => unknown)
+  | ((
+      message: { type: string; payload?: any },
+      sender: unknown,
+      sendResponse: (response: unknown) => void
+    ) => unknown)
   | undefined
 
 vi.mock("@/lib/browser-api", () => ({
@@ -56,9 +60,8 @@ describe("dom-actions", () => {
   })
 
   it("uses ref_ids for interactive elements and for vision-mode marks", async () => {
-    const { getInteractiveElements, registerAgentActionListener } = await import(
-      "../dom-actions"
-    )
+    const { getInteractiveElements, registerAgentActionListener } =
+      await import("../dom-actions")
 
     const elements = getInteractiveElements()
     expect(elements).not.toHaveLength(0)
@@ -97,9 +100,8 @@ describe("dom-actions", () => {
     const requestSubmit = vi.fn()
     form.requestSubmit = requestSubmit
 
-    const { getInteractiveElements, registerAgentActionListener } = await import(
-      "../dom-actions"
-    )
+    const { getInteractiveElements, registerAgentActionListener } =
+      await import("../dom-actions")
 
     const inputRef = getInteractiveElements().find((element) =>
       ["input", "textarea"].includes(element.type)
@@ -214,7 +216,9 @@ describe("dom-actions", () => {
     video.play = vi.fn(async () => {
       attempt += 1
       if (attempt === 1) {
-        throw new Error("The play() request was interrupted because video-only background media was paused to save power")
+        throw new Error(
+          "The play() request was interrupted because video-only background media was paused to save power"
+        )
       }
       paused = false
     })
@@ -331,11 +335,12 @@ describe("dom-actions", () => {
   })
 
   it("copies link URLs and page text to the clipboard", async () => {
-    const { getInteractiveElements, registerAgentActionListener } = await import(
-      "../dom-actions"
-    )
+    const { getInteractiveElements, registerAgentActionListener } =
+      await import("../dom-actions")
 
-    const linkRef = getInteractiveElements().find((element) => element.type === "link")?.id
+    const linkRef = getInteractiveElements().find(
+      (element) => element.type === "link"
+    )?.id
     expect(linkRef).toMatch(/^ref_\d+$/)
 
     registerAgentActionListener()

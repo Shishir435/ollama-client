@@ -8,11 +8,11 @@
  */
 
 // WeakRef is available in all modern browsers but may not be in TS lib
+// biome-ignore lint/suspicious/noShadowRestrictedNames: Missing in TS lib
 declare class WeakRef<T extends object> {
   constructor(target: T)
   deref(): T | undefined
 }
-
 
 // ─── Global Element Map (stable across scans) ────────────────────────────────
 
@@ -192,7 +192,15 @@ function isInViewport(el: Element): boolean {
 function isInteractive(el: Element): boolean {
   const tag = el.tagName.toLowerCase()
   return (
-    ["a", "button", "input", "select", "textarea", "details", "summary"].includes(tag) ||
+    [
+      "a",
+      "button",
+      "input",
+      "select",
+      "textarea",
+      "details",
+      "summary"
+    ].includes(tag) ||
     el.getAttribute("onclick") !== null ||
     el.getAttribute("tabindex") !== null ||
     el.getAttribute("role") === "button" ||
@@ -204,14 +212,39 @@ function isInteractive(el: Element): boolean {
 function isLandmark(el: Element): boolean {
   const tag = el.tagName.toLowerCase()
   return (
-    ["h1", "h2", "h3", "h4", "h5", "h6", "nav", "main", "header", "footer", "section", "article", "aside"].includes(tag) ||
-    el.getAttribute("role") !== null
+    [
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "nav",
+      "main",
+      "header",
+      "footer",
+      "section",
+      "article",
+      "aside"
+    ].includes(tag) || el.getAttribute("role") !== null
   )
 }
 
 function shouldInclude(el: Element, filter: "all" | "interactive"): boolean {
   const tag = el.tagName.toLowerCase()
-  if (["script", "style", "meta", "link", "title", "noscript", "svg", "path"].includes(tag)) return false
+  if (
+    [
+      "script",
+      "style",
+      "meta",
+      "link",
+      "title",
+      "noscript",
+      "svg",
+      "path"
+    ].includes(tag)
+  )
+    return false
   if (el.getAttribute("aria-hidden") === "true") return false
   if (!isVisible(el)) return false
   if (!isInViewport(el)) return false
@@ -281,12 +314,7 @@ export interface AccessibilityTreeResult {
 export function generateAccessibilityTree(
   options: AccessibilityTreeOptions = {}
 ): AccessibilityTreeResult {
-  const {
-    filter = "all",
-    maxDepth = 12,
-    maxChars = 15000,
-    refId
-  } = options
+  const { filter = "all", maxDepth = 12, maxChars = 15000, refId } = options
 
   const lines: string[] = []
   let elementCount = 0
@@ -295,7 +323,8 @@ export function generateAccessibilityTree(
     if (depth > maxDepth) return
     if (!el || !el.tagName) return
 
-    const include = shouldInclude(el, filter) || (refId !== undefined && depth === 0)
+    const include =
+      shouldInclude(el, filter) || (refId !== undefined && depth === 0)
 
     if (include) {
       const role = getRole(el)
@@ -305,7 +334,10 @@ export function generateAccessibilityTree(
       // Build the line: indentation + role + label + [ref_id] + attributes
       let line = "  ".repeat(depth) + role
       if (label) {
-        const cleanLabel = label.replace(/\s+/g, " ").substring(0, 100).replace(/"/g, '\\"')
+        const cleanLabel = label
+          .replace(/\s+/g, " ")
+          .substring(0, 100)
+          .replace(/"/g, '\\"')
         line += ` "${cleanLabel}"`
       }
       line += ` [${id}]`

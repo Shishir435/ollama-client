@@ -36,8 +36,9 @@ export const AgentModeToggle = () => {
                 ? "bg-violet-500/15 text-violet-500 hover:bg-violet-500/25"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            aria-label={agentModeEnabled ? "Disable agent mode" : "Enable agent mode"}
-          >
+            aria-label={
+              agentModeEnabled ? "Disable agent mode" : "Enable agent mode"
+            }>
             {agentModeEnabled ? (
               <Bot className="h-4 w-4" />
             ) : (

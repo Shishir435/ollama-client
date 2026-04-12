@@ -141,8 +141,9 @@ export const getModelSuitability = (
   const embeddingOnly = isEmbeddingModel(model.name, families)
   const sizeInBillions = getModelParameterSizeBillions(model)
   const weakBySize = sizeInBillions !== null && sizeInBillions < 7
-  const weakByName =
-    /(?:^|[\s:_-])(mini|1\.5b|1b|2b|3b)(?:$|[\s:_-])/i.test(model.name)
+  const weakByName = /(?:^|[\s:_-])(mini|1\.5b|1b|2b|3b)(?:$|[\s:_-])/i.test(
+    model.name
+  )
   const weakForAgent = !embeddingOnly && (weakBySize || weakByName)
   const visionCapable = isVisionCapableModel(model)
   const lacksVisionSupport = !embeddingOnly && !visionCapable
@@ -154,7 +155,8 @@ export const getModelSuitability = (
       weakForAgent: true,
       weakForVision: true,
       lacksVisionSupport: true,
-      summary: "Embedding only: not suitable for chat, Agent Mode, or Vision Mode."
+      summary:
+        "Embedding only: not suitable for chat, Agent Mode, or Vision Mode."
     }
   }
 

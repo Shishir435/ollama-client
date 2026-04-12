@@ -1,14 +1,14 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
-import { useStorage } from "@plasmohq/storage/hook"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { AgentModeToggle } from "@/features/chat/components/agent-mode-toggle"
-import { VisionModeToggle } from "@/features/chat/components/vision-mode-toggle"
 import { AutoRepeatToggle } from "@/features/chat/components/auto-repeat-toggle"
-import { useIsVisionCapable } from "@/features/model/hooks/use-is-vision-capable"
+import { VisionModeToggle } from "@/features/chat/components/vision-mode-toggle"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
+import { useIsVisionCapable } from "@/features/model/hooks/use-is-vision-capable"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ContextSettingsMenu } from "./context-settings-menu"
 import { InputMetrics } from "./input-metrics"
 
@@ -32,7 +32,7 @@ export const ChatInputToolbar = ({
     key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
     instance: plasmoGlobalStorage
   })
-  
+
   const isVisionCapable = useIsVisionCapable(
     (selectedModelRef as any)?.modelId || (selectedModel as string),
     (selectedModelRef as any)?.providerId
@@ -72,4 +72,3 @@ export const ChatInputToolbar = ({
     </div>
   )
 }
-

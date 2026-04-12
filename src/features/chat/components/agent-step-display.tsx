@@ -11,8 +11,12 @@ import {
   XCircle
 } from "lucide-react"
 import { useState } from "react"
+import type {
+  AgentStatus,
+  AgentStep,
+  AgentWaitContext
+} from "@/lib/agent/types"
 import { cn } from "@/lib/utils"
-import type { AgentStep, AgentStatus, AgentWaitContext } from "@/lib/agent/types"
 
 interface AgentStepDisplayProps {
   steps: AgentStep[]
@@ -116,20 +120,23 @@ export const AgentStepDisplay = ({
   const borderColor = isWaitingVideo
     ? "border-sky-500/40 bg-sky-500/5"
     : isSlow && isRunning
-    ? "border-amber-500/40 bg-amber-500/5"
-    : isRunning
-      ? "border-violet-500/30 bg-violet-500/5"
-      : isDone
-        ? "border-emerald-500/30 bg-emerald-500/5"
-        : isError || isStopped
-          ? "border-destructive/30 bg-destructive/5"
-          : "border-border/40 bg-muted/20"
+      ? "border-amber-500/40 bg-amber-500/5"
+      : isRunning
+        ? "border-violet-500/30 bg-violet-500/5"
+        : isDone
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : isError || isStopped
+            ? "border-destructive/30 bg-destructive/5"
+            : "border-border/40 bg-muted/20"
 
   const headerLabel = (() => {
     if (isWaitingVideo) return `Watching video - ${formatElapsed(elapsedMs)}`
-    if (isRunning && isSlow) return `Agent slow — waiting ${formatElapsed(elapsedMs)}`
-    if (isRunning) return `Agent running — step ${steps.length} (${formatElapsed(elapsedMs)})`
-    if (isDone) return `Completed in ${steps.length} steps (${formatElapsed(elapsedMs)})`
+    if (isRunning && isSlow)
+      return `Agent slow — waiting ${formatElapsed(elapsedMs)}`
+    if (isRunning)
+      return `Agent running — step ${steps.length} (${formatElapsed(elapsedMs)})`
+    if (isDone)
+      return `Completed in ${steps.length} steps (${formatElapsed(elapsedMs)})`
     if (isStopped) return "Agent stopped"
     if (isError) return "Agent error"
     return "Agent"
@@ -140,13 +147,12 @@ export const AgentStepDisplay = ({
       className={cn(
         "mx-2 mb-2 overflow-hidden rounded-xl border transition-all duration-300",
         borderColor
-      )}
-    >
+      )}>
       {/* ── Header ── */}
-      <div
-        className="flex cursor-pointer items-center justify-between px-3 py-2"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left"
+        onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-2">
           {isWaitingVideo ? (
             <Clock className="h-3.5 w-3.5 text-sky-500" />
@@ -170,19 +176,19 @@ export const AgentStepDisplay = ({
                 : isSlow && isRunning
                   ? "text-amber-600 dark:text-amber-400"
                   : "text-foreground"
-            )}
-          >
+            )}>
             {headerLabel}
           </span>
 
           {/* Mode badge */}
           {agentMode && (
-            <span className={cn(
-              "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
-              agentMode === "json-fallback"
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-            )}>
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                agentMode === "json-fallback"
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+              )}>
               {agentMode === "json-fallback" ? "JSON fallback" : "Tool calling"}
             </span>
           )}
@@ -211,8 +217,7 @@ export const AgentStepDisplay = ({
                 e.stopPropagation()
                 onStop()
               }}
-              className="rounded-md bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive hover:bg-destructive/20"
-            >
+              className="rounded-md bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive hover:bg-destructive/20">
               Stop
             </button>
           )}
@@ -222,14 +227,15 @@ export const AgentStepDisplay = ({
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           )}
         </div>
-      </div>
+      </button>
 
       {/* ── Slow / Hung warning banner ── */}
       {isWaitingVideo && expanded && (
         <div className="mx-3 mb-2 flex items-start gap-2 rounded-lg bg-sky-500/10 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-400">
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            The agent is waiting for the current video to finish before moving to the next lesson.
+            The agent is waiting for the current video to finish before moving
+            to the next lesson.
           </span>
         </div>
       )}
@@ -237,8 +243,8 @@ export const AgentStepDisplay = ({
         <div className="mx-3 mb-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            The model hasn't responded in {Math.floor(elapsedMs / 1000)}s. It may be loading
-            into memory or processing a complex request.{" "}
+            The model hasn't responded in {Math.floor(elapsedMs / 1000)}s. It
+            may be loading into memory or processing a complex request.{" "}
             {elapsedMs > 45_000 && (
               <strong>Check that Ollama is running in your terminal.</strong>
             )}
@@ -276,8 +282,7 @@ export const AgentStepDisplay = ({
                         : step.result
                           ? "bg-destructive/15 text-destructive"
                           : "bg-violet-500/15 text-violet-500"
-                    )}
-                  >
+                    )}>
                     <ActionIcon type={actionType} />
                   </div>
 
@@ -290,7 +295,10 @@ export const AgentStepDisplay = ({
                     )}
                     {action && (
                       <p className="text-[11px] text-foreground">
-                        {actionLabel(actionType, args as Record<string, unknown>)}
+                        {actionLabel(
+                          actionType,
+                          args as Record<string, unknown>
+                        )}
                       </p>
                     )}
                     {step.result && !step.result.success && (
@@ -311,23 +319,30 @@ export const AgentStepDisplay = ({
             {/* "Thinking…" row while waiting for next step */}
             {isRunning && (
               <div className="flex items-center gap-2 opacity-70">
-                <Loader2 className={cn(
-                  "h-3 w-3 shrink-0",
-                  isWaitingVideo
-                    ? "animate-pulse text-sky-500"
+                <Loader2
+                  className={cn(
+                    "h-3 w-3 shrink-0",
+                    isWaitingVideo
+                      ? "animate-pulse text-sky-500"
+                      : isSlow
+                        ? "animate-pulse text-amber-500"
+                        : "animate-spin text-violet-500"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    isWaitingVideo
+                      ? "text-sky-600 dark:text-sky-400"
+                      : isSlow
+                        ? "text-amber-500"
+                        : "text-violet-500"
+                  )}>
+                  {isWaitingVideo
+                    ? "Watching current lesson..."
                     : isSlow
-                      ? "animate-pulse text-amber-500"
-                      : "animate-spin text-violet-500"
-                )} />
-                <span className={cn(
-                  "text-[11px]",
-                  isWaitingVideo
-                    ? "text-sky-600 dark:text-sky-400"
-                    : isSlow
-                      ? "text-amber-500"
-                      : "text-violet-500"
-                )}>
-                  {isWaitingVideo ? "Watching current lesson..." : isSlow ? "Waiting for model..." : "Thinking..."}
+                      ? "Waiting for model..."
+                      : "Thinking..."}
                 </span>
               </div>
             )}
@@ -341,8 +356,7 @@ export const AgentStepDisplay = ({
                 isDone
                   ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                   : "bg-destructive/10 text-destructive"
-              )}
-            >
+              )}>
               {finalMessage}
             </div>
           )}

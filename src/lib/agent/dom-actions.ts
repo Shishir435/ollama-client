@@ -2,14 +2,19 @@
  * Agent DOM actions — imported from the main content script.
  * Registers a runtime.onMessage listener to handle agent browser actions.
  */
-import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
-import type { AgentAction, AgentActionResult, InteractiveElement } from "@/lib/agent/types"
+
 import {
   findElementByRefId,
   generateAccessibilityTree,
   getRefIdForElement
 } from "@/lib/agent/accessibility-tree"
+import type {
+  AgentAction,
+  AgentActionResult,
+  InteractiveElement
+} from "@/lib/agent/types"
+import { browser } from "@/lib/browser-api"
+import { MESSAGE_KEYS } from "@/lib/constants"
 
 const MAX_ELEMENTS = 150
 
@@ -200,17 +205,16 @@ const clickElement = async (
       } else {
         video.pause()
       }
-      return { success: true, message: `Toggled playback for video #${elementId}` }
+      return {
+        success: true,
+        message: `Toggled playback for video #${elementId}`
+      }
     }
 
     el.scrollIntoView({ behavior: "smooth", block: "center" })
     el.focus()
     el.click()
-    const label = (
-      el.getAttribute("aria-label") ||
-      el.innerText ||
-      ""
-    )
+    const label = (el.getAttribute("aria-label") || el.innerText || "")
       .trim()
       .slice(0, 40)
     return {
@@ -225,7 +229,10 @@ const clickElement = async (
   }
 }
 
-const fillInput = (elementId: number | string, value: string): AgentActionResult => {
+const fillInput = (
+  elementId: number | string,
+  value: string
+): AgentActionResult => {
   const el = findElementById(elementId)
   if (!el)
     return { success: false, message: `Element #${elementId} not found.` }
@@ -252,7 +259,9 @@ const fillInput = (elementId: number | string, value: string): AgentActionResult
 
     input.dispatchEvent(new Event("input", { bubbles: true }))
     input.dispatchEvent(new Event("change", { bubbles: true }))
-    input.dispatchEvent(new KeyboardEvent("keyup", { key: "End", bubbles: true }))
+    input.dispatchEvent(
+      new KeyboardEvent("keyup", { key: "End", bubbles: true })
+    )
 
     return {
       success: true,
@@ -266,13 +275,19 @@ const fillInput = (elementId: number | string, value: string): AgentActionResult
   }
 }
 
-const selectOption = (elementId: number | string, value: string): AgentActionResult => {
+const selectOption = (
+  elementId: number | string,
+  value: string
+): AgentActionResult => {
   const el = findElementById(elementId)
   if (!el)
     return { success: false, message: `Element #${elementId} not found.` }
 
   if (el.tagName.toLowerCase() !== "select")
-    return { success: false, message: `Element #${elementId} is not a <select>.` }
+    return {
+      success: false,
+      message: `Element #${elementId} is not a <select>.`
+    }
 
   const select = el as HTMLSelectElement
   const option = Array.from(select.options).find(
@@ -281,7 +296,9 @@ const selectOption = (elementId: number | string, value: string): AgentActionRes
   if (!option)
     return {
       success: false,
-      message: `Option "${value}" not found. Available: ${Array.from(select.options)
+      message: `Option "${value}" not found. Available: ${Array.from(
+        select.options
+      )
         .map((o) => o.text)
         .slice(0, 5)
         .join(", ")}`
@@ -354,14 +371,15 @@ const getLinkUrl = (elementId: number | string): string | null => {
   const el = findElementById(elementId)
   if (!el) return null
 
-  const link = (el.closest("a[href]") || (el.matches("a[href]") ? el : null)) as
-    | HTMLAnchorElement
-    | null
+  const link = (el.closest("a[href]") ||
+    (el.matches("a[href]") ? el : null)) as HTMLAnchorElement | null
 
   return link?.href || null
 }
 
-const findTargetVideo = (elementId?: number | string): HTMLVideoElement | null => {
+const findTargetVideo = (
+  elementId?: number | string
+): HTMLVideoElement | null => {
   if (elementId !== undefined) {
     const specific = findElementById(elementId)
     if (specific instanceof HTMLVideoElement) return specific
@@ -411,14 +429,17 @@ const playVideoWithTimeout = async (
   await Promise.race([
     video.play(),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`video.play() timed out after ${timeoutMs}ms`)), timeoutMs)
+      setTimeout(
+        () => reject(new Error(`video.play() timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
     )
   ])
 }
 
 const attemptVideoPlayback = async (
   video: HTMLVideoElement
-): Promise<{ success: true } | { success: false; error: unknown }> => {
+): Promise<{ success: boolean; error?: unknown }> => {
   const attempts: Array<() => Promise<void>> = [
     async () => {
       video.muted = true
@@ -541,14 +562,17 @@ const advanceToNextVideo = async (): Promise<AgentActionResult> => {
       activeItem.parentElement?.children || []
     ).filter((node): node is HTMLElement => node instanceof HTMLElement)
 
-    const activeIndex = siblingCandidates.findIndex((node) => node === activeItem)
+    const activeIndex = siblingCandidates.findIndex(
+      (node) => node === activeItem
+    )
     const nextSibling = siblingCandidates
       .slice(activeIndex + 1)
       .find((node) => isVisibleElement(node))
 
-    const clickableNext = nextSibling?.querySelector<HTMLElement>(
-      "button, a[href], [role='button'], [role='link'], [tabindex='0']"
-    ) || nextSibling
+    const clickableNext =
+      nextSibling?.querySelector<HTMLElement>(
+        "button, a[href], [role='button'], [role='link'], [tabindex='0']"
+      ) || nextSibling
 
     if (clickableNext && (await clickCandidate(clickableNext))) {
       return {
@@ -599,8 +623,7 @@ const controlVideo = async (
   }
 
   try {
-    const shouldPlay =
-      state === "play" || (state === "toggle" && video.paused)
+    const shouldPlay = state === "play" || (state === "toggle" && video.paused)
 
     if (shouldPlay) {
       const playback = await attemptVideoPlayback(video)
@@ -667,11 +690,7 @@ const pressKey = async (
     }
     const key = keyMap[keyValue] || keyValue
     const code =
-      key === " "
-        ? "Space"
-        : key.length === 1
-          ? `Key${key.toUpperCase()}`
-          : key
+      key === " " ? "Space" : key.length === 1 ? `Key${key.toUpperCase()}` : key
     const eventInit: KeyboardEventInit = {
       key,
       code,
@@ -725,9 +744,11 @@ let currentMarks: HTMLElement[] = []
 const drawMarks = (): AgentActionResult => {
   removeMarks() // Ensure clean slate
   const elements = getInteractiveElements()
-  
+
   elements.forEach((elInfo) => {
-    const el = document.querySelector(`[data-agent-id='${elInfo.id}']`) as HTMLElement
+    const el = document.querySelector(
+      `[data-agent-id='${elInfo.id}']`
+    ) as HTMLElement
     if (!el) return
 
     const rect = el.getBoundingClientRect()
@@ -748,16 +769,21 @@ const drawMarks = (): AgentActionResult => {
     mark.style.zIndex = "2147483647" // Max z-index
     mark.style.pointerEvents = "none"
     mark.innerText = String(elInfo.id)
-    
+
     document.body.appendChild(mark)
     currentMarks.push(mark)
   })
 
-  return { success: true, message: `Drew marks on ${currentMarks.length} elements.` }
+  return {
+    success: true,
+    message: `Drew marks on ${currentMarks.length} elements.`
+  }
 }
 
 const removeMarks = (): AgentActionResult => {
-  currentMarks.forEach((m) => m.remove())
+  currentMarks.forEach((m) => {
+    m.remove()
+  })
   currentMarks = []
   return { success: true, message: "Marks removed." }
 }
@@ -804,7 +830,9 @@ export const registerAgentActionListener = () => {
             const tree = generateAccessibilityTree(opts)
             sendResponse({
               success: !tree.error,
-              message: tree.error || `Accessibility tree: ${tree.elementCount} elements`,
+              message:
+                tree.error ||
+                `Accessibility tree: ${tree.elementCount} elements`,
               data: tree
             } as AgentActionResult)
             return
@@ -866,9 +894,14 @@ export const registerAgentActionListener = () => {
               break
             case "get_video_status": {
               // Returns status of all video elements on page
-              const videos = Array.from(document.querySelectorAll<HTMLVideoElement>("video"))
+              const videos = Array.from(
+                document.querySelectorAll<HTMLVideoElement>("video")
+              )
               if (videos.length === 0) {
-                result = { success: true, message: "No native video elements found on this frame." }
+                result = {
+                  success: true,
+                  message: "No native video elements found on this frame."
+                }
               } else {
                 const statuses = videos.map((v, i) => ({
                   index: i,
@@ -878,18 +911,29 @@ export const registerAgentActionListener = () => {
                   duration: Math.round(v.duration) || null,
                   readyState: v.readyState
                 }))
-                result = { success: true, message: JSON.stringify(statuses), data: statuses }
+                result = {
+                  success: true,
+                  message: JSON.stringify(statuses),
+                  data: statuses
+                }
               }
               break
             }
             case "control_video": {
-              const state = (payload.state || "toggle") as "play" | "pause" | "toggle"
+              const state = (payload.state || "toggle") as
+                | "play"
+                | "pause"
+                | "toggle"
               result = await controlVideo(state, payload.element_id)
               break
             }
             case "wait_for_video_end": {
-              const timeoutMs = ((payload as any).timeout_ms as number) || 7200000
-              const pollInterval = Math.min(2000, Math.max(250, Math.floor(timeoutMs / 10)))
+              const timeoutMs =
+                ((payload as any).timeout_ms as number) || 7200000
+              const pollInterval = Math.min(
+                2000,
+                Math.max(250, Math.floor(timeoutMs / 10))
+              )
               const start = Date.now()
               const targetVideo = findTargetVideo(payload.element_id)
               if (!targetVideo) {
@@ -917,7 +961,10 @@ export const registerAgentActionListener = () => {
                   if (!video.paused) {
                     observedPlayback = true
                   }
-                  if (isVideoEffectivelyComplete(video) || Date.now() - start > timeoutMs) {
+                  if (
+                    isVideoEffectivelyComplete(video) ||
+                    Date.now() - start > timeoutMs
+                  ) {
                     resolve()
                   } else {
                     setTimeout(check, pollInterval)
@@ -926,8 +973,12 @@ export const registerAgentActionListener = () => {
                 check()
               })
               const finalVideo = findTargetVideo(payload.element_id)
-              const finalState = finalVideo ? getPlaybackState(finalVideo) : null
-              const completed = finalVideo ? isVideoEffectivelyComplete(finalVideo) : false
+              const finalState = finalVideo
+                ? getPlaybackState(finalVideo)
+                : null
+              const completed = finalVideo
+                ? isVideoEffectivelyComplete(finalVideo)
+                : false
               result = {
                 success: completed,
                 message: completed
@@ -946,40 +997,72 @@ export const registerAgentActionListener = () => {
               // Execute arbitrary JavaScript in the page context
               const code = (payload as any).code as string
               if (!code) {
-                result = { success: false, message: "No code provided for execute_js." }
+                result = {
+                  success: false,
+                  message: "No code provided for execute_js."
+                }
               } else {
                 try {
                   // Use Function constructor to execute in page context
                   const fn = new Function(code)
                   const returnValue = await fn()
-                  const output = returnValue !== undefined ? JSON.stringify(returnValue) : "(no return value)"
-                  result = { success: true, message: `JS executed. Result: ${String(output).slice(0, 500)}` }
+                  const output =
+                    returnValue !== undefined
+                      ? JSON.stringify(returnValue)
+                      : "(no return value)"
+                  result = {
+                    success: true,
+                    message: `JS executed. Result: ${String(output).slice(0, 500)}`
+                  }
                 } catch (jsErr) {
-                  result = { success: false, message: `JS error: ${jsErr instanceof Error ? jsErr.message : String(jsErr)}` }
+                  result = {
+                    success: false,
+                    message: `JS error: ${jsErr instanceof Error ? jsErr.message : String(jsErr)}`
+                  }
                 }
               }
               break
             }
             case "press_key": {
-              const keyValue = (payload as any).key as string || (payload as any).value as string
+              const keyValue =
+                ((payload as any).key as string) ||
+                ((payload as any).value as string)
               if (!keyValue) {
-                result = { success: false, message: "No key specified for press_key." }
+                result = {
+                  success: false,
+                  message: "No key specified for press_key."
+                }
               } else {
-                result = pressKey(keyValue, payload.element_id)
-                result = await result
+                result = await pressKey(keyValue, payload.element_id)
               }
               break
             }
             case "hover_element": {
               const hoverEl = findElementById(payload.element_id!)
               if (!hoverEl) {
-                result = { success: false, message: `Element #${payload.element_id} not found.` }
+                result = {
+                  success: false,
+                  message: `Element #${payload.element_id} not found.`
+                }
               } else {
                 hoverEl.scrollIntoView({ behavior: "smooth", block: "center" })
-                hoverEl.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }))
-                hoverEl.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))
-                const label = (hoverEl.getAttribute("aria-label") || hoverEl.innerText || "").trim().slice(0, 40)
-                result = { success: true, message: `Hovered element #${payload.element_id}${label ? `: "${label}"` : ""}` }
+                hoverEl.dispatchEvent(
+                  new MouseEvent("mouseenter", { bubbles: true })
+                )
+                hoverEl.dispatchEvent(
+                  new MouseEvent("mouseover", { bubbles: true })
+                )
+                const label = (
+                  hoverEl.getAttribute("aria-label") ||
+                  hoverEl.innerText ||
+                  ""
+                )
+                  .trim()
+                  .slice(0, 40)
+                result = {
+                  success: true,
+                  message: `Hovered element #${payload.element_id}${label ? `: "${label}"` : ""}`
+                }
               }
               break
             }

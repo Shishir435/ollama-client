@@ -14,12 +14,16 @@ test("Extension can trigger google search", async () => {
     /Search Google for test/i,
     ({ content, step }) => {
       const searchRef =
-        content.match(/(?:textbox|combobox)[^\n]*Search[^\n]*\[(ref_\d+)\]/i)?.[1] ||
+        content.match(
+          /(?:textbox|combobox)[^\n]*Search[^\n]*\[(ref_\d+)\]/i
+        )?.[1] ||
         content.match(/textbox[^\n]*\[(ref_\d+)\]/i)?.[1] ||
         content.match(/combobox[^\n]*\[(ref_\d+)\]/i)?.[1]
 
       if (!searchRef) {
-        throw new Error(`Google search input ref not found in content:\n${content}`)
+        throw new Error(
+          `Google search input ref not found in content:\n${content}`
+        )
       }
 
       if (step === 1) {

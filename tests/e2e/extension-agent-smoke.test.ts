@@ -9,7 +9,10 @@ import {
 const enabled = process.env.EXTENSION_E2E === "1"
 
 test.describe("extension agent smoke", () => {
-  test.skip(!enabled, "Set EXTENSION_E2E=1 to run browser-extension smoke tests")
+  test.skip(
+    !enabled,
+    "Set EXTENSION_E2E=1 to run browser-extension smoke tests"
+  )
   test.describe.configure({ mode: "serial" })
   test.setTimeout(120000)
 
@@ -20,12 +23,16 @@ test.describe("extension agent smoke", () => {
       /Search Google for OpenAI/i,
       ({ content, step }) => {
         const searchRef =
-          content.match(/(?:textbox|combobox)[^\n]*Search[^\n]*\[(ref_\d+)\]/i)?.[1] ||
+          content.match(
+            /(?:textbox|combobox)[^\n]*Search[^\n]*\[(ref_\d+)\]/i
+          )?.[1] ||
           content.match(/textbox[^\n]*\[(ref_\d+)\]/i)?.[1] ||
           content.match(/combobox[^\n]*\[(ref_\d+)\]/i)?.[1]
 
         if (!searchRef) {
-          throw new Error(`Google search input ref not found in content:\n${content}`)
+          throw new Error(
+            `Google search input ref not found in content:\n${content}`
+          )
         }
 
         if (step === 1) {
@@ -89,9 +96,12 @@ test.describe("extension agent smoke", () => {
     )
 
     const page = await context.newPage()
-    await page.goto("https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1", {
-      waitUntil: "domcontentloaded"
-    })
+    await page.goto(
+      "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1",
+      {
+        waitUntil: "domcontentloaded"
+      }
+    )
     const initialPaused = await page
       .locator("video")
       .evaluate((video) => video.paused)
@@ -176,11 +186,14 @@ test.describe("extension agent smoke", () => {
       /Open the linked document in a new tab/i,
       ({ content, step }) => {
         const linkRef =
-          content.match(/link[^\n]*Open linked document[^\n]*\[(ref_\d+)\]/i)?.[1] ||
-          content.match(/link[^\n]*\[(ref_\d+)\]/i)?.[1]
+          content.match(
+            /link[^\n]*Open linked document[^\n]*\[(ref_\d+)\]/i
+          )?.[1] || content.match(/link[^\n]*\[(ref_\d+)\]/i)?.[1]
 
         if (!linkRef) {
-          throw new Error(`Linked document ref not found in content:\n${content}`)
+          throw new Error(
+            `Linked document ref not found in content:\n${content}`
+          )
         }
 
         if (step === 1) {

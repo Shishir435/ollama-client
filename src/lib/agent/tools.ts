@@ -20,13 +20,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "click_element",
-      description: "Click on an interactive element by its ref_id from the accessibility tree.",
+      description:
+        "Click on an interactive element by its ref_id from the accessibility tree.",
       parameters: {
         type: "object",
         properties: {
           element_id: {
             type: "string",
-            description: "The ref_id of the element to click, exactly as shown in the accessibility tree (e.g. ref_1, ref_2)"
+            description:
+              "The ref_id of the element to click, exactly as shown in the accessibility tree (e.g. ref_1, ref_2)"
           }
         },
         required: ["element_id"]
@@ -37,13 +39,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "fill_input",
-      description: "Type text into an input field or textarea by its ref_id from the accessibility tree.",
+      description:
+        "Type text into an input field or textarea by its ref_id from the accessibility tree.",
       parameters: {
         type: "object",
         properties: {
           element_id: {
             type: "string",
-            description: "The ref_id of the input or textarea element, exactly as shown in the accessibility tree (e.g. ref_3)"
+            description:
+              "The ref_id of the input or textarea element, exactly as shown in the accessibility tree (e.g. ref_3)"
           },
           value: {
             type: "string",
@@ -58,13 +62,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "select_option",
-      description: "Select a value from a dropdown (<select>) element by its ref_id from the accessibility tree.",
+      description:
+        "Select a value from a dropdown (<select>) element by its ref_id from the accessibility tree.",
       parameters: {
         type: "object",
         properties: {
           element_id: {
             type: "string",
-            description: "The ref_id of the select element, exactly as shown in the accessibility tree (e.g. ref_5)"
+            description:
+              "The ref_id of the select element, exactly as shown in the accessibility tree (e.g. ref_5)"
           },
           value: {
             type: "string",
@@ -113,7 +119,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "wait",
-      description: "Wait for a specified number of milliseconds (useful after clicking to wait for page updates).",
+      description:
+        "Wait for a specified number of milliseconds (useful after clicking to wait for page updates).",
       parameters: {
         type: "object",
         properties: {
@@ -137,7 +144,8 @@ export const BROWSER_TOOLS = [
         properties: {
           message: {
             type: "string",
-            description: "A summary of what was accomplished or why the task could not be completed"
+            description:
+              "A summary of what was accomplished or why the task could not be completed"
           },
           success: {
             type: "boolean",
@@ -152,13 +160,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "execute_js",
-      description: "Execute arbitrary JavaScript code in the page context. Use this to interact with video players, canvas elements, or any element that tools can't reach directly. Returns the result of the last expression.",
+      description:
+        "Execute arbitrary JavaScript code in the page context. Use this to interact with video players, canvas elements, or any element that tools can't reach directly. Returns the result of the last expression.",
       parameters: {
         type: "object",
         properties: {
           code: {
             type: "string",
-            description: "JavaScript code to execute. Example: document.querySelector('video').play()"
+            description:
+              "JavaScript code to execute. Example: document.querySelector('video').play()"
           }
         },
         required: ["code"]
@@ -169,17 +179,20 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "press_key",
-      description: "Send a keyboard key press to the focused element, or to a specific ref_id if provided. Use for shortcuts like Space (play/pause video), ArrowRight (seek forward), Escape, Enter, etc.",
+      description:
+        "Send a keyboard key press to the focused element, or to a specific ref_id if provided. Use for shortcuts like Space (play/pause video), ArrowRight (seek forward), Escape, Enter, etc.",
       parameters: {
         type: "object",
         properties: {
           key: {
             type: "string",
-            description: "Key to press: 'space', 'enter', 'escape', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab', 'backspace', 'delete', 'f', or any single character"
+            description:
+              "Key to press: 'space', 'enter', 'escape', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'tab', 'backspace', 'delete', 'f', or any single character"
           },
           element_id: {
             type: "string",
-            description: "Optional ref_id of the element to focus before pressing the key (e.g. ref_4)"
+            description:
+              "Optional ref_id of the element to focus before pressing the key (e.g. ref_4)"
           }
         },
         required: ["key"]
@@ -196,7 +209,8 @@ export const BROWSER_TOOLS = [
         properties: {
           element_id: {
             type: "string",
-            description: "The ref_id of the element to hover, exactly as shown in the accessibility tree (e.g. ref_7)"
+            description:
+              "The ref_id of the element to hover, exactly as shown in the accessibility tree (e.g. ref_7)"
           }
         },
         required: ["element_id"]
@@ -207,13 +221,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "navigate_to",
-      description: "Navigate the CURRENT active tab to a different URL. This replaces the page currently open in that tab.",
+      description:
+        "Navigate the CURRENT active tab to a different URL. This replaces the page currently open in that tab.",
       parameters: {
         type: "object",
         properties: {
           url: {
             type: "string",
-            description: "The full URL to navigate to (e.g. https://example.com)"
+            description:
+              "The full URL to navigate to (e.g. https://example.com)"
           }
         },
         required: ["url"]
@@ -224,7 +240,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "open_link_in_new_tab",
-      description: "Open a link element in a NEW browser tab while preserving the current tab. Prefer this over navigate_to when you want to inspect another page without losing the original context.",
+      description:
+        "Open a link element in a NEW browser tab while preserving the current tab. Prefer this over navigate_to when you want to inspect another page without losing the original context.",
       parameters: {
         type: "object",
         properties: {
@@ -234,7 +251,8 @@ export const BROWSER_TOOLS = [
           },
           background: {
             type: "boolean",
-            description: "If true, open the new tab in the background and keep the current tab active"
+            description:
+              "If true, open the new tab in the background and keep the current tab active"
           }
         },
         required: ["element_id"]
@@ -245,7 +263,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "open_url_in_new_tab",
-      description: "Open a full URL in a NEW browser tab while preserving the current tab.",
+      description:
+        "Open a full URL in a NEW browser tab while preserving the current tab.",
       parameters: {
         type: "object",
         properties: {
@@ -255,7 +274,8 @@ export const BROWSER_TOOLS = [
           },
           background: {
             type: "boolean",
-            description: "If true, open the new tab in the background and keep the current tab active"
+            description:
+              "If true, open the new tab in the background and keep the current tab active"
           }
         },
         required: ["url"]
@@ -266,7 +286,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "list_tabs",
-      description: "List the tabs in the current agent workspace, including the root tab and any tabs opened during this task.",
+      description:
+        "List the tabs in the current agent workspace, including the root tab and any tabs opened during this task.",
       parameters: {
         type: "object",
         properties: {}
@@ -277,7 +298,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "switch_to_tab",
-      description: "Switch the active browser context to another tab in the current agent workspace.",
+      description:
+        "Switch the active browser context to another tab in the current agent workspace.",
       parameters: {
         type: "object",
         properties: {
@@ -294,7 +316,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "return_to_root_tab",
-      description: "Switch back to the original tab where the current task started.",
+      description:
+        "Switch back to the original tab where the current task started.",
       parameters: {
         type: "object",
         properties: {}
@@ -339,7 +362,8 @@ export const BROWSER_TOOLS = [
         properties: {
           element_id: {
             type: "string",
-            description: "The ref_id of the link element whose URL should be copied"
+            description:
+              "The ref_id of the link element whose URL should be copied"
           }
         },
         required: ["element_id"]
@@ -350,13 +374,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "copy_page_text",
-      description: "Copy readable text from the page, or from a specific element if element_id is provided, to the clipboard.",
+      description:
+        "Copy readable text from the page, or from a specific element if element_id is provided, to the clipboard.",
       parameters: {
         type: "object",
         properties: {
           element_id: {
             type: "string",
-            description: "Optional ref_id of a specific element whose text should be copied"
+            description:
+              "Optional ref_id of a specific element whose text should be copied"
           }
         }
       }
@@ -408,7 +434,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "get_video_status",
-      description: "Get the current status (paused, playing, ended, currentTime, duration) of all video elements on the page.",
+      description:
+        "Get the current status (paused, playing, ended, currentTime, duration) of all video elements on the page.",
       parameters: {
         type: "object",
         properties: {}
@@ -419,7 +446,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "control_video",
-      description: "Play, pause, or toggle the first visible video on the page, or a specific video ref_id if provided. Prefer this over execute_js for YouTube and HTML5 video players.",
+      description:
+        "Play, pause, or toggle the first visible video on the page, or a specific video ref_id if provided. Prefer this over execute_js for YouTube and HTML5 video players.",
       parameters: {
         type: "object",
         properties: {
@@ -441,13 +469,15 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "wait_for_video_end",
-      description: "Wait until all video elements on the page have finished playing or are paused. Polls every 5 seconds. Use this to wait for a training video to complete before navigating to the next lesson.",
+      description:
+        "Wait until all video elements on the page have finished playing or are paused. Polls every 5 seconds. Use this to wait for a training video to complete before navigating to the next lesson.",
       parameters: {
         type: "object",
         properties: {
           timeout_ms: {
             type: "number",
-            description: "Maximum time to wait in milliseconds (default: 7200000 = 2 hours)"
+            description:
+              "Maximum time to wait in milliseconds (default: 7200000 = 2 hours)"
           }
         }
       }
@@ -457,7 +487,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "advance_to_next_video",
-      description: "Advance an e-learning player or lesson playlist to the next video. Use this after wait_for_video_end when a course page has a side panel, next button, or lesson list.",
+      description:
+        "Advance an e-learning player or lesson playlist to the next video. Use this after wait_for_video_end when a course page has a side panel, next button, or lesson list.",
       parameters: {
         type: "object",
         properties: {}
@@ -468,7 +499,8 @@ export const BROWSER_TOOLS = [
     type: "function",
     function: {
       name: "plan",
-      description: "Declare your plan of action before executing. Use this to reason about the steps needed. This does not take any action — it just records your thinking.",
+      description:
+        "Declare your plan of action before executing. Use this to reason about the steps needed. This does not take any action — it just records your thinking.",
       parameters: {
         type: "object",
         properties: {

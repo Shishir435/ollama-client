@@ -1,10 +1,8 @@
 ---
-import { navSections } from "@/data/nav"
-
 const normalizePath = (value: string) =>
   value === "/" ? "/" : value.replace(/\/$/, "")
 
-const currentPath = normalizePath(Astro.url.pathname)
+const _currentPath = normalizePath(Astro.url.pathname)
 ---
 
 <aside class="hidden w-64 shrink-0 border-r border-border bg-background md:block">

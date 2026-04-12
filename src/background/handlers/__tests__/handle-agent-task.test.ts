@@ -54,13 +54,15 @@ describe("handleAgentTask", () => {
       windowId: 1,
       index: 2
     }))
-    tabsUpdate.mockImplementation(async (tabId: number, updates: { url?: string; active?: boolean }) => ({
-      id: tabId,
-      url: updates.url || "https://www.google.com",
-      title: "Updated tab",
-      windowId: 1,
-      index: 1
-    }))
+    tabsUpdate.mockImplementation(
+      async (tabId: number, updates: { url?: string; active?: boolean }) => ({
+        id: tabId,
+        url: updates.url || "https://www.google.com",
+        title: "Updated tab",
+        windowId: 1,
+        index: 1
+      })
+    )
     tabsRemove.mockResolvedValue(undefined)
     downloadsDownload.mockResolvedValue(501)
     windowsUpdate.mockResolvedValue(undefined)
@@ -81,41 +83,61 @@ describe("handleAgentTask", () => {
     ])
     tabsGet.mockImplementation(async (tabId: number) => {
       if (tabId === 77) {
-        return { id: 77, url: "chrome-extension://test/sidepanel.html", title: "Sidepanel", windowId: 1, index: 0 }
+        return {
+          id: 77,
+          url: "chrome-extension://test/sidepanel.html",
+          title: "Sidepanel",
+          windowId: 1,
+          index: 0
+        }
       }
       if (tabId === 22) {
-        return { id: 22, url: "https://example.com/report.pdf", title: "Example", windowId: 1, index: 2 }
+        return {
+          id: 22,
+          url: "https://example.com/report.pdf",
+          title: "Example",
+          windowId: 1,
+          index: 2
+        }
       }
-      return { id: tabId, url: "https://www.google.com", title: "Google", windowId: 1, index: 1 }
-    })
-    tabsSendMessage.mockImplementation(async (_tabId: number, message: { type: string }) => {
-      switch (message.type) {
-        case "__agent_ping":
-          return { alive: true }
-        case "agent-read-page":
-          return {
-            success: true,
-            data: { pageContent: 'textbox "Search" [ref_1]', elementCount: 1 }
-          }
-        case "agent-get-page-text":
-          return { success: true, message: "Google homepage" }
-        case "agent-get-elements":
-          return {
-            success: true,
-            data: [
-              {
-                id: "ref_1",
-                type: "link",
-                text: "Example PDF",
-                visible: true,
-                href: "https://example.com/report.pdf"
-              }
-            ]
-          }
-        default:
-          return { success: true }
+      return {
+        id: tabId,
+        url: "https://www.google.com",
+        title: "Google",
+        windowId: 1,
+        index: 1
       }
     })
+    tabsSendMessage.mockImplementation(
+      async (_tabId: number, message: { type: string }) => {
+        switch (message.type) {
+          case "__agent_ping":
+            return { alive: true }
+          case "agent-read-page":
+            return {
+              success: true,
+              data: { pageContent: 'textbox "Search" [ref_1]', elementCount: 1 }
+            }
+          case "agent-get-page-text":
+            return { success: true, message: "Google homepage" }
+          case "agent-get-elements":
+            return {
+              success: true,
+              data: [
+                {
+                  id: "ref_1",
+                  type: "link",
+                  text: "Example PDF",
+                  visible: true,
+                  href: "https://example.com/report.pdf"
+                }
+              ]
+            }
+          default:
+            return { success: true }
+        }
+      }
+    )
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -151,11 +173,16 @@ describe("handleAgentTask", () => {
       }
     })
 
-    const postedMessages = vi.mocked(mockPort.postMessage).mock.calls.map(
-      ([message]) => message as { type: string; message?: string; status?: string }
-    )
+    const postedMessages = vi
+      .mocked(mockPort.postMessage)
+      .mock.calls.map(
+        ([message]) =>
+          message as { type: string; message?: string; status?: string }
+      )
 
-    const doneMessages = postedMessages.filter((message) => message.type === "done")
+    const doneMessages = postedMessages.filter(
+      (message) => message.type === "done"
+    )
     expect(doneMessages).toHaveLength(1)
     expect(doneMessages[0]).toEqual(
       expect.objectContaining({
@@ -164,12 +191,16 @@ describe("handleAgentTask", () => {
       })
     )
     expect(
-      doneMessages.some((message) => message.message?.includes("Reached maximum steps"))
+      doneMessages.some((message) =>
+        message.message?.includes("Reached maximum steps")
+      )
     ).toBe(false)
   })
 
   it("falls back from a preferred extension tab to the latest active web tab", async () => {
-    const { resolveTargetTabId } = await import("../handle-agent-task")
+    const { resolveTargetTabId } = await import(
+      "@/lib/agent/browser-automation"
+    )
 
     const resolvedTabId = await resolveTargetTabId(77)
 
@@ -201,9 +232,12 @@ describe("handleAgentTask", () => {
 
     await vi.advanceTimersByTimeAsync(10_000)
 
-    const postedMessages = vi.mocked(mockPort.postMessage).mock.calls.map(
-      ([message]) => message as { type: string; message?: string; heartbeat?: boolean }
-    )
+    const postedMessages = vi
+      .mocked(mockPort.postMessage)
+      .mock.calls.map(
+        ([message]) =>
+          message as { type: string; message?: string; heartbeat?: boolean }
+      )
 
     expect(
       postedMessages.some(
@@ -221,27 +255,38 @@ describe("handleAgentTask", () => {
   it("marks video waits as contextual wait states instead of generic slow model work", async () => {
     vi.useFakeTimers()
 
-    tabsSendMessage.mockImplementation(async (_tabId: number, message: { type: string; payload?: { type?: string } }) => {
-      switch (message.type) {
-        case "__agent_ping":
-          return { alive: true }
-        case "agent-read-page":
-          return {
-            success: true,
-            data: { pageContent: 'video "Lesson player" [ref_33]', elementCount: 1 }
-          }
-        case "agent-get-page-text":
-          return { success: true, message: "Lesson page" }
-        case "agent-execute-action":
-          if (message.payload?.type === "wait_for_video_end") {
-            await new Promise((resolve) => setTimeout(resolve, 11_000))
-            return { success: true, message: "The current video finished playback." }
-          }
-          return { success: true }
-        default:
-          return { success: true, data: [] }
+    tabsSendMessage.mockImplementation(
+      async (
+        _tabId: number,
+        message: { type: string; payload?: { type?: string } }
+      ) => {
+        switch (message.type) {
+          case "__agent_ping":
+            return { alive: true }
+          case "agent-read-page":
+            return {
+              success: true,
+              data: {
+                pageContent: 'video "Lesson player" [ref_33]',
+                elementCount: 1
+              }
+            }
+          case "agent-get-page-text":
+            return { success: true, message: "Lesson page" }
+          case "agent-execute-action":
+            if (message.payload?.type === "wait_for_video_end") {
+              await new Promise((resolve) => setTimeout(resolve, 11_000))
+              return {
+                success: true,
+                message: "The current video finished playback."
+              }
+            }
+            return { success: true }
+          default:
+            return { success: true, data: [] }
+        }
       }
-    })
+    )
 
     global.fetch = vi
       .fn()
@@ -298,7 +343,13 @@ describe("handleAgentTask", () => {
     await vi.advanceTimersByTimeAsync(10_500)
 
     const postedMessages = vi.mocked(mockPort.postMessage).mock.calls.map(
-      ([message]) => message as { type: string; message?: string; heartbeat?: boolean; waitContext?: string }
+      ([message]) =>
+        message as {
+          type: string
+          message?: string
+          heartbeat?: boolean
+          waitContext?: string
+        }
     )
 
     expect(

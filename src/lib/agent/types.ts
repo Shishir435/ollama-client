@@ -53,9 +53,9 @@ export interface AgentAction {
   url?: string
   ms?: number
   message?: string
-  code?: string      // for execute_js
-  key?: string       // for press_key
-  text?: string      // for plan
+  code?: string // for execute_js
+  key?: string // for press_key
+  text?: string // for plan
   state?: "play" | "pause" | "toggle"
   tab_id?: number
   tab_index?: number

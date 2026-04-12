@@ -1,9 +1,8 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Command,
   CommandEmpty,
@@ -32,8 +31,8 @@ import { cn } from "@/lib/utils"
 
 import {
   formatFileSize,
-  getModelSuitability,
   getModelIcon,
+  getModelSuitability,
   isEmbeddingModel
 } from "../lib/model-utils"
 
@@ -71,7 +70,8 @@ export const ModelMenu = ({
     ? models.find(
         (model) =>
           model.name === selectedModelRef.modelId &&
-          (model.providerId || DEFAULT_PROVIDER_ID) === selectedModelRef.providerId
+          (model.providerId || DEFAULT_PROVIDER_ID) ===
+            selectedModelRef.providerId
       )
     : models.find((model) => model.name === selectedModel)
   const selectedSuitability = selectedModelData
@@ -180,7 +180,9 @@ export const ModelMenu = ({
               </div>
             )}
             {selectedModelWarning && (
-              <Alert variant="default" className="mb-2 border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100">
+              <Alert
+                variant="default"
+                className="mb-2 border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                 <AlertDescription className="text-xs">
                   {selectedModelWarning}
@@ -226,7 +228,7 @@ export const ModelMenu = ({
 
             {Object.entries(groupedModels).map(([providerId, group]) => (
               <CommandGroup key={providerId} heading={group.name}>
-                {group.models.map((model) => (
+                {group.models.map((model) =>
                   (() => {
                     const modelSuitability = getModelSuitability(model)
                     const modelWarning = modelSuitability.summary
@@ -253,29 +255,31 @@ export const ModelMenu = ({
                                 Embedding Only
                               </Badge>
                             )}
-                            {modelSuitability.weakForAgent && !modelSuitability.embeddingOnly && (
-                              <Badge
-                                variant="secondary"
-                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
-                                Agent Weak
-                              </Badge>
-                            )}
-                            {modelSuitability.lacksVisionSupport && !modelSuitability.embeddingOnly && (
-                              <Badge
-                                variant="secondary"
-                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
-                                No Vision
-                              </Badge>
-                            )}
+                            {modelSuitability.weakForAgent &&
+                              !modelSuitability.embeddingOnly && (
+                                <Badge
+                                  variant="secondary"
+                                  className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                  Agent Weak
+                                </Badge>
+                              )}
+                            {modelSuitability.lacksVisionSupport &&
+                              !modelSuitability.embeddingOnly && (
+                                <Badge
+                                  variant="secondary"
+                                  className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                  No Vision
+                                </Badge>
+                              )}
                             {modelSuitability.weakForVision &&
                               !modelSuitability.lacksVisionSupport &&
                               !modelSuitability.embeddingOnly && (
-                              <Badge
-                                variant="secondary"
-                                className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
-                                Vision Weak
-                              </Badge>
-                            )}
+                                <Badge
+                                  variant="secondary"
+                                  className="h-4 px-1 text-[10px] text-amber-700 dark:text-amber-300">
+                                  Vision Weak
+                                </Badge>
+                              )}
                             {duplicateModelNames.has(model.name) && (
                               <Badge
                                 variant="secondary"
@@ -321,7 +325,7 @@ export const ModelMenu = ({
                       </CommandItem>
                     )
                   })()
-                ))}
+                )}
               </CommandGroup>
             ))}
           </CommandList>

@@ -1,6 +1,6 @@
 import { Readability } from "@mozilla/readability"
 import Defuddle from "defuddle"
-
+import { registerAgentActionListener } from "@/lib/agent/dom-actions"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
@@ -11,7 +11,6 @@ import {
   extractContentWithLoading,
   getEffectiveConfig
 } from "@/lib/content-extractor"
-import { registerAgentActionListener } from "@/lib/agent/dom-actions"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import { normalizeWhitespaceForLLM } from "@/lib/utils"
@@ -500,7 +499,12 @@ browser.runtime.onMessage.addListener(
             console.log(
               `[Content Script] Extraction skipped: Only ${finalContent?.length || 0} chars extracted`
             )
-            try { sendResponse({ html: finalContent || "", title: pageTitle || document.title || "Untitled" }) } catch (_) {}
+            try {
+              sendResponse({
+                html: finalContent || "",
+                title: pageTitle || document.title || "Untitled"
+              })
+            } catch (_) {}
             return true
           }
 

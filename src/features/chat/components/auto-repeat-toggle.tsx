@@ -25,8 +25,11 @@ export const AutoRepeatToggle = () => {
           ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
           : "text-muted-foreground hover:bg-muted/50"
       )}
-      title={autoRepeatEnabled ? "Auto-Repeat Agent Task ON" : "Auto-Repeat Agent Task OFF"}
-    >
+      title={
+        autoRepeatEnabled
+          ? "Auto-Repeat Agent Task ON"
+          : "Auto-Repeat Agent Task OFF"
+      }>
       <Repeat className="h-4 w-4" />
     </button>
   )

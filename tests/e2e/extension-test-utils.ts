@@ -1,11 +1,19 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { chromium, type BrowserContext, type Page, type Route } from "playwright"
+import {
+  type BrowserContext,
+  chromium,
+  type Page,
+  type Route
+} from "playwright"
 
 const extensionPath = path.resolve("build/chrome-mv3-prod")
 
-const buildToolCallResponse = (name: string, args: Record<string, unknown>) => ({
+const buildToolCallResponse = (
+  name: string,
+  args: Record<string, unknown>
+) => ({
   message: {
     content: "",
     tool_calls: [
@@ -157,12 +165,17 @@ export const mockOllamaForTask = async (
     const payload = request.postDataJSON() as
       | { messages?: Array<{ content?: string }> }
       | undefined
-    const content = payload?.messages?.map((message) => message.content || "").join("\n") || ""
+    const content =
+      payload?.messages?.map((message) => message.content || "").join("\n") ||
+      ""
     const taskKey =
       content.match(/Task:\s*(.+)/)?.[1]?.trim() || taskMatcher.source
 
     if (!taskMatcher.test(content)) {
-      await fulfillOllamaRoute(route, buildTaskCompleteResponse("Unhandled mocked task"))
+      await fulfillOllamaRoute(
+        route,
+        buildTaskCompleteResponse("Unhandled mocked task")
+      )
       return
     }
 
@@ -184,7 +197,10 @@ export const mockOllamaForTask = async (
       return
     }
 
-    await fulfillOllamaRoute(route, buildTaskCompleteResponse(completionMessage))
+    await fulfillOllamaRoute(
+      route,
+      buildTaskCompleteResponse(completionMessage)
+    )
   })
 }
 
@@ -295,16 +311,22 @@ export const runAgentTask = async (
 
             port.onMessage.addListener((message) => {
               stream.push({
-                type: typeof message?.type === "string" ? message.type : undefined,
+                type:
+                  typeof message?.type === "string" ? message.type : undefined,
                 status:
-                  typeof message?.status === "string" ? message.status : undefined,
+                  typeof message?.status === "string"
+                    ? message.status
+                    : undefined,
                 message:
                   typeof message?.message === "string"
                     ? message.message
                     : undefined,
                 error:
-                  typeof message?.error === "string" ? message.error : undefined,
-                mode: typeof message?.mode === "string" ? message.mode : undefined,
+                  typeof message?.error === "string"
+                    ? message.error
+                    : undefined,
+                mode:
+                  typeof message?.mode === "string" ? message.mode : undefined,
                 step: message?.step
               })
 
@@ -358,11 +380,7 @@ export const runAgentTask = async (
           })
           .catch((error) => {
             clearTimeout(timeoutId)
-            reject(
-              error instanceof Error
-                ? error
-                : new Error(String(error))
-            )
+            reject(error instanceof Error ? error : new Error(String(error)))
           })
       }),
     { task, overrides }
