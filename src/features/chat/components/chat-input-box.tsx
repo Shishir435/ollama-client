@@ -15,6 +15,8 @@ import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
 import { TabsSelect } from "@/features/tabs/components/tabs-select"
+import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
+import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
@@ -43,6 +45,8 @@ export const ChatInputBox = ({
   const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
+  const { selectedTabIds, errors } = useSelectedTabs()
+  const { tabContents, loadingIds } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
@@ -134,6 +138,18 @@ export const ChatInputBox = ({
   }
 
   const handleSend = () => {
+    const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
+    const pendingTabCount = selectedTabNums.filter(
+      (tabId) => loadingIds?.[tabId]
+    ).length
+    if (tabAccess && pendingTabCount > 0) {
+      toast({
+        title: "Preparing tab context",
+        description: `Still extracting ${pendingTabCount} selected tab${pendingTabCount > 1 ? "s" : ""}. Please wait a moment.`
+      })
+      return
+    }
+
     const successfulFiles = processingStates
       .filter(
         (s): s is typeof s & { status: "success"; result: ProcessedFile } =>
@@ -288,6 +304,19 @@ export const ChatInputBox = ({
     (s) => s.status === "success"
   ).length
 
+  const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
+  const pendingTabCount = selectedTabNums.filter(
+    (tabId) => loadingIds?.[tabId]
+  ).length
+  const failedTabCount = selectedTabNums.filter(
+    (tabId) => errors?.[tabId]
+  ).length
+  const readyTabCount = selectedTabNums.filter((tabId) => {
+    const content = tabContents?.[tabId]
+    return !!content?.html?.trim() && !errors?.[tabId]
+  }).length
+  const isPreparingTabContext = tabAccess && pendingTabCount > 0
+
   return (
     <div className="relative">
       {showSessionMetrics && <SessionMetricsBar messages={messages} />}
@@ -295,6 +324,19 @@ export const ChatInputBox = ({
       <div className="mb-1">
         <TabsSelect />
       </div>
+      {tabAccess && selectedTabIds.length > 0 && (
+        <div className="mb-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          {isPreparingTabContext
+            ? `Preparing tab context... ${pendingTabCount} tab${pendingTabCount > 1 ? "s" : ""} still extracting.`
+            : `Tab context ready: ${readyTabCount}/${selectedTabIds.length} selected tabs.`}
+          {failedTabCount > 0 && (
+            <div className="text-red-400">
+              {failedTabCount} tab{failedTabCount > 1 ? "s" : ""} failed
+              extraction. You can remove or refresh those tabs.
+            </div>
+          )}
+        </div>
+      )}
 
       <ChatInputAttachmentList
         processingStates={processingStates}
@@ -359,6 +401,10 @@ export const ChatInputBox = ({
           <SendOrStopButton
             onSend={handleSend}
             stopGeneration={stopGeneration}
+            disabledSend={isPreparingTabContext}
+            sendLabel={
+              isPreparingTabContext ? "Preparing tab context..." : undefined
+            }
           />
         </div>
       </div>
