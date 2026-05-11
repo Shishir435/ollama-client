@@ -181,6 +181,50 @@ pnpm build:firefox
 pnpm package:firefox
 ```
 
+### Verify Across Browsers (No Manual Steps)
+
+Run this command to automatically verify CSP + browser-specific permission behavior:
+
+```bash
+pnpm verify:browser-smoke
+```
+
+Run local browser automation (sequential Chromium then Firefox):
+
+```bash
+pnpm verify:browser-automation
+```
+
+To require Ollama connectivity during automation:
+
+```bash
+OLLAMA_REQUIRED=true OLLAMA_BASE_URL=http://localhost:11434 pnpm verify:browser-automation
+```
+
+What this command checks:
+
+- Builds Chrome and Firefox artifacts.
+- Asserts CSP `connect-src` contains extension-safe local/remote patterns.
+- Asserts Chrome keeps `declarativeNetRequest` and `sidePanel`.
+- Asserts Firefox removes Chrome-only permissions.
+- Asserts required shared permissions and host permissions exist.
+
+Expected outcome:
+
+- Pass: prints `Browser smoke verification passed`.
+- Fail: exits non-zero with a specific missing/invalid manifest or CSP assertion.
+
+For full release confidence, use:
+
+```bash
+pnpm lint:check && pnpm test:run && pnpm verify:browser-smoke
+```
+
+Firefox note:
+
+- Firefox cannot use Chrome DNR CORS workaround; provider-side CORS must be configured.
+- Use [`tools/ollama-env.sh`](./tools/ollama-env.sh) in `firefox` mode for Ollama.
+
 ## Basic Usage Flow
 
 1. Start provider service.
