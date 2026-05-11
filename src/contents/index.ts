@@ -141,6 +141,7 @@ const initYouTubeFeatures = () => {
       __testTranscript?: () => Promise<void>
       __testExtraction?: () => Promise<void>
       __getExtractionLogs?: () => unknown[]
+      __lastProviderExtractionResult?: unknown
     }
   ).__testExtraction = async () => {
     console.log("[Manual Test] Starting manual extraction test...")
@@ -507,10 +508,27 @@ browser.runtime.onMessage.addListener(
           console.log(
             `[Content Script] Sending response with ${finalContent.length} total chars`
           )
+          const extractionDebug = {
+            url: currentUrl,
+            title: pageTitle || document.title || "Untitled",
+            scraper,
+            hasTranscript: !!transcript,
+            transcriptLength: transcript?.length || 0,
+            contentLength: finalContent.length,
+            extractionDurationMs: extractionResult?.metrics?.duration,
+            scrollSteps: extractionResult?.metrics?.scrollSteps,
+            mutationsDetected: extractionResult?.metrics?.mutationsDetected,
+            detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+            preview: finalContent.slice(0, 400)
+          }
+          ;(
+            window as unknown as { __lastProviderExtractionResult?: unknown }
+          ).__lastProviderExtractionResult = extractionDebug
           try {
             sendResponse({
               html: finalContent,
-              title: pageTitle || document.title || "Untitled"
+              title: pageTitle || document.title || "Untitled",
+              extractionDebug
             })
           } catch {
             // Channel closed - ignore

@@ -2,8 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Button } from "@/components/ui/button"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
+import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
@@ -28,7 +30,9 @@ export const TabsSelect = () => {
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(tabAccess)
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
+  const { tabContents } = useTabContents()
   const getTabStatus = useTabStatusMap()
+  const [showInspector, setShowInspector] = useState(false)
 
   // Get excluded patterns from new config, fallback to old storage
   const [config] = useStorage<ContentExtractionConfig>(
@@ -77,13 +81,52 @@ export const TabsSelect = () => {
     }))
 
   return (
-    <MultiSelect
-      options={tabOptions}
-      onValueChange={setSelectedTabIds}
-      onRefresh={refreshTabs}
-      defaultValue={selectedTabIds}
-      placeholder={t("tabs.select.placeholder")}
-      statusForValue={getTabStatus}
-    />
+    <div className="space-y-2">
+      <MultiSelect
+        options={tabOptions}
+        onValueChange={setSelectedTabIds}
+        onRefresh={refreshTabs}
+        defaultValue={selectedTabIds}
+        placeholder={t("tabs.select.placeholder")}
+        statusForValue={getTabStatus}
+      />
+      {selectedTabIds.length > 0 && (
+        <div className="space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInspector((prev) => !prev)}>
+            {showInspector
+              ? "Hide extracted content"
+              : "View extracted content"}
+          </Button>
+          {showInspector && (
+            <div className="max-h-52 space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2 text-xs">
+              {selectedTabIds.map((id) => {
+                const tabId = parseInt(id, 10)
+                const item = tabContents[tabId]
+                const preview = item?.html?.slice(0, 300) || ""
+                return (
+                  <div key={id} className="rounded border bg-background p-2">
+                    <div className="font-medium">
+                      {item?.title || "Untitled"}
+                    </div>
+                    <div className="text-muted-foreground">
+                      chars: {item?.html?.length || 0}
+                      {item?.extractionDebug?.scraper
+                        ? ` | scraper: ${item.extractionDebug.scraper}`
+                        : ""}
+                    </div>
+                    <div className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                      {preview || "(No extracted content yet)"}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

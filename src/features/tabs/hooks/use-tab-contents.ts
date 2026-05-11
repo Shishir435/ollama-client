@@ -9,7 +9,14 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeResponse } from "@/types"
 
 interface TabFetchingState {
-  tabContents: Record<number, { title: string; html: string }>
+  tabContents: Record<
+    number,
+    {
+      title: string
+      html: string
+      extractionDebug?: ChromeResponse["extractionDebug"]
+    }
+  >
   loadingIds: Record<number, boolean>
   fetchedIds: number[]
   fetchTabContent: (
@@ -53,7 +60,14 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
       const title = response?.title || fallbackTitle || "Untitled"
 
       set((s) => ({
-        tabContents: { ...s.tabContents, [tabId]: { html, title } },
+        tabContents: {
+          ...s.tabContents,
+          [tabId]: {
+            html,
+            title,
+            extractionDebug: response?.extractionDebug
+          }
+        },
         loadingIds: { ...s.loadingIds, [tabId]: false }
       }))
     } catch (err) {

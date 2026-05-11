@@ -119,15 +119,18 @@ export const useChat = () => {
     setMessages: async (newMessages) => {
       // Logic to update UI state immediately (skip DB)
       if (currentStreamingMessageId.current && newMessages.length > 0) {
-        const lastMsg = newMessages[newMessages.length - 1]
-        if (DEBUG_THINKING_STREAM && lastMsg.thinking) {
+        const streamedMsg =
+          newMessages.find((m) => m.id === currentStreamingMessageId.current) ||
+          newMessages[newMessages.length - 1]
+        if (!streamedMsg) return
+        if (DEBUG_THINKING_STREAM && streamedMsg.thinking) {
           const id = currentStreamingMessageId.current
-          const nextLen = lastMsg.thinking.length
+          const nextLen = streamedMsg.thinking?.length || 0
           const prevLen = thinkingLogRef.current.get(id) ?? 0
           if (nextLen !== prevLen) {
             console.log("[ThinkingStore] len", nextLen, {
               id,
-              tail: lastMsg.thinking.slice(-120)
+              tail: streamedMsg.thinking?.slice(-120)
             })
             thinkingLogRef.current.set(id, nextLen)
           }
@@ -136,20 +139,20 @@ export const useChat = () => {
         updateMessage(
           currentStreamingMessageId.current,
           {
-            content: lastMsg.content,
-            thinking: lastMsg.thinking,
-            metrics: lastMsg.metrics,
-            done: lastMsg.done
+            content: streamedMsg.content,
+            thinking: streamedMsg.thinking,
+            metrics: streamedMsg.metrics,
+            done: streamedMsg.done
           },
           true // true = skip DB
         )
 
         // Debounce DB update
-        if (!lastMsg.done) {
+        if (!streamedMsg.done) {
           debouncedDbUpdate(
             currentStreamingMessageId.current,
-            lastMsg.content,
-            lastMsg.thinking
+            streamedMsg.content,
+            streamedMsg.thinking
           )
         } else {
           // Final update should flush DB immediately
@@ -158,9 +161,9 @@ export const useChat = () => {
           updateMessage(
             currentStreamingMessageId.current,
             {
-              content: lastMsg.content,
-              thinking: lastMsg.thinking,
-              metrics: lastMsg.metrics,
+              content: streamedMsg.content,
+              thinking: streamedMsg.thinking,
+              metrics: streamedMsg.metrics,
               done: true
             },
             false
@@ -298,7 +301,7 @@ export const useChat = () => {
       content: userContent,
       attachments
     }
-    await addMessage(currentSessionId, userMessage)
+    await addMessage(sessionId, userMessage)
 
     // Clear input immediately for better UX
     if (!customInput) setInput("")
