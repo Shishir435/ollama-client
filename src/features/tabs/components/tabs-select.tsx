@@ -3,6 +3,13 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
@@ -91,40 +98,52 @@ export const TabsSelect = () => {
         statusForValue={getTabStatus}
       />
       {selectedTabIds.length > 0 && (
-        <div className="space-y-2">
+        <div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowInspector((prev) => !prev)}>
-            {showInspector
-              ? "Hide extracted content"
-              : "View extracted content"}
+            onClick={() => setShowInspector(true)}>
+            View extracted content
           </Button>
-          {showInspector && (
-            <div className="max-h-52 space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2 text-xs">
-              {selectedTabIds.map((id) => {
-                const tabId = parseInt(id, 10)
-                const item = tabContents[tabId]
-                const preview = item?.html?.slice(0, 300) || ""
-                return (
-                  <div key={id} className="rounded border bg-background p-2">
-                    <div className="font-medium">
-                      {item?.title || "Untitled"}
-                    </div>
-                    <div className="text-muted-foreground">
-                      chars: {item?.html?.length || 0}
-                      {item?.extractionDebug?.scraper
-                        ? ` | scraper: ${item.extractionDebug.scraper}`
-                        : ""}
-                    </div>
-                    <div className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
-                      {preview || "(No extracted content yet)"}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <Dialog open={showInspector} onOpenChange={setShowInspector}>
+            <DialogContent className="h-[85vh] max-w-[95vw] w-full p-0 sm:max-w-5xl">
+              <DialogHeader className="border-b px-5 py-4">
+                <DialogTitle>Extracted Tab Context</DialogTitle>
+                <DialogDescription>
+                  Review exactly what will be used as tab context before send.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <div className="space-y-3">
+                  {selectedTabIds.map((id) => {
+                    const tabId = parseInt(id, 10)
+                    const item = tabContents[tabId]
+                    const extractedText = item?.html || ""
+                    return (
+                      <div key={id} className="rounded-md border bg-muted/20">
+                        <div className="border-b bg-background px-3 py-2">
+                          <div className="font-medium">
+                            {item?.title || "Untitled"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            chars: {extractedText.length}
+                            {item?.extractionDebug?.scraper
+                              ? ` | scraper: ${item.extractionDebug.scraper}`
+                              : ""}
+                          </div>
+                        </div>
+                        <div className="max-h-[42vh] overflow-auto p-3">
+                          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+                            {extractedText || "(No extracted content yet)"}
+                          </pre>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
     </div>
