@@ -16,6 +16,18 @@ import { getTranscript } from "@/lib/transcript-extractor"
 import { normalizeWhitespaceForLLM } from "@/lib/utils"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
+const htmlToPlainText = (html: string) => {
+  const container = document.createElement("div")
+  container.innerHTML = html
+  return normalizeWhitespaceForLLM(container.textContent || "")
+}
+
+const stripHtmlIfNeeded = (content: string) => {
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content)
+  if (!looksLikeHtml) return content
+  return htmlToPlainText(content)
+}
+
 const isExcludedUrl = async (url: string): Promise<boolean> => {
   // Try to get patterns from new config first
   const storedConfig = await plasmoGlobalStorage.get<ContentExtractionConfig>(
@@ -141,6 +153,7 @@ const initYouTubeFeatures = () => {
       __testTranscript?: () => Promise<void>
       __testExtraction?: () => Promise<void>
       __getExtractionLogs?: () => unknown[]
+      __lastProviderExtractionResult?: unknown
     }
   ).__testExtraction = async () => {
     console.log("[Manual Test] Starting manual extraction test...")
@@ -348,6 +361,7 @@ browser.runtime.onMessage.addListener(
               readableText =
                 defuddleResult?.contentMarkdown || defuddleResult?.content || ""
               readableText = normalizeWhitespaceForLLM(readableText)
+              readableText = stripHtmlIfNeeded(readableText)
               pageTitle = defuddleResult?.title || ""
 
               console.log(
@@ -400,6 +414,7 @@ browser.runtime.onMessage.addListener(
                 readableText.trim().length < 50
               ) {
                 readableText = normalizedReadability
+                readableText = stripHtmlIfNeeded(readableText)
                 console.log(
                   `[Content Script] Readability extracted ${readableText.length} chars`
                 )
@@ -424,6 +439,7 @@ browser.runtime.onMessage.addListener(
             // Remove very short content (likely navigation/UI noise)
             if (normalizedBody.length > 200) {
               readableText = normalizedBody
+              readableText = stripHtmlIfNeeded(readableText)
               console.log(
                 `[Content Script] Basic extraction successful: ${readableText.length} chars`
               )
@@ -507,10 +523,27 @@ browser.runtime.onMessage.addListener(
           console.log(
             `[Content Script] Sending response with ${finalContent.length} total chars`
           )
+          const extractionDebug = {
+            url: currentUrl,
+            title: pageTitle || document.title || "Untitled",
+            scraper,
+            hasTranscript: !!transcript,
+            transcriptLength: transcript?.length || 0,
+            contentLength: finalContent.length,
+            extractionDurationMs: extractionResult?.metrics?.duration,
+            scrollSteps: extractionResult?.metrics?.scrollSteps,
+            mutationsDetected: extractionResult?.metrics?.mutationsDetected,
+            detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+            preview: finalContent.slice(0, 400)
+          }
+          ;(
+            window as unknown as { __lastProviderExtractionResult?: unknown }
+          ).__lastProviderExtractionResult = extractionDebug
           try {
             sendResponse({
               html: finalContent,
-              title: pageTitle || document.title || "Untitled"
+              title: pageTitle || document.title || "Untitled",
+              extractionDebug
             })
           } catch {
             // Channel closed - ignore

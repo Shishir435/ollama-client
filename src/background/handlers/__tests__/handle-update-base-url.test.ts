@@ -372,5 +372,64 @@ describe("handleUpdateBaseUrl", () => {
         "https://ollama.myserver.com:8080"
       )
     })
+
+    it("should normalize OpenAI-compatible LM Studio endpoint paths", async () => {
+      const { isChromiumBased } = await import("@/lib/browser-api")
+      vi.mocked(isChromiumBased).mockReturnValue(true)
+
+      await handleUpdateBaseUrl(
+        "http://localhost:1234/v1/chat/completions",
+        mockSendResponse
+      )
+
+      const callArgs =
+        mockDeclarativeNetRequest.updateDynamicRules.mock.calls[0][0]
+      const addedRule = callArgs.addRules[0]
+
+      expect(addedRule.action.requestHeaders[0].value).toBe(
+        "http://localhost:1234"
+      )
+      expect(addedRule.condition.urlFilter).toBe("http://localhost:1234/*")
+    })
+
+    it("should normalize LM Studio native API endpoint paths", async () => {
+      const { isChromiumBased } = await import("@/lib/browser-api")
+      vi.mocked(isChromiumBased).mockReturnValue(true)
+
+      await handleUpdateBaseUrl(
+        "http://192.168.1.42:1234/api/v0/chat/completions",
+        mockSendResponse
+      )
+
+      const callArgs =
+        mockDeclarativeNetRequest.updateDynamicRules.mock.calls[0][0]
+      const addedRule = callArgs.addRules[0]
+
+      expect(addedRule.action.requestHeaders[0].value).toBe(
+        "http://192.168.1.42:1234"
+      )
+      expect(addedRule.condition.urlFilter).toBe("http://192.168.1.42:1234/*")
+    })
+
+    it("should normalize llama.cpp OpenAI-compatible endpoint paths", async () => {
+      const { isChromiumBased } = await import("@/lib/browser-api")
+      vi.mocked(isChromiumBased).mockReturnValue(true)
+
+      await handleUpdateBaseUrl(
+        "https://llama.example.net:8000/v1/models",
+        mockSendResponse
+      )
+
+      const callArgs =
+        mockDeclarativeNetRequest.updateDynamicRules.mock.calls[0][0]
+      const addedRule = callArgs.addRules[0]
+
+      expect(addedRule.action.requestHeaders[0].value).toBe(
+        "https://llama.example.net:8000"
+      )
+      expect(addedRule.condition.urlFilter).toBe(
+        "https://llama.example.net:8000/*"
+      )
+    })
   })
 })

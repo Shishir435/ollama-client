@@ -11,10 +11,14 @@ import { Circle, SendHorizontal } from "@/lib/lucide-icon"
 
 export const SendOrStopButton = ({
   onSend,
-  stopGeneration
+  stopGeneration,
+  disabledSend = false,
+  sendLabel
 }: {
   onSend: () => void
   stopGeneration: () => void
+  disabledSend?: boolean
+  sendLabel?: string
 }) => {
   const { t } = useTranslation()
   const { isLoading, isStreaming } = useLoadStream()
@@ -27,10 +31,11 @@ export const SendOrStopButton = ({
           variant="ghost"
           size="icon"
           className="rounded-full"
+          disabled={!isStreaming && !isLoading && disabledSend}
           aria-label={
             isStreaming || isLoading
               ? t("chat.send.stop_generation")
-              : t("chat.send.send_message")
+              : sendLabel || t("chat.send.send_message")
           }>
           {isStreaming || isLoading ? (
             <Circle size={16} className="animate-pulse text-red-500" />
@@ -42,7 +47,7 @@ export const SendOrStopButton = ({
       <TooltipContent>
         {isStreaming || isLoading
           ? t("chat.send.stop_generation")
-          : t("chat.send.send_message")}
+          : sendLabel || t("chat.send.send_message")}
       </TooltipContent>
     </Tooltip>
   )

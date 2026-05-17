@@ -149,6 +149,19 @@ export interface ChromeResponse {
   tabs?: browser.Tabs.Tab[]
   html?: string
   title?: string
+  extractionDebug?: {
+    url: string
+    title: string
+    scraper: string
+    hasTranscript: boolean
+    transcriptLength: number
+    contentLength: number
+    extractionDurationMs?: number
+    scrollSteps?: number
+    mutationsDetected?: number
+    detectedPatterns?: string[]
+    preview?: string
+  }
 }
 
 export interface ModelCheckResponse extends ChromeResponse {

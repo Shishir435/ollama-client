@@ -13,7 +13,7 @@ export default defineConfig({
   outDirTemplate: "",
   publicDir: "public",
   manifest: {
-    name: packageJson.name,
+    name: packageJson.displayName,
     description: packageJson.description,
     version: packageJson.version,
     homepage_url: packageJson.homepage,
@@ -49,7 +49,7 @@ export default defineConfig({
     ],
     content_security_policy: {
       extension_pages:
-        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:*; object-src 'self'"
+        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://*:* https://*:* ws://*:* wss://*:*; object-src 'self'"
     },
     browser_specific_settings: {
       gecko: {

@@ -29,6 +29,24 @@ import { isBetaProvider } from "@/lib/providers/registry"
 import { type ProviderConfig, ProviderId } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
+const getCspCompatibilityHint = (baseUrl?: string) => {
+  const trimmedUrl = baseUrl?.trim()
+  if (!trimmedUrl) return null
+
+  try {
+    const parsed = new URL(trimmedUrl)
+    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+      parsed.hostname
+    )
+
+    if (isLocalhost) return null
+
+    return 'If you are on an older extension build and see "Failed to fetch" with Content Security Policy errors, update/reload the extension to apply LAN endpoint support.'
+  } catch {
+    return null
+  }
+}
+
 export const ProviderSettings = () => {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderConfig[]>([])
@@ -115,6 +133,7 @@ export const ProviderSettings = () => {
   }, [selectedId])
 
   const activeConfig = providers.find((p) => p.id === selectedId)
+  const cspCompatibilityHint = getCspCompatibilityHint(activeConfig?.baseUrl)
 
   const handleTestConnection = async () => {
     if (!activeConfig) return
@@ -176,17 +195,28 @@ export const ProviderSettings = () => {
       console.error("[ProviderSettings] Connection test failed:", error)
       const errorMessage =
         error instanceof Error ? error.message : "Failed to connect"
+      const shouldShowCspHint =
+        errorMessage.toLowerCase().includes("failed to fetch") &&
+        Boolean(cspCompatibilityHint)
+      const failureMessage = shouldShowCspHint
+        ? `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}. ${cspCompatibilityHint}`
+        : `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}`
 
       setConnectionStatus({
         success: false,
-        message: `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}`
+        message: failureMessage
       })
 
       toast({
         title: t("settings.providers.test_connection.failed_title"),
         description: t(
           "settings.providers.test_connection.failed_description",
-          { url: activeConfig.baseUrl, error: errorMessage }
+          {
+            url: activeConfig.baseUrl,
+            error: shouldShowCspHint
+              ? `${errorMessage}. ${cspCompatibilityHint}`
+              : errorMessage
+          }
         ),
         variant: "destructive"
       })
@@ -516,6 +546,11 @@ export const ProviderSettings = () => {
                 <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
                   This endpoint is remote. Prompts and responses will be sent
                   outside your local machine.
+                </p>
+              )}
+              {cspCompatibilityHint && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {cspCompatibilityHint}
                 </p>
               )}
             </SettingsFormField>
