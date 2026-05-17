@@ -14,7 +14,11 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
-import { STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_MAX_RAG_CONTEXT_CHARS,
+  DEFAULT_MAX_TAB_CONTEXT_CHARS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { db } from "@/lib/db"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import {
@@ -57,6 +61,27 @@ export const useChat = () => {
       instance: plasmoGlobalStorage
     },
     true
+  )
+  const [maxTabContextChars] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_MAX_TAB_CONTEXT_CHARS
+  )
+  const [maxRagContextChars] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_MAX_RAG_CONTEXT_CHARS
+  )
+  const [groundedOnlyMode] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
+      instance: plasmoGlobalStorage
+    },
+    false
   )
   const { toast } = useToast()
 
@@ -101,6 +126,24 @@ export const useChat = () => {
   } | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const thinkingLogRef = useRef<Map<number, number>>(new Map())
+  const promptContextStatsRef = useRef<{
+    promptInputLength: number
+    promptAugmentedLength: number
+    tabContextLength: number
+    ragContextLength: number
+    tabContextTruncated: boolean
+    groundedOnlyMode: boolean
+    insufficientContext: boolean
+    usedContextChunks: Array<{
+      id: string | number
+      title: string
+      excerpt: string
+      score: number
+      sectionPath?: string
+      source?: string
+      chunkIndex?: number
+    }>
+  } | null>(null)
 
   const debouncedDbUpdate = (
     id: number,
@@ -224,12 +267,14 @@ export const useChat = () => {
       metrics: ragSourcesRef.current
         ? {
             ragSources: ragSourcesRef.current.sources,
-            ragQuery: ragSourcesRef.current.query
+            ragQuery: ragSourcesRef.current.query,
+            ...(promptContextStatsRef.current || {})
           }
-        : undefined
+        : promptContextStatsRef.current || undefined
     }
     // Clear sources after using
     ragSourcesRef.current = null
+    promptContextStatsRef.current = null
 
     const assistantId = await addMessage(sessionId, assistantMessage)
     currentStreamingMessageId.current = assistantId
@@ -312,6 +357,28 @@ export const useChat = () => {
 
     // 🔄 2. Calculate RAG context asynchronously (in background)
     let contentWithRAG = userContent
+    let tabContextLength = 0
+    let ragContextLength = 0
+    let tabContextTruncated = false
+    const usedContextChunks: Array<{
+      id: string | number
+      title: string
+      excerpt: string
+      score: number
+      sectionPath?: string
+      source?: string
+      chunkIndex?: number
+    }> = []
+
+    const clampContext = (value: string, maxChars: number) => {
+      if (value.length <= maxChars) {
+        return { text: value, truncated: false }
+      }
+      return {
+        text: `${value.slice(0, maxChars)}\n\n[Context truncated due to length]`,
+        truncated: true
+      }
+    }
 
     const useRag =
       (await plasmoGlobalStorage.get<boolean>(
@@ -428,10 +495,17 @@ export const useChat = () => {
             )
 
             if (pageContext.documents.length > 0) {
+              const clampedPageContext = clampContext(
+                pageContext.formattedContext,
+                maxTabContextChars
+              )
               contentWithRAG = appendRagContext(
                 contentWithRAG,
-                pageContext.formattedContext
+                clampedPageContext.text
               )
+              tabContextLength += clampedPageContext.text.length
+              tabContextTruncated =
+                tabContextTruncated || clampedPageContext.truncated
               ragSourcesRef.current = {
                 sources: [
                   ...(ragSourcesRef.current?.sources || []),
@@ -439,67 +513,100 @@ export const useChat = () => {
                 ],
                 query: rawInput || "summary"
               }
+              pageContext.sources.forEach((source) => {
+                usedContextChunks.push({
+                  id: source.id,
+                  title: source.title,
+                  excerpt: source.content.slice(0, 220),
+                  score: source.score,
+                  sectionPath: source.source || source.type,
+                  source: source.source,
+                  chunkIndex: source.chunkIndex
+                })
+              })
               pageContextAdded = true
             }
           }
 
-          // Determine scope: specific files or global
-          let fileIds =
-            files && files.length > 0
-              ? (files
-                  .map((f) => f.metadata.fileId)
-                  .filter(Boolean) as string[])
-              : undefined
+          if (!groundedOnlyMode) {
+            // Determine scope: specific files or global
+            let fileIds =
+              files && files.length > 0
+                ? (files
+                    .map((f) => f.metadata.fileId)
+                    .filter(Boolean) as string[])
+                : undefined
 
-          if (!fileIds && activeKnowledgeSet?.id) {
-            const setFileIds = await getKnowledgeSetFileIds(
-              activeKnowledgeSet.id
-            )
-            if (setFileIds.length > 0) {
-              fileIds = setFileIds
+            if (!fileIds && activeKnowledgeSet?.id) {
+              const setFileIds = await getKnowledgeSetFileIds(
+                activeKnowledgeSet.id
+              )
+              if (setFileIds.length > 0) {
+                fileIds = setFileIds
+              }
             }
-          }
 
-          if (
-            fileIds &&
-            activeKnowledgeSet?.id === DEFAULT_KNOWLEDGE_SET_ID &&
-            fileIds.length === 0
-          ) {
-            fileIds = undefined
-          }
+            if (
+              fileIds &&
+              activeKnowledgeSet?.id === DEFAULT_KNOWLEDGE_SET_ID &&
+              fileIds.length === 0
+            ) {
+              fileIds = undefined
+            }
 
-          logger.verbose("RAG searching for context", "useChat", {
-            scope: fileIds ? "Specific Files" : "Global",
-            suggestedTopK: queryClassification.suggestedTopK,
-            suggestedMode: queryClassification.suggestedMode
-          })
-
-          // Retrieve RAG context (include memory if enabled)
-          const context = await retrieveContext(queryForRag, fileIds, {
-            mode: queryClassification.suggestedMode,
-            topK: retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-            useReranking: true,
-            minSimilarity: retrievalOverrides?.minSimilarity,
-            minRerankScore: retrievalOverrides?.minRerankScore,
-            includeMemory: memoryEnabled,
-            memoryTopK: 2
-          })
-
-          if (context.documents.length > 0) {
-            logger.info("RAG found relevant chunks", "useChat", {
-              chunkCount: context.documents.length
+            logger.verbose("RAG searching for context", "useChat", {
+              scope: fileIds ? "Specific Files" : "Global",
+              suggestedTopK: queryClassification.suggestedTopK,
+              suggestedMode: queryClassification.suggestedMode
             })
-            const fileContext = context.formattedContext
-            // Store sources for display in "i" button
-            ragSourcesRef.current = {
-              sources: [
-                ...(ragSourcesRef.current?.sources || []),
-                ...context.sources
-              ],
-              query: queryForRag
+
+            // Retrieve RAG context (include memory if enabled)
+            const context = await retrieveContext(queryForRag, fileIds, {
+              mode: queryClassification.suggestedMode,
+              topK:
+                retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+              useReranking: true,
+              minSimilarity: retrievalOverrides?.minSimilarity,
+              minRerankScore: retrievalOverrides?.minRerankScore,
+              includeMemory: memoryEnabled,
+              memoryTopK: 2
+            })
+
+            if (context.documents.length > 0) {
+              logger.info("RAG found relevant chunks", "useChat", {
+                chunkCount: context.documents.length
+              })
+              const fileContext = context.formattedContext
+              const clampedRagContext = clampContext(
+                fileContext,
+                maxRagContextChars
+              )
+              // Store sources for display in "i" button
+              ragSourcesRef.current = {
+                sources: [
+                  ...(ragSourcesRef.current?.sources || []),
+                  ...context.sources
+                ],
+                query: queryForRag
+              }
+              context.sources.forEach((source) => {
+                usedContextChunks.push({
+                  id: source.id,
+                  title: source.title,
+                  excerpt: source.content.slice(0, 220),
+                  score: source.score,
+                  sectionPath: source.source || source.type,
+                  source: source.source,
+                  chunkIndex: source.chunkIndex
+                })
+              })
+              // Append RAG context to user message for LLM
+              contentWithRAG = appendRagContext(
+                contentWithRAG,
+                clampedRagContext.text
+              )
+              ragContextLength += clampedRagContext.text.length
             }
-            // Append RAG context to user message for LLM
-            contentWithRAG = appendRagContext(contentWithRAG, fileContext)
           }
         }
       } catch (e) {
@@ -514,9 +621,23 @@ export const useChat = () => {
     }
 
     if (!pageContextAdded && includeContext && contextText?.trim()) {
+      const clampedFallbackContext = clampContext(
+        contextText,
+        maxTabContextChars
+      )
       contentWithRAG = contentWithRAG
-        ? `${contentWithRAG}\n\n---\n\n${contextText}`
-        : contextText
+        ? `${contentWithRAG}\n\n---\n\n${clampedFallbackContext.text}`
+        : clampedFallbackContext.text
+      tabContextLength += clampedFallbackContext.text.length
+      tabContextTruncated =
+        tabContextTruncated || clampedFallbackContext.truncated
+      usedContextChunks.push({
+        id: "tab-fallback",
+        title: "Selected tab context",
+        excerpt: clampedFallbackContext.text.slice(0, 220),
+        score: 0.5,
+        sectionPath: "fallback-full-context"
+      })
     }
 
     // Fallback to full text ONLY if specific files attached AND no RAG context found
@@ -533,12 +654,70 @@ export const useChat = () => {
       contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
     }
 
+    const hasRelevantPageContext = tabContextLength > 0
+    if (groundedOnlyMode) {
+      const strictGroundingInstruction =
+        'You must answer only from the supplied selected-page context. If context is insufficient, respond with: "Insufficient page context."'
+      contentWithRAG = `${strictGroundingInstruction}\n\n${contentWithRAG}`
+    }
+
+    if (groundedOnlyMode && !hasRelevantPageContext) {
+      await addMessage(sessionId, {
+        role: "assistant",
+        content:
+          "Insufficient page context. Select at least one tab with relevant extracted content and try again.",
+        done: true,
+        model: customModel || selectedModelRef?.modelId || selectedModel,
+        metrics: {
+          groundedOnlyMode: true,
+          insufficientContext: true,
+          promptInputLength: userContent.length,
+          promptAugmentedLength: contentWithRAG.length,
+          tabContextLength,
+          ragContextLength,
+          tabContextTruncated,
+          usedContextChunks
+        }
+      })
+      return
+    }
+
     // 3. Send to LLM with RAG-enhanced context
     // Create a new messages array with the RAG-enhanced user message
     const messagesForLLM = [
       ...messages,
       { ...userMessage, content: contentWithRAG }
     ]
+
+    promptContextStatsRef.current = {
+      promptInputLength: userContent.length,
+      promptAugmentedLength: contentWithRAG.length,
+      tabContextLength,
+      ragContextLength,
+      tabContextTruncated,
+      groundedOnlyMode,
+      insufficientContext: false,
+      usedContextChunks
+    }
+
+    logger.info("Prompt context stats", "useChat", {
+      sessionId,
+      promptInputLength: userContent.length,
+      promptAugmentedLength: contentWithRAG.length,
+      tabContextLength,
+      ragContextLength,
+      tabContextTruncated,
+      groundedOnlyMode,
+      usedContextChunkCount: usedContextChunks.length
+    })
+
+    if (tabContextTruncated) {
+      toast({
+        title: "Context trimmed",
+        description:
+          "Extracted tab context exceeded your limit and was trimmed before sending."
+      })
+    }
 
     await generateResponse(customModel, sessionId, messagesForLLM)
   }

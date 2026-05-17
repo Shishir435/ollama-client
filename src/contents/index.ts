@@ -28,6 +28,90 @@ const stripHtmlIfNeeded = (content: string) => {
   return htmlToPlainText(content)
 }
 
+const quickHash = (value: string) => {
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) - hash + value.charCodeAt(i)
+    hash |= 0
+  }
+  return `${hash >>> 0}`
+}
+
+const detectSiteProfile = (
+  url: string
+): "docs" | "blog" | "news" | "forum" | "video" | "general" => {
+  const lower = url.toLowerCase()
+  if (lower.includes("youtube.com") || lower.includes("vimeo.com")) {
+    return "video"
+  }
+  if (
+    lower.includes("/docs") ||
+    lower.includes("readthedocs") ||
+    lower.includes("developer.")
+  ) {
+    return "docs"
+  }
+  if (
+    lower.includes("/blog") ||
+    lower.includes("medium.com") ||
+    lower.includes("substack.com")
+  ) {
+    return "blog"
+  }
+  if (
+    lower.includes("news") ||
+    lower.includes("nytimes.com") ||
+    lower.includes("theguardian.com")
+  ) {
+    return "news"
+  }
+  if (
+    lower.includes("reddit.com") ||
+    lower.includes("discuss") ||
+    lower.includes("forum")
+  ) {
+    return "forum"
+  }
+  return "general"
+}
+
+const measureReliability = (content: string) => {
+  const totalChars = Math.max(content.length, 1)
+  const words = content.split(/\s+/).filter(Boolean)
+  const wordChars = words.reduce((sum, word) => sum + word.length, 0)
+  const contentDensity = Math.min(wordChars / totalChars, 1)
+
+  const boilerplateMatches = content.match(
+    /\b(cookie|privacy|terms|sign in|subscribe|advertisement|all rights reserved)\b/gi
+  )
+  const boilerplateRatio = Math.min(
+    (boilerplateMatches?.length || 0) / Math.max(words.length, 1),
+    1
+  )
+
+  const noisyChars = (content.match(/[#<>{}\\|=*]{2,}/g) || []).join("").length
+  const noiseRatio = Math.min(noisyChars / totalChars, 1)
+
+  const reliabilityScore = Math.max(
+    0,
+    Math.min(
+      1,
+      contentDensity * 0.7 +
+        (1 - boilerplateRatio) * 0.2 +
+        (1 - noiseRatio) * 0.1
+    )
+  )
+
+  return {
+    reliabilityScore,
+    reliabilitySignals: {
+      contentDensity: Number(contentDensity.toFixed(3)),
+      boilerplateRatio: Number(boilerplateRatio.toFixed(3)),
+      noiseRatio: Number(noiseRatio.toFixed(3))
+    }
+  }
+}
+
 const isExcludedUrl = async (url: string): Promise<boolean> => {
   // Try to get patterns from new config first
   const storedConfig = await plasmoGlobalStorage.get<ContentExtractionConfig>(
@@ -345,6 +429,8 @@ browser.runtime.onMessage.addListener(
           let readableText = ""
           let pageTitle = ""
           let defuddleResult: ReturnType<Defuddle["parse"]> | null = null
+          let selectedExtractor: "defuddle" | "readability" | "basic" = "basic"
+          let selectedReason = "fallback-basic"
 
           // Try Defuddle if user selected "auto" or "defuddle"
           if (scraper === "auto" || scraper === "defuddle") {
@@ -363,6 +449,10 @@ browser.runtime.onMessage.addListener(
               readableText = normalizeWhitespaceForLLM(readableText)
               readableText = stripHtmlIfNeeded(readableText)
               pageTitle = defuddleResult?.title || ""
+              selectedExtractor = "defuddle"
+              selectedReason = defuddleResult?.contentMarkdown
+                ? "defuddle-markdown"
+                : "defuddle-html"
 
               console.log(
                 `[Content Script] Defuddle extracted ${readableText.length} chars (${defuddleResult?.contentMarkdown ? "markdown" : "HTML"})`
@@ -415,6 +505,11 @@ browser.runtime.onMessage.addListener(
               ) {
                 readableText = normalizedReadability
                 readableText = stripHtmlIfNeeded(readableText)
+                selectedExtractor = "readability"
+                selectedReason =
+                  scraper === "readability"
+                    ? "forced-readability"
+                    : "auto-readability-better"
                 console.log(
                   `[Content Script] Readability extracted ${readableText.length} chars`
                 )
@@ -440,6 +535,8 @@ browser.runtime.onMessage.addListener(
             if (normalizedBody.length > 200) {
               readableText = normalizedBody
               readableText = stripHtmlIfNeeded(readableText)
+              selectedExtractor = "basic"
+              selectedReason = "basic-body-fallback"
               console.log(
                 `[Content Script] Basic extraction successful: ${readableText.length} chars`
               )
@@ -509,6 +606,10 @@ browser.runtime.onMessage.addListener(
 
           const finalContent =
             (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
+          const profile = detectSiteProfile(currentUrl)
+          const contentHash = quickHash(finalContent)
+          const capturedAt = Date.now()
+          const reliability = measureReliability(finalContent)
 
           // Final validation: ensure we have meaningful content
           if (!finalContent || finalContent.trim().length < 50) {
@@ -527,13 +628,24 @@ browser.runtime.onMessage.addListener(
             url: currentUrl,
             title: pageTitle || document.title || "Untitled",
             scraper,
+            profile,
             hasTranscript: !!transcript,
             transcriptLength: transcript?.length || 0,
             contentLength: finalContent.length,
+            contentHash,
+            revisionId: `${capturedAt}-${contentHash}`,
+            capturedAt,
+            reliabilityScore: reliability.reliabilityScore,
+            reliabilitySignals: reliability.reliabilitySignals,
             extractionDurationMs: extractionResult?.metrics?.duration,
             scrollSteps: extractionResult?.metrics?.scrollSteps,
             mutationsDetected: extractionResult?.metrics?.mutationsDetected,
             detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+            selectedExtractor,
+            selectedReason,
+            filteredSectionCount: 0,
+            keptSectionCount: 0,
+            effectiveContextLength: finalContent.length,
             preview: finalContent.slice(0, 400)
           }
           ;(

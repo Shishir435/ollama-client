@@ -17,6 +17,8 @@ import { Progress } from "@/components/ui/progress"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
+import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
+import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
 import {
   RAGSettings,
@@ -418,6 +420,9 @@ export const ContextSettings = () => {
         <MemorySettings />
         <ChatBackfillPanel />
       </div>
+
+      <PromptContextLimitsSettings />
+      <GroundingModeSettings />
 
       <SettingsCard
         icon={BookOpen}

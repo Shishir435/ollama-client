@@ -45,8 +45,8 @@ export const ChatInputBox = ({
   const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
-  const { selectedTabIds, errors } = useSelectedTabs()
-  const { tabContents, loadingIds } = useTabContents()
+  const { selectedTabIds } = useSelectedTabs()
+  const { loadingIds } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
@@ -308,13 +308,6 @@ export const ChatInputBox = ({
   const pendingTabCount = selectedTabNums.filter(
     (tabId) => loadingIds?.[tabId]
   ).length
-  const failedTabCount = selectedTabNums.filter(
-    (tabId) => errors?.[tabId]
-  ).length
-  const readyTabCount = selectedTabNums.filter((tabId) => {
-    const content = tabContents?.[tabId]
-    return !!content?.html?.trim() && !errors?.[tabId]
-  }).length
   const isPreparingTabContext = tabAccess && pendingTabCount > 0
 
   return (
@@ -324,19 +317,6 @@ export const ChatInputBox = ({
       <div className="mb-1">
         <TabsSelect />
       </div>
-      {tabAccess && selectedTabIds.length > 0 && (
-        <div className="mb-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {isPreparingTabContext
-            ? `Preparing tab context... ${pendingTabCount} tab${pendingTabCount > 1 ? "s" : ""} still extracting.`
-            : `Tab context ready: ${readyTabCount}/${selectedTabIds.length} selected tabs.`}
-          {failedTabCount > 0 && (
-            <div className="text-red-400">
-              {failedTabCount} tab{failedTabCount > 1 ? "s" : ""} failed
-              extraction. You can remove or refresh those tabs.
-            </div>
-          )}
-        </div>
-      )}
 
       <ChatInputAttachmentList
         processingStates={processingStates}

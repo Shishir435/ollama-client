@@ -90,6 +90,22 @@ export interface ChatMessage {
       fileId?: string
       type?: string
     }>
+    usedContextChunks?: Array<{
+      id: string | number
+      title: string
+      excerpt: string
+      score: number
+      sectionPath?: string
+      source?: string
+      chunkIndex?: number
+    }>
+    groundedOnlyMode?: boolean
+    insufficientContext?: boolean
+    promptInputLength?: number
+    promptAugmentedLength?: number
+    tabContextLength?: number
+    ragContextLength?: number
+    tabContextTruncated?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
@@ -153,13 +169,28 @@ export interface ChromeResponse {
     url: string
     title: string
     scraper: string
+    profile?: "docs" | "blog" | "news" | "forum" | "video" | "general"
     hasTranscript: boolean
     transcriptLength: number
     contentLength: number
+    contentHash?: string
+    revisionId?: string
+    capturedAt?: number
+    reliabilityScore?: number
+    reliabilitySignals?: {
+      contentDensity: number
+      boilerplateRatio: number
+      noiseRatio: number
+    }
     extractionDurationMs?: number
     scrollSteps?: number
     mutationsDetected?: number
     detectedPatterns?: string[]
+    selectedExtractor?: "defuddle" | "readability" | "basic"
+    selectedReason?: string
+    filteredSectionCount?: number
+    keptSectionCount?: number
+    effectiveContextLength?: number
     preview?: string
   }
 }

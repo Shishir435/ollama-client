@@ -14,7 +14,10 @@ describe("useTabStatusMap", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabStatusMap())
@@ -26,7 +29,10 @@ describe("useTabStatusMap", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
       loadingIds: { 123: true },
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabStatusMap())
@@ -39,7 +45,10 @@ describe("useTabStatusMap", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
       loadingIds: {},
-      errors: { 123: "Error message" }
+      updatedIds: {},
+      errors: { 123: "Error message" },
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabStatusMap())
@@ -53,7 +62,10 @@ describe("useTabStatusMap", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: { 123: tabData },
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabStatusMap())
@@ -66,7 +78,10 @@ describe("useTabStatusMap", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabStatusMap())
