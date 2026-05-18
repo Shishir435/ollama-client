@@ -363,7 +363,7 @@ export const ChatInputBox = ({
           }}
           onBlur={() => setIsFocused(false)}
           className={cn(
-            "max-h-[300px] min-h-[44px] w-full resize-none border-0 bg-transparent",
+            "max-h-75 min-h-11 w-full resize-none border-0 bg-transparent",
             "pb-14 pl-4 pr-14 pt-3 text-sm leading-relaxed scrollbar-none",
             "focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-muted-foreground/70"

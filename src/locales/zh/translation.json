@@ -512,14 +512,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "选择打开的标签页"
+      "placeholder": "选择打开的标签页",
+      "ready": "{{selected}}/{{total}} 个标签页就绪",
+      "updated": "已更新",
+      "view_content": "查看提取的内容",
+      "refresh_now": "立即刷新上下文"
     },
     "toggle": {
       "label_off": "标签页",
       "label_on": "标签页+",
       "tooltip": "与打开的标签页进行交互"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "提取的标签页上下文",
+      "description": "发送前查看将用作标签页上下文的具体内容。",
+      "untitled": "无标题",
+      "chars": "{{count}} 字符",
+      "reliable": "{{percent}}% 可靠性",
+      "low_reliability": "提取可靠性较低。请尝试：更换爬虫、调整滚动深度或使用手动选择上下文。",
+      "no_content": "（暂无提取的内容）"
+    }
   },
   "settings": {
     "chat_display": {
@@ -527,6 +540,18 @@
       "description": "配置聊天信息的显示方式",
       "session_metrics_label": "显示会话指标",
       "session_metrics_description": "在聊天输入框上方显示令牌使用量、时长和速度"
+    },
+    "prompt_context_limits": {
+      "title": "提示词上下文限制",
+      "description": "控制每个请求中注入的标签页和RAG上下文的数量。",
+      "max_tab_context_chars": "最大标签页上下文字符数",
+      "max_rag_context_chars": "最大RAG上下文字符数",
+      "auto_refresh_label": "自动刷新所选标签页上下文",
+      "auto_refresh_description": "启用后，所选标签页会定期检查是否有变化。"
+    },
+    "grounding_mode": {
+      "label": "仅从所选页面上下文回答",
+      "description": "如果缺少相关的页面上下文，助手会返回上下文不足的消息，而不是猜测。"
     },
     "shortcuts": {
       "title": "键盘快捷键",

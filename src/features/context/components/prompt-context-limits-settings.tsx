@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
   SettingsFormField,
@@ -21,6 +22,7 @@ const normalizeLimit = (value: number, fallback: number) => {
 }
 
 export const PromptContextLimitsSettings = () => {
+  const { t } = useTranslation()
   const [maxTabContextChars, setMaxTabContextChars] = useStorage<number>(
     {
       key: STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS,
@@ -45,12 +47,12 @@ export const PromptContextLimitsSettings = () => {
 
   return (
     <SettingsCard
-      title="Prompt Context Limits"
-      description="Control how much tab and RAG context is injected into each request.">
+      title={t("settings.prompt_context_limits.title")}
+      description={t("settings.prompt_context_limits.description")}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SettingsFormField
           htmlFor="max-tab-context-chars"
-          label="Max tab context chars">
+          label={t("settings.prompt_context_limits.max_tab_context_chars")}>
           <Input
             id="max-tab-context-chars"
             type="number"
@@ -69,7 +71,7 @@ export const PromptContextLimitsSettings = () => {
 
         <SettingsFormField
           htmlFor="max-rag-context-chars"
-          label="Max RAG context chars">
+          label={t("settings.prompt_context_limits.max_rag_context_chars")}>
           <Input
             id="max-rag-context-chars"
             type="number"
@@ -90,8 +92,10 @@ export const PromptContextLimitsSettings = () => {
       <SettingsSwitch
         id="auto-refresh-tab-context"
         className="mt-4"
-        label="Auto-refresh selected tab context"
-        description="When enabled, selected tabs are re-checked periodically for changes."
+        label={t("settings.prompt_context_limits.auto_refresh_label")}
+        description={t(
+          "settings.prompt_context_limits.auto_refresh_description"
+        )}
         checked={autoRefreshTabContext}
         onCheckedChange={setAutoRefreshTabContext}
       />

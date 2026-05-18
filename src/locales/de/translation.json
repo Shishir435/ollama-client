@@ -513,14 +513,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "Offene Tabs auswählen"
+      "placeholder": "Offene Tabs auswählen",
+      "ready": "{{selected}}/{{total}} Tabs bereit",
+      "updated": "Aktualisiert",
+      "view_content": "Extrahierten Inhalt anzeigen",
+      "refresh_now": "Kontext jetzt aktualisieren"
     },
     "toggle": {
       "label_off": "Tabs",
       "label_on": "Tab+",
       "tooltip": "Mit offenen Tabs interagieren"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "Extrahierter Tab-Kontext",
+      "description": "Überprüfen Sie genau, was als Tab-Kontext vor dem Senden verwendet wird.",
+      "untitled": "Ohne Titel",
+      "chars": "{{count}} Zeichen",
+      "reliable": "{{percent}}% zuverlässig",
+      "low_reliability": "Niedrige Extraktionszuverlässigkeit. Versuchen Sie: Scraper wechseln, Scrolltiefe anpassen oder manuelle Auswahlkontext verwenden.",
+      "no_content": "(Noch kein extrahierter Inhalt)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -528,6 +541,18 @@
       "description": "Konfigurieren Sie die Anzeige von Chat-Informationen",
       "session_metrics_label": "Sitzungsmetriken anzeigen",
       "session_metrics_description": "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+    },
+    "prompt_context_limits": {
+      "title": "Prompt-Kontextlimits",
+      "description": "Steuern Sie, wie viel Tab- und RAG-Kontext in jede Anfrage eingefügt wird.",
+      "max_tab_context_chars": "Max. Tab-Kontext-Zeichen",
+      "max_rag_context_chars": "Max. RAG-Kontext-Zeichen",
+      "auto_refresh_label": "Ausgewählten Tab-Kontext automatisch aktualisieren",
+      "auto_refresh_description": "Wenn aktiviert, werden ausgewählte Tabs periodisch auf Änderungen überprüft."
+    },
+    "grounding_mode": {
+      "label": "Nur aus ausgewähltem Seitenkontext antworten",
+      "description": "Wenn relevanter Seitenkontext fehlt, gibt der Assistent eine insufficient-context-Nachricht zurück, anstatt zu raten."
     },
     "shortcuts": {
       "title": "Tastaturkürzel",

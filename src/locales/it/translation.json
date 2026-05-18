@@ -513,14 +513,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "Seleziona schede aperte"
+      "placeholder": "Seleziona schede aperte",
+      "ready": "{{selected}}/{{total}} schede pronte",
+      "updated": "Aggiornato",
+      "view_content": "Visualizza contenuto estratto",
+      "refresh_now": "Aggiorna contesto ora"
     },
     "toggle": {
       "label_off": "Schede",
       "label_on": "Scheda+",
       "tooltip": "Interagisci con le schede aperte"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "Contesto Scheda Estratto",
+      "description": "Revisiona esattamente cosa verrà usato come contesto scheda prima di inviare.",
+      "untitled": "Senza titolo",
+      "chars": "{{count}} caratteri",
+      "reliable": "{{percent}}% affidabile",
+      "low_reliability": "Bassa affidabilità di estrazione. Prova: cambia scraper, regola profondità scorrimento o usa contesto di selezione manuale.",
+      "no_content": "(Nessun contenuto estratto ancora)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -528,6 +541,18 @@
       "description": "Configura come vengono visualizzate le informazioni della chat",
       "session_metrics_label": "Mostra Metriche Sessione",
       "session_metrics_description": "Mostra utilizzo token, durata e velocità sopra l'input della chat"
+    },
+    "prompt_context_limits": {
+      "title": "Limiti di Contesto del Prompt",
+      "description": "Controlla quanto contesto di scheda e RAG viene iniettato in ogni richiesta.",
+      "max_tab_context_chars": "Max caratteri contesto scheda",
+      "max_rag_context_chars": "Max caratteri contesto RAG",
+      "auto_refresh_label": "Aggiorna automaticamente contesto scheda selezionata",
+      "auto_refresh_description": "Quando abilitato, le schede selezionate vengono verificate periodicamente per eventuali modifiche."
+    },
+    "grounding_mode": {
+      "label": "Rispondi solo dal contesto di pagina selezionato",
+      "description": "Se manca il contesto di pagina rilevante, l'assistente restituisce un messaggio di contesto insufficiente invece di indovinare."
     },
     "shortcuts": {
       "title": "Scorciatoie da Tastiera",

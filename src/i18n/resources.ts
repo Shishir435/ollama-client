@@ -596,14 +596,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Offene Tabs auswählen"
+          placeholder: "Offene Tabs auswählen",
+          ready: "{{selected}}/{{total}} Tabs bereit",
+          updated: "Aktualisiert",
+          view_content: "Extrahierten Inhalt anzeigen",
+          refresh_now: "Kontext jetzt aktualisieren"
         },
         toggle: {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Mit offenen Tabs interagieren"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Extrahierter Tab-Kontext",
+          description:
+            "Überprüfen Sie genau, was als Tab-Kontext vor dem Senden verwendet wird.",
+          untitled: "Ohne Titel",
+          chars: "{{count}} Zeichen",
+          reliable: "{{percent}}% zuverlässig",
+          low_reliability:
+            "Niedrige Extraktionszuverlässigkeit. Versuchen Sie: Scraper wechseln, Scrolltiefe anpassen oder manuelle Auswahlkontext verwenden.",
+          no_content: "(Noch kein extrahierter Inhalt)"
+        }
       },
       settings: {
         chat_display: {
@@ -612,6 +627,22 @@ export const resources = {
           session_metrics_label: "Sitzungsmetriken anzeigen",
           session_metrics_description:
             "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+        },
+        prompt_context_limits: {
+          title: "Prompt-Kontextlimits",
+          description:
+            "Steuern Sie, wie viel Tab- und RAG-Kontext in jede Anfrage eingefügt wird.",
+          max_tab_context_chars: "Max. Tab-Kontext-Zeichen",
+          max_rag_context_chars: "Max. RAG-Kontext-Zeichen",
+          auto_refresh_label:
+            "Ausgewählten Tab-Kontext automatisch aktualisieren",
+          auto_refresh_description:
+            "Wenn aktiviert, werden ausgewählte Tabs periodisch auf Änderungen überprüft."
+        },
+        grounding_mode: {
+          label: "Nur aus ausgewähltem Seitenkontext antworten",
+          description:
+            "Wenn relevanter Seitenkontext fehlt, gibt der Assistent eine insufficient-context-Nachricht zurück, anstatt zu raten."
         },
         shortcuts: {
           title: "Tastaturkürzel",
@@ -1967,14 +1998,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Select open tabs"
+          placeholder: "Select open tabs",
+          ready: "{{selected}}/{{total}} tabs ready",
+          updated: "Updated",
+          view_content: "View extracted content",
+          refresh_now: "Refresh context now"
         },
         toggle: {
           label_off: "Tabs",
           label_on: "Tab+",
           tooltip: "Interact with open tabs"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Extracted Tab Context",
+          description:
+            "Review exactly what will be used as tab context before sending.",
+          untitled: "Untitled",
+          chars: "{{count}} chars",
+          reliable: "{{percent}}% reliable",
+          low_reliability:
+            "Low extraction reliability. Try: switch scraper, adjust scroll depth, or use manual selection context.",
+          no_content: "(No extracted content yet)"
+        }
       },
       settings: {
         chat_display: {
@@ -1983,6 +2029,21 @@ export const resources = {
           session_metrics_label: "Show Session Metrics",
           session_metrics_description:
             "Display token usage, duration, and speed above the chat input"
+        },
+        prompt_context_limits: {
+          title: "Prompt Context Limits",
+          description:
+            "Control how much tab and RAG context is injected into each request.",
+          max_tab_context_chars: "Max tab context chars",
+          max_rag_context_chars: "Max RAG context chars",
+          auto_refresh_label: "Auto-refresh selected tab context",
+          auto_refresh_description:
+            "When enabled, selected tabs are re-checked periodically for changes."
+        },
+        grounding_mode: {
+          label: "Answer only from selected page context",
+          description:
+            "If relevant page context is missing, the assistant returns an insufficient-context message instead of guessing."
         },
         shortcuts: {
           title: "Keyboard Shortcuts",
@@ -3299,14 +3360,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Seleccionar pestañas abiertas"
+          placeholder: "Seleccionar pestañas abiertas",
+          ready: "{{selected}}/{{total}} pestañas listas",
+          updated: "Actualizado",
+          view_content: "Ver contenido extraído",
+          refresh_now: "Actualizar contexto ahora"
         },
         toggle: {
           label_off: "Pestañas",
           label_on: "Pestaña+",
           tooltip: "Interactuar con pestañas abiertas"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Contexto de Pestaña Extraído",
+          description:
+            "Revisa exactamente qué se utilizará como contexto de pestaña antes de enviar.",
+          untitled: "Sin título",
+          chars: "{{count}} caracteres",
+          reliable: "{{percent}}% fiable",
+          low_reliability:
+            "Baja fiabilidad de extracción. Prueba: cambiar scraper, ajustar profundidad de desplazamiento o usar contexto de selección manual.",
+          no_content: "(Aún no hay contenido extraído)"
+        }
       },
       settings: {
         chat_display: {
@@ -3315,6 +3391,22 @@ export const resources = {
           session_metrics_label: "Mostrar Métricas de Sesión",
           session_metrics_description:
             "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
+        },
+        prompt_context_limits: {
+          title: "Límites de Contexto de Prompt",
+          description:
+            "Controla cuánto contexto de pestaña y RAG se inyecta en cada solicitud.",
+          max_tab_context_chars: "Máx. caracteres de contexto de pestaña",
+          max_rag_context_chars: "Máx. caracteres de contexto RAG",
+          auto_refresh_label:
+            "Auto-actualizar contexto de pestaña seleccionada",
+          auto_refresh_description:
+            "Cuando está habilitado, las pestañas seleccionadas se verifican periódicamente en busca de cambios."
+        },
+        grounding_mode: {
+          label: "Responder solo desde el contexto de página seleccionado",
+          description:
+            "Si falta el contexto de página relevante, el asistente devuelve un mensaje de contexto insuficiente en lugar de adivinar."
         },
         shortcuts: {
           title: "Atajos de Teclado",
@@ -4646,14 +4738,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Sélectionner les onglets ouverts"
+          placeholder: "Sélectionner les onglets ouverts",
+          ready: "{{selected}}/{{total}} onglets prêts",
+          updated: "Mis à jour",
+          view_content: "Voir le contenu extrait",
+          refresh_now: "Actualiser le contexte maintenant"
         },
         toggle: {
           label_off: "Onglets",
           label_on: "Onglet+",
           tooltip: "Interagir avec les onglets ouverts"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Contexte d'Onglet Extrait",
+          description:
+            "Vérifiez exactement ce qui sera utilisé comme contexte d'onglet avant d'envoyer.",
+          untitled: "Sans titre",
+          chars: "{{count}} caractères",
+          reliable: "{{percent}}% fiable",
+          low_reliability:
+            "Faible fiabilité d'extraction. Essayez: changer de scraper, ajuster la profondeur de défilement ou utiliser un contexte de sélection manuel.",
+          no_content: "(Aucun contenu extrait pour le moment)"
+        }
       },
       settings: {
         chat_display: {
@@ -4662,6 +4769,22 @@ export const resources = {
           session_metrics_label: "Afficher les Métriques de Session",
           session_metrics_description:
             "Afficher l'utilisation des tokens, la durée et la vitesse au-dessus de la saisie"
+        },
+        prompt_context_limits: {
+          title: "Limites de Contexte de Prompt",
+          description:
+            "Contrôlez la quantité de contexte d'onglet et RAG injectée dans chaque requête.",
+          max_tab_context_chars: "Caractères max de contexte d'onglet",
+          max_rag_context_chars: "Caractères max de contexte RAG",
+          auto_refresh_label:
+            "Actualiser automatiquement le contexte d'onglet sélectionné",
+          auto_refresh_description:
+            "Lorsqu'activé, les onglets sélectionnés sont vérifiés périodiquement pour les changements."
+        },
+        grounding_mode: {
+          label: "Répondre uniquement à partir du contexte de page sélectionné",
+          description:
+            "Si le contexte de page pertinent manque, l'assistant renvoie un message de contexte insuffisant au lieu de deviner."
         },
         shortcuts: {
           title: "Raccourcis Clavier",
@@ -5994,14 +6117,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "खुले टैब चुनें"
+          placeholder: "खुले टैब चुनें",
+          ready: "{{selected}}/{{total}} टैब तैयार",
+          updated: "अपडेट किया",
+          view_content: "निकाली गई सामग्री देखें",
+          refresh_now: "अभी संदर्भ रीफ्रेश करें"
         },
         toggle: {
           label_off: "टैब",
           label_on: "टैब+",
           tooltip: "खुले टैब के साथ इंटरैक्ट करें"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "निकाला गया टैब संदर्भ",
+          description:
+            "भेजने से पहले टैब संदर्भ के रूप में क्या उपयोग किया जाएगा, ठीक से समीक्षा करें।",
+          untitled: "बिना शीर्षक",
+          chars: "{{count}} अक्षर",
+          reliable: "{{percent}}% विश्वसनीय",
+          low_reliability:
+            "निष्कर्षण विश्वसनीयता कम है। प्रयास करें: स्क्रेपर बदलें, स्क्रॉल गहराई समायोजित करें, या मैन्युअल चयन संदर्भ का उपयोग करें।",
+          no_content: "(अभी तक कोई निकाली गई सामग्री नहीं)"
+        }
       },
       settings: {
         chat_display: {
@@ -6010,6 +6148,21 @@ export const resources = {
           session_metrics_label: "सत्र मेट्रिक्स दिखाएं",
           session_metrics_description:
             "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+        },
+        prompt_context_limits: {
+          title: "प्रॉम्प्ट संदर्भ सीमाएं",
+          description:
+            "नियंत्रित करें कि प्रत्येक अनुरोध में कितना टैब और RAG संदर्भ इंजेक्ट किया जाता है।",
+          max_tab_context_chars: "अधिकतम टैब संदर्भ अक्षर",
+          max_rag_context_chars: "अधिकतम RAG संदर्भ अक्षर",
+          auto_refresh_label: "चयनित टैब संदर्भ स्वतः रीफ्रेश करें",
+          auto_refresh_description:
+            "सक्षम होने पर, चयनित टैब को परिवर्तनों के लिए समय-समय पर जांचा जाता है।"
+        },
+        grounding_mode: {
+          label: "केवल चयनित पृष्ठ संदर्भ से उत्तर दें",
+          description:
+            "यदि प्रासंगिक पृष्ठ संदर्भ अनुपस्थित है, तो सहायक अनुमान लगाने के बजाय अपर्याप्त-संदर्भ संदेश लौटाता है।"
         },
         shortcuts: {
           title: "कीबोर्ड शॉर्टकट",
@@ -7312,14 +7465,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Seleziona schede aperte"
+          placeholder: "Seleziona schede aperte",
+          ready: "{{selected}}/{{total}} schede pronte",
+          updated: "Aggiornato",
+          view_content: "Visualizza contenuto estratto",
+          refresh_now: "Aggiorna contesto ora"
         },
         toggle: {
           label_off: "Schede",
           label_on: "Scheda+",
           tooltip: "Interagisci con le schede aperte"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Contesto Scheda Estratto",
+          description:
+            "Revisiona esattamente cosa verrà usato come contesto scheda prima di inviare.",
+          untitled: "Senza titolo",
+          chars: "{{count}} caratteri",
+          reliable: "{{percent}}% affidabile",
+          low_reliability:
+            "Bassa affidabilità di estrazione. Prova: cambia scraper, regola profondità scorrimento o usa contesto di selezione manuale.",
+          no_content: "(Nessun contenuto estratto ancora)"
+        }
       },
       settings: {
         chat_display: {
@@ -7329,6 +7497,22 @@ export const resources = {
           session_metrics_label: "Mostra Metriche Sessione",
           session_metrics_description:
             "Mostra utilizzo token, durata e velocità sopra l'input della chat"
+        },
+        prompt_context_limits: {
+          title: "Limiti di Contesto del Prompt",
+          description:
+            "Controlla quanto contesto di scheda e RAG viene iniettato in ogni richiesta.",
+          max_tab_context_chars: "Max caratteri contesto scheda",
+          max_rag_context_chars: "Max caratteri contesto RAG",
+          auto_refresh_label:
+            "Aggiorna automaticamente contesto scheda selezionata",
+          auto_refresh_description:
+            "Quando abilitato, le schede selezionate vengono verificate periodicamente per eventuali modifiche."
+        },
+        grounding_mode: {
+          label: "Rispondi solo dal contesto di pagina selezionato",
+          description:
+            "Se manca il contesto di pagina rilevante, l'assistente restituisce un messaggio di contesto insufficiente invece di indovinare."
         },
         shortcuts: {
           title: "Scorciatoie da Tastiera",
@@ -8652,14 +8836,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "開いているタブを選択"
+          placeholder: "開いているタブを選択",
+          ready: "{{selected}}/{{total}} タブ準備完了",
+          updated: "更新済み",
+          view_content: "抽出されたコンテンツを表示",
+          refresh_now: "コンテキストを今すぐ更新"
         },
         toggle: {
           label_off: "タブ",
           label_on: "タブ+",
           tooltip: "開いているタブと対話する"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "抽出されたタブコンテキスト",
+          description:
+            "送信前にタブコンテキストとして正確に使用される内容を確認します。",
+          untitled: "無題",
+          chars: "{{count}} 文字",
+          reliable: "{{percent}}% 信頼性",
+          low_reliability:
+            "抽出の信頼性が低いです。試すこと: スクレイパーを変更、スクロール深度を調整、または手動選択コンテキストを使用。",
+          no_content: "(抽出されたコンテンツはまだありません)"
+        }
       },
       settings: {
         chat_display: {
@@ -8668,6 +8867,21 @@ export const resources = {
           session_metrics_label: "セッションメトリクスを表示",
           session_metrics_description:
             "チャット入力上にトークン使用量、時間、速度を表示"
+        },
+        prompt_context_limits: {
+          title: "プロンプトコンテキスト制限",
+          description:
+            "各リクエストに挿入されるタブとRAGコンテキストの量を制御します。",
+          max_tab_context_chars: "最大タブコンテキスト文字数",
+          max_rag_context_chars: "最大RAGコンテキスト文字数",
+          auto_refresh_label: "選択したタブコンテキストを自動更新",
+          auto_refresh_description:
+            "有効にすると、選択したタブが定期的に変更されていないか確認されます。"
+        },
+        grounding_mode: {
+          label: "選択したページコンテキストからのみ回答",
+          description:
+            "関連するページコンテキストが欠けている場合、アシスタントは推測する代わりにコンテキスト不足のメッセージを返します。"
         },
         shortcuts: {
           title: "キーボードショートカット",
@@ -9977,14 +10191,29 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "Выберите открытые вкладки"
+          placeholder: "Выберите открытые вкладки",
+          ready: "{{selected}}/{{total}} вкладок готово",
+          updated: "Обновлено",
+          view_content: "Просмотреть извлечённый контент",
+          refresh_now: "Обновить контекст сейчас"
         },
         toggle: {
           label_off: "Вкладки",
           label_on: "Вкладка+",
           tooltip: "Взаимодействие с открытыми вкладками"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "Извлечённый контекст вкладки",
+          description:
+            "Точно проверьте, что будет использоваться как контекст вкладки перед отправкой.",
+          untitled: "Без названия",
+          chars: "{{count}} символов",
+          reliable: "{{percent}}% надёжность",
+          low_reliability:
+            "Низкая надёжность извлечения. Попробуйте: сменить скрепер, настроить глубину прокрутки или использовать контекст ручного выбора.",
+          no_content: "(Контент ещё не извлечён)"
+        }
       },
       settings: {
         chat_display: {
@@ -9993,6 +10222,21 @@ export const resources = {
           session_metrics_label: "Показать метрики сессии",
           session_metrics_description:
             "Показывать использование токенов, время и скорость над полем ввода"
+        },
+        prompt_context_limits: {
+          title: "Ограничения контекста промпта",
+          description:
+            "Управляйте количеством контекста вкладки и RAG, вводимым в каждый запрос.",
+          max_tab_context_chars: "Макс. символов контекста вкладки",
+          max_rag_context_chars: "Макс. символов контекста RAG",
+          auto_refresh_label: "Автообновление контекста выбранной вкладки",
+          auto_refresh_description:
+            "Когда включено, выбранные вкладки периодически проверяются на изменения."
+        },
+        grounding_mode: {
+          label: "Отвечать только из выбранного контекста страницы",
+          description:
+            "Если соответствующий контекст страницы отсутствует, ассистент возвращает сообщение о недостаточном контексте вместо предположений."
         },
         shortcuts: {
           title: "Сочетания Клавиш",
@@ -11266,14 +11510,28 @@ export const resources = {
       },
       tabs: {
         select: {
-          placeholder: "选择打开的标签页"
+          placeholder: "选择打开的标签页",
+          ready: "{{selected}}/{{total}} 个标签页就绪",
+          updated: "已更新",
+          view_content: "查看提取的内容",
+          refresh_now: "立即刷新上下文"
         },
         toggle: {
           label_off: "标签页",
           label_on: "标签页+",
           tooltip: "与打开的标签页进行交互"
         },
-        context: "Context"
+        context: "Context",
+        inspector: {
+          title: "提取的标签页上下文",
+          description: "发送前查看将用作标签页上下文的具体内容。",
+          untitled: "无标题",
+          chars: "{{count}} 字符",
+          reliable: "{{percent}}% 可靠性",
+          low_reliability:
+            "提取可靠性较低。请尝试：更换爬虫、调整滚动深度或使用手动选择上下文。",
+          no_content: "（暂无提取的内容）"
+        }
       },
       settings: {
         chat_display: {
@@ -11282,6 +11540,19 @@ export const resources = {
           session_metrics_label: "显示会话指标",
           session_metrics_description:
             "在聊天输入框上方显示令牌使用量、时长和速度"
+        },
+        prompt_context_limits: {
+          title: "提示词上下文限制",
+          description: "控制每个请求中注入的标签页和RAG上下文的数量。",
+          max_tab_context_chars: "最大标签页上下文字符数",
+          max_rag_context_chars: "最大RAG上下文字符数",
+          auto_refresh_label: "自动刷新所选标签页上下文",
+          auto_refresh_description: "启用后，所选标签页会定期检查是否有变化。"
+        },
+        grounding_mode: {
+          label: "仅从所选页面上下文回答",
+          description:
+            "如果缺少相关的页面上下文，助手会返回上下文不足的消息，而不是猜测。"
         },
         shortcuts: {
           title: "键盘快捷键",
