@@ -540,14 +540,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "Select open tabs"
+      "placeholder": "Select open tabs",
+      "ready": "{{selected}}/{{total}} tabs ready",
+      "updated": "Updated",
+      "view_content": "View extracted content",
+      "refresh_now": "Refresh context now"
     },
     "toggle": {
       "label_off": "Tabs",
       "label_on": "Tab+",
       "tooltip": "Interact with open tabs"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "Extracted Tab Context",
+      "description": "Review exactly what will be used as tab context before sending.",
+      "untitled": "Untitled",
+      "chars": "{{count}} chars",
+      "reliable": "{{percent}}% reliable",
+      "low_reliability": "Low extraction reliability. Try: switch scraper, adjust scroll depth, or use manual selection context.",
+      "no_content": "(No extracted content yet)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -555,6 +568,18 @@
       "description": "Configure how chat information is displayed",
       "session_metrics_label": "Show Session Metrics",
       "session_metrics_description": "Display token usage, duration, and speed above the chat input"
+    },
+    "prompt_context_limits": {
+      "title": "Prompt Context Limits",
+      "description": "Control how much tab and RAG context is injected into each request.",
+      "max_tab_context_chars": "Max tab context chars",
+      "max_rag_context_chars": "Max RAG context chars",
+      "auto_refresh_label": "Auto-refresh selected tab context",
+      "auto_refresh_description": "When enabled, selected tabs are re-checked periodically for changes."
+    },
+    "grounding_mode": {
+      "label": "Answer only from selected page context",
+      "description": "If relevant page context is missing, the assistant returns an insufficient-context message instead of guessing."
     },
     "shortcuts": {
       "title": "Keyboard Shortcuts",

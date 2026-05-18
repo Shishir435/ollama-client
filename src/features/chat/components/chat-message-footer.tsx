@@ -17,6 +17,7 @@ import { CopyButton } from "@/features/chat/components/copy-button"
 import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { SpeechButton } from "@/features/chat/components/speech-button"
+import { UsedContextButton } from "@/features/chat/components/used-context-button"
 import {
   BookOpen,
   ChevronLeft,
@@ -173,6 +174,16 @@ export const ChatMessageFooter = ({
               sources={msg.metrics.ragSources}
               query={msg.metrics.ragQuery}
               enableFeedback={feedbackEnabled}
+            />
+          )}
+
+        {msg.metrics?.usedContextChunks &&
+          msg.metrics.usedContextChunks.length > 0 && (
+            <UsedContextButton
+              chunks={msg.metrics.usedContextChunks}
+              tabContextLength={msg.metrics.tabContextLength}
+              ragContextLength={msg.metrics.ragContextLength}
+              tabContextTruncated={msg.metrics.tabContextTruncated}
             />
           )}
 

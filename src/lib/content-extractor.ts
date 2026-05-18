@@ -306,6 +306,8 @@ export const extractContentWithLoading = async (
   }
 
   const errors: string[] = []
+  const initialScrollX = window.scrollX
+  const initialScrollY = window.scrollY
 
   logger.info("Starting content extraction", "extractContentWithLoading", {
     site
@@ -332,6 +334,10 @@ export const extractContentWithLoading = async (
 
     // Step 2: Scroll and trigger lazy loading
     if (config.scrollStrategy !== "none" && config.enabled) {
+      // Always start extraction from top so we scan the full page deterministically.
+      window.scrollTo(0, 0)
+      await new Promise((resolve) => setTimeout(resolve, 120))
+
       logger.verbose("Executing scroll strategy", "extractContentWithLoading", {
         strategy: config.scrollStrategy
       })
@@ -397,6 +403,9 @@ export const extractContentWithLoading = async (
     }
 
     // Step 6: Clone document for Readability (will be done in index.ts)
+    // Restore user's prior scroll position after extraction to avoid visual jump.
+    window.scrollTo(initialScrollX, initialScrollY)
+
     metrics.endTime = Date.now()
     metrics.duration = metrics.endTime - metrics.startTime
 

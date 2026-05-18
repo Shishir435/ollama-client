@@ -19,13 +19,16 @@ interface TabFetchingState {
   >
   loadingIds: Record<number, boolean>
   fetchedIds: number[]
+  updatedIds: Record<number, boolean>
   fetchTabContent: (
     tabId: number,
     fallbackTitle: string,
     setErrors: (
       updater: (prev: Record<number, string>) => Record<number, string>
-    ) => void
+    ) => void,
+    force?: boolean
   ) => Promise<void>
+  clearUpdatedFlag: (tabId: number) => void
   cleanupRemovedTabs: (
     currentTabIds: number[],
     setErrors: (
@@ -38,11 +41,15 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
   tabContents: {},
   loadingIds: {},
   fetchedIds: [],
+  updatedIds: {},
 
-  fetchTabContent: async (tabId, fallbackTitle, setErrors) => {
+  fetchTabContent: async (tabId, fallbackTitle, setErrors, force = false) => {
     const state = get()
     // Deduplicate: if already fetched or in-flight across ANY hook instance, abort.
-    if (state.fetchedIds.includes(tabId) || state.loadingIds[tabId]) {
+    if (
+      !force &&
+      (state.fetchedIds.includes(tabId) || state.loadingIds[tabId])
+    ) {
       return
     }
 
@@ -58,6 +65,9 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
 
       const html = response?.html || ""
       const title = response?.title || fallbackTitle || "Untitled"
+      const prevHash = state.tabContents[tabId]?.extractionDebug?.contentHash
+      const nextHash = response?.extractionDebug?.contentHash
+      const didChange = !!prevHash && !!nextHash && prevHash !== nextHash
 
       set((s) => ({
         tabContents: {
@@ -68,7 +78,11 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
             extractionDebug: response?.extractionDebug
           }
         },
-        loadingIds: { ...s.loadingIds, [tabId]: false }
+        loadingIds: { ...s.loadingIds, [tabId]: false },
+        updatedIds: {
+          ...s.updatedIds,
+          [tabId]: didChange || !!s.updatedIds[tabId]
+        }
       }))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
@@ -82,6 +96,12 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         }
       })
     }
+  },
+
+  clearUpdatedFlag: (tabId) => {
+    set((s) => ({
+      updatedIds: { ...s.updatedIds, [tabId]: false }
+    }))
   },
 
   cleanupRemovedTabs: (currentTabIds, setErrors) => {
@@ -100,9 +120,20 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         currentTabIds.includes(id)
       )
       const fetchedChanged = nextFetched.length !== s.fetchedIds.length
+      const nextUpdated = { ...s.updatedIds }
+      for (const idStr in nextUpdated) {
+        const id = parseInt(idStr, 10)
+        if (!currentTabIds.includes(id)) {
+          delete nextUpdated[id]
+        }
+      }
 
       return contentsChanged || fetchedChanged
-        ? { tabContents: nextContents, fetchedIds: nextFetched }
+        ? {
+            tabContents: nextContents,
+            fetchedIds: nextFetched,
+            updatedIds: nextUpdated
+          }
         : s
     })
 
@@ -123,8 +154,14 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
 
 export const useTabContents = () => {
   const { selectedTabIds, errors, setErrors } = useSelectedTabs()
-  const { tabContents, loadingIds, fetchTabContent, cleanupRemovedTabs } =
-    useTabFetchingStore()
+  const {
+    tabContents,
+    loadingIds,
+    updatedIds,
+    fetchTabContent,
+    clearUpdatedFlag,
+    cleanupRemovedTabs
+  } = useTabFetchingStore()
 
   const [tabAccess] = useStorage<boolean>(
     {
@@ -158,5 +195,49 @@ export const useTabContents = () => {
     })
   }, [selectedTabIds, getTabTitle, fetchTabContent, setErrors])
 
-  return { tabContents, loadingIds, errors }
+  const [autoRefreshTabContext] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
+
+  useEffect(() => {
+    if (!autoRefreshTabContext || selectedTabIds.length === 0) return
+    const interval = setInterval(() => {
+      selectedTabIds
+        .map((id) => parseInt(id, 10))
+        .forEach((tabId) => {
+          fetchTabContent(tabId, getTabTitle(tabId), setErrors, true)
+        })
+    }, 15000)
+
+    return () => clearInterval(interval)
+  }, [
+    autoRefreshTabContext,
+    selectedTabIds,
+    fetchTabContent,
+    getTabTitle,
+    setErrors
+  ])
+
+  const refreshSelectedTabContents = async () => {
+    await Promise.all(
+      selectedTabIds.map(async (id) => {
+        const tabId = parseInt(id, 10)
+        clearUpdatedFlag(tabId)
+        await fetchTabContent(tabId, getTabTitle(tabId), setErrors, true)
+      })
+    )
+  }
+
+  return {
+    tabContents,
+    loadingIds,
+    updatedIds,
+    errors,
+    clearUpdatedFlag,
+    refreshSelectedTabContents
+  }
 }

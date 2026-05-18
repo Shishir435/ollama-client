@@ -56,10 +56,19 @@ export const useTabContent = () => {
         return {
           id,
           title: content.title || "Untitled",
-          content: content.html
+          content: content.html,
+          capturedAt: content.extractionDebug?.capturedAt || Date.now(),
+          revisionId: content.extractionDebug?.revisionId
         }
       })
-      .filter(Boolean) as Array<{ id: string; title: string; content: string }>
+      .filter(Boolean)
+      .sort((a, b) => (b?.capturedAt || 0) - (a?.capturedAt || 0)) as Array<{
+      id: string
+      title: string
+      content: string
+      capturedAt: number
+      revisionId?: string
+    }>
     setDocuments(docs)
   }, [selectedTabIds, errors, tabContents, setBuiltContent, setDocuments])
 

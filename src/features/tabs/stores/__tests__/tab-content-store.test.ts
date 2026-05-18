@@ -7,7 +7,10 @@ vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
   useTabContents: vi.fn(() => ({
     tabContents: {},
     loadingIds: {},
-    errors: {}
+    updatedIds: {},
+    errors: {},
+    clearUpdatedFlag: vi.fn(),
+    refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
   }))
 }))
 
@@ -58,7 +61,10 @@ describe("useTabContentStore", () => {
         1: { title: "Test Page", html: "<p>Content</p>" }
       },
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabContent())
@@ -66,11 +72,11 @@ describe("useTabContentStore", () => {
     expect(result.current.builtContent).toContain("Test Page")
     expect(result.current.builtContent).toContain("<p>Content</p>")
     expect(result.current.documents).toEqual([
-      {
+      expect.objectContaining({
         id: "1",
         title: "Test Page",
         content: "<p>Content</p>"
-      }
+      })
     ])
   })
 
@@ -94,7 +100,10 @@ describe("useTabContentStore", () => {
         1: { title: "Error Page", html: "" }
       },
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabContent())
@@ -121,7 +130,10 @@ describe("useTabContentStore", () => {
     vi.mocked(useTabContents).mockReturnValue({
       tabContents: {},
       loadingIds: {},
-      errors: {}
+      updatedIds: {},
+      errors: {},
+      clearUpdatedFlag: vi.fn(),
+      refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
     })
 
     const { result } = renderHook(() => useTabContent())

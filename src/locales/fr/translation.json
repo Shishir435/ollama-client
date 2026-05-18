@@ -513,14 +513,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "Sélectionner les onglets ouverts"
+      "placeholder": "Sélectionner les onglets ouverts",
+      "ready": "{{selected}}/{{total}} onglets prêts",
+      "updated": "Mis à jour",
+      "view_content": "Voir le contenu extrait",
+      "refresh_now": "Actualiser le contexte maintenant"
     },
     "toggle": {
       "label_off": "Onglets",
       "label_on": "Onglet+",
       "tooltip": "Interagir avec les onglets ouverts"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "Contexte d'Onglet Extrait",
+      "description": "Vérifiez exactement ce qui sera utilisé comme contexte d'onglet avant d'envoyer.",
+      "untitled": "Sans titre",
+      "chars": "{{count}} caractères",
+      "reliable": "{{percent}}% fiable",
+      "low_reliability": "Faible fiabilité d'extraction. Essayez: changer de scraper, ajuster la profondeur de défilement ou utiliser un contexte de sélection manuel.",
+      "no_content": "(Aucun contenu extrait pour le moment)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -528,6 +541,18 @@
       "description": "Configurer l'affichage des informations du chat",
       "session_metrics_label": "Afficher les Métriques de Session",
       "session_metrics_description": "Afficher l'utilisation des tokens, la durée et la vitesse au-dessus de la saisie"
+    },
+    "prompt_context_limits": {
+      "title": "Limites de Contexte de Prompt",
+      "description": "Contrôlez la quantité de contexte d'onglet et RAG injectée dans chaque requête.",
+      "max_tab_context_chars": "Caractères max de contexte d'onglet",
+      "max_rag_context_chars": "Caractères max de contexte RAG",
+      "auto_refresh_label": "Actualiser automatiquement le contexte d'onglet sélectionné",
+      "auto_refresh_description": "Lorsqu'activé, les onglets sélectionnés sont vérifiés périodiquement pour les changements."
+    },
+    "grounding_mode": {
+      "label": "Répondre uniquement à partir du contexte de page sélectionné",
+      "description": "Si le contexte de page pertinent manque, l'assistant renvoie un message de contexte insuffisant au lieu de deviner."
     },
     "shortcuts": {
       "title": "Raccourcis Clavier",

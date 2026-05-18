@@ -180,3 +180,5 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
 }
 
 export const CHAT_PAGINATION_LIMIT = 50
+export const DEFAULT_MAX_TAB_CONTEXT_CHARS = 12000
+export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000

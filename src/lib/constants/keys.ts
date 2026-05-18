@@ -101,7 +101,11 @@ export const STORAGE_KEYS = {
     ENABLED: "memory-enabled"
   },
   CHAT: {
-    SHOW_SESSION_METRICS: "chat-show-session-metrics"
+    SHOW_SESSION_METRICS: "chat-show-session-metrics",
+    MAX_TAB_CONTEXT_CHARS: "chat-max-tab-context-chars",
+    MAX_RAG_CONTEXT_CHARS: "chat-max-rag-context-chars",
+    GROUNDED_ONLY_MODE: "chat-grounded-only-mode",
+    AUTO_REFRESH_TAB_CONTEXT: "chat-auto-refresh-tab-context"
   },
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"

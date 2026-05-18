@@ -512,14 +512,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "Seleccionar pestañas abiertas"
+      "placeholder": "Seleccionar pestañas abiertas",
+      "ready": "{{selected}}/{{total}} pestañas listas",
+      "updated": "Actualizado",
+      "view_content": "Ver contenido extraído",
+      "refresh_now": "Actualizar contexto ahora"
     },
     "toggle": {
       "label_off": "Pestañas",
       "label_on": "Pestaña+",
       "tooltip": "Interactuar con pestañas abiertas"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "Contexto de Pestaña Extraído",
+      "description": "Revisa exactamente qué se utilizará como contexto de pestaña antes de enviar.",
+      "untitled": "Sin título",
+      "chars": "{{count}} caracteres",
+      "reliable": "{{percent}}% fiable",
+      "low_reliability": "Baja fiabilidad de extracción. Prueba: cambiar scraper, ajustar profundidad de desplazamiento o usar contexto de selección manual.",
+      "no_content": "(Aún no hay contenido extraído)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -527,6 +540,18 @@
       "description": "Configura cómo se muestra la información del chat",
       "session_metrics_label": "Mostrar Métricas de Sesión",
       "session_metrics_description": "Mostrar uso de tokens, duración y velocidad sobre el campo de entrada"
+    },
+    "prompt_context_limits": {
+      "title": "Límites de Contexto de Prompt",
+      "description": "Controla cuánto contexto de pestaña y RAG se inyecta en cada solicitud.",
+      "max_tab_context_chars": "Máx. caracteres de contexto de pestaña",
+      "max_rag_context_chars": "Máx. caracteres de contexto RAG",
+      "auto_refresh_label": "Auto-actualizar contexto de pestaña seleccionada",
+      "auto_refresh_description": "Cuando está habilitado, las pestañas seleccionadas se verifican periódicamente en busca de cambios."
+    },
+    "grounding_mode": {
+      "label": "Responder solo desde el contexto de página seleccionado",
+      "description": "Si falta el contexto de página relevante, el asistente devuelve un mensaje de contexto insuficiente en lugar de adivinar."
     },
     "shortcuts": {
       "title": "Atajos de Teclado",

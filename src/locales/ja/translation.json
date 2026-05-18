@@ -512,14 +512,27 @@
   },
   "tabs": {
     "select": {
-      "placeholder": "開いているタブを選択"
+      "placeholder": "開いているタブを選択",
+      "ready": "{{selected}}/{{total}} タブ準備完了",
+      "updated": "更新済み",
+      "view_content": "抽出されたコンテンツを表示",
+      "refresh_now": "コンテキストを今すぐ更新"
     },
     "toggle": {
       "label_off": "タブ",
       "label_on": "タブ+",
       "tooltip": "開いているタブと対話する"
     },
-    "context": "Context"
+    "context": "Context",
+    "inspector": {
+      "title": "抽出されたタブコンテキスト",
+      "description": "送信前にタブコンテキストとして正確に使用される内容を確認します。",
+      "untitled": "無題",
+      "chars": "{{count}} 文字",
+      "reliable": "{{percent}}% 信頼性",
+      "low_reliability": "抽出の信頼性が低いです。試すこと: スクレイパーを変更、スクロール深度を調整、または手動選択コンテキストを使用。",
+      "no_content": "(抽出されたコンテンツはまだありません)"
+    }
   },
   "settings": {
     "chat_display": {
@@ -527,6 +540,18 @@
       "description": "チャット情報の表示方法を設定",
       "session_metrics_label": "セッションメトリクスを表示",
       "session_metrics_description": "チャット入力上にトークン使用量、時間、速度を表示"
+    },
+    "prompt_context_limits": {
+      "title": "プロンプトコンテキスト制限",
+      "description": "各リクエストに挿入されるタブとRAGコンテキストの量を制御します。",
+      "max_tab_context_chars": "最大タブコンテキスト文字数",
+      "max_rag_context_chars": "最大RAGコンテキスト文字数",
+      "auto_refresh_label": "選択したタブコンテキストを自動更新",
+      "auto_refresh_description": "有効にすると、選択したタブが定期的に変更されていないか確認されます。"
+    },
+    "grounding_mode": {
+      "label": "選択したページコンテキストからのみ回答",
+      "description": "関連するページコンテキストが欠けている場合、アシスタントは推測する代わりにコンテキスト不足のメッセージを返します。"
     },
     "shortcuts": {
       "title": "キーボードショートカット",
