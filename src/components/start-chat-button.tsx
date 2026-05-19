@@ -20,10 +20,10 @@ export const StartChatButton = ({ className }: { className?: string }) => {
   return (
     <Button
       className={cn(
-        "group flex items-center justify-center gap-2 rounded-xl py-6 text-base font-semibold shadow-sm transition-all duration-300",
+        "group flex items-center justify-center gap-2 rounded-lg py-6 text-base font-semibold shadow-sm transition-all duration-300",
         isBlocked
           ? "cursor-not-allowed bg-muted text-muted-foreground"
-          : "bg-foreground text-background hover:bg-foreground/90 hover:shadow-md hover:-translate-y-0.5",
+          : "bg-foreground text-background hover:bg-foreground/90 hover:shadow-sm hover:-translate-y-0.5",
         className
       )}
       disabled={isBlocked}

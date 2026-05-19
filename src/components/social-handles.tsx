@@ -11,7 +11,7 @@ export const SocialHandles = () => {
         <h3 className="mb-2 text-lg font-semibold text-foreground">
           {t("common.social.title")}
         </h3>
-        <div className="mx-auto h-0.5 w-12 rounded-full bg-linear-to-r from-blue-500 to-purple-500"></div>
+        <div className="mx-auto h-0.5 w-12 rounded-full bg-linear-to-r from-primary to-accent"></div>
       </div>
 
       <div className="mx-auto flex max-w-md flex-wrap justify-center gap-4 p-2">

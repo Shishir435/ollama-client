@@ -81,7 +81,7 @@ export const MultiSelect = ({
       <PopoverTrigger asChild>
         <div
           className={cn(
-            "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm",
+            "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-input/40 px-3 py-2 text-sm",
             "cursor-pointer"
           )}>
           {selectedValues.length === 0 ? (
@@ -145,7 +145,7 @@ export const MultiSelect = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 shadow-lg" align="center">
+      <PopoverContent className="w-[300px] p-0" align="center">
         <Command className="rounded-lg border-0">
           <div className="relative w-full">
             <Button

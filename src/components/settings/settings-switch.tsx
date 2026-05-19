@@ -23,7 +23,7 @@ export const SettingsSwitch = ({
   return (
     <div
       className={cn(
-        "flex items-center justify-between rounded-lg border p-4",
+        "flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent/20 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/30",
         className
       )}>
       <div className="space-y-0.5">

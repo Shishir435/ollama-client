@@ -247,7 +247,7 @@ export const ChatMessageFooter = ({
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
             sideOffset={6}
-            className="w-auto rounded-lg border-muted/60 p-1.5 shadow-lg data-open:animate-none data-closed:animate-none">
+            className="w-auto rounded-lg border-muted/60 p-1.5 shadow-md data-open:animate-none data-closed:animate-none">
             {actionItems.length > 0 && (
               <DropdownMenuGroup>
                 <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">

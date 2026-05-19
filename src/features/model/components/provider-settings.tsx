@@ -335,10 +335,10 @@ export const ProviderSettings = () => {
               type="button"
               onClick={() => setSelectedId(provider.id)}
               className={cn(
-                "relative p-4 rounded-lg border-2 transition-all text-left",
-                "hover:border-primary/50 hover:shadow-xs",
+                "relative rounded-lg border p-4 text-left transition-all outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
+                "hover:border-primary/40 hover:bg-accent/30",
                 isSelected
-                  ? "border-primary bg-primary/5"
+                  ? "border-primary/60 ring-1 ring-primary/25 bg-accent/25"
                   : "border-border bg-card"
               )}>
               <div className="flex items-start justify-between mb-2">
@@ -387,9 +387,9 @@ export const ProviderSettings = () => {
 
       {/* Configuration Panel */}
       {activeConfig && (
-        <div className="border rounded-lg overflow-hidden bg-card">
+        <div className="overflow-hidden rounded-lg border bg-card">
           {/* Header with Quick Actions */}
-          <div className="bg-muted/50 px-5 py-4 border-b flex items-center justify-between">
+          <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
             <div className="flex items-center gap-3">
               <div
                 className={cn(

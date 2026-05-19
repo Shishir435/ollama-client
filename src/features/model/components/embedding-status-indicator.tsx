@@ -240,7 +240,7 @@ export const EmbeddingStatusIndicator = () => {
           variant="secondary"
           size="icon"
           onClick={modelExists === false ? handleDownload : handleRetry}
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
+          className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50">
           {icon}
         </Button>
       </TooltipTrigger>

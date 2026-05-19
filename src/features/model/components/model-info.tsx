@@ -232,7 +232,7 @@ export const ModelInfo = ({
   }
 
   return (
-    <Card className="w-full rounded-lg border-border bg-card text-card-foreground py-0">
+    <Card className="w-full py-0">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">

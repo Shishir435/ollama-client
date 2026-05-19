@@ -47,7 +47,7 @@ export const ChatSessionSelector = ({
         <Button
           variant="ghost"
           size="icon"
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50 cursor-pointer">
+          className="m-1 cursor-pointer rounded-lg border border-sidebar-border bg-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent">
           <Menu className="size-4" />
         </Button>
       </SheetTrigger>
@@ -55,14 +55,14 @@ export const ChatSessionSelector = ({
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-80 border-r border-border/50 bg-background/95 p-0 backdrop-blur-xl">
+        className="w-80 border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
         <div className="flex h-full flex-col">
-          <SheetHeader className="flex-row items-center justify-between border-b border-border/50 p-4 pb-3">
+          <SheetHeader className="flex-row items-center justify-between border-b border-sidebar-border p-4 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-primary/10 p-1.5 grayscale-50">
-                <MessageSquare className="size-4 text-primary" />
+              <div className="rounded-lg bg-sidebar-accent p-1.5">
+                <MessageSquare className="size-4 text-sidebar-primary" />
               </div>
-              <SheetTitle className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-semibold text-transparent">
+              <SheetTitle className="text-lg font-semibold text-sidebar-foreground">
                 {t("sessions.selector.title")}
               </SheetTitle>
             </div>
@@ -70,8 +70,8 @@ export const ChatSessionSelector = ({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="size-8 rounded-lg cursor-pointer bg-transparent">
-                <X className="size-4.5 text-muted-foreground/80" />
+                className="size-8 cursor-pointer rounded-lg bg-transparent hover:bg-sidebar-accent">
+                <X className="size-4.5 text-sidebar-foreground/70" />
               </Button>
             </SheetClose>
           </SheetHeader>
@@ -79,7 +79,7 @@ export const ChatSessionSelector = ({
           <div className="p-2 space-y-2">
             <Button
               onClick={createSession}
-              className="flex h-10 w-full items-center justify-start rounded-lg bg-linear-to-r from-primary to-primary/90 text-primary-foreground shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-primary/80 hover:shadow-xl"
+              className="flex h-10 w-full items-center justify-start rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors duration-200 hover:opacity-90"
               aria-label={t("sessions.selector.create_new_aria")}>
               <SquarePen className="mr-2 h-4 w-4" />
               {t("sessions.selector.start_new")}

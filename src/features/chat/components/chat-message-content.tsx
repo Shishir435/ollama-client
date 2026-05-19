@@ -76,7 +76,7 @@ export const ChatMessageContent = ({
   return (
     <div
       className={cn(
-        "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-xs sm:max-w-2xl sm:p-4",
+        "w-full max-w-[90vw] rounded-lg p-3 text-sm shadow-xs sm:max-w-2xl sm:p-4",
         "hover:shadow-md",
         "bg-secondary text-secondary-foreground",
         "border border-border/40"
@@ -88,7 +88,7 @@ export const ChatMessageContent = ({
       {hasThinking && (
         <section
           aria-label={t("chat.reasoning.aria_label")}
-          className="group mb-3 overflow-hidden rounded-xl border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
+          className="group mb-3 overflow-hidden rounded-lg border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
           <button
             type="button"
             id={reasoningButtonId}

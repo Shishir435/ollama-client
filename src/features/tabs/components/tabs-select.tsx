@@ -188,7 +188,7 @@ export const TabsSelect = () => {
                       return (
                         <div
                           key={id}
-                          className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                          className="overflow-hidden rounded-lg border bg-card">
                           <div className="flex items-start justify-between border-b px-4 py-3">
                             <div className="min-w-0 flex-1">
                               <div className="truncate font-medium text-foreground">
@@ -245,7 +245,7 @@ export const TabsSelect = () => {
                               </p>
                             </div>
                           )}
-                          <div className="max-h-[35vh] overflow-auto bg-muted/10 p-4">
+                          <div className="max-h-[35vh] overflow-auto bg-muted/30 p-4">
                             <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-foreground/80">
                               {extractedText || t("tabs.inspector.no_content")}
                             </pre>

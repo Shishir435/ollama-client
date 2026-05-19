@@ -165,8 +165,8 @@ export const SettingsPage = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <header className="flex-none border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60 z-50">
-        <div className="flex bg-background items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <header className="z-50 flex-none border-b bg-background">
+        <div className="flex items-center justify-between bg-background px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
@@ -195,7 +195,7 @@ export const SettingsPage = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="hidden lg:block w-64 flex-none border-r bg-muted/10">
+        <div className="hidden lg:block w-64 flex-none border-r border-sidebar-border bg-sidebar">
           <SettingsSidebar
             sections={navSections}
             activeTab={activeTab}

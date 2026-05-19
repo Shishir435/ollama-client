@@ -8,24 +8,24 @@ export const COLOR_VARIANTS: Record<
   { border: string; bg: string; iconBg: string }
 > = {
   green: {
-    border: "border-emerald-500/20 hover:border-emerald-500/40",
-    bg: "bg-emerald-500/5 hover:bg-emerald-500/10",
-    iconBg: "bg-emerald-500"
+    border: "border-feature-1/25 hover:border-feature-1/45",
+    bg: "bg-feature-1/8 hover:bg-feature-1/12",
+    iconBg: "bg-feature-1"
   },
   blue: {
-    border: "border-sky-500/20 hover:border-sky-500/40",
-    bg: "bg-sky-500/5 hover:bg-sky-500/10",
-    iconBg: "bg-sky-500"
+    border: "border-feature-2/25 hover:border-feature-2/45",
+    bg: "bg-feature-2/8 hover:bg-feature-2/12",
+    iconBg: "bg-feature-2"
   },
   purple: {
-    border: "border-violet-500/20 hover:border-violet-500/40",
-    bg: "bg-violet-500/5 hover:bg-violet-500/10",
-    iconBg: "bg-violet-500"
+    border: "border-feature-3/25 hover:border-feature-3/45",
+    bg: "bg-feature-3/8 hover:bg-feature-3/12",
+    iconBg: "bg-feature-3"
   },
   indigo: {
-    border: "border-indigo-500/20 hover:border-indigo-500/40",
-    bg: "bg-indigo-500/5 hover:bg-indigo-500/10",
-    iconBg: "bg-indigo-500"
+    border: "border-feature-4/25 hover:border-feature-4/45",
+    bg: "bg-feature-4/8 hover:bg-feature-4/12",
+    iconBg: "bg-feature-4"
   }
 }
 
@@ -45,7 +45,7 @@ export const FeatureCard = ({
   return (
     <div
       className={cn(
-        "group flex flex-col gap-4 rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+        "group flex flex-col gap-4 rounded-lg border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm",
         border,
         bg
       )}>
@@ -54,7 +54,7 @@ export const FeatureCard = ({
           "flex size-11 items-center justify-center rounded-[14px] shadow-sm transition-transform duration-300 group-hover:scale-110",
           iconBg
         )}>
-        <Icon className="h-5 w-5 text-white" />
+        <Icon className="h-5 w-5 text-background" />
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-[15px] font-semibold leading-tight text-foreground">

@@ -130,7 +130,7 @@ export const VoiceSelector = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[440px] p-0 shadow-lg"
+        className="w-[440px] p-0 shadow-md"
         align="center"
         sideOffset={6}>
         <Command className="rounded-lg border-0" shouldFilter={false}>
