@@ -4,6 +4,7 @@ import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
 import { Database, Loader2 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 export const EmbeddingIndexControls = () => {
   const { t } = useTranslation()
@@ -94,11 +95,12 @@ export const EmbeddingIndexControls = () => {
       )}
       {rebuildResult && (
         <div
-          className={`text-xs p-2 rounded ${
+          className={cn(
+            "rounded px-2 py-2 text-xs",
             rebuildResult.startsWith("✅")
-              ? "bg-green-500/10 text-green-600 dark:text-green-400"
-              : "bg-red-500/10 text-red-600 dark:text-red-400"
-          }`}>
+              ? "border border-primary/20 bg-primary/10 text-primary"
+              : "border border-destructive/20 bg-destructive/10 text-destructive"
+          )}>
           {rebuildResult}
         </div>
       )}

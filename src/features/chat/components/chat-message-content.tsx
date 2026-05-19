@@ -162,7 +162,7 @@ export const ChatMessageContent = ({
           )}
         </section>
       )}
-      <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
+      <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-ul:marker:text-muted-foreground prose-ol:marker:text-muted-foreground">
         <MarkdownRenderer content={msg.content} />
         {isLoading && !isUser && !showThinkingIndicator && (
           <ChatMessageLoadingIndicator

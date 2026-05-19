@@ -28,6 +28,7 @@ import {
   RefreshCw
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { STATUS_STYLES } from "@/lib/ui-status"
 import type { ModelCheckResponse } from "@/types"
 
 export const EmbeddingStatusIndicator = () => {
@@ -178,8 +179,12 @@ export const EmbeddingStatusIndicator = () => {
 
   const statusConfig = {
     loading: {
-      icon: <Loader2 className="size-4 animate-spin text-yellow-500" />,
-      color: "text-yellow-500",
+      icon: (
+        <Loader2
+          className={`size-4 animate-spin ${STATUS_STYLES.neutral.text}`}
+        />
+      ),
+      color: STATUS_STYLES.neutral.text,
       text: isDownloading
         ? t("model.embedding_status.downloading", {
             model: modelName,
@@ -188,23 +193,23 @@ export const EmbeddingStatusIndicator = () => {
         : t("model.embedding_status.checking")
     },
     ready: {
-      icon: <Database className="size-4 text-green-600" />,
-      color: "text-600",
+      icon: <Database className={`size-4 ${STATUS_STYLES.success.text}`} />,
+      color: STATUS_STYLES.success.text,
       text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
-      icon: <Database className="size-4 text-red-500" />,
-      color: "text-red-500",
+      icon: <Database className={`size-4 ${STATUS_STYLES.warning.text}`} />,
+      color: STATUS_STYLES.warning.text,
       text: t("model.embedding_status.missing", { model: modelName })
     },
     error: {
-      icon: <AlertTriangle className="size-4 text-red-500" />,
-      color: "text-red-500",
+      icon: <AlertTriangle className={`size-4 ${STATUS_STYLES.danger.text}`} />,
+      color: STATUS_STYLES.danger.text,
       text: t("model.embedding_status.error")
     },
     default: {
-      icon: <Database className="size-4 text-muted-foreground" />,
-      color: "text-muted-foreground",
+      icon: <Database className={`size-4 ${STATUS_STYLES.neutral.text}`} />,
+      color: STATUS_STYLES.neutral.text,
       text: t("model.embedding_status.checking_model")
     }
   }
@@ -268,7 +273,10 @@ export const EmbeddingStatusIndicator = () => {
           )}
 
           {error && (
-            <div className="text-xs text-red-500 wrap-break-word">{error}</div>
+            <div
+              className={`text-xs wrap-break-word ${STATUS_STYLES.danger.text}`}>
+              {error}
+            </div>
           )}
         </div>
       </TooltipContent>

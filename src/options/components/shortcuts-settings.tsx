@@ -6,6 +6,7 @@ import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
+import { cn } from "@/lib/utils"
 import {
   DEFAULT_SHORTCUTS,
   type Shortcut,
@@ -213,9 +214,10 @@ export const ShortcutsSettings = () => {
                     <button
                       type="button"
                       key={shortcut.id}
-                      className={`group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50 ${
-                        isRecording ? "bg-accent ring-2 ring-primary" : ""
-                      }`}
+                      className={cn(
+                        "group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50",
+                        isRecording && "bg-accent ring-2 ring-primary"
+                      )}
                       onClick={() => {
                         if (!isRecording) {
                           setRecordingAction(shortcut.id)

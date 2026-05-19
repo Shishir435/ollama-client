@@ -23,6 +23,14 @@
 
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-status-success: hsl(var(--status-success));
+  --color-status-success-foreground: hsl(var(--status-success-foreground));
+  --color-status-warning: hsl(var(--status-warning));
+  --color-status-warning-foreground: hsl(var(--status-warning-foreground));
+  --color-status-info: hsl(var(--status-info));
+  --color-status-info-foreground: hsl(var(--status-info-foreground));
+  --color-status-danger: hsl(var(--status-danger));
+  --color-status-danger-foreground: hsl(var(--status-danger-foreground));
 
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
@@ -99,6 +107,14 @@
     --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    --status-success: 142 72% 33%;
+    --status-success-foreground: 0 0% 98%;
+    --status-warning: 45 93% 47%;
+    --status-warning-foreground: 28 84% 18%;
+    --status-info: 214 84% 52%;
+    --status-info-foreground: 0 0% 98%;
+    --status-danger: 0 84.2% 60.2%;
+    --status-danger-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
@@ -129,6 +145,14 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    --status-success: 142 67% 45%;
+    --status-success-foreground: 0 0% 8%;
+    --status-warning: 45 95% 58%;
+    --status-warning-foreground: 0 0% 8%;
+    --status-info: 213 94% 68%;
+    --status-info-foreground: 0 0% 8%;
+    --status-danger: 0 75% 57%;
+    --status-danger-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;

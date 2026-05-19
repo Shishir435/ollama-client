@@ -1,4 +1,5 @@
 import { CheckIcon, Loader2, TriangleAlert } from "@/lib/lucide-icon"
+import { STATUS_STYLES } from "@/lib/ui-status"
 
 export const StatusIcon = ({
   loading,
@@ -9,13 +10,15 @@ export const StatusIcon = ({
 }) => {
   if (loading) {
     return (
-      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground dark:text-muted" />
+      <Loader2
+        className={`h-4 w-4 animate-spin ${STATUS_STYLES.neutral.text}`}
+      />
     )
   }
 
   if (error) {
-    return <TriangleAlert className="h-4 w-4 text-red-500 dark:text-red-400" />
+    return <TriangleAlert className={`h-4 w-4 ${STATUS_STYLES.danger.text}`} />
   }
 
-  return <CheckIcon className="h-4 w-4 text-green-500 dark:text-green-400" />
+  return <CheckIcon className={`h-4 w-4 ${STATUS_STYLES.success.text}`} />
 }

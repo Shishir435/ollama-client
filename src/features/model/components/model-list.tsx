@@ -34,6 +34,7 @@ import {
   Trash2
 } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import { cn } from "@/lib/utils"
 import type { ProviderModel } from "@/types"
 import { formatFileSize, getModelIcon } from "../lib/model-utils"
 
@@ -188,7 +189,7 @@ export const ModelList = (): React.ReactElement => {
                   disabled={refreshing}
                   className="h-8 w-8 p-0">
                   <RefreshCw
-                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    className={cn("h-4 w-4", refreshing && "animate-spin")}
                   />
                 </Button>
               </TooltipTrigger>
@@ -208,87 +209,97 @@ export const ModelList = (): React.ReactElement => {
           <div className="border-t">
             <ScrollArea className="h-64">
               <div className="flex flex-wrap justify-center gap-1 space-y-1 p-2">
-                {models.map((model: ProviderModel) => (
-                  <Card
-                    key={`${model.providerId || DEFAULT_PROVIDER_ID}-${model.name}`}
-                    className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
-                          {getModelIcon(model.name)}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {model.name}
+                {models.map((model: ProviderModel) => {
+                  const ModelIcon = getModelIcon(model.name)
+                  return (
+                    <Card
+                      key={`${model.providerId || DEFAULT_PROVIDER_ID}-${model.name}`}
+                      className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
+                            <ModelIcon className="size-4 text-muted-foreground" />
                           </div>
 
-                          <div className="mt-1 flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <HardDrive className="h-3 w-3" />
-                              <span>{formatFileSize(model.size, t)}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">
+                              {model.name}
                             </div>
 
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatDate(model.modified_at, t)}</span>
-                            </div>
+                            <div className="mt-1 flex items-center gap-3">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <HardDrive className="h-3 w-3" />
+                                <span>{formatFileSize(model.size, t)}</span>
+                              </div>
 
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground rounded-full bg-secondary px-2 py-0.5">
-                              <span>
-                                {model.providerName ||
-                                  getProviderDisplayName(DEFAULT_PROVIDER_ID)}
-                              </span>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>{formatDate(model.modified_at, t)}</span>
+                              </div>
+
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground rounded-full bg-secondary px-2 py-0.5">
+                                <span>
+                                  {model.providerName ||
+                                    getProviderDisplayName(DEFAULT_PROVIDER_ID)}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                onClick={(e) => e.stopPropagation()}
+                                disabled={
+                                  model.providerId !== DEFAULT_PROVIDER_ID
+                                }>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {t(
+                                    "settings.model_list.delete_dialog.title",
+                                    {
+                                      name: model.name
+                                    }
+                                  )}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {t(
+                                    "settings.model_list.delete_dialog.description"
+                                  )}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>
+                                  {t(
+                                    "settings.model_list.delete_dialog.cancel"
+                                  )}
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() =>
+                                    deleteModel({
+                                      modelName: model.name,
+                                      providerId: model.providerId
+                                    })
+                                  }
+                                  className="bg-destructive hover:bg-destructive/90">
+                                  {t(
+                                    "settings.model_list.delete_dialog.confirm"
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                              onClick={(e) => e.stopPropagation()}
-                              disabled={
-                                model.providerId !== DEFAULT_PROVIDER_ID
-                              }>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {t("settings.model_list.delete_dialog.title", {
-                                  name: model.name
-                                })}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t(
-                                  "settings.model_list.delete_dialog.description"
-                                )}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>
-                                {t("settings.model_list.delete_dialog.cancel")}
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  deleteModel({
-                                    modelName: model.name,
-                                    providerId: model.providerId
-                                  })
-                                }
-                                className="bg-destructive hover:bg-destructive/90">
-                                {t("settings.model_list.delete_dialog.confirm")}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             </ScrollArea>
           </div>

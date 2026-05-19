@@ -48,25 +48,25 @@ export const SessionMetricsBar = ({
   const metricItems: MetricItem[] = [
     {
       icon: FileText,
-      iconColor: "text-amber-600 dark:text-amber-400",
+      iconColor: "text-muted-foreground",
       value: metrics.totalTokens.toLocaleString(),
       tooltipKey: "chat.session_metrics.tooltip_tokens"
     },
     {
       icon: Clock,
-      iconColor: "text-blue-600 dark:text-blue-400",
+      iconColor: "text-muted-foreground",
       value: formatSessionDuration(metrics.totalDuration),
       tooltipKey: "chat.session_metrics.tooltip_time"
     },
     {
       icon: Zap,
-      iconColor: "text-emerald-600 dark:text-emerald-400",
+      iconColor: "text-muted-foreground",
       value: `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit", "t/s")}`,
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
     {
       icon: MessageSquare,
-      iconColor: "text-purple-600 dark:text-purple-400",
+      iconColor: "text-muted-foreground",
       value: String(metrics.messageCount),
       tooltipKey: "chat.session_metrics.tooltip_messages"
     }

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 
 import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
 import { AlertCircle, Globe, Plus, Shield, Trash2 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 interface ExcludedUrlsProps {
   patterns: string[]
@@ -83,7 +84,10 @@ export const ExcludedUrls = ({
               value={input}
               onChange={handleInputChange}
               placeholder={t("model.exclude_urls.pattern_placeholder")}
-              className={`h-9 font-mono text-sm ${error ? "border-destructive" : ""}`}
+              className={cn(
+                "h-9 font-mono text-sm",
+                error && "border-destructive"
+              )}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()

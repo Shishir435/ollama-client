@@ -28,6 +28,7 @@ import {
   Settings,
   Zap
 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 const fileTypeMap: Record<number, string> = {
   1: "F32",
@@ -283,7 +284,7 @@ export const ModelInfo = ({
                       disabled={refreshing}
                       className="h-8 w-8 p-0">
                       <RefreshCw
-                        className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                        className={cn("h-4 w-4", refreshing && "animate-spin")}
                       />
                     </Button>
                   </TooltipTrigger>
@@ -293,9 +294,10 @@ export const ModelInfo = ({
                 </Tooltip>
 
                 <ChevronDown
-                  className={`h-4 w-4 transition-transform duration-200 ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    isExpanded && "rotate-180"
+                  )}
                 />
               </div>
             </div>

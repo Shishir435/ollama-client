@@ -1,13 +1,23 @@
-export const getModelIcon = (modelName: string): string => {
+import {
+  Bot,
+  Brain,
+  Code,
+  type LucideIcon,
+  Settings,
+  Sparkles,
+  Zap
+} from "@/lib/lucide-icon"
+
+export const getModelIcon = (modelName: string): LucideIcon => {
   const name = modelName.toLowerCase()
-  if (name.includes("llama")) return "🦙"
-  if (name.includes("mistral")) return "🌪️"
-  if (name.includes("codellama")) return "💻"
-  if (name.includes("phi")) return "📐"
-  if (name.includes("gemma")) return "💎"
-  if (name.includes("qwq")) return "🐱"
-  if (isEmbeddingModel(modelName)) return "🧠"
-  return "🤖"
+  if (name.includes("llama")) return Bot
+  if (name.includes("mistral")) return Zap
+  if (name.includes("codellama")) return Code
+  if (name.includes("phi")) return Settings
+  if (name.includes("gemma")) return Sparkles
+  if (name.includes("qwq")) return Sparkles
+  if (isEmbeddingModel(modelName)) return Brain
+  return Bot
 }
 
 export const isEmbeddingModel = (
@@ -30,11 +40,7 @@ export const isEmbeddingModel = (
 
   // Check by architecture families
   const embeddingFamilies = ["bert", "nomic-bert", "xlm-roberta"]
-  if (families.some((f) => embeddingFamilies.includes(f.toLowerCase()))) {
-    return true
-  }
-
-  return false
+  return families.some((f) => embeddingFamilies.includes(f.toLowerCase()))
 }
 
 export const formatFileSize = (

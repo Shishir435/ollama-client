@@ -1,5 +1,6 @@
 import type React from "react"
 import type { LucideIcon } from "@/lib/lucide-icon"
+import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
 
 interface StatusAlertProps {
@@ -21,13 +22,26 @@ export const StatusAlert = ({
 }: StatusAlertProps) => {
   const variantStyles = {
     default: "border-primary/20 bg-primary/5 text-primary",
-    destructive:
-      "border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400",
-    success:
-      "border-green-500/20 bg-green-500/5 text-green-600 dark:text-green-400",
-    warning:
-      "border-yellow-500/20 bg-yellow-500/5 text-yellow-600 dark:text-yellow-400",
-    info: "border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400"
+    destructive: cn(
+      STATUS_STYLES.danger.borderSoft,
+      STATUS_STYLES.danger.bgSoft,
+      STATUS_STYLES.danger.text
+    ),
+    success: cn(
+      STATUS_STYLES.success.borderSoft,
+      STATUS_STYLES.success.bgSoft,
+      STATUS_STYLES.success.text
+    ),
+    warning: cn(
+      STATUS_STYLES.warning.borderSoft,
+      STATUS_STYLES.warning.bgSoft,
+      STATUS_STYLES.warning.text
+    ),
+    info: cn(
+      STATUS_STYLES.info.borderSoft,
+      STATUS_STYLES.info.bgSoft,
+      STATUS_STYLES.info.text
+    )
   }
 
   return (

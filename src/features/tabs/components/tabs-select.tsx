@@ -23,6 +23,8 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { Eye, RefreshCw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { STATUS_STYLES } from "@/lib/ui-status"
+import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
 
 const trimTitle = (title: string, max = 25) =>
@@ -120,7 +122,12 @@ export const TabsSelect = () => {
             </p>
             <div className="flex items-center gap-1.5">
               {updatedSelectedCount > 0 && (
-                <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-semibold text-amber-700">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
+                    STATUS_STYLES.warning.bgSoft,
+                    STATUS_STYLES.warning.text
+                  )}>
                   {t("tabs.select.updated")}
                 </span>
               )}
@@ -205,13 +212,14 @@ export const TabsSelect = () => {
                                 )}
                                 {reliabilityScore !== null && (
                                   <span
-                                    className={`shrink-0 font-medium ${
+                                    className={cn(
+                                      "shrink-0 font-medium",
                                       reliabilityScore >= 0.7
-                                        ? "text-green-600"
+                                        ? STATUS_STYLES.success.text
                                         : reliabilityScore >= 0.35
-                                          ? "text-amber-600"
-                                          : "text-red-600"
-                                    }`}>
+                                          ? STATUS_STYLES.warning.text
+                                          : STATUS_STYLES.danger.text
+                                    )}>
                                     {t("tabs.inspector.reliable", {
                                       percent: Math.round(
                                         reliabilityScore * 100
@@ -223,8 +231,16 @@ export const TabsSelect = () => {
                             </div>
                           </div>
                           {isLowReliability && (
-                            <div className="border-b bg-amber-500/10 px-4 py-2">
-                              <p className="text-xs text-amber-700">
+                            <div
+                              className={cn(
+                                "border-b px-4 py-2",
+                                STATUS_STYLES.warning.bgSoft
+                              )}>
+                              <p
+                                className={cn(
+                                  "text-xs",
+                                  STATUS_STYLES.warning.softText
+                                )}>
                                 {t("tabs.inspector.low_reliability")}
                               </p>
                             </div>

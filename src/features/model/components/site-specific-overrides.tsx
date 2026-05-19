@@ -37,6 +37,7 @@ import {
   Target,
   Trash2
 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig, ScrollStrategy } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 
@@ -221,7 +222,10 @@ export const SiteSpecificOverrides = ({
                 if (sitePatternError) setSitePatternError("")
               }}
               placeholder={t("model.site_overrides.pattern_placeholder")}
-              className={`h-9 font-mono text-sm ${sitePatternError ? "border-destructive" : ""}`}
+              className={cn(
+                "h-9 font-mono text-sm",
+                sitePatternError && "border-destructive"
+              )}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
@@ -302,11 +306,12 @@ export const SiteSpecificOverrides = ({
                             setSiteOverrideOpen(false)
                           }}>
                           <Check
-                            className={`mr-2 h-4 w-4 ${
+                            className={cn(
+                              "mr-2 h-4 w-4",
                               selectedSiteOverride === pattern
                                 ? "opacity-100"
                                 : "opacity-0"
-                            }`}
+                            )}
                           />
                           <code className="font-mono text-sm">{pattern}</code>
                         </CommandItem>

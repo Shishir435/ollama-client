@@ -35,6 +35,7 @@ import {
   Zap
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { cn } from "@/lib/utils"
 import type {
   ContentExtractionConfig,
   ContentScraper,
@@ -214,20 +215,19 @@ const ContentExtractionSettingsForm = ({
                 key={option.value}
                 type="button"
                 onClick={() => onValueChange(option.value)}
-                className={`
-                group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all
-                hover:bg-accent/50 hover:border-accent-foreground/20
-                ${
+                className={cn(
+                  "group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all hover:border-accent-foreground/20 hover:bg-accent/50",
                   isSelected
                     ? "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
                     : "border-border"
-                }
-              `}>
+                )}>
                 <div
-                  className={`
-                  flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors
-                  ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted group-hover:bg-muted/80"}
-                `}>
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors",
+                    isSelected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted group-hover:bg-muted/80"
+                  )}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="flex-1 space-y-1.5 min-w-0">
