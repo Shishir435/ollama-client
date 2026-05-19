@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { AppWindow, BrainCircuit } from "lucide-react"
+import { AppWindow, BrainCircuit, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +31,13 @@ export const ContextSettingsMenu = () => {
   const [tabAccess, setTabAccess] = useStorage<boolean>(
     {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
+  const [groundedOnlyMode, setGroundedOnlyMode] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
       instance: plasmoGlobalStorage
     },
     false
@@ -73,6 +80,13 @@ export const ContextSettingsMenu = () => {
             {useRAG
               ? t("chat.input.rag_toggle_on")
               : t("chat.input.rag_toggle_off")}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={groundedOnlyMode}
+            onCheckedChange={(value) => setGroundedOnlyMode(Boolean(value))}
+            className="gap-2 text-xs py-2">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {t("settings.grounding_mode.label")}
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

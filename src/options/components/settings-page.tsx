@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
@@ -40,7 +40,13 @@ import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
 export const SettingsPage = () => {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState("general")
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "general"
+    const requestedTab = new URLSearchParams(window.location.search)
+      .get("tab")
+      ?.replace(/^"+|"+$/g, "")
+    return requestedTab || "general"
+  })
 
   const navSections: NavSection[] = [
     {
@@ -159,6 +165,73 @@ export const SettingsPage = () => {
   }
 
   const allNavItems = navSections.flatMap((s) => s.items)
+  const validTabKeys = useMemo(
+    () => new Set(allNavItems.map((item) => item.key)),
+    [allNavItems]
+  )
+
+  useEffect(() => {
+    if (!validTabKeys.has(activeTab)) {
+      setActiveTab("general")
+    }
+  }, [activeTab, validTabKeys])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.set("tab", activeTab)
+    window.history.replaceState({}, "", nextUrl.toString())
+
+    const focusId = nextUrl.searchParams.get("focus")
+    if (!focusId) return
+
+    let attempts = 0
+    const maxAttempts = 40
+
+    const highlightWhenReady = () => {
+      attempts += 1
+
+      const focusTarget =
+        document.getElementById(focusId) ||
+        document.querySelector(`[data-settings-focus-id="${focusId}"]`)
+
+      if (!focusTarget) {
+        if (attempts < maxAttempts) {
+          window.setTimeout(highlightWhenReady, 50)
+        }
+        return
+      }
+
+      const focusContainer =
+        focusTarget.closest("[data-settings-focus='true']") || focusTarget
+
+      focusContainer.scrollIntoView({ block: "center", behavior: "smooth" })
+
+      focusContainer.classList.add(
+        "ring-2",
+        "ring-primary",
+        "ring-offset-2",
+        "ring-offset-background"
+      )
+
+      window.setTimeout(() => {
+        focusContainer.classList.remove(
+          "ring-2",
+          "ring-primary",
+          "ring-offset-2",
+          "ring-offset-background"
+        )
+      }, 3000)
+
+      if (focusTarget instanceof HTMLElement) {
+        focusTarget.focus({ preventScroll: true })
+      }
+    }
+
+    window.setTimeout(highlightWhenReady, 0)
+  }, [activeTab])
+
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
     "https://github.com/Shishir435/ollama-client"

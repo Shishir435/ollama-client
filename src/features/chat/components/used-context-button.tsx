@@ -17,7 +17,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import type { ChatMessage } from "@/types"
 
 type UsedChunk = {
   id: string | number

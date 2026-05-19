@@ -29,36 +29,39 @@ export const TextSplittingSettings = () => {
   )
 
   const { t } = useTranslation()
+  const safeChunkSize = config.chunkSize ?? DEFAULT_EMBEDDING_CONFIG.chunkSize
+  const safeChunkOverlap =
+    config.chunkOverlap ?? DEFAULT_EMBEDDING_CONFIG.chunkOverlap
 
-  const [chunkSize, setChunkSize] = useState(config.chunkSize)
-  const [chunkOverlap, setChunkOverlap] = useState(config.chunkOverlap)
+  const [chunkSize, setChunkSize] = useState(safeChunkSize)
+  const [chunkOverlap, setChunkOverlap] = useState(safeChunkOverlap)
 
   // Sync local state with storage
   useEffect(() => {
-    setChunkSize(config.chunkSize)
-    setChunkOverlap(config.chunkOverlap)
-  }, [config.chunkSize, config.chunkOverlap])
+    setChunkSize(safeChunkSize)
+    setChunkOverlap(safeChunkOverlap)
+  }, [safeChunkSize, safeChunkOverlap])
 
   // Update knowledge config when storage changes
   useEffect(() => {
     const updateKnowledgeConfig = async () => {
-      await knowledgeConfig.setChunkSize(config.chunkSize)
-      await knowledgeConfig.setChunkOverlap(config.chunkOverlap)
+      await knowledgeConfig.setChunkSize(safeChunkSize)
+      await knowledgeConfig.setChunkOverlap(safeChunkOverlap)
       await knowledgeConfig.setSplittingStrategy(
         config.useEnhancedChunking ? "recursive" : "character"
       )
     }
     updateKnowledgeConfig()
-  }, [config])
+  }, [config.useEnhancedChunking, safeChunkSize, safeChunkOverlap])
 
   const handleChunkSizeChange = (value: number[]) => {
-    const size = value[0]
+    const size = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkSize
     setChunkSize(size)
     setConfig((prev) => ({ ...prev, chunkSize: size }))
   }
 
   const handleChunkOverlapChange = (value: number[]) => {
-    const overlap = value[0]
+    const overlap = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkOverlap
     setChunkOverlap(overlap)
     setConfig((prev) => ({ ...prev, chunkOverlap: overlap }))
   }

@@ -1,4 +1,5 @@
 import type React from "react"
+import { useEffect, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
@@ -20,10 +21,30 @@ export const SettingsSwitch = ({
   id,
   className
 }: SettingsSwitchProps) => {
+  const [isDeepLinkHighlighted, setIsDeepLinkHighlighted] = useState(false)
+
+  useEffect(() => {
+    if (!id || typeof window === "undefined") return
+
+    const focusTarget = new URLSearchParams(window.location.search).get("focus")
+    if (focusTarget !== id) return
+
+    setIsDeepLinkHighlighted(true)
+    const timeoutId = window.setTimeout(() => {
+      setIsDeepLinkHighlighted(false)
+    }, 3500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [id])
+
   return (
     <div
+      data-settings-focus="true"
+      data-settings-focus-id={id}
       className={cn(
         "flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent/20 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/30",
+        isDeepLinkHighlighted &&
+          "ring-2 ring-primary ring-offset-2 ring-offset-background",
         className
       )}>
       <div className="space-y-0.5">

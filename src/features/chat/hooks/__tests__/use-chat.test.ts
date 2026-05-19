@@ -489,6 +489,51 @@ describe("useChat", () => {
     )
   })
 
+  it("should include selected tab context for custom input", async () => {
+    const { useSelectedTabs } = await import(
+      "@/features/tabs/stores/selected-tabs-store"
+    )
+    const { useTabContent } = await import(
+      "@/features/tabs/stores/tab-content-store"
+    )
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+
+    const startStream = vi.fn()
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
+
+    vi.mocked(useSelectedTabs).mockReturnValue({
+      selectedTabIds: ["1"],
+      setSelectedTabIds: vi.fn(),
+      errors: {},
+      setErrors: vi.fn()
+    })
+    vi.mocked(useTabContent).mockReturnValue({
+      builtContent: "Page content",
+      documents: [{ id: "1", title: "Tab 1", content: "Page content" }]
+    })
+
+    const { result } = renderHook(() => useChat())
+
+    await act(async () => {
+      await result.current.sendMessage("Use this custom prompt")
+    })
+
+    expect(startStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("Page content")
+          })
+        ])
+      })
+    )
+  })
+
   it("should handle error during message embedding", async () => {
     const { useAutoEmbedMessages } = await import(
       "@/features/chat/hooks/use-auto-embed-messages"
@@ -675,6 +720,12 @@ describe("useChat", () => {
       const { retrieveContext } = await import(
         "@/features/chat/rag/rag-retriever"
       )
+      const { useSelectedTabs } = await import(
+        "@/features/tabs/stores/selected-tabs-store"
+      )
+      const { useTabContent } = await import(
+        "@/features/tabs/stores/tab-content-store"
+      )
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
@@ -686,6 +737,16 @@ describe("useChat", () => {
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockRejectedValue(new Error("RAG Error"))
+      vi.mocked(useSelectedTabs).mockReturnValue({
+        selectedTabIds: [],
+        setSelectedTabIds: vi.fn(),
+        errors: {},
+        setErrors: vi.fn()
+      })
+      vi.mocked(useTabContent).mockReturnValue({
+        builtContent: "",
+        documents: []
+      })
 
       const { result } = renderHook(() => useChat())
 
@@ -720,6 +781,12 @@ describe("useChat", () => {
       const { retrieveContext } = await import(
         "@/features/chat/rag/rag-retriever"
       )
+      const { useSelectedTabs } = await import(
+        "@/features/tabs/stores/selected-tabs-store"
+      )
+      const { useTabContent } = await import(
+        "@/features/tabs/stores/tab-content-store"
+      )
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
@@ -734,6 +801,16 @@ describe("useChat", () => {
         documents: [],
         formattedContext: "",
         sources: []
+      })
+      vi.mocked(useSelectedTabs).mockReturnValue({
+        selectedTabIds: [],
+        setSelectedTabIds: vi.fn(),
+        errors: {},
+        setErrors: vi.fn()
+      })
+      vi.mocked(useTabContent).mockReturnValue({
+        builtContent: "",
+        documents: []
       })
 
       const { result } = renderHook(() => useChat())

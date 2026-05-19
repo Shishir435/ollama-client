@@ -2,6 +2,7 @@ import { useCopyCode as initializeCopyCode } from "markdown-it-copy-code"
 import { useEffect, useRef } from "react"
 
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
+import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
 
 export const MarkdownRenderer = ({ content }: { content: string }) => {
   const html = useMarkdownParser(content)
@@ -11,6 +12,37 @@ export const MarkdownRenderer = ({ content }: { content: string }) => {
     if (containerRef.current) {
       initializeCopyCode()
     }
+  }, [])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleLinkClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null
+      if (!anchor) return
+
+      const href = anchor.getAttribute("href")?.trim()
+      if (!href) return
+
+      const resolvedUrl = new URL(href, globalThis.location.href).toString()
+      const optionsUrl = runtime.getURL("options.html")
+
+      if (resolvedUrl.startsWith(optionsUrl)) {
+        event.preventDefault()
+        void openOptionsInTab(resolvedUrl)
+        return
+      }
+
+      if (/^(https?:|chrome-extension:|moz-extension:)/i.test(resolvedUrl)) {
+        event.preventDefault()
+        openExternalUrl(resolvedUrl)
+      }
+    }
+
+    container.addEventListener("click", handleLinkClick)
+    return () => container.removeEventListener("click", handleLinkClick)
   }, [])
 
   return (
