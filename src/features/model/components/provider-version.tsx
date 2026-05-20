@@ -17,12 +17,10 @@ export const ProviderVersion = () => {
   return (
     <div>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <div>
-            <Badge variant="outline" className="cursor-default px-4 py-2">
-              {version}
-            </Badge>
-          </div>
+        <TooltipTrigger render={<div />}>
+          <Badge variant="outline" className="cursor-default px-4 py-2">
+            {version}
+          </Badge>
         </TooltipTrigger>
         <TooltipContent>
           <p>{t("model.version.tooltip", { version })}</p>

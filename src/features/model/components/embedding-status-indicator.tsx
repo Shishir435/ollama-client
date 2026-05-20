@@ -235,14 +235,16 @@ export const EmbeddingStatusIndicator = () => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={modelExists === false ? handleDownload : handleRetry}
-          className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50">
-          {icon}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={modelExists === false ? handleDownload : handleRetry}
+            className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+          />
+        }>
+        {icon}
       </TooltipTrigger>
       <TooltipContent side="left" className="max-w-[250px]">
         <div className="flex flex-col gap-2">

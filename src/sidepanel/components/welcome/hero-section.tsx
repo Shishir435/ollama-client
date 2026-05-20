@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next"
+import { Card } from "@/components/ui/card"
 import { Sparkles } from "@/lib/lucide-icon"
 
 export const HeroSection = () => {
   const { t } = useTranslation()
 
   return (
-    <div className="flex w-full max-w-xl flex-col items-center text-center">
+    <Card className="flex w-full max-w-xl flex-col items-center text-center ring-0 bg-transparent p-0 border-0 shadow-none">
       <div className="group relative mb-5 flex cursor-default items-center gap-2 rounded-full border border-border bg-muted/40 py-1.5 pl-1.5 pr-4 text-xs font-medium uppercase tracking-widest transition-all duration-500 hover:border-primary/40 hover:bg-muted/60 hover:shadow-md">
         <div className="relative flex size-7 items-center justify-center rounded-full bg-linear-to-br from-foreground to-muted-foreground shadow-sm transition-all duration-500 group-hover:scale-110 group-hover:shadow-primary/30">
           <div className="absolute inset-0 rounded-full bg-primary/30 opacity-0 transition-opacity duration-300 group-hover:animate-ping group-hover:opacity-100" />
@@ -21,6 +22,6 @@ export const HeroSection = () => {
       <p className="mb-6 max-w-[90%] text-sm text-muted-foreground sm:text-base">
         {t("welcome.subtitle")}
       </p>
-    </div>
+    </Card>
   )
 }

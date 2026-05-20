@@ -127,7 +127,7 @@ export const ChatMessageFooter = ({
   return (
     <div
       className={
-        "mt-2 flex w-full items-center gap-2 " +
+        "mt-3 flex w-full items-center gap-3 " +
         (isUser ? "flex-row-reverse" : "flex-row")
       }>
       {/* Branch Navigation */}
@@ -161,7 +161,7 @@ export const ChatMessageFooter = ({
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex items-center gap-1.5 rounded-full px-2 py-1 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
@@ -189,21 +189,23 @@ export const ChatMessageFooter = ({
 
         {onEdit && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                onClick={onEdit}
-                title={
-                  isUser ? t("chat.actions.fork") : t("chat.actions.edit")
-                }>
-                {isUser ? (
-                  <GitFork className="size-3.5" />
-                ) : (
-                  <SquarePen className="size-3.5" />
-                )}
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={onEdit}
+                  title={
+                    isUser ? t("chat.actions.fork") : t("chat.actions.edit")
+                  }
+                />
+              }>
+              {isUser ? (
+                <GitFork className="size-3.5" />
+              ) : (
+                <SquarePen className="size-3.5" />
+              )}
             </TooltipTrigger>
             <TooltipContent>
               {isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
@@ -213,13 +215,11 @@ export const ChatMessageFooter = ({
 
         {!isUser && msg.model && !isLoading && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <RegenerateButton
-                  model={msg.model}
-                  onSelectModel={(model) => onRegenerate?.(model)}
-                />
-              </span>
+            <TooltipTrigger render={<span />}>
+              <RegenerateButton
+                model={msg.model}
+                onSelectModel={(model) => onRegenerate?.(model)}
+              />
             </TooltipTrigger>
             <TooltipContent>
               {t("chat.actions.switch_model_tooltip")}
@@ -229,18 +229,17 @@ export const ChatMessageFooter = ({
 
         <DropdownMenu>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <span className="flex">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                    aria-label={t("chat.actions.more")}>
-                    <MoreHorizontal className="size-3" />
-                  </Button>
-                </span>
-              </DropdownMenuTrigger>
+            <TooltipTrigger
+              render={
+                <DropdownMenuTrigger render={<span className="flex" />} />
+              }>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                aria-label={t("chat.actions.more")}>
+                <MoreHorizontal className="size-3" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>
           </Tooltip>
@@ -253,17 +252,19 @@ export const ChatMessageFooter = ({
                 <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">
                   {actionItems.map((item) => (
                     <Tooltip key={item.key}>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuItem
-                          onClick={item.onClick}
-                          aria-label={item.label}
-                          className={
-                            item.destructive
-                              ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
-                              : "size-8 justify-center rounded-md hover:bg-muted/60"
-                          }>
-                          {item.icon}
-                        </DropdownMenuItem>
+                      <TooltipTrigger
+                        render={
+                          <DropdownMenuItem
+                            onClick={item.onClick}
+                            aria-label={item.label}
+                            className={
+                              item.destructive
+                                ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
+                                : "size-8 justify-center rounded-md hover:bg-muted/60"
+                            }
+                          />
+                        }>
+                        {item.icon}
                       </TooltipTrigger>
                       <TooltipContent side="top" sideOffset={10}>
                         {item.label}

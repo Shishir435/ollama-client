@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
+import { MultiSelect } from "@/components/multi-select"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { MultiSelect } from "@/components/ui/multi-select"
 import {
   Tooltip,
   TooltipContent,
@@ -132,28 +131,32 @@ export const TabsSelect = () => {
                 </span>
               )}
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setShowInspector(true)}
-                    aria-label={t("tabs.select.view_content")}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setShowInspector(true)}
+                      aria-label={t("tabs.select.view_content")}
+                    />
+                  }>
+                  <Eye className="h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent>{t("tabs.select.view_content")}</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={refreshSelectedTabContents}
-                    aria-label={t("tabs.select.refresh_now")}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={refreshSelectedTabContents}
+                      aria-label={t("tabs.select.refresh_now")}
+                    />
+                  }>
+                  <RefreshCw className="h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent>{t("tabs.select.refresh_now")}</TooltipContent>
               </Tooltip>

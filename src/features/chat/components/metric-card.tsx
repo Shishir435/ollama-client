@@ -33,15 +33,17 @@ export const MetricCard = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          className={cn(
-            "flex cursor-help items-center gap-1 rounded-md bg-muted/30 px-1 py-0.5 text-xs font-medium transition-colors hover:bg-muted/50",
-            colorClass
-          )}>
-          <Icon className="size-3" />
-          <span>{value}</span>
-        </div>
+      <TooltipTrigger
+        render={
+          <div
+            className={cn(
+              "flex cursor-help items-center gap-1.5 rounded-md bg-muted/30 px-2 py-0.5 text-xs font-medium transition-colors hover:bg-muted/50",
+              colorClass
+            )}
+          />
+        }>
+        <Icon className="size-3" />
+        <span>{value}</span>
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>{tooltip}</p>

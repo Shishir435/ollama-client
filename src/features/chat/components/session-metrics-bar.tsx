@@ -86,11 +86,12 @@ export const SessionMetricsBar = ({
             key={item.tooltipKey || index}
             className="flex items-center gap-3">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 cursor-help">
-                  <Icon className={cn("size-3", item.iconColor)} />
-                  <span className="font-mono">{item.value}</span>
-                </div>
+              <TooltipTrigger
+                render={
+                  <div className="flex items-center gap-1.5 cursor-help" />
+                }>
+                <Icon className={cn("size-3", item.iconColor)} />
+                <span className="font-mono">{item.value}</span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{t(item.tooltipKey)}</p>

@@ -48,14 +48,16 @@ export const ProviderStatusIndicator = () => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => refresh()}
-          className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50">
-          {iconMap[status]}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => refresh()}
+            className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+          />
+        }>
+        {iconMap[status]}
       </TooltipTrigger>
       <TooltipContent side="left">
         <div className="flex items-center gap-2 text-sm">

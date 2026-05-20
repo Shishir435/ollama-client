@@ -3,13 +3,14 @@ import {
   ChevronRightIcon,
   MoreHorizontalIcon
 } from "lucide-react"
-import type * as React from "react"
+import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
+      role="navigation"
       aria-label="pagination"
       data-slot="pagination"
       className={cn("mx-auto flex w-full justify-center", className)}
@@ -73,7 +74,7 @@ function PaginationPrevious({
     <PaginationLink
       aria-label="Go to previous page"
       size="default"
-      className={cn("pl-1.5!", className)}
+      className={cn("pl-2!", className)}
       {...props}>
       <ChevronLeftIcon data-icon="inline-start" />
       <span className="hidden sm:block">{text}</span>
@@ -90,7 +91,7 @@ function PaginationNext({
     <PaginationLink
       aria-label="Go to next page"
       size="default"
-      className={cn("pr-1.5!", className)}
+      className={cn("pr-2!", className)}
       {...props}>
       <span className="hidden sm:block">{text}</span>
       <ChevronRightIcon data-icon="inline-end" />
@@ -107,7 +108,7 @@ function PaginationEllipsis({
       aria-hidden
       data-slot="pagination-ellipsis"
       className={cn(
-        "flex size-8 items-center justify-center [&_svg:not([class*='size-'])]:size-4",
+        "flex size-7 items-center justify-center [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}>

@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { useSpeechStore } from "@/features/chat/stores/speech-store"
-import { markdownToSpeechText } from "@/lib/utils"
+import { markdownToSpeechText } from "@/lib/text-utils"
 
 export const useSpeechSynthesis = () => {
   const { speakingText, setSpeakingText } = useSpeechStore()

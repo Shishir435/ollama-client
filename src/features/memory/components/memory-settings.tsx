@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
   SettingsFormField,
-  ToggleRow
+  SettingsSwitch
 } from "@/components/settings"
 import {
   AlertDialog,
@@ -83,7 +83,7 @@ export const MemorySettings = () => {
       description={t("settings.memory.description")}
       badge={t("settings.memory.beta_badge")}
       contentClassName="space-y-6">
-      <ToggleRow
+      <SettingsSwitch
         id="memory-toggle"
         label={t("settings.memory.enable.label")}
         description={t("settings.memory.enable.description")}
@@ -111,13 +111,14 @@ export const MemorySettings = () => {
             {null}
           </SettingsFormField>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={isClearing}>
-                <Trash2 className="size-4 mr-2" />
-                {isClearing
-                  ? t("settings.memory.clear.button_clearing")
-                  : t("settings.memory.clear.button")}
-              </Button>
+            <AlertDialogTrigger
+              render={
+                <Button variant="destructive" size="sm" disabled={isClearing} />
+              }>
+              <Trash2 className="size-4 mr-2" />
+              {isClearing
+                ? t("settings.memory.clear.button_clearing")
+                : t("settings.memory.clear.button")}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

@@ -23,23 +23,27 @@ export const ChatDeleteButton = ({
   const { t } = useTranslation()
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-            "opacity-0 group-hover:opacity-100",
-            "hover:bg-destructive/10 hover:text-destructive",
-            "focus:bg-destructive/10 focus:text-destructive focus:opacity-100"
-          )}
-          aria-label={t("sessions.delete.aria_label", { title: sessionTitle })}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(sessionId)
-          }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
+              "opacity-0 group-hover:opacity-100",
+              "hover:bg-destructive/10 hover:text-destructive",
+              "focus:bg-destructive/10 focus:text-destructive focus:opacity-100"
+            )}
+            aria-label={t("sessions.delete.aria_label", {
+              title: sessionTitle
+            })}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(sessionId)
+            }}
+          />
+        }>
+        <Trash2 className="h-4 w-4" />
       </TooltipTrigger>
       <TooltipContent>{t("sessions.delete.tooltip")}</TooltipContent>
     </Tooltip>

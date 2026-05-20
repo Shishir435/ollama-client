@@ -272,17 +272,19 @@ export const SiteSpecificOverrides = ({
           <SettingsFormField
             label={t("model.site_overrides.select_site_label")}>
             <Popover open={siteOverrideOpen} onOpenChange={setSiteOverrideOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between">
-                  <span className="truncate font-mono text-sm">
-                    {selectedSiteOverride ||
-                      t("model.site_overrides.select_placeholder")}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  />
+                }>
+                <span className="truncate font-mono text-sm">
+                  {selectedSiteOverride ||
+                    t("model.site_overrides.select_placeholder")}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </PopoverTrigger>
               <PopoverContent
                 className="w-(--radix-popover-trigger-width) p-0"

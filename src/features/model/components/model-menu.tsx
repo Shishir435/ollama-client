@@ -119,43 +119,55 @@ export const ModelMenu = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild aria-label={tooltipTextContent}>
-            {trigger ?? (
-              <Button
-                variant="ghost"
-                role="combobox"
-                aria-expanded={open}
-                className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all">
-                {selectedModel ? (
-                  <div className="flex items-center gap-1.5">
-                    {(() => {
-                      const SelectedModelIcon = getModelIcon(selectedModel)
-                      return (
-                        <SelectedModelIcon className="size-4 text-muted-foreground" />
-                      )
-                    })()}
-                    <span className="truncate font-medium">
-                      {(() => {
-                        const name =
-                          models.find((m) => m.name === selectedModel)?.name ||
-                          selectedModel
-                        return name.length > 15
-                          ? `${name.slice(0, 15)}...`
-                          : name
-                      })()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {t("model.menu.select_placeholder")}
-                  </span>
-                )}
-                <ChevronDown className="size-4 opacity-50" />
-              </Button>
+        {trigger ? (
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                aria-label={tooltipTextContent}
+                render={trigger as React.ReactElement}
+              />
+            }
+          />
+        ) : (
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                aria-label={tooltipTextContent}
+                render={
+                  <Button
+                    variant="ghost"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                  />
+                }
+              />
+            }>
+            {selectedModel ? (
+              <div className="flex items-center gap-1.5">
+                {(() => {
+                  const SelectedModelIcon = getModelIcon(selectedModel)
+                  return (
+                    <SelectedModelIcon className="size-4 text-muted-foreground" />
+                  )
+                })()}
+                <span className="truncate font-medium">
+                  {(() => {
+                    const name =
+                      models.find((m) => m.name === selectedModel)?.name ||
+                      selectedModel
+                    return name.length > 15 ? `${name.slice(0, 15)}...` : name
+                  })()}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">
+                {t("model.menu.select_placeholder")}
+              </span>
             )}
-          </PopoverTrigger>
-        </TooltipTrigger>
+            <ChevronDown className="size-4 opacity-50" />
+          </TooltipTrigger>
+        )}
         <TooltipContent>{tooltipTextContent}</TooltipContent>
       </Tooltip>
 
@@ -163,7 +175,7 @@ export const ModelMenu = ({
         <Command className="max-h-100 w-full">
           <div className="flex flex-col justify-between w-full h-full p-1">
             {selectionConflictModel && (
-              <div className="mb-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1.5 text-xs text-yellow-900 dark:text-yellow-200">
+              <div className="mb-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
                 Provider selection required for{" "}
                 <strong>{selectionConflictModel}</strong>.
               </div>
@@ -173,20 +185,22 @@ export const ModelMenu = ({
                 {t("model.menu.models_label")}
               </span>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => refresh()}
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    aria-label={t("model.menu.refresh_aria_label")}>
-                    <RotateCcw
-                      className={cn(
-                        "size-3.5 transition-transform",
-                        isLoading && "animate-spin"
-                      )}
+                <TooltipTrigger
+                  render={
+                    <Button
+                      onClick={() => refresh()}
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      aria-label={t("model.menu.refresh_aria_label")}
                     />
-                  </Button>
+                  }>
+                  <RotateCcw
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      isLoading && "animate-spin"
+                    )}
+                  />
                 </TooltipTrigger>
                 <TooltipContent>
                   {t("model.menu.refresh_tooltip")}

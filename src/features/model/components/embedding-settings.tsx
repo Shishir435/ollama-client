@@ -18,6 +18,7 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
   Select,
@@ -504,7 +505,7 @@ export const EmbeddingSettings = () => {
                   </div>
                 )}
 
-                <div className="rounded-lg border p-4 space-y-4">
+                <Card className="p-4 space-y-4">
                   <SettingsFormField
                     label={t("settings.embeddings.model_select.label")}
                     description={t(
@@ -592,7 +593,7 @@ export const EmbeddingSettings = () => {
                       }
                     />
                   )}
-                </div>
+                </Card>
               </div>
             </SettingsCard>
 

@@ -178,20 +178,22 @@ export const ModelList = (): React.ReactElement => {
           </div>
           <div className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRefresh()
-                  }}
-                  disabled={refreshing}
-                  className="h-8 w-8 p-0">
-                  <RefreshCw
-                    className={cn("h-4 w-4", refreshing && "animate-spin")}
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRefresh()
+                    }}
+                    disabled={refreshing}
+                    className="h-8 w-8 p-0"
                   />
-                </Button>
+                }>
+                <RefreshCw
+                  className={cn("h-4 w-4", refreshing && "animate-spin")}
+                />
               </TooltipTrigger>
               <TooltipContent>
                 <p>{t("settings.model_list.refresh_tooltip")}</p>
@@ -246,17 +248,19 @@ export const ModelList = (): React.ReactElement => {
                             </div>
                           </div>
                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                onClick={(e) => e.stopPropagation()}
-                                disabled={
-                                  model.providerId !== DEFAULT_PROVIDER_ID
-                                }>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <AlertDialogTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => e.stopPropagation()}
+                                  disabled={
+                                    model.providerId !== DEFAULT_PROVIDER_ID
+                                  }
+                                />
+                              }>
+                              <Trash2 className="h-4 w-4" />
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>

@@ -2,7 +2,7 @@ import { Clock, Cpu, Database, FileText, Loader2, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { MetricCard } from "@/features/chat/components/metric-card"
-import { formatDuration, formatTokensPerSecond } from "@/lib/utils"
+import { formatDuration, formatTokensPerSecond } from "@/lib/format-utils"
 import type { ChatMessage } from "@/types"
 
 export const ChatMessageMetrics = ({
@@ -15,7 +15,7 @@ export const ChatMessageMetrics = ({
   if (!metrics) return null
 
   return (
-    <div className="mt-2 flex flex-wrap gap-1 justify-around">
+    <div className="mt-3 flex flex-wrap gap-1.5 justify-around">
       {!!metrics.total_duration && (
         <MetricCard
           icon={Clock}

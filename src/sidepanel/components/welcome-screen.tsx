@@ -19,8 +19,8 @@ export const WelcomeScreen = () => {
         <div className="flex shrink-0 items-stretch">
           <SettingsButton
             variant="outline"
-            className="h-full rounded-lg px-5 font-medium shadow-sm transition-all duration-300 hover:bg-muted/50 text-base"
-            iconClassName="h-5 w-5"
+            className="h-full px-5 font-medium shadow-sm transition-all duration-300 hover:bg-muted/50 text-base"
+            iconClassName="size-5"
           />
         </div>
       </div>

@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle
+} from "@/components/ui/card"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { AlertTriangle, CheckCircle, RefreshCw } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -60,50 +66,40 @@ export const StatusCard = () => {
   if (!statusConfig) return null
 
   return (
-    <div
+    <Card
       className={cn(
-        "mb-4 w-full max-w-xl rounded-lg border bg-card p-4 text-card-foreground shadow-sm",
+        "mb-4 min-h-min w-full max-w-xl shadow-sm ring-0 border",
         statusConfig.borderClass
       )}>
-      <div className="flex items-start gap-3">
+      <CardContent className="flex items-center gap-3">
         <div
           className={cn(
             "shrink-0 rounded-full p-2",
             statusConfig.bgClass,
             statusConfig.iconFgClass
           )}>
-          <statusConfig.icon
-            className={cn("h-4 w-4", statusConfig.iconClass)}
-          />
+          <statusConfig.icon className={cn("size-4", statusConfig.iconClass)} />
         </div>
-        <div className="flex-1 text-left">
-          <p className="mb-0.5 text-sm font-semibold text-foreground">
-            {statusConfig.title}
-          </p>
-          <p
-            className={cn(
-              "text-xs text-muted-foreground",
-              status === "error" ? "mb-3" : "mb-0"
-            )}>
+        <div className="flex-1 text-left space-y-1">
+          <CardTitle className="font-semibold">{statusConfig.title}</CardTitle>
+          <CardDescription className={status === "error" ? "mb-3" : ""}>
             {statusConfig.message}
-          </p>
+          </CardDescription>
           {status === "error" && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => refresh()}
               className="border-destructive/40 text-destructive hover:bg-destructive/10">
-              <RefreshCw className="mr-1 h-3 w-3" />
+              <RefreshCw className="mr-1 size-3" />
               {t("common.actions.retry")}
             </Button>
           )}
           {status === "empty" && (
-            <p className="text-xs text-muted-foreground">
-              {t("welcome.setup_guide.hint")}
-            </p>
+            <CardDescription>{t("welcome.setup_guide.hint")}</CardDescription>
           )}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

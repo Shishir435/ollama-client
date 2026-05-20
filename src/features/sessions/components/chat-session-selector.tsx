@@ -43,13 +43,15 @@ export const ChatSessionSelector = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="m-1 cursor-pointer rounded-lg border border-sidebar-border bg-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent">
-          <Menu className="size-4" />
-        </Button>
+      <SheetTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="m-1 cursor-pointer rounded-lg border border-sidebar-border bg-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
+          />
+        }>
+        <Menu className="size-4" />
       </SheetTrigger>
 
       <SheetContent
@@ -66,13 +68,15 @@ export const ChatSessionSelector = ({
                 {t("sessions.selector.title")}
               </SheetTitle>
             </div>
-            <SheetClose asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="size-8 cursor-pointer rounded-lg bg-transparent hover:bg-sidebar-accent">
-                <X className="size-4.5 text-sidebar-foreground/70" />
-              </Button>
+            <SheetClose
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-8 cursor-pointer rounded-lg bg-transparent hover:bg-sidebar-accent"
+                />
+              }>
+              <X className="size-4.5 text-sidebar-foreground/70" />
             </SheetClose>
           </SheetHeader>
 

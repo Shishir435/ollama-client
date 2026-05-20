@@ -78,72 +78,74 @@ export const MultiSelect = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div
-          className={cn(
-            "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-input/40 px-3 py-2 text-sm",
-            "cursor-pointer"
-          )}>
-          {selectedValues.length === 0 ? (
-            <span className="text-muted-foreground">{placeholder}</span>
-          ) : (
-            <div className="flex max-w-[85%] flex-wrap gap-1">
-              {selectedValues.slice(0, maxCount).map((value) => {
-                const option = options.find((o) => o.value === value)
-                const Icon = option?.icon
-                const status = statusForValue?.(value)
-                const isLoading = status?.loading
-                const isError = !!status?.error
-                const isSuccess = !status?.loading && !status?.error
+      <PopoverTrigger
+        render={
+          <div
+            className={cn(
+              "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-input/40 px-3 py-2 text-sm",
+              "cursor-pointer"
+            )}
+          />
+        }>
+        {selectedValues.length === 0 ? (
+          <span className="text-muted-foreground">{placeholder}</span>
+        ) : (
+          <div className="flex max-w-[85%] flex-wrap gap-1">
+            {selectedValues.slice(0, maxCount).map((value) => {
+              const option = options.find((o) => o.value === value)
+              const Icon = option?.icon
+              const status = statusForValue?.(value)
+              const isLoading = status?.loading
+              const isError = !!status?.error
+              const isSuccess = !status?.loading && !status?.error
 
-                return (
-                  <Badge
-                    key={value}
-                    variant="secondary"
-                    className={cn(
-                      "flex items-center gap-1 rounded-md px-2 py-1",
-                      "bg-muted text-muted-foreground"
-                    )}>
-                    {Icon && <Icon className="h-4 w-4" />}
-                    <span>{option?.label}</span>
+              return (
+                <Badge
+                  key={value}
+                  variant="secondary"
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2 py-1",
+                    "bg-muted text-muted-foreground"
+                  )}>
+                  {Icon && <Icon className="h-4 w-4" />}
+                  <span>{option?.label}</span>
 
-                    {isLoading && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                    {isSuccess && (
-                      <CheckIcon className="h-4 w-4 text-green-500" />
-                    )}
+                  {isLoading && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {isSuccess && (
+                    <CheckIcon className="h-4 w-4 text-status-success" />
+                  )}
 
-                    <button
-                      type="button"
-                      className="ml-0.5 cursor-pointer pointer-events-auto rounded-full p-0.5 hover:bg-muted-foreground/10 transition-colors duration-200 outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        e.preventDefault()
-                        toggleOption(value)
-                      }}
-                      aria-label={t("common.remove")}>
-                      <XCircle
-                        className={cn(
-                          "h-3.5 w-3.5 transition-colors duration-200",
-                          isError
-                            ? "text-red-500"
-                            : "text-muted-foreground group-hover/badge:text-foreground"
-                        )}
-                      />
-                    </button>
-                  </Badge>
-                )
-              })}
-              {selectedValues.length > maxCount && (
-                <span className="text-sm text-muted-foreground">
-                  +{selectedValues.length - maxCount} more
-                </span>
-              )}
-            </div>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-        </div>
+                  <button
+                    type="button"
+                    className="ml-0.5 cursor-pointer pointer-events-auto rounded-full p-0.5 hover:bg-muted-foreground/10 transition-colors duration-200 outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      toggleOption(value)
+                    }}
+                    aria-label={t("common.remove")}>
+                    <XCircle
+                      className={cn(
+                        "h-3.5 w-3.5 transition-colors duration-200",
+                        isError
+                          ? "text-status-danger"
+                          : "text-muted-foreground group-hover/badge:text-foreground"
+                      )}
+                    />
+                  </button>
+                </Badge>
+              )
+            })}
+            {selectedValues.length > maxCount && (
+              <span className="text-sm text-muted-foreground">
+                +{selectedValues.length - maxCount} more
+              </span>
+            )}
+          </div>
+        )}
+        <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="center">
         <Command className="rounded-lg border-0">

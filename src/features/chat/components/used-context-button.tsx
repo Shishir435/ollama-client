@@ -51,21 +51,25 @@ export const UsedContextButton = ({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                aria-label={`Used context (${chunks.length})`}>
-                <div className="relative">
-                  <FileSearch className="h-3.5 w-3.5" />
-                  <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
-                    {chunks.length}
-                  </span>
-                </div>
-              </Button>
-            </PopoverTrigger>
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    aria-label={`Used context (${chunks.length})`}
+                  />
+                }
+              />
+            }>
+            <div className="relative">
+              <FileSearch className="h-3.5 w-3.5" />
+              <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+                {chunks.length}
+              </span>
+            </div>
           </TooltipTrigger>
           <TooltipContent side="top">Used context</TooltipContent>
         </Tooltip>

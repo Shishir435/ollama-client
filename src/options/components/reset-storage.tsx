@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -125,10 +126,11 @@ export const ResetStorage = () => {
           description={t("settings.reset.danger_zone.description")}
           actions={
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full sm:w-auto">
-                  {t("settings.reset.danger_zone.button")}
-                </Button>
+              <DialogTrigger
+                render={
+                  <Button variant="destructive" className="w-full sm:w-auto" />
+                }>
+                {t("settings.reset.danger_zone.button")}
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -174,7 +176,7 @@ const ModuleResetItem = ({
   const ModuleIcon = getModuleIcon(module)
 
   return (
-    <div className="flex items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50">
+    <Card className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ModuleIcon className="size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
@@ -202,6 +204,6 @@ const ModuleResetItem = ({
         {t("settings.reset.reset_button")}{" "}
         {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
       </Button>
-    </div>
+    </Card>
   )
 }

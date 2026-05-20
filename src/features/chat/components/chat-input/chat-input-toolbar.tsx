@@ -19,7 +19,7 @@ export const ChatInputToolbar = ({
   const { t } = useTranslation()
 
   return (
-    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between rounded-lg border border-border/60 bg-card px-2 py-1.5 transition-colors hover:bg-muted/40">
+    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
       <div className="flex items-center gap-1.5">
         <ModelMenu
           showStatusPopup={false}

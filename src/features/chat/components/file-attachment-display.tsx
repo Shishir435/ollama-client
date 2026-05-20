@@ -79,16 +79,18 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Badge
-          variant="secondary"
-          className="cursor-pointer hover:bg-secondary/80 transition-colors gap-1.5 pr-1">
-          {getFileIcon(file.fileType)}
-          <span className="max-w-[120px] truncate">{file.fileName}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {formatFileSize(file.fileSize)}
-          </span>
-        </Badge>
+      <DialogTrigger
+        render={
+          <Badge
+            variant="secondary"
+            className="cursor-pointer hover:bg-secondary/80 transition-colors gap-1.5 pr-1"
+          />
+        }>
+        {getFileIcon(file.fileType)}
+        <span className="max-w-[120px] truncate">{file.fileName}</span>
+        <span className="text-[10px] text-muted-foreground">
+          {formatFileSize(file.fileSize)}
+        </span>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>

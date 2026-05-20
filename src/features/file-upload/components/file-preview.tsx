@@ -47,15 +47,15 @@ export const FilePreview = ({
     const extension = file.name.split(".").pop()?.toLowerCase()
     switch (extension) {
       case FILE_UPLOAD.EXTENSIONS.PDF:
-        return <FileText className="size-4 text-red-500/80" />
+        return <FileText className="size-4 text-status-danger/80" />
       case FILE_UPLOAD.EXTENSIONS.DOCX:
-        return <FileText className="size-4 text-blue-500/80" />
+        return <FileText className="size-4 text-status-info/80" />
       case FILE_UPLOAD.EXTENSIONS.CSV:
       case FILE_UPLOAD.EXTENSIONS.TSV:
-        return <FileText className="size-4 text-green-500/80" />
+        return <FileText className="size-4 text-status-success/80" />
       case FILE_UPLOAD.EXTENSIONS.HTML:
       case FILE_UPLOAD.EXTENSIONS.HTM:
-        return <FileText className="size-4 text-orange-500/80" />
+        return <FileText className="size-4 text-status-warning/80" />
       default:
         return <FileText className="size-4 text-muted-foreground/50" />
     }
@@ -66,7 +66,7 @@ export const FilePreview = ({
       case "processing":
         return <Loader2 className="size-4 animate-spin text-primary/80" />
       case "success":
-        return <CircleCheck className="size-4 text-green-500" />
+        return <CircleCheck className="size-4 text-status-success" />
       case "error":
         return <AlertCircle className="size-4 text-destructive/80" />
       default:

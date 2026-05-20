@@ -142,38 +142,41 @@ export const LoadedModelsInfo = () => {
   return (
     <Card className="w-full py-0">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">
-                {t("settings.loaded_models.title")}
-              </h3>
-              {loading && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
+        <CollapsibleTrigger
+          render={
+            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
+          }>
+          <div className="flex items-center gap-2">
+            <Brain className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">
+              {t("settings.loaded_models.title")}
+            </h3>
+            {loading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
 
-            <div className="flex items-center gap-2">
-              {models.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>
-                    {models.length === 1
-                      ? t("settings.loaded_models.count_one", {
-                          count: models.length
-                        })
-                      : t("settings.loaded_models.count_other", {
-                          count: models.length
-                        })}
-                  </span>
-                  <span>•</span>
-                  <span>{formatBytes(totalSize)}</span>
-                </div>
-              )}
+          <div className="flex items-center gap-2">
+            {models.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>
+                  {models.length === 1
+                    ? t("settings.loaded_models.count_one", {
+                        count: models.length
+                      })
+                    : t("settings.loaded_models.count_other", {
+                        count: models.length
+                      })}
+                </span>
+                <span>•</span>
+                <span>{formatBytes(totalSize)}</span>
+              </div>
+            )}
 
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
                     <Button
                       variant="ghost"
                       size="sm"
@@ -182,24 +185,24 @@ export const LoadedModelsInfo = () => {
                         handleRefresh()
                       }}
                       disabled={refreshing}
-                      className="h-8 w-8 p-0">
-                      <RefreshCw
-                        className={cn("h-4 w-4", refreshing && "animate-spin")}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t("settings.loaded_models.refresh_tooltip")}</p>
-                  </TooltipContent>
-                </Tooltip>
+                      className="h-8 w-8 p-0"
+                    />
+                  }>
+                  <RefreshCw
+                    className={cn("h-4 w-4", refreshing && "animate-spin")}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t("settings.loaded_models.refresh_tooltip")}</p>
+                </TooltipContent>
+              </Tooltip>
 
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    isExpanded && "rotate-180"
-                  )}
-                />
-              </div>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isExpanded && "rotate-180"
+                )}
+              />
             </div>
           </div>
         </CollapsibleTrigger>
@@ -219,9 +222,9 @@ export const LoadedModelsInfo = () => {
             ) : (
               <div className="flex flex-wrap gap-3 pt-4">
                 {models.map((model) => (
-                  <div
+                  <Card
                     key={model.name}
-                    className="group flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-3 transition-colors hover:bg-muted">
+                    className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">
@@ -250,19 +253,21 @@ export const LoadedModelsInfo = () => {
                     </div>
 
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                          onClick={() => unloadModel(model.name)}
-                          disabled={unloading === model.name}>
-                          {unloading === model.name ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash className="h-4 w-4" />
-                          )}
-                        </Button>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="size-8"
+                            onClick={() => unloadModel(model.name)}
+                            disabled={unloading === model.name}
+                          />
+                        }>
+                        {unloading === model.name ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash className="h-4 w-4" />
+                        )}
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>
@@ -272,7 +277,7 @@ export const LoadedModelsInfo = () => {
                         </p>
                       </TooltipContent>
                     </Tooltip>
-                  </div>
+                  </Card>
                 ))}
               </div>
             )}

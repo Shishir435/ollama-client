@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   Collapsible,
   CollapsibleContent,
@@ -69,99 +70,94 @@ export const PromptTemplateList = ({
             key={template.id}
             open={isExpanded}
             onOpenChange={() => onToggleExpand(template.id)}>
-            <div
-              className={cn(
-                "rounded-lg border transition-all duration-200",
-                isExpanded
-                  ? "border-primary/30 bg-accent/5"
-                  : "border-border hover:border-muted-foreground/30"
-              )}>
+            <Card>
               {/* Card Header - Always Visible */}
-              <CollapsibleTrigger asChild>
-                <div className="group cursor-pointer p-4 transition-colors hover:bg-accent/30">
-                  {/* Row 1: Chevron + Title + Category Badge */}
-                  <div className="flex items-center gap-2">
-                    <ChevronRight
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                        isExpanded && "rotate-90"
+              <CollapsibleTrigger
+                render={<div className="group cursor-pointer p-4" />}>
+                {/* Row 1: Chevron + Title + Category Badge */}
+                <div className="flex items-center gap-2">
+                  <ChevronRight
+                    className={cn(
+                      "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      isExpanded && "rotate-90"
+                    )}
+                  />
+                  <h3 className="flex-1 truncate font-medium">
+                    {template.title || "Untitled"}
+                  </h3>
+                  {template.category && (
+                    <Badge variant="outline" className="shrink-0">
+                      {template.category}
+                    </Badge>
+                  )}
+                  {(template.usageCount || 0) > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 gap-1 px-1.5 py-0.5 text-xs">
+                      {template.usageCount}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Row 2: Description + Action Buttons */}
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="flex-1 truncate text-sm text-muted-foreground">
+                    {template.description ||
+                      template.userPrompt?.slice(0, 80) ||
+                      t("settings.prompts.no_description")}
+                  </p>
+
+                  {/* Action Buttons - Stop propagation to prevent expand toggle */}
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        copyToClipboard(template.userPrompt, template.id)
+                      }}>
+                      {copiedId === template.id ? (
+                        <CopyCheck className="h-4 w-4 text-status-success" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
                       )}
-                    />
-                    <h3 className="flex-1 truncate font-medium">
-                      {template.title || "Untitled"}
-                    </h3>
-                    {template.category && (
-                      <Badge variant="outline" className="shrink-0">
-                        {template.category}
-                      </Badge>
-                    )}
-                    {(template.usageCount || 0) > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 gap-1 px-1.5 py-0.5 text-xs">
-                        {template.usageCount}
-                      </Badge>
-                    )}
-                  </div>
+                    </Button>
 
-                  {/* Row 2: Description + Action Buttons */}
-                  <div className="mt-2 flex items-center gap-2">
-                    <p className="flex-1 truncate text-sm text-muted-foreground">
-                      {template.description ||
-                        template.userPrompt?.slice(0, 80) ||
-                        t("settings.prompts.no_description")}
-                    </p>
-
-                    {/* Action Buttons - Stop propagation to prevent expand toggle */}
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          copyToClipboard(template.userPrompt, template.id)
-                        }}>
-                        {copiedId === template.id ? (
-                          <CopyCheck className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={(e) => e.stopPropagation()}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              {t("settings.prompts.delete_dialog.title")}
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {t("settings.prompts.delete_dialog.description", {
-                                title: template.title
-                              })}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>
-                              {t("settings.prompts.delete_dialog.cancel")}
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => onDeleteTemplate(template.id)}>
-                              {t("settings.prompts.delete_dialog.confirm")}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        }>
+                        <Trash2 className="h-4 w-4" />
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {t("settings.prompts.delete_dialog.title")}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {t("settings.prompts.delete_dialog.description", {
+                              title: template.title
+                            })}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>
+                            {t("settings.prompts.delete_dialog.cancel")}
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => onDeleteTemplate(template.id)}>
+                            {t("settings.prompts.delete_dialog.confirm")}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -206,7 +202,7 @@ export const PromptTemplateList = ({
                   </>
                 )}
               </CollapsibleContent>
-            </div>
+            </Card>
           </Collapsible>
         )
       })}

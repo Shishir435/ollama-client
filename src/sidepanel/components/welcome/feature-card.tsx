@@ -1,4 +1,5 @@
 import type React from "react"
+import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 export type FeatureColor = "green" | "blue" | "purple" | "indigo"
@@ -43,9 +44,9 @@ export const FeatureCard = ({
   const { border, bg, iconBg } = COLOR_VARIANTS[color]
 
   return (
-    <div
+    <Card
       className={cn(
-        "group flex flex-col gap-4 rounded-lg border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm",
+        "group gap-4 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm ring-0 border",
         border,
         bg
       )}>
@@ -64,6 +65,6 @@ export const FeatureCard = ({
           {description}
         </p>
       </div>
-    </div>
+    </Card>
   )
 }

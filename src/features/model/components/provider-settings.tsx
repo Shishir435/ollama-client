@@ -12,6 +12,13 @@ import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
@@ -303,6 +310,77 @@ export const ProviderSettings = () => {
     )
   }
 
+  const dotStatusRules = [
+    { test: (e: boolean) => !e, cls: "bg-muted-foreground/40" },
+    {
+      test: (_e: boolean, h: boolean | undefined) => h,
+      cls: "bg-status-danger"
+    },
+    {
+      test: (_e: boolean, _h: boolean | undefined, c: boolean | undefined) => c,
+      cls: "bg-status-success"
+    }
+  ] as const
+  const getStatusDotClass = (
+    enabled: boolean,
+    hasFailed: boolean | undefined,
+    isConnected: boolean | undefined
+  ) =>
+    dotStatusRules.find((r) => r.test(enabled, hasFailed, isConnected))?.cls ??
+    "bg-status-warning"
+
+  const headerStatusConfigs = [
+    {
+      test: () => !activeConfig?.enabled,
+      dot: "bg-muted-foreground/40 ring-muted-foreground/20",
+      label: "inactive"
+    },
+    {
+      test: () =>
+        connectionStatus?.success ?? providerHealth[activeConfig.id]?.success,
+      dot: "bg-status-success ring-status-success/30",
+      label: "connected"
+    },
+    {
+      test: () =>
+        connectionStatus?.success === false ||
+        providerHealth[activeConfig.id]?.success === false,
+      dot: "bg-status-danger ring-status-danger/30",
+      label: "connection_failed"
+    }
+  ] as const
+  const headerStatus = headerStatusConfigs.find((c) => c.test()) ?? {
+    dot: "bg-status-warning ring-status-warning/30",
+    label: "not_tested"
+  }
+
+  const bannerTheme = ["success", "error"] as const
+  const bannerConfigs: Record<
+    (typeof bannerTheme)[number],
+    {
+      Icon: typeof CheckCircle2 | typeof XCircle
+      bgClass: string
+      iconClass: string
+      title: string
+    }
+  > = {
+    success: {
+      Icon: CheckCircle2,
+      bgClass: "bg-status-success/10 border-status-success/20",
+      iconClass: "text-status-success",
+      title: t("settings.providers.test_connection.success_title")
+    },
+    error: {
+      Icon: XCircle,
+      bgClass: "bg-destructive/10 border-destructive/20",
+      iconClass: "text-destructive",
+      title: t("settings.providers.test_connection.failed_title")
+    }
+  } as const
+  const connectionBanner = connectionStatus
+    ? bannerConfigs[bannerTheme[connectionStatus.success ? 0 : 1]]
+    : null
+
   const betaNoticeText =
     "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
 
@@ -330,92 +408,79 @@ export const ProviderSettings = () => {
           const hasFailed = healthStatus?.success === false
 
           return (
-            <button
+            <Button
               key={provider.id}
               type="button"
               onClick={() => setSelectedId(provider.id)}
               className={cn(
-                "relative rounded-lg border p-4 text-left transition-all outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
-                "hover:border-primary/40 hover:bg-accent/30",
+                "h-11 justify-start px-3 transition-colors",
                 isSelected
-                  ? "border-primary/60 ring-1 ring-primary/25 bg-accent/25"
-                  : "border-border bg-card"
+                  ? "border-primary/40 bg-accent/20"
+                  : "border-border bg-card hover:bg-accent/10"
               )}>
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      !provider.enabled
-                        ? "bg-muted-foreground/40"
-                        : hasFailed
-                          ? "bg-red-500"
-                          : isConnected
-                            ? "bg-green-500"
-                            : "bg-yellow-500"
-                    )}
-                  />
-                  <h4 className="font-medium">{provider.name}</h4>
+              <span className="flex items-center gap-2 min-w-0">
+                <span
+                  className={cn(
+                    "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                    getStatusDotClass(provider.enabled, hasFailed, isConnected)
+                  )}
+                />
+
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-medium truncate">{provider.name}</span>
+
                   {isBetaProvider(provider.id) && (
                     <>
                       <MiniBadge text="Beta" />
+
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex text-muted-foreground hover:text-foreground">
-                            <Info className="h-3.5 w-3.5" />
-                          </span>
+                        <TooltipTrigger
+                          render={
+                            <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
+                          }>
+                          <Info className="h-3 w-3" />
                         </TooltipTrigger>
+
                         <TooltipContent>
-                          <p className="max-w-xs">{betaNoticeText}</p>
+                          <p className="max-w-xs text-xs">{betaNoticeText}</p>
                         </TooltipContent>
                       </Tooltip>
                     </>
                   )}
-                </div>
-                {provider.id === DEFAULT_PROVIDER_ID && (
-                  <MiniBadge text={t("settings.providers.default")} />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {provider.baseUrl ||
-                  DEFAULT_PROVIDERS.find((p) => p.id === provider.id)?.baseUrl}
-              </p>
-            </button>
+
+                  {provider.id === DEFAULT_PROVIDER_ID && (
+                    <MiniBadge text={t("settings.providers.default")} />
+                  )}
+                </span>
+              </span>
+            </Button>
           )
         })}
       </div>
 
       {/* Configuration Panel */}
       {activeConfig && (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          {/* Header with Quick Actions */}
-          <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between border-b [&>div]:w-full">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  "h-3 w-3 rounded-full ring-2 ring-offset-2 ring-offset-background transition-colors",
-                  !activeConfig.enabled
-                    ? "bg-muted-foreground/40 ring-muted-foreground/20"
-                    : (connectionStatus?.success ??
-                        providerHealth[activeConfig.id]?.success)
-                      ? "bg-green-500 ring-green-500/30"
-                      : connectionStatus?.success === false ||
-                          providerHealth[activeConfig.id]?.success === false
-                        ? "bg-red-500 ring-red-500/30"
-                        : "bg-yellow-500 ring-yellow-500/30"
+                  "size-3 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background transition-colors",
+                  headerStatus.dot
                 )}
               />
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-lg">{activeConfig.name}</h3>
+                <CardTitle className="flex items-center gap-2">
+                  {activeConfig.name}
                   {isBetaProvider(activeConfig.id) && (
                     <>
                       <MiniBadge text="Beta" />
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex text-muted-foreground hover:text-foreground">
-                            <Info className="h-3.5 w-3.5" />
-                          </span>
+                        <TooltipTrigger
+                          render={
+                            <span className="inline-flex text-muted-foreground hover:text-foreground" />
+                          }>
+                          <Info className="h-3.5 w-3.5" />
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="max-w-xs">{betaNoticeText}</p>
@@ -423,18 +488,10 @@ export const ProviderSettings = () => {
                       </Tooltip>
                     </>
                   )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {!activeConfig.enabled
-                    ? t("settings.providers.inactive")
-                    : (connectionStatus?.success ??
-                        providerHealth[activeConfig.id]?.success)
-                      ? t("settings.providers.connected")
-                      : connectionStatus?.success === false ||
-                          providerHealth[activeConfig.id]?.success === false
-                        ? t("settings.providers.connection_failed")
-                        : t("settings.providers.not_tested")}
-                </p>
+                </CardTitle>
+                <CardDescription>
+                  {t(`settings.providers.${headerStatus.label}`)}
+                </CardDescription>
               </div>
             </div>
 
@@ -478,33 +535,25 @@ export const ProviderSettings = () => {
                 {t("settings.providers.test")}
               </Button>
             </div>
-          </div>
+          </CardHeader>
 
           {/* Connection Status Banner */}
-          {connectionStatus && (
+          {connectionBanner && (
             <div
               className={cn(
-                "px-5 py-3 border-b flex items-center gap-3",
-                connectionStatus.success
-                  ? "bg-green-500/10 border-green-500/20"
-                  : "bg-destructive/10 border-destructive/20"
+                "flex items-center gap-3 border-y px-4 py-3",
+                connectionBanner.bgClass
               )}>
-              {connectionStatus.success ? (
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 shrink-0 text-destructive" />
-              )}
+              <connectionBanner.Icon
+                className={cn("h-5 w-5 shrink-0", connectionBanner.iconClass)}
+              />
               <div>
                 <p
                   className={cn(
                     "font-medium text-sm",
-                    connectionStatus.success
-                      ? "text-green-700 dark:text-green-400"
-                      : "text-destructive"
+                    connectionBanner.iconClass
                   )}>
-                  {connectionStatus.success
-                    ? t("settings.providers.test_connection.success_title")
-                    : t("settings.providers.test_connection.failed_title")}
+                  {connectionBanner.title}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {connectionStatus.message}
@@ -513,8 +562,7 @@ export const ProviderSettings = () => {
             </div>
           )}
 
-          {/* Configuration Form */}
-          <div className="p-5 space-y-5">
+          <CardContent>
             <SettingsFormField
               label={t("settings.providers.base_url")}
               description={
@@ -537,13 +585,11 @@ export const ProviderSettings = () => {
                   onClick={() => handleSave(activeConfig)}
                   disabled={!hasUnsavedChanges}>
                   <Save className="w-4 h-4 mr-2" />
-                  {hasUnsavedChanges
-                    ? t("settings.providers.save")
-                    : t("settings.providers.saved")}
+                  {t("settings.providers.save")}
                 </Button>
               </div>
               {isRemoteEndpoint && (
-                <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
+                <p className="mt-2 text-xs text-status-warning">
                   This endpoint is remote. Prompts and responses will be sent
                   outside your local machine.
                 </p>
@@ -644,8 +690,8 @@ export const ProviderSettings = () => {
                 </div>
               </SettingsFormField>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

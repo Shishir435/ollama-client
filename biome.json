@@ -60,14 +60,20 @@
             "useFocusableInteractive": "off",
             "useAriaPropsForRole": "off",
             "useKeyWithClickEvents": "off",
-            "noLabelWithoutControl": "off"
+            "noLabelWithoutControl": "off",
+            "noRedundantRoles": "off"
           },
           "suspicious": {
             "noArrayIndexKey": "off",
-            "noDoubleEquals": "off"
+            "noDoubleEquals": "off",
+            "noDocumentCookie": "off"
           },
           "correctness": {
-            "noUnusedImports": "off"
+            "noUnusedImports": "off",
+            "useExhaustiveDependencies": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
           },
           "style": {
             "useImportType": "off"

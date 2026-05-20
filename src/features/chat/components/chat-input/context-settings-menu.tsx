@@ -46,16 +46,20 @@ export const ContextSettingsMenu = () => {
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-lg"
-              aria-label={t("tabs.context")}>
-              <Layers className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  aria-label={t("tabs.context")}
+                />
+              }
+            />
+          }>
+          <Layers className="size-4" />
         </TooltipTrigger>
         <TooltipContent>{t("tabs.context")}</TooltipContent>
       </Tooltip>

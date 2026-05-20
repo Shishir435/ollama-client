@@ -1,4 +1,5 @@
 import type React from "react"
+import { Card } from "@/components/ui/card"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
@@ -45,12 +46,8 @@ export const StatusAlert = ({
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-4",
-        variantStyles[variant],
-        className
-      )}>
+    <Card
+      className={cn("border ring-0 px-4", variantStyles[variant], className)}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {Icon && <Icon className="size-5 mt-0.5 sm:mt-0 shrink-0" />}
@@ -65,6 +62,6 @@ export const StatusAlert = ({
         </div>
         {actions && <div className="shrink-0">{actions}</div>}
       </div>
-    </div>
+    </Card>
   )
 }

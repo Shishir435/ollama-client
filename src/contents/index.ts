@@ -12,8 +12,8 @@ import {
   getEffectiveConfig
 } from "@/lib/content-extractor"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { normalizeWhitespaceForLLM } from "@/lib/text-utils"
 import { getTranscript } from "@/lib/transcript-extractor"
-import { normalizeWhitespaceForLLM } from "@/lib/utils"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
 const htmlToPlainText = (html: string) => {
