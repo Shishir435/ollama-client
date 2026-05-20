@@ -302,6 +302,27 @@ export const useChatStream = ({
 
     port.onMessage.addListener(listener)
 
+    port.onDisconnect.addListener(() => {
+      if (browser.runtime.lastError) {
+        console.debug(
+          "[ChatStream] Port disconnected unexpectedly:",
+          browser.runtime.lastError.message
+        )
+      }
+      if (!assistantMessage.done) {
+        setIsLoading(false)
+        setIsStreaming(false)
+        assistantMessage.done = true
+        const updated = [
+          ...currentMessagesRef.current.slice(0, -1),
+          { ...assistantMessage }
+        ]
+        currentMessagesRef.current = updated
+        setMessages(updated)
+        portRef.current = null
+      }
+    })
+
     port.postMessage({
       type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
       payload: {
