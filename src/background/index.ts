@@ -25,13 +25,13 @@ import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { safeSendResponse } from "@/background/lib/utils"
-import { runEmbeddingDimensionMigration } from "@/background/migrations/embedding-dimension-migration"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import type {
@@ -160,10 +160,7 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
   })
 
   port.onMessage.addListener(async (msg: ChromeMessage) => {
-    if (
-      msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL ||
-      msg.type === MESSAGE_KEYS.OLLAMA.CHAT_WITH_MODEL
-    ) {
+    if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
       await handleChatWithModel(
         msg as ChatWithModelMessage,
         port,
@@ -171,10 +168,7 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
       )
     }
 
-    if (
-      msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION ||
-      msg.type === MESSAGE_KEYS.OLLAMA.STOP_GENERATION
-    ) {
+    if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
       console.log("Stop generation requested")
       abortAndClearController(port.name) // Reset the controller
     }
@@ -189,10 +183,7 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
     })
   }
 
-  if (
-    port.name === MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS ||
-    port.name === MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS
-  ) {
+  if (port.name === MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS) {
     // Use streaming port handler to receive chunk batches and send progress back
     try {
       handleEmbedFileChunksPort(port)
@@ -219,8 +210,7 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS:
-      case MESSAGE_KEYS.OLLAMA.SHOW_MODEL_DETAILS: {
+      case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS: {
         if (
           typeof message.payload === "string" ||
           (typeof message.payload === "object" &&
@@ -277,8 +267,7 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL:
-      case MESSAGE_KEYS.OLLAMA.UNLOAD_MODEL: {
+      case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL: {
         if (
           typeof message.payload === "string" ||
           (typeof message.payload === "object" &&
@@ -293,14 +282,12 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL:
-      case MESSAGE_KEYS.OLLAMA.WARMUP_MODEL: {
+      case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL: {
         handleWarmupModel(message.payload as { model: string }, sendResponse)
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.DELETE_MODEL:
-      case MESSAGE_KEYS.OLLAMA.DELETE_MODEL: {
+      case MESSAGE_KEYS.PROVIDER.DELETE_MODEL: {
         if (typeof message.payload === "string") {
           handleDeleteModel(message.payload, sendResponse)
         }
@@ -313,8 +300,7 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL:
-      case MESSAGE_KEYS.OLLAMA.CHECK_EMBEDDING_MODEL: {
+      case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL: {
         const payload = message.payload
         const modelName =
           typeof payload === "string"
@@ -355,14 +341,12 @@ browser.runtime.onMessage.addListener(
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL:
-      case MESSAGE_KEYS.OLLAMA.PREPARE_EMBEDDING_MODEL: {
+      case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL: {
         handlePrepareEmbeddingModel(message.payload, sendResponse)
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS:
-      case MESSAGE_KEYS.OLLAMA.EMBED_FILE_CHUNKS: {
+      case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS: {
         handleEmbedFileChunks(message, sendResponse).catch((err) => {
           safeSendResponse(sendResponse, {
             success: false,

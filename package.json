@@ -30,15 +30,15 @@
     "url": "https://github.com/Shishir435/ollama-client/issues"
   },
   "scripts": {
-    "dev": "WXT_OUTPUT_DIR=build/chrome-mv3-dev wxt",
-    "build": "WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
+    "dev": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-dev wxt",
+    "build": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
     "docs:dev": "astro dev --root docs-src",
     "docs:build": "astro build --root docs-src",
     "docs:preview": "astro preview --root docs-src",
-    "package": "WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt zip",
-    "dev:firefox": "WXT_OUTPUT_DIR=build/firefox-mv2-dev wxt -b firefox --mv2",
-    "build:firefox": "WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt build -b firefox --mv2 --mode production",
-    "package:firefox": "WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt zip -b firefox --mv2 --mode production",
+    "package": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt zip",
+    "dev:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-dev wxt -b firefox --mv2",
+    "build:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt build -b firefox --mv2 --mode production",
+    "package:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt zip -b firefox --mv2 --mode production",
     "verify:browser-smoke": "node tools/verify-browser-smoke.mjs",
     "verify:local-browsers": "node tools/verify-local-browsers-sequential.mjs",
     "verify:browser-automation": "pnpm verify:browser-smoke && node tools/verify-browser-automation-local.mjs",
@@ -56,7 +56,7 @@
     "format:check": "biome format .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
-    "prepare": "husky",
+    "prepare": "husky && pnpm generate:resources",
     "generate:resources": "npx tsx tools/generate-i18n-resources.ts"
   },
   "dependencies": {
@@ -74,13 +74,11 @@
     "dexie": "^4.0.11",
     "dexie-export-import": "^4.1.4",
     "dompurify": "^3.2.6",
-    "embla-carousel-react": "^8.6.0",
     "highlight.js": "^11.11.1",
     "hnsw": "^1.0.3",
     "i18next": "^25.6.3",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-resources-to-backend": "^1.2.1",
-    "input-otp": "^1.4.2",
     "jszip": "^3.10.1",
     "lucide-react": "0.474.0",
     "mammoth": "^1.6.0",
@@ -101,15 +99,11 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.66.0",
     "react-i18next": "^16.3.5",
-    "react-resizable-panels": "^4.11.1",
     "react-virtuoso": "^4.17.0",
-    "recharts": "3.8.0",
-    "sonner": "^2.0.7",
     "sql.js": "^1.13.0",
     "tailwind-merge": "3.0.1",
     "tailwind-scrollbar": "^4.0.2",
     "turndown": "^7.2.2",
-    "vaul": "^1.1.2",
     "vectra": "^0.11.1",
     "webextension-polyfill": "^0.12.0",
     "zustand": "^5.0.8"
@@ -158,37 +152,6 @@
       "pnpm lint:fix",
       "pnpm test:related"
     ]
-  },
-  "manifest": {
-    "host_permissions": [
-      "<all_urls>"
-    ],
-    "permissions": [
-      "storage",
-      "sidePanel",
-      "tabs",
-      "declarativeNetRequest",
-      "contextMenus"
-    ],
-    "web_accessible_resources": [
-      {
-        "resources": [
-          "assets/*.wasm"
-        ],
-        "matches": [
-          "<all_urls>"
-        ]
-      }
-    ],
-    "content_security_policy": {
-      "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-    },
-    "browser_specific_settings": {
-      "gecko": {
-        "id": "shishirchaurasiya435@gmail.com",
-        "strict_min_version": "113.0"
-      }
-    }
   },
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {

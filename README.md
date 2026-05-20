@@ -1,13 +1,13 @@
 # Ollama Client: Local LLM Chrome Extension for Private AI Chat
 
-A local-first browser extension for chat with local LLM providers (Ollama, LM Studio, llama.cpp) from the browser sidepanel.
+A local-first browser extension for chat with local and remote LLM providers — Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, LocalAI — from the browser sidepanel, with local RAG over your own files.
 
 <p>
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
     <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
   <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
-  <img alt="Providers" src="https://img.shields.io/badge/Providers-Ollama%20%7C%20LM%20Studio%20%7C%20llama.cpp-1d4ed8?style=for-the-badge" />
+  <img alt="Providers" src="https://img.shields.io/badge/Providers-8-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
@@ -25,9 +25,9 @@ Version `v0.6.0` introduced multi-provider chat routing and local RAG workflows.
 
 ### This is for
 
-- Developers who want an Ollama client directly in the browser UI.
+- Developers who want an Ollama (or LM Studio / llama.cpp) client directly in the browser UI.
 - Users who want an offline AI assistant workflow with local storage by default.
-- Users running local provider servers (Ollama, LM Studio, llama.cpp).
+- Users running local provider servers (Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, LocalAI) and/or routing some traffic to hosted OpenAI from the same UI.
 - Contributors interested in browser extension + local model architecture.
 
 ### This is not for
@@ -57,8 +57,8 @@ This project focuses on local-first usage:
 
 | Major feature | What works now | Current limitation |
 |---|---|---|
-| Multi-provider chat | Route chat to Ollama, LM Studio, llama.cpp | Routing defaults to Ollama if model mapping is missing |
-| Model management | Pull/delete/unload/version support for Ollama | Equivalent management actions are not yet implemented for LM Studio/llama.cpp |
+| Multi-provider chat | Route chat to Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, LocalAI | Routing defaults to Ollama if model mapping is missing |
+| Model management | Pull/delete/unload/version support for Ollama | Equivalent management actions are not yet implemented for the other providers |
 | Streaming | Token streaming via runtime port with cancel support | Message keys and some hook names still use legacy `ollama-*` naming |
 | RAG with local LLMs | Local chunking, embedding, hybrid retrieval, context injection | Embeddings use provider-native/shared routes with Ollama fallback for reliability |
 | File ingestion | TXT/MD/PDF/DOCX/CSV/TSV/PSV/HTML processing | Quality depends on file quality and chunking config |
@@ -93,16 +93,24 @@ Build/runtime notes:
 
 ## Supported Providers
 
-Default provider profiles:
+Local (default profiles):
 
-- Ollama (`http://localhost:11434`)
-- LM Studio (`http://localhost:1234/v1`)
-- llama.cpp server (`http://localhost:8000/v1`)
+- **Ollama** — `http://localhost:11434`
+- **LM Studio** — `http://localhost:1234/v1`
+- **llama.cpp server** — `http://localhost:8000/v1`
+- **vLLM** (OpenAI-compatible server) — user-configured endpoint
+- **KoboldCPP** (OpenAI-compatible endpoints) — user-configured endpoint
+- **LocalAI** — user-configured endpoint
+
+Remote:
+
+- **OpenAI** — bring-your-own API key
 
 Clarifying examples:
 
-- If both Ollama and LM Studio expose `llama3`, mapping decides which backend handles chat.
-- If mapping is absent for a model ID, fallback provider is Ollama.
+- If both Ollama and LM Studio expose `llama3`, the model→provider mapping decides which backend handles chat.
+- If mapping is absent for a model ID, the fallback provider is Ollama.
+- Provider implementations live in `src/lib/providers/`; the active registry is `src/lib/providers/registry.ts`.
 
 ## RAG With Local LLMs
 
@@ -136,9 +144,11 @@ Embedding strategy defaults:
 
 RAG implementation details and module boundaries:
 
-- Current behavior guide: [docs/rag.md](./docs/rag.md)
-- Full audit and redesign: [docs/rag-browser-core.md](./docs/rag-browser-core.md)
-- Browser-first RAG contracts (TypeScript interfaces): `src/lib/rag/core/interfaces.ts`
+- Pipeline entrypoint: `src/features/chat/rag/rag-pipeline.ts`
+- Retriever: `src/features/chat/rag/rag-retriever.ts`
+- Prompt assembly: `src/features/chat/rag/rag-prompt-builder.ts`
+- Query classifier: `src/features/chat/rag/query-classifier.ts`
+- Embedding plumbing (chunker, HNSW index, keyword index, storage): `src/lib/embeddings/`
 
 ## Installation
 
@@ -310,10 +320,10 @@ MIT License: [LICENCE](./LICENCE)
 
 ## Documentation Map
 
-- [Architecture Guide](./docs/architecture.md)
-- [Provider Support](./docs/providers.md)
-- [RAG Guide](./docs/rag.md)
-- [Browser-First RAG Core (Audit + Design)](./docs/rag-browser-core.md)
-- [Contributing Guide](./CONTRIBUTING.md)
+- [Architecture (Web)](https://ollama-client.shishirchaurasiya.in/architecture)
 - [Setup Guide (Web)](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
 - [Privacy Policy (Web)](https://ollama-client.shishirchaurasiya.in/privacy-policy)
+- [Contributing Guide](./CONTRIBUTING.md)
+- [AGENTS.md](./AGENTS.md) — guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot)
+
+Site source: [`docs-src/`](./docs-src/) (Astro) → built into [`docs/`](./docs/) and served via GitHub Pages.

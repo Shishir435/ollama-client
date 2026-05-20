@@ -14,6 +14,31 @@ import {
 } from "./types"
 import { VllmProvider } from "./vllm"
 
+type ProviderConstructor = new (config: ProviderConfig) => LLMProvider
+
+// Subclasses of OpenAIProvider, keyed by ProviderId. Anything not in this map
+// uses plain OpenAIProvider.
+const OPENAI_COMPAT_CONSTRUCTORS: Record<string, ProviderConstructor> = {
+  [ProviderId.LM_STUDIO]: LMStudioProvider,
+  [ProviderId.LLAMA_CPP]: LlamaCppProvider,
+  [ProviderId.VLLM]: VllmProvider,
+  [ProviderId.LOCALAI]: LocalAIProvider,
+  [ProviderId.KOBOLDCPP]: KoboldCppProvider
+}
+
+function instantiate(config: ProviderConfig): LLMProvider {
+  switch (config.type) {
+    case ProviderType.OLLAMA:
+      return new OllamaProvider(config)
+    case ProviderType.OPENAI: {
+      const Ctor = OPENAI_COMPAT_CONSTRUCTORS[config.id] ?? OpenAIProvider
+      return new Ctor(config)
+    }
+    default:
+      throw new Error(`Unsupported provider type: ${config.type}`)
+  }
+}
+
 const instances: Map<string, LLMProvider> = new Map()
 
 export const ProviderFactory = {
@@ -36,55 +61,12 @@ export const ProviderFactory = {
     const config = await ProviderManager.getProviderConfig(providerId)
     if (!config) throw new Error(`Provider ${providerId} not found`)
 
-    let provider: LLMProvider
-
-    switch (config.type) {
-      case ProviderType.OLLAMA:
-        provider = new OllamaProvider(config)
-        break
-      case ProviderType.OPENAI:
-        if (config.id === ProviderId.LM_STUDIO) {
-          provider = new LMStudioProvider(config)
-        } else if (config.id === ProviderId.LLAMA_CPP) {
-          provider = new LlamaCppProvider(config)
-        } else if (config.id === ProviderId.VLLM) {
-          provider = new VllmProvider(config)
-        } else if (config.id === ProviderId.LOCALAI) {
-          provider = new LocalAIProvider(config)
-        } else if (config.id === ProviderId.KOBOLDCPP) {
-          provider = new KoboldCppProvider(config)
-        } else {
-          provider = new OpenAIProvider(config)
-        }
-        break
-      default:
-        throw new Error(`Unsupported provider type: ${config.type}`)
-    }
-
+    const provider = instantiate(config)
     instances.set(providerId, provider)
     return provider
   },
 
   async getProviderWithConfig(config: ProviderConfig): Promise<LLMProvider> {
-    switch (config.type) {
-      case ProviderType.OLLAMA:
-        return new OllamaProvider(config)
-      case ProviderType.OPENAI:
-        if (config.id === ProviderId.LM_STUDIO) {
-          return new LMStudioProvider(config)
-        } else if (config.id === ProviderId.LLAMA_CPP) {
-          return new LlamaCppProvider(config)
-        } else if (config.id === ProviderId.VLLM) {
-          return new VllmProvider(config)
-        } else if (config.id === ProviderId.LOCALAI) {
-          return new LocalAIProvider(config)
-        } else if (config.id === ProviderId.KOBOLDCPP) {
-          return new KoboldCppProvider(config)
-        } else {
-          return new OpenAIProvider(config)
-        }
-      default:
-        throw new Error(`Unsupported provider type: ${config.type}`)
-    }
+    return instantiate(config)
   }
 }

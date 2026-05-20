@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority"
-import * as React from "react"
+import type * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: shadcn input-group composes arbitrary children; role="group" is the documented contract
     <div
       data-slot="input-group"
       role="group"
@@ -46,6 +47,8 @@ function InputGroupAddon({
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: addon is a layout slot wrapping varied children; semantic element cannot be predicted
+    // biome-ignore lint/a11y/useKeyWithClickEvents: addon click forwards focus to sibling input; native input handles all keyboard interaction
     <div
       role="group"
       data-slot="input-group-addon"

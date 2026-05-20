@@ -1,10 +1,14 @@
 import { OpenAIProvider } from "./openai"
-import { ProviderId } from "./types"
+import { type ProviderConfig, ProviderId } from "./types"
 
 export class KoboldCppProvider extends OpenAIProvider {
   id = ProviderId.KOBOLDCPP
-  override capabilities = {
-    ...this.capabilities,
-    toolCalling: true
+
+  constructor(config: ProviderConfig) {
+    super(config)
+    this.capabilities = {
+      ...this.capabilities,
+      toolCalling: true
+    }
   }
 }

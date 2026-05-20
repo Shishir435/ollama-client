@@ -50,36 +50,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["src/components/ui/**"],
-      "linter": {
-        "rules": {
-          "a11y": {
-            "useSemanticElements": "off",
-            "useFocusableInteractive": "off",
-            "useAriaPropsForRole": "off",
-            "useKeyWithClickEvents": "off",
-            "noLabelWithoutControl": "off",
-            "noRedundantRoles": "off"
-          },
-          "suspicious": {
-            "noArrayIndexKey": "off",
-            "noDoubleEquals": "off",
-            "noDocumentCookie": "off"
-          },
-          "correctness": {
-            "noUnusedImports": "off",
-            "useExhaustiveDependencies": "off"
-          },
-          "security": {
-            "noDangerouslySetInnerHtml": "off"
-          },
-          "style": {
-            "useImportType": "off"
-          }
-        }
-      }
     }
   ]
 }

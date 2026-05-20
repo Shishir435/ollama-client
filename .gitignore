@@ -49,3 +49,6 @@ analysis/stats.html
 
 #webstorm
 .idea
+
+# generated at build time by tools/generate-i18n-resources.ts
+src/i18n/resources.ts
