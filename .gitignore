@@ -52,3 +52,7 @@ analysis/stats.html
 
 # generated at build time by tools/generate-i18n-resources.ts
 src/i18n/resources.ts
+
+# one-off audit/transfer artifacts
+*.msg
+*.diff

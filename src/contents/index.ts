@@ -1,6 +1,3 @@
-import { Readability } from "@mozilla/readability"
-import Defuddle from "defuddle"
-
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
@@ -12,670 +9,234 @@ import {
   getEffectiveConfig
 } from "@/lib/content-extractor"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { normalizeWhitespaceForLLM } from "@/lib/text-utils"
 import { getTranscript } from "@/lib/transcript-extractor"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
-const htmlToPlainText = (html: string) => {
-  const container = document.createElement("div")
-  container.innerHTML = html
-  return normalizeWhitespaceForLLM(container.textContent || "")
-}
+import { extractReadableContent, resolvePageTitle } from "./content-extraction"
+import { installContentScriptMarkers, registerYouTubeInit } from "./debug-init"
+import {
+  detectSiteProfile,
+  measureReliability,
+  quickHash
+} from "./extraction-helpers"
+import { isExcludedUrl } from "./url-filter"
 
-const stripHtmlIfNeeded = (content: string) => {
-  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content)
-  if (!looksLikeHtml) return content
-  return htmlToPlainText(content)
-}
+installContentScriptMarkers()
+registerYouTubeInit()
 
-const quickHash = (value: string) => {
-  let hash = 0
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash << 5) - hash + value.charCodeAt(i)
-    hash |= 0
-  }
-  return `${hash >>> 0}`
-}
+console.log("[Content Script] Content script loaded")
+console.log(`[Content Script] URL: ${window.location.href}`)
 
-const detectSiteProfile = (
-  url: string
-): "docs" | "blog" | "news" | "forum" | "video" | "general" => {
-  const lower = url.toLowerCase()
-  if (lower.includes("youtube.com") || lower.includes("vimeo.com")) {
-    return "video"
-  }
-  if (
-    lower.includes("/docs") ||
-    lower.includes("readthedocs") ||
-    lower.includes("developer.")
-  ) {
-    return "docs"
-  }
-  if (
-    lower.includes("/blog") ||
-    lower.includes("medium.com") ||
-    lower.includes("substack.com")
-  ) {
-    return "blog"
-  }
-  if (
-    lower.includes("news") ||
-    lower.includes("nytimes.com") ||
-    lower.includes("theguardian.com")
-  ) {
-    return "news"
-  }
-  if (
-    lower.includes("reddit.com") ||
-    lower.includes("discuss") ||
-    lower.includes("forum")
-  ) {
-    return "forum"
-  }
-  return "general"
-}
-
-const measureReliability = (content: string) => {
-  const totalChars = Math.max(content.length, 1)
-  const words = content.split(/\s+/).filter(Boolean)
-  const wordChars = words.reduce((sum, word) => sum + word.length, 0)
-  const contentDensity = Math.min(wordChars / totalChars, 1)
-
-  const boilerplateMatches = content.match(
-    /\b(cookie|privacy|terms|sign in|subscribe|advertisement|all rights reserved)\b/gi
-  )
-  const boilerplateRatio = Math.min(
-    (boilerplateMatches?.length || 0) / Math.max(words.length, 1),
-    1
-  )
-
-  const noisyChars = (content.match(/[#<>{}\\|=*]{2,}/g) || []).join("").length
-  const noiseRatio = Math.min(noisyChars / totalChars, 1)
-
-  const reliabilityScore = Math.max(
-    0,
-    Math.min(
-      1,
-      contentDensity * 0.7 +
-        (1 - boilerplateRatio) * 0.2 +
-        (1 - noiseRatio) * 0.1
-    )
-  )
-
-  return {
-    reliabilityScore,
-    reliabilitySignals: {
-      contentDensity: Number(contentDensity.toFixed(3)),
-      boilerplateRatio: Number(boilerplateRatio.toFixed(3)),
-      noiseRatio: Number(noiseRatio.toFixed(3))
-    }
-  }
-}
-
-const isExcludedUrl = async (url: string): Promise<boolean> => {
-  // Try to get patterns from new config first
-  const storedConfig = await plasmoGlobalStorage.get<ContentExtractionConfig>(
+const resolveActiveConfig = async (
+  currentUrl: string
+): Promise<{
+  effectiveConfig: ContentExtractionConfig
+  hasSiteOverride: boolean
+}> => {
+  const stored = await plasmoGlobalStorage.get<ContentExtractionConfig>(
     STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
   )
 
-  let patterns: string[] | undefined
-
-  if (storedConfig?.excludedUrlPatterns) {
-    // Use patterns from new config
-    patterns = storedConfig.excludedUrlPatterns
-  } else {
-    // Fallback to old storage key for backward compatibility
-    patterns = await plasmoGlobalStorage.get<string[]>(
+  let excludedUrlPatterns = stored?.excludedUrlPatterns
+  if (!excludedUrlPatterns || excludedUrlPatterns.length === 0) {
+    const oldPatterns = await plasmoGlobalStorage.get<string[]>(
       STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
+    )
+    excludedUrlPatterns =
+      oldPatterns || DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+  }
+
+  const globalConfig: ContentExtractionConfig = stored
+    ? {
+        ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+        ...stored,
+        excludedUrlPatterns,
+        siteOverrides: stored.siteOverrides || {}
+      }
+    : {
+        ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+        excludedUrlPatterns
+      }
+
+  const effectiveConfig = getEffectiveConfig(
+    currentUrl,
+    globalConfig,
+    DEFAULT_CONTENT_EXTRACTION_CONFIG
+  )
+
+  const hasSiteOverride = Object.keys(globalConfig.siteOverrides).some(
+    (pattern) => {
+      try {
+        return new RegExp(pattern).test(currentUrl)
+      } catch {
+        return currentUrl.includes(pattern)
+      }
+    }
+  )
+
+  return { effectiveConfig, hasSiteOverride }
+}
+
+const safeSendResponse = (
+  sendResponse: (response: unknown) => void,
+  response: unknown
+): void => {
+  try {
+    sendResponse(response)
+  } catch {
+    // Channel closed - ignore
+  }
+}
+
+const handleGetPageContent = async (
+  sendResponse: (response: unknown) => void
+): Promise<void> => {
+  const tabAccessEnabled = await plasmoGlobalStorage.get<boolean>(
+    STORAGE_KEYS.BROWSER.TABS_ACCESS
+  )
+
+  if (!tabAccessEnabled) {
+    console.log("[Content Script] Tab access is disabled")
+    safeSendResponse(sendResponse, {
+      html: "Tab access is disabled by the user.",
+      title: document.title || "Untitled"
+    })
+    return
+  }
+
+  const currentUrl = window.location.href
+  console.log(`[Content Script] Processing URL: ${currentUrl}`)
+
+  if (await isExcludedUrl(currentUrl)) {
+    console.log("[Content Script] URL is excluded")
+    safeSendResponse(sendResponse, {
+      html: "This page is excluded by your settings.",
+      title: document.title || "Untitled"
+    })
+    return
+  }
+
+  const { effectiveConfig, hasSiteOverride } =
+    await resolveActiveConfig(currentUrl)
+
+  console.log("[Content Script] Using config:", {
+    enabled: effectiveConfig.enabled,
+    scrollStrategy: effectiveConfig.scrollStrategy,
+    scrollDepth: `${(effectiveConfig.scrollDepth * 100).toFixed(0)}%`,
+    site: hasSiteOverride ? "Custom site config" : "Global config"
+  })
+
+  let extractionResult: Awaited<
+    ReturnType<typeof extractContentWithLoading>
+  > | null = null
+  if (effectiveConfig.enabled) {
+    console.log("[Content Script] Starting enhanced content extraction...")
+    try {
+      extractionResult = await Promise.race([
+        extractContentWithLoading(effectiveConfig),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Extraction timeout")),
+            effectiveConfig.maxWaitTime
+          )
+        )
+      ])
+    } catch (error) {
+      console.warn(
+        "[Content Script] Enhanced extraction failed, falling back to basic extraction:",
+        error
+      )
+    }
+  }
+
+  const scraper = effectiveConfig.contentScraper || "auto"
+  console.log(`[Content Script] Using scraper: ${scraper}`)
+
+  const readable = extractReadableContent(document, scraper)
+  const pageTitle = resolvePageTitle(document, readable.pageTitle)
+
+  console.log(`[Content Script] Extracted title: "${pageTitle}"`)
+  console.log(
+    `[Content Script] Extracted ${readable.readableText.length} chars of readable text via ${readable.selectedExtractor}`
+  )
+
+  console.log("[Content Script] Starting transcript extraction...")
+  const transcript = await getTranscript()
+  console.log(
+    `[Content Script] Transcript extraction completed. Result: ${transcript ? `${transcript.length} chars` : "null"}`
+  )
+
+  const finalContent =
+    (transcript ? `\n\n Transcript:\n${transcript}` : "") +
+    readable.readableText
+
+  if (!finalContent || finalContent.trim().length < 50) {
+    console.error(
+      `[Content Script] Extraction failed: Only ${finalContent?.length || 0} chars extracted`
+    )
+    throw new Error(
+      `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
     )
   }
 
-  // If still no patterns, use defaults
-  if (!patterns || patterns.length === 0) {
-    patterns = DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+  const profile = detectSiteProfile(currentUrl)
+  const contentHash = quickHash(finalContent)
+  const capturedAt = Date.now()
+  const reliability = measureReliability(finalContent)
+
+  const extractionDebug = {
+    url: currentUrl,
+    title: pageTitle,
+    scraper,
+    profile,
+    hasTranscript: !!transcript,
+    transcriptLength: transcript?.length || 0,
+    contentLength: finalContent.length,
+    contentHash,
+    revisionId: `${capturedAt}-${contentHash}`,
+    capturedAt,
+    reliabilityScore: reliability.reliabilityScore,
+    reliabilitySignals: reliability.reliabilitySignals,
+    extractionDurationMs: extractionResult?.metrics?.duration,
+    scrollSteps: extractionResult?.metrics?.scrollSteps,
+    mutationsDetected: extractionResult?.metrics?.mutationsDetected,
+    detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+    selectedExtractor: readable.selectedExtractor,
+    selectedReason: readable.selectedReason,
+    filteredSectionCount: 0,
+    keptSectionCount: 0,
+    effectiveContextLength: finalContent.length,
+    preview: finalContent.slice(0, 400)
   }
 
-  return (
-    patterns.some((pattern) => {
-      try {
-        return new RegExp(pattern).test(url)
-      } catch {
-        return url.includes(pattern)
-      }
-    }) ?? false
-  )
-}
-
-// Make sure content script is loaded - add to window for debugging
-;(
-  window as unknown as {
-    __providerContentScript?: boolean
-    __ollamaContentScript?: boolean
-  }
-).__providerContentScript = true
-// Legacy marker for backward compatibility with older debug tooling.
-;(
-  window as unknown as { __ollamaContentScript?: boolean }
-).__ollamaContentScript = true
-
-// Function to initialize YouTube-specific features
-const initYouTubeFeatures = () => {
-  if (!window.location.href.includes("youtube.com/watch")) return
-
-  // Add visible indicator
-  const addIndicator = () => {
-    if (document.body) {
-      // Remove existing indicator if any
-      const existing =
-        document.getElementById("provider-content-script-indicator") ||
-        document.getElementById("ollama-content-script-indicator")
-      if (existing) existing.remove()
-
-      const indicator = document.createElement("div")
-      indicator.id = "provider-content-script-indicator"
-      indicator.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background: #4CAF50;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 14px;
-        z-index: 999999;
-        font-family: monospace;
-        pointer-events: none;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      `
-      indicator.textContent = ""
-      document.body.appendChild(indicator)
-
-      setTimeout(() => {
-        indicator.remove()
-      }, 5000)
-    } else {
-      setTimeout(addIndicator, 100)
-    }
-  }
-
-  addIndicator()
-
-  // Add test function to window for manual testing
   ;(
-    window as unknown as {
-      __providerContentScript?: boolean
-      __ollamaContentScript?: boolean
-      __testTranscript?: () => Promise<void>
-      __testExtraction?: () => Promise<void>
-      __getExtractionLogs?: () => unknown[]
-    }
-  ).__testTranscript = async () => {
-    console.log("[Manual Test] Starting manual transcript test...")
-    try {
-      const { getTranscript } = await import("@/lib/transcript-extractor")
-      const transcript = await getTranscript()
-      console.log(
-        "[Manual Test] Transcript result:",
-        transcript ? `${transcript.length} chars` : "null"
-      )
-      if (transcript) {
-        console.log(
-          "[Manual Test] First 200 chars:",
-          transcript.substring(0, 200)
-        )
-      }
-    } catch (error) {
-      console.error("[Manual Test] Error:", error)
-    }
-  }
+    window as unknown as { __lastProviderExtractionResult?: unknown }
+  ).__lastProviderExtractionResult = extractionDebug
 
-  // Add test function for content extraction
-  ;(
-    window as unknown as {
-      __providerContentScript?: boolean
-      __ollamaContentScript?: boolean
-      __testTranscript?: () => Promise<void>
-      __testExtraction?: () => Promise<void>
-      __getExtractionLogs?: () => unknown[]
-      __lastProviderExtractionResult?: unknown
-    }
-  ).__testExtraction = async () => {
-    console.log("[Manual Test] Starting manual extraction test...")
-    try {
-      const { extractContentWithLoading } = await import(
-        "@/lib/content-extractor"
-      )
-      const { DEFAULT_CONTENT_EXTRACTION_CONFIG } = await import(
-        "@/lib/constants"
-      )
-      const result = await extractContentWithLoading(
-        DEFAULT_CONTENT_EXTRACTION_CONFIG
-      )
-      console.log("[Manual Test] Extraction result:", result.metrics)
-      console.log(
-        "[Manual Test] Detected patterns:",
-        result.logEntry.detectedPatterns
-      )
-    } catch (error) {
-      console.error("[Manual Test] Error:", error)
-    }
-  }
-
-  // Add function to get extraction logs for feedback
-  ;(
-    window as unknown as {
-      __providerContentScript?: boolean
-      __ollamaContentScript?: boolean
-      __testTranscript?: () => Promise<void>
-      __testExtraction?: () => Promise<void>
-      __getExtractionLogs?: () => unknown[]
-    }
-  ).__getExtractionLogs = () => {
-    const logs =
-      (window as unknown as { __providerExtractionLogs?: unknown[] })
-        .__providerExtractionLogs ||
-      (window as unknown as { __ollamaExtractionLogs?: unknown[] })
-        .__ollamaExtractionLogs ||
-      []
-    console.log("[Content Script] Extraction logs:", logs)
-    return logs
-  }
-
-  console.log("[Content Script] Manual tests:")
-  console.log("  - window.__testTranscript() - Test transcript extraction")
-  console.log("  - window.__testExtraction() - Test content extraction")
-  console.log(
-    "  - window.__getExtractionLogs() - Get extraction logs for feedback"
-  )
+  safeSendResponse(sendResponse, {
+    html: finalContent,
+    title: pageTitle,
+    extractionDebug
+  })
 }
-
-// Initialize when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initYouTubeFeatures)
-} else {
-  initYouTubeFeatures()
-}
-
-// Also log for debugging
-console.log("[Content Script] Content script loaded")
-console.log(`[Content Script] URL: ${window.location.href}`)
 
 browser.runtime.onMessage.addListener(
   (message: ChromeMessage, _sender, sendResponse) => {
     console.log("[Content Script] Message received:", message.type)
 
-    if (message.type === MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) {
-      console.log("[Content Script] Starting GET_PAGE_CONTENT handler")
-      ;(async () => {
-        try {
-          console.log("[Content Script] Checking tab access permission...")
-          const tabAccessEnabled = await plasmoGlobalStorage.get<boolean>(
-            STORAGE_KEYS.BROWSER.TABS_ACCESS
-          )
+    if (message.type !== MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) return
 
-          if (!tabAccessEnabled) {
-            console.log("[Content Script] Tab access is disabled")
-            try {
-              sendResponse({
-                html: "Tab access is disabled by the user.",
-                title: document.title || "Untitled"
-              })
-            } catch {
-              // Channel closed - ignore
-            }
-            return
-          }
+    console.log("[Content Script] Starting GET_PAGE_CONTENT handler")
+    handleGetPageContent(sendResponse).catch((err) => {
+      console.error("[Content Script] Error in content script:", err)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error("[Content Script] Error details:", errorMessage)
+      safeSendResponse(sendResponse, {
+        html: `Failed to parse content. Error: ${errorMessage}`,
+        title: document.title || "Untitled"
+      })
+    })
 
-          const currentUrl = window.location.href
-          console.log(`[Content Script] Processing URL: ${currentUrl}`)
-
-          if (await isExcludedUrl(currentUrl)) {
-            console.log("[Content Script] URL is excluded")
-            try {
-              sendResponse({
-                html: "This page is excluded by your settings.",
-                title: document.title || "Untitled"
-              })
-            } catch {
-              // Channel closed - ignore
-            }
-            return
-          }
-
-          // Get content extraction configuration
-          const storedConfig =
-            await plasmoGlobalStorage.get<ContentExtractionConfig>(
-              STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
-            )
-
-          // Migrate excludedUrlPatterns from old storage if not in new config
-          let excludedUrlPatterns = storedConfig?.excludedUrlPatterns
-          if (!excludedUrlPatterns || excludedUrlPatterns.length === 0) {
-            const oldPatterns = await plasmoGlobalStorage.get<string[]>(
-              STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
-            )
-            excludedUrlPatterns =
-              oldPatterns ||
-              DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
-          }
-
-          const globalConfig: ContentExtractionConfig = storedConfig
-            ? {
-                ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-                ...storedConfig,
-                excludedUrlPatterns,
-                siteOverrides: storedConfig.siteOverrides || {}
-              }
-            : {
-                ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-                excludedUrlPatterns
-              }
-
-          const effectiveConfig = getEffectiveConfig(
-            currentUrl,
-            globalConfig,
-            DEFAULT_CONTENT_EXTRACTION_CONFIG
-          )
-
-          const hasSiteOverride = Object.keys(globalConfig.siteOverrides).some(
-            (pattern) => {
-              try {
-                const regex = new RegExp(pattern)
-                return regex.test(currentUrl)
-              } catch {
-                return currentUrl.includes(pattern)
-              }
-            }
-          )
-
-          console.log("[Content Script] Using config:", {
-            enabled: effectiveConfig.enabled,
-            scrollStrategy: effectiveConfig.scrollStrategy,
-            scrollDepth: `${(effectiveConfig.scrollDepth * 100).toFixed(0)}%`,
-            site: hasSiteOverride ? "Custom site config" : "Global config"
-          })
-
-          // Enhanced content extraction with lazy loading support
-          let extractionResult: Awaited<
-            ReturnType<typeof extractContentWithLoading>
-          > | null = null
-          if (effectiveConfig.enabled) {
-            console.log(
-              "[Content Script] Starting enhanced content extraction..."
-            )
-            try {
-              extractionResult = await Promise.race([
-                extractContentWithLoading(effectiveConfig),
-                new Promise<never>((_, reject) =>
-                  setTimeout(
-                    () => reject(new Error("Extraction timeout")),
-                    effectiveConfig.maxWaitTime
-                  )
-                )
-              ])
-            } catch (error) {
-              console.warn(
-                "[Content Script] Enhanced extraction failed, falling back to basic extraction:",
-                error
-              )
-              extractionResult = null
-            }
-          }
-
-          // Parse content based on user's scraper preference
-          const scraper = effectiveConfig.contentScraper || "auto"
-          console.log(`[Content Script] Using scraper: ${scraper}`)
-
-          let readableText = ""
-          let pageTitle = ""
-          let defuddleResult: ReturnType<Defuddle["parse"]> | null = null
-          let selectedExtractor: "defuddle" | "readability" | "basic" = "basic"
-          let selectedReason = "fallback-basic"
-
-          // Try Defuddle if user selected "auto" or "defuddle"
-          if (scraper === "auto" || scraper === "defuddle") {
-            console.log("[Content Script] Parsing article with Defuddle...")
-            try {
-              const defuddle = new Defuddle(document, {
-                markdown: true,
-                separateMarkdown: false,
-                removeExactSelectors: true // Remove ads and social buttons
-              })
-              defuddleResult = defuddle.parse()
-
-              // Prefer markdown if available, otherwise use HTML content
-              readableText =
-                defuddleResult?.contentMarkdown || defuddleResult?.content || ""
-              readableText = normalizeWhitespaceForLLM(readableText)
-              readableText = stripHtmlIfNeeded(readableText)
-              pageTitle = defuddleResult?.title || ""
-              selectedExtractor = "defuddle"
-              selectedReason = defuddleResult?.contentMarkdown
-                ? "defuddle-markdown"
-                : "defuddle-html"
-
-              console.log(
-                `[Content Script] Defuddle extracted ${readableText.length} chars (${defuddleResult?.contentMarkdown ? "markdown" : "HTML"})`
-              )
-            } catch (error) {
-              console.warn("[Content Script] Defuddle failed:", error)
-              // If user selected "defuddle" only, don't fallback
-              if (scraper === "defuddle") {
-                console.error(
-                  "[Content Script] Defuddle-only mode failed, no fallback available"
-                )
-              }
-            }
-          }
-
-          // Try Readability if:
-          // 1. User selected "readability" only
-          // 2. User selected "auto" and defuddle failed or returned minimal content
-          if (
-            scraper === "readability" ||
-            (scraper === "auto" &&
-              (!readableText || readableText.trim().length < 100))
-          ) {
-            if (scraper === "auto") {
-              console.log(
-                "[Content Script] Defuddle returned minimal content, trying Readability..."
-              )
-            } else {
-              console.log(
-                "[Content Script] Parsing article with Readability..."
-              )
-            }
-
-            try {
-              const article = new Readability(
-                document.cloneNode(true) as Document
-              ).parse()
-
-              const readabilityText = article?.textContent || ""
-              const normalizedReadability =
-                normalizeWhitespaceForLLM(readabilityText)
-
-              // Use Readability result if:
-              // - User selected "readability" only, OR
-              // - Auto mode and Readability is better than defuddle
-              if (
-                scraper === "readability" ||
-                normalizedReadability.length > readableText.length ||
-                readableText.trim().length < 50
-              ) {
-                readableText = normalizedReadability
-                readableText = stripHtmlIfNeeded(readableText)
-                selectedExtractor = "readability"
-                selectedReason =
-                  scraper === "readability"
-                    ? "forced-readability"
-                    : "auto-readability-better"
-                console.log(
-                  `[Content Script] Readability extracted ${readableText.length} chars`
-                )
-              }
-
-              // Use Readability title if not already set
-              if (!pageTitle && article?.title) {
-                pageTitle = article.title
-              }
-            } catch (error) {
-              console.error("[Content Script] Readability failed:", error)
-            }
-          }
-
-          // Final fallback: if still no content, try basic text extraction
-          if (!readableText || readableText.trim().length < 50) {
-            console.log(
-              "[Content Script] Trying basic text extraction as final fallback..."
-            )
-            const bodyText = document.body?.textContent || ""
-            const normalizedBody = normalizeWhitespaceForLLM(bodyText)
-            // Remove very short content (likely navigation/UI noise)
-            if (normalizedBody.length > 200) {
-              readableText = normalizedBody
-              readableText = stripHtmlIfNeeded(readableText)
-              selectedExtractor = "basic"
-              selectedReason = "basic-body-fallback"
-              console.log(
-                `[Content Script] Basic extraction successful: ${readableText.length} chars`
-              )
-            }
-          }
-
-          // Extract title with fallbacks (if not already set from defuddle)
-          if (!pageTitle) {
-            // Try meta tags first
-            const ogTitle = document
-              .querySelector('meta[property="og:title"]')
-              ?.getAttribute("content")
-            const twitterTitle = document
-              .querySelector('meta[name="twitter:title"]')
-              ?.getAttribute("content")
-            const metaTitle = document
-              .querySelector('meta[name="title"]')
-              ?.getAttribute("content")
-
-            pageTitle =
-              ogTitle || twitterTitle || metaTitle || document.title || ""
-          }
-
-          // Clean up title - remove common suffixes and "Untitled" generic titles
-          if (
-            pageTitle &&
-            !pageTitle.toLowerCase().includes("untitled") &&
-            pageTitle.trim().length > 0
-          ) {
-            pageTitle = pageTitle
-              .replace(/\s*[-|]\s*.*$/, "") // Remove " - Site Name" suffix
-              .replace(/\s*:\s*.*$/, "") // Remove " : Category" suffix
-              .trim()
-          } else {
-            // Final fallback to document.title
-            pageTitle = document.title || "Untitled"
-          }
-
-          console.log(`[Content Script] Extracted title: "${pageTitle}"`)
-
-          // Log extraction metrics if available
-          if (extractionResult) {
-            const { metrics } = extractionResult
-            console.log("[Content Script] Extraction metrics:", {
-              duration: `${metrics.duration}ms`,
-              scrollSteps: metrics.scrollSteps,
-              mutationsDetected: metrics.mutationsDetected,
-              detectedPatterns: metrics.detectedPatterns,
-              finalContentLength: readableText.length
-            })
-
-            // Log entry is already stored in window.__providerExtractionLogs for feedback
-            console.log(
-              "[Content Script] Extraction log available via window.__providerExtractionLogs"
-            )
-          }
-
-          console.log(
-            `[Content Script] Extracted ${readableText.length} chars of readable text`
-          )
-
-          console.log("[Content Script] Starting transcript extraction...")
-          const transcript = await getTranscript()
-          console.log(
-            `[Content Script] Transcript extraction completed. Result: ${transcript ? `${transcript.length} chars` : "null"}`
-          )
-
-          const finalContent =
-            (transcript ? `\n\n Transcript:\n${transcript}` : "") + readableText
-          const profile = detectSiteProfile(currentUrl)
-          const contentHash = quickHash(finalContent)
-          const capturedAt = Date.now()
-          const reliability = measureReliability(finalContent)
-
-          // Final validation: ensure we have meaningful content
-          if (!finalContent || finalContent.trim().length < 50) {
-            console.error(
-              `[Content Script] Extraction failed: Only ${finalContent?.length || 0} chars extracted`
-            )
-            throw new Error(
-              `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
-            )
-          }
-
-          console.log(
-            `[Content Script] Sending response with ${finalContent.length} total chars`
-          )
-          const extractionDebug = {
-            url: currentUrl,
-            title: pageTitle || document.title || "Untitled",
-            scraper,
-            profile,
-            hasTranscript: !!transcript,
-            transcriptLength: transcript?.length || 0,
-            contentLength: finalContent.length,
-            contentHash,
-            revisionId: `${capturedAt}-${contentHash}`,
-            capturedAt,
-            reliabilityScore: reliability.reliabilityScore,
-            reliabilitySignals: reliability.reliabilitySignals,
-            extractionDurationMs: extractionResult?.metrics?.duration,
-            scrollSteps: extractionResult?.metrics?.scrollSteps,
-            mutationsDetected: extractionResult?.metrics?.mutationsDetected,
-            detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
-            selectedExtractor,
-            selectedReason,
-            filteredSectionCount: 0,
-            keptSectionCount: 0,
-            effectiveContextLength: finalContent.length,
-            preview: finalContent.slice(0, 400)
-          }
-          ;(
-            window as unknown as { __lastProviderExtractionResult?: unknown }
-          ).__lastProviderExtractionResult = extractionDebug
-          try {
-            sendResponse({
-              html: finalContent,
-              title: pageTitle || document.title || "Untitled",
-              extractionDebug
-            })
-          } catch {
-            // Channel closed - ignore
-          }
-        } catch (err) {
-          console.error("[Content Script] Error in content script:", err)
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error("[Content Script] Error details:", errorMessage)
-          try {
-            sendResponse({
-              html: `Failed to parse content. Error: ${errorMessage}`,
-              title: document.title || "Untitled"
-            })
-          } catch {
-            // Channel closed - ignore
-          }
-        }
-      })()
-
-      return true
-    }
+    return true
   }
 )

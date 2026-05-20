@@ -3,24 +3,20 @@ import { useEffect } from "react"
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 
+import {
+  buildSiblingsMap,
+  collectDescendantIds,
+  enrichPathWithSiblingsAndAttachments,
+  findLatestLeafDescendant,
+  groupFilesByMessageId,
+  traversePathFromLeaf,
+  traversePathFromLeafWithFetcher
+} from "@/features/sessions/lib/message-tree"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
-import { db } from "@/lib/db"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import type {
-  ChatMessage,
-  ChatSession,
-  ChatSessionState,
-  FileAttachment
-} from "@/types"
-
-const compareMessages = (a: ChatMessage, b: ChatMessage) => {
-  const tsA = a.timestamp ?? 0
-  const tsB = b.timestamp ?? 0
-  if (tsA !== tsB) return tsA - tsB
-
-  return String(a.id ?? "").localeCompare(String(b.id ?? ""))
-}
+import * as repo from "@/lib/repositories/dexie-chat-history"
+import type { ChatMessage, ChatSession, ChatSessionState } from "@/types"
 
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
@@ -32,46 +28,29 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
-    if (id) {
-      get().loadSessionMessages(id)
-    }
+    if (id) get().loadSessionMessages(id)
   },
 
   setHighlightedMessage: (message) => set({ highlightedMessage: message }),
 
   loadSessions: async () => {
     if (get().sessions.length > 0 || get().hydrated) return
-    const all = await db.sessions.orderBy("updatedAt").reverse().toArray()
+    const all = await repo.getAllSessionsOrderedByRecency()
     set({
       sessions: all,
       currentSessionId: all.length > 0 ? all[0].id : null,
       hasSession: all.length > 0,
       hydrated: true
     })
-
-    if (all.length > 0) {
-      await get().loadSessionMessages(all[0].id)
-    }
+    if (all.length > 0) await get().loadSessionMessages(all[0].id)
   },
 
   loadSessionMessages: async (sessionId: string) => {
-    const session = await db.sessions.get(sessionId)
+    const session = await repo.getSession(sessionId)
     if (!session) return
 
-    /*
-     * 1. Get the Leaf ID (Tip of the active branch)
-     * If undefined, find the latest message by timestamp
-     */
-    let leafId = session.currentLeafId
-
-    /*
-     * Load ALL messages for the session to build the tree context robustly
-     * This avoids complex index queries and ensures we catch all siblings/roots
-     */
-    const allMessages = await db.messages
-      .where("sessionId")
-      .equals(sessionId)
-      .sortBy("timestamp")
+    const allMessages =
+      await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
 
     if (allMessages.length === 0) {
       set((state) => ({
@@ -85,80 +64,31 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       return
     }
 
-    if (!leafId) {
-      // Fallback: Use the last message in linear time
-      leafId = allMessages[allMessages.length - 1].id
-    }
+    // Pick the leaf: prefer the session's `currentLeafId`, otherwise
+    // fall back to the timestamp-latest message.
+    const leafId =
+      session.currentLeafId ?? allMessages[allMessages.length - 1].id
+    if (leafId === undefined) return
 
-    // 2. Build Tree Maps (Parent -> Children) needed for finding siblings
-    const siblingsMap = new Map<number | string, ChatMessage[]>()
-
-    for (const msg of allMessages) {
-      const key = msg.parentId ?? "root"
-      const list = siblingsMap.get(key) || []
-      list.push(msg)
-      siblingsMap.set(key, list)
-    }
-
-    // Ensure siblings are sorted (by ID or timestamp)
-    for (const list of siblingsMap.values()) {
-      list.sort(compareMessages)
-    }
-
-    // 3. Traverse UP from Leaf to Root to build Active Path
-    const path: ChatMessage[] = []
-    let currentId = leafId
-    // Use a Map for O(1) lookup during traversal
-    const msgMap = new Map(
-      allMessages
-        .filter((m) => m.id !== undefined)
-        .map((m) => [String(m.id), m] as const)
+    const siblingsMap = buildSiblingsMap(allMessages)
+    const { path, hasMore } = traversePathFromLeaf(
+      allMessages,
+      leafId,
+      CHAT_PAGINATION_LIMIT
     )
 
-    const LIMIT = CHAT_PAGINATION_LIMIT
-    let iterations = 0
-
-    while (currentId !== undefined && iterations < LIMIT) {
-      const msg = msgMap.get(String(currentId))
-      if (!msg) break
-      path.unshift(msg)
-      currentId = msg.parentId
-      iterations++
-    }
-
-    const hasMore = currentId !== undefined // If we stopped before root
-
-    // 4. Load Attachments
     const messageIds = path
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
-      messageIds.length > 0
-        ? await db.files.where("messageId").anyOf(messageIds).toArray()
-        : []
-    const filesByMessageId = new Map<number, FileAttachment[]>()
-    for (const file of files) {
-      if (file.messageId) {
-        const list = filesByMessageId.get(file.messageId) || []
-        list.push(file)
-        filesByMessageId.set(file.messageId, list)
-      }
-    }
+      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+    const filesByMessageId = groupFilesByMessageId(files)
 
-    // 5. Enrich Messages with Attachments and Sibling Data
-    const messagesWithData = path.map((msg) => {
-      const siblings = siblingsMap.get(msg.parentId ?? "root") || [msg]
-      const siblingIds = siblings
-        .map((s) => s.id)
-        .filter((id): id is number | string => id !== undefined)
-
-      return {
-        ...msg,
-        attachments:
-          (typeof msg.id === "number" && filesByMessageId.get(msg.id)) || [],
-        siblingIds: siblingIds.length > 1 ? siblingIds : undefined
-      }
-    })
+    const messagesWithData = enrichPathWithSiblingsAndAttachments(
+      path,
+      siblingsMap,
+      filesByMessageId
+    )
 
     set((state) => ({
       hasMoreMessages: hasMore,
@@ -170,7 +100,6 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     }))
   },
 
-  // NOTE: Pagination (loadMoreMessages) now needs to continue traversing UP from the first message in the list.
   loadMoreMessages: async () => {
     const { currentSessionId, sessions } = get()
     if (!currentSessionId) return
@@ -179,87 +108,46 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     if (!currentSession?.messages?.length) return
 
     const oldestMsg = currentSession.messages[0]
-    let currentId = oldestMsg.parentId
-
-    if (currentId === undefined) {
+    const startId = oldestMsg.parentId
+    if (startId === undefined) {
       set({ hasMoreMessages: false })
       return
     }
 
-    const path: ChatMessage[] = []
-    let iterations = 0
-    const LIMIT = CHAT_PAGINATION_LIMIT
-
-    while (currentId !== undefined && iterations < LIMIT) {
-      const msg = await db.messages.get(currentId)
-      if (!msg) break
-      path.unshift(msg)
-      currentId = msg.parentId
-      iterations++
-    }
-
-    const hasMore = currentId !== undefined
+    const { path, hasMore } = await traversePathFromLeafWithFetcher(
+      startId,
+      CHAT_PAGINATION_LIMIT,
+      (id) => repo.getMessage(id)
+    )
 
     const messageIds = path
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
-      messageIds.length > 0
-        ? await db.files.where("messageId").anyOf(messageIds).toArray()
-        : []
-    const filesByMessageId = new Map<number, FileAttachment[]>()
-    // ... (same file logic)
-    for (const file of files) {
-      if (file.messageId) {
-        const existing = filesByMessageId.get(file.messageId) || []
-        existing.push(file)
-        filesByMessageId.set(file.messageId, existing)
-      }
-    }
+      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+    const filesByMessageId = groupFilesByMessageId(files)
 
-    // 3b. Siblings (Context for Forks)
+    // Look up siblings for the loaded slice: gather candidate parents
+    // and walk one step out to find their other children.
     const parentIds = path
       .map((m) => m.parentId)
       .filter((id): id is number | string => id !== undefined)
     let siblingCandidates: ChatMessage[] = []
     if (parentIds.length > 0) {
-      siblingCandidates = await db.messages
-        .where("parentId")
-        .anyOf(parentIds)
-        .toArray()
+      siblingCandidates = await repo.getMessagesByParents(parentIds)
     }
-    const hasRoots = path.some((m) => !m.parentId)
-    if (hasRoots) {
-      const rootSiblings = await db.messages
-        .where("sessionId")
-        .equals(currentSessionId)
-        .filter((m) => !m.parentId)
-        .toArray()
+    if (path.some((m) => !m.parentId)) {
+      const rootSiblings =
+        await repo.getRootMessagesForSession(currentSessionId)
       siblingCandidates = [...siblingCandidates, ...rootSiblings]
     }
-    const siblingsByParent = new Map<number | string, ChatMessage[]>()
-    for (const msg of siblingCandidates) {
-      const key = msg.parentId ?? "root"
-      const list = siblingsByParent.get(key) || []
-      list.push(msg)
-      siblingsByParent.set(key, list)
-    }
-    for (const list of siblingsByParent.values()) {
-      list.sort(compareMessages)
-    }
+    const siblingsMap = buildSiblingsMap(siblingCandidates)
 
-    const messagesWithData = path.map((msg) => {
-      const siblings = siblingsByParent.get(msg.parentId ?? "root") || [msg]
-      const siblingIds = siblings
-        .map((s) => s.id)
-        .filter((id): id is number | string => id !== undefined)
-      return {
-        ...msg,
-        attachments:
-          typeof msg.id === "number" ? filesByMessageId.get(msg.id) || [] : [],
-        siblingIds: siblingIds.length > 1 ? siblingIds : undefined
-      }
-    })
+    const messagesWithData = enrichPathWithSiblingsAndAttachments(
+      path,
+      siblingsMap,
+      filesByMessageId
+    )
 
     set((state) => ({
       hasMoreMessages: hasMore,
@@ -276,42 +164,28 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     timestamp: number,
     messageId?: number | string
   ) => {
-    // If messageId is provided, we can strictly navigate to the branch containing it.
     if (messageId) {
-      // Re-use navigateToNode logic which finds the best leaf for a node
       await get().navigateToNode(sessionId, messageId)
       return
     }
 
-    // Legacy support: timestamp based (less precise for forks)
-    // Usually, if we are searching, we likely have messageId now.
-    // But if not, we fallback to just loading session (which loads active branch).
-    // This might miss the message if it's on another branch.
-    // Ideally we find the message ID by timestamp?
-    if (!messageId) {
-      try {
-        // Try to find the message by timestamp in this session to get its ID
-        const msgs = await db.messages
-          .where("sessionId")
-          .equals(sessionId)
-          .filter((m) => m.timestamp === timestamp)
-          .toArray()
-        if (msgs.length > 0) {
-          // Pick the first one? Or prompt user?
-          // Default to first match
-          if (msgs[0]?.id) {
-            await get().navigateToNode(sessionId, msgs[0].id)
-          }
-          return
-        }
-      } catch (_e) {
-        // ignore
-        logger.error(
-          "Failed to find message by timestamp",
-          "chatSessionStore",
-          { error: _e }
-        )
+    // Legacy timestamp-based path. If we find a message at that
+    // timestamp, navigate to its node; otherwise fall back to loading
+    // the active branch.
+    try {
+      const matches = await repo.getMessagesBySessionAtTimestamp(
+        sessionId,
+        timestamp
+      )
+      const firstId = matches[0]?.id
+      if (firstId !== undefined) {
+        await get().navigateToNode(sessionId, firstId)
+        return
       }
+    } catch (error) {
+      logger.error("Failed to find message by timestamp", "chatSessionStore", {
+        error
+      })
     }
 
     await get().loadSessionMessages(sessionId)
@@ -328,7 +202,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       messages: [],
       currentLeafId: undefined
     }
-    await db.sessions.add(newSession)
+    await repo.addSession(newSession)
     set((state) => ({
       sessions: [newSession, ...state.sessions],
       currentSessionId: id,
@@ -337,9 +211,9 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   },
 
   deleteSession: async (id: string) => {
-    await db.sessions.delete(id)
-    await db.messages.where("sessionId").equals(id).delete()
-    await db.files.where("sessionId").equals(id).delete()
+    await repo.deleteSessionRow(id)
+    await repo.deleteMessagesBySession(id)
+    await repo.deleteFilesBySession(id)
     try {
       await deleteVectors({ sessionId: id, type: "chat" })
     } catch (error) {
@@ -356,87 +230,69 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       }
     })
     const newCurrentId = get().currentSessionId
-    if (newCurrentId) {
-      await get().loadSessionMessages(newCurrentId)
-    }
+    if (newCurrentId) await get().loadSessionMessages(newCurrentId)
   },
 
   renameSessionTitle: async (id: string, title: string) => {
-    await db.sessions.update(id, { title })
+    await repo.updateSession(id, { title })
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
     }))
   },
 
-  // Simplified updateMessages (legacy bulk update - mostly unused now?)
-  // We'll leave it but caution its use with tree.
-  updateMessages: async (_id: string, _messages: ChatSession["messages"]) => {
-    // ... (Legacy logic preserved or skipped instructions)
-    // This is usually for "restore" or complex ops.
-    // Leaving mostly as is but ensuring we don't break tree if possible.
-    // Actually, if we bulk put, we lose parentIds if not in input.
-    // Assuming this is unused in main flow.
-  },
+  // Legacy bulk-update entry point. The current chat flow updates one
+  // message at a time through `updateMessage`. Preserved as a no-op
+  // boundary so older import/restore paths can still call it without
+  // crashing the tree.
+  updateMessages: async (_id: string, _messages: ChatSession["messages"]) => {},
 
   addMessage: async (sessionId: string, message: ChatMessage) => {
-    // 1. Determine Parent
     const session = get().sessions.find((s) => s.id === sessionId)
-    let parentId = session?.currentLeafId
-    if (!parentId && session?.messages?.length && session.messages.length > 0) {
-      // Fallback: previous message in list
+    // Default parent: session's active leaf, or the last on-screen message
+    // when the leaf is unset on a freshly-loaded session.
+    let parentId: number | string | undefined = session?.currentLeafId
+    if (!parentId && session?.messages?.length) {
       parentId = session.messages[session.messages.length - 1].id
     }
+    if (message.parentId !== undefined) parentId = message.parentId
 
-    // 2. Add to DB
     const timestamp = message.timestamp || Date.now()
-    const { id: _messageId, ...messageWithoutId } = message
-    const msgWithSession = {
+    const { id: _ignored, ...messageWithoutId } = message
+    const id = await repo.addMessage({
       ...messageWithoutId,
       sessionId,
       timestamp,
       parentId
-    }
+    })
 
-    // If user explicitly passed parentId (e.g. reply to specific), respect it?
-    // message.parentId override would be here if allowed.
-    if (message.parentId !== undefined) {
-      msgWithSession.parentId = message.parentId
-    }
-
-    const id = (await db.messages.add(msgWithSession)) as number
-
-    // 3. Add attachments
     if (message.attachments && message.attachments.length > 0) {
-      const files = message.attachments.map((f) => ({
-        ...f,
-        messageId: id,
-        sessionId
-      }))
-      await db.files.bulkAdd(files)
+      await repo.bulkAddFiles(
+        message.attachments.map((f) => ({ ...f, messageId: id, sessionId }))
+      )
     }
 
-    // 4. Update session
-    const updatedAt = Date.now()
-    await db.sessions.update(sessionId, { updatedAt, currentLeafId: id })
+    await repo.updateSession(sessionId, {
+      updatedAt: Date.now(),
+      currentLeafId: id
+    })
 
-    // 5. Reload session to reflect the new path and populate siblingIds
-    // We cannot just optimistically update local state because we need to recalculate
-    // siblingIds for the previous leaf and the new message, which requires tree traversal.
+    // Recompute the active path so the new message's siblingIds are
+    // populated correctly — we cannot do that optimistically without
+    // re-running the tree traversal.
     await get().loadSessionMessages(sessionId)
 
     return id
   },
 
-  // This handles IN-PLACE updates (metrics, streaming content)
   updateMessage: async (
     messageId: number,
     updates: Partial<ChatMessage>,
     skipDb = false
   ) => {
     if (!skipDb) {
-      const { id: _ignoredId, ...safeUpdates } = updates
-      await db.messages.update(messageId, safeUpdates)
+      await repo.updateMessage(messageId, updates)
       if (updates.content) {
+        // Content changed — invalidate any cached embeddings asynchronously.
         deleteVectors({ messageId }).catch((error) => {
           logger.error(
             "Failed to delete outdated embeddings",
@@ -457,209 +313,88 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     }))
   },
 
-  // NEW: Fork (Edit) Message
   forkMessage: async (
     sessionId: string,
     originalMessageId: number,
     newContent: string
   ) => {
-    // 1. Get original message to find its parent
-    const originalMsg = await db.messages.get(originalMessageId)
+    const originalMsg = await repo.getMessage(originalMessageId)
     if (!originalMsg) return
 
-    // 2. Create new message as sibling
-    const newMessage: ChatMessage = {
+    const timestamp = Date.now()
+    const newId = await repo.addMessage({
       role: originalMsg.role,
       content: newContent,
-      parentId: originalMsg.parentId, // Same parent = Sibling
-      model: originalMsg.model
-    }
-
-    /*
-     * 3. Add using standard addMessage flow?
-     * addMessage usually appends to *currentLeafId*.
-     * Here we are inserting in the middle of history.
-     * So we cannot use addMessage's default logic of "parent = currentLeaf".
-     */
-
-    const timestamp = Date.now()
-    const { id: _newMessageId, ...newMessageWithoutId } = newMessage
-    const msgToSave = {
-      ...newMessageWithoutId,
       sessionId,
-      timestamp
-    }
+      timestamp,
+      parentId: originalMsg.parentId,
+      model: originalMsg.model
+    })
 
-    const newId = (await db.messages.add(msgToSave)) as number
-
-    // 4. Set this new message as the new "Leaf" of the session?
-    // YES. Editing a message essentially jumps to that point and makes it the active head.
-    // Any response generated will attach to THIS message.
-    await db.sessions.update(sessionId, {
+    // The fork becomes the new leaf — any generated response will hang
+    // off this new node.
+    await repo.updateSession(sessionId, {
       currentLeafId: newId,
       updatedAt: timestamp
     })
-
-    // 5. Reload session to reflect the new path (which is just ...parent, newMsg)
     await get().loadSessionMessages(sessionId)
-
     return newId
   },
 
-  /*
-   * Navigate to a specific message (make it the active leaf or part of active path?)
-   * If I click "<" on a node, I want to swap that node.
-   * Swapping a node implies switching the Active Path to one that passes through sibling.
-   * If sibling is a leaf, set leaf to sibling.
-   * If sibling has children, "Active Path" usually remembers the last active leaf for that branch?
-   * For MVP: Navigate to sibling -> Sibling becomes leaf (truncating its children if any? or we find its latest child?)
-   * Let's implement simpler: Switch to sibling -> Sibling is the new view focus.
-   * BUT we need to set `currentLeafId`.
-   * If I switch to a node that has children, which child do I pick?
-   * Strategy: "Latest Child".
-   */
   navigateToNode: async (
     sessionId: string,
     nodeId: number | string,
     exact = false
   ) => {
-    // Logic: Navigate to the LATEST leaf that descends from this node.
-    // If exact is true, we strictly set the currentLeafId to this node (cutting off any existing children from view, essentially preparing to fork or view just this point).
-
-    let currentId = nodeId
-
+    // `exact=false`: drop to the latest leaf descending from the node so
+    // the user sees the most recent state of that branch.
+    // `exact=true`: pin to this exact node (used by future fork flows).
+    let leafId = nodeId
     if (!exact) {
-      // parentId is not indexed in Dexie schema, so we resolve descendants
-      // from the session graph in-memory.
-      const allMessages = await db.messages
-        .where("sessionId")
-        .equals(sessionId)
-        .sortBy("timestamp")
-
-      const childrenByParent = new Map<string, ChatMessage[]>()
-      for (const msg of allMessages) {
-        if (msg.id === undefined) continue
-        if (msg.parentId === undefined) continue
-        const key = String(msg.parentId)
-        const list = childrenByParent.get(key) || []
-        list.push(msg)
-        childrenByParent.set(key, list)
-      }
-
-      for (const list of childrenByParent.values()) {
-        list.sort(compareMessages)
-      }
-
-      let iterations = 0
-      const LIMIT = Math.max(allMessages.length, 1)
-
-      while (iterations < LIMIT) {
-        const children = childrenByParent.get(String(currentId)) || []
-        if (children.length === 0) {
-          break
-        }
-
-        const nextId = children[children.length - 1]?.id
-        if (nextId === undefined || String(nextId) === String(currentId)) {
-          break
-        }
-
-        currentId = nextId
-        iterations++
-      }
+      const allMessages =
+        await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
+      leafId = findLatestLeafDescendant(allMessages, nodeId)
     }
 
-    await db.sessions.update(sessionId, { currentLeafId: currentId })
+    await repo.updateSession(sessionId, { currentLeafId: leafId })
     await get().loadSessionMessages(sessionId)
   },
 
   deleteMessage: async (messageId: number) => {
-    // 1. Fetch all messages to build tree context
-    // Ideally we optimize this, but for consistent tree traversal we need the links.
-    // We can filter by sessionId if we had it, but `deleteMessage` only takes ID.
-    // We'll fetch the message first to get sessionId.
-    const targetMsg = await db.messages.get(messageId)
+    const targetMsg = await repo.getMessage(messageId)
     if (!targetMsg || !targetMsg.sessionId) return
 
     const { sessionId, parentId: targetParentId } = targetMsg
 
-    // Get all messages in session to find descendants
-    const allMessages = await db.messages
-      .where("sessionId")
-      .equals(sessionId)
-      .toArray()
-
-    // Build Parent -> Children map
-    const childrenMap = new Map<number, number[]>()
-    for (const msg of allMessages) {
-      if (typeof msg.parentId === "number" && typeof msg.id === "number") {
-        const list = childrenMap.get(msg.parentId) || []
-        list.push(msg.id)
-        childrenMap.set(msg.parentId, list)
-      }
-    }
-
-    // 2. BFS/DFS to find all descendants
-    const toDeleteIds = new Set<number>([messageId])
-    const queue = [messageId]
-
-    while (queue.length > 0) {
-      const current = queue.shift()
-      if (current === undefined) continue
-
-      const children = childrenMap.get(current)
-      if (children) {
-        for (const childId of children) {
-          if (!toDeleteIds.has(childId)) {
-            toDeleteIds.add(childId)
-            queue.push(childId)
-          }
-        }
-      }
-    }
-
+    const allMessages = await repo.getMessagesBySession(sessionId)
+    const toDeleteIds = collectDescendantIds(allMessages, messageId)
     const idsToDelete = Array.from(toDeleteIds)
 
-    // 3. Update Session Leaf if needed
-    // If the current leaf is one of the deleted messages, we must revert leaf to the target's parent.
-    const session = await db.sessions.get(sessionId)
+    // If the current leaf is in the deleted subtree, reset it to the
+    // target's parent (undefined when deleting a root message).
+    const session = await repo.getSession(sessionId)
     if (
       typeof session?.currentLeafId === "number" &&
       toDeleteIds.has(session.currentLeafId)
     ) {
-      /*
-       * The active branch is being cut.
-       * New leaf should be the parent of the *target message* (the root of deletion).
-       * If target has no parent (it was root), then leaf is undefined (empty chat).
-       */
-      await db.sessions.update(sessionId, {
-        currentLeafId: targetParentId
-      })
+      await repo.updateSession(sessionId, { currentLeafId: targetParentId })
     }
 
-    // 4. Bulk Delete
-    await db.messages.bulkDelete(idsToDelete)
-    await db.files.where("messageId").anyOf(idsToDelete).delete()
+    await repo.bulkDeleteMessages(idsToDelete)
+    await repo.deleteFilesByMessageIds(idsToDelete)
 
-    // Delete embeddings
-    // We can't bulk delete by ID easily in vector store without looping?
-    // vector-store deleteVectors takes { messageId }
-    // Let's loop for now (it's usually fast enough for small deletions)
-    // Or check if deleteVectors supports array? It doesn't seem to.
+    // Vector cleanup is best-effort and async — the chat surface
+    // shouldn't block on it.
     for (const id of idsToDelete) {
       deleteVectors({ messageId: id }).catch((error) => {
         logger.error(
           "Failed to delete message embeddings",
           "chatSessionStore",
-          {
-            error,
-            messageId: id
-          }
+          { error, messageId: id }
         )
       })
     }
 
-    // 5. Update Local State
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === sessionId
@@ -678,8 +413,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       )
     }))
 
-    // 6. Reload to ensure full consistency (re-calc siblings, etc)
-    // Especially if we changed leaf.
+    // Reload to recompute sibling lists for the truncated tree.
     get().loadSessionMessages(sessionId)
   }
 }))

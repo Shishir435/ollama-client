@@ -1,4 +1,8 @@
-import { db } from "@/lib/db"
+import {
+  countMessages,
+  getAllMessages,
+  getAllSessions
+} from "@/lib/repositories/dexie-chat-history"
 import type { ChatMessage } from "@/types"
 
 export const isEmbeddableChatMessage = (message: ChatMessage): boolean => {
@@ -24,11 +28,11 @@ export const getEmbeddableMessagesBySession = async (): Promise<{
   let useLegacySessions = false
 
   try {
-    const count = await db.messages.count()
+    const count = await countMessages()
     if (count === 0) {
       useLegacySessions = true
     } else {
-      const allMessages = await db.messages.toArray()
+      const allMessages = await getAllMessages()
       for (const message of allMessages) {
         if (!isEmbeddableChatMessage(message)) continue
         const sessionId = message.sessionId
@@ -44,7 +48,7 @@ export const getEmbeddableMessagesBySession = async (): Promise<{
   }
 
   if (useLegacySessions) {
-    const sessions = await db.sessions.toArray()
+    const sessions = await getAllSessions()
     for (const session of sessions) {
       if (!session.messages || session.messages.length === 0) continue
       const embeddable = session.messages.filter(isEmbeddableChatMessage)
