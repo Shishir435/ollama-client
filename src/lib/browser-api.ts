@@ -32,16 +32,19 @@ export const isFirefox = (): boolean => {
   return !isChromiumBased()
 }
 
-export const openOptionsInTab = async (): Promise<void> => {
-  const optionsUrl = runtime.getURL("options.html")
+export const openOptionsInTab = async (
+  targetOptionsUrl?: string
+): Promise<void> => {
+  const optionsBaseUrl = runtime.getURL("options.html")
+  const optionsUrl = targetOptionsUrl || optionsBaseUrl
 
   try {
     if (browser.tabs?.query) {
-      const tabs = await browser.tabs.query({ url: optionsUrl })
+      const tabs = await browser.tabs.query({ url: `${optionsBaseUrl}*` })
       if (tabs.length > 0) {
         const tab = tabs[0]
         if (tab.id && tab.windowId) {
-          await browser.tabs.update(tab.id, { active: true })
+          await browser.tabs.update(tab.id, { active: true, url: optionsUrl })
           await browser.windows.update(tab.windowId, { focused: true })
           return
         }

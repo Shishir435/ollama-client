@@ -100,7 +100,7 @@ export function RetrievedContextCard({
                 className={cn(
                   "h-7 w-7",
                   feedback === true &&
-                    "bg-green-500 hover:bg-green-600 text-white"
+                    "bg-status-success hover:bg-status-success/90 text-status-success-foreground"
                 )}
                 onClick={() => handleFeedback(true)}
                 disabled={isSubmitting}
@@ -112,7 +112,8 @@ export function RetrievedContextCard({
                 variant={feedback === false ? "default" : "ghost"}
                 className={cn(
                   "h-7 w-7",
-                  feedback === false && "bg-red-500 hover:bg-red-600 text-white"
+                  feedback === false &&
+                    "bg-status-danger hover:bg-status-danger/90 text-status-danger-foreground"
                 )}
                 onClick={() => handleFeedback(false)}
                 disabled={isSubmitting}

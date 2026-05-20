@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next"
+import { Card } from "@/components/ui/card"
 
 export const EmbeddingInfo = () => {
   const { t } = useTranslation()
 
   return (
-    <div className="rounded-lg border border-muted bg-muted/30 p-4">
+    <Card className="p-4">
       <h4 className="text-sm font-medium mb-2">
         {t("settings.embeddings.what_are_embeddings.title")}
       </h4>
@@ -14,6 +15,6 @@ export const EmbeddingInfo = () => {
         <li>{t("settings.embeddings.what_are_embeddings.point_3")}</li>
         <li>{t("settings.embeddings.what_are_embeddings.point_4")}</li>
       </ul>
-    </div>
+    </Card>
   )
 }

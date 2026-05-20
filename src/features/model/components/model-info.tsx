@@ -28,6 +28,7 @@ import {
   Settings,
   Zap
 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 const fileTypeMap: Record<number, string> = {
   1: "F32",
@@ -231,48 +232,50 @@ export const ModelInfo = ({
   }
 
   return (
-    <Card className="w-full rounded-lg border-border bg-card text-card-foreground py-0">
+    <Card className="w-full py-0">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20">
-            <div className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">
-                {t("settings.model_info.title")}
-              </h3>
-              {loading && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
+        <CollapsibleTrigger
+          render={
+            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
+          }>
+          <div className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">
+              {t("settings.model_info.title")}
+            </h3>
+            {loading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
 
-            <div className="flex items-center gap-2">
-              {modelInfo && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {primaryEntries.map(([key, val], index) => (
-                    <React.Fragment key={key}>
-                      <span className="font-mono text-xs">
-                        {key.includes("parameter")
+          <div className="flex items-center gap-2">
+            {modelInfo && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {primaryEntries.map(([key, val], index) => (
+                  <React.Fragment key={key}>
+                    <span className="font-mono text-xs">
+                      {key.includes("parameter")
+                        ? typeof val === "number"
+                          ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                          : String(val)
+                        : key.includes("context")
                           ? typeof val === "number"
-                            ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                            ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
                             : String(val)
-                          : key.includes("context")
-                            ? typeof val === "number"
-                              ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
-                              : String(val)
-                            : key.includes("file_type") &&
-                                typeof val === "number"
-                              ? (fileTypeMap[val] ?? val)
-                              : String(val)}
-                      </span>
-                      {index < primaryEntries.length - 1 && <span>•</span>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
+                          : key.includes("file_type") && typeof val === "number"
+                            ? (fileTypeMap[val] ?? val)
+                            : String(val)}
+                    </span>
+                    {index < primaryEntries.length - 1 && <span>•</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
 
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
                     <Button
                       variant="ghost"
                       size="sm"
@@ -281,23 +284,24 @@ export const ModelInfo = ({
                         handleRefresh()
                       }}
                       disabled={refreshing}
-                      className="h-8 w-8 p-0">
-                      <RefreshCw
-                        className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t("settings.model_info.refresh_tooltip")}</p>
-                  </TooltipContent>
-                </Tooltip>
+                      className="h-8 w-8 p-0"
+                    />
+                  }>
+                  <RefreshCw
+                    className={cn("h-4 w-4", refreshing && "animate-spin")}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t("settings.model_info.refresh_tooltip")}</p>
+                </TooltipContent>
+              </Tooltip>
 
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform duration-200 ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
-                />
-              </div>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isExpanded && "rotate-180"
+                )}
+              />
             </div>
           </div>
         </CollapsibleTrigger>
@@ -319,7 +323,7 @@ export const ModelInfo = ({
             ) : (
               <div className="space-y-4">
                 {capabilities.length > 0 && (
-                  <div className="rounded-md border bg-muted/30 p-3">
+                  <Card className="p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <Zap className="h-4 w-4 text-primary" />
                       <h4 className="font-semibold">
@@ -337,7 +341,7 @@ export const ModelInfo = ({
                         </Badge>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 <div>

@@ -107,7 +107,7 @@ export const ProviderBaseUrlSettings = () => {
                 )}
                 {urlIsValid && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <p className="h-1 w-1 rounded-full bg-green-500" />
+                    <p className="h-1 w-1 rounded-full bg-status-success" />
                     {isLocalhost
                       ? t("settings.base_url.status_local")
                       : t("settings.base_url.status_remote")}
@@ -127,7 +127,7 @@ export const ProviderBaseUrlSettings = () => {
                   className={cn(
                     "pr-8 font-mono text-sm",
                     !urlIsValid && providerUrl && "border-destructive",
-                    saved && "border-green-600 bg-green-50/50"
+                    saved && "border-status-success bg-status-success/10"
                   )}
                   disabled={isLoading}
                   onKeyDown={(e) => {
@@ -138,7 +138,7 @@ export const ProviderBaseUrlSettings = () => {
                   }}
                 />
                 {saved && (
-                  <Check className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-green-600" />
+                  <Check className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-status-success" />
                 )}
               </div>
 
@@ -147,7 +147,8 @@ export const ProviderBaseUrlSettings = () => {
                 disabled={!urlIsValid || isLoading || saved}
                 className={cn(
                   "min-w-[80px] transition-all",
-                  saved && "bg-green-600 text-white hover:bg-green-700"
+                  saved &&
+                    "bg-status-success text-status-success-foreground hover:bg-status-success/90"
                 )}>
                 {isLoading ? (
                   <>

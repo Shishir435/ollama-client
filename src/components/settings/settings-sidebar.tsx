@@ -30,7 +30,11 @@ export const SettingsSidebar = ({
   className
 }: SettingsSidebarProps) => {
   return (
-    <aside className={cn("hidden lg:block w-56 shrink-0", className)}>
+    <aside
+      className={cn(
+        "hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground lg:block",
+        className
+      )}>
       <nav aria-label="Settings navigation" className="h-full">
         <ScrollArea className="h-full">
           <div className="space-y-5 pr-2">
@@ -51,25 +55,25 @@ export const SettingsSidebar = ({
                         onClick={() => onTabChange(item.key)}
                         aria-current={isActive ? "page" : undefined}
                         className={cn(
-                          "group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150",
+                          "group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/50",
                           isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                         )}>
                         <span
                           className={cn(
                             "absolute left-0.5 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full transition-all duration-200",
                             isActive
-                              ? "bg-primary opacity-100"
-                              : "bg-transparent opacity-0 group-hover:opacity-40 group-hover:bg-primary"
+                              ? "bg-sidebar-primary opacity-100"
+                              : "bg-transparent opacity-0 group-hover:bg-sidebar-primary group-hover:opacity-40"
                           )}
                         />
                         <Icon
                           className={cn(
                             "h-4 w-4 shrink-0 transition-colors duration-150",
                             isActive
-                              ? "text-foreground"
-                              : "text-muted-foreground/70 group-hover:text-foreground/80"
+                              ? "text-sidebar-primary"
+                              : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
                           )}
                         />
                         <span className="truncate">{item.label}</span>

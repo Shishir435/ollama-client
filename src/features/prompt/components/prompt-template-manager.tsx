@@ -137,18 +137,20 @@ export const PromptTemplateManager = () => {
         <Collapsible open={showCreateForm} onOpenChange={setShowCreateForm}>
           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
             <div className="rounded-lg border border-primary/20 bg-accent/5 p-4">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="mb-4 flex w-full items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 transition-transform",
-                      showCreateForm && "rotate-180"
-                    )}
+              <CollapsibleTrigger
+                render={
+                  <Button
+                    type="button"
+                    className="mb-4 flex w-full items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                   />
-                  {t("settings.prompts.new_template")}
-                </button>
+                }>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    showCreateForm && "rotate-180"
+                  )}
+                />
+                {t("settings.prompts.new_template")}
               </CollapsibleTrigger>
               <PromptTemplateForm onSubmit={handleAddTemplate} />
             </div>

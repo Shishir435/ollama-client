@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { AppWindow, BrainCircuit } from "lucide-react"
+import { AppWindow, BrainCircuit, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,20 +35,31 @@ export const ContextSettingsMenu = () => {
     },
     false
   )
+  const [groundedOnlyMode, setGroundedOnlyMode] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
 
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-lg"
-              aria-label={t("tabs.context")}>
-              <Layers className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  aria-label={t("tabs.context")}
+                />
+              }
+            />
+          }>
+          <Layers className="size-4" />
         </TooltipTrigger>
         <TooltipContent>{t("tabs.context")}</TooltipContent>
       </Tooltip>
@@ -73,6 +84,13 @@ export const ContextSettingsMenu = () => {
             {useRAG
               ? t("chat.input.rag_toggle_on")
               : t("chat.input.rag_toggle_off")}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={groundedOnlyMode}
+            onCheckedChange={(value) => setGroundedOnlyMode(Boolean(value))}
+            className="gap-2 text-xs py-2">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {t("settings.grounding_mode.label")}
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

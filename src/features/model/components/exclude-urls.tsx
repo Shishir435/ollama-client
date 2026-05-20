@@ -4,10 +4,11 @@ import { Trans, useTranslation } from "react-i18next"
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-
 import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
 import { AlertCircle, Globe, Plus, Shield, Trash2 } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 interface ExcludedUrlsProps {
   patterns: string[]
@@ -83,7 +84,10 @@ export const ExcludedUrls = ({
               value={input}
               onChange={handleInputChange}
               placeholder={t("model.exclude_urls.pattern_placeholder")}
-              className={`h-9 font-mono text-sm ${error ? "border-destructive" : ""}`}
+              className={cn(
+                "h-9 font-mono text-sm",
+                error && "border-destructive"
+              )}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
@@ -128,20 +132,18 @@ export const ExcludedUrls = ({
 
           <div className="space-y-2">
             {patterns.map((pattern) => (
-              <div
+              <Card
                 key={pattern}
-                className="group flex items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50">
-                <div className="mr-3 min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <code className="truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                      {pattern}
-                    </code>
-                    {isDefaultPattern(pattern) && (
-                      <Badge variant="outline" className="text-xs">
-                        {t("model.exclude_urls.default_badge")}
-                      </Badge>
-                    )}
-                  </div>
+                className="group flex-row items-center justify-between bg-sidebar-accent gap-3 ring-0 p-3 transition-colors hover:bg-accent/50">
+                <div className="flex items-start gap-2 min-w-0 flex-1">
+                  <code className="truncate bg-muted px-1.5 py-0.5 font-mono text-xs">
+                    {pattern}
+                  </code>
+                  {isDefaultPattern(pattern) && (
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {t("model.exclude_urls.default_badge")}
+                    </Badge>
+                  )}
                 </div>
 
                 {!isDefaultPattern(pattern) && (
@@ -153,13 +155,13 @@ export const ExcludedUrls = ({
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
         </div>
       ) : (
         <div className="py-6 text-center text-muted-foreground">
-          <Shield className="mx-auto mb-2 h-8 w-8 opacity-50" />
+          <Shield className="mx-auto mb-2 size-8 opacity-50" />
           <p className="text-sm">{t("model.exclude_urls.no_patterns")}</p>
         </div>
       )}

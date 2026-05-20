@@ -18,7 +18,7 @@ export const SearchResultGroup = ({
 }: SearchResultGroupProps) => {
   return (
     <div key={sessionId} className="space-y-3">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md py-2 flex items-center gap-2 border-b shadow-sm -mx-3 px-3">
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background py-2 -mx-3 px-3">
         <div className="bg-primary/10 p-1 rounded-md">
           <MessageSquare className="h-3.5 w-3.5 text-primary" />
         </div>

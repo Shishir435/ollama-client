@@ -87,50 +87,52 @@ export const VoiceSelector = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label={t("chat.voice_selector.select_voice")}
-          className={cn(
-            "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-xs transition-colors",
-            "hover:bg-accent hover:text-accent-foreground",
-            "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            open && "ring-1 ring-ring"
-          )}
-          disabled={isLoading || voices.length === 0}>
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground text-sm truncate">
-                  {t("chat.speech.loading_voices")}
-                </span>
-              </>
-            ) : selectedVoice ? (
-              <>
-                <span className="text-sm font-medium truncate">
-                  {selectedVoice.name}
-                </span>
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] h-5 px-1.5 font-normal shrink-0">
-                  {selectedVoice.lang}
-                </Badge>
-              </>
-            ) : (
-              <span className="text-muted-foreground text-sm truncate">
-                {t("chat.voice_selector.select_placeholder")}
-              </span>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            aria-label={t("chat.voice_selector.select_voice")}
+            className={cn(
+              "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-xs transition-colors",
+              "hover:bg-accent hover:text-accent-foreground",
+              "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              open && "ring-1 ring-ring"
             )}
-          </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+            disabled={isLoading || voices.length === 0}
+          />
+        }>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground text-sm truncate">
+                {t("chat.speech.loading_voices")}
+              </span>
+            </>
+          ) : selectedVoice ? (
+            <>
+              <span className="text-sm font-medium truncate">
+                {selectedVoice.name}
+              </span>
+              <Badge
+                variant="secondary"
+                className="text-[10px] h-5 px-1.5 font-normal shrink-0">
+                {selectedVoice.lang}
+              </Badge>
+            </>
+          ) : (
+            <span className="text-muted-foreground text-sm truncate">
+              {t("chat.voice_selector.select_placeholder")}
+            </span>
+          )}
+        </div>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
       <PopoverContent
-        className="w-[440px] p-0 shadow-lg"
+        className="w-[440px] p-0 shadow-md"
         align="center"
         sideOffset={6}>
         <Command className="rounded-lg border-0" shouldFilter={false}>

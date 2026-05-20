@@ -26,7 +26,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = "ToastViewport"
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between gap-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swiping]:translate-x-(--toast-swipe-movement-x) data-[swiping]:translate-y-(--toast-swipe-movement-y) data-[starting-style]:animate-in data-[starting-style]:fade-in-0 data-[starting-style]:slide-in-from-top-full sm:data-[starting-style]:slide-in-from-bottom-full data-[ending-style]:animate-out data-[ending-style]:fade-out-80 data-[ending-style]:slide-out-to-right-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between gap-2 overflow-hidden rounded-md border p-4 pr-6 shadow-md transition-all data-[swiping]:translate-x-(--toast-swipe-movement-x) data-[swiping]:translate-y-(--toast-swipe-movement-y) data-[starting-style]:animate-in data-[starting-style]:fade-in-0 data-[starting-style]:slide-in-from-top-full sm:data-[starting-style]:slide-in-from-bottom-full data-[ending-style]:animate-out data-[ending-style]:fade-out-80 data-[ending-style]:slide-out-to-right-full",
   {
     variants: {
       variant: {
@@ -80,7 +80,7 @@ const ToastClose = React.forwardRef<
     ref={ref}
     data-slot="toast-close"
     className={cn(
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-hidden focus:ring-1 group-hover:opacity-100 group-[.destructive]:text-red-300 hover:group-[.destructive]:text-red-50 focus:group-[.destructive]:ring-red-400 focus:group-[.destructive]:ring-offset-red-600",
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-hidden focus:ring-1 group-hover:opacity-100 group-[.destructive]:text-destructive-foreground/70 hover:group-[.destructive]:text-destructive-foreground focus:group-[.destructive]:ring-destructive focus:group-[.destructive]:ring-offset-destructive",
       className
     )}
     {...props}>

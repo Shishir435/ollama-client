@@ -78,23 +78,27 @@ export function RAGSourcesButton({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                aria-label={`View ${sources.length} retrieved source${
-                  sources.length > 1 ? "s" : ""
-                }`}>
-                <div className="relative">
-                  <Info className="h-3.5 w-3.5" />
-                  <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
-                    {sources.length}
-                  </span>
-                </div>
-              </Button>
-            </PopoverTrigger>
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    aria-label={`View ${sources.length} retrieved source${
+                      sources.length > 1 ? "s" : ""
+                    }`}
+                  />
+                }
+              />
+            }>
+            <div className="relative">
+              <Info className="h-3.5 w-3.5" />
+              <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+                {sources.length}
+              </span>
+            </div>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={6}>
             {`${sources.length} RAG source${sources.length > 1 ? "s" : ""}`}
@@ -135,7 +139,7 @@ export function RAGSourcesButton({
                           className={cn(
                             "h-6 w-6",
                             feedback === true &&
-                              "bg-green-500 text-white hover:bg-green-600"
+                              "bg-status-success text-status-success-foreground hover:bg-status-success/90"
                           )}
                           onClick={() => handleFeedback(source, true)}
                           disabled={submittingFeedback}
@@ -148,7 +152,7 @@ export function RAGSourcesButton({
                           className={cn(
                             "h-6 w-6",
                             feedback === false &&
-                              "bg-red-500 text-white hover:bg-red-600"
+                              "bg-status-danger text-status-danger-foreground hover:bg-status-danger/90"
                           )}
                           onClick={() => handleFeedback(source, false)}
                           disabled={submittingFeedback}
@@ -208,7 +212,7 @@ export function RAGSourcesButton({
                   }
                   className={cn(
                     feedbackById[String(activeSource.id)] === true &&
-                      "bg-green-500 text-white hover:bg-green-600"
+                      "bg-status-success text-status-success-foreground hover:bg-status-success/90"
                   )}
                   onClick={() => handleFeedback(activeSource, true)}
                   disabled={submittingFeedback}>
@@ -224,7 +228,7 @@ export function RAGSourcesButton({
                   }
                   className={cn(
                     feedbackById[String(activeSource.id)] === false &&
-                      "bg-red-500 text-white hover:bg-red-600"
+                      "bg-status-danger text-status-danger-foreground hover:bg-status-danger/90"
                   )}
                   onClick={() => handleFeedback(activeSource, false)}
                   disabled={submittingFeedback}>

@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
+import { MultiSelect } from "@/components/multi-select"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { MultiSelect } from "@/components/ui/multi-select"
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +22,8 @@ import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { Eye, RefreshCw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { STATUS_STYLES } from "@/lib/ui-status"
+import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
 
 const trimTitle = (title: string, max = 25) =>
@@ -120,33 +121,42 @@ export const TabsSelect = () => {
             </p>
             <div className="flex items-center gap-1.5">
               {updatedSelectedCount > 0 && (
-                <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-semibold text-amber-700">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
+                    STATUS_STYLES.warning.bgSoft,
+                    STATUS_STYLES.warning.text
+                  )}>
                   {t("tabs.select.updated")}
                 </span>
               )}
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setShowInspector(true)}
-                    aria-label={t("tabs.select.view_content")}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setShowInspector(true)}
+                      aria-label={t("tabs.select.view_content")}
+                    />
+                  }>
+                  <Eye className="h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent>{t("tabs.select.view_content")}</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={refreshSelectedTabContents}
-                    aria-label={t("tabs.select.refresh_now")}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={refreshSelectedTabContents}
+                      aria-label={t("tabs.select.refresh_now")}
+                    />
+                  }>
+                  <RefreshCw className="h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent>{t("tabs.select.refresh_now")}</TooltipContent>
               </Tooltip>
@@ -181,7 +191,7 @@ export const TabsSelect = () => {
                       return (
                         <div
                           key={id}
-                          className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                          className="overflow-hidden rounded-lg border bg-card">
                           <div className="flex items-start justify-between border-b px-4 py-3">
                             <div className="min-w-0 flex-1">
                               <div className="truncate font-medium text-foreground">
@@ -205,13 +215,14 @@ export const TabsSelect = () => {
                                 )}
                                 {reliabilityScore !== null && (
                                   <span
-                                    className={`shrink-0 font-medium ${
+                                    className={cn(
+                                      "shrink-0 font-medium",
                                       reliabilityScore >= 0.7
-                                        ? "text-green-600"
+                                        ? STATUS_STYLES.success.text
                                         : reliabilityScore >= 0.35
-                                          ? "text-amber-600"
-                                          : "text-red-600"
-                                    }`}>
+                                          ? STATUS_STYLES.warning.text
+                                          : STATUS_STYLES.danger.text
+                                    )}>
                                     {t("tabs.inspector.reliable", {
                                       percent: Math.round(
                                         reliabilityScore * 100
@@ -223,13 +234,21 @@ export const TabsSelect = () => {
                             </div>
                           </div>
                           {isLowReliability && (
-                            <div className="border-b bg-amber-500/10 px-4 py-2">
-                              <p className="text-xs text-amber-700">
+                            <div
+                              className={cn(
+                                "border-b px-4 py-2",
+                                STATUS_STYLES.warning.bgSoft
+                              )}>
+                              <p
+                                className={cn(
+                                  "text-xs",
+                                  STATUS_STYLES.warning.softText
+                                )}>
                                 {t("tabs.inspector.low_reliability")}
                               </p>
                             </div>
                           )}
-                          <div className="max-h-[35vh] overflow-auto bg-muted/10 p-4">
+                          <div className="max-h-[35vh] overflow-auto bg-muted/30 p-4">
                             <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-foreground/80">
                               {extractedText || t("tabs.inspector.no_content")}
                             </pre>

@@ -22,19 +22,21 @@ export const RAGToggle = () => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Toggle
-          pressed={useRAG}
-          onPressedChange={setUseRAG}
-          aria-label={t("chat.input.rag_toggle_tooltip")}
-          className={cn(
-            "size-8 p-0",
-            useRAG
-              ? "text-green-500 hover:text-green-600 hover:bg-muted"
-              : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-          )}>
-          <BrainCircuit className="size-4" />
-        </Toggle>
+      <TooltipTrigger
+        render={
+          <Toggle
+            pressed={useRAG}
+            onPressedChange={setUseRAG}
+            aria-label={t("chat.input.rag_toggle_tooltip")}
+            className={cn(
+              "size-8 p-0",
+              useRAG
+                ? "text-status-success hover:text-status-success/80 hover:bg-muted"
+                : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+            )}
+          />
+        }>
+        <BrainCircuit className="size-4" />
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>{t("chat.input.rag_toggle_tooltip")}</p>

@@ -48,25 +48,25 @@ export const SessionMetricsBar = ({
   const metricItems: MetricItem[] = [
     {
       icon: FileText,
-      iconColor: "text-amber-600 dark:text-amber-400",
+      iconColor: "text-muted-foreground",
       value: metrics.totalTokens.toLocaleString(),
       tooltipKey: "chat.session_metrics.tooltip_tokens"
     },
     {
       icon: Clock,
-      iconColor: "text-blue-600 dark:text-blue-400",
+      iconColor: "text-muted-foreground",
       value: formatSessionDuration(metrics.totalDuration),
       tooltipKey: "chat.session_metrics.tooltip_time"
     },
     {
       icon: Zap,
-      iconColor: "text-emerald-600 dark:text-emerald-400",
+      iconColor: "text-muted-foreground",
       value: `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit", "t/s")}`,
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
     {
       icon: MessageSquare,
-      iconColor: "text-purple-600 dark:text-purple-400",
+      iconColor: "text-muted-foreground",
       value: String(metrics.messageCount),
       tooltipKey: "chat.session_metrics.tooltip_messages"
     }
@@ -86,11 +86,12 @@ export const SessionMetricsBar = ({
             key={item.tooltipKey || index}
             className="flex items-center gap-3">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 cursor-help">
-                  <Icon className={cn("size-3", item.iconColor)} />
-                  <span className="font-mono">{item.value}</span>
-                </div>
+              <TooltipTrigger
+                render={
+                  <div className="flex items-center gap-1.5 cursor-help" />
+                }>
+                <Icon className={cn("size-3", item.iconColor)} />
+                <span className="font-mono">{item.value}</span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{t(item.tooltipKey)}</p>

@@ -62,10 +62,8 @@ export const PromptTemplateActions = ({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+        <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+          <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onExport}>
@@ -78,13 +76,15 @@ export const PromptTemplateActions = ({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="text-destructive focus:text-destructive">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                {t("settings.prompts.reset")}
-              </DropdownMenuItem>
+            <AlertDialogTrigger
+              render={
+                <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()}
+                  className="text-destructive focus:text-destructive"
+                />
+              }>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {t("settings.prompts.reset")}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

@@ -15,12 +15,15 @@ import {
   RefreshCw,
   XCircle
 } from "@/lib/lucide-icon"
+import { STATUS_STYLES } from "@/lib/ui-status"
 
 const iconMap = {
-  loading: <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />,
-  error: <XCircle className="h-4 w-4 text-red-500" />,
-  empty: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-  ready: <CheckCircle className="h-4 w-4 text-green-600" />
+  loading: (
+    <Loader2 className={`h-4 w-4 animate-spin ${STATUS_STYLES.neutral.text}`} />
+  ),
+  error: <XCircle className={`h-4 w-4 ${STATUS_STYLES.danger.text}`} />,
+  empty: <AlertTriangle className={`h-4 w-4 ${STATUS_STYLES.warning.text}`} />,
+  ready: <CheckCircle className={`h-4 w-4 ${STATUS_STYLES.success.text}`} />
 }
 
 export const ProviderStatusIndicator = () => {
@@ -45,14 +48,16 @@ export const ProviderStatusIndicator = () => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => refresh()}
-          className="m-1 rounded-xl border border-border/50 bg-background/50 shadow-xs backdrop-blur-xs transition-all duration-200 hover:bg-accent/50">
-          {iconMap[status]}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => refresh()}
+            className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+          />
+        }>
+        {iconMap[status]}
       </TooltipTrigger>
       <TooltipContent side="left">
         <div className="flex items-center gap-2 text-sm">
@@ -68,7 +73,9 @@ export const ProviderStatusIndicator = () => {
           )}
         </div>
         {status === "error" && error && (
-          <div className="mt-1 max-w-xs text-xs text-red-500">{error}</div>
+          <div className={`mt-1 max-w-xs text-xs ${STATUS_STYLES.danger.text}`}>
+            {error}
+          </div>
         )}
       </TooltipContent>
     </Tooltip>

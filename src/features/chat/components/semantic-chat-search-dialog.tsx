@@ -162,8 +162,8 @@ export const SemanticChatSearchDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 rounded-xl border-border/60 shadow-2xl">
-        <DialogHeader className="px-5 py-4 border-b shrink-0 bg-background/50 backdrop-blur-sm">
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 border-border/60 shadow-md">
+        <DialogHeader className="px-5 py-4 border-b shrink-0 bg-background">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-base font-bold tracking-tight">
               {t("chat.search.dialog_title")}
@@ -199,7 +199,7 @@ export const SemanticChatSearchDialog = ({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 bg-background/30">
+        <div className="flex-1 overflow-y-auto min-h-0 bg-background">
           <div className="p-4">
             {isSearching && results.length === 0 ? (
               <div className="flex h-60 flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">

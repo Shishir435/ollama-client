@@ -1,4 +1,6 @@
 import type React from "react"
+import { useEffect, useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
@@ -20,21 +22,47 @@ export const SettingsSwitch = ({
   id,
   className
 }: SettingsSwitchProps) => {
+  const [isDeepLinkHighlighted, setIsDeepLinkHighlighted] = useState(false)
+
+  useEffect(() => {
+    if (!id || typeof window === "undefined") return
+
+    const focusTarget = new URLSearchParams(window.location.search).get("focus")
+    if (focusTarget !== id) return
+
+    setIsDeepLinkHighlighted(true)
+    const timeoutId = window.setTimeout(() => {
+      setIsDeepLinkHighlighted(false)
+    }, 3500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [id])
+
   return (
-    <div
+    <Card
+      size="sm"
+      data-settings-focus="true"
+      data-settings-focus-id={id}
       className={cn(
-        "flex items-center justify-between rounded-lg border p-4",
+        "flex-row items-center justify-between hover:bg-accent/20 focus-within:ring-ring/30",
+        isDeepLinkHighlighted &&
+          "ring-2 ring-primary ring-offset-2 ring-offset-background",
         className
       )}>
-      <div className="space-y-0.5">
-        <Label htmlFor={id} className="text-base font-medium">
+      <CardContent className="flex-1">
+        <Label htmlFor={id} className="text-sm font-medium">
           {label}
         </Label>
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
-      </div>
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
+      </CardContent>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="mr-3"
+      />
+    </Card>
   )
 }

@@ -90,7 +90,7 @@ const SelectionButton = () => {
       <Button
         onClick={handleClick}
         variant="secondary"
-        className="h-8 gap-2 rounded-lg px-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+        className="h-8 gap-2 rounded-lg px-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
         title={t("selection_button.tooltip")}>
         <Quote className="size-3.5" />
         <span className="text-xs font-medium">

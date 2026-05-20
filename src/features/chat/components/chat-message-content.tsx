@@ -76,8 +76,7 @@ export const ChatMessageContent = ({
   return (
     <div
       className={cn(
-        "w-full max-w-[90vw] rounded-xl p-3 text-sm shadow-xs sm:max-w-2xl sm:p-4",
-        "hover:shadow-md",
+        "w-full max-w-[90vw] rounded-lg p-3 text-sm sm:max-w-2xl sm:p-4",
         "bg-secondary text-secondary-foreground",
         "border border-border/40"
       )}>
@@ -88,7 +87,7 @@ export const ChatMessageContent = ({
       {hasThinking && (
         <section
           aria-label={t("chat.reasoning.aria_label")}
-          className="group mb-3 overflow-hidden rounded-xl border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
+          className="group mb-3 overflow-hidden rounded-lg border border-border/30 bg-muted/20 transition-all duration-200 hover:border-border/50 hover:bg-muted/40">
           <button
             type="button"
             id={reasoningButtonId}
@@ -101,7 +100,7 @@ export const ChatMessageContent = ({
             }}>
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-6 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+                <div className="flex size-6 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <Brain className="size-3.5" />
                 </div>
                 <span className="text-xs font-semibold tracking-tight text-foreground/90">
@@ -111,11 +110,8 @@ export const ChatMessageContent = ({
 
               <div className="flex items-center gap-3">
                 {showThinkingIndicator ? (
-                  <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                    <span className="relative flex size-1.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-                    </span>
+                  <div className="flex items-center gap-1.5 rounded-full bg-status-success/10 px-2 py-0.5 text-[10px] font-medium text-status-success">
+                    <span className="inline-flex size-1.5 rounded-full bg-status-success" />
                     {t("chat.reasoning.thinking")}
                   </div>
                 ) : (
@@ -162,7 +158,7 @@ export const ChatMessageContent = ({
           )}
         </section>
       )}
-      <div className="prose prose-sm prose-gray max-w-none dark:prose-invert">
+      <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-ul:marker:text-muted-foreground prose-ol:marker:text-muted-foreground">
         <MarkdownRenderer content={msg.content} />
         {isLoading && !isUser && !showThinkingIndicator && (
           <ChatMessageLoadingIndicator

@@ -21,19 +21,22 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href={bugLink.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "hover:text-red-500",
-              buttonVariants({ variant: "link" })
-            )}
-            aria-label={t("common.bug_report.aria_label")}>
-            <Icon size="16" />
-            {showText && <span>{t("common.bug_report.label")}</span>}
-          </a>
+        <TooltipTrigger
+          render={
+            // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
+            <a
+              href={bugLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "hover:text-status-danger",
+                buttonVariants({ variant: "link" })
+              )}
+              aria-label={t("common.bug_report.aria_label")}
+            />
+          }>
+          <Icon size="16" />
+          {showText && <span>{t("common.bug_report.label")}</span>}
         </TooltipTrigger>
         <TooltipContent>{t("common.bug_report.tooltip")}</TooltipContent>
       </Tooltip>

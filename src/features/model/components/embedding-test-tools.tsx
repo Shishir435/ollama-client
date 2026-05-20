@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import {
@@ -9,6 +10,7 @@ import {
   searchSimilarVectors
 } from "@/lib/embeddings/vector-store"
 import { Loader2, Search, Sparkles } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 interface EmbeddingTestToolsProps {
   modelExists: boolean
@@ -103,7 +105,7 @@ export const EmbeddingTestTools = ({
   return (
     <div className="space-y-4">
       {/* Test Embedding Generation */}
-      <div className="rounded-lg border border-muted bg-muted/30 p-4">
+      <Card className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium">
             {t("settings.embeddings.test_generation.title")}
@@ -131,18 +133,19 @@ export const EmbeddingTestTools = ({
         </p>
         {testResult && (
           <div
-            className={`text-xs p-2 rounded ${
+            className={cn(
+              "px-2 py-2 text-xs",
               testResult.startsWith("✅")
-                ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                : "bg-red-500/10 text-red-600 dark:text-red-400"
-            }`}>
+                ? "border border-primary/20 bg-primary/10 text-primary"
+                : "border border-destructive/20 bg-destructive/10 text-destructive"
+            )}>
             {testResult}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Test Semantic Search */}
-      <div className="rounded-lg border border-muted bg-muted/30 p-4">
+      <Card className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium">
             {t("settings.embeddings.test_search.title")}
@@ -207,7 +210,7 @@ export const EmbeddingTestTools = ({
             )}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

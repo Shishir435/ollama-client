@@ -6,6 +6,7 @@ import {
   SettingsSwitch
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -35,6 +36,7 @@ import {
   Zap
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { cn } from "@/lib/utils"
 import type {
   ContentExtractionConfig,
   ContentScraper,
@@ -205,33 +207,32 @@ const ContentExtractionSettingsForm = ({
           </>
         }
         labelClassName="font-medium">
-        <div className="grid gap-3">
+        <div className="grid gap-3 min-w-0">
           {CONTENT_SCRAPER_OPTIONS.map((option) => {
             const Icon = getScraperIcon(option.value)
             const isSelected = value === option.value
             return (
-              <button
+              <Button
                 key={option.value}
                 type="button"
                 onClick={() => onValueChange(option.value)}
-                className={`
-                group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all
-                hover:bg-accent/50 hover:border-accent-foreground/20
-                ${
+                className={cn(
+                  "group relative flex items-start gap-3 h-auto w-full min-w-0 shrink p-4 text-left whitespace-normal transition-all hover:border-accent-foreground/20 hover:bg-accent/50",
                   isSelected
-                    ? "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
-                    : "border-border"
-                }
-              `}>
-                <div
-                  className={`
-                  flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors
-                  ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted group-hover:bg-muted/80"}
-                `}>
+                    ? "border-border"
+                    : "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
+                )}>
+                <span
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors",
+                    isSelected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted group-hover:bg-muted/80"
+                  )}>
                   <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1 space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                </span>
+                <span className="flex-1 space-y-1.5 min-w-0">
+                  <span className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm">
                       {t(
                         `settings.content_extraction.scraper.${option.value}.label`
@@ -251,19 +252,19 @@ const ContentExtractionSettingsForm = ({
                         {t("settings.content_extraction.badges.active")}
                       </Badge>
                     )}
-                  </div>
-                  <p className="text-xs font-medium text-foreground/80">
+                  </span>
+                  <span className="block text-xs font-medium text-foreground/80">
                     {t(
                       `settings.content_extraction.scraper.${option.value}.description`
                     )}
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  </span>
+                  <span className="block text-xs text-muted-foreground leading-relaxed">
                     {t(
                       `settings.content_extraction.scraper.${option.value}.detail`
                     )}
-                  </p>
-                </div>
-              </button>
+                  </span>
+                </span>
+              </Button>
             )
           })}
         </div>

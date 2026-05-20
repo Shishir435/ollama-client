@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
   SettingsFormField,
-  ToggleRow
+  SettingsSwitch
 } from "@/components/settings"
 import {
   AlertDialog,
@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -158,7 +159,7 @@ export function FeedbackSettings() {
       title={t("model.embedding_config.feedback_learning_title")}
       description={t("model.embedding_config.feedback_learning_description")}
       contentClassName="space-y-6">
-      <ToggleRow
+      <SettingsSwitch
         id="feedback-enabled"
         label={t("model.embedding_config.feedback_enable_label")}
         description={t("model.embedding_config.feedback_enable_description")}
@@ -166,7 +167,7 @@ export function FeedbackSettings() {
         onCheckedChange={handleFeedbackToggle}
       />
 
-      <ToggleRow
+      <SettingsSwitch
         id="feedback-show-chunks"
         label={t("model.embedding_config.feedback_show_chunks_label")}
         description={t(
@@ -176,7 +177,7 @@ export function FeedbackSettings() {
         onCheckedChange={handleShowChunksToggle}
       />
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-medium">
             {t("model.embedding_config.feedback_stats_title")}
@@ -228,7 +229,7 @@ export function FeedbackSettings() {
             })}
           </div>
         )}
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <SettingsFormField
@@ -245,11 +246,12 @@ export function FeedbackSettings() {
             {t("model.embedding_config.feedback_export_button")}
           </Button>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={isClearing}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t("model.embedding_config.feedback_clear_button")}
-              </Button>
+            <AlertDialogTrigger
+              render={
+                <Button variant="destructive" size="sm" disabled={isClearing} />
+              }>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t("model.embedding_config.feedback_clear_button")}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

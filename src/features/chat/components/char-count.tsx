@@ -13,10 +13,11 @@ export const CharCount = ({ count }: { count: number }) => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="cursor-default font-mono text-xs text-muted-foreground">
-          {count}
-        </div>
+      <TooltipTrigger
+        render={
+          <div className="cursor-default font-mono text-xs text-muted-foreground" />
+        }>
+        {count}
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>

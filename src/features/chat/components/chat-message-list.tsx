@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants"
 import { ChevronDown } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
 interface ChatMessageListProps {
@@ -159,7 +160,7 @@ export const ChatMessageList = ({
             highlightedMessage.content === msg.content
 
           return (
-            <div className={`${paddingTop} pr-2`}>
+            <div className={cn(paddingTop, "pr-2")}>
               <div className={isHighlighted ? "rounded-lg bg-accent/20" : ""}>
                 <ChatMessageBubble
                   msg={msg}

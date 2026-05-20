@@ -57,25 +57,27 @@ export const SocialLinkButton = ({
     return size === "compact" ? "sm" : "default"
   })()
 
-  const button = (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...anchorProps}
-      className={cn(
-        buttonVariants({
-          variant: buttonVariant,
-          size: buttonSize
-        }),
-        "group shrink-0 gap-2",
-        !showFocusRing &&
-          "focus-visible:ring-0 focus-visible:border-transparent",
-        !showShadow && "shadow-none hover:shadow-none",
-        className
-      )}
-      aria-label={computedAriaLabel}
-      style={{ willChange: "transform, box-shadow" }}>
+  const anchorProps2 = {
+    href,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    ...anchorProps,
+    className: cn(
+      buttonVariants({
+        variant: buttonVariant,
+        size: buttonSize
+      }),
+      "group shrink-0 gap-2",
+      !showFocusRing && "focus-visible:ring-0 focus-visible:border-transparent",
+      !showShadow && "shadow-none hover:shadow-none",
+      className
+    ),
+    "aria-label": computedAriaLabel,
+    style: { willChange: "transform, box-shadow" }
+  }
+
+  const buttonChildren = (
+    <>
       <div className="shrink-0 transition-transform duration-200 group-hover:scale-110">
         <Icon
           size={iconSize}
@@ -87,16 +89,18 @@ export const SocialLinkButton = ({
           {label}
         </span>
       )}
-    </a>
+    </>
   )
 
   if (!shouldShowTooltip) {
-    return button
+    return <a {...anchorProps2}>{buttonChildren}</a>
   }
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger render={<a {...anchorProps2} />}>
+        {buttonChildren}
+      </TooltipTrigger>
       <TooltipContent side="top">{tooltipText}</TooltipContent>
     </Tooltip>
   )

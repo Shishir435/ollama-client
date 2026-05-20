@@ -21,18 +21,20 @@ export const CopyButton = ({ text }: { text: string }) => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-7"
-          onClick={handleCopy}>
-          {copied ? (
-            <Check size={14} className="text-green-400" />
-          ) : (
-            <Copy size={14} />
-          )}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            onClick={handleCopy}
+          />
+        }>
+        {copied ? (
+          <Check size={14} className="text-status-success" />
+        ) : (
+          <Copy size={14} />
+        )}
       </TooltipTrigger>
       <TooltipContent>
         {copied ? t("chat.actions.copied") : t("chat.actions.copy")}

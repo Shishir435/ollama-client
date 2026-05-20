@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,17 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
-import { CircleCheck, RefreshCcw } from "@/lib/lucide-icon"
+import {
+  CircleCheck,
+  Globe,
+  Library,
+  type LucideIcon,
+  MessageSquare,
+  RefreshCcw,
+  Settings,
+  Shield,
+  Volume2
+} from "@/lib/lucide-icon"
 
 export const ResetStorage = () => {
   const { t } = useTranslation()
@@ -29,22 +40,22 @@ export const ResetStorage = () => {
     setOpen(false)
   }
 
-  const getModuleIcon = (module: string) => {
+  const getModuleIcon = (module: string): LucideIcon => {
     switch (module) {
       case "PROVIDER":
-        return "🔌"
+        return Library
       case "THEME":
-        return "🎨"
+        return Settings
       case "BROWSER":
-        return "🌐"
+        return Globe
       case "TTS":
-        return "🔊"
+        return Volume2
       case "CHAT_SESSIONS":
-        return "💬"
+        return MessageSquare
       case "FEEDBACK":
-        return "👍"
+        return Shield
       default:
-        return "⚙️"
+        return Settings
     }
   }
 
@@ -115,10 +126,11 @@ export const ResetStorage = () => {
           description={t("settings.reset.danger_zone.description")}
           actions={
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full sm:w-auto">
-                  {t("settings.reset.danger_zone.button")}
-                </Button>
+              <DialogTrigger
+                render={
+                  <Button variant="destructive" className="w-full sm:w-auto" />
+                }>
+                {t("settings.reset.danger_zone.button")}
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -154,18 +166,19 @@ const ModuleResetItem = ({
 }: {
   module: string
   keys: string[]
-  getModuleIcon: (module: string) => string
+  getModuleIcon: (module: string) => LucideIcon
   getModuleName: (module: string) => string
   getModuleDescription: (module: string) => string
   reset: (key: string) => Promise<string>
 }) => {
   const { t } = useTranslation()
   const [resetting, setResetting] = useState(false)
+  const ModuleIcon = getModuleIcon(module)
 
   return (
-    <div className="flex items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50">
+    <Card className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="shrink-0 text-lg">{getModuleIcon(module)}</span>
+        <ModuleIcon className="size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium">{getModuleName(module)}</h4>
@@ -191,6 +204,6 @@ const ModuleResetItem = ({
         {t("settings.reset.reset_button")}{" "}
         {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
       </Button>
-    </div>
+    </Card>
   )
 }

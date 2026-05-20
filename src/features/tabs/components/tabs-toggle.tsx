@@ -24,19 +24,21 @@ export const TabsToggle = () => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Toggle
-          pressed={tabAccess}
-          onPressedChange={setTabAccess}
-          aria-label={t("tabs.toggle.label_on")}
-          className={cn(
-            "size-8 p-0",
-            tabAccess
-              ? "text-green-500 hover:text-green-600 hover:bg-muted"
-              : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-          )}>
-          <AppWindow className="size-4" />
-        </Toggle>
+      <TooltipTrigger
+        render={
+          <Toggle
+            pressed={tabAccess}
+            onPressedChange={setTabAccess}
+            aria-label={t("tabs.toggle.label_on")}
+            className={cn(
+              "size-8 p-0",
+              tabAccess
+                ? "text-status-success hover:text-status-success/80 hover:bg-muted"
+                : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+            )}
+          />
+        }>
+        <AppWindow className="size-4" />
       </TooltipTrigger>
       <TooltipContent side="top">
         <p>

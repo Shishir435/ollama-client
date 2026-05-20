@@ -56,39 +56,43 @@ export const FeedbackButtons = ({
     <TooltipProvider delay={300}>
       <div className={cn("flex items-center gap-1", className)}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-6 w-6",
-                feedback === "up"
-                  ? "text-green-500 hover:text-green-600"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => handleFeedback(true)}
-              disabled={feedback !== null}>
-              <ThumbsUp className="h-3.5 w-3.5" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-6 w-6",
+                  feedback === "up"
+                    ? "text-status-success hover:text-status-success/80"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => handleFeedback(true)}
+                disabled={feedback !== null}
+              />
+            }>
+            <ThumbsUp className="h-3.5 w-3.5" />
           </TooltipTrigger>
           <TooltipContent>{t("chat.feedback.helpful_tooltip")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-6 w-6",
-                feedback === "down"
-                  ? "text-red-500 hover:text-red-600"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => handleFeedback(false)}
-              disabled={feedback !== null}>
-              <ThumbsDown className="h-3.5 w-3.5" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-6 w-6",
+                  feedback === "down"
+                    ? "text-status-danger hover:text-status-danger/80"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => handleFeedback(false)}
+                disabled={feedback !== null}
+              />
+            }>
+            <ThumbsDown className="h-3.5 w-3.5" />
           </TooltipTrigger>
           <TooltipContent>
             {t("chat.feedback.not_helpful_tooltip")}

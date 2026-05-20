@@ -25,24 +25,26 @@ export const SendOrStopButton = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-          disabled={!isStreaming && !isLoading && disabledSend}
-          aria-label={
-            isStreaming || isLoading
-              ? t("chat.send.stop_generation")
-              : sendLabel || t("chat.send.send_message")
-          }>
-          {isStreaming || isLoading ? (
-            <Circle size={16} className="animate-pulse text-red-500" />
-          ) : (
-            <SendHorizontal size={16} />
-          )}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            disabled={!isStreaming && !isLoading && disabledSend}
+            aria-label={
+              isStreaming || isLoading
+                ? t("chat.send.stop_generation")
+                : sendLabel || t("chat.send.send_message")
+            }
+          />
+        }>
+        {isStreaming || isLoading ? (
+          <Circle size={16} className="animate-pulse text-status-danger" />
+        ) : (
+          <SendHorizontal size={16} />
+        )}
       </TooltipTrigger>
       <TooltipContent>
         {isStreaming || isLoading

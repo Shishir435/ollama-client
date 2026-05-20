@@ -119,48 +119,63 @@ export const ModelMenu = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild aria-label={tooltipTextContent}>
-            {trigger ?? (
-              <Button
-                variant="ghost"
-                role="combobox"
-                aria-expanded={open}
-                className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all">
-                {selectedModel ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base leading-none">
-                      {getModelIcon(selectedModel)}
-                    </span>
-                    <span className="truncate font-medium">
-                      {(() => {
-                        const name =
-                          models.find((m) => m.name === selectedModel)?.name ||
-                          selectedModel
-                        return name.length > 15
-                          ? `${name.slice(0, 15)}...`
-                          : name
-                      })()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {t("model.menu.select_placeholder")}
-                  </span>
-                )}
-                <ChevronDown className="size-4 opacity-50" />
-              </Button>
+        {trigger ? (
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                aria-label={tooltipTextContent}
+                render={trigger as React.ReactElement}
+              />
+            }
+          />
+        ) : (
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                aria-label={tooltipTextContent}
+                render={
+                  <Button
+                    variant="ghost"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                  />
+                }
+              />
+            }>
+            {selectedModel ? (
+              <div className="flex items-center gap-1.5">
+                {(() => {
+                  const SelectedModelIcon = getModelIcon(selectedModel)
+                  return (
+                    <SelectedModelIcon className="size-4 text-muted-foreground" />
+                  )
+                })()}
+                <span className="truncate font-medium">
+                  {(() => {
+                    const name =
+                      models.find((m) => m.name === selectedModel)?.name ||
+                      selectedModel
+                    return name.length > 15 ? `${name.slice(0, 15)}...` : name
+                  })()}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">
+                {t("model.menu.select_placeholder")}
+              </span>
             )}
-          </PopoverTrigger>
-        </TooltipTrigger>
+            <ChevronDown className="size-4 opacity-50" />
+          </TooltipTrigger>
+        )}
         <TooltipContent>{tooltipTextContent}</TooltipContent>
       </Tooltip>
 
       <PopoverContent className="w-[320px] p-0" align="start">
-        <Command className="max-h-[400px] w-full">
+        <Command className="max-h-100 w-full">
           <div className="flex flex-col justify-between w-full h-full p-1">
             {selectionConflictModel && (
-              <div className="mb-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1.5 text-xs text-yellow-900 dark:text-yellow-200">
+              <div className="mb-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
                 Provider selection required for{" "}
                 <strong>{selectionConflictModel}</strong>.
               </div>
@@ -170,20 +185,22 @@ export const ModelMenu = ({
                 {t("model.menu.models_label")}
               </span>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => refresh()}
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    aria-label={t("model.menu.refresh_aria_label")}>
-                    <RotateCcw
-                      className={cn(
-                        "size-3.5 transition-transform",
-                        isLoading && "animate-spin"
-                      )}
+                <TooltipTrigger
+                  render={
+                    <Button
+                      onClick={() => refresh()}
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      aria-label={t("model.menu.refresh_aria_label")}
                     />
-                  </Button>
+                  }>
+                  <RotateCcw
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      isLoading && "animate-spin"
+                    )}
+                  />
                 </TooltipTrigger>
                 <TooltipContent>
                   {t("model.menu.refresh_tooltip")}
@@ -197,67 +214,70 @@ export const ModelMenu = ({
             />
           </div>
           <CommandSeparator className="mt-2" />
-          <CommandList className="max-h-[300px] overflow-y-auto p-1 scrollbar-none">
+          <CommandList className="max-h-75 overflow-y-auto p-1 scrollbar-none">
             <CommandEmpty className="py-6 text-center text-sm">
               {t("model.menu.no_model_found")}
             </CommandEmpty>
 
             {Object.entries(groupedModels).map(([providerId, group]) => (
               <CommandGroup key={providerId} heading={group.name}>
-                {group.models.map((model) => (
-                  <CommandItem
-                    key={`${providerId}-${model.name}`}
-                    value={model.name}
-                    onSelect={() => handleSelect(model.name, providerId)}
-                    className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
-                      {getModelIcon(model.name)}
-                    </div>
-
-                    <div className="flex flex-1 flex-col overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-medium text-sm">
-                          {model.name}
-                        </span>
-                        {duplicateModelNames.has(model.name) && (
-                          <Badge
-                            variant="secondary"
-                            className="h-4 px-1 text-[10px]">
-                            Conflict
-                          </Badge>
-                        )}
-                        {(selectedModelRef
-                          ? selectedModelRef.modelId === model.name &&
-                            selectedModelRef.providerId === providerId
-                          : selectedModel === model.name) && (
-                          <Check className="h-3.5 w-3.5 text-primary" />
-                        )}
+                {group.models.map((model) => {
+                  const ModelIcon = getModelIcon(model.name)
+                  return (
+                    <CommandItem
+                      key={`${providerId}-${model.name}`}
+                      value={model.name}
+                      onSelect={() => handleSelect(model.name, providerId)}
+                      className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
+                        <ModelIcon className="size-4 text-muted-foreground" />
                       </div>
 
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {model.details?.parameter_size && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
-                            {model.details.parameter_size}
-                          </Badge>
-                        )}
-                        {model.details?.quantization_level && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
-                            {model.details.quantization_level}
-                          </Badge>
-                        )}
-                        {model.size ? (
-                          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
-                            {formatFileSize(model.size, t)}
+                      <div className="flex flex-1 flex-col overflow-hidden">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate font-medium text-sm">
+                            {model.name}
                           </span>
-                        ) : null}
+                          {duplicateModelNames.has(model.name) && (
+                            <Badge
+                              variant="secondary"
+                              className="h-4 px-1 text-[10px]">
+                              Conflict
+                            </Badge>
+                          )}
+                          {(selectedModelRef
+                            ? selectedModelRef.modelId === model.name &&
+                              selectedModelRef.providerId === providerId
+                            : selectedModel === model.name) && (
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {model.details?.parameter_size && (
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                              {model.details.parameter_size}
+                            </Badge>
+                          )}
+                          {model.details?.quantization_level && (
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                              {model.details.quantization_level}
+                            </Badge>
+                          )}
+                          {model.size ? (
+                            <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+                              {formatFileSize(model.size, t)}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  </CommandItem>
-                ))}
+                    </CommandItem>
+                  )
+                })}
               </CommandGroup>
             ))}
           </CommandList>

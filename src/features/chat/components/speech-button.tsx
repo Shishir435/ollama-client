@@ -28,22 +28,24 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-7"
-          aria-label={getLabel()}
-          title={getLabel()}
-          onClick={() => !isLoadingVoices && toggle(text)}
-          disabled={isLoadingVoices}
-          type="button">
-          {speaking ? (
-            <MicOff size={14} className="text-destructive" />
-          ) : (
-            <Mic size={14} />
-          )}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label={getLabel()}
+            title={getLabel()}
+            onClick={() => !isLoadingVoices && toggle(text)}
+            disabled={isLoadingVoices}
+            type="button"
+          />
+        }>
+        {speaking ? (
+          <MicOff size={14} className="text-destructive" />
+        ) : (
+          <Mic size={14} />
+        )}
       </TooltipTrigger>
       <TooltipContent>{getLabel()}</TooltipContent>
     </Tooltip>

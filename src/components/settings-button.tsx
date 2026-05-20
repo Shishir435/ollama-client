@@ -31,18 +31,20 @@ export const SettingsButton = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant={variant}
-          size={size}
-          className={className}
-          onClick={() => {
-            void openOptionsInTab()
-          }}
-          aria-label={t("common.settings.aria_label")}>
-          <Settings size="16" className={iconClassName || "opacity-80"} />
-          {showText && <span>{t("common.settings.label")}</span>}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant={variant}
+            size={size}
+            className={className}
+            onClick={() => {
+              void openOptionsInTab()
+            }}
+            aria-label={t("common.settings.aria_label")}
+          />
+        }>
+        <Settings size="16" className={iconClassName || "opacity-80"} />
+        {showText && <span>{t("common.settings.label")}</span>}
       </TooltipTrigger>
       <TooltipContent>{t("common.settings.tooltip")}</TooltipContent>
     </Tooltip>

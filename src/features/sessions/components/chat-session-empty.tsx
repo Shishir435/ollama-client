@@ -6,13 +6,13 @@ export const ChatSessionEmpty = () => {
 
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center h-full">
-      <div className="mb-3 rounded-full bg-muted/50 p-3">
-        <MessageSquare className="h-6 w-6 text-muted-foreground" />
+      <div className="mb-3 rounded-full bg-sidebar-accent p-3">
+        <MessageSquare className="h-6 w-6 text-sidebar-foreground/70" />
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-sidebar-foreground/80">
         {t("sessions.selector.no_sessions")}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground/70">
+      <p className="mt-1 text-xs text-sidebar-foreground/60">
         {t("sessions.selector.no_sessions_hint")}
       </p>
     </div>

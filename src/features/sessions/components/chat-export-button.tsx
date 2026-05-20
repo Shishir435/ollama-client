@@ -91,25 +91,29 @@ export const ChatExportButton = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-                !showAllSessions && "opacity-0 group-hover:opacity-100",
-                "hover:bg-muted hover:text-foreground",
-                "focus:bg-muted focus:text-foreground focus:opacity-100"
-              )}
-              aria-label={
-                showAllSessions
-                  ? t("sessions.export.aria_label_all")
-                  : t("sessions.export.aria_label")
-              }>
-              <Download className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
+                    !showAllSessions && "opacity-0 group-hover:opacity-100",
+                    "hover:bg-muted hover:text-foreground",
+                    "focus:bg-muted focus:text-foreground focus:opacity-100"
+                  )}
+                  aria-label={
+                    showAllSessions
+                      ? t("sessions.export.aria_label_all")
+                      : t("sessions.export.aria_label")
+                  }
+                />
+              }
+            />
+          }>
+          <Download className="h-4 w-4" />
         </TooltipTrigger>
         <TooltipContent side="top">
           {showAllSessions

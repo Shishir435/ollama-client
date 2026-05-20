@@ -62,23 +62,25 @@ export const FileUploadButton = ({
         disabled={disabled}
       />
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-              "hover:bg-muted hover:text-foreground",
-              "focus:bg-muted focus:text-foreground focus:opacity-100",
-              disabled && "opacity-50 cursor-not-allowed",
-              className
-            )}
-            onClick={handleClick}
-            disabled={disabled}
-            aria-label={t("file_upload.button.aria_label")}>
-            <Paperclip className="h-4 w-4" />
-          </Button>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
+                "hover:bg-muted hover:text-foreground",
+                "focus:bg-muted focus:text-foreground focus:opacity-100",
+                disabled && "opacity-50 cursor-not-allowed",
+                className
+              )}
+              onClick={handleClick}
+              disabled={disabled}
+              aria-label={t("file_upload.button.aria_label")}
+            />
+          }>
+          <Paperclip className="h-4 w-4" />
         </TooltipTrigger>
         <TooltipContent>{t("file_upload.button.tooltip")}</TooltipContent>
       </Tooltip>

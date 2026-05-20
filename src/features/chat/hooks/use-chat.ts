@@ -319,8 +319,7 @@ export const useChat = () => {
     // Allow sending message with just files (no text input)
     if (!rawInput && (!files || files.length === 0)) return
 
-    const includeContext =
-      !customInput && selectedTabIds.length > 0 && contextText?.trim()
+    const includeContext = selectedTabIds.length > 0 && contextText?.trim()
 
     // Build initial user message content (without RAG context yet)
     const userContent = rawInput || ""
@@ -662,10 +661,12 @@ export const useChat = () => {
     }
 
     if (groundedOnlyMode && !hasRelevantPageContext) {
+      const settingsDeepLink =
+        "/options.html?tab=context&focus=grounded-only-mode"
+
       await addMessage(sessionId, {
         role: "assistant",
-        content:
-          "Insufficient page context. Select at least one tab with relevant extracted content and try again.",
+        content: `Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nIf you want to disable this behavior, go to [Settings > Context > Answer only from selected page context](${settingsDeepLink}).`,
         done: true,
         model: customModel || selectedModelRef?.modelId || selectedModel,
         metrics: {
