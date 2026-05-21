@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup help and docs
+    url: https://ollama-client.shishirchaurasiya.in/ollama-setup-guide
+    about: How to install and configure providers (Ollama, LM Studio, llama.cpp, etc.)
+  - name: Security vulnerabilities
+    url: https://github.com/Shishir435/ollama-client/blob/main/SECURITY.md
+    about: Do NOT file security issues publicly. Report privately per SECURITY.md.

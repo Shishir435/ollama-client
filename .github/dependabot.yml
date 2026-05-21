@@ -1,0 +1,54 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+    groups:
+      # Lockstep dependencies that should always move together.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      tanstack-query:
+        patterns:
+          - "@tanstack/react-query*"
+      tailwind:
+        patterns:
+          - tailwindcss
+          - "@tailwindcss/*"
+          - tailwind-merge
+          - tailwind-scrollbar
+          - tw-animate-css
+      biome:
+        patterns:
+          - "@biomejs/biome"
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
+      i18next:
+        patterns:
+          - i18next
+          - i18next-*
+          - react-i18next
+      markdown-it:
+        patterns:
+          - markdown-it
+          - markdown-it-*
+          - "@types/markdown-it*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore(ci)
