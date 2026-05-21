@@ -6,7 +6,7 @@ import { textExporter } from "@/lib/exporters/text-exporter"
 import {
   getFilesByMessageIds,
   getMessagesBySessionOrderedByTimestamp
-} from "@/lib/repositories/dexie-chat-history"
+} from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
 
 export const useChatExport = () => {

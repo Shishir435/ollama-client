@@ -1,7 +1,7 @@
 import { useCallback } from "react"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
-import { bulkPutSessions } from "@/lib/repositories/dexie-chat-history"
+import { bulkPutSessions } from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
 
 function isValidChatSession(obj: unknown): obj is ChatSession {

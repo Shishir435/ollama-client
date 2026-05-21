@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger"
 import {
   countMessages,
   getMessagesPaginated
-} from "@/lib/repositories/dexie-chat-history"
+} from "@/lib/repositories/chat-history"
 import type { Role } from "@/types"
 
 export const useEmbeddingMigration = () => {

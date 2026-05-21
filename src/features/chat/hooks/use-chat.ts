@@ -14,7 +14,7 @@ import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import { getLatestSession } from "@/lib/repositories/dexie-chat-history"
+import { getLatestSession } from "@/lib/repositories/chat-history"
 import type { ChatMessage, FileAttachment } from "@/types"
 
 export const useChat = () => {

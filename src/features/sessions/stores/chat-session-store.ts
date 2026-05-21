@@ -15,7 +15,7 @@ import {
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import * as repo from "@/lib/repositories/dexie-chat-history"
+import * as repo from "@/lib/repositories/chat-history"
 import type { ChatMessage, ChatSession, ChatSessionState } from "@/types"
 
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({

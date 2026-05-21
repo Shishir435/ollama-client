@@ -2,6 +2,7 @@ import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { ensureMessagesThinkingColumn } from "./migrations/add-thinking-column"
 import { SCHEMA_SQL } from "./schema"
 
 // Dynamic type for Database
@@ -105,6 +106,11 @@ export const initSQLite = async (): Promise<Database> => {
         // Save initial database
         await saveDatabaseToIndexedDB(db.export())
       }
+
+      // Idempotent per-column migrations. New databases get all columns
+      // from SCHEMA_SQL above; databases created before a column was
+      // added get the ALTER TABLE on the next open.
+      ensureMessagesThinkingColumn(db)
 
       logger.info("SQLite initialized successfully", "SQLite")
       return db
@@ -210,6 +216,48 @@ export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   // Reinitialize DB
   await initSQLite()
   logger.info("Database imported successfully", "SQLite")
+}
+
+/**
+ * Drop the entire SQLite-backed chat database. Deletes the
+ * IndexedDB store that holds the persisted SQLite blob, then resets
+ * the in-memory singleton. The next call to `getDb()` reinitializes
+ * from scratch via `initSQLite()` -> SCHEMA_SQL.
+ *
+ * Used by the user-facing "reset all app data" flow.
+ */
+export const resetSQLiteDatabase = async (): Promise<void> => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+  if (db) {
+    try {
+      db.close()
+    } catch (e) {
+      logger.warn("Failed to close SQLite database before reset", "SQLite", {
+        error: e
+      })
+    }
+  }
+  db = null
+  initPromise = null
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => {
+      // Other tabs hold an open handle; the delete will complete once
+      // they close. Resolve optimistically — the caller usually reloads.
+      logger.warn(
+        "deleteDatabase blocked by an open connection; will complete when handles close",
+        "SQLite"
+      )
+      resolve()
+    }
+  })
+  logger.info("SQLite database reset", "SQLite")
 }
 
 const isDevelopment = process.env.NODE_ENV === "development"

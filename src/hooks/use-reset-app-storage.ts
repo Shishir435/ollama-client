@@ -4,7 +4,7 @@ import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { dropDatabase } from "@/lib/repositories/dexie-chat-history"
+import { dropDatabase } from "@/lib/repositories/chat-history"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 

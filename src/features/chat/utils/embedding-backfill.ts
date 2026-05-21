@@ -2,7 +2,7 @@ import {
   countMessages,
   getAllMessages,
   getAllSessions
-} from "@/lib/repositories/dexie-chat-history"
+} from "@/lib/repositories/chat-history"
 import type { ChatMessage } from "@/types"
 
 export const isEmbeddableChatMessage = (message: ChatMessage): boolean => {
