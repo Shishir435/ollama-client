@@ -26,3 +26,11 @@ export const formatTokensPerSecond = (
 
   return `${Math.round(tokensPerSecond)} t/s`
 }
+
+/**
+ * Filesystem-safe ISO-ish timestamp suffix (no colons or dots) for
+ * download filenames. Same shape as `2026-05-21T13-42-08-321Z`.
+ */
+export const formatBackupFilenameTimestamp = (
+  date: Date = new Date()
+): string => date.toISOString().replace(/[:.]/g, "-")

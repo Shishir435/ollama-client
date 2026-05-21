@@ -22,7 +22,7 @@ import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 
-interface RAGSourcesButtonProps {
+export interface RAGSourcesButtonProps {
   sources: RetrievedChunk[]
   query?: string
   sessionId?: string

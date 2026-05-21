@@ -10,7 +10,7 @@ import type { ProviderModelConfig } from "@/features/model/hooks/use-model-confi
 import { useDebounce } from "@/hooks/use-debounce"
 import { Zap } from "@/lib/lucide-icon"
 
-interface ModelPerformanceSectionProps {
+export interface ModelPerformanceSectionProps {
   config: ProviderModelConfig
   updateConfig: (updates: Partial<ProviderModelConfig>) => void
 }

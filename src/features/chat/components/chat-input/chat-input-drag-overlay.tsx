@@ -1,7 +1,7 @@
 import { Upload } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-interface ChatInputDragOverlayProps {
+export interface ChatInputDragOverlayProps {
   isDragging: boolean
 }
 

@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input"
 import type { EmbeddingConfig } from "@/lib/constants"
 
-interface EmbeddingLimitsConfigProps {
+export interface EmbeddingLimitsConfigProps {
   config: EmbeddingConfig
   updateConfig: (updates: Partial<EmbeddingConfig>) => void
 }

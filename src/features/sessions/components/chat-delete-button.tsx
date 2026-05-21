@@ -9,7 +9,7 @@ import {
 import { Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface ChatDeleteButtonProps {
+export interface ChatDeleteButtonProps {
   sessionId: string
   sessionTitle: string
   onDelete: (id: string) => void

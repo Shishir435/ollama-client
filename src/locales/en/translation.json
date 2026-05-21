@@ -1111,7 +1111,11 @@
         "failed_title": "Connection Failed",
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "No Models Found",
-        "no_models_description": "Connected to {{url}} but no models were found. Check if the service is running correctly."
+        "no_models_description": "Connected to {{url}} but no models were found. Check if the service is running correctly.",
+        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
+        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
+        "inline_failed": "Failed to connect to {{url}}: {{error}}",
+        "default_url": "default URL"
       }
     },
     "migration": {

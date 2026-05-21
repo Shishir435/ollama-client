@@ -16,7 +16,7 @@ const COLOR_MAP = {
   gray: "text-muted-foreground"
 }
 
-interface MetricCardProps {
+export interface MetricCardProps {
   value: string
   color?: keyof typeof COLOR_MAP
   icon: LucideIcon

@@ -120,16 +120,25 @@ export const ProviderSettings = () => {
         models.length
       )
 
+      const displayUrl =
+        activeConfig.baseUrl ||
+        t("settings.providers.test_connection.default_url")
+
       // Treat 0 models as a connection failure - likely wrong URL or service not running
       if (models.length === 0) {
         setConnectionStatus({
           success: false,
-          message: `Connected to ${activeConfig.baseUrl || "default URL"} but found 0 models. Is the service running?`
+          message: t("settings.providers.test_connection.inline_no_models", {
+            url: displayUrl
+          })
         })
 
         toast({
-          title: "No Models Found",
-          description: `Connected to ${activeConfig.baseUrl} but no models were found. Check if the service is running correctly.`,
+          title: t("settings.providers.test_connection.no_models_title"),
+          description: t(
+            "settings.providers.test_connection.no_models_description",
+            { url: displayUrl }
+          ),
           variant: "destructive"
         })
         return
@@ -137,7 +146,10 @@ export const ProviderSettings = () => {
 
       setConnectionStatus({
         success: true,
-        message: `Successfully connected to ${activeConfig.baseUrl || "default URL"} (found ${models.length} models)`
+        message: t("settings.providers.test_connection.inline_success", {
+          url: displayUrl,
+          count: models.length
+        })
       })
 
       toast({
@@ -159,9 +171,18 @@ export const ProviderSettings = () => {
       const shouldShowCspHint =
         errorMessage.toLowerCase().includes("failed to fetch") &&
         Boolean(cspCompatibilityHint)
-      const failureMessage = shouldShowCspHint
-        ? `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}. ${cspCompatibilityHint}`
-        : `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}`
+      const displayUrl =
+        activeConfig.baseUrl ||
+        t("settings.providers.test_connection.default_url")
+      const failureMessage = t(
+        "settings.providers.test_connection.inline_failed",
+        {
+          url: displayUrl,
+          error: shouldShowCspHint
+            ? `${errorMessage}. ${cspCompatibilityHint}`
+            : errorMessage
+        }
+      )
 
       setConnectionStatus({
         success: false,

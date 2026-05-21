@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
 import { MessageSquare, StopCircle } from "@/lib/lucide-icon"
 
-interface ModelSystemSectionProps {
+export interface ModelSystemSectionProps {
   config: ProviderModelConfig
   updateConfig: (updates: Partial<ProviderModelConfig>) => void
 }

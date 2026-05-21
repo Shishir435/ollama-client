@@ -1,11 +1,14 @@
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { browser } from "wxt/browser"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  ConfirmActionDialog,
+  SettingsCard,
+  SettingsFormField
+} from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -17,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import {
   CheckCircle,
   Download,
@@ -47,8 +51,7 @@ export const DataMigrationSettings = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-      a.download = `ollama-client-backup-${timestamp}.zip`
+      a.download = `ollama-client-backup-${formatBackupFilenameTimestamp()}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -189,29 +192,15 @@ export const DataMigrationSettings = () => {
         </SettingsFormField>
       </div>
 
-      <AlertDialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.migration.import_confirm.title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("settings.migration.import_confirm.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isImporting}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={confirmImport}
-              disabled={isImporting}>
-              {t("common.continue")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmActionDialog
+        open={importConfirmOpen}
+        onOpenChange={setImportConfirmOpen}
+        title={t("settings.migration.import_confirm.title")}
+        description={t("settings.migration.import_confirm.description")}
+        destructive
+        busy={isImporting}
+        onConfirm={confirmImport}
+      />
 
       <AlertDialog
         open={resultDialogOpen}

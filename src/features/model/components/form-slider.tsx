@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
-interface FormSliderProps {
+export interface FormSliderProps {
   name: string
   label: string
   icon?: LucideIcon

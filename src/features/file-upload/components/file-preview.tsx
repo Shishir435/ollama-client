@@ -13,7 +13,7 @@ import {
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface FilePreviewProps {
+export interface FilePreviewProps {
   processingState: FileProcessingState
   onRemove: () => void
 }

@@ -9,7 +9,7 @@ import type {
   ProcessedFile
 } from "@/lib/file-processors/types"
 
-interface FileUploadAreaProps {
+export interface FileUploadAreaProps {
   onFilesProcessed: (files: ProcessedFile[]) => void
   disabled?: boolean
   compact?: boolean

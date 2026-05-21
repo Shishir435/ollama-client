@@ -14,7 +14,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import type { EmbeddingConfig } from "@/lib/constants"
 
-interface EmbeddingSearchConfigProps {
+export interface EmbeddingSearchConfigProps {
   config: EmbeddingConfig
   updateConfig: (updates: Partial<EmbeddingConfig>) => void
 }

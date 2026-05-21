@@ -13,7 +13,7 @@ import {
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
 import type { FileAttachment } from "@/types"
 
-interface FileAttachmentDisplayProps {
+export interface FileAttachmentDisplayProps {
   attachments: FileAttachment[]
 }
 
@@ -30,7 +30,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-interface FileViewerDialogProps {
+export interface FileViewerDialogProps {
   file: FileAttachment
 }
 

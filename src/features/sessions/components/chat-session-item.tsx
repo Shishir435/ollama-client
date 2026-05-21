@@ -5,7 +5,7 @@ import type { ChatSession } from "@/types"
 import { ChatDeleteButton } from "./chat-delete-button"
 import { ChatExportButton } from "./chat-export-button"
 
-interface ChatSessionItemProps {
+export interface ChatSessionItemProps {
   session: ChatSession
   isActive: boolean
   onClick: (id: string) => void

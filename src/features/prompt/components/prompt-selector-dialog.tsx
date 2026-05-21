@@ -25,7 +25,7 @@ import {
 } from "@/lib/lucide-icon"
 import type { PromptTemplate } from "@/types"
 
-interface PromptSelectorDialogProps {
+export interface PromptSelectorDialogProps {
   open: boolean
   onSelect: (prompt: string) => void
   onClose: () => void

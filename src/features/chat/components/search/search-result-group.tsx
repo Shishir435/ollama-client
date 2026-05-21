@@ -3,7 +3,7 @@ import type { ChatSearchResult } from "@/features/chat/hooks/use-semantic-chat-s
 import { MessageSquare } from "@/lib/lucide-icon"
 import { SearchResultItem } from "./search-result-item"
 
-interface SearchResultGroupProps {
+export interface SearchResultGroupProps {
   sessionId: string
   sessionTitle: string
   results: ChatSearchResult[]

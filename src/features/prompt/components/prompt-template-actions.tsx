@@ -1,16 +1,6 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
+import { ConfirmActionDialog } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,10 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { Download, MoreHorizontal, RotateCcw, Upload } from "@/lib/lucide-icon"
 import type { PromptTemplate } from "@/types"
 
-interface PromptTemplateActionsProps {
+export interface PromptTemplateActionsProps {
   onExport: () => void
   onImport: (templates: PromptTemplate[]) => void
   onReset: () => void
@@ -35,6 +26,12 @@ export const PromptTemplateActions = ({
 }: PromptTemplateActionsProps) => {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const resetDialog = useConfirmAction()
+
+  const handleResetConfirm = () => {
+    resetDialog.closeDialog()
+    onReset()
+  }
 
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -75,38 +72,28 @@ export const PromptTemplateActions = ({
             {t("settings.prompts.import")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <DropdownMenuItem
-                  onSelect={(e) => e.preventDefault()}
-                  className="text-destructive focus:text-destructive"
-                />
-              }>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              {t("settings.prompts.reset")}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("settings.prompts.reset_dialog.title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("settings.prompts.reset_dialog.description")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>
-                  {t("settings.prompts.reset_dialog.cancel")}
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={onReset}>
-                  {t("settings.prompts.reset_dialog.confirm")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              resetDialog.openDialog()
+            }}
+            className="text-destructive focus:text-destructive">
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {t("settings.prompts.reset")}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ConfirmActionDialog
+        open={resetDialog.open}
+        onOpenChange={resetDialog.onOpenChange}
+        title={t("settings.prompts.reset_dialog.title")}
+        description={t("settings.prompts.reset_dialog.description")}
+        confirmLabel={t("settings.prompts.reset_dialog.confirm")}
+        cancelLabel={t("settings.prompts.reset_dialog.cancel")}
+        destructive
+        onConfirm={handleResetConfirm}
+      />
 
       <input
         ref={fileInputRef}

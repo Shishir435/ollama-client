@@ -1,17 +1,11 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, StatusAlert } from "@/components/settings"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from "@/components/ui/alert-dialog"
+  ConfirmActionDialog,
+  SettingsCard,
+  StatusAlert
+} from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
@@ -466,27 +460,20 @@ export const ContextSettings = () => {
 
       <EmbeddingIndexControls />
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmConfig?.title || ""}</AlertDialogTitle>
-            <AlertDialogDescription />
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={closeConfirm}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (!confirmConfig) return
-                closeConfirm()
-                await confirmConfig.onConfirm()
-              }}>
-              {confirmConfig?.confirmLabel || t("common.save")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmActionDialog
+        open={confirmOpen}
+        onOpenChange={(next) => {
+          if (!next) closeConfirm()
+          else setConfirmOpen(next)
+        }}
+        title={confirmConfig?.title || ""}
+        confirmLabel={confirmConfig?.confirmLabel || t("common.save")}
+        onConfirm={async () => {
+          if (!confirmConfig) return
+          closeConfirm()
+          await confirmConfig.onConfirm()
+        }}
+      />
     </div>
   )
 }

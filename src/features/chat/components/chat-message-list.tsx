@@ -13,7 +13,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
-interface ChatMessageListProps {
+export interface ChatMessageListProps {
   messages: ChatMessage[]
   isLoading: boolean
   isStreaming: boolean
