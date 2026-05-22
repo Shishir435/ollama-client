@@ -1,8 +1,9 @@
 import { db as dexieDb } from "@/lib/db"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { markSqliteHealthy } from "@/lib/repositories/sqlite-chat-history"
 import { SQLiteChatRepository } from "@/lib/repositories/sqlite-chat-repository"
-import { initSQLite } from "@/lib/sqlite/db"
+import { flushSave, initSQLite } from "@/lib/sqlite/db"
 
 const MIGRATION_STATUS_KEY = "sqlite_migration_status"
 const MIGRATION_PROGRESS_KEY = "sqlite_migration_progress"
@@ -48,6 +49,12 @@ export const runDexieToSQLiteMigration = async (
 
     if (totalSessions === 0) {
       logger.info("No sessions to migrate", "Migration")
+      // Empty migration still writes the health cookie + flush so
+      // the (schema-only) blob is durable in IndexedDB. The cookie
+      // tells the facade's auto-fallback to trust SQLite even
+      // though Dexie is also empty here (no false positive).
+      await markSqliteHealthy()
+      await flushSave()
       await plasmoGlobalStorage.set(MIGRATION_STATUS_KEY, "completed")
       return
     }
@@ -217,6 +224,21 @@ export const runDexieToSQLiteMigration = async (
         // Continue with next session instead of failing entire migration
       }
     }
+
+    // Write the health cookie INSIDE SQLite, then force-flush to
+    // IndexedDB *before* marking the migration completed.
+    //
+    // Order matters here:
+    //   1. markSqliteHealthy() inserts the cookie row -> SQLite is
+    //      now self-identified as the source of truth.
+    //   2. flushSave() persists the cookie + all migrated rows to
+    //      IndexedDB. If the JS context dies after this, the next
+    //      reload sees a durable, cookie-bearing SQLite and the
+    //      facade's auto-fallback won't false-positive.
+    //   3. The completion flag in chrome.storage.sync is written
+    //      LAST so it can never outlive the data it announces.
+    await markSqliteHealthy()
+    await flushSave()
 
     // Migration completed successfully
     await plasmoGlobalStorage.set(MIGRATION_STATUS_KEY, "completed")

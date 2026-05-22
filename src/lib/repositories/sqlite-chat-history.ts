@@ -404,6 +404,42 @@ export const deleteFilesByMessageIds = async (
   return (before[0]?.count as number) ?? 0
 }
 
+// ----- Health cookie -------------------------------------------------------
+
+/**
+ * Key stored in `kv_store` once SQLite is the confirmed source of
+ * truth -- i.e. a Dexie -> SQLite migration completed AND flushed
+ * to IndexedDB. The presence of this row is the signal the facade
+ * uses to skip the "Dexie outpaces SQLite -> fall back" heuristic.
+ *
+ * Without this cookie, the auto-fallback would false-positive for
+ * users who legitimately deleted sessions after migrating: Dexie's
+ * stale pre-migration snapshot would still hold the deleted rows,
+ * making Dexie strictly greater than SQLite and resurrecting the
+ * deleted sessions in the UI on next reload.
+ */
+const SQLITE_HEALTHY_KEY = "chat-history-sqlite-healthy-v1"
+
+export const isSqliteHealthy = async (): Promise<boolean> => {
+  try {
+    const rows = await query("SELECT value FROM kv_store WHERE key = ?", [
+      SQLITE_HEALTHY_KEY
+    ])
+    return rows.length > 0
+  } catch {
+    // Table might not exist yet on a fresh init. Treat as not-healthy
+    // and let the migration write the cookie when it finishes.
+    return false
+  }
+}
+
+export const markSqliteHealthy = async (): Promise<void> => {
+  await run("INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)", [
+    SQLITE_HEALTHY_KEY,
+    "1"
+  ])
+}
+
 // ----- Database-level operations ------------------------------------------
 
 /**

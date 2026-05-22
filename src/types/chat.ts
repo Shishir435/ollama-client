@@ -147,6 +147,13 @@ export interface ChatSessionState {
   renameSessionTitle: (id: string, title: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
+  /**
+   * Drop the cached session list and re-read from the active backend.
+   * Bypasses the `hydrated || sessions.length > 0` early-return that
+   * `loadSessions` uses. Called after a startup reconcile migration
+   * lands new rows in the backend underneath an already-hydrated store.
+   */
+  refreshSessions: () => Promise<void>
   loadSessionMessages: (sessionId: string) => Promise<void>
   hasMoreMessages: boolean
   loadMoreMessages: () => Promise<void>

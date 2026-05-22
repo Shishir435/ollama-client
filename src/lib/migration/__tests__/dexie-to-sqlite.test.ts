@@ -29,9 +29,16 @@ vi.mock("@/lib/sqlite/db", () => {
       if (sql.includes("SELECT * FROM sessions")) return []
       return []
     }),
-    initSQLite: vi.fn().mockResolvedValue(undefined)
+    initSQLite: vi.fn().mockResolvedValue(undefined),
+    flushSave: vi.fn().mockResolvedValue(undefined),
+    saveDatabase: vi.fn().mockResolvedValue(undefined)
   }
 })
+
+vi.mock("@/lib/repositories/sqlite-chat-history", () => ({
+  markSqliteHealthy: vi.fn(async () => undefined),
+  isSqliteHealthy: vi.fn(async () => false)
+}))
 
 vi.mock("@/lib/plasmo-global-storage", () => {
   const storage = new Map<string, string>()
@@ -103,6 +110,94 @@ describe("Dexie v2 → SQLite Migration", () => {
       // Verify: Migration completes without errors
       const status = await getMigrationStatus()
       expect(status.status).toBe("completed")
+    })
+
+    it("should flush SQLite to IndexedDB before marking completed", async () => {
+      // Regression: without this flush, the persisted "completed"
+      // flag (and the backend-pointer flip the caller does after)
+      // could outlive the data on a quick page-close, leaving the
+      // next reload with an empty SQLite blob.
+      await dexieDb.sessions.add({
+        id: "flush-test-session",
+        title: "Flush Test",
+        modelId: "llama2",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+
+      await runDexieToSQLiteMigration()
+
+      expect(sqliteDbModule.flushSave).toHaveBeenCalled()
+      // And it must run BEFORE the completion flag is persisted.
+      const setCalls = vi.mocked(plasmoGlobalStorage.set).mock
+        .invocationCallOrder
+      const flushOrder = vi.mocked(sqliteDbModule.flushSave).mock
+        .invocationCallOrder[0]
+      const completedSetOrder = vi
+        .mocked(plasmoGlobalStorage.set)
+        .mock.calls.reduce<number | null>((acc, call, idx) => {
+          if (
+            call[0] === "sqlite_migration_status" &&
+            call[1] === "completed"
+          ) {
+            return setCalls[idx]
+          }
+          return acc
+        }, null)
+      expect(completedSetOrder).not.toBeNull()
+      expect(flushOrder).toBeLessThan(completedSetOrder as number)
+    })
+
+    it("should flush even when there is nothing to migrate", async () => {
+      await runDexieToSQLiteMigration()
+      expect(sqliteDbModule.flushSave).toHaveBeenCalled()
+    })
+
+    it("should write the SQLite health cookie before marking completed", async () => {
+      // Regression: the cookie tells the facade auto-fallback to
+      // trust SQLite even if Dexie later outpaces it (e.g. user
+      // deletes sessions). Must land BEFORE the completed flag,
+      // otherwise a crash between them leaves a "completed" sync
+      // flag without a cookie, falsely opening the fallback path.
+      const { markSqliteHealthy } = await import(
+        "@/lib/repositories/sqlite-chat-history"
+      )
+      await dexieDb.sessions.add({
+        id: "cookie-test-session",
+        title: "x",
+        modelId: "llama2",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
+
+      await runDexieToSQLiteMigration()
+
+      expect(markSqliteHealthy).toHaveBeenCalled()
+      const cookieOrder =
+        vi.mocked(markSqliteHealthy).mock.invocationCallOrder[0]
+      const completedSetOrder = vi
+        .mocked(plasmoGlobalStorage.set)
+        .mock.calls.reduce<number | null>((acc, call, idx) => {
+          if (
+            call[0] === "sqlite_migration_status" &&
+            call[1] === "completed"
+          ) {
+            return vi.mocked(plasmoGlobalStorage.set).mock.invocationCallOrder[
+              idx
+            ]
+          }
+          return acc
+        }, null)
+      expect(completedSetOrder).not.toBeNull()
+      expect(cookieOrder).toBeLessThan(completedSetOrder as number)
+    })
+
+    it("writes the cookie on the empty-database path too", async () => {
+      const { markSqliteHealthy } = await import(
+        "@/lib/repositories/sqlite-chat-history"
+      )
+      await runDexieToSQLiteMigration()
+      expect(markSqliteHealthy).toHaveBeenCalled()
     })
   })
 

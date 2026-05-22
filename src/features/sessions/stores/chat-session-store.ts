@@ -45,6 +45,27 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
     if (all.length > 0) await get().loadSessionMessages(all[0].id)
   },
 
+  refreshSessions: async () => {
+    // Force-bypass the `loadSessions` hydration guard. Used by the
+    // startup reconcile migration after it lands additional rows in
+    // the backend that this store has already hydrated past.
+    const all = await repo.getAllSessionsOrderedByRecency()
+    const previousCurrent = get().currentSessionId
+    const stillExists = all.some((s) => s.id === previousCurrent)
+    const nextCurrent = stillExists
+      ? previousCurrent
+      : all.length > 0
+        ? all[0].id
+        : null
+    set({
+      sessions: all,
+      currentSessionId: nextCurrent,
+      hasSession: all.length > 0,
+      hydrated: true
+    })
+    if (nextCurrent) await get().loadSessionMessages(nextCurrent)
+  },
+
   loadSessionMessages: async (sessionId: string) => {
     const session = await repo.getSession(sessionId)
     if (!session) return
@@ -430,6 +451,7 @@ export const useChatSessions = () => {
       renameSessionTitle: s.renameSessionTitle,
       setCurrentSessionId: s.setCurrentSessionId,
       loadSessions: s.loadSessions,
+      refreshSessions: s.refreshSessions,
       loadSessionMessages: s.loadSessionMessages,
       hasMoreMessages: s.hasMoreMessages,
       loadMoreMessages: s.loadMoreMessages,

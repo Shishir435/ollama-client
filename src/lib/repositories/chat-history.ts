@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { flushSave } from "@/lib/sqlite/db"
 
 import * as dexieRepo from "./dexie-chat-history"
 import * as sqliteRepo from "./sqlite-chat-history"
@@ -47,6 +48,102 @@ export const getActiveBackend = (): ChatHistoryBackend => activeBackend
 const isValidBackend = (value: unknown): value is ChatHistoryBackend =>
   value === "dexie" || value === "sqlite"
 
+/**
+ * Auto-fallback to Dexie when the persisted backend says "sqlite"
+ * but SQLite is sparser than Dexie. This happens when:
+ *
+ *   - The original migration ran while in-memory SQLite never got
+ *     flushed to IndexedDB (the pre-`flushSave` race).
+ *   - chrome.storage.sync replicated a "completed" flag and a
+ *     `chat-history-backend = sqlite` pointer from another device
+ *     to this one, where Dexie still holds the user's real history.
+ *   - A backup zip is imported that captures the above state.
+ *
+ * The user's data is still in Dexie's `ChatDatabase` IndexedDB.
+ * Flipping the routing pointer back to "dexie" makes it visible
+ * again immediately, no migration race involved. We also persist
+ * the flip so subsequent loads stay on Dexie until the user (or a
+ * follow-up migration) deliberately moves them back to SQLite.
+ *
+ * Note: a faulty SQLite that's *equal in count* to Dexie -- e.g.
+ * 0 == 0 on a fresh install -- is NOT flipped. The check only
+ * triggers when Dexie strictly outpaces SQLite, which is a one-way
+ * state in the cutover window (no path deletes from one without
+ * deleting from the other).
+ */
+const reconcileSplitBrain = async (): Promise<void> => {
+  if (activeBackend !== "sqlite") return
+  try {
+    // If SQLite has self-identified as the source of truth (cookie
+    // written by a successful, flushed migration), trust it
+    // unconditionally. This prevents the "deletion-resurrection"
+    // false positive: a user who legitimately deletes sessions on
+    // SQLite would otherwise leave Dexie's stale snapshot strictly
+    // greater than SQLite, tripping the auto-fallback below and
+    // resurrecting the deleted sessions in the UI on next boot.
+    if (await sqliteRepo.isSqliteHealthy()) return
+
+    const dexieCount = await dexieRepo.countMessages()
+    if (dexieCount === 0) {
+      // SQLite isn't yet self-identified as healthy, but there's no
+      // Dexie data to compare against either. Nothing to do here --
+      // the migration hook will write the cookie if it runs.
+      return
+    }
+    const sqliteCount = await sqliteRepo.countMessages()
+
+    if (dexieCount <= sqliteCount) {
+      // SQLite is at parity (or ahead). This is the state of a
+      // healthy user who migrated with old code (no cookie yet) and
+      // didn't lose data. Backfill the cookie so future deletions
+      // can't false-positive the fallback.
+      try {
+        await sqliteRepo.markSqliteHealthy()
+        // Best-effort flush; if it fails the next migration write
+        // will trigger the auto-save anyway.
+        const { flushSave: flush } = await import("@/lib/sqlite/db")
+        await flush().catch(() => undefined)
+        logger.info(
+          `SQLite backfilled as healthy (dexie=${dexieCount}, sqlite=${sqliteCount})`,
+          "ChatHistoryFacade"
+        )
+      } catch (e) {
+        logger.warn(
+          "Failed to backfill SQLite health cookie; will retry on next boot",
+          "ChatHistoryFacade",
+          { error: e }
+        )
+      }
+      return
+    }
+
+    // True split: Dexie > SQLite AND no health cookie. Fall back.
+    logger.warn(
+      `Chat-history split detected (dexie=${dexieCount} msg > sqlite=${sqliteCount}); auto-falling back to dexie`,
+      "ChatHistoryFacade"
+    )
+    activeBackend = "dexie"
+    try {
+      await plasmoGlobalStorage.set(STORAGE_KEY, "dexie")
+    } catch (e) {
+      logger.warn(
+        "Failed to persist dexie fallback; reads will still route correctly this session",
+        "ChatHistoryFacade",
+        { error: e }
+      )
+    }
+  } catch (error) {
+    // If either count throws, leave the persisted backend alone --
+    // better to potentially show empty UI than to silently corrupt
+    // routing on a transient init failure.
+    logger.warn(
+      "Split-brain reconcile failed; routing against persisted backend",
+      "ChatHistoryFacade",
+      { error }
+    )
+  }
+}
+
 const loadPersistedBackend = async (): Promise<ChatHistoryBackend> => {
   try {
     const stored = await plasmoGlobalStorage.get<string>(STORAGE_KEY)
@@ -60,6 +157,9 @@ const loadPersistedBackend = async (): Promise<ChatHistoryBackend> => {
       { error }
     )
   }
+  // Reconcile BEFORE returning so every facade caller that awaits
+  // `awaitBackend()` sees the corrected routing.
+  await reconcileSplitBrain()
   return activeBackend
 }
 
@@ -90,6 +190,26 @@ export const setActiveBackend = async (
   // immediately overwrite us.
   await awaitBackend()
   if (activeBackend === backend) return
+
+  // When flipping TO sqlite, force-flush any pending in-memory writes
+  // to IndexedDB before persisting the backend pointer. Otherwise the
+  // persisted pointer can outlive the data: on the next reload the
+  // facade routes reads to an empty SQLite blob. Belt-and-suspenders
+  // on top of the migration's own flush; this also covers any future
+  // callers that don't go through the migration path.
+  if (backend === "sqlite") {
+    try {
+      await flushSave()
+    } catch (error) {
+      logger.warn(
+        "Failed to flush SQLite before backend flip; aborting flip",
+        "ChatHistoryFacade",
+        { error }
+      )
+      throw error
+    }
+  }
+
   activeBackend = backend
   logger.info(`Chat history backend set to ${backend}`, "ChatHistoryFacade")
   if (persist) {

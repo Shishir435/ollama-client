@@ -130,14 +130,15 @@ export const DataMigrationSettings = () => {
 
   const closeResultDialogAndReload = () => {
     setResultDialogOpen(false)
-    if (
-      importResult?.syncStorage.ok &&
-      importResult?.localStorage.ok &&
-      importResult?.database.ok &&
-      importResult?.dexie.chatDb.ok &&
-      importResult?.dexie.vectorDb.ok &&
-      importResult?.dexie.knowledgeDb.ok
-    ) {
+    // Auto-reload whenever chat-history data was restored on at least
+    // one leg. Older backups (pre-SQLite cutover) don't carry a
+    // `database.sqlite`, so requiring SQLite success would strand
+    // those users on the result dialog and force a manual reload.
+    // Vector/knowledge DB failures are also non-fatal for the reload
+    // decision — the chat-side data is the one users notice.
+    const restoredChatHistory =
+      importResult?.database.ok || importResult?.dexie.chatDb.ok
+    if (restoredChatHistory) {
       browser.runtime
         .sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
         .catch(() => {})
@@ -276,12 +277,7 @@ export const DataMigrationSettings = () => {
 
           <AlertDialogFooter>
             <AlertDialogAction onClick={closeResultDialogAndReload}>
-              {importResult?.syncStorage.ok &&
-              importResult?.localStorage.ok &&
-              importResult?.database.ok &&
-              importResult?.dexie.chatDb.ok &&
-              importResult?.dexie.vectorDb.ok &&
-              importResult?.dexie.knowledgeDb.ok
+              {importResult?.database.ok || importResult?.dexie.chatDb.ok
                 ? t("common.reload")
                 : t("common.close")}
             </AlertDialogAction>
