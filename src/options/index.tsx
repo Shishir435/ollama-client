@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
