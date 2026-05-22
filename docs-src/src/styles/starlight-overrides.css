@@ -1,0 +1,266 @@
+/*
+ * shadcn/ui-inspired Starlight theme for Ollama Client docs.
+ *
+ * Goals:
+ *   - Pure neutrals (white / zinc-950) with hairline borders.
+ *   - Accent (extension's primary blue) used only on links and the
+ *     active sidebar item. No accent panels, no decorative tints.
+ *   - Geist Sans / Geist Mono throughout. Slightly larger body type
+ *     and tighter heading line-height than Starlight defaults.
+ *   - Code blocks: github-light + github-dark-dimmed (configured in
+ *     astro.config.mjs via expressiveCode).
+ *
+ * Starlight's design system is exposed via --sl-* CSS variables;
+ * everything below either overrides those or layers on top with
+ * higher-specificity selectors.
+ */
+
+/* ---------- Palette ------------------------------------------------------ */
+
+/*
+ * Mapped to the extension's `base-mira` shadcn palette
+ * (see src/globals.css in the extension). Same primary, same zinc
+ * neutrals, so the two surfaces feel like one product.
+ */
+:root {
+  /* Fonts */
+  --sl-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular",
+    Menlo, Consolas, monospace;
+
+  /* Light surface — pure white, near-black ink. */
+  --sl-color-white: oklch(0.141 0.005 285.823); /* primary text on light  */
+  --sl-color-gray-1: oklch(0.21 0.006 285.885); /* secondary text         */
+  --sl-color-gray-2: oklch(0.274 0.006 286.033);
+  --sl-color-gray-3: oklch(0.552 0.016 285.938); /* muted-foreground      */
+  --sl-color-gray-4: oklch(0.705 0.015 286.067);
+  --sl-color-gray-5: oklch(0.87 0.006 286.32); /* border-strong           */
+  --sl-color-gray-6: oklch(0.92 0.004 286.32); /* border                  */
+  --sl-color-gray-7: oklch(0.967 0.001 286.375); /* muted / surface-2     */
+  --sl-color-black: oklch(1 0 0); /* page background on light             */
+
+  /* Brand accent — extension's primary blue. */
+  --sl-color-accent-low: oklch(0.95 0.04 242 / 0.5);
+  --sl-color-accent: oklch(0.5 0.134 242.749);
+  --sl-color-accent-high: oklch(0.42 0.13 242.749);
+
+  /* Spacing & radii */
+  --sl-content-width: 48rem; /* 768px — shadcn-narrow prose column        */
+  --sl-sidebar-width: 16.5rem;
+  --sl-text-h1: 2.25rem;
+  --sl-text-h2: 1.5rem;
+  --sl-text-h3: 1.25rem;
+  --sl-text-h4: 1.0625rem;
+  --sl-text-h5: 0.9375rem;
+}
+
+/* Dark surface — zinc-950 canvas, near-white ink. */
+:root[data-theme="dark"] {
+  --sl-color-white: oklch(0.985 0 0);
+  --sl-color-gray-1: oklch(0.92 0 0);
+  --sl-color-gray-2: oklch(0.85 0 0);
+  --sl-color-gray-3: oklch(0.705 0.015 286.067); /* muted-foreground dk */
+  --sl-color-gray-4: oklch(0.4 0.006 286);
+  --sl-color-gray-5: oklch(0.274 0.006 286.033); /* border-strong dk    */
+  --sl-color-gray-6: oklch(0.22 0.006 286);
+  --sl-color-gray-7: oklch(0.18 0.005 285);
+  --sl-color-black: oklch(0.141 0.005 285.823); /* zinc-950 canvas       */
+
+  --sl-color-accent-low: oklch(0.3 0.08 240 / 0.5);
+  --sl-color-accent: oklch(0.685 0.169 237.323);
+  --sl-color-accent-high: oklch(0.828 0.111 230.318);
+}
+
+/* ---------- Typography --------------------------------------------------- */
+
+html,
+body {
+  font-family: var(--sl-font);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Body size bump (shadcn docs read at ~15px). */
+.sl-markdown-content {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Heading hierarchy — tighter tracking, normal weight, more breathing room. */
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  line-height: 1.25;
+}
+.sl-markdown-content h1 {
+  letter-spacing: -0.022em;
+  margin-bottom: 1rem;
+}
+.sl-markdown-content h2:not(:first-child) {
+  margin-top: 3rem;
+}
+.sl-markdown-content h3:not(:first-child) {
+  margin-top: 2rem;
+}
+
+/* Paragraphs */
+.sl-markdown-content p {
+  margin-block: 0.875rem;
+}
+
+/* Inline code */
+.sl-markdown-content :not(pre) > code {
+  font-family: var(--sl-font-mono);
+  font-size: 0.85em;
+  padding: 0.15em 0.4em;
+  border-radius: 0.25rem;
+  background: var(--sl-color-gray-7);
+  border: 1px solid var(--sl-color-gray-6);
+}
+
+/* Links — accent only on hover & focus; default is foreground with subtle underline. */
+.sl-markdown-content a:not(.button) {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--sl-color-gray-5);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+.sl-markdown-content a:not(.button):hover {
+  color: var(--sl-color-accent);
+  text-decoration-color: var(--sl-color-accent);
+}
+
+/* ---------- Tables ------------------------------------------------------- */
+
+.sl-markdown-content table {
+  border-collapse: collapse;
+  border: 1px solid var(--sl-color-gray-6);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+.sl-markdown-content th,
+.sl-markdown-content td {
+  border: none;
+  border-bottom: 1px solid var(--sl-color-gray-6);
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+}
+.sl-markdown-content thead {
+  background: var(--sl-color-gray-7);
+}
+.sl-markdown-content tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- Header ------------------------------------------------------- */
+
+/* Make the top header read as a thin, restrained bar (shadcn density). */
+header.header {
+  background: color-mix(in oklch, var(--sl-color-black) 80%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--sl-color-gray-6);
+}
+
+/* Wordmark — bigger than default, accent-tinted, mono numerals. */
+.site-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Sidebar ------------------------------------------------------ */
+
+/* Section labels in small caps, mono, muted. */
+.sidebar-content summary,
+.sidebar-content [data-current-parent],
+.sidebar-content .large {
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sl-color-gray-3);
+}
+
+/* Sidebar items — restrained, no chunky pill */
+.sidebar-content a {
+  font-size: 0.875rem;
+  padding-block: 0.3rem;
+  border-radius: 0.375rem;
+}
+.sidebar-content a[aria-current="page"] {
+  color: var(--sl-color-accent);
+  font-weight: 500;
+  background: transparent;
+}
+
+/* ---------- TOC ---------------------------------------------------------- */
+
+starlight-toc nav a {
+  font-size: 0.8125rem;
+  color: var(--sl-color-gray-3);
+  line-height: 1.4;
+}
+starlight-toc nav a:hover,
+starlight-toc nav a[aria-current="true"] {
+  color: var(--sl-color-accent);
+}
+
+/* ---------- Asides (callouts) ------------------------------------------- */
+
+/*
+ * shadcn-style callouts: hairline border, no background tint, left
+ * border accent, small icon. Override Starlight's default tinted
+ * panels which compete with the surrounding prose.
+ */
+.starlight-aside {
+  background: transparent !important;
+  border: 1px solid var(--sl-color-gray-6) !important;
+  border-left-width: 3px !important;
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+.starlight-aside--note {
+  border-left-color: var(--sl-color-accent) !important;
+}
+.starlight-aside--tip {
+  border-left-color: oklch(0.7 0.15 160) !important;
+}
+.starlight-aside--caution {
+  border-left-color: oklch(0.75 0.15 70) !important;
+}
+.starlight-aside--danger {
+  border-left-color: oklch(0.6 0.2 25) !important;
+}
+.starlight-aside__title {
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sl-color-gray-2);
+}
+
+/* ---------- Code blocks (Expressive Code) ------------------------------- */
+
+/* Tighten the frame so it doesn't dominate the page. */
+.expressive-code .frame {
+  border-radius: 0.5rem !important;
+}
+.expressive-code .frame.is-terminal .header,
+.expressive-code .frame .header {
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem !important;
+}
+
+/* ---------- Page meta / "Last updated" footer --------------------------- */
+
+footer .sl-flex.meta {
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
