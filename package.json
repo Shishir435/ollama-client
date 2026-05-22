@@ -32,9 +32,10 @@
   "scripts": {
     "dev": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-dev wxt",
     "build": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
-    "docs:dev": "pnpm -F @ollama-client/docs dev",
-    "docs:build": "pnpm -F @ollama-client/docs build",
+    "docs:dev": "pnpm docs:generate && pnpm -F @ollama-client/docs dev",
+    "docs:build": "pnpm docs:generate && pnpm -F @ollama-client/docs build",
     "docs:preview": "pnpm -F @ollama-client/docs preview",
+    "docs:generate": "npx tsx tools/generate-provider-matrix.ts",
     "package": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt zip",
     "dev:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-dev wxt -b firefox --mv2",
     "build:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt build -b firefox --mv2 --mode production",

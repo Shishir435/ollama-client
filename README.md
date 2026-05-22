@@ -7,11 +7,11 @@ A local-first browser extension for chat with local and remote LLM providers —
     <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
   <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
-  <img alt="Providers" src="https://img.shields.io/badge/Providers-8-1d4ed8?style=for-the-badge" />
+  <img alt="Providers" src="https://img.shields.io/badge/Providers-7-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
-**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://ollama-client.shishirchaurasiya.in/) · [Setup Guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide) · [Privacy](https://ollama-client.shishirchaurasiya.in/privacy-policy) · [Issues](https://github.com/Shishir435/ollama-client/issues)
+**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://ollama-client.shishirchaurasiya.in/) · [Setup Guide](https://ollama-client.shishirchaurasiya.in/guides/provider-setup/) · [Architecture](https://ollama-client.shishirchaurasiya.in/concepts/architecture/) · [Privacy](https://ollama-client.shishirchaurasiya.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
 ## What This Project Is
 
@@ -62,7 +62,7 @@ This project focuses on local-first usage:
 | Streaming | Token streaming via runtime port with cancel support | Message keys and some hook names still use legacy `ollama-*` naming |
 | RAG with local LLMs | Local chunking, embedding, hybrid retrieval, context injection | Embeddings use provider-native/shared routes with Ollama fallback for reliability |
 | File ingestion | TXT/MD/PDF/DOCX/CSV/TSV/PSV/HTML processing | Quality depends on file quality and chunking config |
-| Persistence | Chat/session/files and vectors stored in Dexie/IndexedDB | SQLite exists as migration/auxiliary path, not primary runtime store |
+| Persistence | Chat / sessions / messages / files live in SQLite (sql.js, persisted to IndexedDB). Vectors stay on Dexie. | Dexie auto-fallback is kept as a recovery target during the SQLite cutover window; the chat-history facade routes back to it if SQLite ever ends up sparser than Dexie. |
 | Browser support | Chromium workflow and Firefox workflow are supported | Firefox may need explicit origin/CORS setup |
 
 ## Architecture Overview
@@ -78,12 +78,15 @@ High-level flow:
 
 Key directories:
 
-- `src/sidepanel/*`
-- `src/options/*`
-- `src/background/*`
-- `src/contents/*`
-- `src/lib/providers/*`
-- `src/lib/embeddings/*`
+- `src/entrypoints/*` — WXT entry shells (background / sidepanel / options / print / content scripts)
+- `src/sidepanel/*` — sidepanel chat UI
+- `src/options/*` — settings / options UI
+- `src/background/*` — background service worker handlers + dispatch
+- `src/contents/*` — content-script feature modules (selection capture, page extraction)
+- `src/lib/providers/*` — LLM provider classes + factory + registry
+- `src/lib/embeddings/*` — chunker, vector store, hybrid search
+- `src/lib/repositories/*` — chat-history facade (Dexie + SQLite)
+- `src/lib/sqlite/*` — sql.js init, schema, migrations
 
 Build/runtime notes:
 
@@ -266,9 +269,9 @@ Firefox note:
 
 - Legacy key/message naming (`ollama-*`) remains in parts of multi-provider code.
 - Embedding support varies by provider; fallback keeps Ollama as reliability anchor.
-- Reranker exists but is disabled by default due extension CSP constraints.
+- Reranker exists but is disabled by default due to extension CSP constraints.
 - Provider parity is incomplete for model management actions.
-- Runtime persistence is Dexie-first while SQLite migration path still exists.
+- Runtime chat-history persistence is SQLite-first; Dexie remains as an auto-fallback recovery target during the cutover window. Vector embeddings still live on Dexie.
 
 ## Security and Privacy Notes
 
@@ -320,9 +323,11 @@ MIT License: [LICENCE](./LICENCE)
 
 ## Documentation Map
 
-- [Architecture (Web)](https://ollama-client.shishirchaurasiya.in/architecture)
-- [Setup Guide (Web)](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)
-- [Privacy Policy (Web)](https://ollama-client.shishirchaurasiya.in/privacy-policy)
+- [Architecture (Web)](https://ollama-client.shishirchaurasiya.in/concepts/architecture/)
+- [Provider Setup (Web)](https://ollama-client.shishirchaurasiya.in/guides/provider-setup/)
+- [Provider Capability Matrix (Web)](https://ollama-client.shishirchaurasiya.in/concepts/provider-matrix/)
+- [API Reference (Web)](https://ollama-client.shishirchaurasiya.in/reference/)
+- [Privacy Policy (Web)](https://ollama-client.shishirchaurasiya.in/legal/privacy-policy/)
 - [Contributing Guide](./CONTRIBUTING.md)
 - [AGENTS.md](./AGENTS.md) — guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot)
 

@@ -53,6 +53,13 @@ analysis/stats.html
 # generated at build time by tools/generate-i18n-resources.ts
 src/i18n/resources.ts
 
+# generated at build time by starlight-typedoc from the extension's
+# TypeScript source. Regenerated on every `pnpm docs:build`.
+docs-src/src/content/docs/reference/
+
+# astro / starlight build caches
+docs-src/.astro/
+
 # one-off audit/transfer artifacts
 *.msg
 *.diff

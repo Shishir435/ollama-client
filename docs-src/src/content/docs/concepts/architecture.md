@@ -1,0 +1,197 @@
+---
+title: Architecture
+description: Implementation details, tradeoffs, and constraints for Ollama Client v0.6.x.
+---
+
+This document describes the current implementation as of `v0.6.x` and highlights tradeoffs, assumptions, and known constraints.
+
+## Entry points
+
+WXT auto-discovers entry points under `src/entrypoints/`. Each entry is a thin shell that delegates to a feature module elsewhere in `src/`, so the WXT-facing surface stays small and the actual logic lives where the rest of the code can import it.
+
+| WXT entry point | Output type | Delegates to |
+|---|---|---|
+| `src/entrypoints/background.ts` | service worker | `src/background/index.ts` |
+| `src/entrypoints/sidepanel/index.tsx` | extension page | `src/sidepanel/index.tsx` (React root) |
+| `src/entrypoints/options/index.tsx` | extension page | `src/options/index.tsx` (React root) |
+| `src/entrypoints/print/main.ts` | extension page | self-contained (print-to-PDF helper) |
+| `src/entrypoints/content.ts` | content script (all URLs) | `src/contents/index.ts` (lazy-imported) |
+| `src/entrypoints/selection-button.content.tsx` | content script (selection overlay) | self-contained (shadow-DOM UI) |
+
+The WXT shells are intentionally minimal — `background.ts` is a 4-line import, `content.ts` is a 6-line lazy-import. Real work lives in the feature modules:
+
+- `src/background/` — handler dispatch, provider streaming orchestration, `onInstalled` migrations
+- `src/sidepanel/` — chat surface React app, opens the runtime port
+- `src/options/` — settings React app
+- `src/contents/` — selection capture, page extraction helpers, URL filtering
+
+## System responsibilities
+
+**Sidepanel**
+
+- Chat interaction UX
+- Session display and branch navigation
+- Streaming state updates
+- Local chat actions (edit, fork, delete, export)
+
+**Options**
+
+- Provider configuration
+- Model parameters
+- Embedding / RAG configuration
+- Feature toggles and diagnostics
+
+**Background worker**
+
+- Provider resolution and streaming orchestration
+- Model management handlers
+- Embedding generation handlers for file chunks
+- Browser-level APIs (DNR / CORS rules, context menu)
+
+**Content scripts**
+
+- Selected-text capture
+- Page extraction entrypoints for browser-context workflows
+
+## Data flow
+
+1. User sends a prompt in the sidepanel.
+2. UI opens a runtime port (`MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`) to the background.
+3. Background receives `CHAT_WITH_MODEL` and resolves the provider using the model mapping.
+4. Provider starts streaming tokens back to the background.
+5. Background relays chunks to the UI through port messages.
+6. UI applies optimistic updates and persists completed messages in the local chat store.
+7. Optional embedding pipelines index chat / file content for retrieval.
+
+```mermaid
+flowchart TD
+    A["Sidepanel UI (React)"] --> B["Runtime Port (STREAM_RESPONSE)"]
+    B --> C["Background Worker"]
+    C --> D["ProviderFactory resolve by model mapping"]
+    D --> E["Ollama"]
+    D --> F["LM Studio"]
+    D --> G["llama.cpp"]
+    E --> H["Chunk Stream"]
+    F --> H
+    G --> H
+    H --> I["UI Stream State Update"]
+    I --> J["SQLite Chat Store"]
+    I --> K["Optional RAG Pipeline"]
+    K --> L["Embedding Strategy Chain"]
+    L --> M["Vector store"]
+```
+
+## Model selection and provider routing
+
+- The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
+- The model list is built by querying all enabled providers in `useProviderModels`.
+- Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
+- Default profiles: Ollama, LM Studio, llama.cpp.
+- Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
+- Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.
+
+## Streaming architecture
+
+Streaming occurs over extension runtime ports:
+
+- UI hook — `src/features/chat/hooks/use-chat-stream.ts`
+- Background handler — `src/background/handlers/handle-chat-with-model.ts`
+- Cancel handling — `abort-controller-registry`
+
+Runtime ports support continuous chunk delivery better than one-shot messages, and cancellation is clean via `AbortController` scoped to active stream keys. Tradeoff: message keys are provider-named (`PROVIDER.*`) with legacy `OLLAMA.*` compatibility.
+
+## Storage architecture
+
+- **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point — it routes between SQLite and a Dexie auto-fallback at runtime.
+- **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
+- **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper, backed by `chrome.storage.sync`.
+- **Export / restore**: ZIP bundles with versioned manifests; includes both the SQLite blob and the Dexie database dumps.
+
+### Chat-history routing + safety net
+
+The facade resolves the active backend on boot from a persisted `chat-history-backend` key. Three guarantees follow:
+
+1. **Durability**: SQLite writes are debounced 1s to IndexedDB, but the migration and the backend-pointer flip force-flush via `flushSave()` before announcing themselves. The "completion flag outlives the data" race that bit the original cutover can't recur.
+2. **Health cookie**: a successful migration writes a `chat-history-sqlite-healthy-v1` row into SQLite's `kv_store` and flushes. On boot, the facade trusts SQLite unconditionally when the cookie is present — legitimate deletes that bring SQLite below the stale Dexie snapshot won't trip a false fallback.
+3. **Auto-fallback recovery**: if the cookie is missing AND Dexie has strictly more messages than SQLite (the split-brain symptom from the pre-flush race or from cross-device sync of the completed flag), the facade flips routing back to Dexie and persists the flip. The user sees their data immediately; the migration hook re-attempts the catch-up.
+
+See the [API reference](/reference/lib/repositories/chat-history/) for the full surface.
+
+## RAG / embedding architecture
+
+- Embeddings are generated via a browser-safe strategy chain.
+- Content is chunked and stored in the local SQL WASM store.
+- Query-time retrieval uses hybrid search with adaptive weighting.
+- The pipeline includes diversity filtering and recency / feedback score hooks.
+- Browser-first module contracts for the next refactor are documented in `src/lib/rag/core/interfaces.ts`.
+- Embeddings use a fallback chain: provider-native → shared model → background warmup → Ollama fallback.
+- Background model preparation currently performs pull operations only through Ollama handlers.
+
+:::note[Constraint]
+There is no OCR pipeline and no WASM-based reranker in `v0.6.x`.
+:::
+
+## Why a background worker
+
+- Keeps provider network I/O and long-running operations off the UI thread.
+- Centralizes extension APIs that are unavailable or unsafe in UI contexts.
+- Simplifies cancellation and stream lifecycle tracking.
+
+## Tradeoffs and decisions
+
+**Legacy naming retained for compatibility**
+
+- *Pro:* avoids migration breakage.
+- *Con:* causes confusion in multi-provider code paths.
+
+**SQLite-as-live with Dexie auto-fallback**
+
+- *Pro:* SQLite is the live chat-history backend (better query model, single normalized schema, easier export); Dexie is retained as an automatic recovery target so a partially-stranded migration can never lose user data.
+- *Con:* both stores are present in the bundle during the cutover window, and the facade carries the routing + split-brain-detection logic on every boot.
+
+**Provider-agnostic chat with provider-specific management features**
+
+- *Pro:* fast rollout of multi-provider chat.
+- *Con:* uneven feature parity — pull / delete / version are Ollama-centric.
+
+**Local retrieval pipeline over extension constraints**
+
+- *Pro:* privacy-preserving retrieval.
+- *Con:* CSP / performance limits prevent full in-browser model / reranker parity.
+
+## Assumptions and constraints
+
+**Assumptions**
+
+- The user can run at least one provider endpoint.
+- Endpoint URLs are reachable from extension context.
+- Local resources are sufficient for selected models.
+
+**Constraints**
+
+- Chrome extension CSP limits some WASM / worker ML paths.
+- Firefox lacks Chrome DNR API behavior.
+- Provider model-naming collisions can cause ambiguous mapping behavior.
+
+## Known risks and technical debt
+
+- Legacy `ollama-*` keys retained for compatibility while provider naming becomes default.
+- Partial provider parity in model-management actions.
+- Dual persistence architecture during the migration period.
+- Retrieval quality depends on chunking / threshold tuning and model quality.
+
+## Desktop design notes
+
+These are non-implementation notes for a hypothetical desktop port.
+
+- The provider abstraction (factory / manager / types) is intentionally runtime-agnostic and can be reused in a desktop app.
+- Provider identity metadata (icons, display names) should remain shared via `src/lib/providers/registry.ts`.
+- Browser-only APIs (DNR, extension messaging) are already isolated in background handlers and would map to Electron main-process equivalents.
+- Storage keys are provider-agnostic with legacy shims; a desktop app can reuse the same keys to migrate settings.
+
+## Near-term priorities
+
+1. Normalize provider-agnostic naming.
+2. Decide on a single source of truth for chat persistence.
+3. Expand provider parity for management actions.
+4. Improve retrieval observability and failure diagnostics.

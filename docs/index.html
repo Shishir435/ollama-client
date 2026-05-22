@@ -1,153 +1,77 @@
-<!DOCTYPE html><html lang="en"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ollama Client - Local AI Chat Extension</title><meta name="description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta name="theme-color" content="#0b0b0b"><link rel="canonical" href="https://ollama-client.shishirchaurasiya.in/"><meta property="og:type" content="website"><meta property="og:title" content="Ollama Client - Local AI Chat Extension"><meta property="og:description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta property="og:url" content="https://ollama-client.shishirchaurasiya.in/"><meta property="og:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ollama Client - Local AI Chat Extension"><meta name="twitter:description" content="Ollama Client is a privacy-first local AI chat extension with multi-provider support for Ollama, LM Studio, and llama.cpp. Chat with local models directly in your browser with enhanced content extraction, text-to-speech, and semantic search."><meta name="twitter:image" content="https://ollama-client.shishirchaurasiya.in/assets/og-image.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png"><link rel="manifest" href="/assets/site.webmanifest"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.min.js"></script><link rel="stylesheet" href="/_astro/DocLayout.Doirp1_z.css"></head> <body>  <div class="min-h-screen bg-background"> <header class="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur"> <div class="container-docs flex h-16 items-center justify-between"> <a href="/" class="flex items-center gap-3"> <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold">
-OC
-</span> <div> <p class="text-sm font-semibold">Ollama Client Docs</p> <p class="text-xs text-muted-foreground">Local-first extension playbook</p> </div> </a> <nav class="hidden items-center gap-3 text-sm md:flex"> <a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/"> Home </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/architecture"> Architecture </a><a class="rounded-full border border-transparent px-3 py-1 text-muted-foreground hover:border-border hover:text-foreground" href="/ollama-setup-guide"> Setup Guide </a> <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">
-Theme
-</button> </nav> </div> </header> <div class="flex"> <aside class="hidden w-64 shrink-0 border-r border-border bg-background md:block"> <div class="flex h-full flex-col gap-6 px-6 py-8"> <div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Overview </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/" class="block rounded-lg px-3 py-2 transition bg-foreground text-background"> Home </a> </li><li> <a href="/architecture" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Architecture </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Guides </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/ollama-setup-guide" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Setup Guide </a> </li> </ul> </div><div> <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"> Legal </p> <ul class="mt-3 space-y-2 text-sm"> <li> <a href="/privacy-policy" class="block rounded-lg px-3 py-2 transition text-muted-foreground hover:bg-muted hover:text-foreground"> Privacy Policy </a> </li> </ul> </div> </div> </aside> <main class="flex-1"> <section class="border-b border-border py-10"> <div class="container-docs"> <div class="hero-grid"> <div class="hero-surface"> <div class="space-y-6"> <span class="pill">Local-first</span> <h1 class="hero-title">
-Chat with local LLM models right inside your browser.
-</h1> <p class="hero-subtitle">
-Privacy-first extension for local AI chat with multi-provider support.
-          Connect Ollama, LM Studio, llama.cpp, or OpenAI-compatible servers
-          (vLLM, LocalAI, KoboldCPP) and run conversations directly in your
-          browser with provider-aware routing and local-first workflows.
-</p> <div class="flex flex-wrap gap-3"> <a class="button-primary" href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
-Install Extension
-</a> <a class="button-secondary" href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
-View Source
-</a> </div> <div class="stat-grid"> <div class="stat-card"> <span class="stat-value">Local-first</span> <span class="stat-label">Privacy model</span> </div> <div class="stat-card"> <span class="stat-value">∞</span> <span class="stat-label">AI models</span> </div> <div class="stat-card"> <span class="stat-value">0*</span> <span class="stat-label">Mandatory cloud APIs</span> </div> </div> <p class="text-sm text-muted-foreground">
-*You control the endpoint. If you configure a remote provider, your
-          data will go to that provider.
-</p> <div class="ghost-panel"> <p class="text-sm text-muted-foreground">
-Works on Chrome, Brave, Edge, Opera, and experimental Firefox.
-</p> </div> </div> </div> </div> </div> </section> <section class="container-docs py-10"> <div class="prose-docs">   <section class="mt-12"> <div class="section-header"> <span class="section-kicker">Features</span> <h2 class="section-title">Powerful, local-first capabilities</h2> <p class="text-muted-foreground">
-Everything you need for productive AI conversations, with full control
-        over provider endpoints.
-</p> </div> <div class="feature-grid"> <div class="feature-card"> <h3 class="feature-title">Multi-Provider Local Models</h3> <p class="feature-meta">
-Use local models through Ollama, LM Studio, llama.cpp, or compatible
-          OpenAI servers with capability-aware routing.
-</p> <ul class="feature-list"> <li>Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP</li> <li>Provider-aware model selection + capabilities</li> <li>Streaming responses + stop control</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Multi-Chat Sessions</h3> <p class="feature-meta">
-Organize conversations with multiple sessions stored locally in
-          IndexedDB.
-</p> <ul class="feature-list"> <li>Multiple concurrent chats</li> <li>Session persistence + history</li> <li>Tab refresh awareness</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Enhanced Content Extraction</h3> <p class="feature-meta">
-Modern extraction with lazy-loading support and site-specific
-          strategies for clean context capture.
-</p> <ul class="feature-list"> <li>Defuddle integration for parsing</li> <li>Smart scroll strategies</li> <li>GitHub & YouTube extraction helpers</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Advanced Text-to-Speech</h3> <p class="feature-meta">
-Speech synthesis with searchable voices, pitch/rate controls, and
-          per-message playback.
-</p> <ul class="feature-list"> <li>Language grouping + search</li> <li>Custom text preview</li> <li>Cross-browser voice loading</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Prompt Templates</h3> <p class="feature-meta">
-Pre-built prompts for summarization, translation, and code help.
-</p> <ul class="feature-list"> <li>Summarize content</li> <li>Translate text</li> <li>Custom templates</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">File Upload & Processing</h3> <p class="feature-meta">
-Upload PDFs, text, and DOCX files and auto-embed them for semantic
-          retrieval (no OCR pipeline required).
-</p> <ul class="feature-list"> <li>PDF, TXT, MD, DOCX support</li> <li>Background embedding progress</li> <li>Configurable max file size</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Backup & Restore</h3> <p class="feature-meta">
-Export and restore full data snapshots with manifested ZIP backups.
-</p> <ul class="feature-list"> <li>Full backup/export flows</li> <li>Restore with partial failure reporting</li> <li>Versioned manifests</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Advanced Configuration</h3> <p class="feature-meta">
-Full control over provider base URLs, model settings, and exclusions.
-</p> <ul class="feature-list"> <li>Provider base URL control</li> <li>Selected model ref + capability checks</li> <li>Debug logging</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Search & Export</h3> <p class="feature-meta">
-Search UX enhancements with scoped tabs and print/PDF export.
-</p> <ul class="feature-list"> <li>Result grouping + scoped tabs</li> <li>Print/PDF export entrypoint</li> <li>Local-only processing</li> </ul> </div> <div class="feature-card"> <h3 class="feature-title">Privacy First</h3> <p class="feature-meta">
-Local-first by default with user-controlled endpoints.
-</p> <ul class="feature-list"> <li>No mandatory cloud APIs</li> <li>Local data storage</li> <li>Open source code</li> </ul> </div> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Stack</span> <h2 class="section-title">Built with modern technologies</h2> <p class="text-muted-foreground">
-Optimized for performance, reliability, and extensibility.
-</p> </div> <div class="tech-grid"> <div class="tech-item">React</div> <div class="tech-item">WXT</div> <div class="tech-item">TypeScript</div> <div class="tech-item">shadcn/ui</div> <div class="tech-item">Dexie.js</div> <div class="tech-item">Readability</div> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Setup</span> <h2 class="section-title">Get started in 3 easy steps</h2> <p class="text-muted-foreground">
-Quick setup path to get chatting with local models.
-</p> </div> <div class="step-grid"> <div class="step-card"> <div class="step-number">Step 1</div> <h3 class="feature-title">Start a local provider</h3> <p class="feature-meta">
-Run Ollama, LM Studio, or llama.cpp and set the provider URL inside
-          the extension settings.
-</p> </div> <div class="step-card"> <div class="step-number">Step 2</div> <h3 class="feature-title">Add the extension</h3> <p class="feature-meta">
-Install from the Chrome Web Store and pin the extension for easy
-          access.
-</p> </div> <div class="step-card"> <div class="step-number">Step 3</div> <h3 class="feature-title">Start chatting</h3> <p class="feature-meta">
-Open the side panel, pick a model, and chat on any website. CORS
-          issue? Follow the setup guide.
-</p> <a class="button-secondary mt-4" href="/ollama-setup-guide">
+<!DOCTYPE html><html lang="en" class="scroll-smooth"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="canonical" href="https://ollama-client.shishirchaurasiya.in/"><title>Ollama Client — Local AI chat in your browser</title><meta name="description" content="Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers. Local-first by design."><meta property="og:title" content="Ollama Client — Local AI chat in your browser"><meta property="og:description" content="Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers. Local-first by design."><meta property="og:url" content="https://ollama-client.shishirchaurasiya.in/"><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ollama Client — Local AI chat in your browser"><meta name="twitter:description" content="Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers. Local-first by design."><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png"><link rel="manifest" href="/assets/site.webmanifest"><script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Ollama Client","description":"Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers. Local-first by design.","applicationCategory":"BrowserApplication","operatingSystem":"Chrome","author":{"@type":"Person","name":"Shishir Chaurasiya","url":"https://www.shishirchaurasiya.in/"},"url":"https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl","downloadUrl":"https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl","codeRepository":"https://github.com/Shishir435/ollama-client"}</script><script>
+      // Initialize color scheme before paint so we avoid a flash of
+      // mismatched theme. Stores preference in localStorage; defaults
+      // to OS preference if unset.
+      ;(() => {
+        const stored = localStorage.getItem("theme")
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches
+        const isDark = stored ? stored === "dark" : prefersDark
+        document.documentElement.classList.toggle("dark", isDark)
+      })()
+    </script><style>@font-face{font-family:Geist Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-cyrillic-ext-wght-normal.DjL33-gN.woff2) format("woff2-variations");unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F}@font-face{font-family:Geist Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-cyrillic-wght-normal.BEAKL7Jp.woff2) format("woff2-variations");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}@font-face{font-family:Geist Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-vietnamese-wght-normal.6IgcOCM7.woff2) format("woff2-variations");unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}@font-face{font-family:Geist Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-latin-ext-wght-normal.DC-KSUi6.woff2) format("woff2-variations");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:Geist Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-latin-wght-normal.BgDaEnEv.woff2) format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-cyrillic-ext-wght-normal.I4S5GZfc.woff2) format("woff2-variations");unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-cyrillic-wght-normal.BmXc_FBt.woff2) format("woff2-variations");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-symbols2-wght-normal.GZpp1pK2.woff2) format("woff2-variations");unicode-range:U+2000-2001,U+2004-2008,U+200A,U+23B8-23BD,U+2500-259F}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-vietnamese-wght-normal.D8KDMBhC.woff2) format("woff2-variations");unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-latin-ext-wght-normal.DrnZ1wKl.woff2) format("woff2-variations");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:Geist Mono Variable;font-style:normal;font-display:swap;font-weight:100 900;src:url(/_astro/geist-mono-latin-wght-normal.B_7UjwxQ.woff2) format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+</style>
+<link rel="stylesheet" href="/_astro/index@_@astro.JP5TmqCB.css"><script type="module" src="/_astro/page.BIhdncjw.js"></script></head> <body class="min-h-screen bg-background text-foreground antialiased"> <header class="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"> <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-6"> <a href="/" class="text-[15px] font-semibold tracking-tight">
+Ollama Client
+</a> <nav class="flex items-center gap-6 font-mono text-[13px] text-foreground/70"> <a class="transition hover:text-foreground" href="/guides/provider-setup/">
+Docs
+</a> <a class="transition hover:text-foreground" href="/concepts/architecture/">
+Architecture
+</a> <a class="transition hover:text-foreground" href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
+GitHub
+</a> </nav> </div> </header> <main class="mx-auto max-w-5xl px-6"> <section class="border-b border-border/60 pb-20 pt-24 sm:pt-32"> <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Local-first · v0.6.x
+</p> <h1 class="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+Chat with local LLMs, right in your browser.
+</h1> <p class="mt-5 max-w-2xl text-balance text-[15px] leading-relaxed text-foreground/70">
+Connect Ollama, LM Studio, llama.cpp, or any OpenAI-compatible server.
+      Provider-aware routing, streaming responses, local retrieval — all without
+      a mandatory cloud API.
+</p> <div class="mt-8 flex flex-wrap items-center gap-3"> <a class="inline-flex h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90" href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
+Install extension
+</a> <a class="inline-flex h-9 items-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted" href="/guides/provider-setup/">
 Read the setup guide
-</a> </div> </div> <div class="mt-8"> <a class="button-primary" href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
-Install Now - It’s Free
-</a> </div> </section> <section class="mt-16"> <div class="section-header"> <span class="section-kicker">Links</span> <h2 class="section-title">Stay connected</h2> </div> <div class="footer-links"> <a href="https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl" target="_blank" rel="noopener">
-Chrome Web Store
-</a> <a href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
-GitHub Repository
-</a> <a href="https://www.shishirchaurasiya.in/" target="_blank" rel="noopener">
-Developer Portfolio
-</a> <a href="https://ollama.ai/" target="_blank" rel="noopener">Ollama</a> </div> <p class="mt-6 text-sm text-muted-foreground">
-© 2026 Ollama Client. Open source • Privacy-first • Multi-provider local
-      AI
-</p> </section>  </div> </section> </main> </div> <footer class="border-t border-border py-8"> <div class="container-docs flex flex-col gap-2 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between"> <p>Ollama Client Docs · Built for local-first workflows.</p> <p>Need help? Email shishirchaurasiya435@gmail.com</p> </div> </footer> </div>  <script>
-      const root = document.documentElement
-      const storedTheme = localStorage.getItem("theme")
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-
-      if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
-        root.classList.add("dark")
-      }
-
-      const updateMermaidTheme = (isDark) => {
-        if (!window.mermaid) return
-        window.mermaid.initialize({
-          startOnLoad: false,
-          theme: isDark ? "dark" : "neutral"
-        })
-        window.mermaid.run({ querySelector: ".mermaid" })
-      }
-
-      const renderMermaidBlocks = () => {
-        if (!window.mermaid) return false
-        document.querySelectorAll("pre[data-language=\"mermaid\"]").forEach((pre) => {
-          const container = document.createElement("div")
-          container.className = "mermaid"
-          container.textContent = pre.textContent || ""
-          pre.replaceWith(container)
-        })
-        window.mermaid.initialize({
-          startOnLoad: false,
-          theme: document.documentElement.classList.contains("dark")
-            ? "dark"
-            : "neutral"
-        })
-        window.mermaid.run({ querySelector: ".mermaid" })
-        return true
-      }
-
-      const tryRenderMermaid = () => {
-        if (renderMermaidBlocks()) return
-        setTimeout(() => {
-          renderMermaidBlocks()
-        }, 150)
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        const toggle = document.getElementById("theme-toggle")
-        if (toggle) {
-          toggle.addEventListener("click", () => {
-            root.classList.toggle("dark")
-            const isDark = root.classList.contains("dark")
-            localStorage.setItem("theme", isDark ? "dark" : "light")
-            updateMermaidTheme(isDark)
-          })
-        }
-
-        document.querySelectorAll("pre > code").forEach((codeBlock) => {
-          const pre = codeBlock.parentElement
-          if (!pre || pre.querySelector(".code-copy")) return
-          if (pre.dataset.language === "mermaid") return
-          const button = document.createElement("button")
-          button.type = "button"
-          button.className = "code-copy"
-          button.textContent = "Copy"
-          button.addEventListener("click", async () => {
-            try {
-              await navigator.clipboard.writeText(codeBlock.textContent || "")
-              button.textContent = "Copied"
-              setTimeout(() => (button.textContent = "Copy"), 1200)
-            } catch {
-              button.textContent = "Failed"
-              setTimeout(() => (button.textContent = "Copy"), 1200)
-            }
-          })
-          pre.appendChild(button)
-        })
-
-        tryRenderMermaid()
-      })
-    </script> </body> </html>
+</a> <a class="inline-flex h-9 items-center rounded-md px-4 text-sm font-medium text-foreground/70 transition hover:text-foreground" href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
+View source →
+</a> </div> </section> <section class="border-b border-border/60 py-20"> <h2 class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Features
+</h2> <p class="mt-3 max-w-2xl text-2xl font-semibold leading-snug tracking-tight">
+What you can do without leaving your browser.
+</p> <div class="mt-12 grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3"> <div> <h3 class="text-[15px] font-medium tracking-tight">Multi-provider local models</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP. Capability-aware routing with provider-aware model selection. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Multi-chat sessions</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Multiple concurrent chats with branch navigation. Persisted locally in IndexedDB / SQLite with tab-refresh awareness. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Enhanced content extraction</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Defuddle integration with smart scroll strategies plus GitHub and YouTube extraction helpers. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Text-to-speech</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Searchable voices, pitch and rate controls, per-message playback. Cross-browser voice loading. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Prompt templates</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Pre-built prompts for summarization, translation, and code help. Custom templates supported. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">File upload &amp; RAG</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> PDF, TXT, MD, DOCX support with background embedding progress. Configurable max file size. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Backup &amp; restore</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Full data snapshots via ZIP backups with versioned manifests. Restore reports partial failures. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Advanced configuration</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> Provider base URL control, selected model ref, capability checks, debug logging. </p> </div><div> <h3 class="text-[15px] font-medium tracking-tight">Privacy first</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65"> No mandatory cloud APIs. Local data storage. Open source. You control the endpoint. </p> </div> </div> </section> <section class="border-b border-border/60 py-20"> <h2 class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Get started
+</h2> <p class="mt-3 max-w-2xl text-2xl font-semibold leading-snug tracking-tight">
+Three steps from install to first chat.
+</p> <ol class="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-3"> <li> <span class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Step 1
+</span> <h3 class="mt-2 text-[15px] font-medium tracking-tight">
+Start a local provider
+</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65">
+Run Ollama, LM Studio, or llama.cpp. Note the endpoint URL.
+</p> </li> <li> <span class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Step 2
+</span> <h3 class="mt-2 text-[15px] font-medium tracking-tight">
+Install the extension
+</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65">
+Add it from the Chrome Web Store and pin it for easy access.
+</p> </li> <li> <span class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Step 3
+</span> <h3 class="mt-2 text-[15px] font-medium tracking-tight">
+Pick a model and chat
+</h3> <p class="mt-2 text-sm leading-relaxed text-foreground/65">
+Open the side panel, pick a model, chat on any website. CORS issue?
+          The setup guide covers it.
+</p> </li> </ol> </section> <section class="py-20"> <h2 class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+Stack
+</h2> <p class="mt-3 text-[15px] text-foreground/70">
+Built with
+<span class="text-foreground">React 19 · WXT · TypeScript · shadcn/ui · sql.js · Defuddle</span>.
+</p> <p class="mt-2 text-[15px] text-foreground/70">
+Endpoint privacy is yours to configure — see the
+<a class="underline decoration-border underline-offset-[3px] transition hover:decoration-foreground" href="/legal/privacy-policy/">
+privacy policy
+</a>
+for what stays local and what leaves.
+</p> </section>  </main> <footer class="mt-24 border-t border-border/60"> <div class="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"> <span>© 2026 Ollama Client · MIT · Local-first by design.</span> <div class="flex gap-4"> <a class="hover:text-foreground" href="/legal/privacy-policy/">Privacy</a> <a class="hover:text-foreground" href="https://github.com/Shishir435/ollama-client" target="_blank" rel="noopener">
+Source
+</a> </div> </div> </footer> </body></html>
