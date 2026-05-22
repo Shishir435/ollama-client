@@ -10,7 +10,7 @@ import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
 import { AlertCircle, Globe, Plus, Shield, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface ExcludedUrlsProps {
+export interface ExcludedUrlsProps {
   patterns: string[]
   onAdd: (pattern: string) => void
   onRemove: (pattern: string) => void

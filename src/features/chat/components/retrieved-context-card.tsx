@@ -21,7 +21,7 @@ export interface RetrievedChunk {
   chunkIndex?: number
 }
 
-interface RetrievedContextCardProps {
+export interface RetrievedContextCardProps {
   chunk: RetrievedChunk
   query: string
   index: number
@@ -135,7 +135,7 @@ export function RetrievedContextCard({
   )
 }
 
-interface RetrievedContextListProps {
+export interface RetrievedContextListProps {
   chunks: RetrievedChunk[]
   query: string
   sessionId?: string

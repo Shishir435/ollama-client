@@ -1,11 +1,14 @@
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { browser } from "wxt/browser"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  ConfirmActionDialog,
+  SettingsCard,
+  SettingsFormField
+} from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -17,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import {
   CheckCircle,
   Download,
@@ -47,8 +51,7 @@ export const DataMigrationSettings = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-      a.download = `ollama-client-backup-${timestamp}.zip`
+      a.download = `ollama-client-backup-${formatBackupFilenameTimestamp()}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -127,14 +130,15 @@ export const DataMigrationSettings = () => {
 
   const closeResultDialogAndReload = () => {
     setResultDialogOpen(false)
-    if (
-      importResult?.syncStorage.ok &&
-      importResult?.localStorage.ok &&
-      importResult?.database.ok &&
-      importResult?.dexie.chatDb.ok &&
-      importResult?.dexie.vectorDb.ok &&
-      importResult?.dexie.knowledgeDb.ok
-    ) {
+    // Auto-reload whenever chat-history data was restored on at least
+    // one leg. Older backups (pre-SQLite cutover) don't carry a
+    // `database.sqlite`, so requiring SQLite success would strand
+    // those users on the result dialog and force a manual reload.
+    // Vector/knowledge DB failures are also non-fatal for the reload
+    // decision — the chat-side data is the one users notice.
+    const restoredChatHistory =
+      importResult?.database.ok || importResult?.dexie.chatDb.ok
+    if (restoredChatHistory) {
       browser.runtime
         .sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
         .catch(() => {})
@@ -189,29 +193,15 @@ export const DataMigrationSettings = () => {
         </SettingsFormField>
       </div>
 
-      <AlertDialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.migration.import_confirm.title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("settings.migration.import_confirm.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isImporting}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={confirmImport}
-              disabled={isImporting}>
-              {t("common.continue")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmActionDialog
+        open={importConfirmOpen}
+        onOpenChange={setImportConfirmOpen}
+        title={t("settings.migration.import_confirm.title")}
+        description={t("settings.migration.import_confirm.description")}
+        destructive
+        busy={isImporting}
+        onConfirm={confirmImport}
+      />
 
       <AlertDialog
         open={resultDialogOpen}
@@ -287,12 +277,7 @@ export const DataMigrationSettings = () => {
 
           <AlertDialogFooter>
             <AlertDialogAction onClick={closeResultDialogAndReload}>
-              {importResult?.syncStorage.ok &&
-              importResult?.localStorage.ok &&
-              importResult?.database.ok &&
-              importResult?.dexie.chatDb.ok &&
-              importResult?.dexie.vectorDb.ok &&
-              importResult?.dexie.knowledgeDb.ok
+              {importResult?.database.ok || importResult?.dexie.chatDb.ok
                 ? t("common.reload")
                 : t("common.close")}
             </AlertDialogAction>

@@ -20,7 +20,7 @@ import {
 import { Check, ChevronsUpDown, Loader2, Mic } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface VoiceSelectorProps {
+export interface VoiceSelectorProps {
   voices: SpeechSynthesisVoice[]
   selectedVoiceURI: string | null
   onVoiceChange: (voiceURI: string) => void

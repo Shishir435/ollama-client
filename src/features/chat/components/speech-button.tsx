@@ -9,7 +9,7 @@ import {
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { Mic, MicOff } from "@/lib/lucide-icon"
 
-interface SpeakButtonProps {
+export interface SpeakButtonProps {
   text: string
 }
 

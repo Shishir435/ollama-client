@@ -1,9 +1,12 @@
 import { useTranslation } from "react-i18next"
-import { db } from "@/lib/db"
 import { jsonExporter } from "@/lib/exporters/json-exporter"
 import { markdownExporter } from "@/lib/exporters/markdown-exporter"
 import { pdfExporter } from "@/lib/exporters/pdf-exporter"
 import { textExporter } from "@/lib/exporters/text-exporter"
+import {
+  getFilesByMessageIds,
+  getMessagesBySessionOrderedByTimestamp
+} from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
 
 export const useChatExport = () => {
@@ -16,14 +19,11 @@ export const useChatExport = () => {
     // and exports are rare actions, let's just safe-fetch all messages for validity.
     // However, to save bandwidth, we could check if we are in a "paginated" state.
     // For now, ALWAYS fetch from DB to ensure export is complete.
-    const messages = await db.messages
-      .where("sessionId")
-      .equals(session.id)
-      .sortBy("timestamp")
+    const messages = await getMessagesBySessionOrderedByTimestamp(session.id)
 
     // Create map of ID to message for attaching files
     const messageKeys = messages.map((m) => m.id as number)
-    const files = await db.files.where("messageId").anyOf(messageKeys).toArray()
+    const files = await getFilesByMessageIds(messageKeys)
 
     const messagesWithFiles = messages.map((msg) => ({
       ...msg,

@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
-interface SearchScopeTabsProps {
+export interface SearchScopeTabsProps {
   value: "all" | "current"
   onValueChange: (value: "all" | "current") => void
   disabled?: boolean

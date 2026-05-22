@@ -1,0 +1,132 @@
+import { Info } from "lucide-react"
+import { useTranslation } from "react-i18next"
+
+import { Button } from "@/components/ui/button"
+import { MiniBadge } from "@/components/ui/mini-badge"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { isBetaProvider } from "@/lib/providers/registry"
+import type { ProviderConfig } from "@/lib/providers/types"
+import { cn } from "@/lib/utils"
+
+const BETA_NOTICE_TEXT =
+  "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
+
+// Status dot color is picked by the first rule that matches.
+const dotStatusRules = [
+  { test: (enabled: boolean) => !enabled, cls: "bg-muted-foreground/40" },
+  {
+    test: (_enabled: boolean, hasFailed: boolean | undefined) => hasFailed,
+    cls: "bg-status-danger"
+  },
+  {
+    test: (
+      _enabled: boolean,
+      _hasFailed: boolean | undefined,
+      isConnected: boolean | undefined
+    ) => isConnected,
+    cls: "bg-status-success"
+  }
+] as const
+
+const getStatusDotClass = (
+  enabled: boolean,
+  hasFailed: boolean | undefined,
+  isConnected: boolean | undefined
+): string =>
+  dotStatusRules.find((r) => r.test(enabled, hasFailed, isConnected))?.cls ??
+  "bg-status-warning"
+
+export interface ProviderGridProps {
+  providers: ProviderConfig[]
+  selectedId: string
+  providerHealth: ProviderHealthMap
+  manualTestStatus: { success: boolean; message: string } | null
+  onSelect: (id: string) => void
+}
+
+/**
+ * Top-of-screen picker for the active provider. Each tile shows the
+ * provider's enabled/health state via a colored dot and badges for
+ * beta status / default-provider marker.
+ *
+ * Status precedence: a manual test (only relevant to the currently
+ * selected provider) wins over the periodic auto-health result.
+ */
+export const ProviderGrid = ({
+  providers,
+  selectedId,
+  providerHealth,
+  manualTestStatus,
+  onSelect
+}: ProviderGridProps) => {
+  const { t } = useTranslation()
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {providers.map((provider) => {
+        const isSelected = selectedId === provider.id
+        const autoHealth = providerHealth[provider.id]
+        const manual = isSelected ? manualTestStatus : null
+
+        const status =
+          manual || (autoHealth ? { success: autoHealth.success } : null)
+
+        const isConnected = status?.success === true
+        const hasFailed = status?.success === false
+
+        return (
+          <Button
+            key={provider.id}
+            type="button"
+            onClick={() => onSelect(provider.id)}
+            className={cn(
+              "h-11 justify-start px-3 transition-colors",
+              isSelected
+                ? "border-primary/40 bg-accent/20"
+                : "border-border bg-card hover:bg-accent/10"
+            )}>
+            <span className="flex items-center gap-2 min-w-0">
+              <span
+                className={cn(
+                  "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                  getStatusDotClass(provider.enabled, hasFailed, isConnected)
+                )}
+              />
+
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="font-medium truncate">{provider.name}</span>
+
+                {isBetaProvider(provider.id) && (
+                  <>
+                    <MiniBadge text="Beta" />
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
+                        }>
+                        <Info className="h-3 w-3" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-xs">{BETA_NOTICE_TEXT}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </>
+                )}
+
+                {provider.id === DEFAULT_PROVIDER_ID && (
+                  <MiniBadge text={t("settings.providers.default")} />
+                )}
+              </span>
+            </span>
+          </Button>
+        )
+      })}
+    </div>
+  )
+}

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "@/lib/lucide-icon"
 import type { PromptTemplate } from "@/types"
 
-interface PromptTemplateFormProps {
+export interface PromptTemplateFormProps {
   initialValues?: Partial<PromptTemplate>
   onSubmit: (template: Omit<PromptTemplate, "createdAt" | "usageCount">) => void
   isEditing?: boolean

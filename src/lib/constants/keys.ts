@@ -18,24 +18,25 @@ export const PROVIDER_MESSAGE_KEYS = {
   EMBED_FILE_CHUNKS: "embed-file-chunks"
 }
 
+/**
+ * Legacy Ollama-named message keys.
+ *
+ * Only kept for the keys that have a string value distinct from
+ * PROVIDER_MESSAGE_KEYS — these are real backward-compatibility strings that
+ * older clients (already-open tabs during an extension upgrade) may still send.
+ *
+ * Keys whose value matched the provider-namespaced version exactly were
+ * removed; those `case` arms in the background dispatcher were dead code.
+ */
 export const LEGACY_OLLAMA_MESSAGE_KEYS = {
   GET_MODELS: "get-ollama-models",
-  CHAT_WITH_MODEL: "chat-with-model",
   STREAM_RESPONSE: "ollama-stream-response",
-  STOP_GENERATION: "stop-generation",
-  SHOW_MODEL_DETAILS: "show-model-details",
   PULL_MODEL: "OLLAMA.PULL_MODEL",
   SCRAPE_MODEL: "scrape-ollama-model",
   SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
   UPDATE_BASE_URL: "ollama-update-base-url",
   GET_LOADED_MODELS: "get-loaded-model",
-  UNLOAD_MODEL: "unload-model",
-  WARMUP_MODEL: "warmup-model",
-  DELETE_MODEL: "delete-model",
-  GET_OLLAMA_VERSION: "get-ollama-version",
-  CHECK_EMBEDDING_MODEL: "check-embedding-model",
-  PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
-  EMBED_FILE_CHUNKS: "embed-file-chunks"
+  GET_OLLAMA_VERSION: "get-ollama-version"
 }
 
 export const MESSAGE_KEYS = {
@@ -110,5 +111,14 @@ export const STORAGE_KEYS = {
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"
   },
-  SHORTCUTS: "keyboard-shortcuts"
+  SHORTCUTS: "keyboard-shortcuts",
+  CHAT_HISTORY: {
+    /**
+     * Active backend for chat history reads/writes. Set to "sqlite"
+     * after `runDexieToSQLiteMigration` succeeds. A user can force a
+     * fallback by setting this to "dexie" in extension storage as a
+     * kill switch if SQLite is misbehaving.
+     */
+    BACKEND: "chat-history-backend"
+  }
 }

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 
-interface DatabaseManagementCardProps {
+export interface DatabaseManagementCardProps {
   onRemoveDuplicates: () => void
   onClearChat: () => void
   onClearAll: () => void

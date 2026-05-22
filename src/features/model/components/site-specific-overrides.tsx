@@ -44,7 +44,7 @@ import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 // Scroll strategy options (simplified for site-specific)
 const SCROLL_STRATEGY_OPTIONS = SCROLL_STRATEGY_OPTIONS_SHORT
 
-interface SiteSpecificOverridesProps {
+export interface SiteSpecificOverridesProps {
   config: ContentExtractionConfig
   onAddSiteOverride: (pattern: string) => void
   onRemoveSiteOverride: (pattern: string) => void

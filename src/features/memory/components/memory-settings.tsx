@@ -3,22 +3,13 @@ import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import {
+  ConfirmActionDialog,
   SettingsCard,
   SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
@@ -36,6 +27,7 @@ export const MemorySettings = () => {
     true
   )
   const [isClearing, setIsClearing] = useState(false)
+  const clearDialog = useConfirmAction()
   const [stats, setStats] = useState<{
     totalVectors: number
     totalSizeMB: number
@@ -43,6 +35,7 @@ export const MemorySettings = () => {
   } | null>(null)
 
   const handleClearMemory = async () => {
+    clearDialog.closeDialog()
     setIsClearing(true)
     try {
       await clearAllVectors("chat")
@@ -110,33 +103,26 @@ export const MemorySettings = () => {
             }>
             {null}
           </SettingsFormField>
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button variant="destructive" size="sm" disabled={isClearing} />
-              }>
-              <Trash2 className="size-4 mr-2" />
-              {isClearing
-                ? t("settings.memory.clear.button_clearing")
-                : t("settings.memory.clear.button")}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("settings.memory.clear.label")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("settings.memory.clear.confirm_dialog")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearMemory}>
-                  {t("settings.memory.clear.button")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={isClearing}
+            onClick={clearDialog.openDialog}>
+            <Trash2 className="size-4 mr-2" />
+            {isClearing
+              ? t("settings.memory.clear.button_clearing")
+              : t("settings.memory.clear.button")}
+          </Button>
+          <ConfirmActionDialog
+            open={clearDialog.open}
+            onOpenChange={clearDialog.onOpenChange}
+            title={t("settings.memory.clear.label")}
+            description={t("settings.memory.clear.confirm_dialog")}
+            confirmLabel={t("settings.memory.clear.button")}
+            destructive
+            busy={isClearing}
+            onConfirm={handleClearMemory}
+          />
         </div>
       </div>
     </SettingsCard>

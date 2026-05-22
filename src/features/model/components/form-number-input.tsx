@@ -13,7 +13,7 @@ export type NumberInputValidation = Omit<
   max?: { value: number; message: string }
 }
 
-interface FormNumberInputProps {
+export interface FormNumberInputProps {
   name: string
   label: string
   icon?: LucideIcon

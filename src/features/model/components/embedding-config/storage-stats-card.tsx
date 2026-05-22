@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { SettingsCard } from "@/components/settings"
 
-interface StorageStatsCardProps {
+export interface StorageStatsCardProps {
   storageStats: {
     totalVectors: number
     totalSizeMB: number

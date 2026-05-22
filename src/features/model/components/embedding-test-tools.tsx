@@ -12,7 +12,7 @@ import {
 import { Loader2, Search, Sparkles } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface EmbeddingTestToolsProps {
+export interface EmbeddingTestToolsProps {
   modelExists: boolean
 }
 

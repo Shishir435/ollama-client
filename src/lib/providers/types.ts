@@ -8,7 +8,6 @@ import type {
 export enum ProviderType {
   OLLAMA = "ollama",
   OPENAI = "openai",
-  ANTHROPIC = "anthropic",
   CUSTOM = "custom"
 }
 
@@ -19,8 +18,7 @@ export enum ProviderId {
   VLLM = "vllm",
   LOCALAI = "localai",
   KOBOLDCPP = "koboldcpp",
-  OPENAI = "openai",
-  ANTHROPIC = "anthropic"
+  OPENAI = "openai"
 }
 
 /**

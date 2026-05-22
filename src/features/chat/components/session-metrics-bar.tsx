@@ -28,7 +28,7 @@ interface MetricItem {
   tooltipKey: string
 }
 
-interface SessionMetricsBarProps {
+export interface SessionMetricsBarProps {
   messages: ChatMessage[]
   className?: string
 }

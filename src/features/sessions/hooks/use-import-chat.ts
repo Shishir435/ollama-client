@@ -1,7 +1,7 @@
 import { useCallback } from "react"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
-import { db } from "@/lib/db"
 import { logger } from "@/lib/logger"
+import { bulkPutSessions } from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
 
 function isValidChatSession(obj: unknown): obj is ChatSession {
@@ -57,7 +57,7 @@ export const useImportChat = () => {
     }
 
     if (importedSessions.length > 0) {
-      await db.sessions.bulkPut(importedSessions)
+      await bulkPutSessions(importedSessions)
 
       chatSessionStore.setState((state) => ({
         sessions: [...importedSessions, ...state.sessions],

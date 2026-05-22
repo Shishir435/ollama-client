@@ -3,23 +3,14 @@ import { Download, RotateCcw, ThumbsUp, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  ConfirmActionDialog,
   SettingsCard,
   SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -42,6 +33,7 @@ export function FeedbackSettings() {
   )
   const [isExporting, setIsExporting] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const clearDialog = useConfirmAction()
   const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const [stats, setStats] = useState({
@@ -128,6 +120,7 @@ export function FeedbackSettings() {
   }
 
   const handleClearFeedback = async () => {
+    clearDialog.closeDialog()
     try {
       setIsClearing(true)
       await feedbackService.clearAllFeedback()
@@ -245,33 +238,26 @@ export function FeedbackSettings() {
             <Download className="h-4 w-4 mr-2" />
             {t("model.embedding_config.feedback_export_button")}
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button variant="destructive" size="sm" disabled={isClearing} />
-              }>
-              <Trash2 className="h-4 w-4 mr-2" />
-              {t("model.embedding_config.feedback_clear_button")}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("model.embedding_config.feedback_clear_confirm_title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t(
-                    "model.embedding_config.feedback_clear_confirm_description"
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearFeedback}>
-                  {t("model.embedding_config.feedback_clear_button")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={isClearing}
+            onClick={clearDialog.openDialog}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t("model.embedding_config.feedback_clear_button")}
+          </Button>
+          <ConfirmActionDialog
+            open={clearDialog.open}
+            onOpenChange={clearDialog.onOpenChange}
+            title={t("model.embedding_config.feedback_clear_confirm_title")}
+            description={t(
+              "model.embedding_config.feedback_clear_confirm_description"
+            )}
+            confirmLabel={t("model.embedding_config.feedback_clear_button")}
+            destructive
+            busy={isClearing}
+            onConfirm={handleClearFeedback}
+          />
         </div>
       </div>
     </SettingsCard>

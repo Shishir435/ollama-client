@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatExportButton } from "./chat-export-button"
 import { ChatImportButton } from "./chat-import-button"
 
-interface ChatSessionFooterProps {
+export interface ChatSessionFooterProps {
   sessionCount: number
 }
 

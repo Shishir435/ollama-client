@@ -5,7 +5,7 @@ import { ModelMenu } from "@/features/model/components/model-menu"
 import { ContextSettingsMenu } from "./context-settings-menu"
 import { InputMetrics } from "./input-metrics"
 
-interface ChatInputToolbarProps {
+export interface ChatInputToolbarProps {
   inputLength: number
   isLoading: boolean
   onFilesSelected: (files: FileList) => void

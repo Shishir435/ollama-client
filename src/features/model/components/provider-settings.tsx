@@ -28,6 +28,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { ProviderGrid } from "@/features/model/components/provider-grid"
+import { useProviderHealth } from "@/features/model/hooks/use-provider-health"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -66,16 +68,7 @@ export const ProviderSettings = () => {
   } | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Track health status for ALL providers
-  const [providerHealth, setProviderHealth] = useState<
-    Record<
-      string,
-      {
-        success: boolean
-        lastChecked: number
-      }
-    >
-  >({})
+  const providerHealth = useProviderHealth(providers)
 
   const loadProviders = useCallback(async () => {
     setLoading(true)
@@ -92,45 +85,6 @@ export const ProviderSettings = () => {
   useEffect(() => {
     loadProviders()
   }, [loadProviders])
-
-  // Auto health check for all enabled providers every 10 seconds
-  useEffect(() => {
-    const checkHealth = async () => {
-      for (const provider of providers) {
-        if (!provider.enabled) continue
-
-        try {
-          const instance = await ProviderFactory.getProviderWithConfig(provider)
-          const models = await instance.getModels()
-
-          if (models.length > 0) {
-            setProviderHealth((prev) => ({
-              ...prev,
-              [provider.id]: { success: true, lastChecked: Date.now() }
-            }))
-          } else {
-            setProviderHealth((prev) => ({
-              ...prev,
-              [provider.id]: { success: false, lastChecked: Date.now() }
-            }))
-          }
-        } catch (_error) {
-          setProviderHealth((prev) => ({
-            ...prev,
-            [provider.id]: { success: false, lastChecked: Date.now() }
-          }))
-        }
-      }
-    }
-
-    // Initial check
-    checkHealth()
-
-    // Set up interval
-    const interval = setInterval(checkHealth, 10000)
-
-    return () => clearInterval(interval)
-  }, [providers])
 
   // Reset status when switching providers
   // biome-ignore lint/correctness/useExhaustiveDependencies: We want to reset status whenever the selected provider changes
@@ -166,16 +120,25 @@ export const ProviderSettings = () => {
         models.length
       )
 
+      const displayUrl =
+        activeConfig.baseUrl ||
+        t("settings.providers.test_connection.default_url")
+
       // Treat 0 models as a connection failure - likely wrong URL or service not running
       if (models.length === 0) {
         setConnectionStatus({
           success: false,
-          message: `Connected to ${activeConfig.baseUrl || "default URL"} but found 0 models. Is the service running?`
+          message: t("settings.providers.test_connection.inline_no_models", {
+            url: displayUrl
+          })
         })
 
         toast({
-          title: "No Models Found",
-          description: `Connected to ${activeConfig.baseUrl} but no models were found. Check if the service is running correctly.`,
+          title: t("settings.providers.test_connection.no_models_title"),
+          description: t(
+            "settings.providers.test_connection.no_models_description",
+            { url: displayUrl }
+          ),
           variant: "destructive"
         })
         return
@@ -183,7 +146,10 @@ export const ProviderSettings = () => {
 
       setConnectionStatus({
         success: true,
-        message: `Successfully connected to ${activeConfig.baseUrl || "default URL"} (found ${models.length} models)`
+        message: t("settings.providers.test_connection.inline_success", {
+          url: displayUrl,
+          count: models.length
+        })
       })
 
       toast({
@@ -205,9 +171,18 @@ export const ProviderSettings = () => {
       const shouldShowCspHint =
         errorMessage.toLowerCase().includes("failed to fetch") &&
         Boolean(cspCompatibilityHint)
-      const failureMessage = shouldShowCspHint
-        ? `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}. ${cspCompatibilityHint}`
-        : `Failed to connect to ${activeConfig.baseUrl || "default URL"}: ${errorMessage}`
+      const displayUrl =
+        activeConfig.baseUrl ||
+        t("settings.providers.test_connection.default_url")
+      const failureMessage = t(
+        "settings.providers.test_connection.inline_failed",
+        {
+          url: displayUrl,
+          error: shouldShowCspHint
+            ? `${errorMessage}. ${cspCompatibilityHint}`
+            : errorMessage
+        }
+      )
 
       setConnectionStatus({
         success: false,
@@ -310,25 +285,6 @@ export const ProviderSettings = () => {
     )
   }
 
-  const dotStatusRules = [
-    { test: (e: boolean) => !e, cls: "bg-muted-foreground/40" },
-    {
-      test: (_e: boolean, h: boolean | undefined) => h,
-      cls: "bg-status-danger"
-    },
-    {
-      test: (_e: boolean, _h: boolean | undefined, c: boolean | undefined) => c,
-      cls: "bg-status-success"
-    }
-  ] as const
-  const getStatusDotClass = (
-    enabled: boolean,
-    hasFailed: boolean | undefined,
-    isConnected: boolean | undefined
-  ) =>
-    dotStatusRules.find((r) => r.test(enabled, hasFailed, isConnected))?.cls ??
-    "bg-status-warning"
-
   const headerStatusConfigs = [
     {
       test: () => !activeConfig?.enabled,
@@ -386,77 +342,13 @@ export const ProviderSettings = () => {
 
   return (
     <div className="space-y-6">
-      {/* Provider Selector with Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {providers.map((provider) => {
-          // Use auto health check status or manual test status
-          const isSelected = selectedId === provider.id
-          const autoHealth = providerHealth[provider.id]
-          const manualTest = isSelected ? connectionStatus : null
-
-          // Prefer manual test if available, otherwise use auto health
-          const healthStatus =
-            manualTest ||
-            (autoHealth
-              ? {
-                  success: autoHealth.success,
-                  message: autoHealth.success ? "Healthy" : "Unhealthy"
-                }
-              : null)
-
-          const isConnected = healthStatus?.success === true
-          const hasFailed = healthStatus?.success === false
-
-          return (
-            <Button
-              key={provider.id}
-              type="button"
-              onClick={() => setSelectedId(provider.id)}
-              className={cn(
-                "h-11 justify-start px-3 transition-colors",
-                isSelected
-                  ? "border-primary/40 bg-accent/20"
-                  : "border-border bg-card hover:bg-accent/10"
-              )}>
-              <span className="flex items-center gap-2 min-w-0">
-                <span
-                  className={cn(
-                    "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
-                    getStatusDotClass(provider.enabled, hasFailed, isConnected)
-                  )}
-                />
-
-                <span className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-medium truncate">{provider.name}</span>
-
-                  {isBetaProvider(provider.id) && (
-                    <>
-                      <MiniBadge text="Beta" />
-
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
-                          }>
-                          <Info className="h-3 w-3" />
-                        </TooltipTrigger>
-
-                        <TooltipContent>
-                          <p className="max-w-xs text-xs">{betaNoticeText}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </>
-                  )}
-
-                  {provider.id === DEFAULT_PROVIDER_ID && (
-                    <MiniBadge text={t("settings.providers.default")} />
-                  )}
-                </span>
-              </span>
-            </Button>
-          )
-        })}
-      </div>
+      <ProviderGrid
+        providers={providers}
+        selectedId={selectedId}
+        providerHealth={providerHealth}
+        manualTestStatus={connectionStatus}
+        onSelect={setSelectedId}
+      />
 
       {/* Configuration Panel */}
       {activeConfig && (

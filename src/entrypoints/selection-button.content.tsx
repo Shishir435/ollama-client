@@ -71,18 +71,35 @@ export default defineContentScript({
         container.style.position = "absolute"
         container.style.zIndex = "2147483647"
 
-        // Inline styles to match the previous look without tailwind
+        // Inline styles. The host page can't reach into our shadow tree,
+        // and our shadow tree can't see the app's `.dark` class — so dark
+        // mode is driven by `prefers-color-scheme` and surfaced via local
+        // custom properties that both themes write to.
         const style = document.createElement("style")
         style.textContent = `
+          :host {
+            --sb-bg: #f4f4f5;
+            --sb-fg: #18181b;
+            --sb-border: #e4e4e7;
+            --sb-bg-hover: #e4e4e7;
+          }
+          @media (prefers-color-scheme: dark) {
+            :host {
+              --sb-bg: #27272a;
+              --sb-fg: #fafafa;
+              --sb-border: #3f3f46;
+              --sb-bg-hover: #3f3f46;
+            }
+          }
           .selection-button {
             display: flex;
             align-items: center;
             gap: 8px;
             height: 32px;
             padding: 0 12px;
-            background: #f4f4f5;
-            color: #18181b;
-            border: 1px solid #e4e4e7;
+            background: var(--sb-bg);
+            color: var(--sb-fg);
+            border: 1px solid var(--sb-border);
             border-radius: 8px;
             font-family: system-ui, -apple-system, sans-serif;
             font-size: 12px;
@@ -94,21 +111,13 @@ export default defineContentScript({
             white-space: nowrap;
           }
           .selection-button:hover {
-            background: #e4e4e7;
+            background: var(--sb-bg-hover);
             transform: translateY(-2px);
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
           }
           .selection-button svg {
             width: 14px;
             height: 14px;
-          }
-          .dark .selection-button {
-            background: #27272a;
-            color: #fafafa;
-            border-color: #3f3f46;
-          }
-          .dark .selection-button:hover {
-            background: #3f3f46;
           }
         `
         uiContainer.append(style)

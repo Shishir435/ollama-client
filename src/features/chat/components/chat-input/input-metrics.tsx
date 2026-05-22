@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { CharCount } from "@/features/chat/components/char-count"
 
-interface InputMetricsProps {
+export interface InputMetricsProps {
   inputLength: number
 }
 

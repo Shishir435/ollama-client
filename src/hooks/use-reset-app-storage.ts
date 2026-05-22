@@ -1,10 +1,10 @@
 import { useCallback } from "react"
 
-import { db } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { dropDatabase } from "@/lib/repositories/chat-history"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 
@@ -14,7 +14,7 @@ export const useResetAppStorage = () => {
       const allKeys = getAllResetKeys()
 
       if (key === "all" || key === "CHAT_SESSIONS") {
-        await db.delete()
+        await dropDatabase()
       }
 
       if (key === "all" || key === "FEEDBACK") {

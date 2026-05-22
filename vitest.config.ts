@@ -15,10 +15,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
-        "src/**/*.tsx",
-        "src/**/types.ts",
         "src/**/*.d.ts",
-        "src/**/index.ts",
         "src/lib/lucide-icon.ts"
       ]
     }

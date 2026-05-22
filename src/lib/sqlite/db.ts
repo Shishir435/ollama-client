@@ -2,6 +2,7 @@ import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { ensureMessagesThinkingColumn } from "./migrations/add-thinking-column"
 import { SCHEMA_SQL } from "./schema"
 
 // Dynamic type for Database
@@ -106,6 +107,11 @@ export const initSQLite = async (): Promise<Database> => {
         await saveDatabaseToIndexedDB(db.export())
       }
 
+      // Idempotent per-column migrations. New databases get all columns
+      // from SCHEMA_SQL above; databases created before a column was
+      // added get the ALTER TABLE on the next open.
+      ensureMessagesThinkingColumn(db)
+
       logger.info("SQLite initialized successfully", "SQLite")
       return db
     } catch (e) {
@@ -163,9 +169,16 @@ export const run = async (
 
 // Auto-save scheduling
 let saveTimeout: NodeJS.Timeout | null = null
+const cancelPendingAutoSave = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+}
 const scheduleAutoSave = () => {
-  if (saveTimeout) clearTimeout(saveTimeout)
+  cancelPendingAutoSave()
   saveTimeout = setTimeout(async () => {
+    saveTimeout = null
     if (db) {
       try {
         await saveDatabaseToIndexedDB(db.export())
@@ -178,13 +191,29 @@ const scheduleAutoSave = () => {
 }
 
 /**
- * Manually save database to IndexedDB
+ * Force-flush any in-memory writes to IndexedDB *now*, cancelling any
+ * pending debounced auto-save. Use this at boundaries where the next
+ * operation will rely on the data being durable:
+ *
+ *   - end of a migration (before persisting "migration completed")
+ *   - before flipping `chat-history-backend` to "sqlite"
+ *   - on page/sidepanel unload
+ *
+ * No-op if no database is open yet.
  */
-export const saveDatabase = async (): Promise<void> => {
-  if (db) {
-    await saveDatabaseToIndexedDB(db.export())
-  }
+export const flushSave = async (): Promise<void> => {
+  cancelPendingAutoSave()
+  if (!db) return
+  await saveDatabaseToIndexedDB(db.export())
+  logger.info("Database flushed to IndexedDB", "SQLite")
 }
+
+/**
+ * Manually save database to IndexedDB. Alias of `flushSave` kept for
+ * existing callers (feedback-service); both cancel the pending
+ * debounce so a stale in-flight write can't clobber the explicit save.
+ */
+export const saveDatabase = flushSave
 
 /**
  * Export raw database bytes for backup
@@ -211,6 +240,90 @@ export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   await initSQLite()
   logger.info("Database imported successfully", "SQLite")
 }
+
+/**
+ * Drop the entire SQLite-backed chat database. Deletes the
+ * IndexedDB store that holds the persisted SQLite blob, then resets
+ * the in-memory singleton. The next call to `getDb()` reinitializes
+ * from scratch via `initSQLite()` -> SCHEMA_SQL.
+ *
+ * Used by the user-facing "reset all app data" flow.
+ */
+export const resetSQLiteDatabase = async (): Promise<void> => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+  if (db) {
+    try {
+      db.close()
+    } catch (e) {
+      logger.warn("Failed to close SQLite database before reset", "SQLite", {
+        error: e
+      })
+    }
+  }
+  db = null
+  initPromise = null
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => {
+      // Other tabs hold an open handle; the delete will complete once
+      // they close. Resolve optimistically — the caller usually reloads.
+      logger.warn(
+        "deleteDatabase blocked by an open connection; will complete when handles close",
+        "SQLite"
+      )
+      resolve()
+    }
+  })
+  logger.info("SQLite database reset", "SQLite")
+}
+
+/**
+ * Register a one-time unload listener that force-flushes the SQLite
+ * blob to IndexedDB before the page/sidepanel context tears down.
+ *
+ * Why this matters: every `run()` schedules a debounced auto-save 1s
+ * out (intentional, so streaming a long reply doesn't write to disk
+ * on every token). The catch is that the JS context can die in that
+ * 1-second window — the user closes the sidepanel, the browser
+ * suspends the service worker, etc. — and the in-memory writes go
+ * with it. `pagehide` and `visibilitychange=hidden` are the most
+ * reliable single-shot hooks we have for that boundary.
+ *
+ * `flushSave()` returns a Promise; both events let the browser keep
+ * the IndexedDB transaction alive long enough to complete in
+ * practice, which is all we need.
+ */
+const registerUnloadFlush = () => {
+  if (typeof globalThis === "undefined") return
+  const target = globalThis as unknown as {
+    addEventListener?: (type: string, listener: () => void) => void
+    document?: {
+      addEventListener?: (type: string, listener: () => void) => void
+      visibilityState?: string
+    }
+  }
+  const flush = () => {
+    flushSave().catch((e) => {
+      logger.warn("Unload flush failed", "SQLite", { error: e })
+    })
+  }
+  if (typeof target.addEventListener === "function") {
+    target.addEventListener("pagehide", flush)
+    target.addEventListener("beforeunload", flush)
+  }
+  if (target.document?.addEventListener) {
+    target.document.addEventListener("visibilitychange", () => {
+      if (target.document?.visibilityState === "hidden") flush()
+    })
+  }
+}
+registerUnloadFlush()
 
 const isDevelopment = process.env.NODE_ENV === "development"
 

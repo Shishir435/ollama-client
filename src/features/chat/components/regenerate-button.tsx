@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ChevronDown, RefreshCcw } from "@/lib/lucide-icon"
 
-interface RegenerateButtonProps {
+export interface RegenerateButtonProps {
   model: string
   onSelectModel: (model: string) => void
 }

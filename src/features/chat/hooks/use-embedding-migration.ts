@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react"
 
-import { db } from "@/lib/db"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
+import {
+  countMessages,
+  getMessagesPaginated
+} from "@/lib/repositories/chat-history"
 import type { Role } from "@/types"
 
 export const useEmbeddingMigration = () => {
@@ -30,7 +33,7 @@ export const useEmbeddingMigration = () => {
          */
 
         // Let's count messages in DB
-        const totalMessages = await db.messages.count()
+        const totalMessages = await countMessages()
         if (totalMessages === 0) return
 
         // Check if we have vectors with messageId
@@ -58,10 +61,7 @@ export const useEmbeddingMigration = () => {
          */
 
         while (true) {
-          const messages = await db.messages
-            .offset(offset)
-            .limit(BATCH_SIZE)
-            .toArray()
+          const messages = await getMessagesPaginated(offset, BATCH_SIZE)
 
           if (messages.length === 0) break
 

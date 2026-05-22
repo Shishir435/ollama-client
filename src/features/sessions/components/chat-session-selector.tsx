@@ -17,7 +17,7 @@ import { ChatSessionEmpty } from "./chat-session-empty"
 import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionItem } from "./chat-session-item"
 
-interface ChatSessionSelectorProps {
+export interface ChatSessionSelectorProps {
   searchTrigger?: React.ReactNode
 }
 

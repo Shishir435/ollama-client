@@ -22,7 +22,7 @@ import { SearchInput } from "./search/search-input"
 import { SearchResultGroup } from "./search/search-result-group"
 import { SearchScopeTabs } from "./search/search-scope-tabs"
 
-interface SemanticChatSearchDialogProps {
+export interface SemanticChatSearchDialogProps {
   open: boolean
   onClose: () => void
   onSelectResult?: (result: ChatSearchResult) => void

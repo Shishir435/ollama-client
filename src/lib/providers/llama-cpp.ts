@@ -1,7 +1,6 @@
 import type { ProviderModel } from "@/types"
 import { OpenAIProvider } from "./openai"
-import type { EmbeddingSupport } from "./types"
-import { ProviderId } from "./types"
+import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
 /**
  * Specialized provider for llama.cpp hybrid response format.
@@ -20,13 +19,17 @@ interface LlamaCppModel {
 
 export class LlamaCppProvider extends OpenAIProvider {
   id = ProviderId.LLAMA_CPP
-  override capabilities = {
-    ...this.capabilities,
-    modelPull: false,
-    modelUnload: false,
-    modelDelete: false,
-    providerVersion: false,
-    toolCalling: true
+
+  constructor(config: ProviderConfig) {
+    super(config)
+    this.capabilities = {
+      ...this.capabilities,
+      modelPull: false,
+      modelUnload: false,
+      modelDelete: false,
+      providerVersion: false,
+      toolCalling: true
+    }
   }
 
   async getEmbeddingSupport(): Promise<EmbeddingSupport> {

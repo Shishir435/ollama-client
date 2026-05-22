@@ -35,7 +35,7 @@ import {
   isEmbeddingModel
 } from "../lib/model-utils"
 
-interface ModelMenuProps {
+export interface ModelMenuProps {
   trigger?: React.ReactNode
   onSelectModel?: (model: string) => void
   tooltipTextContent: string

@@ -11,7 +11,7 @@ import {
 import { Paperclip } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface FileUploadButtonProps {
+export interface FileUploadButtonProps {
   onFilesSelected: (files: FileList) => void
   disabled?: boolean
   className?: string

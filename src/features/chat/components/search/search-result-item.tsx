@@ -4,7 +4,7 @@ import type { ChatSearchResult } from "@/features/chat/hooks/use-semantic-chat-s
 import { Clock, ExternalLink } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface SearchResultItemProps {
+export interface SearchResultItemProps {
   result: ChatSearchResult
   onClick: (result: ChatSearchResult) => void
 }

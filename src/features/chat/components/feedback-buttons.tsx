@@ -11,7 +11,7 @@ import {
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { cn } from "@/lib/utils"
 
-interface FeedbackButtonsProps {
+export interface FeedbackButtonsProps {
   sources?: Array<{
     id?: number | string
     score?: number

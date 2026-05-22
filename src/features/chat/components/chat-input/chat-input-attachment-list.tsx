@@ -1,7 +1,7 @@
 import { FilePreview } from "@/features/file-upload/components/file-preview"
 import type { UseFileUploadReturn } from "@/features/file-upload/hooks/use-file-upload"
 
-interface ChatInputAttachmentListProps {
+export interface ChatInputAttachmentListProps {
   processingStates: UseFileUploadReturn["processingStates"]
   onRemove: (file: File) => void
 }

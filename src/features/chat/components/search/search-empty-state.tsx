@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Search } from "@/lib/lucide-icon"
 
-interface SearchEmptyStateProps {
+export interface SearchEmptyStateProps {
   hasQuery: boolean
   hasResults: boolean
 }

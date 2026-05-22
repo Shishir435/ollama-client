@@ -44,7 +44,7 @@ import type {
 } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 
-interface ContentExtractionSettingsFormProps {
+export interface ContentExtractionSettingsFormProps {
   config: ContentExtractionConfig
   onUpdate: (updates: Partial<ContentExtractionConfig>) => void
 }

@@ -1,18 +1,21 @@
 import type { ProviderModel } from "@/types"
 import { OpenAIProvider } from "./openai"
-import type { EmbeddingSupport } from "./types"
-import { ProviderId } from "./types"
+import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
 /**
  * Specialized provider for LM Studio specific metadata.
  */
 export class LMStudioProvider extends OpenAIProvider {
   id = ProviderId.LM_STUDIO
-  override capabilities = {
-    ...this.capabilities,
-    modelPull: true,
-    modelUnload: true,
-    providerVersion: false
+
+  constructor(config: ProviderConfig) {
+    super(config)
+    this.capabilities = {
+      ...this.capabilities,
+      modelPull: true,
+      modelUnload: true,
+      providerVersion: false
+    }
   }
 
   async getEmbeddingSupport(): Promise<EmbeddingSupport> {

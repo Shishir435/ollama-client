@@ -315,4 +315,91 @@ describe("chatSessionStore", () => {
     expect(db.sessions.update).toHaveBeenCalledWith("1", { title: "New Title" })
     expect(chatSessionStore.getState().sessions[0].title).toBe("New Title")
   })
+
+  it("refreshSessions bypasses the hydrated guard and re-reads", async () => {
+    // Pre-condition: store hydrated with a single stale session, the
+    // exact shape we see after a chat-session store hydrates against
+    // a pre-reconcile SQLite that only has the new "yo" session.
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: "stale-only",
+          title: "yo",
+          messages: [],
+          createdAt: 1,
+          updatedAt: 1
+        }
+      ],
+      currentSessionId: "stale-only",
+      hasSession: true,
+      hydrated: true
+    })
+
+    // Backend now has the full 54-session set.
+    const fullSessions = [
+      { id: "stale-only", title: "yo", createdAt: 1, updatedAt: 1 },
+      { id: "older-1", title: "explain it", createdAt: 1, updatedAt: 2 },
+      { id: "older-2", title: "lol", createdAt: 1, updatedAt: 3 }
+    ]
+    vi.mocked(db.sessions.orderBy).mockReturnValue({
+      reverse: vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue(fullSessions)
+      })
+    } as any)
+    vi.mocked(db.sessions.get).mockResolvedValue(fullSessions[0])
+    vi.mocked(db.messages.where).mockReturnValue({
+      equals: vi.fn().mockReturnValue({
+        reverse: vi
+          .fn()
+          .mockReturnValue({ sortBy: vi.fn().mockResolvedValue([]) }),
+        sortBy: vi.fn().mockResolvedValue([])
+      })
+    } as any)
+    vi.mocked(db.files.where).mockReturnValue({
+      anyOf: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) })
+    } as any)
+
+    await chatSessionStore.getState().refreshSessions()
+
+    const state = chatSessionStore.getState()
+    expect(state.sessions.length).toBe(3)
+    // The previously-selected session is still in the new list, so
+    // refreshSessions preserves the selection (no surprise navigation).
+    expect(state.currentSessionId).toBe("stale-only")
+    expect(state.hasSession).toBe(true)
+  })
+
+  it("refreshSessions re-selects head when previous current is gone", async () => {
+    chatSessionStore.setState({
+      sessions: [
+        { id: "old", title: "x", messages: [], createdAt: 1, updatedAt: 1 }
+      ],
+      currentSessionId: "old",
+      hasSession: true,
+      hydrated: true
+    })
+
+    const fresh = [{ id: "fresh-head", title: "x", createdAt: 1, updatedAt: 2 }]
+    vi.mocked(db.sessions.orderBy).mockReturnValue({
+      reverse: vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue(fresh)
+      })
+    } as any)
+    vi.mocked(db.sessions.get).mockResolvedValue(fresh[0])
+    vi.mocked(db.messages.where).mockReturnValue({
+      equals: vi.fn().mockReturnValue({
+        reverse: vi
+          .fn()
+          .mockReturnValue({ sortBy: vi.fn().mockResolvedValue([]) }),
+        sortBy: vi.fn().mockResolvedValue([])
+      })
+    } as any)
+    vi.mocked(db.files.where).mockReturnValue({
+      anyOf: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) })
+    } as any)
+
+    await chatSessionStore.getState().refreshSessions()
+
+    expect(chatSessionStore.getState().currentSessionId).toBe("fresh-head")
+  })
 })

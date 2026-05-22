@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2, Search } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-interface SearchInputProps {
+export interface SearchInputProps {
   value: string
   onChange: (value: string) => void
   isSearching?: boolean

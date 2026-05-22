@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateForm } from "./prompt-template-form"
 
-interface PromptTemplateListProps {
+export interface PromptTemplateListProps {
   templates: PromptTemplate[]
   expandedId: string | null
   onToggleExpand: (id: string) => void

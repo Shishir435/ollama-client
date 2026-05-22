@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS messages (
   parentId INTEGER,
   done INTEGER DEFAULT 1,
   metrics TEXT,
+  thinking TEXT,
   FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
