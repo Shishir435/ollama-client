@@ -5,7 +5,7 @@ import { markSqliteHealthy } from "@/lib/repositories/sqlite-chat-history"
 import { SQLiteChatRepository } from "@/lib/repositories/sqlite-chat-repository"
 import { flushSave, initSQLite } from "@/lib/sqlite/db"
 
-const MIGRATION_STATUS_KEY = "sqlite_migration_status"
+export const MIGRATION_STATUS_KEY = "sqlite_migration_status"
 const MIGRATION_PROGRESS_KEY = "sqlite_migration_progress"
 
 export interface MigrationProgress {
