@@ -174,7 +174,7 @@ export const ProviderManager = {
     const mappings = await plasmoGlobalStorage.get<Record<string, string>>(
       ProviderStorageKey.MODEL_MAPPINGS
     )
-    if (!mappings || !mappings[modelId]) {
+    if (!mappings?.[modelId]) {
       return null
     }
     return { providerId: mappings[modelId] }

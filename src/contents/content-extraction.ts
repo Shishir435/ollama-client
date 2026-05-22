@@ -103,10 +103,9 @@ export const extractReadableContent = (
   }
 
   // 2. Readability if (a) forced, or (b) auto + defuddle returned thin content.
+  const readableText = current?.readableText?.trim()
   const defuddleTooShort =
-    !current ||
-    !current.readableText ||
-    current.readableText.trim().length < MIN_DEFUDDLE_FALLBACK_THRESHOLD
+    !readableText || readableText.length < MIN_DEFUDDLE_FALLBACK_THRESHOLD
 
   if (scraper === "readability" || (scraper === "auto" && defuddleTooShort)) {
     const readability = tryReadability(doc, scraper === "readability")
@@ -131,8 +130,7 @@ export const extractReadableContent = (
 
   // 3. Basic body fallback when we still have nothing useful.
   const stillTooShort =
-    !current ||
-    !current.readableText ||
+    !current?.readableText ||
     current.readableText.trim().length < MIN_READABILITY_FALLBACK_THRESHOLD
   if (stillTooShort) {
     const basic = tryBasic(doc)

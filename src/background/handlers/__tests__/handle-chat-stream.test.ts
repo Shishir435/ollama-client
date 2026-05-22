@@ -131,52 +131,50 @@ describe("handleChatStream", () => {
   })
 
   describe("timeout handling", () => {
-    it(
-      "should timeout if no data received within 60 seconds",
-      { timeout: 10000 },
-      async () => {
-        const { safePostMessage } = await import("@/background/lib/utils")
+    it("should timeout if no data received within 60 seconds", {
+      timeout: 10000
+    }, async () => {
+      const { safePostMessage } = await import("@/background/lib/utils")
 
-        let resolveRead: (value: any) => void
-        const readPromise = new Promise((resolve) => {
-          resolveRead = resolve
-        })
+      let resolveRead: (value: any) => void
+      const readPromise = new Promise((resolve) => {
+        resolveRead = resolve
+      })
 
-        const mockReader = {
-          read: vi.fn().mockReturnValue(readPromise),
-          cancel: vi.fn().mockImplementation(() => {
-            // When cancel is called, resolve the pending read to break the loop
-            resolveRead({ value: undefined, done: true })
-            return Promise.resolve()
-          })
-        }
-
-        const mockResponse = {
-          body: {
-            getReader: () => mockReader
-          }
-        } as unknown as Response
-
-        const streamPromise = handleChatStream(
-          mockResponse,
-          mockPort,
-          mockIsPortClosed
-        )
-
-        // Advance time to trigger timeout
-        await vi.advanceTimersByTimeAsync(60000)
-
-        await streamPromise
-
-        expect(mockReader.cancel).toHaveBeenCalled()
-        expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
-          error: {
-            status: 0,
-            message: "Request timeout - try regenerating"
-          }
+      const mockReader = {
+        read: vi.fn().mockReturnValue(readPromise),
+        cancel: vi.fn().mockImplementation(() => {
+          // When cancel is called, resolve the pending read to break the loop
+          resolveRead({ value: undefined, done: true })
+          return Promise.resolve()
         })
       }
-    )
+
+      const mockResponse = {
+        body: {
+          getReader: () => mockReader
+        }
+      } as unknown as Response
+
+      const streamPromise = handleChatStream(
+        mockResponse,
+        mockPort,
+        mockIsPortClosed
+      )
+
+      // Advance time to trigger timeout
+      await vi.advanceTimersByTimeAsync(60000)
+
+      await streamPromise
+
+      expect(mockReader.cancel).toHaveBeenCalled()
+      expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
+        error: {
+          status: 0,
+          message: "Request timeout - try regenerating"
+        }
+      })
+    })
 
     it("should not timeout if data is received before 60 seconds", async () => {
       const { processStreamChunk } = await import(
