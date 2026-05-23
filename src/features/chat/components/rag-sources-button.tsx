@@ -85,7 +85,7 @@ export function RAGSourcesButton({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    className="size-6 text-muted-foreground hover:text-foreground"
                     aria-label={`View ${sources.length} retrieved source${
                       sources.length > 1 ? "s" : ""
                     }`}
