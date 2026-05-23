@@ -5,6 +5,12 @@ import { defineConfig } from "astro/config"
 import rehypeMermaid from "rehype-mermaid"
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc"
 import { fileURLToPath } from "url"
+import {
+  KEYWORDS,
+  SITE_TITLE,
+  SITE_DESCRIPTION,
+  SITE_URL,
+} from "./src/seo/constants.mjs"
 
 /**
  * Astro config for the Ollama Client docs site.
@@ -19,7 +25,7 @@ import { fileURLToPath } from "url"
  * Visual specifics live in src/styles/starlight-overrides.css.
  */
 export default defineConfig({
-  site: "https://ollama-client.shishirchaurasiya.in",
+  site: SITE_URL,
   base: "/",
   trailingSlash: "ignore",
   outDir: "../docs",
@@ -65,11 +71,12 @@ export default defineConfig({
   integrations: [
     starlight({
       components: {
+        Head: "./src/components/starlight/Head.astro",
         ThemeSelect: "./src/components/starlight/ThemeSelect.astro"
       },
-      title: "Ollama Client",
-      description:
-        "Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers.",
+      favicon: "/assets/favicon.ico",
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
       social: [
         {
           icon: "github",
@@ -166,6 +173,13 @@ export default defineConfig({
         }
       ],
       head: [
+        {
+          tag: "meta",
+          attrs: {
+            name: "keywords",
+            content: KEYWORDS
+          }
+        },
         /*
          * Lazy-load mermaid.js only on pages that actually have a
          * `<pre class="mermaid">` block. Keeps the docs JS-light for
