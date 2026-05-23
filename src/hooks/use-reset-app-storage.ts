@@ -1,10 +1,10 @@
 import { useCallback } from "react"
-
+import { db as dexieDb } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { dropDatabase } from "@/lib/repositories/chat-history"
+import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 
@@ -14,7 +14,8 @@ export const useResetAppStorage = () => {
       const allKeys = getAllResetKeys()
 
       if (key === "all" || key === "CHAT_SESSIONS") {
-        await dropDatabase()
+        await dexieDb.delete()
+        await resetSQLiteDatabase()
       }
 
       if (key === "all" || key === "FEEDBACK") {
