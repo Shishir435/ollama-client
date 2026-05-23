@@ -85,7 +85,7 @@ export const OptionsIndex = () => {
       <ErrorBoundary>
         <TooltipProvider>
           <SettingsPage />
-          <Toaster />
+          <Toaster position={"top-center"} closeButton={true} />
         </TooltipProvider>
       </ErrorBoundary>
     </QueryClientProvider>
