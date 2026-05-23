@@ -88,8 +88,8 @@ export const ProviderGrid = ({
             className={cn(
               "h-11 justify-start px-3 transition-colors",
               isSelected
-                ? "border-primary/40 bg-accent/20"
-                : "border-border bg-card hover:bg-accent/10"
+                ? "border-primary/40 bg-accent/20 text-accent-foreground"
+                : "border-border bg-card text-card-foreground hover:bg-accent/10"
             )}>
             <span className="flex items-center gap-2 min-w-0">
               <span

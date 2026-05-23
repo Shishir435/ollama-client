@@ -405,3 +405,18 @@
     transform: scale(1.2);
   }
 }
+
+/* shadcn overwrites these per reinstall — keep them here so they survive */
+[data-slot="slider"],
+[data-slot="slider"] *,
+[data-slot="switch"],
+input[type="range"],
+input[type="number"] {
+  cursor: pointer;
+}
+
+[data-slot="switch"][data-disabled],
+[data-slot="slider"][data-disabled],
+[data-slot="slider"][data-disabled] * {
+  cursor: not-allowed;
+}

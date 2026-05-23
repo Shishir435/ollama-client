@@ -1,4 +1,4 @@
-import { useFormContext } from "react-hook-form"
+import { useController, useFormContext } from "react-hook-form"
 import { SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
@@ -15,6 +15,9 @@ export interface FormSliderProps {
   rightLabel?: string
 }
 
+const toNum = (v: unknown, fallback: number): number =>
+  typeof v === "number" && !Number.isNaN(v) ? v : fallback
+
 export const FormSlider = ({
   name,
   label,
@@ -25,10 +28,9 @@ export const FormSlider = ({
   leftLabel,
   rightLabel
 }: FormSliderProps) => {
-  const { watch, setValue } = useFormContext()
-  const value = watch(name)
-  const safeValue =
-    typeof value === "number" && !Number.isNaN(value) ? value : min
+  const { control } = useFormContext()
+  const { field } = useController({ control, name })
+  const safeValue = toNum(field.value, min)
 
   return (
     <SettingsFormField
@@ -51,9 +53,7 @@ export const FormSlider = ({
         step={step}
         value={[safeValue]}
         onValueChange={(value) =>
-          setValue(name, Array.isArray(value) ? value[0] : value, {
-            shouldValidate: true
-          })
+          field.onChange(Array.isArray(value) ? value[0] : value)
         }
         className="py-2"
       />

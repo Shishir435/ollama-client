@@ -219,8 +219,8 @@ const ContentExtractionSettingsForm = ({
                 className={cn(
                   "group relative flex items-start gap-3 h-auto w-full min-w-0 shrink p-4 text-left whitespace-normal transition-all hover:border-accent-foreground/20 hover:bg-accent/50",
                   isSelected
-                    ? "border-border"
-                    : "border-primary bg-accent/30 ring-1 ring-primary shadow-xs"
+                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                    : "border-border bg-accent/30 text-accent-foreground shadow-xs"
                 )}>
                 <span
                   className={cn(
