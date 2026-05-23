@@ -11,14 +11,10 @@ const docFiles = import.meta.glob<MarkdownModule>(
 )
 
 const pages = Object.fromEntries(
-  Object.entries(docFiles).map(([path, mod]) => {
     const slug = path
       .replace("/src/content/docs/", "")
-      .replace(/\/index\.md$/, "")
-      .replace(/\.md$/, "")
-    const { title, description } = mod.frontmatter
-    return [slug, { title, description: description ?? "" }]
-  }),
+      .replace(/\/index\.mdx?$/, "")
+      .replace(/\.mdx?$/, "")
 )
 
 pages.index = {
