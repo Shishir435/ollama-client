@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/tooltip"
 import { openOptionsInTab } from "@/lib/browser-api"
 import { Settings } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 
 export const SettingsButton = ({
   showText = true,
@@ -36,7 +37,7 @@ export const SettingsButton = ({
           <Button
             variant={variant}
             size={size}
-            className={className}
+            className={cn(className)}
             onClick={() => {
               void openOptionsInTab()
             }}

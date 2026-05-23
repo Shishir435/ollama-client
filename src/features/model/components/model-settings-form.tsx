@@ -1,7 +1,7 @@
-import { useEffect } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-
+import { toast } from "sonner"
 import { SettingsCard } from "@/components/settings"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
@@ -20,7 +20,6 @@ import {
   fieldValidations
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
-import { useSyncDebouncedValue } from "@/hooks/use-sync-debounced-value"
 import { Settings } from "@/lib/lucide-icon"
 
 export const ModelSettingsForm = () => {
@@ -45,23 +44,9 @@ export const ModelSettingsForm = () => {
     mode: "onChange"
   })
 
-  const watchedValues = methods.watch()
+  const formSyncedRef = useRef(false)
 
-  // Debounce all form values
-  const debouncedValues = {
-    system: useDebounce(watchedValues.system, 500),
-    temperature: useDebounce(watchedValues.temperature, 500),
-    top_k: useDebounce(watchedValues.top_k, 500),
-    top_p: useDebounce(watchedValues.top_p, 500),
-    min_p: useDebounce(watchedValues.min_p, 500),
-    seed: useDebounce(watchedValues.seed, 500),
-    num_ctx: useDebounce(watchedValues.num_ctx, 500),
-    num_predict: useDebounce(watchedValues.num_predict, 500),
-    repeat_penalty: useDebounce(watchedValues.repeat_penalty, 500),
-    repeat_last_n: useDebounce(watchedValues.repeat_last_n, 500)
-  }
-
-  // Sync form when config or model changes externally
+  // Sync form when config changes externally (storage loaded, model switched)
   useEffect(() => {
     methods.reset({
       system: config.system,
@@ -75,77 +60,95 @@ export const ModelSettingsForm = () => {
       repeat_penalty: config.repeat_penalty,
       repeat_last_n: config.repeat_last_n
     } as FormValues)
+    formSyncedRef.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, methods.reset])
 
-  // Sync debounced values to storage
-  useSyncDebouncedValue(
-    "system",
-    debouncedValues.system,
-    config.system,
-    updateConfig
+  // Watch form fields for debounced auto-save
+  const watchedSystem = methods.watch("system")
+  const watchedTemperature = methods.watch("temperature")
+  const watchedTopK = methods.watch("top_k")
+  const watchedTopP = methods.watch("top_p")
+  const watchedMinP = methods.watch("min_p")
+  const watchedSeed = methods.watch("seed")
+  const watchedNumCtx = methods.watch("num_ctx")
+  const watchedNumPredict = methods.watch("num_predict")
+  const watchedRepeatPenalty = methods.watch("repeat_penalty")
+  const watchedRepeatLastN = methods.watch("repeat_last_n")
+
+  const debouncedValues = useDebounce(
+    useMemo(
+      () => ({
+        system: watchedSystem,
+        temperature: watchedTemperature,
+        top_k: watchedTopK,
+        top_p: watchedTopP,
+        min_p: watchedMinP,
+        seed: watchedSeed,
+        num_ctx: watchedNumCtx,
+        num_predict: watchedNumPredict,
+        repeat_penalty: watchedRepeatPenalty,
+        repeat_last_n: watchedRepeatLastN
+      }),
+      [
+        watchedSystem,
+        watchedTemperature,
+        watchedTopK,
+        watchedTopP,
+        watchedMinP,
+        watchedSeed,
+        watchedNumCtx,
+        watchedNumPredict,
+        watchedRepeatPenalty,
+        watchedRepeatLastN
+      ]
+    ),
+    500
   )
-  useSyncDebouncedValue(
-    "temperature",
-    debouncedValues.temperature,
-    config.temperature,
-    updateConfig
-  )
-  useSyncDebouncedValue(
-    "top_k",
-    debouncedValues.top_k,
-    config.top_k,
-    updateConfig,
-    fieldValidations.top_k
-  )
-  useSyncDebouncedValue(
-    "top_p",
-    debouncedValues.top_p,
-    config.top_p,
-    updateConfig
-  )
-  useSyncDebouncedValue(
-    "min_p",
-    debouncedValues.min_p,
-    config.min_p,
-    updateConfig,
-    fieldValidations.min_p
-  )
-  useSyncDebouncedValue(
-    "seed",
-    debouncedValues.seed,
-    config.seed,
-    updateConfig,
-    fieldValidations.seed
-  )
-  useSyncDebouncedValue(
-    "num_ctx",
-    debouncedValues.num_ctx,
-    config.num_ctx,
-    updateConfig,
-    fieldValidations.num_ctx
-  )
-  useSyncDebouncedValue(
-    "num_predict",
-    debouncedValues.num_predict,
-    config.num_predict,
-    updateConfig,
-    fieldValidations.num_predict
-  )
-  useSyncDebouncedValue(
-    "repeat_penalty",
-    debouncedValues.repeat_penalty,
-    config.repeat_penalty,
-    updateConfig,
-    fieldValidations.repeat_penalty
-  )
-  useSyncDebouncedValue(
-    "repeat_last_n",
-    debouncedValues.repeat_last_n,
-    config.repeat_last_n,
-    updateConfig,
-    fieldValidations.repeat_last_n
-  )
+
+  // Save debounced form changes to storage
+  useEffect(() => {
+    if (!formSyncedRef.current) return
+
+    // Fast path: check if any debounced value differs from config
+    const keys: (keyof FormValues)[] = [
+      "system",
+      "temperature",
+      "top_k",
+      "top_p",
+      "min_p",
+      "seed",
+      "num_ctx",
+      "num_predict",
+      "repeat_penalty",
+      "repeat_last_n"
+    ]
+
+    const hasAnyChange = keys.some(
+      (k) => debouncedValues[k] !== config[k as keyof typeof config]
+    )
+    if (!hasAnyChange) return
+
+    const currentValues = methods.getValues()
+    let hasChanges = false
+    const updates: Partial<FormValues> = {}
+
+    for (const key of keys) {
+      const formVal = currentValues[key]
+      if (formVal === config[key as keyof typeof config]) continue
+
+      const validation = fieldValidations[key]
+      if (validation && !validation(formVal)) continue
+
+      Object.assign(updates, { [key]: formVal })
+      hasChanges = true
+    }
+
+    if (hasChanges) {
+      updateConfig(updates as Partial<typeof config>)
+      toast.success("Saved", { duration: 2000 })
+    }
+  }, [debouncedValues, config, updateConfig, methods])
 
   if (!selectedModel) {
     return (

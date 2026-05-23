@@ -64,6 +64,9 @@ export default defineConfig({
   },
   integrations: [
     starlight({
+      components: {
+        ThemeSelect: "./src/components/starlight/ThemeSelect.astro"
+      },
       title: "Ollama Client",
       description:
         "Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers.",

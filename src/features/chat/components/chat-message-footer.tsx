@@ -27,7 +27,6 @@ import {
   FileText,
   GitFork,
   MoreHorizontal,
-  SquarePen,
   Trash2
 } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
@@ -127,16 +126,17 @@ export const ChatMessageFooter = ({
   return (
     <div
       className={
-        "mt-3 flex w-full items-center gap-3 " +
+        "flex w-full items-center gap-3 " +
         (isUser ? "flex-row-reverse" : "flex-row")
       }>
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5">
+        <div className="flex items-center gap-0.5 rounded-full px-1 py-0.5">
           <Button
             variant="ghost"
+            aria-label="previous"
             size="icon"
-            className="h-5 w-5 rounded-full"
+            className="size-5 rounded-full"
             disabled={siblingIndex <= 0}
             onClick={() => {
               if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
@@ -148,8 +148,9 @@ export const ChatMessageFooter = ({
           </span>
           <Button
             variant="ghost"
+            aria-label="next"
             size="icon"
-            className="h-5 w-5 rounded-full"
+            className="size-5 rounded-full"
             disabled={siblingIndex >= siblingIds.length - 1}
             onClick={() => {
               if (siblingIndex < siblingIds.length - 1)
@@ -161,7 +162,7 @@ export const ChatMessageFooter = ({
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1.5 rounded-full px-2 py-1 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex items-center gap-1.5 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
@@ -187,12 +188,13 @@ export const ChatMessageFooter = ({
             />
           )}
 
-        {onEdit && (
+        {onEdit && isUser && (
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
                   variant="ghost"
+                  aria-label="edit"
                   size="icon"
                   className="size-8"
                   onClick={onEdit}
@@ -201,11 +203,7 @@ export const ChatMessageFooter = ({
                   }
                 />
               }>
-              {isUser ? (
-                <GitFork className="size-3.5" />
-              ) : (
-                <SquarePen className="size-3.5" />
-              )}
+              <GitFork className="size-3.5" />
             </TooltipTrigger>
             <TooltipContent>
               {isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
@@ -238,7 +236,7 @@ export const ChatMessageFooter = ({
                 size="icon"
                 className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 aria-label={t("chat.actions.more")}>
-                <MoreHorizontal className="size-3" />
+                <MoreHorizontal className="size-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>

@@ -14,7 +14,9 @@ export const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard
+      .writeText(text)
+      .catch((err) => console.error(err))
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -24,16 +26,17 @@ export const CopyButton = ({ text }: { text: string }) => {
       <TooltipTrigger
         render={
           <Button
+            aria-label="copy"
             size="icon"
             variant="ghost"
-            className="size-7"
+            className="size-4"
             onClick={handleCopy}
           />
         }>
         {copied ? (
-          <Check size={14} className="text-status-success" />
+          <Check className="size-3.5 text-status-success" />
         ) : (
-          <Copy size={14} />
+          <Copy className="size-3.5" />
         )}
       </TooltipTrigger>
       <TooltipContent>

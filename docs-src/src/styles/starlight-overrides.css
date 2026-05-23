@@ -39,10 +39,10 @@
   --sl-color-gray-7: oklch(0.967 0.001 286.375); /* muted / surface-2     */
   --sl-color-black: oklch(1 0 0); /* page background on light             */
 
-  /* Brand accent — extension's primary blue. */
-  --sl-color-accent-low: oklch(0.95 0.04 242 / 0.5);
-  --sl-color-accent: oklch(0.5 0.134 242.749);
-  --sl-color-accent-high: oklch(0.42 0.13 242.749);
+  /* Brand accent — zinc hue, slightly elevated chroma for visibility. */
+  --sl-color-accent-low: oklch(0.967 0.003 286.375 / 0.5);
+  --sl-color-accent: oklch(0.37 0.013 285.805);
+  --sl-color-accent-high: oklch(0.274 0.006 286.033);
 
   /* Spacing & radii */
   --sl-content-width: 48rem; /* 768px — shadcn-narrow prose column        */
@@ -66,9 +66,9 @@
   --sl-color-gray-7: oklch(0.18 0.005 285);
   --sl-color-black: oklch(0.141 0.005 285.823); /* zinc-950 canvas       */
 
-  --sl-color-accent-low: oklch(0.3 0.08 240 / 0.5);
-  --sl-color-accent: oklch(0.685 0.169 237.323);
-  --sl-color-accent-high: oklch(0.828 0.111 230.318);
+  --sl-color-accent-low: oklch(0.274 0.006 286.033 / 0.5);
+  --sl-color-accent: oklch(0.552 0.016 285.938);
+  --sl-color-accent-high: oklch(0.705 0.015 286.067);
 }
 
 /* ---------- Typography --------------------------------------------------- */

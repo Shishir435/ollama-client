@@ -34,13 +34,11 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
               }
             />
           }>
-          <div className="relative size-[1.2rem]">
+          <div className="relative size-3">
             <Sun className="absolute inset-0 size-full rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute inset-0 size-full rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </div>
-          {showText && (
-            <span className="-translate-y-0.5 capitalize">{theme}</span>
-          )}
+          {showText && <span className="capitalize">{theme}</span>}
         </TooltipTrigger>
         <TooltipContent side="top">{t("common.theme.toggle")}</TooltipContent>
       </Tooltip>

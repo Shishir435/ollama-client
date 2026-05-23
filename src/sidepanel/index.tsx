@@ -38,7 +38,7 @@ const IndexSidePanel = () => {
       <ErrorBoundary>
         <TooltipProvider>
           <Chat />
-          <Toaster />
+          <Toaster position={"top-center"} closeButton={true} />
         </TooltipProvider>
       </ErrorBoundary>
     </QueryClientProvider>
