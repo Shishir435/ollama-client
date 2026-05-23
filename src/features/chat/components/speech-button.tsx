@@ -41,7 +41,11 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
             type="button"
           />
         }>
-        {speaking ? <MicOff className="text-destructive" /> : <Mic />}
+        {speaking ? (
+          <MicOff className="size-3.5 text-destructive" />
+        ) : (
+          <Mic className="size-3.5" />
+        )}
       </TooltipTrigger>
       <TooltipContent>{getLabel()}</TooltipContent>
     </Tooltip>

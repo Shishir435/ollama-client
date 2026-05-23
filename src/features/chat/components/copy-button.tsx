@@ -34,7 +34,11 @@ export const CopyButton = ({ text }: { text: string }) => {
             onClick={handleCopy}
           />
         }>
-        {copied ? <Check className="text-status-success" /> : <Copy />}
+        {copied ? (
+          <Check className="size-3.5 text-status-success" />
+        ) : (
+          <Copy className="size-3.5" />
+        )}
       </TooltipTrigger>
       <TooltipContent>
         {copied ? t("chat.actions.copied") : t("chat.actions.copy")}

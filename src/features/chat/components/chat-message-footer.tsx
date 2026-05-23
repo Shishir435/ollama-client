@@ -162,7 +162,7 @@ export const ChatMessageFooter = ({
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1 rounded-full px-1 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex items-center gap-1.5 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
@@ -236,7 +236,7 @@ export const ChatMessageFooter = ({
                 size="icon"
                 className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 aria-label={t("chat.actions.more")}>
-                <MoreHorizontal className="size-3" />
+                <MoreHorizontal className="size-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>
