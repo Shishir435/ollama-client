@@ -11,8 +11,8 @@ export class SQLiteChatRepository implements ChatRepository {
       [
         session.id,
         session.title || null,
-        session.modelId,
-        session.currentLeafId || null,
+        session.modelId ?? null,
+        session.currentLeafId ?? null,
         session.createdAt,
         session.updatedAt
       ]

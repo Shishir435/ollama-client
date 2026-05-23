@@ -48,7 +48,7 @@ import * as sqliteRepo from "@/lib/repositories/sqlite-chat-history"
  * idempotent migration to bring SQLite up to parity.
  */
 export const useSQLiteMigration = () => {
-  const { toast } = useToast()
+  const { toast, update } = useToast()
   const hasRun = useRef(false)
 
   useEffect(() => {
@@ -111,7 +111,21 @@ export const useSQLiteMigration = () => {
             return
           }
 
-          const { dismiss } = toast({
+          // If the status says "completed" but a split was detected,
+          // clear the flag so runDexieToSQLiteMigration doesn't
+          // immediately return without doing any work.
+          if (status.status === "completed") {
+            logger.info(
+              "Clearing stale completed flag to re-run migration after split",
+              "Migration"
+            )
+            const { plasmoGlobalStorage } = await import(
+              "@/lib/plasmo-global-storage"
+            )
+            await plasmoGlobalStorage.set("sqlite_migration_status", "pending")
+          }
+
+          const { dismiss: dismissProgress, id } = toast({
             title: "Upgrading database",
             description: "Migrating to SQLite for better performance...",
             duration: Number.POSITIVE_INFINITY
@@ -120,15 +134,14 @@ export const useSQLiteMigration = () => {
           logger.info("Starting automatic SQLite migration", "Migration")
 
           await runDexieToSQLiteMigration((progress: MigrationProgress) => {
-            dismiss()
-            toast({
+            update(id, {
               title: "Upgrading database",
               description: `Progress: ${progress.completedSessions}/${progress.totalSessions} sessions`,
               duration: Number.POSITIVE_INFINITY
             })
           })
 
-          dismiss()
+          dismissProgress()
           toast({
             title: "Database upgraded",
             description: "Your data is now backed by SQLite.",
@@ -173,7 +186,7 @@ export const useSQLiteMigration = () => {
             "Migration"
           )
 
-          const { dismiss } = toast({
+          const { dismiss: dismissProgress, id } = toast({
             title: "Restoring chat history",
             description: "Re-importing messages into SQLite...",
             duration: Number.POSITIVE_INFINITY
@@ -188,15 +201,14 @@ export const useSQLiteMigration = () => {
           await plasmoGlobalStorage.set("sqlite_migration_status", "pending")
 
           await runDexieToSQLiteMigration((progress: MigrationProgress) => {
-            dismiss()
-            toast({
+            update(id, {
               title: "Restoring chat history",
               description: `Progress: ${progress.completedSessions}/${progress.totalSessions} sessions`,
               duration: Number.POSITIVE_INFINITY
             })
           })
 
-          dismiss()
+          dismissProgress()
 
           // The chat-session store almost certainly hydrated against
           // the pre-reconcile SQLite (1 stale "yo" session in the
@@ -242,5 +254,5 @@ export const useSQLiteMigration = () => {
     }
 
     checkAndRunMigration()
-  }, [toast])
+  }, [toast, update])
 }
