@@ -6,7 +6,7 @@ type MarkdownModule = {
 }
 
 const docFiles = import.meta.glob<MarkdownModule>(
-  "/src/content/docs/**/*.md",
+  "/src/content/docs/**/*.{md,mdx}",
   { eager: true },
 )
 
