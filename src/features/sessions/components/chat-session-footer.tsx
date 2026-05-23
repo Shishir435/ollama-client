@@ -16,17 +16,9 @@ export const ChatSessionFooter = ({ sessionCount }: ChatSessionFooterProps) => {
     <>
       <div className="border-t border-sidebar-border p-2">
         <div className="flex items-center justify-center gap-2">
-          <div className="flex flex-1 items-center rounded-lg bg-sidebar-accent/80 p-1 transition-all duration-200 hover:bg-sidebar-accent">
-            <SettingsButton />
-          </div>
-
-          <div className="flex flex-1 items-center rounded-lg bg-sidebar-accent/80 p-1 transition-all duration-200 hover:bg-sidebar-accent">
-            <BugReportIcon />
-          </div>
-
-          <div className="flex flex-1 items-center rounded-lg bg-sidebar-accent/80 p-1 transition-all duration-200 hover:bg-sidebar-accent">
-            <ThemeToggle />
-          </div>
+          <SettingsButton />
+          <BugReportIcon />
+          <ThemeToggle />
         </div>
       </div>
 
