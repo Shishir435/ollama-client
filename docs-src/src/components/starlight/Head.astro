@@ -1,0 +1,35 @@
+---
+import { SITE_URL } from "@/seo/constants.mjs"
+
+const { head, id: slug, entry, siteTitle, lastUpdated, lang } =
+  Astro.locals.starlightRoute
+
+const base = Astro.site?.toString() ?? SITE_URL
+const site = base.replace(/\/$/, "")
+const ogUrl = `${site}/og/${slug}.png`
+const pageUrl = `${site}/${slug}/`
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  name: entry.data.title,
+  description: entry.data.description,
+  url: pageUrl,
+  ...(lastUpdated && { dateModified: lastUpdated.toISOString() }),
+  inLanguage: lang,
+  isPartOf: {
+    "@type": "WebSite",
+    name: siteTitle,
+    url: site,
+  },
+}
+---
+
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+<meta property="og:image" content={ogUrl} />
+<meta property="og:image:alt" content={entry.data.title} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:image" content={ogUrl} />
+<meta name="twitter:image:alt" content={entry.data.title} />
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

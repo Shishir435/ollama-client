@@ -1,14 +1,14 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro"
+import { LANDING_TITLE, LANDING_DESCRIPTION, SITE_TITLE } from "@/seo/constants.mjs"
 
-const title = "Ollama Client — Local AI chat in your browser"
-const description =
-  "Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers. Local-first by design."
+const title = LANDING_TITLE
+const description = LANDING_DESCRIPTION
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Ollama Client",
+  name: SITE_TITLE,
   description,
   applicationCategory: "BrowserApplication",
   operatingSystem: "Chrome",
