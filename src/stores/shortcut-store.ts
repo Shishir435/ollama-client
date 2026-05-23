@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export type ShortcutAction =
   | "newChat"
@@ -223,6 +224,44 @@ export const useShortcutStore = create<ShortcutState>()(
     }),
     {
       name: STORAGE_KEYS.SHORTCUTS,
+      /*
+       * Persist through `plasmoGlobalStorage` (chrome.storage.sync)
+       * rather than Zustand's default `window.localStorage`. Three
+       * reasons this matters in an extension:
+       *
+       *   1. window.localStorage is scoped per extension surface --
+       *      values written from the options page aren't visible
+       *      from the sidepanel or content scripts, so a user's
+       *      custom keybinding doesn't take effect in the chat UI.
+       *   2. window.localStorage doesn't exist in the background
+       *      service worker context, so any code path that touches
+       *      the store from there would throw on load.
+       *   3. backup / export / "reset all data" all operate on
+       *      chrome.storage. Shortcuts saved to localStorage are
+       *      invisible to those flows.
+       *
+       * Mirrors the storage adapter pattern used by `theme.ts`.
+       */
+      storage: {
+        getItem: async (name) => {
+          const value = await plasmoGlobalStorage.get(name)
+          if (value == null) return null
+          if (typeof value === "string") {
+            try {
+              return JSON.parse(value)
+            } catch {
+              return null
+            }
+          }
+          return value as unknown as ReturnType<typeof JSON.parse>
+        },
+        setItem: async (name, value) => {
+          await plasmoGlobalStorage.set(name, value)
+        },
+        removeItem: async (name) => {
+          await plasmoGlobalStorage.remove(name)
+        }
+      },
       // Merge persisted shortcuts with defaults to handle schema migrations
       // This ensures new shortcuts and fields (like category, description) are always present
       merge: (persisted, current) => {

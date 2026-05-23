@@ -1,5 +1,9 @@
-import type { RegisterOptions } from "react-hook-form"
-import { useFormContext } from "react-hook-form"
+import { useId } from "react"
+import {
+  type RegisterOptions,
+  useController,
+  useFormContext
+} from "react-hook-form"
 
 import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -24,6 +28,25 @@ export interface FormNumberInputProps {
   className?: string
 }
 
+/**
+ * Controlled number input bound to react-hook-form via `useController`.
+ *
+ * Why not `register()`: the shadcn `Input` we render here is a thin
+ * wrapper around `@base-ui/react/input`, which is a *controlled*
+ * primitive. Spread-registering an `onChange` handler from RHF does
+ * not propagate through Base UI's internal value flow, so the form
+ * state never sees user input -- the field looks live but never
+ * saves. The slider had the same issue and was fixed earlier by
+ * moving to `useController`; same fix here.
+ *
+ * Parsing rules:
+ *   - empty string -> undefined (treated as "no change" by the
+ *     parent's debounced save, which only writes through validated
+ *     numeric updates).
+ *   - non-numeric -> NaN, which the parent's per-field validation
+ *     skips. Avoids spurious writes during in-progress typing
+ *     (e.g. "-" while typing "-1").
+ */
 export const FormNumberInput = ({
   name,
   label,
@@ -34,16 +57,18 @@ export const FormNumberInput = ({
   validation,
   className = "text-center"
 }: FormNumberInputProps) => {
-  const {
-    register,
-    formState: { errors }
-  } = useFormContext()
-
-  const fieldErrors = errors[name as keyof typeof errors]
+  const { control } = useFormContext()
+  const reactId = useId()
+  const inputId = `${name}-${reactId}`
+  const { field, fieldState } = useController({
+    control,
+    name,
+    rules: validation as RegisterOptions
+  })
 
   return (
     <SettingsFormField
-      htmlFor={name}
+      htmlFor={inputId}
       label={
         Icon ? (
           <div className="flex items-center gap-2">
@@ -54,17 +79,33 @@ export const FormNumberInput = ({
           label
         )
       }
-      error={fieldErrors ? (fieldErrors.message as string) : undefined}>
+      error={fieldState.error?.message}>
       <Input
-        id={name}
+        id={inputId}
+        name={field.name}
+        ref={field.ref}
         type="number"
         min={min}
         max={max}
         step={step}
-        {...register(name, {
-          ...validation,
-          valueAsNumber: true
-        } as RegisterOptions)}
+        // `field.value` is whatever the form state currently holds
+        // (number | undefined). Render as empty string for undefined
+        // to keep the input uncontrolled-feeling while staying bound.
+        value={
+          field.value === undefined || field.value === null
+            ? ""
+            : (field.value as number | string)
+        }
+        onChange={(event) => {
+          const raw = event.currentTarget.value
+          if (raw === "") {
+            field.onChange(undefined)
+            return
+          }
+          const parsed = Number(raw)
+          field.onChange(Number.isNaN(parsed) ? raw : parsed)
+        }}
+        onBlur={field.onBlur}
         className={className}
       />
     </SettingsFormField>
