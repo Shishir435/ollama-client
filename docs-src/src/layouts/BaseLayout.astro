@@ -50,9 +50,11 @@ const ogUrl = new URL(ogPath, site)
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:alt" content={title} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:image" content={ogUrl} />
+    <meta name="twitter:image:alt" content={title} />
 
     <link
       rel="icon"
