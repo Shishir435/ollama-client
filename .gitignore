@@ -67,4 +67,4 @@ docs-src/.astro/
 .commandcode
 
 # docs output (hosted on Vercel, not GitHub Pages)
-docs/
+docs
