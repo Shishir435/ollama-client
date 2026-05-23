@@ -1,8 +1,5 @@
 import type { ChromePort, NetworkError, PortStatusFunction } from "@/types"
-import {
-  clearAbortController,
-  setAbortController
-} from "./abort-controller-registry"
+import { clearAbortController } from "./abort-controller-registry"
 import { safePostMessage } from "./utils"
 
 type HandlerFunction<T> = (
@@ -20,24 +17,20 @@ interface ErrorContext {
 
 /**
  * Higher-order function to wrap background message handlers with:
- * 1. Automatic AbortController lifecycle management
- * 2. Standardized error handling (AbortError vs Generic Error)
- * 3. Port closed checks
- * 4. Contextual error logging
+ * 1. Standardized error handling (AbortError vs Generic Error)
+ * 2. Port closed checks
+ * 3. Contextual error logging
+ *
+ * Each handler manages its own AbortController lifecycle.
+ * The finally block here clears any leftover registration as a
+ * safety net.
  */
 export const withErrorContext = <T>(
   handler: HandlerFunction<T>,
   context: ErrorContext
 ) => {
   return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
-    // 1. Setup AbortController
-    // We assume the handler might need one. Even if it doesn't use it,
-    // setting it up ensures consistency for cancellable operations.
-    const ac = new AbortController()
-    setAbortController(port.name, ac)
-
     try {
-      // 2. Execute the handler
       await handler(msg, port, isPortClosed)
     } catch (err) {
       const error = err as NetworkError

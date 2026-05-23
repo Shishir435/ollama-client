@@ -11,13 +11,21 @@ import type { ChatMessage, ChatWithModelMessage, ModelConfigMap } from "@/types"
  * Limits the number of messages sent to the model to stay within context window constraints.
  * Specifically targets Small Language Models (SLMs) like those in the 135M-0.6B parameter range
  * which typically have very shallow context windows.
+ *
+ * When truncating, the system prompt (if present) is preserved so the user-configured
+ * behaviour is not silently lost.
  */
 const limitMessagesForModel = (
   model: string,
   messages: ChatMessage[]
 ): ChatMessage[] => {
   if (model.includes("135m") || model.includes("0.6b")) {
-    return messages.slice(-5) // Only last 5 messages for small models
+    const systemMsg = messages.find((m) => m.role === "system")
+    const nonSystem = messages.filter((m) => m.role !== "system")
+    const limit = systemMsg ? 4 : 5
+    const result = nonSystem.slice(-limit)
+    if (systemMsg) result.unshift(systemMsg)
+    return result
   }
   return messages
 }

@@ -156,7 +156,6 @@ export const ProviderManager = {
 
       if (id === ProviderId.OLLAMA && updates.baseUrl) {
         try {
-          const { LEGACY_STORAGE_KEYS } = await import("@/lib/constants")
           await plasmoGlobalStorage.set(
             LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL,
             updates.baseUrl
