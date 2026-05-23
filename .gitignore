@@ -65,3 +65,6 @@ docs-src/.astro/
 *.diff
 
 .commandcode
+
+# docs output (hosted on Vercel, not GitHub Pages)
+docs/
