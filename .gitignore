@@ -54,7 +54,7 @@ analysis/stats.html
 src/i18n/resources.ts
 
 # generated at build time by starlight-typedoc from the extension's
-# TypeScript source. Regenerated on every `pnpm docs:build`.
+# TypeScript source. Regenerated on every `pnpm docs/:build`.
 docs-src/src/content/docs/reference/
 
 # astro / starlight build caches
@@ -64,4 +64,6 @@ docs-src/.astro/
 *.msg
 *.diff
 
-.commandcode
+.commandcode/
+
+docs/
