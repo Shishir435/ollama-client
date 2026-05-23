@@ -1,12 +1,12 @@
 ---
-import { SITE_URL } from "@/seo/constants.mjs"
+import { SITE_URL, OG_IMAGE_VERSION } from "@/seo/constants.mjs"
 
 const { head, id: slug, entry, siteTitle, lastUpdated, lang } =
   Astro.locals.starlightRoute
 
 const base = Astro.site?.toString() ?? SITE_URL
 const site = base.replace(/\/$/, "")
-const ogUrl = `${site}/og/${slug}.png`
+const ogUrl = `${site}/og/${slug}.png?${OG_IMAGE_VERSION}`
 const pageUrl = `${site}/${slug}/`
 
 const jsonLd = {

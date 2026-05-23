@@ -9,5 +9,7 @@ export const LANDING_TITLE = "Ollama Client — Local AI chat in your browser"
 
 export const LANDING_DESCRIPTION = `${SITE_DESCRIPTION} Local-first by design.`
 
+export const OG_IMAGE_VERSION = "v1"
+
 export const KEYWORDS =
   "ollama, local llm, browser extension, chrome extension, firefox extension, side panel, rag, embeddings, local-first, privacy, lm studio, llama.cpp, openai compatible, open source"

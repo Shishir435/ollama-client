@@ -10,7 +10,7 @@
 import "@fontsource-variable/geist"
 import "@fontsource-variable/geist-mono"
 import "@/styles/globals.css"
-import { KEYWORDS, SITE_URL, SITE_TITLE } from "@/seo/constants.mjs"
+import { KEYWORDS, SITE_URL, SITE_TITLE, OG_IMAGE_VERSION } from "@/seo/constants.mjs"
 
 interface Props {
   title: string
@@ -25,7 +25,7 @@ const ogPath =
   Astro.url.pathname === "/"
     ? "/og/index.png"
     : `/og${Astro.url.pathname.replace(/\/$/, "")}.png`
-const ogUrl = new URL(ogPath, site)
+const ogUrl = new URL(`${ogPath}?${OG_IMAGE_VERSION}`, site)
 ---
 
 <!doctype html>
