@@ -63,3 +63,5 @@ docs-src/.astro/
 # one-off audit/transfer artifacts
 *.msg
 *.diff
+
+.commandcode

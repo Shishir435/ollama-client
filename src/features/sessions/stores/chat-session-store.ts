@@ -383,7 +383,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
 
   deleteMessage: async (messageId: number) => {
     const targetMsg = await repo.getMessage(messageId)
-    if (!targetMsg || !targetMsg.sessionId) return
+    if (!targetMsg?.sessionId) return
 
     const { sessionId, parentId: targetParentId } = targetMsg
 

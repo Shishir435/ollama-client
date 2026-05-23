@@ -217,7 +217,7 @@ export const EmbeddingStatusIndicator = () => {
   const { icon, text: statusText, color: statusColor } = statusConfig[status]
 
   useEffect(() => {
-    if (!progress || !progress.startsWith("❌")) {
+    if (!progress?.startsWith("❌")) {
       return
     }
 

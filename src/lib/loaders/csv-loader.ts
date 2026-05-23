@@ -36,7 +36,7 @@ export class CsvLoader implements DocumentLoader {
     // Extract specific column if requested
     if (this.column !== undefined) {
       const headers = parsed[0]
-      if (!headers || !headers.includes(this.column)) {
+      if (!headers?.includes(this.column)) {
         throw new Error(
           `Column "${this.column}" not found in CSV. Available columns: ${headers?.join(", ")}`
         )

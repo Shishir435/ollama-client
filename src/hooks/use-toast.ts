@@ -1,64 +1,63 @@
-import { Toast } from "@base-ui/react/toast"
 import type { ReactNode } from "react"
-import type { ToastActionElement } from "@/components/ui/toast"
+import { toast as sonnerToast } from "sonner"
 
 type ToastVariant = "default" | "destructive"
 
 export type ToastOptions = {
   title?: ReactNode
   description?: ReactNode
-  action?: ToastActionElement
+  action?: ReactNode
   variant?: ToastVariant
   duration?: number
 }
 
-type ToastData = {
-  action?: ToastActionElement
-}
-
-export const toastManager = Toast.createToastManager<ToastData>()
-
 const normalizeTimeout = (duration?: number) => {
-  if (duration === undefined) {
-    return undefined
-  }
-
-  if (duration === Number.POSITIVE_INFINITY) {
-    return 0
-  }
-
+  if (duration === undefined) return undefined
+  if (duration === Number.POSITIVE_INFINITY) return Infinity
   return duration
 }
 
-const toAddOptions = (options: ToastOptions) => ({
-  title: options.title,
-  description: options.description,
-  timeout: normalizeTimeout(options.duration),
-  type: options.variant === "destructive" ? "destructive" : undefined,
-  data: options.action ? { action: options.action } : undefined
-})
-
-const toUpdateOptions = (options: ToastOptions) => ({
-  title: options.title,
-  description: options.description,
-  timeout: normalizeTimeout(options.duration),
-  type:
-    options.variant === undefined
-      ? undefined
-      : options.variant === "destructive"
-        ? "destructive"
-        : undefined,
-  data: options.action ? { action: options.action } : undefined
-})
-
 function toast(options: ToastOptions) {
-  const id = toastManager.add(toAddOptions(options))
+  const { title, description, variant, duration } = options
+  const isDestructive = variant === "destructive"
+
+  const toastFn = isDestructive ? sonnerToast.error : sonnerToast
+  const sonnerDuration = normalizeTimeout(duration)
+
+  let message = title
+  let optDesc = description
+
+  // If there's only a description and no title, use description as the title/message
+  if (!message && description) {
+    message = description
+    optDesc = undefined
+  }
+
+  const id = toastFn(message, {
+    description: optDesc,
+    duration: sonnerDuration
+  })
 
   return {
     id,
-    dismiss: () => toastManager.close(id),
+    dismiss: () => sonnerToast.dismiss(id),
     update: (updates: ToastOptions) => {
-      toastManager.update(id, toUpdateOptions(updates))
+      const updateFn =
+        updates.variant === "destructive" ? sonnerToast.error : sonnerToast
+      const updateDuration = normalizeTimeout(updates.duration)
+
+      let updMsg = updates.title
+      let updDesc = updates.description
+      if (!updMsg && updates.description) {
+        updMsg = updates.description
+        updDesc = undefined
+      }
+
+      updateFn(updMsg, {
+        id,
+        description: updDesc,
+        duration: updateDuration
+      })
     }
   }
 }
@@ -66,12 +65,26 @@ function toast(options: ToastOptions) {
 function useToast() {
   return {
     toast,
-    dismiss: (toastId?: string) => toastManager.close(toastId),
-    update: (toastId: string, updates: ToastOptions) => {
-      toastManager.update(toastId, toUpdateOptions(updates))
-    },
-    promise: toastManager.promise
+    dismiss: (toastId?: string | number) => sonnerToast.dismiss(toastId),
+    update: (toastId: string | number, updates: ToastOptions) => {
+      const updateFn =
+        updates.variant === "destructive" ? sonnerToast.error : sonnerToast
+      const updateDuration = normalizeTimeout(updates.duration)
+
+      let updMsg = updates.title
+      let updDesc = updates.description
+      if (!updMsg && updates.description) {
+        updMsg = updates.description
+        updDesc = undefined
+      }
+
+      updateFn(updMsg, {
+        id: toastId,
+        description: updDesc,
+        duration: updateDuration
+      })
+    }
   }
 }
 
-export { useToast, toast }
+export { toast, useToast }

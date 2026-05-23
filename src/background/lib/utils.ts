@@ -19,7 +19,7 @@ export const safePostMessage = (
 ): void => {
   try {
     // Type assertion needed because ChromePort.postMessage expects ChromeMessage
-    // but we're sending stream messages which don't have a 'type' field
+    // ,but we're sending stream messages which don't have a 'type' field
     port.postMessage(
       message as unknown as Parameters<ChromePort["postMessage"]>[0]
     )

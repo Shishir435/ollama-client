@@ -1,9 +1,11 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClientProvider } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { browser } from "wxt/browser"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "@/options/components/settings-page"
 import "../globals.css"
@@ -21,6 +23,16 @@ export const OptionsIndex = () => {
   useThemeWatcher()
   useLanguageSync()
   useProviderStorageMigration()
+
+  useEffect(() => {
+    const listener = (message: { type?: string }) => {
+      if (message.type === MESSAGE_KEYS.APP.RELOAD) {
+        window.location.reload()
+      }
+    }
+    browser.runtime.onMessage.addListener(listener)
+    return () => browser.runtime.onMessage.removeListener(listener)
+  }, [])
 
   const [showSessionMetrics, setShowSessionMetrics] =
     useSessionMetricsPreference()
