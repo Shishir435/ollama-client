@@ -5,16 +5,20 @@ type MarkdownModule = {
   frontmatter: { title?: string; description?: string }
 }
 
-const docFiles = import.meta.glob<MarkdownModule>(
+const docFiles = import.meta.glob(
   "/src/content/docs/**/*.{md,mdx}",
   { eager: true },
-)
+) as Record<string, MarkdownModule>
 
 const pages = Object.fromEntries(
+  Object.entries(docFiles).map(([path, mod]) => {
     const slug = path
       .replace("/src/content/docs/", "")
       .replace(/\/index\.mdx?$/, "")
       .replace(/\.mdx?$/, "")
+    const { title, description } = mod.frontmatter
+    return [slug, { title, description: description ?? "" }]
+  }),
 )
 
 pages.index = {
