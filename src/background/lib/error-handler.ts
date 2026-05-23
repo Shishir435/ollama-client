@@ -1,4 +1,4 @@
-import type { ChromePort, NetworkError, PortStatusFunction } from "../../types"
+import type { ChromePort, NetworkError, PortStatusFunction } from "@/types"
 import {
   clearAbortController,
   setAbortController

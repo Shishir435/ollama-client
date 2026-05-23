@@ -1,11 +1,6 @@
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { safePostMessage } from "@/background/lib/utils"
-// Dynamic import to reduce bundle size
-// import {
-//   formatEnhancedResults,
-//   retrieveContextEnhanced
-// } from "@/features/chat/rag/rag-pipeline"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
