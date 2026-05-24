@@ -1,7 +1,7 @@
-import { useController, useFormContext } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
+import { ControlledSlider } from "@/components/forms"
 import { SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
-import { Slider } from "@/components/ui/slider"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 export interface FormSliderProps {
@@ -29,8 +29,8 @@ export const FormSlider = ({
   rightLabel
 }: FormSliderProps) => {
   const { control } = useFormContext()
-  const { field } = useController({ control, name })
-  const safeValue = toNum(field.value, min)
+  const fieldValue = useWatch({ control, name })
+  const safeValue = toNum(fieldValue, min)
 
   return (
     <SettingsFormField
@@ -46,15 +46,13 @@ export const FormSlider = ({
         )
       }
       className="space-y-3">
-      <Slider
+      <ControlledSlider
         id={name}
+        name={name}
         min={min}
         max={max}
         step={step}
-        value={[safeValue]}
-        onValueChange={(value) =>
-          field.onChange(Array.isArray(value) ? value[0] : value)
-        }
+        fallbackValue={min}
         className="py-2"
       />
       {(leftLabel || rightLabel) && (

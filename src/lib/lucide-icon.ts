@@ -49,6 +49,7 @@ export {
   MessageSquare,
   Mic,
   MicOff,
+  Minus,
   Moon,
   MoreHorizontal,
   Notebook,

@@ -5,8 +5,8 @@ import {
   useFormContext
 } from "react-hook-form"
 
+import { ControlledNumberInput } from "@/components/forms"
 import { SettingsFormField } from "@/components/settings"
-import { Input } from "@/components/ui/input"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 export type NumberInputValidation = Omit<
@@ -60,7 +60,7 @@ export const FormNumberInput = ({
   const { control } = useFormContext()
   const reactId = useId()
   const inputId = `${name}-${reactId}`
-  const { field, fieldState } = useController({
+  const { fieldState } = useController({
     control,
     name,
     rules: validation as RegisterOptions
@@ -80,32 +80,13 @@ export const FormNumberInput = ({
         )
       }
       error={fieldState.error?.message}>
-      <Input
+      <ControlledNumberInput
         id={inputId}
-        name={field.name}
-        ref={field.ref}
-        type="number"
+        name={name}
         min={min}
         max={max}
         step={step}
-        // `field.value` is whatever the form state currently holds
-        // (number | undefined). Render as empty string for undefined
-        // to keep the input uncontrolled-feeling while staying bound.
-        value={
-          field.value === undefined || field.value === null
-            ? ""
-            : (field.value as number | string)
-        }
-        onChange={(event) => {
-          const raw = event.currentTarget.value
-          if (raw === "") {
-            field.onChange(undefined)
-            return
-          }
-          const parsed = Number(raw)
-          field.onChange(Number.isNaN(parsed) ? raw : parsed)
-        }}
-        onBlur={field.onBlur}
+        validation={validation}
         className={className}
       />
     </SettingsFormField>

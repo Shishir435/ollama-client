@@ -1,7 +1,11 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsFormField, SettingsSwitch } from "@/components/settings"
+import {
+  SettingsField,
+  SettingsSliderField,
+  SettingsSwitch
+} from "@/components/settings"
 import {
   Select,
   SelectContent,
@@ -9,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
   type ChunkingStrategy,
@@ -93,32 +96,30 @@ export const TextSplittingSettings = () => {
         )}
       </div>
 
-      <SettingsFormField
-        label={`${t("model.embedding_config.chunk_size_label")} (${chunkSize} tokens)`}
-        description={t("model.embedding_config.chunk_size_description")}>
-        <Slider
-          value={[chunkSize]}
-          min={100}
-          max={4000}
-          step={100}
-          onValueChange={handleChunkSizeChange}
-        />
-      </SettingsFormField>
+      <SettingsSliderField
+        label={t("model.embedding_config.chunk_size_label")}
+        valueLabel={`${chunkSize} tokens`}
+        description={t("model.embedding_config.chunk_size_description")}
+        value={chunkSize}
+        min={100}
+        max={4000}
+        step={100}
+        onValueChange={(value) => handleChunkSizeChange([value])}
+      />
 
-      <SettingsFormField
-        label={`${t("model.embedding_config.chunk_overlap_label")} (${chunkOverlap} tokens)`}
-        description={t("model.embedding_config.chunk_overlap_description")}>
-        <Slider
-          value={[chunkOverlap]}
-          min={0}
-          max={500}
-          step={10}
-          onValueChange={handleChunkOverlapChange}
-        />
-      </SettingsFormField>
+      <SettingsSliderField
+        label={t("model.embedding_config.chunk_overlap_label")}
+        valueLabel={`${chunkOverlap} tokens`}
+        description={t("model.embedding_config.chunk_overlap_description")}
+        value={chunkOverlap}
+        min={0}
+        max={500}
+        step={10}
+        onValueChange={(value) => handleChunkOverlapChange([value])}
+      />
 
       {!config.useEnhancedChunking && (
-        <SettingsFormField
+        <SettingsField
           label={t("model.embedding_config.chunking_strategy_label")}>
           <Select
             value={config.chunkingStrategy}
@@ -138,7 +139,7 @@ export const TextSplittingSettings = () => {
               </SelectItem>
             </SelectContent>
           </Select>
-        </SettingsFormField>
+        </SettingsField>
       )}
     </div>
   )

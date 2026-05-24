@@ -4,7 +4,7 @@ import { browser } from "wxt/browser"
 import {
   ConfirmActionDialog,
   SettingsCard,
-  SettingsFormField
+  SettingsField
 } from "@/components/settings"
 import {
   AlertDialog,
@@ -152,7 +152,7 @@ export const DataMigrationSettings = () => {
       title={t("settings.migration.title")}
       description={t("settings.migration.description")}>
       <div className="space-y-4">
-        <SettingsFormField
+        <SettingsField
           label={t("settings.migration.export.label")}
           description={t("settings.migration.export.description")}>
           <Button
@@ -166,9 +166,9 @@ export const DataMigrationSettings = () => {
             )}
             {t("settings.migration.export.button")}
           </Button>
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           label={t("settings.migration.import.label")}
           description={t("settings.migration.import.description")}>
           <Button
@@ -190,7 +190,7 @@ export const DataMigrationSettings = () => {
             accept=".zip"
             onChange={onFileChange}
           />
-        </SettingsFormField>
+        </SettingsField>
       </div>
 
       <ConfirmActionDialog

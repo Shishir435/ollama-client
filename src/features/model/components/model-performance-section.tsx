@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { FormGrid } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -52,7 +53,7 @@ export const ModelPerformanceSection = ({
       title={t("settings.model.runtime.title")}
       description={t("settings.model.runtime.description")}
       contentClassName="space-y-5">
-      <SettingsFormField
+      <SettingsField
         htmlFor="keep-alive"
         label={t("settings.model.runtime.keep_alive_label")}
         description={t("settings.model.runtime.keep_alive_description")}>
@@ -62,9 +63,9 @@ export const ModelPerformanceSection = ({
           onChange={(e) => setKeepAliveInput(e.target.value)}
           placeholder={t("settings.model.runtime.keep_alive_placeholder")}
         />
-      </SettingsFormField>
+      </SettingsField>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <FormGrid>
         <SettingsSwitch
           label={t("settings.model.runtime.warm_on_select_label")}
           description={t("settings.model.runtime.warm_on_select_description")}
@@ -81,7 +82,7 @@ export const ModelPerformanceSection = ({
             updateConfig({ unload_on_switch: checked })
           }
         />
-      </div>
+      </FormGrid>
     </SettingsCard>
   )
 }

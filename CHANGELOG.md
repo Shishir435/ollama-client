@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- 0.7.0 frontend foundation: app-owned layout, form, settings, and feedback primitives that sit above shadcn/Base UI so preset refreshes do not own product behavior.
+- React Hook Form-safe controlled wrappers for number inputs, sliders, text inputs, textareas, selects, and switches.
+
 ### Changed
+- Bumped package version to `0.7.0`.
+- Migrated high-churn settings surfaces to shared layout/settings primitives, including model parameters, context settings, RAG retrieval controls, text splitting, embedding search/limits/generation, storage stats, database management, and search empty states.
 - Removed dead code: `src/lib/rag/core/` (browser-RAG interface scaffolding never wired up), the orphan `src/stores/speech-store.ts` (live store is `src/features/chat/stores/speech-store.ts`), `src/contents/selection-button.tsx`, `src/background/migrations/rag-quality-migration.ts`, `src/components/ui/sidebar.tsx`, `src/scripts/verify-rag.ts`, `src/contents/i18n-lite.ts` (had zero importers; the live selection-button content script carries its own inline translations), and `src/lib/providers/anthropic.ts` (a 183-LOC class that was never registered in the factory, default-providers, or registry; the README/AGENTS docs incorrectly listed Anthropic as a supported provider).
 - Pruned 29 unused shadcn primitives from `src/components/ui/` and removed the corresponding npm deps (`embla-carousel-react`, `input-otp`, `react-resizable-panels`, `recharts`, `sonner`, `vaul`) — install tree drops by 39 packages.
 - Removed the blanket `src/components/ui/**` lint override in `biome.json`; remaining vendored-shadcn a11y exceptions are now per-line `// biome-ignore` comments inside the offending files.

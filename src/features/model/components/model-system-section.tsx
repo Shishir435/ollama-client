@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  SettingsActionRow,
+  SettingsCard,
+  SettingsField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,7 +44,7 @@ export const ModelSystemSection = ({
       title={t("settings.model.system.title")}
       description={t("settings.model.system.description")}
       contentClassName="space-y-6">
-      <SettingsFormField
+      <SettingsField
         htmlFor="system"
         label={t("settings.model.system.prompt_label")}
         className="space-y-3">
@@ -50,9 +54,9 @@ export const ModelSystemSection = ({
           {...register("system")}
           className="min-h-[100px] resize-none"
         />
-      </SettingsFormField>
+      </SettingsField>
       <Separator />
-      <SettingsFormField
+      <SettingsField
         htmlFor="stop-sequences"
         label={
           <div className="flex items-center gap-2">
@@ -61,7 +65,7 @@ export const ModelSystemSection = ({
           </div>
         }
         className="space-y-3">
-        <div className="flex gap-2">
+        <SettingsActionRow>
           <Input
             id="stop-sequences"
             value={newStop}
@@ -73,7 +77,7 @@ export const ModelSystemSection = ({
           <Button type="button" onClick={handleAddStop}>
             {t("settings.model.system.add_button")}
           </Button>
-        </div>
+        </SettingsActionRow>
         {config.stop.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {config.stop.map((word) => (
@@ -92,7 +96,7 @@ export const ModelSystemSection = ({
             ))}
           </div>
         )}
-      </SettingsFormField>
+      </SettingsField>
     </SettingsCard>
   )
 }

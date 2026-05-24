@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { DenseFormGrid, SectionStack, TwoColumnGrid } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { FormNumberInput } from "@/features/model/components/form-number-input"
 import { FormSlider } from "@/features/model/components/form-slider"
@@ -28,43 +29,43 @@ export const ModelParametersSection = () => {
   )
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <TwoColumnGrid>
       <SettingsCard
         title={t("settings.model.sampling.title")}
         description={t("settings.model.sampling.description")}
         icon={Target}>
-        <div className="space-y-6">
+        <SectionStack>
           {sliderConfigs.map((slider) => (
             <FormSlider key={slider.name} {...slider} />
           ))}
-          <div className="grid grid-cols-2 gap-4">
+          <DenseFormGrid>
             {samplingNumberInputs.map((input) => (
               <FormNumberInput key={input.name} {...input} />
             ))}
-          </div>
-        </div>
+          </DenseFormGrid>
+        </SectionStack>
       </SettingsCard>
 
       <SettingsCard
         title={t("settings.model.context.title")}
         description={t("settings.model.context.description")}
         icon={Brain}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <SectionStack className="space-y-4">
+          <DenseFormGrid>
             {contextNumberInputsRow1.map((input) => (
               <FormNumberInput key={input.name} {...input} />
             ))}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+          </DenseFormGrid>
+          <DenseFormGrid>
             {contextNumberInputsRow2.map((input) => (
               <FormNumberInput key={input.name} {...input} />
             ))}
-          </div>
+          </DenseFormGrid>
           {contextNumberInputsRow3.map((input) => (
             <FormNumberInput key={input.name} {...input} />
           ))}
-        </div>
+        </SectionStack>
       </SettingsCard>
-    </div>
+    </TwoColumnGrid>
   )
 }

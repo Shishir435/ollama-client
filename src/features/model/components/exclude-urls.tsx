@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  SettingsActionRow,
+  SettingsCard,
+  SettingsFormField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -77,7 +81,7 @@ export const ExcludedUrls = ({
             components={[<code key="code" className="rounded bg-muted px-1" />]}
           />
         }>
-        <div className="flex gap-2">
+        <SettingsActionRow>
           <div className="flex-1">
             <Input
               id="exclude-url"
@@ -110,7 +114,7 @@ export const ExcludedUrls = ({
             <Plus className="mr-1 h-3 w-3" />
             {t("model.exclude_urls.add_button")}
           </Button>
-        </div>
+        </SettingsActionRow>
       </SettingsFormField>
 
       {patterns.length > 0 ? (

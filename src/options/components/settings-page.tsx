@@ -2,11 +2,19 @@ import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
+import {
+  AppShell,
+  PageBody,
+  PageHeader,
+  Toolbar,
+  TwoColumnGrid
+} from "@/components/layout"
 import { PerformanceWarning } from "@/components/performance-warning"
 import {
   type NavSection,
   SettingsMobileNav,
-  SettingsSidebar
+  SettingsSidebar,
+  SettingsTabPanel
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
 import { SocialLinkButton } from "@/components/social-link-button"
@@ -103,64 +111,64 @@ export const SettingsPage = () => {
 
   const tabContent: Record<string, ReactNode> = {
     general: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <PerformanceWarning />
-        <div className="grid gap-6 lg:grid-cols-2">
+        <TwoColumnGrid>
           <LanguageSelector />
           <ChatDisplaySettings />
-        </div>
-      </div>
+        </TwoColumnGrid>
+      </SettingsTabPanel>
     ),
     models: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ModelSettingsForm />
-      </div>
+      </SettingsTabPanel>
     ),
     providers: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ProviderSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     shortcuts: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ShortcutsSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     prompts: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <PromptTemplateManager />
-      </div>
+      </SettingsTabPanel>
     ),
     contentExtraction: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ContentExtractionSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     context: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ContextSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     embeddings: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <EmbeddingSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     voices: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <SpeechSettings />
-      </div>
+      </SettingsTabPanel>
     ),
     reset: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <ResetStorage />
-      </div>
+      </SettingsTabPanel>
     ),
     guides: (
-      <div className="space-y-8">
+      <SettingsTabPanel>
         <Guides />
         <SocialHandles />
-      </div>
+      </SettingsTabPanel>
     )
   }
 
@@ -237,9 +245,9 @@ export const SettingsPage = () => {
     "https://github.com/Shishir435/ollama-client"
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <header className="z-50 flex-none border-b bg-background">
-        <div className="flex items-center justify-between bg-background px-4 py-4 sm:px-6 lg:px-8">
+    <AppShell>
+      <PageHeader className="z-50">
+        <Toolbar className="bg-background px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
@@ -264,8 +272,8 @@ export const SettingsPage = () => {
             />
             <ThemeToggle showText={false} />
           </div>
-        </div>
-      </header>
+        </Toolbar>
+      </PageHeader>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden lg:block w-64 flex-none border-r border-sidebar-border bg-sidebar">
@@ -284,12 +292,12 @@ export const SettingsPage = () => {
             className="flex-none px-4 pt-4 sm:px-6"
           />
           <main className="flex-1 overflow-y-auto min-w-0">
-            <div className="container max-w-5xl py-6 lg:py-8 px-4 sm:px-6 lg:px-8 mx-auto">
+            <PageBody>
               <div key={activeTab}>{tabContent[activeTab]}</div>
-            </div>
+            </PageBody>
           </main>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

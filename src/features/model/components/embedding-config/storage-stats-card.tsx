@@ -1,6 +1,8 @@
 import { Database } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { MetricTile } from "@/components/feedback"
+import { DenseFormGrid } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 
 export interface StorageStatsCardProps {
@@ -29,22 +31,16 @@ export const StorageStatsCard = ({
         "model.embedding_config.storage_stats_description",
         "Current vector storage usage statistics"
       )}>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {t("model.embedding_config.total_vectors")}
-          </p>
-          <p className="text-2xl font-bold">{storageStats.totalVectors}</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {t("model.embedding_config.storage_used")}
-          </p>
-          <p className="text-2xl font-bold">
-            {storageStats.totalSizeMB.toFixed(2)} MB
-          </p>
-        </div>
-      </div>
+      <DenseFormGrid>
+        <MetricTile
+          label={t("model.embedding_config.total_vectors")}
+          value={storageStats.totalVectors}
+        />
+        <MetricTile
+          label={t("model.embedding_config.storage_used")}
+          value={`${storageStats.totalSizeMB.toFixed(2)} MB`}
+        />
+      </DenseFormGrid>
       {cacheStats && (
         <div className="mt-4 pt-4 border-t">
           <p className="text-sm text-muted-foreground">

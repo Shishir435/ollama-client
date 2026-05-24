@@ -2,7 +2,7 @@ import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,7 @@ export const EmbeddingLimitsConfig = ({
       title={t("model.embedding_config.limits_title")}
       description={t("model.embedding_config.limits_description")}>
       <div className="space-y-4">
-        <SettingsFormField
+        <SettingsField
           htmlFor="maxEmbeddingsPerFile"
           label={t("model.embedding_config.max_embeddings_label")}
           description={t("model.embedding_config.max_embeddings_description")}>
@@ -43,9 +43,9 @@ export const EmbeddingLimitsConfig = ({
             }}
             min={0}
           />
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           htmlFor="maxStorageSize"
           label={t("model.embedding_config.max_storage_label")}
           description={t("model.embedding_config.max_storage_description")}>
@@ -63,7 +63,7 @@ export const EmbeddingLimitsConfig = ({
             }}
             min={0}
           />
-        </SettingsFormField>
+        </SettingsField>
 
         <SettingsSwitch
           id="autoCleanup"
@@ -74,7 +74,7 @@ export const EmbeddingLimitsConfig = ({
         />
 
         {config.autoCleanup && (
-          <SettingsFormField
+          <SettingsField
             htmlFor="cleanupDaysOld"
             label={t("model.embedding_config.cleanup_age_label")}
             description={t("model.embedding_config.cleanup_age_description")}>
@@ -92,7 +92,7 @@ export const EmbeddingLimitsConfig = ({
               }}
               min={1}
             />
-          </SettingsFormField>
+          </SettingsField>
         )}
       </div>
     </SettingsCard>
