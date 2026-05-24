@@ -10,7 +10,13 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsFormField } from "@/components/settings"
+import { StatusCallout } from "@/components/feedback"
+import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
+import {
+  SettingsActionRow,
+  SettingsField,
+  SettingsInlineControl
+} from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,7 +26,6 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -310,38 +315,11 @@ export const ProviderSettings = () => {
     label: "not_tested"
   }
 
-  const bannerTheme = ["success", "error"] as const
-  const bannerConfigs: Record<
-    (typeof bannerTheme)[number],
-    {
-      Icon: typeof CheckCircle2 | typeof XCircle
-      bgClass: string
-      iconClass: string
-      title: string
-    }
-  > = {
-    success: {
-      Icon: CheckCircle2,
-      bgClass: "bg-status-success/10 border-status-success/20",
-      iconClass: "text-status-success",
-      title: t("settings.providers.test_connection.success_title")
-    },
-    error: {
-      Icon: XCircle,
-      bgClass: "bg-destructive/10 border-destructive/20",
-      iconClass: "text-destructive",
-      title: t("settings.providers.test_connection.failed_title")
-    }
-  } as const
-  const connectionBanner = connectionStatus
-    ? bannerConfigs[bannerTheme[connectionStatus.success ? 0 : 1]]
-    : null
-
   const betaNoticeText =
     "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
 
   return (
-    <div className="space-y-6">
+    <SectionStack>
       <ProviderGrid
         providers={providers}
         selectedId={selectedId}
@@ -387,13 +365,14 @@ export const ProviderSettings = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="enabled-switch" className="text-sm font-medium">
-                  {activeConfig.enabled
+            <InlineActions className="gap-4">
+              <SettingsInlineControl
+                htmlFor="enabled-switch"
+                label={
+                  activeConfig.enabled
                     ? t("settings.providers.enabled")
-                    : t("settings.providers.disabled")}
-                </Label>
+                    : t("settings.providers.disabled")
+                }>
                 <Switch
                   id="enabled-switch"
                   checked={activeConfig.enabled}
@@ -412,7 +391,7 @@ export const ProviderSettings = () => {
                     }
                   }}
                 />
-              </div>
+              </SettingsInlineControl>
 
               <Button
                 variant="outline"
@@ -426,96 +405,112 @@ export const ProviderSettings = () => {
                 )}
                 {t("settings.providers.test")}
               </Button>
-            </div>
+            </InlineActions>
           </CardHeader>
 
           {/* Connection Status Banner */}
-          {connectionBanner && (
-            <div
-              className={cn(
-                "flex items-center gap-3 border-y px-4 py-3",
-                connectionBanner.bgClass
-              )}>
-              <connectionBanner.Icon
-                className={cn("h-5 w-5 shrink-0", connectionBanner.iconClass)}
-              />
-              <div>
-                <p
-                  className={cn(
-                    "font-medium text-sm",
-                    connectionBanner.iconClass
-                  )}>
-                  {connectionBanner.title}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {connectionStatus.message}
-                </p>
-              </div>
-            </div>
+          {connectionStatus && (
+            <StatusCallout
+              className="rounded-none border-x-0"
+              variant={connectionStatus.success ? "success" : "danger"}
+              icon={connectionStatus.success ? CheckCircle2 : XCircle}
+              title={
+                connectionStatus.success
+                  ? t("settings.providers.test_connection.success_title")
+                  : t("settings.providers.test_connection.failed_title")
+              }
+              description={connectionStatus.message}
+            />
           )}
 
           <CardContent>
-            <SettingsFormField
-              label={t("settings.providers.base_url")}
-              description={
-                <>
-                  {t("settings.providers.base_url_default")}:{" "}
-                  {
-                    DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
-                      ?.baseUrl
-                  }
-                </>
-              }>
-              <div className="flex gap-2">
-                <Input
-                  value={activeConfig.baseUrl || ""}
-                  onChange={(e) => updateConfig({ baseUrl: e.target.value })}
-                  placeholder="https://api.example.com/v1"
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => handleSave(activeConfig)}
-                  disabled={!hasUnsavedChanges}>
-                  <Save className="w-4 h-4 mr-2" />
-                  {t("settings.providers.save")}
-                </Button>
-              </div>
-              {isRemoteEndpoint && (
-                <p className="mt-2 text-xs text-status-warning">
-                  This endpoint is remote. Prompts and responses will be sent
-                  outside your local machine.
-                </p>
-              )}
-              {cspCompatibilityHint && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {cspCompatibilityHint}
-                </p>
-              )}
-            </SettingsFormField>
+            <FieldStack>
+              <SettingsField
+                label={t("settings.providers.base_url")}
+                description={
+                  <>
+                    {t("settings.providers.base_url_default")}:{" "}
+                    {
+                      DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
+                        ?.baseUrl
+                    }
+                  </>
+                }>
+                <SettingsActionRow>
+                  <Input
+                    value={activeConfig.baseUrl || ""}
+                    onChange={(e) => updateConfig({ baseUrl: e.target.value })}
+                    placeholder="https://api.example.com/v1"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => handleSave(activeConfig)}
+                    disabled={!hasUnsavedChanges}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {t("settings.providers.save")}
+                  </Button>
+                </SettingsActionRow>
+                {isRemoteEndpoint && (
+                  <p className="mt-2 text-xs text-status-warning">
+                    This endpoint is remote. Prompts and responses will be sent
+                    outside your local machine.
+                  </p>
+                )}
+                {cspCompatibilityHint && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {cspCompatibilityHint}
+                  </p>
+                )}
+              </SettingsField>
 
-            {!isLocalProvider && (
-              <SettingsFormField label={t("settings.providers.api_key")}>
-                <Input
-                  type="password"
-                  value={activeConfig.apiKey || ""}
-                  onChange={(e) => updateConfig({ apiKey: e.target.value })}
-                  placeholder="sk-..."
-                />
-              </SettingsFormField>
-            )}
+              {!isLocalProvider && (
+                <SettingsField label={t("settings.providers.api_key")}>
+                  <Input
+                    type="password"
+                    value={activeConfig.apiKey || ""}
+                    onChange={(e) => updateConfig({ apiKey: e.target.value })}
+                    placeholder="sk-..."
+                  />
+                </SettingsField>
+              )}
 
-            {!isLocalProvider && (
-              <SettingsFormField
-                label={t("settings.providers.custom_models")}
-                description={t("settings.providers.custom_models_description")}>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="e.g. google/gemini-pro"
-                      id="custom-model-input"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const input = e.currentTarget
+              {!isLocalProvider && (
+                <SettingsField
+                  label={t("settings.providers.custom_models")}
+                  description={t(
+                    "settings.providers.custom_models_description"
+                  )}>
+                  <FieldStack className="space-y-3">
+                    <SettingsActionRow>
+                      <Input
+                        placeholder="e.g. google/gemini-pro"
+                        id="custom-model-input"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const input = e.currentTarget
+                            const val = input.value.trim()
+                            if (
+                              val &&
+                              !activeConfig.customModels?.includes(val)
+                            ) {
+                              updateConfig({
+                                customModels: [
+                                  ...(activeConfig.customModels || []),
+                                  val
+                                ]
+                              })
+                              input.value = ""
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          const input = document.getElementById(
+                            "custom-model-input"
+                          ) as HTMLInputElement
                           const val = input.value.trim()
                           if (
                             val &&
@@ -529,62 +524,43 @@ export const ProviderSettings = () => {
                             })
                             input.value = ""
                           }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        const input = document.getElementById(
-                          "custom-model-input"
-                        ) as HTMLInputElement
-                        const val = input.value.trim()
-                        if (val && !activeConfig.customModels?.includes(val)) {
-                          updateConfig({
-                            customModels: [
-                              ...(activeConfig.customModels || []),
-                              val
-                            ]
-                          })
-                          input.value = ""
-                        }
-                      }}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                        }}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </SettingsActionRow>
 
-                  {activeConfig.customModels &&
-                    activeConfig.customModels.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {activeConfig.customModels.map((m) => (
-                          <div
-                            key={m}
-                            className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-sm">
-                            <span>{m}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateConfig({
-                                  customModels:
-                                    activeConfig.customModels?.filter(
-                                      (cm) => cm !== m
-                                    )
-                                })
-                              }}
-                              className="hover:text-destructive transition-colors">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                </div>
-              </SettingsFormField>
-            )}
+                    {activeConfig.customModels &&
+                      activeConfig.customModels.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {activeConfig.customModels.map((m) => (
+                            <div
+                              key={m}
+                              className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-sm">
+                              <span>{m}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateConfig({
+                                    customModels:
+                                      activeConfig.customModels?.filter(
+                                        (cm) => cm !== m
+                                      )
+                                  })
+                                }}
+                                className="hover:text-destructive transition-colors">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                  </FieldStack>
+                </SettingsField>
+              )}
+            </FieldStack>
           </CardContent>
         </Card>
       )}
-    </div>
+    </SectionStack>
   )
 }

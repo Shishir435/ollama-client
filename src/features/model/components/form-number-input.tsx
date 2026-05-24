@@ -6,7 +6,7 @@ import {
 } from "react-hook-form"
 
 import { ControlledNumberInput } from "@/components/forms"
-import { SettingsFormField } from "@/components/settings"
+import { SettingsField } from "@/components/settings"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 export type NumberInputValidation = Omit<
@@ -67,7 +67,7 @@ export const FormNumberInput = ({
   })
 
   return (
-    <SettingsFormField
+    <SettingsField
       htmlFor={inputId}
       label={
         Icon ? (
@@ -89,6 +89,6 @@ export const FormNumberInput = ({
         validation={validation}
         className={className}
       />
-    </SettingsFormField>
+    </SettingsField>
   )
 }

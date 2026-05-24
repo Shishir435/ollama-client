@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import { EmptyState } from "@/components/feedback"
+import { FieldStack, FormGrid } from "@/components/layout"
+import {
+  SettingsActionRow,
+  SettingsCard,
+  SettingsField,
+  SettingsSliderField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -26,7 +33,6 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Slider } from "@/components/ui/slider"
 import { SCROLL_STRATEGY_OPTIONS_SHORT } from "@/lib/constants-ui"
 import {
   AlertCircle,
@@ -108,7 +114,7 @@ export const SiteSpecificOverrides = ({
     onChange: (value: number) => void,
     className?: string
   ) => (
-    <SettingsFormField
+    <SettingsField
       key={field.id}
       label={
         <div className="flex items-center gap-1.5">
@@ -129,7 +135,7 @@ export const SiteSpecificOverrides = ({
         }}
         className={className || "text-center"}
       />
-    </SettingsFormField>
+    </SettingsField>
   )
 
   // Render scroll strategy select
@@ -139,7 +145,7 @@ export const SiteSpecificOverrides = ({
     _id?: string,
     className?: string
   ) => (
-    <SettingsFormField
+    <SettingsField
       label={t("model.site_overrides.scroll_strategy_label")}
       labelClassName="text-xs">
       <Select value={value} onValueChange={onValueChange}>
@@ -156,7 +162,7 @@ export const SiteSpecificOverrides = ({
           ))}
         </SelectContent>
       </Select>
-    </SettingsFormField>
+    </SettingsField>
   )
 
   // Render scroll depth slider
@@ -167,28 +173,17 @@ export const SiteSpecificOverrides = ({
   ) => {
     const depthPercent = Math.round(depth * 100)
     return (
-      <SettingsFormField
+      <SettingsSliderField
         label={t("model.site_overrides.scroll_depth_label")}
-        labelClassName="text-xs">
-        <div className="space-y-2">
-          <Slider
-            min={0}
-            max={100}
-            step={5}
-            value={[depthPercent]}
-            onValueChange={(value) =>
-              onValueChange((Array.isArray(value) ? value[0] : value) / 100)
-            }
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <Badge variant="outline" className="font-mono text-xs">
-              {depthPercent}%
-            </Badge>
-            <span>100%</span>
-          </div>
-        </div>
-      </SettingsFormField>
+        value={depthPercent}
+        valueLabel={`${depthPercent}%`}
+        min={0}
+        max={100}
+        step={5}
+        onValueChange={(value) => onValueChange(value / 100)}
+        leftLabel="0%"
+        rightLabel="100%"
+      />
     )
   }
 
@@ -199,7 +194,7 @@ export const SiteSpecificOverrides = ({
       description={t("model.site_overrides.description")}
       contentClassName="space-y-5"
       headerClassName="pb-4">
-      <SettingsFormField
+      <SettingsField
         label={
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
@@ -212,7 +207,7 @@ export const SiteSpecificOverrides = ({
             components={[<code key="code" className="rounded bg-muted px-1" />]}
           />
         }>
-        <div className="flex gap-2">
+        <SettingsActionRow>
           <div className="flex-1">
             <Input
               id="site-pattern"
@@ -248,11 +243,11 @@ export const SiteSpecificOverrides = ({
             <Plus className="mr-1 h-3 w-3" />
             {t("model.site_overrides.add_button")}
           </Button>
-        </div>
-      </SettingsFormField>
+        </SettingsActionRow>
+      </SettingsField>
 
       {Object.keys(config.siteOverrides).length > 0 ? (
-        <div className="space-y-4">
+        <FieldStack>
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium">
               {t("model.site_overrides.active_overrides")}
@@ -269,8 +264,7 @@ export const SiteSpecificOverrides = ({
           </div>
 
           {/* Site Selector Dropdown */}
-          <SettingsFormField
-            label={t("model.site_overrides.select_site_label")}>
+          <SettingsField label={t("model.site_overrides.select_site_label")}>
             <Popover open={siteOverrideOpen} onOpenChange={setSiteOverrideOpen}>
               <PopoverTrigger
                 render={
@@ -323,7 +317,7 @@ export const SiteSpecificOverrides = ({
                 </Command>
               </PopoverContent>
             </Popover>
-          </SettingsFormField>
+          </SettingsField>
 
           {/* Selected Site Configuration */}
           {selectedSiteOverride &&
@@ -358,7 +352,7 @@ export const SiteSpecificOverrides = ({
                     const override = config.siteOverrides[selectedSiteOverride]
                     return (
                       <>
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <FormGrid>
                           {renderScrollStrategySelect(
                             override.scrollStrategy || config.scrollStrategy,
                             (value) =>
@@ -376,9 +370,9 @@ export const SiteSpecificOverrides = ({
                               }),
                             `site-${selectedSiteOverride}-depth`
                           )}
-                        </div>
+                        </FormGrid>
                         <Separator />
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <FormGrid>
                           {TIMEOUT_FIELDS.map((field) => (
                             <div key={field.id}>
                               {renderTimeoutInput(
@@ -392,22 +386,21 @@ export const SiteSpecificOverrides = ({
                               )}
                             </div>
                           ))}
-                        </div>
+                        </FormGrid>
                       </>
                     )
                   })()}
                 </CardContent>
               </Card>
             )}
-        </div>
+        </FieldStack>
       ) : (
-        <div className="py-6 text-center text-muted-foreground">
-          <Target className="mx-auto mb-2 h-8 w-8 opacity-50" />
-          <p className="text-sm">{t("model.site_overrides.no_overrides")}</p>
-          <p className="text-xs">
-            {t("model.site_overrides.no_overrides_hint")}
-          </p>
-        </div>
+        <EmptyState
+          className="min-h-32 py-6"
+          icon={Target}
+          title={t("model.site_overrides.no_overrides")}
+          description={t("model.site_overrides.no_overrides_hint")}
+        />
       )}
     </SettingsCard>
   )

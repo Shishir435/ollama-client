@@ -165,6 +165,15 @@ export default defineConfig({
             }
           ]
         },
+        {
+          label: "Internal",
+          items: [
+            {
+              label: "Frontend Design System",
+              slug: "internal/frontend-design-system"
+            }
+          ]
+        },
         // Auto-populated by starlight-typedoc from the entryPoints above.
         typeDocSidebarGroup,
         {

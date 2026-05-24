@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import { type ComponentProps, useState } from "react"
 import {
   type RegisterOptions,
   useController,
@@ -6,6 +6,7 @@ import {
 } from "react-hook-form"
 
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 export type ControlledNumberInputValidation = Omit<
   RegisterOptions,
@@ -22,6 +23,7 @@ export interface ControlledNumberInputProps
   > {
   name: string
   validation?: ControlledNumberInputValidation
+  commitMode?: "change" | "blur"
 }
 
 /**
@@ -33,15 +35,32 @@ export interface ControlledNumberInputProps
 export const ControlledNumberInput = ({
   name,
   validation,
+  commitMode = "change",
   onBlur,
+  className,
   ...props
 }: ControlledNumberInputProps) => {
   const { control } = useFormContext()
-  const { field } = useController({
+  const { field, fieldState } = useController({
     control,
     name,
     rules: validation as RegisterOptions
   })
+  const [draftValue, setDraftValue] = useState<string | null>(null)
+  const renderedValue =
+    draftValue ??
+    (field.value === undefined || field.value === null
+      ? ""
+      : String(field.value))
+
+  const commitValue = (raw: string) => {
+    if (raw === "") {
+      field.onChange(undefined)
+      return
+    }
+    const parsed = Number(raw)
+    field.onChange(Number.isNaN(parsed) ? raw : parsed)
+  }
 
   return (
     <Input
@@ -49,21 +68,22 @@ export const ControlledNumberInput = ({
       name={field.name}
       ref={field.ref}
       type="number"
-      value={
-        field.value === undefined || field.value === null
-          ? ""
-          : (field.value as number | string)
-      }
+      value={renderedValue}
+      aria-invalid={fieldState.invalid || props["aria-invalid"]}
+      className={cn("control-h-sm", className)}
       onChange={(event) => {
         const raw = event.currentTarget.value
-        if (raw === "") {
-          field.onChange(undefined)
-          return
+        if (commitMode === "blur") {
+          setDraftValue(raw)
+        } else {
+          commitValue(raw)
         }
-        const parsed = Number(raw)
-        field.onChange(Number.isNaN(parsed) ? raw : parsed)
       }}
       onBlur={(event) => {
+        if (commitMode === "blur") {
+          commitValue(event.currentTarget.value)
+          setDraftValue(null)
+        }
         field.onBlur()
         onBlur?.(event)
       }}

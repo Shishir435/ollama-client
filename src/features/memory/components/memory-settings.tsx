@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   ConfirmActionDialog,
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
   SettingsSwitch
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
@@ -86,7 +86,7 @@ export const MemorySettings = () => {
 
       <div className="border-t pt-4">
         <div className="flex items-center justify-between">
-          <SettingsFormField
+          <SettingsField
             label={t("settings.memory.clear.label")}
             description={
               <>
@@ -102,7 +102,7 @@ export const MemorySettings = () => {
               </>
             }>
             {null}
-          </SettingsFormField>
+          </SettingsField>
           <Button
             variant="destructive"
             size="sm"

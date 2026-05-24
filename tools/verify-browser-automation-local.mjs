@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync
+} from "node:fs"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
@@ -13,6 +20,7 @@ const ollamaRequired = process.env.OLLAMA_REQUIRED === "true"
 const ollamaChatModelOverride = process.env.OLLAMA_CHAT_MODEL || ""
 const chatPrompt = process.env.OLLAMA_CHAT_PROMPT || "Reply with one short sentence: local test ok."
 const browserHeadful = process.env.BROWSER_HEADFUL === "true"
+const screenshotDir = resolve("artifacts/frontend-smoke")
 
 const logStep = (label) => {
   console.log(`\n=== ${label} ===`)
@@ -31,6 +39,39 @@ const checkPageLoaded = async (page, label, selector = "#app") => {
     selector
   )
   assert(hasMount, `${label} did not mount expected selector: ${selector}`)
+}
+
+const prepareVisualSmoke = async (page, theme, locale = "en") => {
+  await page.evaluate(
+    ({ requestedTheme, requestedLocale }) => {
+      document.documentElement.classList.toggle("dark", requestedTheme === "dark")
+      document.documentElement.dataset.theme = requestedTheme
+      localStorage.setItem("theme", requestedTheme)
+      localStorage.setItem("i18nextLng", requestedLocale)
+      document.documentElement.lang = requestedLocale
+    },
+    { requestedTheme: theme, requestedLocale: locale }
+  )
+  await page.setViewportSize({ width: 390, height: 780 })
+  await page.reload({ waitUntil: "domcontentloaded" })
+  await checkPageLoaded(page, "visual smoke page")
+}
+
+const captureVisualSmoke = async (page, name) => {
+  mkdirSync(screenshotDir, { recursive: true })
+  const target = resolve(screenshotDir, `${name}.png`)
+  await page.screenshot({ path: target, fullPage: true })
+  console.log(`Visual smoke screenshot: ${target}`)
+}
+
+const captureOptionsTabSmoke = async (page, tabKey, name, theme, locale) => {
+  await prepareVisualSmoke(page, theme, locale)
+  const url = new URL(page.url())
+  url.searchParams.set("tab", tabKey)
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" })
+  await checkPageLoaded(page, `options ${tabKey} tab`)
+  await page.waitForTimeout(250)
+  await captureVisualSmoke(page, name)
 }
 
 const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) => {
@@ -90,6 +131,31 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     const optionsPage = await context.newPage()
     await optionsPage.goto(`chrome-extension://${extensionId}/options.html`)
     await checkPageLoaded(optionsPage, "Chromium options page")
+    await prepareVisualSmoke(optionsPage, "light", "en")
+    await captureVisualSmoke(optionsPage, "chromium-options-light")
+    await captureOptionsTabSmoke(
+      optionsPage,
+      "models",
+      "chromium-options-models-light",
+      "light",
+      "en"
+    )
+    await captureOptionsTabSmoke(
+      optionsPage,
+      "providers",
+      "chromium-options-providers-light",
+      "light",
+      "en"
+    )
+    await captureOptionsTabSmoke(
+      optionsPage,
+      "embeddings",
+      "chromium-options-embeddings-dark-long-locale",
+      "dark",
+      "de"
+    )
+    await prepareVisualSmoke(optionsPage, "dark", "de")
+    await captureVisualSmoke(optionsPage, "chromium-options-dark-long-locale")
     await checkOllamaFromPage(optionsPage, "Chromium extension context")
     if (ollamaModels.length > 0) {
       let chatVerified = false
@@ -121,6 +187,10 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     const sidepanelPage = await context.newPage()
     await sidepanelPage.goto(`chrome-extension://${extensionId}/sidepanel.html`)
     await checkPageLoaded(sidepanelPage, "Chromium sidepanel page")
+    await prepareVisualSmoke(sidepanelPage, "light", "en")
+    await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-light")
+    await prepareVisualSmoke(sidepanelPage, "dark", "de")
+    await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-dark-long-locale")
     await sidepanelPage.close()
 
     console.log("Chromium extension checks passed")
@@ -534,7 +604,8 @@ const startStaticServer = async (rootDir) => {
   }
 
   const server = createServer((req, res) => {
-    const requestPath = req.url === "/" ? "/options.html" : req.url || "/"
+    const pathname = new URL(req.url || "/", "http://127.0.0.1").pathname
+    const requestPath = pathname === "/" ? "/options.html" : pathname
     const filePath = resolve(rootDir, `.${requestPath}`)
 
     try {

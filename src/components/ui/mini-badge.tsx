@@ -1,7 +1,9 @@
+import type React from "react"
+
 import { cn } from "@/lib/utils"
 
 interface MiniBadgeProps {
-  text: string
+  text: React.ReactNode
   className?: string
 }
 

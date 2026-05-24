@@ -1,12 +1,14 @@
+import type React from "react"
+
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface SectionHeaderProps {
-  title: string
-  description?: string
+  title: React.ReactNode
+  description?: React.ReactNode
   icon?: LucideIcon
-  badge?: string
+  badge?: React.ReactNode
   className?: string
 }
 

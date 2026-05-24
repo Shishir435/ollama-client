@@ -13,6 +13,7 @@ vi.mock("@/components/ui/slider", () => ({
     min = 0,
     max = 100,
     step = 1,
+    disabled = false,
     ...props
   }: {
     value?: number[]
@@ -21,6 +22,7 @@ vi.mock("@/components/ui/slider", () => ({
     min?: number
     max?: number
     step?: number
+    disabled?: boolean
     [key: string]: unknown
   }) => {
     const renderedValue = value?.[0] ?? defaultValue?.[0] ?? min
@@ -33,6 +35,7 @@ vi.mock("@/components/ui/slider", () => ({
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         value={renderedValue}
         onChange={(event) => {
           onValueChange?.([Number(event.currentTarget.value)])
@@ -74,6 +77,18 @@ describe("ControlledSlider", () => {
     )
 
     expect(screen.getByLabelText("Controlled slider")).toHaveValue("0.7")
+    expect(screen.getByLabelText("Controlled slider")).toHaveAttribute(
+      "min",
+      "0"
+    )
+    expect(screen.getByLabelText("Controlled slider")).toHaveAttribute(
+      "max",
+      "1"
+    )
+    expect(screen.getByLabelText("Controlled slider")).toHaveAttribute(
+      "step",
+      "0.1"
+    )
   })
 
   it("writes slider changes back as a single numeric form value", () => {
@@ -126,5 +141,21 @@ describe("ControlledSlider", () => {
     })
 
     expect(onNumberValueChange).toHaveBeenCalledWith(0.3)
+  })
+
+  it("passes disabled state to the underlying slider", () => {
+    render(
+      <SliderWrapper defaultValue={0.7}>
+        <ControlledSlider
+          name="temperature"
+          min={0}
+          max={1}
+          step={0.1}
+          disabled
+        />
+      </SliderWrapper>
+    )
+
+    expect(screen.getByLabelText("Controlled slider")).toBeDisabled()
   })
 })

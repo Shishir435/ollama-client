@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import { FieldStack } from "@/components/layout"
+import {
+  SettingsCard,
+  SettingsField,
+  SettingsSliderField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { VoiceSelector } from "@/features/chat/components/voice-selector"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
@@ -59,7 +64,7 @@ export const SpeechSettings = () => {
   }, [voices, voiceURI, setVoiceURI, isLoadingVoices])
 
   return (
-    <div className="mx-auto space-y-4">
+    <FieldStack>
       <SettingsCard
         icon={Volume2}
         title={t("settings.speech.title")}
@@ -89,76 +94,44 @@ export const SpeechSettings = () => {
         </div>
 
         {/* Rate Control */}
-        <SettingsFormField
-          label={
-            <div className="flex items-center justify-between w-full">
-              <span>{t("settings.speech.rate_label")}</span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-xs">
-                  {rate.toFixed(1)}x
-                </Badge>
-                <span className="text-xs text-muted-foreground font-normal">
-                  {getRateDescription(rate, t)}
-                </span>
-              </div>
-            </div>
+        <SettingsSliderField
+          label={t("settings.speech.rate_label")}
+          value={rate}
+          valueLabel={
+            <span className="inline-flex items-center gap-2">
+              {rate.toFixed(1)}x
+              <span className="font-normal text-muted-foreground">
+                {getRateDescription(rate, t)}
+              </span>
+            </span>
           }
-          className="space-y-3">
-          <div className="px-1">
-            <Slider
-              id="rate-slider"
-              min={0.5}
-              max={2}
-              step={0.1}
-              value={[rate]}
-              onValueChange={(value) =>
-                setRate(Array.isArray(value) ? value[0] : value)
-              }
-              className="w-full"
-            />
-            <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-              <span>0.5x</span>
-              <span>1.0x</span>
-              <span>2.0x</span>
-            </div>
-          </div>
-        </SettingsFormField>
+          min={0.5}
+          max={2}
+          step={0.1}
+          onValueChange={setRate}
+          leftLabel="0.5x"
+          rightLabel="2.0x"
+        />
 
         {/* Pitch Control */}
-        <SettingsFormField
-          label={
-            <div className="flex items-center justify-between w-full">
-              <span>{t("settings.speech.pitch_label")}</span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-xs">
-                  {pitch.toFixed(1)}
-                </Badge>
-                <span className="text-xs text-muted-foreground font-normal">
-                  {getPitchDescription(pitch, t)}
-                </span>
-              </div>
-            </div>
+        <SettingsSliderField
+          label={t("settings.speech.pitch_label")}
+          value={pitch}
+          valueLabel={
+            <span className="inline-flex items-center gap-2">
+              {pitch.toFixed(1)}
+              <span className="font-normal text-muted-foreground">
+                {getPitchDescription(pitch, t)}
+              </span>
+            </span>
           }
-          className="space-y-3">
-          <div className="px-1">
-            <Slider
-              id="pitch-slider"
-              min={0}
-              max={2}
-              step={0.1}
-              value={[pitch]}
-              onValueChange={(value) =>
-                setPitch(Array.isArray(value) ? value[0] : value)
-              }
-              className="w-full"
-            />
-            <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-              <span>0.0</span>
-              <span>1.0</span>
-              <span>2.0</span>
-            </div>
-          </div>
-        </SettingsFormField>
+          min={0}
+          max={2}
+          step={0.1}
+          onValueChange={setPitch}
+          leftLabel="0.0"
+          rightLabel="2.0"
+        />
 
         <div className="border-t pt-4">
           <div className="flex items-center justify-between mb-3">
@@ -169,26 +142,29 @@ export const SpeechSettings = () => {
               </span>
             </div>
           </div>
-          <div className="space-y-3">
-            <Label htmlFor="test-text" className="text-sm font-medium">
-              {t("settings.speech.test_text_label")}
-            </Label>
-            <Textarea
-              id="test-text"
-              placeholder={t("settings.speech.test_text_placeholder")}
-              value={testText}
-              onChange={(e) => setTestText(e.target.value)}
-              rows={3}
-              className="resize-none"
-            />
+          <FieldStack className="space-y-3">
+            <SettingsField
+              htmlFor="test-text"
+              label={t("settings.speech.test_text_label")}>
+              <Textarea
+                id="test-text"
+                placeholder={t("settings.speech.test_text_placeholder")}
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </SettingsField>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {testText.trim()
                   ? t("settings.speech.test_hint_text")
                   : t("settings.speech.test_hint_default")}
               </p>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
                 onClick={() => {
                   if ("speechSynthesis" in window) {
@@ -217,11 +193,11 @@ export const SpeechSettings = () => {
                   }
                 }}>
                 {t("settings.speech.test_button")}
-              </button>
+              </Button>
             </div>
-          </div>
+          </FieldStack>
         </div>
       </SettingsCard>
-    </div>
+    </FieldStack>
   )
 }

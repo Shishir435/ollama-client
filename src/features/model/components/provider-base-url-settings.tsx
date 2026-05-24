@@ -1,7 +1,12 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import { FieldStack } from "@/components/layout"
+import {
+  SettingsActionRow,
+  SettingsCard,
+  SettingsField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,7 +76,7 @@ export const ProviderBaseUrlSettings = () => {
   const isDefault = providerUrl === "http://localhost:11434"
 
   return (
-    <div className="mx-auto space-y-4">
+    <FieldStack>
       <SettingsCard
         className="w-full"
         icon={Server}
@@ -93,8 +98,8 @@ export const ProviderBaseUrlSettings = () => {
             )}
           </>
         }>
-        <div className="space-y-2">
-          <SettingsFormField
+        <FieldStack className="space-y-2">
+          <SettingsField
             htmlFor="provider-url"
             label={
               <div className="flex items-center justify-between w-full">
@@ -116,7 +121,7 @@ export const ProviderBaseUrlSettings = () => {
               </div>
             }
             labelClassName="text-muted-foreground pb-1">
-            <div className="flex gap-2">
+            <SettingsActionRow>
               <div className="relative flex-1">
                 <Input
                   id="provider-url"
@@ -141,7 +146,6 @@ export const ProviderBaseUrlSettings = () => {
                   <Check className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-status-success" />
                 )}
               </div>
-
               <Button
                 onClick={handleSubmit}
                 disabled={!urlIsValid || isLoading || saved}
@@ -164,10 +168,10 @@ export const ProviderBaseUrlSettings = () => {
                   t("settings.base_url.button.save")
                 )}
               </Button>
-            </div>
-          </SettingsFormField>
-        </div>
+            </SettingsActionRow>
+          </SettingsField>
+        </FieldStack>
       </SettingsCard>
-    </div>
+    </FieldStack>
   )
 }

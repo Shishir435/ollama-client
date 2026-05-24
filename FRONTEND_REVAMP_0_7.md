@@ -726,41 +726,43 @@ Use this process whenever refreshing shadcn/preset components:
 
 ## Concrete 0.7.0 Frontend Tasks
 
+Status note, 2026-05-25: the concrete code foundation below is now implemented on `codex/frontend-foundation-070`. The browser automation now captures Chromium visual-smoke screenshots for options, models, providers, embeddings, sidepanel, light mode, dark mode, and a longer German locale; Firefox runtime checks remain functional smoke checks because the static Firefox bundle does not render meaningful screenshots outside the extension environment.
+
 ### P0
 
-- Create `src/components/forms/`.
-- Move `FormNumberInput` behavior into a generic `ControlledNumberInput`.
-- Move `FormSlider` behavior into a generic `ControlledSlider`.
-- Update model settings to use the new generic wrappers.
-- Add regression tests for generic wrappers.
-- Document which files are shadcn-owned vs app-owned.
-- Create `src/components/layout/` with `PageStack`, `SectionStack`, `TwoColumnGrid`, and `PageBody`.
-- Replace the repeated `space-y-8` tab wrappers in `settings-page.tsx` with a `SettingsTabPanel`.
-- Add an i18n rule to shared component props: labels/descriptions accept `ReactNode`.
+- [x] Create `src/components/forms/`.
+- [x] Move `FormNumberInput` behavior into a generic `ControlledNumberInput`.
+- [x] Move `FormSlider` behavior into a generic `ControlledSlider`.
+- [x] Update model settings to use the new generic wrappers.
+- [x] Add regression tests for generic wrappers.
+- [x] Document which files are shadcn-owned vs app-owned.
+- [x] Create `src/components/layout/` with `PageStack`, `SectionStack`, `TwoColumnGrid`, and `PageBody`.
+- [x] Replace the repeated `space-y-8` tab wrappers in `settings-page.tsx` with a `SettingsTabPanel`.
+- [x] Add an i18n rule to shared component props: labels/descriptions accept `ReactNode`.
 
 ### P1
 
-- Add control-height tokens or utility classes for app density.
-- Replace global cursor patches with component-level classes where practical.
-- Keep only truly global fallback styles in `globals.css`.
-- Split large settings components around product sections, not visual fragments.
-- Add settings row/section primitives.
-- Add `StatusCallout`, `EmptyState`, `LoadingState`, `ProgressRow`, and `MetricTile`.
-- Migrate `ContextSettings` status/progress blocks to feedback primitives.
-- Migrate `RAGSettings` sliders to `SliderField` / `ControlledSlider`.
-- Add light/dark visual checks for settings and chat surfaces.
+- [x] Add control-height tokens or utility classes for app density.
+- [x] Replace global cursor patches with component-level classes where practical.
+- [x] Keep only truly global fallback styles in `globals.css`.
+- [x] Split large settings components around product sections, not visual fragments.
+- [x] Add settings row/section primitives.
+- [x] Add `StatusCallout`, `EmptyState`, `LoadingState`, `ProgressRow`, and `MetricTile`.
+- [x] Migrate `ContextSettings` status/progress blocks to feedback primitives.
+- [x] Migrate `RAGSettings` sliders to `SliderField` / `ControlledSlider`.
+- [x] Add light/dark visual checks for settings and chat surfaces.
 
 ### P2
 
-- Add visual smoke tests or Playwright screenshots for:
+- [x] Add visual smoke tests or Playwright screenshots for:
   - sidepanel chat
   - options/model settings
   - embedding settings
   - provider settings
-- Add a small local component playground page if useful for development.
-- Add a design-system docs page under docs or internal markdown.
-- Add long-translation visual checks using a language with longer labels.
-- Add provider/model/source card primitives if repeated patterns remain after P0/P1.
+- [x] Add a small local component playground page if useful for development. Not added as a separate route because the internal docs page now serves the same reference purpose without shipping a playground surface in the extension.
+- [x] Add a design-system docs page under docs or internal markdown.
+- [x] Add long-translation visual checks using a language with longer labels.
+- [x] Add provider/model/source card primitives if repeated patterns remain after P0/P1.
 
 ## What Not To Do in 0.7.0
 

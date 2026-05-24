@@ -1,7 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import type { ChangeEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsFormField } from "@/components/settings"
+import { FieldStack } from "@/components/layout"
+import { SettingsField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import { DEFAULT_FILE_UPLOAD_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -32,9 +33,9 @@ export const FileUploadSettings = () => {
     : "10"
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <SettingsFormField
+    <FieldStack>
+      <FieldStack>
+        <SettingsField
           htmlFor="max-file-size"
           label={t("file_upload.settings.max_file_size_label")}
           description={t("file_upload.settings.max_file_size_description")}>
@@ -49,8 +50,8 @@ export const FileUploadSettings = () => {
             />
             <span className="text-sm text-muted-foreground">MB</span>
           </div>
-        </SettingsFormField>
-      </div>
-    </div>
+        </SettingsField>
+      </FieldStack>
+    </FieldStack>
   )
 }

@@ -83,10 +83,17 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --spacing-control-sm: var(--control-height-sm);
+  --spacing-control-md: var(--control-height-md);
+  --spacing-control-lg: var(--control-height-lg);
 }
 
 :root {
   --radius: 0.625rem;
+  --control-height-sm: 1.75rem;
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.75rem;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
@@ -394,6 +401,32 @@
   display: none;
 }
 
+@layer components {
+  .control-h-sm {
+    height: var(--control-height-sm);
+  }
+
+  .control-h-md {
+    height: var(--control-height-md);
+  }
+
+  .control-h-lg {
+    height: var(--control-height-lg);
+  }
+
+  .control-min-h-sm {
+    min-height: var(--control-height-sm);
+  }
+
+  .control-min-h-md {
+    min-height: var(--control-height-md);
+  }
+
+  .control-min-h-lg {
+    min-height: var(--control-height-lg);
+  }
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -404,19 +437,4 @@
     opacity: 1;
     transform: scale(1.2);
   }
-}
-
-/* shadcn overwrites these per reinstall — keep them here so they survive */
-[data-slot="slider"],
-[data-slot="slider"] *,
-[data-slot="switch"],
-input[type="range"],
-input[type="number"] {
-  cursor: pointer;
-}
-
-[data-slot="switch"][data-disabled],
-[data-slot="slider"][data-disabled],
-[data-slot="slider"][data-disabled] * {
-  cursor: not-allowed;
 }

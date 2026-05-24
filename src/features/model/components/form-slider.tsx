@@ -1,6 +1,6 @@
 import { useFormContext, useWatch } from "react-hook-form"
 import { ControlledSlider } from "@/components/forms"
-import { SettingsFormField } from "@/components/settings"
+import { SettingsField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
@@ -33,7 +33,7 @@ export const FormSlider = ({
   const safeValue = toNum(fieldValue, min)
 
   return (
-    <SettingsFormField
+    <SettingsField
       htmlFor={name}
       label={
         Icon ? (
@@ -64,6 +64,6 @@ export const FormSlider = ({
           <span>{rightLabel}</span>
         </div>
       )}
-    </SettingsFormField>
+    </SettingsField>
   )
 }

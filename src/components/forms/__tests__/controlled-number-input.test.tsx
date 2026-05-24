@@ -85,4 +85,46 @@ describe("ControlledNumberInput", () => {
 
     expect(onBlur).toHaveBeenCalledTimes(1)
   })
+
+  it("can defer commits until blur for unstable numeric entry", () => {
+    render(
+      <NumberInputWrapper defaultValue={12}>
+        <ControlledNumberInput
+          name="limit"
+          aria-label="Limit"
+          commitMode="blur"
+        />
+      </NumberInputWrapper>
+    )
+
+    const input = screen.getByLabelText("Limit")
+    fireEvent.change(input, { target: { value: "18" } })
+
+    expect(screen.getByTestId("watched-value")).toHaveTextContent("12")
+
+    fireEvent.blur(input)
+
+    expect(screen.getByTestId("watched-value")).toHaveTextContent("18")
+  })
+
+  it("marks the input invalid when validation fails", async () => {
+    render(
+      <NumberInputWrapper defaultValue={12}>
+        <ControlledNumberInput
+          name="limit"
+          aria-label="Limit"
+          validation={{ max: { value: 20, message: "Too high" } }}
+        />
+      </NumberInputWrapper>
+    )
+
+    const input = screen.getByLabelText("Limit")
+    fireEvent.change(input, { target: { value: "30" } })
+    fireEvent.blur(input)
+
+    expect(await screen.findByLabelText("Limit")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    )
+  })
 })
