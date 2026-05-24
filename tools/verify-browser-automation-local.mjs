@@ -21,6 +21,8 @@ const ollamaChatModelOverride = process.env.OLLAMA_CHAT_MODEL || ""
 const chatPrompt = process.env.OLLAMA_CHAT_PROMPT || "Reply with one short sentence: local test ok."
 const browserHeadful = process.env.BROWSER_HEADFUL === "true"
 const screenshotDir = resolve("artifacts/frontend-smoke")
+const optionsViewport = { width: 1280, height: 900 }
+const sidepanelViewport = { width: 480, height: 820 }
 
 const logStep = (label) => {
   console.log(`\n=== ${label} ===`)
@@ -41,7 +43,12 @@ const checkPageLoaded = async (page, label, selector = "#app") => {
   assert(hasMount, `${label} did not mount expected selector: ${selector}`)
 }
 
-const prepareVisualSmoke = async (page, theme, locale = "en") => {
+const prepareVisualSmoke = async (
+  page,
+  theme,
+  locale = "en",
+  viewport = optionsViewport
+) => {
   await page.evaluate(
     ({ requestedTheme, requestedLocale }) => {
       document.documentElement.classList.toggle("dark", requestedTheme === "dark")
@@ -52,7 +59,7 @@ const prepareVisualSmoke = async (page, theme, locale = "en") => {
     },
     { requestedTheme: theme, requestedLocale: locale }
   )
-  await page.setViewportSize({ width: 390, height: 780 })
+  await page.setViewportSize(viewport)
   await page.reload({ waitUntil: "domcontentloaded" })
   await checkPageLoaded(page, "visual smoke page")
 }
@@ -83,6 +90,7 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     context = await chromium.launchPersistentContext(userDataDir, {
       headless: !(browserHeadful || forceHeadful),
       args: [
+        `--window-size=${optionsViewport.width},${optionsViewport.height}`,
         `--disable-extensions-except=${chromeExtensionPath}`,
         `--load-extension=${chromeExtensionPath}`
       ]
@@ -187,9 +195,9 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     const sidepanelPage = await context.newPage()
     await sidepanelPage.goto(`chrome-extension://${extensionId}/sidepanel.html`)
     await checkPageLoaded(sidepanelPage, "Chromium sidepanel page")
-    await prepareVisualSmoke(sidepanelPage, "light", "en")
+    await prepareVisualSmoke(sidepanelPage, "light", "en", sidepanelViewport)
     await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-light")
-    await prepareVisualSmoke(sidepanelPage, "dark", "de")
+    await prepareVisualSmoke(sidepanelPage, "dark", "de", sidepanelViewport)
     await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-dark-long-locale")
     await sidepanelPage.close()
 
