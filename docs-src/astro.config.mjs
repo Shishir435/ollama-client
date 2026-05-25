@@ -179,6 +179,13 @@ export default defineConfig({
         {
           label: "Legal",
           items: [{ label: "Privacy Policy", slug: "legal/privacy-policy" }]
+        },
+        {
+          label: "About",
+          items: [
+            { label: "Changelog", slug: "about/changelog" },
+            { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
+          ]
         }
       ],
       head: [
