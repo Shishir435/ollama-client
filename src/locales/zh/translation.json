@@ -91,7 +91,8 @@
       "step4": "返回此处并点击 <b>刷新</b>",
       "hint": "按照以下设置指南安装Ollama和模型。",
       "full_guide_link": "完整设置指南",
-      "firefox_warning": "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。"
+      "firefox_warning": "Firefox用户：开始之前请运行ollama-env.sh脚本以启用CORS。",
+      "help_prefix": "需要帮助？"
     },
     "features": {
       "private": {

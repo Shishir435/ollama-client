@@ -91,7 +91,8 @@
       "step4": "Torna qui e clicca su <b>Aggiorna</b>",
       "hint": "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
       "full_guide_link": "Guida Completa alla Configurazione",
-      "firefox_warning": "Utenti Firefox: eseguire lo script ollama-env.sh per abilitare CORS prima di iniziare."
+      "firefox_warning": "Utenti Firefox: eseguire lo script ollama-env.sh per abilitare CORS prima di iniziare.",
+      "help_prefix": "Ti serve aiuto?"
     },
     "features": {
       "private": {

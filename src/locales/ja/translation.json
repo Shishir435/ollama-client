@@ -91,7 +91,8 @@
       "step4": "ここに戻って <b>更新</b> をクリックする",
       "hint": "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
       "full_guide_link": "完全なセットアップガイド",
-      "firefox_warning": "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。"
+      "firefox_warning": "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。",
+      "help_prefix": "お困りですか？"
     },
     "features": {
       "private": {

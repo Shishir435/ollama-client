@@ -91,7 +91,8 @@
       "step4": "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
       "hint": "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
       "full_guide_link": "पूर्ण सेटअप गाइड",
-      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
+      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।",
+      "help_prefix": "मदद चाहिए?"
     },
     "features": {
       "private": {

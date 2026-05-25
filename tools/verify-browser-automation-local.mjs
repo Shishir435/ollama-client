@@ -51,11 +51,39 @@ const prepareVisualSmoke = async (
 ) => {
   await page.evaluate(
     ({ requestedTheme, requestedLocale }) => {
+      const setExtensionStorage = (values) => {
+        return new Promise((resolve, reject) => {
+          if (!globalThis.chrome?.storage?.sync) {
+            resolve()
+            return
+          }
+
+          globalThis.chrome.storage.sync.set(values, () => {
+            const error = globalThis.chrome.runtime?.lastError
+            if (error) {
+              reject(new Error(error.message))
+              return
+            }
+
+            resolve()
+          })
+        })
+      }
+
       document.documentElement.classList.toggle("dark", requestedTheme === "dark")
       document.documentElement.dataset.theme = requestedTheme
       localStorage.setItem("theme", requestedTheme)
       localStorage.setItem("i18nextLng", requestedLocale)
       document.documentElement.lang = requestedLocale
+      return setExtensionStorage({
+        "app-language": JSON.stringify(requestedLocale),
+        "light-dark-theme": JSON.stringify(
+          JSON.stringify({
+            state: { theme: requestedTheme },
+            version: 0
+          })
+        )
+      })
     },
     { requestedTheme: theme, requestedLocale: locale }
   )

@@ -91,7 +91,8 @@
       "step4": "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
       "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
       "full_guide_link": "Vollständige Einrichtungsanleitung",
-      "firefox_warning": "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren."
+      "firefox_warning": "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren.",
+      "help_prefix": "Brauchen Sie Hilfe?"
     },
     "features": {
       "private": {
