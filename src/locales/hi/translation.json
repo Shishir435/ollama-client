@@ -62,6 +62,7 @@
   "welcome": {
     "title": "स्थानीय LLM चैट में आपका स्वागत है",
     "subtitle": "स्थानीय AI बातचीत हुई आसान",
+    "badge": "Local-first chat",
     "start_chatting": "बातचीत शुरू करें",
     "status": {
       "connecting": {
@@ -135,6 +136,7 @@
       "copied": "कॉपी किया गया",
       "regenerate": "पुनः जेनरेट करें",
       "switch_model_tooltip": "मॉडल बदलें",
+      "fork": "Fork Conversation",
       "edit": "संपादित करें",
       "export_as": "इस रूप में निर्यात करें...",
       "more": "और",
@@ -410,6 +412,15 @@
       "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
       "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
       "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+      "ann_backend_label": "ANN Backend",
+      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
+      "ann_backend_placeholder": "Select a backend",
+      "ann_backend_group": "Backends",
+      "ann_backend_wasm": "WASM HNSW (Recommended)",
+      "ann_backend_ts": "TypeScript HNSW",
+      "ann_backend_bruteforce": "Brute Force",
+      "ann_min_vectors_label": "ANN Min Vectors",
+      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
       "enhanced_chunking_label": "बेहतर चंकिंग",
       "enhanced_chunking_description": "बेहतर संदर्भ के लिए उन्नत पुनरावर्ती वर्ण विभाजन का उपयोग करें",
       "enhanced_chunking_info": "बेहतर चंकिंग अर्थपूर्ण अर्थ को बनाए रखने के लिए टेक्स्ट को श्रेणीबद्ध रूप से (पैराग्राफ → वाक्य → शब्द) विभाजित करती है। यह RAG के लिए अनुशंसित है।",
@@ -426,6 +437,11 @@
       "temporal_boosting_description": "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
       "reranking_label": "री-रैंकिंग सक्षम करें",
       "reranking_description": "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
+      "reranker_backend_label": "Reranker Backend",
+      "reranker_backend_description": "Choose the backend used to run the reranker model.",
+      "reranker_backend_placeholder": "Select a reranker backend",
+      "reranker_backend_group": "Backends",
+      "reranker_backend_none": "Disabled",
       "hybrid_search_label": "हाइब्रिड खोज सक्षम करें",
       "hybrid_search_description": "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
       "keyword_weight_label": "कीवर्ड भार",
@@ -440,6 +456,7 @@
       "exclude_casual_description": "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
       "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
       "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
+      "embedding_source_label": "Embedding Generation Source",
       "embedding_source_description": "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
       "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)",
       "feedback_learning_title": "उपयोगकर्ता फीडबैक लर्निंग",
@@ -704,6 +721,17 @@
         "title": "संदर्भ और जनरेशन",
         "description": "मेमोरी और आउटपुट नियंत्रण सेटिंग्स"
       },
+      "runtime": {
+        "title": "रनटाइम और वार्मअप",
+        "description": "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
+        "keep_alive_label": "जीवित रखें",
+        "keep_alive_description": "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
+        "keep_alive_placeholder": "जैसे 300, 5m, अनलोड के लिए 0",
+        "warm_on_select_label": "चयन पर मॉडल को वार्म करें",
+        "warm_on_select_description": "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
+        "unload_on_switch_label": "बदलते समय पिछले मॉडल को अनलोड करें",
+        "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
+      },
       "parameters": {
         "temperature": {
           "label": "तापमान",
@@ -744,17 +772,6 @@
           "label": "पिछले N दोहराएँ",
           "validation_min": "कम से कम {{min}} होना चाहिए।"
         }
-      },
-      "runtime": {
-        "title": "रनटाइम और वार्मअप",
-        "description": "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
-        "keep_alive_label": "जीवित रखें",
-        "keep_alive_description": "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
-        "keep_alive_placeholder": "जैसे 300, 5m, अनलोड के लिए 0",
-        "warm_on_select_label": "चयन पर मॉडल को वार्म करें",
-        "warm_on_select_description": "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
-        "unload_on_switch_label": "बदलते समय पिछले मॉडल को अनलोड करें",
-        "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
       }
     },
     "base_url": {
@@ -821,14 +838,32 @@
       "prompts": "प्रॉम्प्ट",
       "models": "मॉडल",
       "extraction": "निष्कर्षण",
+      "context": "संदर्भ",
       "embeddings": "एम्बेडिंग",
+      "providers": "प्रदाता",
       "voices": "वॉयस",
       "reset": "रीसेट करें",
       "guides": "गाइड",
       "memory": "मेमोरी",
-      "shortcuts": "शॉर्टकट",
-      "providers": "प्रदाता",
-      "context": "संदर्भ"
+      "shortcuts": "शॉर्टकट"
+    },
+    "context": {
+      "file_upload": {
+        "title": "File Ingestion",
+        "description": "Configure how files are processed for knowledge retrieval."
+      },
+      "embedding_health": {
+        "title": "Mixed embedding dimensions detected",
+        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
+        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
+        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
+        "action": "Rebuild embeddings",
+        "action_rebuilding": "Rebuilding...",
+        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
+        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
+        "success": "Embeddings rebuilt successfully.",
+        "error": "Failed to rebuild embeddings."
+      }
     },
     "memory": {
       "title": "प्रासंगिक मेमोरी",
@@ -852,6 +887,12 @@
     "page": {
       "title": "Ollama क्लाइंट सेटिंग्स",
       "description": "अपने Ollama सेटअप के सभी पहलुओं को एक ही स्थान पर प्रबंधित करें। युक्तियों और सेटअप मार्गदर्शन के लिए, गाइड टैब पर जाएँ।"
+    },
+    "sections": {
+      "app": "ऐप",
+      "ai_models": "AI और मॉडल",
+      "customize": "अनुकूलित करें",
+      "system": "सिस्टम"
     },
     "speech": {
       "title": "स्पीच सेटिंग्स",
@@ -880,12 +921,6 @@
         "high": "उच्च",
         "very_high": "बहुत उच्च"
       }
-    },
-    "errorBoundary": {
-      "title": "कुछ गड़बड़ हो गई",
-      "description": "एक अप्रत्याशित त्रुटि हुई। हमने इस समस्या को आंतरिक रूप से लॉग किया है।",
-      "exportLogs": "लॉग निर्यात करें",
-      "reload": "रीलोड करें"
     },
     "embeddings": {
       "title": "वेक्टर एम्बेडिंग",
@@ -1006,7 +1041,12 @@
         "confirm": "हटाएँ"
       },
       "created_at": "बनाया गया {{date}}",
-      "used_times": "{{count}} बार उपयोग किया गया"
+      "used_times": "{{count}} बार उपयोग किया गया",
+      "empty_state": {
+        "title": "No templates found",
+        "description": "Try adjusting your search or filter criteria"
+      },
+      "no_description": "No description"
     },
     "reset": {
       "title": "सेटिंग रीसेट करें",
@@ -1055,12 +1095,6 @@
       "item_count_plural": "{{count}} आइटम",
       "reset_button": "रीसेट करें"
     },
-    "sections": {
-      "app": "ऐप",
-      "ai_models": "AI और मॉडल",
-      "customize": "अनुकूलित करें",
-      "system": "सिस्टम"
-    },
     "providers": {
       "default": "डिफ़ॉल्ट",
       "enabled": "सक्रिय",
@@ -1083,7 +1117,11 @@
         "failed_title": "कनेक्शन विफल",
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "कोई मॉडल नहीं मिला",
-        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।",
+        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
+        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
+        "inline_failed": "Failed to connect to {{url}}: {{error}}",
+        "default_url": "default URL"
       }
     },
     "migration": {
@@ -1106,6 +1144,10 @@
       "import_result": {
         "title": "आयात परिणाम",
         "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+        "sync": "Settings",
+        "vector": "Knowledge Base (Vectors)",
+        "sqlite": "Chat History & Data",
+        "errors": "Errors encountered ({{count}})",
         "labels": {
           "sync": "प्राथमिकताएँ (Sync)",
           "local": "स्थानीय संग्रहण",
@@ -1159,25 +1201,12 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "context": {
-      "file_upload": {
-        "title": "फ़ाइल इनजेशन",
-        "description": "कॉन्फ़िगर करें कि ज्ञान पुनर्प्राप्ति के लिए फ़ाइलों को कैसे संसाधित किया जाता है।"
-      },
-      "embedding_health": {
-        "title": "मिश्रित एम्बेडिंग आयाम पाए गए",
-        "description": "एम्बेडिंग कई आयामों ({{dimensions}}) पर संग्रहीत हैं। सब कुछ पुनर्निर्माण होने तक खोज और मेमोरी विफल हो सकती है।",
-        "note": "पुनर्निर्माण सभी एम्बेडिंग को साफ़ करता है और चैट इतिहास को फिर से एम्बेड करता है। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
-        "memory_disabled": "मेमोर बंद है, इसलिए चैट एम्बेडिंग का पुनर्निर्माण नहीं किया गया था।",
-        "action": "एम्बेडिंग फिर से बनाएं",
-        "action_rebuilding": "फिर से बना रहा है...",
-        "confirm": "एम्बेडिंग फिर से बनाएं? यह सभी एम्बेडिंग को साफ़ कर देगा और चैट इतिहास को फिर से एम्बेड करेगा। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
-        "progress": "चैट एम्बेडिंग फिर से बन रहे हैं ({{current}}/{{total}})",
-        "success": "एम्बेडिंग सफलतापूर्वक फिर से बन गए।",
-        "error": "एम्बेडिंग फिर से बनाने में विफल।"
-      }
-    },
     "bug_report": "बग / सुविधा रिपोर्ट करें"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. We've logged this issue internally.",
+    "reload": "Reload"
   },
   "knowledge_sets": {
     "title": "ज्ञान सेट",

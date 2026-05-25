@@ -8,6 +8,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 ### Added
 - Chrome extension package localization metadata (`default_locale`, manifest `__MSG_*` substitutions, and `_locales` messages) so Chrome Web Store can detect supported languages.
+- i18n sync/check scripts so `src/locales/en/translation.json` owns the translation key shape and every other locale can be validated or derived from it.
 - 0.7.0 frontend foundation: app-owned layout, form, settings, and feedback primitives that sit above shadcn/Base UI so preset refreshes do not own product behavior.
 - Data-display primitives for repeated provider, model, source, file, metadata, context preview, command item, and info-list patterns.
 - React Hook Form-safe controlled wrappers for number inputs, sliders, text inputs, textareas, selects, and switches.
