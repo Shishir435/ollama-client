@@ -156,11 +156,13 @@ Uses Biome (not ESLint/Prettier):
 
 ### i18n build pipeline
 
-`src/i18n/resources.ts` is **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The file is `.gitignored`.
+`src/i18n/resources.ts` and Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json` are **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The typed resources file is `.gitignored`; `_locales` is committed because extension packages need it.
+
+`src/locales/<lang>/translation.json` is the source of truth for both in-app UI copy and extension package metadata. Keep the top-level `extension` block filled in for every locale, and do not hand-edit `public/_locales/**/messages.json`.
 
 It is regenerated automatically before any build/dev/package command (`pnpm dev`, `pnpm build`, `pnpm package`, and Firefox variants all chain `pnpm generate:resources &&` first), and by `pnpm prepare` (so a fresh `pnpm install` produces the file).
 
-If you change anything under `src/locales/`, run `pnpm generate:resources` manually to refresh the typed map in your editor. Tests and typecheck do not regenerate — they rely on the file having been produced at install/dev time.
+If you change anything under `src/locales/`, run `pnpm generate:resources` manually to refresh the typed map and `_locales` output in your editor. Tests and typecheck do not regenerate — they rely on the file having been produced at install/dev time.
 
 ### Git hooks (.husky)
 

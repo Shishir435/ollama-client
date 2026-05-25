@@ -49,6 +49,12 @@
       "settings_aria": "सेटिंग्स नेविगेशन"
     }
   },
+  "extension": {
+    "name": "Ollama Client - स्थानीय LLM मॉडल के साथ चैट",
+    "short_name": "Ollama Client",
+    "description": "Ollama, LM Studio और llama.cpp के साथ निजी LLM चैट के लिए लोकल-फर्स्ट Chrome एक्सटेंशन, जिसमें स्थानीय RAG वर्कफ्लो शामिल हैं.",
+    "action_default_title": "Ollama Client खोलें"
+  },
   "selection_button": {
     "label": "स्थानीय LLM से पूछें",
     "tooltip": "स्थानीय LLM क्लाइंट में जोड़ें"

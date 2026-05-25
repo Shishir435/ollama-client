@@ -49,6 +49,12 @@
       "settings_aria": "设置导航"
     }
   },
+  "extension": {
+    "name": "Ollama Client - 与本地 LLM 模型聊天",
+    "short_name": "Ollama Client",
+    "description": "面向本地优先体验的 Chrome 扩展，可通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，并支持本地 RAG 工作流。",
+    "action_default_title": "打开 Ollama Client"
+  },
   "selection_button": {
     "label": "询问本地 LLM",
     "tooltip": "添加到本地 LLM 客户端"

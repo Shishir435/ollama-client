@@ -15,6 +15,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 - Bumped package version to `0.7.0`.
+- Chrome Web Store locale metadata is now generated from `src/locales/<lang>/translation.json` extension blocks, making `src/locales` the single source of truth for app translations and extension package localization.
 - Migrated high-churn settings surfaces to shared layout/settings primitives, including model parameters, context settings, RAG retrieval controls, text splitting, embedding search/limits/generation, storage stats, database management, and search empty states.
 - Moved control-density sizing and slider cursor behavior out of global CSS fallbacks and into tokenized utilities / component-level classes.
 - Removed dead code: `src/lib/rag/core/` (browser-RAG interface scaffolding never wired up), the orphan `src/stores/speech-store.ts` (live store is `src/features/chat/stores/speech-store.ts`), `src/contents/selection-button.tsx`, `src/background/migrations/rag-quality-migration.ts`, `src/components/ui/sidebar.tsx`, `src/scripts/verify-rag.ts`, `src/contents/i18n-lite.ts` (had zero importers; the live selection-button content script carries its own inline translations), and `src/lib/providers/anthropic.ts` (a 183-LOC class that was never registered in the factory, default-providers, or registry; the README/AGENTS docs incorrectly listed Anthropic as a supported provider).

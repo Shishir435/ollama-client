@@ -49,6 +49,12 @@
       "settings_aria": "Einstellungen-Navigation"
     }
   },
+  "extension": {
+    "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
+    "short_name": "Ollama Client",
+    "description": "Lokale Chrome-Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, einschließlich lokaler RAG-Workflows.",
+    "action_default_title": "Ollama Client öffnen"
+  },
   "selection_button": {
     "label": "Lokalen LLM fragen",
     "tooltip": "Zum Local LLM Client hinzufügen"
