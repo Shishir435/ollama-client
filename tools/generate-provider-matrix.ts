@@ -176,15 +176,11 @@ sidebar:
   order: 2
 ---
 
-import { Aside } from "@astrojs/starlight/components"
-
 This matrix is generated from \`src/lib/providers/*.ts\` on every \`pnpm docs:build\`. When a provider class changes a capability flag, the table here updates automatically the next time docs are rebuilt.
 
-<Aside type="note">
-  ✓ = supported · — = not supported. "Supported" here means the
-  provider class exposes a working implementation; it does not mean
-  the underlying server is necessarily running on your machine.
-</Aside>
+:::note
+✓ = supported · — = not supported. "Supported" here means the provider class exposes a working implementation; it does not mean the underlying server is necessarily running on your machine.
+:::
 
 ${header}
 ${separator}

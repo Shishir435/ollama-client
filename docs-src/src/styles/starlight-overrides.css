@@ -142,6 +142,24 @@ body {
   overflow: hidden;
   font-size: 0.875rem;
 }
+
+@media (max-width: 50rem) {
+  .sl-markdown-content table {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sl-markdown-content th,
+  .sl-markdown-content td {
+    min-width: max-content;
+    white-space: nowrap;
+  }
+}
+
 .sl-markdown-content th,
 .sl-markdown-content td {
   border: none;
