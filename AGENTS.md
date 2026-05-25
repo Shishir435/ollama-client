@@ -34,8 +34,6 @@ pnpm docs:dev               # Astro dev for the marketing/docs site (docs-src/)
 pnpm docs:build             # Astro build → docs/ (committed for GitHub Pages)
 
 pnpm generate:resources     # Regenerate src/i18n/resources.ts from src/locales/
-pnpm i18n:check             # Verify every locale has the same key shape as src/locales/en/
-pnpm i18n:sync              # Derive non-English locale key shapes from src/locales/en/
 ```
 
 Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR.
@@ -159,8 +157,6 @@ Uses Biome (not ESLint/Prettier):
 ### i18n build pipeline
 
 `src/i18n/resources.ts` and Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json` are **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The typed resources file is `.gitignored`; `_locales` is committed because extension packages need it.
-
-`src/locales/en/translation.json` is the source of truth for the translation key shape. Other languages must keep the exact same keys and value types; run `pnpm i18n:sync` to derive their shape from English, filling missing strings with English fallback copy until they are translated.
 
 `src/locales/<lang>/translation.json` is the source of truth for both in-app UI copy and extension package metadata. Keep the top-level `extension` block filled in for every locale, and do not hand-edit `public/_locales/**/messages.json`.
 
