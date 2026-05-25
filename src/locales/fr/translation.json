@@ -62,7 +62,7 @@
   "welcome": {
     "title": "Bienvenue sur le chat LLM local",
     "subtitle": "Conversations IA locales simplifiées",
-    "badge": "Local-first chat",
+    "badge": "Chat local d’abord",
     "start_chatting": "Commencer à Chatter",
     "status": {
       "connecting": {
@@ -123,8 +123,8 @@
       "chars": "Caractères",
       "enter_to_send": "Envoyer",
       "enter_key": "Entrée",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "rag_toggle_on": "Contexte intelligent activé",
+      "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "drop_files_here": "Déposer des fichiers ici"
     },
@@ -136,7 +136,7 @@
       "copied": "Copié",
       "regenerate": "Régénérer",
       "switch_model_tooltip": "Changer de modèle",
-      "fork": "Fourcher la conversation",
+      "fork": "Créer une branche",
       "edit": "Modifier",
       "export_as": "Exporter sous...",
       "more": "Plus",
@@ -154,12 +154,12 @@
       "prompt_eval_time": "Temps d'évaluation du prompt"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} tokens",
-      "prompt_tokens": "{{value}} prompt",
+      "total_tokens": "{{value}} tokens au total",
+      "prompt_tokens": "{{value}} du prompt",
       "generated_tokens": "{{value}} générés",
       "avg_speed": "{{speed}} t/s",
-      "speed_unit": "t/s",
-      "messages": "{{value}} msgs",
+      "speed_unit": "tok/s",
+      "messages": "{{value}} messages",
       "tooltip_tokens": "Total des tokens utilisés dans cette session",
       "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
@@ -412,19 +412,19 @@
       "cache_ttl_description": "Durée de mise en cache des résultats de recherche (1-60 minutes). Les requêtes mises en cache sont renvoyées instantanément.",
       "cache_max_size_label": "Max Requêtes Mises en Cache",
       "cache_max_size_description": "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
-      "ann_backend_label": "ANN Backend",
-      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
-      "ann_backend_placeholder": "Select a backend",
+      "ann_backend_label": "Backend ANN",
+      "ann_backend_description": "Choisissez le backend de plus proches voisins approximatifs utilisé pour la recherche vectorielle.",
+      "ann_backend_placeholder": "Sélectionner un backend",
       "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (Recommended)",
-      "ann_backend_ts": "TypeScript HNSW",
-      "ann_backend_bruteforce": "Brute Force",
-      "ann_min_vectors_label": "ANN Min Vectors",
-      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
+      "ann_backend_wasm": "WASM HNSW (recommandé)",
+      "ann_backend_ts": "HNSW TypeScript",
+      "ann_backend_bruteforce": "Force brute",
+      "ann_min_vectors_label": "Nombre minimal de vecteurs ANN",
+      "ann_min_vectors_description": "Nombre minimal de vecteurs avant utilisation de l’ANN (0 = toujours).",
       "enhanced_chunking_label": "Découpage Amélioré",
       "enhanced_chunking_description": "Utiliser le découpage récursif avancé des caractères pour un meilleur contexte",
       "enhanced_chunking_info": "Le découpage amélioré divise le texte de manière hiérarchique (paragraphes → phrases → mots) pour préserver la signification sémantique. Ceci est recommandé pour le RAG.",
-      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_title": "Paramètres RAG",
       "rag_settings_description": "Configurez la manière dont les fichiers sont utilisés pour répondre aux questions avec le contexte récupéré",
       "rag_enable_label": "Activer le RAG",
       "rag_enable_description": "Utiliser le contexte récupéré pour répondre aux questions sur vos fichiers",
@@ -437,11 +437,11 @@
       "temporal_boosting_description": "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
       "reranking_label": "Activer le ré-classement",
       "reranking_description": "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
-      "reranker_backend_label": "Reranker Backend",
-      "reranker_backend_description": "Choose the backend used to run the reranker model.",
-      "reranker_backend_placeholder": "Select a reranker backend",
+      "reranker_backend_label": "Backend de reranking",
+      "reranker_backend_description": "Choisissez le backend utilisé pour exécuter le modèle de reranking.",
+      "reranker_backend_placeholder": "Sélectionner un backend de reranking",
       "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Disabled",
+      "reranker_backend_none": "Désactivé",
       "hybrid_search_label": "Activer la recherche hybride",
       "hybrid_search_description": "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",
       "keyword_weight_label": "Poids du mot-clé",
@@ -456,32 +456,32 @@
       "exclude_casual_description": "Filtrez les salutations, les réponses courtes et les messages à faible information.",
       "min_quality_score_label": "Score de qualité minimum",
       "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
-      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_label": "Source de génération des embeddings",
       "embedding_source_description": "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
       "embedding_source_default_provider": "Fournisseur par défaut (Ollama)",
-      "feedback_learning_title": "User Feedback Learning",
-      "feedback_learning_description": "Improve search quality by learning from your feedback",
-      "feedback_enable_label": "Enable Feedback Collection",
-      "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
-      "feedback_show_chunks_label": "Show Retrieved Chunks",
-      "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
-      "feedback_blend_weight_label": "Feedback Learning Weight",
-      "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
-      "feedback_export_button": "Export Feedback Data",
-      "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "Apprentissage avec les retours utilisateur",
+      "feedback_learning_description": "Améliorez la qualité de recherche en apprenant de vos retours.",
+      "feedback_enable_label": "Activer la collecte de retours",
+      "feedback_enable_description": "Mémoriser les fragments utiles pour améliorer les récupérations futures.",
+      "feedback_show_chunks_label": "Afficher les fragments récupérés",
+      "feedback_show_chunks_description": "Afficher les fragments sources dans le chat avec des boutons de retour.",
+      "feedback_blend_weight_label": "Poids de l’apprentissage par retour",
+      "feedback_blend_weight_description": "Niveau de confiance accordé aux retours appris par rapport aux scores du modèle (0-1).",
+      "feedback_export_button": "Exporter les données de retour",
+      "feedback_clear_button": "Effacer tous les retours",
+      "feedback_privacy_note": "Tous les retours sont stockés localement. Les requêtes sont hachées pour la confidentialité. Aucune donnée ne quitte votre appareil.",
+      "feedback_stats_title": "Statistiques des retours",
+      "feedback_stats_total": "Total des retours",
+      "feedback_stats_helpful": "Taux utile",
+      "feedback_stats_chunks": "Fragments avec retour",
+      "feedback_stats_queries": "Requêtes avec retour",
+      "feedback_privacy_title": "Confidentialité des retours",
+      "feedback_export_success": "Données de retour exportées",
+      "feedback_export_error": "Impossible d’exporter les données de retour",
+      "feedback_clear_confirm_title": "Effacer tous les retours ?",
+      "feedback_clear_confirm_description": "Cela supprimera tous les retours enregistrés. Cette action est irréversible.",
+      "feedback_clear_success": "Données de retour effacées",
+      "feedback_clear_error": "Impossible d’effacer les données de retour"
     },
     "provider_status": {
       "checking": "Vérification du statut d'Provider...",
@@ -497,7 +497,7 @@
       "search_placeholder": "Rechercher des modèles, des étiquettes ou des descriptions...",
       "sort_recent": "Récents",
       "sort_popular": "Populaires",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "Trier par ordre alphabétique",
       "all_categories": "Toutes les Catégories",
       "no_templates_title": "Aucun modèle trouvé",
       "no_templates_search": "Essayez d'ajuster votre recherche ou vos critères de filtre",
@@ -557,7 +557,7 @@
       "label_on": "Onglet+",
       "tooltip": "Interagir avec les onglets ouverts"
     },
-    "context": "Context",
+    "context": "Contexte",
     "inspector": {
       "title": "Contexte d'Onglet Extrait",
       "description": "Vérifiez exactement ce qui sera utilisé comme contexte d'onglet avant d'envoyer.",
@@ -649,7 +649,7 @@
       "scraper": {
         "label": "Scraper de Contenu",
         "auto": {
-          "label": "Auto",
+          "label": "Automatique",
           "description": "Fallback intelligent : Defuddle puis Readability",
           "detail": "Bon pour la plupart des sites. Utilise Defuddle d'abord pour un formatage Markdown et de code amélioré, passe à Readability si nécessaire."
         },
@@ -849,20 +849,20 @@
     },
     "context": {
       "file_upload": {
-        "title": "File Ingestion",
-        "description": "Configure how files are processed for knowledge retrieval."
+        "title": "Ingestion de fichiers",
+        "description": "Configurez le traitement des fichiers pour la récupération de connaissances."
       },
       "embedding_health": {
-        "title": "Mixed embedding dimensions detected",
-        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
-        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
-        "action": "Rebuild embeddings",
-        "action_rebuilding": "Rebuilding...",
-        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
-        "success": "Embeddings rebuilt successfully.",
-        "error": "Failed to rebuild embeddings."
+        "title": "Dimensions d’embeddings mixtes détectées",
+        "description": "Les embeddings sont stockés avec plusieurs dimensions ({{dimensions}}). La recherche et la mémoire peuvent échouer tant que tout n’a pas été reconstruit.",
+        "note": "La reconstruction efface tous les embeddings et réintègre l’historique du chat. Les fichiers devront être téléversés à nouveau pour restaurer les connaissances.",
+        "memory_disabled": "La mémoire est désactivée, les embeddings du chat n’ont donc pas été reconstruits.",
+        "action": "Reconstruire les embeddings",
+        "action_rebuilding": "Reconstruction...",
+        "confirm": "Reconstruire les embeddings ? Cela effacera tous les embeddings et réintégrera l’historique du chat. Les fichiers devront être téléversés à nouveau pour restaurer les connaissances.",
+        "progress": "Reconstruction des embeddings du chat ({{current}}/{{total}})",
+        "success": "Embeddings reconstruits avec succès.",
+        "error": "Impossible de reconstruire les embeddings."
       }
     },
     "memory": {
@@ -1017,7 +1017,7 @@
       "sort": {
         "recent": "Récents",
         "popular": "Populaires",
-        "alphabetical": "A-Z"
+        "alphabetical": "Alphabétique"
       },
       "new_template": "Nouveau Modèle",
       "form": {
@@ -1043,10 +1043,10 @@
       "created_at": "Créé le {{date}}",
       "used_times": "Utilisé {{count}} fois",
       "empty_state": {
-        "title": "No templates found",
-        "description": "Try adjusting your search or filter criteria"
+        "title": "Aucun modèle trouvé",
+        "description": "Essayez d’ajuster votre recherche ou vos filtres."
       },
-      "no_description": "No description"
+      "no_description": "Aucune description"
     },
     "reset": {
       "title": "Réinitialiser les Paramètres",
@@ -1118,10 +1118,10 @@
         "failed_description": "{{url}} : {{error}}",
         "no_models_title": "Aucun modèle trouvé",
         "no_models_description": "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement.",
-        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
-        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
-        "inline_failed": "Failed to connect to {{url}}: {{error}}",
-        "default_url": "default URL"
+        "inline_success": "Connexion réussie à {{url}} ({{count}} modèles trouvés)",
+        "inline_no_models": "Connecté à {{url}}, mais 0 modèle trouvé. Le service est-il lancé ?",
+        "inline_failed": "Échec de connexion à {{url}} : {{error}}",
+        "default_url": "URL par défaut"
       }
     },
     "migration": {
@@ -1144,10 +1144,10 @@
       "import_result": {
         "title": "Résultats de l'Importation",
         "description": "Passez en revue l'état de votre importation de données ci-dessous :",
-        "sync": "Settings",
-        "vector": "Knowledge Base (Vectors)",
-        "sqlite": "Chat History & Data",
-        "errors": "Errors encountered ({{count}})",
+        "sync": "Paramètres",
+        "vector": "Base de connaissances (vecteurs)",
+        "sqlite": "Historique du chat et données",
+        "errors": "Erreurs rencontrées ({{count}})",
         "labels": {
           "sync": "Préférences (Sync)",
           "local": "Stockage Local",
@@ -1176,7 +1176,7 @@
       "setup": {
         "label": "Guide de Configuration d'Ollama Client",
         "description": "Guide complet d'installation et de configuration",
-        "badge": "Guide"
+        "badge": "Démarrage rapide"
       },
       "library": {
         "label": "Bibliothèque Officielle de Modèles Ollama",
@@ -1204,9 +1204,9 @@
     "bug_report": "Signaler un Bogue / une Fonctionnalité"
   },
   "errorBoundary": {
-    "title": "Something went wrong",
-    "description": "An unexpected error occurred. We've logged this issue internally.",
-    "reload": "Reload"
+    "title": "Une erreur est survenue",
+    "description": "Une erreur inattendue s’est produite. Nous avons consigné ce problème en interne.",
+    "reload": "Recharger"
   },
   "knowledge_sets": {
     "title": "Ensembles de connaissances",

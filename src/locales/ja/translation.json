@@ -62,7 +62,7 @@
   "welcome": {
     "title": "ローカルLLMチャットへようこそ",
     "subtitle": "ローカルAIとの会話をシンプルに",
-    "badge": "Local-first chat",
+    "badge": "ローカル優先チャット",
     "start_chatting": "チャットを開始",
     "status": {
       "connecting": {
@@ -119,12 +119,12 @@
   "chat": {
     "input": {
       "placeholder": "メッセージを入力 または ctrl + /",
-      "switch_model": "モデルを変更",
+      "switch_model": "モデルを切り替え",
       "chars": "文字",
       "enter_to_send": "送信",
-      "enter_key": "Enter",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "enter_key": "Enter キー",
+      "rag_toggle_on": "スマートコンテキストがオン",
+      "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "drop_files_here": "ここにファイルをドロップ"
     },
@@ -136,7 +136,7 @@
       "copied": "コピーしました",
       "regenerate": "再生成",
       "switch_model_tooltip": "モデルを切り替え",
-      "fork": "Fork Conversation",
+      "fork": "分岐",
       "edit": "編集",
       "export_as": "エクスポート...",
       "more": "その他",
@@ -158,7 +158,7 @@
       "prompt_tokens": "{{value}} プロンプト",
       "generated_tokens": "{{value}} 生成済",
       "avg_speed": "{{speed}} t/s",
-      "speed_unit": "t/s",
+      "speed_unit": "tok/s",
       "messages": "{{value}} 件",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
@@ -412,15 +412,15 @@
       "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
       "cache_max_size_label": "最大キャッシュクエリ数",
       "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
-      "ann_backend_label": "ANN Backend",
-      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
-      "ann_backend_placeholder": "Select a backend",
-      "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (Recommended)",
+      "ann_backend_label": "ANN バックエンド",
+      "ann_backend_description": "ベクトル検索で使う近似最近傍探索バックエンドを選択します。",
+      "ann_backend_placeholder": "バックエンドを選択",
+      "ann_backend_group": "バックエンド",
+      "ann_backend_wasm": "WASM HNSW（推奨）",
       "ann_backend_ts": "TypeScript HNSW",
-      "ann_backend_bruteforce": "Brute Force",
-      "ann_min_vectors_label": "ANN Min Vectors",
-      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
+      "ann_backend_bruteforce": "総当たり",
+      "ann_min_vectors_label": "ANN 最小ベクトル数",
+      "ann_min_vectors_description": "ANN を使用する前に必要な最小ベクトル数（0 = 常に使用）。",
       "enhanced_chunking_label": "拡張チャンキング",
       "enhanced_chunking_description": "高度な再帰的文字分割を使用して、より良いコンテキストを維持します",
       "enhanced_chunking_info": "拡張チャンキングは、テキストを階層的に分割（段落→文→単語）し、セマンティックな意味を保持します。RAGに推奨されます。",
@@ -437,11 +437,11 @@
       "temporal_boosting_description": "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
       "reranking_label": "再ランク付けを有効にする",
       "reranking_description": "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
-      "reranker_backend_label": "Reranker Backend",
-      "reranker_backend_description": "Choose the backend used to run the reranker model.",
-      "reranker_backend_placeholder": "Select a reranker backend",
-      "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Disabled",
+      "reranker_backend_label": "リランカー バックエンド",
+      "reranker_backend_description": "リランカーモデルを実行するバックエンドを選択します。",
+      "reranker_backend_placeholder": "リランカー バックエンドを選択",
+      "reranker_backend_group": "バックエンド",
+      "reranker_backend_none": "無効",
       "hybrid_search_label": "ハイブリッド検索を有効にする",
       "hybrid_search_description": "キーワード検索 (BM25) とセマンティック検索を組み合わせて、再現率を向上させます。",
       "keyword_weight_label": "キーワードの重み",
@@ -456,32 +456,32 @@
       "exclude_casual_description": "挨拶、短い応答、情報の少ないメッセージを除外します。",
       "min_quality_score_label": "最小品質スコア",
       "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
-      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_label": "Embedding 生成元",
       "embedding_source_description": "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
       "embedding_source_default_provider": "既定のプロバイダー（Ollama）",
-      "feedback_learning_title": "User Feedback Learning",
-      "feedback_learning_description": "Improve search quality by learning from your feedback",
-      "feedback_enable_label": "Enable Feedback Collection",
-      "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
-      "feedback_show_chunks_label": "Show Retrieved Chunks",
-      "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
-      "feedback_blend_weight_label": "Feedback Learning Weight",
-      "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
-      "feedback_export_button": "Export Feedback Data",
-      "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "ユーザーフィードバック学習",
+      "feedback_learning_description": "フィードバックから学習して検索品質を改善します。",
+      "feedback_enable_label": "フィードバック収集を有効化",
+      "feedback_enable_description": "どのチャンクが役立ったかを記憶し、今後の検索を改善します。",
+      "feedback_show_chunks_label": "取得したチャンクを表示",
+      "feedback_show_chunks_description": "チャット内にソースチャンクとフィードバックボタンを表示します。",
+      "feedback_blend_weight_label": "フィードバック学習の重み",
+      "feedback_blend_weight_description": "学習済みフィードバックをモデルスコアに対してどの程度信頼するか（0-1）。",
+      "feedback_export_button": "フィードバックデータをエクスポート",
+      "feedback_clear_button": "すべてのフィードバックを削除",
+      "feedback_privacy_note": "すべてのフィードバックはローカルに保存されます。クエリはプライバシー保護のためハッシュ化されます。データがデバイス外に出ることはありません。",
+      "feedback_stats_title": "フィードバック統計",
+      "feedback_stats_total": "フィードバック合計",
+      "feedback_stats_helpful": "役立った割合",
+      "feedback_stats_chunks": "フィードバック付きチャンク",
+      "feedback_stats_queries": "フィードバック付きクエリ",
+      "feedback_privacy_title": "フィードバックのプライバシー",
+      "feedback_export_success": "フィードバックデータをエクスポートしました",
+      "feedback_export_error": "フィードバックデータをエクスポートできませんでした",
+      "feedback_clear_confirm_title": "すべてのフィードバックを削除しますか？",
+      "feedback_clear_confirm_description": "保存済みのフィードバックデータがすべて削除されます。この操作は元に戻せません。",
+      "feedback_clear_success": "フィードバックデータを削除しました",
+      "feedback_clear_error": "フィードバックデータを削除できませんでした"
     },
     "provider_status": {
       "checking": "Providerの状態を確認中...",
@@ -497,7 +497,7 @@
       "search_placeholder": "テンプレート、タグ、または説明を検索...",
       "sort_recent": "最近",
       "sort_popular": "人気",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "アルファベット順に並べ替え",
       "all_categories": "全カテゴリー",
       "no_templates_title": "テンプレートが見つかりません",
       "no_templates_search": "検索またはフィルタ条件を調整してみてください",
@@ -557,7 +557,7 @@
       "label_on": "タブ+",
       "tooltip": "開いているタブと対話する"
     },
-    "context": "Context",
+    "context": "コンテキスト",
     "inspector": {
       "title": "抽出されたタブコンテキスト",
       "description": "送信前にタブコンテキストとして正確に使用される内容を確認します。",
@@ -849,20 +849,20 @@
     },
     "context": {
       "file_upload": {
-        "title": "File Ingestion",
-        "description": "Configure how files are processed for knowledge retrieval."
+        "title": "ファイル取り込み",
+        "description": "知識検索のためにファイルを処理する方法を設定します。"
       },
       "embedding_health": {
-        "title": "Mixed embedding dimensions detected",
-        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
-        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
-        "action": "Rebuild embeddings",
-        "action_rebuilding": "Rebuilding...",
-        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
-        "success": "Embeddings rebuilt successfully.",
-        "error": "Failed to rebuild embeddings."
+        "title": "異なる Embedding 次元が検出されました",
+        "description": "Embedding が複数の次元（{{dimensions}}）で保存されています。すべてを再構築するまで、検索やメモリが失敗する可能性があります。",
+        "note": "再構築するとすべての Embedding が削除され、チャット履歴が再度 Embedding 化されます。知識を復元するにはファイルを再アップロードする必要があります。",
+        "memory_disabled": "メモリがオフのため、チャット Embedding は再構築されませんでした。",
+        "action": "Embedding を再構築",
+        "action_rebuilding": "再構築中...",
+        "confirm": "Embedding を再構築しますか？すべての Embedding が削除され、チャット履歴が再度 Embedding 化されます。知識を復元するにはファイルを再アップロードする必要があります。",
+        "progress": "チャット Embedding を再構築中（{{current}}/{{total}}）",
+        "success": "Embedding を正常に再構築しました。",
+        "error": "Embedding を再構築できませんでした。"
       }
     },
     "memory": {
@@ -1017,7 +1017,7 @@
       "sort": {
         "recent": "最近",
         "popular": "人気",
-        "alphabetical": "A-Z"
+        "alphabetical": "アルファベット順"
       },
       "new_template": "新規テンプレート",
       "form": {
@@ -1043,10 +1043,10 @@
       "created_at": "作成日 {{date}}",
       "used_times": "{{count}} 回使用",
       "empty_state": {
-        "title": "No templates found",
-        "description": "Try adjusting your search or filter criteria"
+        "title": "テンプレートが見つかりません",
+        "description": "検索条件またはフィルター条件を調整してください。"
       },
-      "no_description": "No description"
+      "no_description": "説明なし"
     },
     "reset": {
       "title": "設定をリセット",
@@ -1118,10 +1118,10 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "モデルが見つかりません",
         "no_models_description": "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。",
-        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
-        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
-        "inline_failed": "Failed to connect to {{url}}: {{error}}",
-        "default_url": "default URL"
+        "inline_success": "{{url}} に正常に接続しました（{{count}} 個のモデルを検出）",
+        "inline_no_models": "{{url}} に接続しましたが、モデルは 0 件でした。サービスは実行中ですか？",
+        "inline_failed": "{{url}} への接続に失敗しました: {{error}}",
+        "default_url": "デフォルト URL"
       }
     },
     "migration": {
@@ -1144,10 +1144,10 @@
       "import_result": {
         "title": "インポート結果",
         "description": "以下のデータインポートのステータスを確認してください:",
-        "sync": "Settings",
-        "vector": "Knowledge Base (Vectors)",
-        "sqlite": "Chat History & Data",
-        "errors": "Errors encountered ({{count}})",
+        "sync": "設定",
+        "vector": "ナレッジベース（ベクトル）",
+        "sqlite": "チャット履歴とデータ",
+        "errors": "発生したエラー（{{count}}）",
         "labels": {
           "sync": "環境設定 (Sync)",
           "local": "ローカルストレージ",
@@ -1204,9 +1204,9 @@
     "bug_report": "バグ報告 / 機能リクエスト"
   },
   "errorBoundary": {
-    "title": "Something went wrong",
-    "description": "An unexpected error occurred. We've logged this issue internally.",
-    "reload": "Reload"
+    "title": "問題が発生しました",
+    "description": "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+    "reload": "再読み込み"
   },
   "knowledge_sets": {
     "title": "ナレッジセット",

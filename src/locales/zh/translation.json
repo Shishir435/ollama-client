@@ -62,7 +62,7 @@
   "welcome": {
     "title": "欢迎使用本地 LLM 聊天",
     "subtitle": "本地 AI 对话，简单易行",
-    "badge": "Local-first chat",
+    "badge": "本地优先聊天",
     "start_chatting": "开始聊天",
     "status": {
       "connecting": {
@@ -123,8 +123,8 @@
       "chars": "字符",
       "enter_to_send": "发送",
       "enter_key": "回车",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "rag_toggle_on": "智能上下文已开启",
+      "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "drop_files_here": "将文件拖到此处"
     },
@@ -136,7 +136,7 @@
       "copied": "已复制",
       "regenerate": "重新生成",
       "switch_model_tooltip": "切换模型",
-      "fork": "Fork Conversation",
+      "fork": "分叉",
       "edit": "编辑",
       "export_as": "导出为...",
       "more": "更多",
@@ -158,7 +158,7 @@
       "prompt_tokens": "{{value}} 提示词",
       "generated_tokens": "{{value}} 生成",
       "avg_speed": "{{speed}} t/s",
-      "speed_unit": "t/s",
+      "speed_unit": "tok/s",
       "messages": "{{value}} 条消息",
       "tooltip_tokens": "本次会话使用的总 Token",
       "tooltip_time": "总生成时间",
@@ -412,15 +412,15 @@
       "cache_ttl_description": "缓存搜索结果的时间 (1-60 分钟)。缓存的查询会立即返回。",
       "cache_max_size_label": "最大缓存查询数",
       "cache_max_size_description": "最大缓存搜索查询数 (10-200)。达到限制时会自动移除较旧的条目。",
-      "ann_backend_label": "ANN Backend",
-      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
-      "ann_backend_placeholder": "Select a backend",
-      "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (Recommended)",
+      "ann_backend_label": "ANN 后端",
+      "ann_backend_description": "选择用于向量搜索的近似最近邻后端。",
+      "ann_backend_placeholder": "选择后端",
+      "ann_backend_group": "后端",
+      "ann_backend_wasm": "WASM HNSW（推荐）",
       "ann_backend_ts": "TypeScript HNSW",
-      "ann_backend_bruteforce": "Brute Force",
-      "ann_min_vectors_label": "ANN Min Vectors",
-      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
+      "ann_backend_bruteforce": "暴力搜索",
+      "ann_min_vectors_label": "ANN 最小向量数",
+      "ann_min_vectors_description": "使用 ANN 前所需的最小向量数量（0 = 始终使用）。",
       "enhanced_chunking_label": "增强分块",
       "enhanced_chunking_description": "使用高级递归字符分割以获得更好的上下文",
       "enhanced_chunking_info": "增强分块以分层方式分割文本（段落 → 句子 → 单词）以保留语义。建议用于 RAG。",
@@ -437,11 +437,11 @@
       "temporal_boosting_description": "使用指数衰减评分优先考虑较新的文档",
       "reranking_label": "启用重新排序",
       "reranking_description": "使用交叉编码器模型对检索结果的相关性进行评分。显着提高精度。",
-      "reranker_backend_label": "Reranker Backend",
-      "reranker_backend_description": "Choose the backend used to run the reranker model.",
-      "reranker_backend_placeholder": "Select a reranker backend",
-      "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Disabled",
+      "reranker_backend_label": "重排序后端",
+      "reranker_backend_description": "选择用于运行重排序模型的后端。",
+      "reranker_backend_placeholder": "选择重排序后端",
+      "reranker_backend_group": "后端",
+      "reranker_backend_none": "已禁用",
       "hybrid_search_label": "启用混合搜索",
       "hybrid_search_description": "将关键字搜索 (BM25) 与语义搜索相结合，以获得更好的召回率。",
       "keyword_weight_label": "关键字权重",
@@ -456,32 +456,32 @@
       "exclude_casual_description": "过滤掉问候语、简短回复和低信息量的消息。",
       "min_quality_score_label": "最低质量分数",
       "min_quality_score_description": "嵌入内容所需的最低质量分数 (0-1)。",
-      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_label": "Embedding 生成来源",
       "embedding_source_description": "嵌入由本地提供方生成（默认 Ollama）",
       "embedding_source_default_provider": "默认提供方（Ollama）",
-      "feedback_learning_title": "User Feedback Learning",
-      "feedback_learning_description": "Improve search quality by learning from your feedback",
-      "feedback_enable_label": "Enable Feedback Collection",
-      "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
-      "feedback_show_chunks_label": "Show Retrieved Chunks",
-      "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
-      "feedback_blend_weight_label": "Feedback Learning Weight",
-      "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
-      "feedback_export_button": "Export Feedback Data",
-      "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "用户反馈学习",
+      "feedback_learning_description": "通过学习你的反馈来提升搜索质量。",
+      "feedback_enable_label": "启用反馈收集",
+      "feedback_enable_description": "记住哪些片段有帮助，以改进之后的检索。",
+      "feedback_show_chunks_label": "显示检索到的片段",
+      "feedback_show_chunks_description": "在聊天中显示来源片段和反馈按钮。",
+      "feedback_blend_weight_label": "反馈学习权重",
+      "feedback_blend_weight_description": "相对于模型分数，对已学习反馈的信任程度（0-1）。",
+      "feedback_export_button": "导出反馈数据",
+      "feedback_clear_button": "清除所有反馈",
+      "feedback_privacy_note": "所有反馈都存储在本地。查询会被哈希以保护隐私。没有数据会离开你的设备。",
+      "feedback_stats_title": "反馈统计",
+      "feedback_stats_total": "反馈总数",
+      "feedback_stats_helpful": "有帮助比例",
+      "feedback_stats_chunks": "带反馈的片段",
+      "feedback_stats_queries": "带反馈的查询",
+      "feedback_privacy_title": "反馈隐私",
+      "feedback_export_success": "反馈数据已导出",
+      "feedback_export_error": "无法导出反馈数据",
+      "feedback_clear_confirm_title": "清除所有反馈？",
+      "feedback_clear_confirm_description": "这将删除所有已保存的反馈数据。此操作无法撤销。",
+      "feedback_clear_success": "反馈数据已清除",
+      "feedback_clear_error": "无法清除反馈数据"
     },
     "provider_status": {
       "checking": "正在检查 Provider 状态...",
@@ -497,7 +497,7 @@
       "search_placeholder": "搜索模板、标签或描述...",
       "sort_recent": "最新",
       "sort_popular": "热门",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "按字母排序",
       "all_categories": "所有类别",
       "no_templates_title": "未找到模板",
       "no_templates_search": "请尝试调整您的搜索或筛选条件",
@@ -557,7 +557,7 @@
       "label_on": "标签页+",
       "tooltip": "与打开的标签页进行交互"
     },
-    "context": "Context",
+    "context": "上下文",
     "inspector": {
       "title": "提取的标签页上下文",
       "description": "发送前查看将用作标签页上下文的具体内容。",
@@ -849,20 +849,20 @@
     },
     "context": {
       "file_upload": {
-        "title": "File Ingestion",
-        "description": "Configure how files are processed for knowledge retrieval."
+        "title": "文件摄取",
+        "description": "配置文件如何被处理以用于知识检索。"
       },
       "embedding_health": {
-        "title": "Mixed embedding dimensions detected",
-        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
-        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
-        "action": "Rebuild embeddings",
-        "action_rebuilding": "Rebuilding...",
-        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
-        "success": "Embeddings rebuilt successfully.",
-        "error": "Failed to rebuild embeddings."
+        "title": "检测到混合 Embedding 维度",
+        "description": "Embedding 以多个维度存储（{{dimensions}}）。在全部重建之前，搜索和记忆可能会失败。",
+        "note": "重建会清除所有 Embedding，并重新嵌入聊天历史。文件上传需要重新上传，才能恢复知识。",
+        "memory_disabled": "记忆已关闭，因此未重建聊天 Embedding。",
+        "action": "重建 Embedding",
+        "action_rebuilding": "正在重建...",
+        "confirm": "要重建 Embedding 吗？这会清除所有 Embedding，并重新嵌入聊天历史。文件上传需要重新上传，才能恢复知识。",
+        "progress": "正在重建聊天 Embedding（{{current}}/{{total}}）",
+        "success": "Embedding 重建成功。",
+        "error": "无法重建 Embedding。"
       }
     },
     "memory": {
@@ -1017,7 +1017,7 @@
       "sort": {
         "recent": "最新",
         "popular": "热门",
-        "alphabetical": "A-Z"
+        "alphabetical": "按字母排序"
       },
       "new_template": "新建模板",
       "form": {
@@ -1043,10 +1043,10 @@
       "created_at": "{{date}} 创建",
       "used_times": "已使用 {{count}} 次",
       "empty_state": {
-        "title": "No templates found",
-        "description": "Try adjusting your search or filter criteria"
+        "title": "未找到模板",
+        "description": "请尝试调整搜索或筛选条件。"
       },
-      "no_description": "No description"
+      "no_description": "无描述"
     },
     "reset": {
       "title": "重置设置",
@@ -1115,13 +1115,13 @@
         "success_title": "连接成功",
         "success_description": "已成功连接到 {{url}} 上的 {{name}} ({{count}} 个模型)",
         "failed_title": "连接失败",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "{{url}}：{{error}}",
         "no_models_title": "未找到模型",
         "no_models_description": "已连接到 {{url}} 但未找到模型。请检查服务是否正常运行。",
-        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
-        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
-        "inline_failed": "Failed to connect to {{url}}: {{error}}",
-        "default_url": "default URL"
+        "inline_success": "已成功连接到 {{url}}（找到 {{count}} 个模型）",
+        "inline_no_models": "已连接到 {{url}}，但找到 0 个模型。服务正在运行吗？",
+        "inline_failed": "连接到 {{url}} 失败：{{error}}",
+        "default_url": "默认 URL"
       }
     },
     "migration": {
@@ -1144,10 +1144,10 @@
       "import_result": {
         "title": "导入结果",
         "description": "查看下面您的数据导入状态：",
-        "sync": "Settings",
-        "vector": "Knowledge Base (Vectors)",
-        "sqlite": "Chat History & Data",
-        "errors": "Errors encountered ({{count}})",
+        "sync": "设置",
+        "vector": "知识库（向量）",
+        "sqlite": "聊天历史和数据",
+        "errors": "遇到错误（{{count}}）",
         "labels": {
           "sync": "偏好设置 (Sync)",
           "local": "本地存储",
@@ -1204,9 +1204,9 @@
     "bug_report": "报告错误 / 功能"
   },
   "errorBoundary": {
-    "title": "Something went wrong",
-    "description": "An unexpected error occurred. We've logged this issue internally.",
-    "reload": "Reload"
+    "title": "出了点问题",
+    "description": "发生了意外错误。我们已在内部记录此问题。",
+    "reload": "重新加载"
   },
   "knowledge_sets": {
     "title": "知识集",

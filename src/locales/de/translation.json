@@ -8,7 +8,7 @@
       "system": "System"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Fehler",
       "aria_label": "Einen Fehler melden oder eine Funktion anfordern",
       "tooltip": "Einen Fehler melden oder eine Funktion anfordern"
     },
@@ -62,7 +62,7 @@
   "welcome": {
     "title": "Willkommen beim Local LLM Chat",
     "subtitle": "Lokale KI-Gespräche leicht gemacht",
-    "badge": "Local-first chat",
+    "badge": "Lokaler Chat zuerst",
     "start_chatting": "Mit dem Chatten beginnen",
     "status": {
       "connecting": {
@@ -123,8 +123,8 @@
       "chars": "Zeichen",
       "enter_to_send": "Senden",
       "enter_key": "Eingabe",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "rag_toggle_on": "Intelligenter Kontext aktiviert",
+      "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "drop_files_here": "Dateien hier ablegen"
     },
@@ -136,7 +136,7 @@
       "copied": "Kopiert",
       "regenerate": "Neu generieren",
       "switch_model_tooltip": "Modell wechseln",
-      "fork": "Konversation abzweigen",
+      "fork": "Verzweigen",
       "edit": "Bearbeiten",
       "export_as": "Exportieren als...",
       "more": "Mehr",
@@ -412,19 +412,19 @@
       "cache_ttl_description": "Wie lange Suchergebnisse zwischengespeichert werden sollen (1-60 Minuten). Zwischengespeicherte Abfragen werden sofort zurückgegeben.",
       "cache_max_size_label": "Max. zwischengespeicherte Abfragen",
       "cache_max_size_description": "Maximale Anzahl der zwischenzuspeichernden Suchabfragen (10-200). Ältere Einträge werden automatisch entfernt, wenn das Limit erreicht ist.",
-      "ann_backend_label": "ANN Backend",
-      "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
-      "ann_backend_placeholder": "Select a backend",
+      "ann_backend_label": "ANN-Backend",
+      "ann_backend_description": "Wählen Sie das Backend für approximative nächste Nachbarn, das für die Vektorsuche verwendet wird.",
+      "ann_backend_placeholder": "Backend auswählen",
       "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (Recommended)",
+      "ann_backend_wasm": "WASM HNSW (empfohlen)",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "Brute Force",
-      "ann_min_vectors_label": "ANN Min Vectors",
-      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
+      "ann_min_vectors_label": "Min. ANN-Vektoren",
+      "ann_min_vectors_description": "Mindestanzahl an Vektoren, bevor ANN verwendet wird (0 = immer).",
       "enhanced_chunking_label": "Erweitertes Chunking",
       "enhanced_chunking_description": "Verwenden Sie fortgeschrittene rekursive Zeichenteilung für besseren Kontext",
       "enhanced_chunking_info": "Erweitertes Chunking teilt Text hierarchisch auf (Absätze → Sätze → Wörter), um die semantische Bedeutung zu bewahren. Dies wird für RAG empfohlen.",
-      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_title": "RAG-Einstellungen",
       "rag_settings_description": "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
       "rag_enable_label": "RAG aktivieren",
       "rag_enable_description": "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
@@ -437,11 +437,11 @@
       "temporal_boosting_description": "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
       "reranking_label": "Re-Ranking aktivieren",
       "reranking_description": "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
-      "reranker_backend_label": "Reranker Backend",
-      "reranker_backend_description": "Choose the backend used to run the reranker model.",
-      "reranker_backend_placeholder": "Select a reranker backend",
+      "reranker_backend_label": "Reranker-Backend",
+      "reranker_backend_description": "Wählen Sie das Backend zum Ausführen des Reranker-Modells.",
+      "reranker_backend_placeholder": "Reranker-Backend auswählen",
       "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Disabled",
+      "reranker_backend_none": "Deaktiviert",
       "hybrid_search_label": "Hybrid-Suche aktivieren",
       "hybrid_search_description": "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",
       "keyword_weight_label": "Stichwort-Gewichtung",
@@ -456,32 +456,32 @@
       "exclude_casual_description": "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
       "min_quality_score_label": "Mindest-Qualitätsfaktor",
       "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
-      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_label": "Quelle für Embedding-Erzeugung",
       "embedding_source_description": "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
       "embedding_source_default_provider": "Standard-Provider (Ollama)",
-      "feedback_learning_title": "User Feedback Learning",
-      "feedback_learning_description": "Improve search quality by learning from your feedback",
-      "feedback_enable_label": "Enable Feedback Collection",
-      "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
-      "feedback_show_chunks_label": "Show Retrieved Chunks",
-      "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
-      "feedback_blend_weight_label": "Feedback Learning Weight",
-      "feedback_blend_weight_description": "How much to trust learned feedback vs model scores (0-1)",
-      "feedback_export_button": "Export Feedback Data",
-      "feedback_clear_button": "Clear All Feedback",
-      "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "Lernen aus Nutzerfeedback",
+      "feedback_learning_description": "Verbessern Sie die Suchqualität, indem aus Ihrem Feedback gelernt wird.",
+      "feedback_enable_label": "Feedback-Erfassung aktivieren",
+      "feedback_enable_description": "Merken, welche Chunks hilfreich waren, um künftige Abrufe zu verbessern.",
+      "feedback_show_chunks_label": "Abgerufene Chunks anzeigen",
+      "feedback_show_chunks_description": "Quell-Chunks im Chat mit Feedback-Schaltflächen anzeigen.",
+      "feedback_blend_weight_label": "Gewichtung des Feedback-Lernens",
+      "feedback_blend_weight_description": "Wie stark gelerntem Feedback im Vergleich zu Modellbewertungen vertraut wird (0-1).",
+      "feedback_export_button": "Feedback-Daten exportieren",
+      "feedback_clear_button": "Alles Feedback löschen",
+      "feedback_privacy_note": "Alle Feedbackdaten werden lokal gespeichert. Abfragen werden zum Schutz der Privatsphäre gehasht. Keine Daten verlassen Ihr Gerät.",
+      "feedback_stats_title": "Feedback-Statistiken",
+      "feedback_stats_total": "Feedback insgesamt",
+      "feedback_stats_helpful": "Hilfreich-Rate",
+      "feedback_stats_chunks": "Chunks mit Feedback",
+      "feedback_stats_queries": "Abfragen mit Feedback",
+      "feedback_privacy_title": "Datenschutz bei Feedback",
+      "feedback_export_success": "Feedback-Daten exportiert",
+      "feedback_export_error": "Feedback-Daten konnten nicht exportiert werden",
+      "feedback_clear_confirm_title": "Alles Feedback löschen?",
+      "feedback_clear_confirm_description": "Dadurch werden alle gespeicherten Feedbackdaten entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "feedback_clear_success": "Feedback-Daten gelöscht",
+      "feedback_clear_error": "Feedback-Daten konnten nicht gelöscht werden"
     },
     "provider_status": {
       "checking": "Provider-Status wird geprüft...",
@@ -497,7 +497,7 @@
       "search_placeholder": "Vorlagen, Tags oder Beschreibungen suchen...",
       "sort_recent": "Neueste",
       "sort_popular": "Beliebte",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "Alphabetisch sortieren",
       "all_categories": "Alle Kategorien",
       "no_templates_title": "Keine Vorlagen gefunden",
       "no_templates_search": "Versuchen Sie, Ihre Such- oder Filterkriterien anzupassen",
@@ -505,7 +505,7 @@
       "clear_filters": "Filter löschen",
       "preview_system_prompt": "System-Prompt",
       "preview_user_prompt": "Benutzer-Prompt",
-      "preview_tags": "Tags",
+      "preview_tags": "Tags vorschauen",
       "use_template": "Vorlage verwenden",
       "copy": "Kopieren"
     }
@@ -553,11 +553,11 @@
       "refresh_now": "Kontext jetzt aktualisieren"
     },
     "toggle": {
-      "label_off": "Tabs",
-      "label_on": "Tab+",
+      "label_off": "Aus",
+      "label_on": "Ein",
       "tooltip": "Mit offenen Tabs interagieren"
     },
-    "context": "Context",
+    "context": "Kontext",
     "inspector": {
       "title": "Extrahierter Tab-Kontext",
       "description": "Überprüfen Sie genau, was als Tab-Kontext vor dem Senden verwendet wird.",
@@ -649,7 +649,7 @@
       "scraper": {
         "label": "Inhalts-Scraper",
         "auto": {
-          "label": "Auto",
+          "label": "Automatisch",
           "description": "Intelligenter Fallback: Defuddle, dann Readability",
           "detail": "Gut für die meisten Sites. Verwendet zuerst Defuddle für verbesserte Markdown- und Code-Formatierung, fällt bei Bedarf auf Readability zurück."
         },
@@ -821,7 +821,7 @@
       "capabilities": "Funktionen",
       "technical_details": "Technische Details",
       "unknown_file_type": "Unbekannt",
-      "params_label": "Params",
+      "params_label": "Parameter",
       "context_label": "Kontext"
     },
     "loaded_models": {
@@ -849,20 +849,20 @@
     },
     "context": {
       "file_upload": {
-        "title": "File Ingestion",
-        "description": "Configure how files are processed for knowledge retrieval."
+        "title": "Datei-Ingestion",
+        "description": "Konfigurieren Sie, wie Dateien für den Wissensabruf verarbeitet werden."
       },
       "embedding_health": {
-        "title": "Mixed embedding dimensions detected",
-        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
-        "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
-        "action": "Rebuild embeddings",
-        "action_rebuilding": "Rebuilding...",
-        "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
-        "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
-        "success": "Embeddings rebuilt successfully.",
-        "error": "Failed to rebuild embeddings."
+        "title": "Gemischte Embedding-Dimensionen erkannt",
+        "description": "Embeddings sind mit mehreren Dimensionen gespeichert ({{dimensions}}). Suche und Gedächtnis können fehlschlagen, bis alles neu aufgebaut wurde.",
+        "note": "Beim Neuaufbau werden alle Embeddings gelöscht und der Chatverlauf neu eingebettet. Datei-Uploads müssen erneut hochgeladen werden, um Wissen wiederherzustellen.",
+        "memory_disabled": "Gedächtnis ist deaktiviert, daher wurden Chat-Embeddings nicht neu aufgebaut.",
+        "action": "Embeddings neu aufbauen",
+        "action_rebuilding": "Wird neu aufgebaut...",
+        "confirm": "Embeddings neu aufbauen? Dadurch werden alle Embeddings gelöscht und der Chatverlauf neu eingebettet. Datei-Uploads müssen erneut hochgeladen werden, um Wissen wiederherzustellen.",
+        "progress": "Chat-Embeddings werden neu aufgebaut ({{current}}/{{total}})",
+        "success": "Embeddings erfolgreich neu aufgebaut.",
+        "error": "Embeddings konnten nicht neu aufgebaut werden."
       }
     },
     "memory": {
@@ -1017,7 +1017,7 @@
       "sort": {
         "recent": "Neueste",
         "popular": "Beliebte",
-        "alphabetical": "A-Z"
+        "alphabetical": "Alphabetisch"
       },
       "new_template": "Neue Vorlage",
       "form": {
@@ -1028,7 +1028,7 @@
         "description": "Beschreibung",
         "description_placeholder": "Eine kurze Beschreibung des Zwecks und der Funktionalität der Vorlage.",
         "tags": "Tags",
-        "tags_placeholder": "tag1, tag2, tag3",
+        "tags_placeholder": "Tags hinzufügen...",
         "user_prompt": "Benutzer-Prompt",
         "user_prompt_placeholder": "Haupt-Prompt-Vorlage",
         "system_prompt": "System-Prompt",
@@ -1043,10 +1043,10 @@
       "created_at": "Erstellt am {{date}}",
       "used_times": "{{count}} Mal verwendet",
       "empty_state": {
-        "title": "No templates found",
-        "description": "Try adjusting your search or filter criteria"
+        "title": "Keine Vorlagen gefunden",
+        "description": "Passen Sie Ihre Suche oder Filterkriterien an."
       },
-      "no_description": "No description"
+      "no_description": "Keine Beschreibung"
     },
     "reset": {
       "title": "Einstellungen zurücksetzen",
@@ -1118,10 +1118,10 @@
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "Keine Modelle gefunden",
         "no_models_description": "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft.",
-        "inline_success": "Successfully connected to {{url}} (found {{count}} models)",
-        "inline_no_models": "Connected to {{url}} but found 0 models. Is the service running?",
-        "inline_failed": "Failed to connect to {{url}}: {{error}}",
-        "default_url": "default URL"
+        "inline_success": "Erfolgreich mit {{url}} verbunden ({{count}} Modelle gefunden)",
+        "inline_no_models": "Mit {{url}} verbunden, aber 0 Modelle gefunden. Läuft der Dienst?",
+        "inline_failed": "Verbindung zu {{url}} fehlgeschlagen: {{error}}",
+        "default_url": "Standard-URL"
       }
     },
     "migration": {
@@ -1144,10 +1144,10 @@
       "import_result": {
         "title": "Import-Ergebnisse",
         "description": "Überprüfen Sie den Status Ihres Datenimports unten:",
-        "sync": "Settings",
-        "vector": "Knowledge Base (Vectors)",
-        "sqlite": "Chat History & Data",
-        "errors": "Errors encountered ({{count}})",
+        "sync": "Einstellungen",
+        "vector": "Wissensdatenbank (Vektoren)",
+        "sqlite": "Chatverlauf und Daten",
+        "errors": "Aufgetretene Fehler ({{count}})",
         "labels": {
           "sync": "Einstellungen (Sync)",
           "local": "Lokaler Speicher",
@@ -1204,9 +1204,9 @@
     "bug_report": "Fehler / Funktion melden"
   },
   "errorBoundary": {
-    "title": "Something went wrong",
-    "description": "An unexpected error occurred. We've logged this issue internally.",
-    "reload": "Reload"
+    "title": "Etwas ist schiefgelaufen",
+    "description": "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
+    "reload": "Neu laden"
   },
   "knowledge_sets": {
     "title": "Wissenssammlungen",

@@ -56,6 +56,16 @@ function flatten(value: JsonValue, prefix = "") {
   return entries
 }
 
+function interpolationKeys(value: JsonValue) {
+  if (typeof value !== "string") {
+    return []
+  }
+
+  return [...value.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)]
+    .map((match) => match[1])
+    .sort()
+}
+
 function syncToSourceShape(source: JsonValue, target: JsonValue): JsonValue {
   if (!isRecord(source)) {
     return typeOf(source) === typeOf(target) ? target : source
@@ -77,14 +87,44 @@ function syncToSourceShape(source: JsonValue, target: JsonValue): JsonValue {
 function diffAgainstSource(source: JsonValue, target: JsonValue) {
   const sourceMap = flatten(source)
   const targetMap = flatten(target)
+  const placeholders = [...sourceMap.keys()].filter((key) => {
+    if (!targetMap.has(key)) {
+      return false
+    }
+
+    const sourceValue = getPath(source, key)
+    const targetValue = getPath(target, key)
+
+    return (
+      typeof sourceValue === "string" &&
+      typeof targetValue === "string" &&
+      interpolationKeys(sourceValue).join(",") !==
+        interpolationKeys(targetValue).join(",")
+    )
+  })
 
   return {
     missing: [...sourceMap.keys()].filter((key) => !targetMap.has(key)),
     extra: [...targetMap.keys()].filter((key) => !sourceMap.has(key)),
     mismatched: [...sourceMap.keys()].filter((key) => {
       return targetMap.has(key) && targetMap.get(key) !== sourceMap.get(key)
-    })
+    }),
+    placeholders
   }
+}
+
+function getPath(value: JsonValue, pathKey: string) {
+  if (pathKey === "<root>") {
+    return value
+  }
+
+  return pathKey.split(".").reduce<JsonValue | undefined>((current, key) => {
+    if (!isRecord(current)) {
+      return undefined
+    }
+
+    return current[key]
+  }, value)
 }
 
 function formatList(items: string[]) {
@@ -112,7 +152,10 @@ function main() {
     const target = readTranslation(locale)
     const diff = diffAgainstSource(source, target)
     const driftCount =
-      diff.missing.length + diff.extra.length + diff.mismatched.length
+      diff.missing.length +
+      diff.extra.length +
+      diff.mismatched.length +
+      diff.placeholders.length
 
     if (driftCount === 0) {
       console.log(`✓ ${locale} matches ${SOURCE_LOCALE}`)
@@ -132,6 +175,10 @@ function main() {
     console.log(`  type mismatches: ${diff.mismatched.length}`)
     if (diff.mismatched.length > 0) {
       console.log(formatList(diff.mismatched))
+    }
+    console.log(`  placeholder mismatches: ${diff.placeholders.length}`)
+    if (diff.placeholders.length > 0) {
+      console.log(formatList(diff.placeholders))
     }
 
     if (SHOULD_WRITE) {
