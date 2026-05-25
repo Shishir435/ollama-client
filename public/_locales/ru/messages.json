@@ -1,0 +1,18 @@
+{
+  "extName": {
+    "message": "Ollama Client - чат с локальными LLM-моделями",
+    "description": "Extension name shown by Chrome and Chrome Web Store"
+  },
+  "extShortName": {
+    "message": "Ollama Client",
+    "description": "Short extension name"
+  },
+  "extDescription": {
+    "message": "Локальное расширение Chrome для приватного чата с LLM через Ollama, LM Studio и llama.cpp, включая локальные RAG-процессы.",
+    "description": "Extension description shown by Chrome and Chrome Web Store"
+  },
+  "actionDefaultTitle": {
+    "message": "Открыть Ollama Client",
+    "description": "Toolbar action title"
+  }
+}

@@ -13,8 +13,10 @@ export default defineConfig({
   outDirTemplate: "",
   publicDir: "public",
   manifest: {
-    name: packageJson.displayName,
-    description: packageJson.description,
+    name: "__MSG_extName__",
+    short_name: "__MSG_extShortName__",
+    description: "__MSG_extDescription__",
+    default_locale: "en",
     version: packageJson.version,
     homepage_url: packageJson.homepage,
     icons: {
@@ -25,6 +27,7 @@ export default defineConfig({
       128: "assets/icon.png"
     },
     action: {
+      default_title: "__MSG_actionDefaultTitle__",
       default_icon: {
         16: "assets/icon.png",
         32: "assets/icon.png",

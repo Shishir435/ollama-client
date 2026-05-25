@@ -1,0 +1,18 @@
+{
+  "extName": {
+    "message": "Ollama Client - स्थानीय LLM मॉडल के साथ चैट",
+    "description": "Extension name shown by Chrome and Chrome Web Store"
+  },
+  "extShortName": {
+    "message": "Ollama Client",
+    "description": "Short extension name"
+  },
+  "extDescription": {
+    "message": "Ollama, LM Studio और llama.cpp के साथ निजी LLM चैट के लिए लोकल-फर्स्ट Chrome एक्सटेंशन, जिसमें स्थानीय RAG वर्कफ्लो शामिल हैं.",
+    "description": "Extension description shown by Chrome and Chrome Web Store"
+  },
+  "actionDefaultTitle": {
+    "message": "Ollama Client खोलें",
+    "description": "Toolbar action title"
+  }
+}
