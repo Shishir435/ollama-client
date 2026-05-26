@@ -1,0 +1,376 @@
+---
+interface Shortcut {
+    action: string;
+    key: string;
+    desc: string;
+    icon: string;
+}
+
+interface Category {
+    label: string;
+    icon: string;
+    shortcuts: Shortcut[];
+}
+
+const IconCursor = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>`;
+
+const IconSidebar = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>`;
+
+const IconSettings = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
+const IconSearch = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+const IconPlus = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+
+const IconStop = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+
+const IconClear = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+const IconCopy = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+
+const IconExportJSON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+
+const IconExportMarkdown = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+const IconExportPDF = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+
+const IconExportText = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
+
+const IconTheme = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+const IconDatabase = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`;
+
+const IconSpeech = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`;
+
+const IconTabs = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 4h-4"/><path d="M8 4h-2"/></svg>`;
+
+const IconMetrics = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
+
+const IconArrowRight = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+
+const IconZap = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+
+const IconToggle = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7" ry="7"/><circle cx="8" cy="12" r="3"/></svg>`;
+
+const categories: Category[] = [
+    {
+        label: "Navigation",
+        icon: IconArrowRight,
+        shortcuts: [
+            {
+                action: "Focus Input",
+                key: "/",
+                desc: "Focus the chat input field",
+                icon: IconCursor,
+            },
+            {
+                action: "Toggle Sidebar",
+                key: "Alt+B",
+                desc: "Open or close the sidebar",
+                icon: IconSidebar,
+            },
+            {
+                action: "Open Settings",
+                key: "Alt+O",
+                desc: "Open the settings page",
+                icon: IconSettings,
+            },
+            {
+                action: "Search Messages",
+                key: "Alt+F",
+                desc: "Open semantic chat search",
+                icon: IconSearch,
+            },
+        ],
+    },
+    {
+        label: "Actions",
+        icon: IconZap,
+        shortcuts: [
+            {
+                action: "New Chat",
+                key: "Alt+N",
+                desc: "Create a new chat session",
+                icon: IconPlus,
+            },
+            {
+                action: "Stop Generation",
+                key: "Escape",
+                desc: "Stop the AI response",
+                icon: IconStop,
+            },
+            {
+                action: "Clear Chat",
+                key: "Alt+X",
+                desc: "Clear the current chat session",
+                icon: IconClear,
+            },
+            {
+                action: "Copy Last Response",
+                key: "Mod+Shift+C",
+                desc: "Copy the last AI response to clipboard",
+                icon: IconCopy,
+            },
+            {
+                action: "Export as JSON",
+                key: "Alt+J",
+                desc: "Export current chat as JSON file",
+                icon: IconExportJSON,
+            },
+            {
+                action: "Export as Markdown",
+                key: "Alt+M",
+                desc: "Export current chat as Markdown file",
+                icon: IconExportMarkdown,
+            },
+            {
+                action: "Export as PDF",
+                key: "Alt+P",
+                desc: "Export current chat as PDF file",
+                icon: IconExportPDF,
+            },
+            {
+                action: "Export as Text",
+                key: "Alt+Shift+T",
+                desc: "Export current chat as plain text file",
+                icon: IconExportText,
+            },
+        ],
+    },
+    {
+        label: "Toggles",
+        icon: IconToggle,
+        shortcuts: [
+            {
+                action: "Toggle Theme",
+                key: "Alt+T",
+                desc: "Switch between light and dark mode",
+                icon: IconTheme,
+            },
+            {
+                action: "Toggle RAG",
+                key: "Alt+R",
+                desc: "Enable or disable context retrieval",
+                icon: IconDatabase,
+            },
+            {
+                action: "Toggle Speech",
+                key: "Alt+S",
+                desc: "Start or stop speaking the last AI response",
+                icon: IconSpeech,
+            },
+            {
+                action: "Toggle Tabs",
+                key: "Alt+K",
+                desc: "Enable or disable tab access",
+                icon: IconTabs,
+            },
+            {
+                action: "Toggle Session Metrics",
+                key: "Alt+M",
+                desc: "Show or hide the session metrics bar",
+                icon: IconMetrics,
+            },
+        ],
+    },
+];
+
+function formatKey(key: string): string {
+    if (key === "Mod") return "⌘";
+    if (key === "Shift") return "⇧";
+    if (key === "Alt") return "⌥";
+    if (key === "Ctrl") return "⌃";
+    if (key === "Escape") return "Esc";
+    if (key === "Space") return "Space";
+    if (key === "Enter") return "↵";
+    if (key === "Delete") return "Del";
+    if (key === "Backspace") return "⌫";
+    return key;
+}
+---
+
+<div class="shortcuts-grid">
+    {
+        categories.map((cat) => (
+            <section class="category-section">
+                <h3 class="category-heading">
+                    <span aria-hidden="true" set:html={cat.icon} />
+                    {cat.label}
+                </h3>
+                <div class="shortcut-list">
+                    {cat.shortcuts.map((s) => (
+                        <div class="shortcut-row">
+                            <div class="shortcut-info">
+                                <span
+                                    aria-hidden="true"
+                                    class="shortcut-icon"
+                                    set:html={s.icon}
+                                />
+                                <div>
+                                    <div class="shortcut-action">
+                                        {s.action}
+                                    </div>
+                                    <div class="shortcut-desc">{s.desc}</div>
+                                </div>
+                            </div>
+                            <div class="shortcut-keys-wrap">
+                                {s.key.split("+").map((k) => (
+                                    <kbd class="shortcut-key">
+                                        {formatKey(k)}
+                                    </kbd>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
+        ))
+    }
+</div>
+
+<p class="shortcuts-note">
+    <strong>Note:</strong>
+    <kbd>⌘</kbd> refers to <kbd>Ctrl</kbd> on Windows/Linux and <kbd>⌘ Cmd</kbd> on
+    macOS. Shortcuts are persisted via <code>chrome.storage.sync</code> and synced
+    across devices. Conflicting shortcuts are flagged in the settings UI and must
+    be resolved before saving.
+</p>
+
+<style>
+    .shortcuts-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+    }
+
+    .category-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .category-heading {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--sl-color-gray-3);
+        margin: 0;
+    }
+
+    .category-heading svg {
+        color: var(--sl-color-accent);
+    }
+
+    .shortcut-list {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--sl-color-gray-6);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .shortcut-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.625rem 0.875rem;
+        border-bottom: 1px solid var(--sl-color-gray-6);
+        transition: background-color 120ms ease;
+    }
+
+    .shortcut-row:last-child {
+        border-bottom: none;
+    }
+
+    .shortcut-row:hover {
+        background: var(--sl-color-gray-7);
+    }
+
+    .shortcut-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        min-width: 0;
+    }
+
+    .shortcut-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1rem;
+        color: var(--sl-color-gray-3);
+    }
+
+    .shortcut-icon svg {
+        display: block;
+        width: 16px;
+        height: 16px;
+    }
+
+    .shortcut-action {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--sl-color-white);
+        line-height: 1.4;
+    }
+
+    .shortcut-desc {
+        font-size: 0.8125rem;
+        color: var(--sl-color-gray-3);
+        line-height: 1.4;
+    }
+
+    .shortcut-keys-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    .shortcut-key {
+        display: inline-flex;
+        align-items: center;
+        height: 1.5rem;
+        line-height: 1;
+        vertical-align: middle;
+        font-family: var(--sl-font-mono);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 0 0.55em;
+        border-radius: 0.25rem;
+        background: var(--sl-color-gray-7);
+        border: 1px solid var(--sl-color-gray-5);
+        color: var(--sl-color-gray-2);
+        box-shadow: 0 1px 0 var(--sl-color-gray-5);
+    }
+
+    .shortcuts-note {
+        margin-top: 1.5rem;
+        font-size: 0.8125rem;
+        color: var(--sl-color-gray-3);
+        line-height: 1.6;
+    }
+
+    .shortcuts-note kbd {
+        display: inline-flex;
+        align-items: center;
+        height: 1.5rem;
+        line-height: 1;
+        vertical-align: middle;
+        font-family: var(--sl-font-mono);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        padding: 0 0.4em;
+        border-radius: 0.2rem;
+        background: var(--sl-color-gray-7);
+        border: 1px solid var(--sl-color-gray-5);
+        color: var(--sl-color-gray-2);
+    }
+</style>

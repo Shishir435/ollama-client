@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0]
 ### Added
 - Chrome extension package localization metadata (`default_locale`, manifest `__MSG_*` substitutions, and `_locales` messages) so Chrome Web Store can detect supported languages.
 - 0.7.0 frontend foundation: app-owned layout, form, settings, and feedback primitives that sit above shadcn/Base UI so preset refreshes do not own product behavior.
