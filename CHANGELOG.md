@@ -12,8 +12,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Data-display primitives for repeated provider, model, source, file, metadata, context preview, command item, and info-list patterns.
 - React Hook Form-safe controlled wrappers for number inputs, sliders, text inputs, textareas, selects, and switches.
 - Internal frontend design-system documentation and visual-smoke screenshot capture for options/sidepanel light, dark, and long-locale checks.
+- Selection button overlay that captures selected text and delivers it to the side panel chat via the background port.
+- Composer context preview showing selected text before sending.
 
 ### Changed
+- Embedding test tools split into two standalone `SettingsCard` components (`EmbeddingTestGeneration`, `EmbeddingTestSearch`) with `modelExists` guard internalized.
+- Fixed uneven card gap in embedding settings by removing stray spacer text nodes.
 - Bumped package version to `0.7.0`.
 - Chrome Web Store locale metadata is now generated from `src/locales/<lang>/translation.json` extension blocks, making `src/locales` the single source of truth for app translations and extension package localization.
 - Newly synced locale keys now have localized copy across supported languages instead of English fallback text.

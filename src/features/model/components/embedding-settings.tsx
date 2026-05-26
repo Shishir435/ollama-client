@@ -27,7 +27,8 @@ import { EmbeddingGenerationConfig } from "./embedding-config/embedding-generati
 import { EmbeddingHealthAlert } from "./embedding-config/embedding-health-alert"
 import { EmbeddingModelSelector } from "./embedding-config/embedding-model-selector"
 import { EmbeddingRebuildDialogs } from "./embedding-config/embedding-rebuild-dialogs"
-import { EmbeddingTestTools } from "./embedding-test-tools"
+import { EmbeddingTestGeneration } from "./embedding-config/embedding-test-generation"
+import { EmbeddingTestSearch } from "./embedding-config/embedding-test-search"
 
 /**
  * Orchestrator for the Embeddings settings screen.
@@ -39,8 +40,8 @@ import { EmbeddingTestTools } from "./embedding-test-tools"
  *   - `useEmbeddingRebuild`        — the wipe + re-embed flow.
  *   - `useEmbeddingModelCheck`     — periodic background check + auto-switch.
  *
- * Renders four presentational sub-components plus three siblings that
- * existed before this split (`EmbeddingTestTools`, `EmbeddingGenerationConfig`,
+ * Renders four presentational sub-components plus four siblings
+ * (`EmbeddingTestGeneration`, `EmbeddingTestSearch`, `EmbeddingGenerationConfig`,
  * `FeedbackSettings`, `DataMigrationSettings`).
  */
 export const EmbeddingSettings = () => {
@@ -195,7 +196,6 @@ export const EmbeddingSettings = () => {
         rebuildProgress={rebuildProgress}
         onRebuildRequest={() => setConfirmRebuildOpen(true)}
       />
-
       {rebuildError && (
         <StatusAlert
           variant="destructive"
@@ -204,7 +204,6 @@ export const EmbeddingSettings = () => {
           description={rebuildError}
         />
       )}
-
       {rebuildComplete && (
         <StatusAlert
           variant="success"
@@ -212,7 +211,6 @@ export const EmbeddingSettings = () => {
           title={t("settings.context.embedding_health.success")}
         />
       )}
-
       <EmbeddingModelSelector
         selectedModel={selectedModel}
         config={config || DEFAULT_EMBEDDING_CONFIG}
@@ -224,18 +222,14 @@ export const EmbeddingSettings = () => {
         onModelSelected={handleModelSelected}
         onToggleShowAdvanced={handleToggleShowAdvanced}
       />
-
-      {modelExists && <EmbeddingTestTools modelExists={modelExists} />}
-
+      <EmbeddingTestGeneration modelExists={modelExists} />
+      <EmbeddingTestSearch modelExists={modelExists} />
       <EmbeddingGenerationConfig
         config={config || DEFAULT_EMBEDDING_CONFIG}
         updateConfig={updateConfig}
       />
-
       <FeedbackSettings />
-
       <DataMigrationSettings />
-
       <EmbeddingRebuildDialogs
         confirmRebuildOpen={confirmRebuildOpen}
         onConfirmRebuildOpenChange={setConfirmRebuildOpen}
