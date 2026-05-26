@@ -360,6 +360,30 @@ browser.runtime.onMessage.addListener(
       }
 
       case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
+        if (message.fromBackground) {
+          safeSendResponse(sendResponse, { success: true })
+          return true
+        }
+
+        const selectionText =
+          typeof message.payload === "string" ? message.payload.trim() : ""
+
+        if (!selectionText) {
+          safeSendResponse(sendResponse, {
+            success: false,
+            error: {
+              status: 400,
+              message: "Selection text is required"
+            }
+          })
+          return true
+        }
+
+        const pendingSelectionWrite = plasmoGlobalStorage.set(
+          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
+          selectionText
+        )
+
         // Open sidepanel if possible (Chrome specific)
         if (isChromiumBased() && "sidePanel" in browser) {
           const sidePanel = (
@@ -376,21 +400,34 @@ browser.runtime.onMessage.addListener(
           }
         }
 
-        setTimeout(() => {
-          if ((message as ChromeMessage).fromBackground) return
+        pendingSelectionWrite
+          .then(() => {
+            safeSendResponse(sendResponse, { success: true })
 
-          browser.runtime
-            .sendMessage({
-              ...message,
-              fromBackground: true
+            setTimeout(() => {
+              browser.runtime
+                .sendMessage({
+                  type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+                  payload: selectionText,
+                  fromBackground: true
+                })
+                .catch((err) => {
+                  console.log(
+                    "Could not forward selection to chat (sidepanel might be closed):",
+                    err
+                  )
+                })
+            }, 500)
+          })
+          .catch((error) => {
+            safeSendResponse(sendResponse, {
+              success: false,
+              error: {
+                status: 0,
+                message: error instanceof Error ? error.message : String(error)
+              }
             })
-            .catch((err) => {
-              console.log(
-                "Could not forward selection to chat (sidepanel might be closed):",
-                err
-              )
-            })
-        }, 500)
+          })
 
         return true
       }

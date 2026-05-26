@@ -50,6 +50,9 @@ export const ChatInputBox = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
+  const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
+    null
+  )
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -263,26 +266,56 @@ export const ChatInputBox = ({
     [processFiles, toast]
   )
 
+  const appendSelectionToInput = useCallback(
+    async (rawText: string) => {
+      const pendingText = rawText.trim()
+      if (!pendingText) return
+
+      const now = Date.now()
+      const lastAppend = lastSelectionAppendRef.current
+
+      if (lastAppend?.text === pendingText && now - lastAppend.at < 2000) {
+        await plasmoGlobalStorage.remove(
+          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+        )
+        return
+      }
+
+      lastSelectionAppendRef.current = { text: pendingText, at: now }
+
+      const selectionText = `> ${pendingText.split("\n").join("\n> ")}\n`
+      appendInput(selectionText)
+      textareaRef.current?.focus()
+
+      await plasmoGlobalStorage.remove(
+        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+      )
+    },
+    [appendInput]
+  )
+
   useEffect(() => {
-    // Check for pending selection (from context menu when sidebar was closed)
+    // Check for pending selection (from context menu or selection button when sidebar was closed)
     const checkPendingSelection = async () => {
       const pendingText = await plasmoGlobalStorage.get<string>(
         STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
       )
 
-      if (pendingText) {
-        const selectionText = `> ${pendingText.split("\n").join("\n> ")}\n`
-        appendInput(selectionText)
-        textareaRef.current?.focus()
-
-        // Clear it
-        await plasmoGlobalStorage.remove(
-          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-        )
-      }
+      if (pendingText) await appendSelectionToInput(pendingText)
     }
 
     checkPendingSelection()
+
+    const pendingSelectionWatch = {
+      [STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT]: (change: {
+        newValue?: string
+      }) => {
+        if (change.newValue) void appendSelectionToInput(change.newValue)
+      }
+    }
+
+    plasmoGlobalStorage.watch(pendingSelectionWatch)
+
     const handleMessage = (message: unknown) => {
       const msg = message as ChromeMessage
       if (
@@ -290,15 +323,16 @@ export const ChatInputBox = ({
         msg.payload &&
         msg.fromBackground
       ) {
-        const selectionText = `> ${(msg.payload as string).split("\n").join("\n> ")}\n`
-        appendInput(selectionText)
-        textareaRef.current?.focus()
+        void appendSelectionToInput(msg.payload as string)
       }
     }
 
     chrome.runtime.onMessage.addListener(handleMessage)
-    return () => chrome.runtime.onMessage.removeListener(handleMessage)
-  }, [appendInput])
+    return () => {
+      plasmoGlobalStorage.unwatch(pendingSelectionWatch)
+      chrome.runtime.onMessage.removeListener(handleMessage)
+    }
+  }, [appendSelectionToInput])
 
   const _successCount = processingStates.filter(
     (s) => s.status === "success"
