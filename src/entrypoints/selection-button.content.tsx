@@ -91,7 +91,7 @@ export default defineContentScript({
         container = document.createElement("div")
         container.id = "selection-button-root"
         container.style.display = "none"
-        container.style.position = "absolute"
+        container.style.position = "fixed"
         container.style.zIndex = "2147483647"
 
         // Inline styles. The host page can't reach into our shadow tree,
@@ -214,9 +214,20 @@ export default defineContentScript({
     const showButton = (top: number, left: number) => {
       if (!container || !isEnabled) return
       renderButton()
-      container.style.top = `${top}px`
-      container.style.left = `${left}px`
       container.style.display = "block"
+      container.style.visibility = "hidden"
+
+      const viewportMargin = 8
+      const buttonWidth = container.offsetWidth
+      const buttonHeight = container.offsetHeight
+      const minLeft = viewportMargin
+      const maxLeft = window.innerWidth - buttonWidth - viewportMargin
+      const minTop = viewportMargin
+      const maxTop = window.innerHeight - buttonHeight - viewportMargin
+
+      container.style.top = `${Math.max(minTop, Math.min(top, maxTop))}px`
+      container.style.left = `${Math.max(minLeft, Math.min(left, maxLeft))}px`
+      container.style.visibility = "visible"
     }
 
     const hideButton = () => {
@@ -264,10 +275,7 @@ export default defineContentScript({
       const capture = getSelectionCapture()
       if (capture) {
         selectionText = capture.text
-        showButton(
-          capture.rect.bottom + window.scrollY + 10,
-          capture.rect.right + window.scrollX - 30
-        )
+        showButton(capture.rect.bottom + 10, capture.rect.right - 30)
       } else {
         hideButton()
       }
