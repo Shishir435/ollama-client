@@ -390,12 +390,14 @@ browser.runtime.onMessage.addListener(
             browser as unknown as { sidePanel: ChromeSidePanel }
           ).sidePanel
           const windowId = _sender.tab?.windowId
+          const tabId = _sender.tab?.id
           if (windowId && sidePanel.open) {
-            sidePanel.open({ windowId }).catch((err: unknown) => {
+            sidePanel.open({ windowId, tabId }).catch((err: unknown) => {
               console.error(
                 "Failed to open sidepanel:",
                 err instanceof Error ? err.message : String(err)
               )
+              openClientWindow()
             })
           }
         }

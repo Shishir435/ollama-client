@@ -149,22 +149,42 @@ export default defineContentScript({
     const renderButton = () => {
       if (!container) return
       container.innerHTML = `
-        <button class="selection-button" title="${t("tooltip")}">
+        <button type="button" class="selection-button" title="${t("tooltip")}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
           <span>${t("label")}</span>
         </button>
       `
-      container.querySelector("button")?.addEventListener("click", async () => {
+      const button = container.querySelector("button")
+
+      const sendSelection = async (event: Event) => {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const text =
+          selectionText || window.getSelection()?.toString().trim() || ""
+        if (!text) {
+          hideButton()
+          return
+        }
+
         try {
           await chrome.runtime.sendMessage({
             type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-            payload: selectionText
+            payload: text
           })
           hideButton()
           window.getSelection()?.removeAllRanges()
         } catch (error) {
           console.error("Failed to send selection:", error)
         }
+      }
+
+      button?.addEventListener("pointerdown", (event) => {
+        void sendSelection(event)
+      })
+      button?.addEventListener("click", (event) => {
+        event.preventDefault()
+        event.stopPropagation()
       })
     }
 
