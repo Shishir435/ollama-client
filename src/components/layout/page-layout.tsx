@@ -87,8 +87,6 @@ export const FormGrid = ({
   <div className={cn("grid gap-4 sm:grid-cols-2", className)} {...props} />
 )
 
-export const CompactGrid = FormGrid
-
 export const DenseFormGrid = ({
   className,
   ...props

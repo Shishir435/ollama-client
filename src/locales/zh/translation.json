@@ -1098,6 +1098,8 @@
     },
     "providers": {
       "default": "默认",
+      "beta_badge": "测试版",
+      "beta_notice": "此提供商仍处于测试版。如果遇到任何问题，请报告或在仓库中提交 issue。",
       "enabled": "已启用",
       "disabled": "已禁用",
       "inactive": "未激活",

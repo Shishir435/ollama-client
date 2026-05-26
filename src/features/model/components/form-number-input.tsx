@@ -1,8 +1,8 @@
 import { useId } from "react"
 import {
   type RegisterOptions,
-  useController,
-  useFormContext
+  useFormContext,
+  useFormState
 } from "react-hook-form"
 
 import { ControlledNumberInput } from "@/components/forms"
@@ -57,14 +57,14 @@ export const FormNumberInput = ({
   validation,
   className = "text-center"
 }: FormNumberInputProps) => {
-  const { control } = useFormContext()
+  const { control, getFieldState } = useFormContext()
   const reactId = useId()
   const inputId = `${name}-${reactId}`
-  const { fieldState } = useController({
+  const formState = useFormState({
     control,
-    name,
-    rules: validation as RegisterOptions
+    name
   })
+  const { error } = getFieldState(name, formState)
 
   return (
     <SettingsField
@@ -79,7 +79,7 @@ export const FormNumberInput = ({
           label
         )
       }
-      error={fieldState.error?.message}>
+      error={error?.message}>
       <ControlledNumberInput
         id={inputId}
         name={name}

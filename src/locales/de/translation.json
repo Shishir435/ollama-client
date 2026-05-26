@@ -1098,6 +1098,8 @@
     },
     "providers": {
       "default": "Standard",
+      "beta_badge": "Beta",
+      "beta_notice": "Dieser Anbieter befindet sich in der Beta-Phase. Wenn ein Problem auftritt, melde es bitte oder öffne ein Issue im Repository.",
       "enabled": "Aktiviert",
       "disabled": "Deaktiviert",
       "inactive": "Inaktiv",

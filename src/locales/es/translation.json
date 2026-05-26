@@ -1098,6 +1098,8 @@
     },
     "providers": {
       "default": "Predeterminado",
+      "beta_badge": "Beta",
+      "beta_notice": "Este proveedor está en beta. Si encuentras algún problema, repórtalo o abre un issue en el repositorio.",
       "enabled": "Habilitado",
       "disabled": "Deshabilitado",
       "inactive": "Inactivo",

@@ -315,9 +315,6 @@ export const ProviderSettings = () => {
     label: "not_tested"
   }
 
-  const betaNoticeText =
-    "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
-
   return (
     <SectionStack>
       <ProviderGrid
@@ -344,7 +341,7 @@ export const ProviderSettings = () => {
                   {activeConfig.name}
                   {isBetaProvider(activeConfig.id) && (
                     <>
-                      <MiniBadge text="Beta" />
+                      <MiniBadge text={t("settings.providers.beta_badge")} />
                       <Tooltip>
                         <TooltipTrigger
                           render={
@@ -353,7 +350,9 @@ export const ProviderSettings = () => {
                           <Info className="h-3.5 w-3.5" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p className="max-w-xs">{betaNoticeText}</p>
+                          <p className="max-w-xs">
+                            {t("settings.providers.beta_notice")}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </>

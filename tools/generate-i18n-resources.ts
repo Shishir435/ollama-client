@@ -65,9 +65,40 @@ function toChromeMessages(extension: ExtensionMessages) {
   }
 }
 
-function resetChromeLocalesDir() {
-  fs.rmSync(CHROME_LOCALES_DIR, { recursive: true, force: true })
-  fs.mkdirSync(CHROME_LOCALES_DIR, { recursive: true })
+function writeChromeLocalesDir(
+  chromeMessages: Record<string, ReturnType<typeof toChromeMessages>>
+) {
+  const tempDir = `${CHROME_LOCALES_DIR}.tmp-${process.pid}`
+  const backupDir = `${CHROME_LOCALES_DIR}.bak-${process.pid}`
+
+  fs.rmSync(tempDir, { recursive: true, force: true })
+  fs.rmSync(backupDir, { recursive: true, force: true })
+  fs.mkdirSync(tempDir, { recursive: true })
+
+  try {
+    for (const [locale, messages] of Object.entries(chromeMessages)) {
+      const localeDir = path.join(tempDir, locale)
+      fs.mkdirSync(localeDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(localeDir, "messages.json"),
+        `${JSON.stringify(messages, null, 2)}\n`
+      )
+      console.log(`✨ Generated Chrome locale metadata for ${locale}`)
+    }
+
+    if (fs.existsSync(CHROME_LOCALES_DIR)) {
+      fs.renameSync(CHROME_LOCALES_DIR, backupDir)
+    }
+    fs.renameSync(tempDir, CHROME_LOCALES_DIR)
+    fs.rmSync(backupDir, { recursive: true, force: true })
+  } catch (error) {
+    if (!fs.existsSync(CHROME_LOCALES_DIR) && fs.existsSync(backupDir)) {
+      fs.renameSync(backupDir, CHROME_LOCALES_DIR)
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true })
+    fs.rmSync(backupDir, { recursive: true, force: true })
+    throw error
+  }
 }
 
 async function generateResources() {
@@ -119,16 +150,7 @@ export const resources = ${JSON.stringify(resources, null, 2)} as const;
   fs.writeFileSync(OUTPUT_FILE, fileContent)
   console.log(`✨ Generated resources at ${OUTPUT_FILE}`)
 
-  resetChromeLocalesDir()
-  for (const [locale, messages] of Object.entries(chromeMessages)) {
-    const localeDir = path.join(CHROME_LOCALES_DIR, locale)
-    fs.mkdirSync(localeDir, { recursive: true })
-    fs.writeFileSync(
-      path.join(localeDir, "messages.json"),
-      `${JSON.stringify(messages, null, 2)}\n`
-    )
-    console.log(`✨ Generated Chrome locale metadata for ${locale}`)
-  }
+  writeChromeLocalesDir(chromeMessages)
 
   try {
     console.log("💅 Formatting with Biome...")
