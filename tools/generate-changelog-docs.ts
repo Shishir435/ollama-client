@@ -19,7 +19,10 @@ function generateChangelogDocs() {
     process.exit(1)
   }
 
-  const changelog = fs.readFileSync(ROOT_CHANGELOG, "utf-8")
+  let changelog = fs.readFileSync(ROOT_CHANGELOG, "utf-8")
+
+  // Strip the first line (# Changelog) so the page title from frontmatter is used
+  changelog = changelog.replace(/^# Changelog\n/i, "")
 
   const frontmatter = `---
 title: Changelog
