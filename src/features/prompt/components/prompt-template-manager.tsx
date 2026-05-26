@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SectionStack } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
@@ -109,7 +110,7 @@ export const PromptTemplateManager = () => {
   }
 
   return (
-    <div className="mx-auto space-y-4">
+    <SectionStack>
       <SettingsCard
         icon={FileText}
         title={t("settings.prompts.title")}
@@ -232,6 +233,6 @@ export const PromptTemplateManager = () => {
           </div>
         )}
       </SettingsCard>
-    </div>
+    </SectionStack>
   )
 }

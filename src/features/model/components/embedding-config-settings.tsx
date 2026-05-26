@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SectionStack } from "@/components/layout"
 import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import {
@@ -196,7 +197,7 @@ export const EmbeddingConfigSettings = memo(() => {
   }, [loadStats])
 
   return (
-    <div className="mx-auto space-y-6">
+    <SectionStack>
       {/* Statistics Card */}
       {storageStats && (
         <StorageStatsCard storageStats={storageStats} cacheStats={cacheStats} />
@@ -245,7 +246,7 @@ export const EmbeddingConfigSettings = memo(() => {
       <ChatBackfillPanel />
 
       <EmbeddingSearchConfig config={config} updateConfig={updateConfig} />
-    </div>
+    </SectionStack>
   )
 })
 

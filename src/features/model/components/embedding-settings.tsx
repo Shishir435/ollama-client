@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SectionStack } from "@/components/layout"
 import { StatusAlert } from "@/components/settings"
 import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
 import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
@@ -186,7 +187,7 @@ export const EmbeddingSettings = () => {
   )
 
   return (
-    <div className="space-y-6">
+    <SectionStack>
       <EmbeddingHealthAlert
         stats={dimensionStats}
         memoryEnabled={memoryEnabled}
@@ -244,6 +245,6 @@ export const EmbeddingSettings = () => {
         onSwitchOnly={handleSwitchOnly}
         onSwitchAndRebuild={handleSwitchAndRebuild}
       />
-    </div>
+    </SectionStack>
   )
 }

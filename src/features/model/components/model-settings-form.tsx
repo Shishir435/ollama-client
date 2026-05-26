@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
+import { SectionStack } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
@@ -152,7 +153,7 @@ export const ModelSettingsForm = () => {
 
   if (!selectedModel) {
     return (
-      <div className="mx-auto space-y-4">
+      <SectionStack>
         <SettingsCard
           icon={Settings}
           title={t("settings.model.configuration_title")}
@@ -162,13 +163,13 @@ export const ModelSettingsForm = () => {
             <ProviderSettings />
           </div>
         </SettingsCard>
-      </div>
+      </SectionStack>
     )
   }
 
   return (
     <FormProvider {...methods}>
-      <div className="mx-auto space-y-4">
+      <SectionStack>
         <SettingsCard
           className="bg-card"
           icon={Settings}
@@ -193,7 +194,7 @@ export const ModelSettingsForm = () => {
         <ModelSystemSection config={config} updateConfig={updateConfig} />
         <ModelPerformanceSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
-      </div>
+      </SectionStack>
     </FormProvider>
   )
 }

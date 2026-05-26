@@ -2,7 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ProgressRow } from "@/components/feedback"
-import { PageStack, TwoColumnGrid } from "@/components/layout"
+import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import {
   ConfirmActionDialog,
   SettingsCard,
@@ -334,7 +334,7 @@ export const ContextSettings = () => {
       : 0
 
   return (
-    <PageStack>
+    <SectionStack>
       {showMixedDimensions && (
         <div className="space-y-3">
           <StatusAlert
@@ -470,6 +470,6 @@ export const ContextSettings = () => {
           await confirmConfig.onConfirm()
         }}
       />
-    </PageStack>
+    </SectionStack>
   )
 }
