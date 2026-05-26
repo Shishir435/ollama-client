@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата",
       "drop_files_here": "Перетащите файлы сюда"
     },
+    "context_preview": {
+      "selection": "Выбранный текст",
+      "files": "Прикрепленные файлы",
+      "chars": "{{count}} симв.",
+      "files_ready": "{{ready}}/{{total}} файлов готово · {{chars}} симв.",
+      "files_status": "{{processing}} обрабатывается · {{errors}} ошибок"
+    },
     "editor": {
       "placeholder": "Редактировать сообщение..."
     },

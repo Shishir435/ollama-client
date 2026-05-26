@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Textarea } from "@/components/ui/textarea"
+import { ChatContextPreview } from "@/features/chat/components/chat-context-preview"
 import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
 import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
@@ -370,6 +371,8 @@ export const ChatInputBox = ({
       <div className="mb-1">
         <TabsSelect />
       </div>
+
+      <ChatContextPreview input={input} processingStates={processingStates} />
 
       <ChatInputAttachmentList
         processingStates={processingStates}

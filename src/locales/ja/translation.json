@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "drop_files_here": "ここにファイルをドロップ"
     },
+    "context_preview": {
+      "selection": "選択したテキスト",
+      "files": "添付ファイル",
+      "chars": "{{count}} 文字",
+      "files_ready": "{{ready}}/{{total}} ファイル準備完了 · {{chars}} 文字",
+      "files_status": "{{processing}} 処理中 · {{errors}} エラー"
+    },
     "editor": {
       "placeholder": "メッセージを編集..."
     },

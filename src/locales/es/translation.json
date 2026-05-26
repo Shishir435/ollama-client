@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "drop_files_here": "Soltar archivos aquí"
     },
+    "context_preview": {
+      "selection": "Texto seleccionado",
+      "files": "Archivos adjuntos",
+      "chars": "{{count}} caracteres",
+      "files_ready": "{{ready}}/{{total}} archivos listos · {{chars}} caracteres",
+      "files_status": "{{processing}} procesando · {{errors}} errores"
+    },
     "editor": {
       "placeholder": "Editar mensaje..."
     },

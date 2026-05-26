@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
       "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
     },
+    "context_preview": {
+      "selection": "चुना गया टेक्स्ट",
+      "files": "संलग्न फ़ाइलें",
+      "chars": "{{count}} अक्षर",
+      "files_ready": "{{ready}}/{{total}} फ़ाइलें तैयार · {{chars}} अक्षर",
+      "files_status": "{{processing}} प्रोसेस हो रही · {{errors}} त्रुटियाँ"
+    },
     "editor": {
       "placeholder": "संदेश संपादित करें..."
     },

@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "drop_files_here": "Dateien hier ablegen"
     },
+    "context_preview": {
+      "selection": "Ausgewählter Text",
+      "files": "Angehängte Dateien",
+      "chars": "{{count}} Zeichen",
+      "files_ready": "{{ready}}/{{total}} Dateien bereit · {{chars}} Zeichen",
+      "files_status": "{{processing}} Verarbeitung · {{errors}} Fehler"
+    },
     "editor": {
       "placeholder": "Nachricht bearbeiten..."
     },

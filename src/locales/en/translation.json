@@ -129,6 +129,13 @@
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "drop_files_here": "Drop files here"
     },
+    "context_preview": {
+      "selection": "Selected text",
+      "files": "Attached files",
+      "chars": "{{count}} chars",
+      "files_ready": "{{ready}}/{{total}} files ready · {{chars}} chars",
+      "files_status": "{{processing}} processing · {{errors}} errors"
+    },
     "editor": {
       "placeholder": "Edit message..."
     },
