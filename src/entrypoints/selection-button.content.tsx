@@ -48,6 +48,29 @@ const translations: Record<string, Record<string, string>> = {
   }
 }
 
+type SelectionCapture = {
+  text: string
+  rect: DOMRect
+}
+
+const isEditableSelectionTarget = (
+  element: Element | null
+): element is HTMLInputElement | HTMLTextAreaElement =>
+  element instanceof HTMLTextAreaElement ||
+  (element instanceof HTMLInputElement &&
+    ![
+      "button",
+      "checkbox",
+      "color",
+      "file",
+      "hidden",
+      "image",
+      "radio",
+      "range",
+      "reset",
+      "submit"
+    ].includes(element.type))
+
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
@@ -200,26 +223,51 @@ export default defineContentScript({
       if (container) container.style.display = "none"
     }
 
+    const getRangeRect = (range: Range) => {
+      const rect = range.getBoundingClientRect()
+      if (rect.width > 0 || rect.height > 0) return rect
+
+      return Array.from(range.getClientRects()).find(
+        (clientRect) => clientRect.width > 0 || clientRect.height > 0
+      )
+    }
+
+    const getSelectionCapture = (): SelectionCapture | null => {
+      const activeElement = document.activeElement
+      if (isEditableSelectionTarget(activeElement)) {
+        const start = activeElement.selectionStart
+        const end = activeElement.selectionEnd
+
+        if (start !== null && end !== null && start !== end) {
+          const text = activeElement.value.slice(start, end).trim()
+          if (text) return { text, rect: activeElement.getBoundingClientRect() }
+        }
+      }
+
+      const selection = window.getSelection()
+      const text = selection?.toString().trim()
+      if (!selection || !text || selection.rangeCount === 0) return null
+
+      const range = selection.getRangeAt(selection.rangeCount - 1)
+      const rect = getRangeRect(range)
+      if (!rect) return null
+
+      return { text, rect }
+    }
+
     const handleSelectionChange = () => {
       if (!isEnabled) {
         hideButton()
         return
       }
 
-      const selection = window.getSelection()
-      const text = selection?.toString().trim()
-
-      if (text && text.length > 0) {
-        const range = selection?.getRangeAt(0)
-        const rect = range?.getBoundingClientRect()
-
-        if (rect) {
-          selectionText = text
-          showButton(
-            rect.bottom + window.scrollY + 10,
-            rect.right + window.scrollX - 30
-          )
-        }
+      const capture = getSelectionCapture()
+      if (capture) {
+        selectionText = capture.text
+        showButton(
+          capture.rect.bottom + window.scrollY + 10,
+          capture.rect.right + window.scrollX - 30
+        )
       } else {
         hideButton()
       }
@@ -230,6 +278,7 @@ export default defineContentScript({
     ui.mount()
 
     // Listen for selection events
+    document.addEventListener("selectionchange", handleSelectionChange)
     document.addEventListener("mouseup", handleSelectionChange)
     document.addEventListener("keyup", handleSelectionChange)
 
@@ -248,6 +297,7 @@ export default defineContentScript({
     })
 
     ctx.onInvalidated(() => {
+      document.removeEventListener("selectionchange", handleSelectionChange)
       document.removeEventListener("mouseup", handleSelectionChange)
       document.removeEventListener("keyup", handleSelectionChange)
       ui.remove()
