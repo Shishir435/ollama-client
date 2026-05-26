@@ -316,6 +316,23 @@ export const ChatInputBox = ({
 
     plasmoGlobalStorage.watch(pendingSelectionWatch)
 
+    const selectionBridgePort = chrome.runtime.connect({
+      name: MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT
+    })
+
+    const handlePortMessage = (message: unknown) => {
+      const msg = message as ChromeMessage
+      if (
+        msg.type === MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT &&
+        msg.payload &&
+        msg.fromBackground
+      ) {
+        void appendSelectionToInput(msg.payload as string)
+      }
+    }
+
+    selectionBridgePort.onMessage.addListener(handlePortMessage)
+
     const handleMessage = (message: unknown) => {
       const msg = message as ChromeMessage
       if (
@@ -330,6 +347,8 @@ export const ChatInputBox = ({
     chrome.runtime.onMessage.addListener(handleMessage)
     return () => {
       plasmoGlobalStorage.unwatch(pendingSelectionWatch)
+      selectionBridgePort.onMessage.removeListener(handlePortMessage)
+      selectionBridgePort.disconnect()
       chrome.runtime.onMessage.removeListener(handleMessage)
     }
   }, [appendSelectionToInput])

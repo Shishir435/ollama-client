@@ -52,6 +52,26 @@ const openClientWindow = () => {
   })
 }
 
+const selectionBridgePorts = new Set<ChromePort>()
+
+const postSelectionToSidePanels = (selectionText: string) => {
+  for (const port of selectionBridgePorts) {
+    try {
+      port.postMessage({
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: selectionText,
+        fromBackground: true
+      })
+    } catch (error) {
+      console.warn(
+        "Failed to post selection to side panel port:",
+        error instanceof Error ? error.message : String(error)
+      )
+      selectionBridgePorts.delete(port)
+    }
+  }
+}
+
 const actionAPI =
   browser.action ||
   (browser as unknown as { browserAction?: typeof browser.action })
@@ -151,11 +171,20 @@ if (isChromiumBased()) {
 
 browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
+  const isSelectionBridgePort =
+    port.name === MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT
+
+  if (isSelectionBridgePort) {
+    selectionBridgePorts.add(port)
+  }
 
   const getPortStatus: PortStatusFunction = () => isPortClosed
 
   port.onDisconnect.addListener(() => {
     isPortClosed = true
+    if (isSelectionBridgePort) {
+      selectionBridgePorts.delete(port)
+    }
     abortAndClearController(port.name)
   })
 
@@ -405,8 +434,10 @@ browser.runtime.onMessage.addListener(
         pendingSelectionWrite
           .then(() => {
             safeSendResponse(sendResponse, { success: true })
+            postSelectionToSidePanels(selectionText)
 
             setTimeout(() => {
+              postSelectionToSidePanels(selectionText)
               browser.runtime
                 .sendMessage({
                   type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
