@@ -24,6 +24,11 @@ import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-ur
 import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { updateDNRRules } from "@/background/lib/dnr"
+import {
+  postSelectionToSidePanels,
+  registerSelectionBridgePort,
+  unregisterSelectionBridgePort
+} from "@/background/lib/selection-bridge"
 import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import {
@@ -52,26 +57,6 @@ const openClientWindow = () => {
   })
 }
 
-const selectionBridgePorts = new Set<ChromePort>()
-
-const postSelectionToSidePanels = (selectionText: string) => {
-  for (const port of selectionBridgePorts) {
-    try {
-      port.postMessage({
-        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-        payload: selectionText,
-        fromBackground: true
-      })
-    } catch (error) {
-      console.warn(
-        "Failed to post selection to side panel port:",
-        error instanceof Error ? error.message : String(error)
-      )
-      selectionBridgePorts.delete(port)
-    }
-  }
-}
-
 const actionAPI =
   browser.action ||
   (browser as unknown as { browserAction?: typeof browser.action })
@@ -79,6 +64,7 @@ const actionAPI =
 
 void migrateLegacyProviderStorage()
 void runEmbeddingDimensionMigration()
+initializeContextMenu()
 
 if (isChromiumBased() && "sidePanel" in browser) {
   // Type assertion for Chrome-specific sidePanel API
@@ -131,7 +117,6 @@ if (!isChromiumBased()) {
 if (isChromiumBased()) {
   browser.runtime.onInstalled.addListener(async (details) => {
     updateDNRRules()
-    initializeContextMenu()
 
     // Auto-download embedding model on first install
     if (details.reason === "install") {
@@ -171,19 +156,14 @@ if (isChromiumBased()) {
 
 browser.runtime.onConnect.addListener((port: ChromePort) => {
   let isPortClosed = false
-  const isSelectionBridgePort =
-    port.name === MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT
-
-  if (isSelectionBridgePort) {
-    selectionBridgePorts.add(port)
-  }
+  const isSelectionBridgePort = registerSelectionBridgePort(port)
 
   const getPortStatus: PortStatusFunction = () => isPortClosed
 
   port.onDisconnect.addListener(() => {
     isPortClosed = true
     if (isSelectionBridgePort) {
-      selectionBridgePorts.delete(port)
+      unregisterSelectionBridgePort(port)
     }
     abortAndClearController(port.name)
   })
@@ -426,7 +406,6 @@ browser.runtime.onMessage.addListener(
                 "Failed to open sidepanel:",
                 err instanceof Error ? err.message : String(err)
               )
-              openClientWindow()
             })
           }
         }

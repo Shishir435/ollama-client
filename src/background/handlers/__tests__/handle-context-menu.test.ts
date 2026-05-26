@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   addListener: vi.fn(),
   sendMessage: vi.fn().mockResolvedValue(undefined),
+  createWindow: vi.fn().mockResolvedValue(undefined),
   openSidePanel: vi.fn().mockResolvedValue(undefined)
 }))
 
@@ -21,7 +22,11 @@ vi.mock("@/lib/browser-api", () => ({
     },
     runtime: {
       lastError: undefined,
-      sendMessage: mocks.sendMessage
+      sendMessage: mocks.sendMessage,
+      getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+    },
+    windows: {
+      create: mocks.createWindow
     },
     sidePanel: {
       open: mocks.openSidePanel
@@ -45,6 +50,7 @@ describe("handle-context-menu", () => {
 
   beforeEach(() => {
     mocks.sendMessage.mockClear()
+    mocks.createWindow.mockClear()
     mocks.openSidePanel.mockClear()
     // Do NOT clear create or addListener as they are called once during init
   })
@@ -69,12 +75,16 @@ describe("handle-context-menu", () => {
     }
 
     const mockTab = {
-      windowId: 123
+      windowId: 123,
+      id: 456
     }
 
     await clickListener(mockInfo, mockTab)
 
-    expect(mocks.openSidePanel).toHaveBeenCalledWith({ windowId: 123 })
+    expect(mocks.openSidePanel).toHaveBeenCalledWith({
+      windowId: 123,
+      tabId: 456
+    })
     expect(mocks.sendMessage).toHaveBeenCalledWith({
       type: "add-selection-to-chat",
       payload: "test selection",
@@ -138,15 +148,41 @@ describe("handle-context-menu", () => {
     })
   })
 
+  it("should not open a fallback window when side panel open fails", async () => {
+    mocks.openSidePanel.mockRejectedValueOnce(new Error("gesture required"))
+
+    const mockInfo = {
+      menuItemId: "add-to-local-llm-client",
+      selectionText: "test selection"
+    }
+
+    await clickListener(mockInfo, { windowId: 123, id: 456 })
+    await Promise.resolve()
+
+    expect(mocks.openSidePanel).toHaveBeenCalledWith({
+      windowId: 123,
+      tabId: 456
+    })
+    expect(mocks.createWindow).not.toHaveBeenCalled()
+    expect(mocks.sendMessage).toHaveBeenCalledWith({
+      type: "add-selection-to-chat",
+      payload: "test selection",
+      fromBackground: true
+    })
+  })
+
   it("should accept legacy context menu id", async () => {
     const mockInfo = {
       menuItemId: "add-to-ollama-client",
       selectionText: "legacy selection"
     }
 
-    await clickListener(mockInfo, { windowId: 321 })
+    await clickListener(mockInfo, { windowId: 321, id: 654 })
 
-    expect(mocks.openSidePanel).toHaveBeenCalledWith({ windowId: 321 })
+    expect(mocks.openSidePanel).toHaveBeenCalledWith({
+      windowId: 321,
+      tabId: 654
+    })
     expect(mocks.sendMessage).toHaveBeenCalledWith({
       type: "add-selection-to-chat",
       payload: "legacy selection",

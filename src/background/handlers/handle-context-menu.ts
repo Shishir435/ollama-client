@@ -1,3 +1,4 @@
+import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTEXT_MENU_ID,
@@ -9,35 +10,58 @@ import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeSidePanel } from "@/types"
 
-export const initializeContextMenu = () => {
-  try {
-    const removal = browser.contextMenus.remove(LEGACY_CONTEXT_MENU_ID)
-    if (removal && typeof removal.catch === "function") {
-      removal.catch((error) => {
-        logger.debug(
-          "Legacy context menu cleanup skipped",
-          "initializeContextMenu",
-          {
-            error: error instanceof Error ? error.message : String(error)
-          }
-        )
-      })
-    }
-  } catch (error) {
-    logger.debug(
-      "Legacy context menu cleanup skipped",
-      "initializeContextMenu",
-      {
-        error: error instanceof Error ? error.message : String(error)
-      }
-    )
+let isContextMenuListenerRegistered = false
+
+const getSidePanel = () => {
+  const rawSidePanel = globalThis.chrome?.sidePanel
+  if (rawSidePanel?.open) return rawSidePanel as ChromeSidePanel
+
+  if ("sidePanel" in browser) {
+    const sidePanel = (browser as unknown as { sidePanel?: ChromeSidePanel })
+      .sidePanel
+    if (sidePanel?.open) return sidePanel
   }
 
-  browser.contextMenus.create({
-    id: DEFAULT_CONTEXT_MENU_ID,
-    title: "Ask Local LLM",
-    contexts: ["selection"]
+  return null
+}
+
+const removeContextMenu = (id: string) => {
+  try {
+    const removal = browser.contextMenus.remove(id)
+    if (removal && typeof removal.catch === "function") {
+      return removal.catch((error) => {
+        logger.debug("Context menu cleanup skipped", "initializeContextMenu", {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      })
+    }
+
+    return Promise.resolve()
+  } catch (error) {
+    logger.debug("Context menu cleanup skipped", "initializeContextMenu", {
+      error: error instanceof Error ? error.message : String(error)
+    })
+    return Promise.resolve()
+  }
+}
+
+export const initializeContextMenu = () => {
+  Promise.all([
+    removeContextMenu(DEFAULT_CONTEXT_MENU_ID),
+    removeContextMenu(LEGACY_CONTEXT_MENU_ID)
+  ]).finally(() => {
+    browser.contextMenus.create({
+      id: DEFAULT_CONTEXT_MENU_ID,
+      title: "Ask Local LLM",
+      contexts: ["selection"]
+    })
   })
+
+  if (isContextMenuListenerRegistered) {
+    return
+  }
+
+  isContextMenuListenerRegistered = true
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (
@@ -51,17 +75,24 @@ export const initializeContextMenu = () => {
         info.selectionText
       )
       // Open sidepanel if possible (Chrome specific)
-      if ("sidePanel" in browser) {
-        const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
-          .sidePanel
-        if (sidePanel.open && tab?.windowId) {
-          sidePanel.open({ windowId: tab.windowId }).catch((err: unknown) =>
-            logger.error("Failed to open sidepanel", "initializeContextMenu", {
-              error: err instanceof Error ? err.message : String(err)
-            })
-          )
-        }
+      const sidePanel = getSidePanel()
+      if (sidePanel?.open && tab?.windowId) {
+        const options = tab.id
+          ? { windowId: tab.windowId, tabId: tab.id }
+          : { windowId: tab.windowId }
+
+        sidePanel.open(options).catch((err: unknown) => {
+          logger.warn("Failed to open sidepanel", "initializeContextMenu", {
+            error: err instanceof Error ? err.message : String(err)
+          })
+        })
       }
+
+      postSelectionToSidePanels(info.selectionText)
+
+      setTimeout(() => {
+        postSelectionToSidePanels(info.selectionText)
+      }, 500)
 
       browser.runtime
         .sendMessage({

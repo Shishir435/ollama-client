@@ -281,14 +281,19 @@ export default defineContentScript({
       }
     }
 
+    const queueSelectionCheck = () => {
+      setTimeout(handleSelectionChange, 0)
+    }
+
     // Initial config load
     await updateConfig()
     ui.mount()
 
     // Listen for selection events
-    document.addEventListener("selectionchange", handleSelectionChange)
-    document.addEventListener("mouseup", handleSelectionChange)
-    document.addEventListener("keyup", handleSelectionChange)
+    document.addEventListener("selectionchange", queueSelectionCheck, true)
+    document.addEventListener("pointerup", queueSelectionCheck, true)
+    document.addEventListener("mouseup", queueSelectionCheck, true)
+    document.addEventListener("keyup", queueSelectionCheck, true)
 
     // Listen for storage changes to update isEnabled
     plasmoGlobalStorage.watch({
@@ -305,9 +310,10 @@ export default defineContentScript({
     })
 
     ctx.onInvalidated(() => {
-      document.removeEventListener("selectionchange", handleSelectionChange)
-      document.removeEventListener("mouseup", handleSelectionChange)
-      document.removeEventListener("keyup", handleSelectionChange)
+      document.removeEventListener("selectionchange", queueSelectionCheck, true)
+      document.removeEventListener("pointerup", queueSelectionCheck, true)
+      document.removeEventListener("mouseup", queueSelectionCheck, true)
+      document.removeEventListener("keyup", queueSelectionCheck, true)
       ui.remove()
     })
   }
