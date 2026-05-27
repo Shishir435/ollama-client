@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { SectionStack } from "@/components/layout"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -98,7 +99,7 @@ export const ResetStorage = () => {
   }
 
   return (
-    <div className="mx-auto space-y-4">
+    <SectionStack>
       <SettingsCard
         icon={RefreshCcw}
         title={t("settings.reset.title")}
@@ -152,7 +153,7 @@ export const ResetStorage = () => {
           }
         />
       </SettingsCard>
-    </div>
+    </SectionStack>
   )
 }
 

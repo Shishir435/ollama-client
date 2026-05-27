@@ -49,6 +49,12 @@
       "settings_aria": "Settings navigation"
     }
   },
+  "extension": {
+    "name": "Ollama Client - Chat with Local LLM Models",
+    "short_name": "Ollama Client",
+    "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
+    "action_default_title": "Open Ollama Client"
+  },
   "selection_button": {
     "label": "Ask Local LLM",
     "tooltip": "Add to Local LLM Client"
@@ -85,7 +91,8 @@
       "step4": "Return here and click <b>Refresh</b>",
       "hint": "Follow the setup guide below to install Ollama and models.",
       "full_guide_link": "Full Setup Guide",
-      "firefox_warning": "Firefox users: run the ollama-env.sh script to enable CORS before starting."
+      "firefox_warning": "Firefox users: run the ollama-env.sh script to enable CORS before starting.",
+      "help_prefix": "Need help?"
     },
     "features": {
       "private": {
@@ -121,6 +128,13 @@
       "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "drop_files_here": "Drop files here"
+    },
+    "context_preview": {
+      "selection": "Selected text",
+      "files": "Attached files",
+      "chars": "{{count}} chars",
+      "files_ready": "{{ready}}/{{total}} files ready · {{chars}} chars",
+      "files_status": "{{processing}} processing · {{errors}} errors"
     },
     "editor": {
       "placeholder": "Edit message..."
@@ -1091,6 +1105,8 @@
     },
     "providers": {
       "default": "Default",
+      "beta_badge": "Beta",
+      "beta_notice": "This provider is in beta. If you face any issue, please report it or open an issue on the repo.",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "inactive": "Inactive",

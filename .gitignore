@@ -61,9 +61,10 @@ docs-src/src/content/docs/reference/
 docs-src/.astro/
 
 # one-off audit/transfer artifacts
+artifacts/
 *.msg
 *.diff
 
 .commandcode/
 
-docs/
+/docs/

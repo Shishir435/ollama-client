@@ -1,8 +1,10 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
+import { FormGrid, SectionStack } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
+  SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +18,6 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Slider } from "@/components/ui/slider"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
 import {
@@ -121,7 +122,7 @@ export const ContentExtractionSettings = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <SectionStack>
       <ContentExtractionSettingsForm config={config} onUpdate={handleUpdate} />
 
       <SiteSpecificOverrides
@@ -136,7 +137,7 @@ export const ContentExtractionSettings = () => {
         onAdd={handleAddExcludedUrl}
         onRemove={handleRemoveExcludedUrl}
       />
-    </div>
+    </SectionStack>
   )
 }
 
@@ -153,7 +154,7 @@ const ContentExtractionSettingsForm = ({
     onChange: (value: number) => void,
     className?: string
   ) => (
-    <SettingsFormField
+    <SettingsField
       key={field.id}
       htmlFor={field.id}
       label={
@@ -178,7 +179,7 @@ const ContentExtractionSettingsForm = ({
         }}
         className={className || "text-center"}
       />
-    </SettingsFormField>
+    </SettingsField>
   )
 
   // Get icon for scraper type
@@ -199,7 +200,7 @@ const ContentExtractionSettingsForm = ({
     onValueChange: (value: ContentScraper) => void
   ) => (
     <div className="space-y-3">
-      <SettingsFormField
+      <SettingsField
         label={
           <>
             <FileText className="h-4 w-4" />
@@ -268,7 +269,7 @@ const ContentExtractionSettingsForm = ({
             )
           })}
         </div>
-      </SettingsFormField>
+      </SettingsField>
     </div>
   )
 
@@ -279,7 +280,7 @@ const ContentExtractionSettingsForm = ({
     id?: string,
     className?: string
   ) => (
-    <SettingsFormField
+    <SettingsField
       htmlFor={id || "scroll-strategy"}
       label={
         <>
@@ -302,45 +303,34 @@ const ContentExtractionSettingsForm = ({
           ))}
         </SelectContent>
       </Select>
-    </SettingsFormField>
+    </SettingsField>
   )
 
   // Render scroll depth slider
   const renderScrollDepthSlider = (
     depth: number,
     onValueChange: (value: number) => void,
-    id?: string
+    _id?: string
   ) => {
     const depthPercent = Math.round(depth * 100)
     return (
-      <SettingsFormField
-        htmlFor={id || "scroll-depth"}
+      <SettingsSliderField
         label={
           <>
             <Zap className="h-4 w-4" />
             {t("settings.content_extraction.scroll_depth.label")}
           </>
         }
-        description={t("settings.content_extraction.scroll_depth.description")}>
-        <Slider
-          id={id || "scroll-depth"}
-          min={0}
-          max={100}
-          step={5}
-          value={[depthPercent]}
-          onValueChange={(value) =>
-            onValueChange((Array.isArray(value) ? value[0] : value) / 100)
-          }
-          className="py-2"
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>0%</span>
-          <Badge variant="outline" className="font-mono">
-            {depthPercent}%
-          </Badge>
-          <span>100%</span>
-        </div>
-      </SettingsFormField>
+        description={t("settings.content_extraction.scroll_depth.description")}
+        value={depthPercent}
+        valueLabel={`${depthPercent}%`}
+        min={0}
+        max={100}
+        step={5}
+        onValueChange={(value) => onValueChange(value / 100)}
+        leftLabel="0%"
+        rightLabel="100%"
+      />
     )
   }
 
@@ -391,7 +381,7 @@ const ContentExtractionSettingsForm = ({
       )}
 
       {/* Advanced Settings Grid */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <FormGrid>
         {TIMEOUT_FIELDS.map((field) => (
           <div key={field.id}>
             {renderTimeoutInput(
@@ -402,7 +392,7 @@ const ContentExtractionSettingsForm = ({
             )}
           </div>
         ))}
-      </div>
+      </FormGrid>
     </SettingsCard>
   )
 }

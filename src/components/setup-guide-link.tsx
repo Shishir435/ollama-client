@@ -18,7 +18,8 @@ export const SetupGuideLink = ({ className }: { className?: string }) => {
       )}>
       <ExternalLink className="h-4 w-4 transition-transform group-hover:rotate-12 group-hover:text-primary" />
       <span className="group-hover:underline">
-        Need help? {t("welcome.setup_guide.full_guide_link")}
+        {t("welcome.setup_guide.help_prefix")}{" "}
+        {t("welcome.setup_guide.full_guide_link")}
       </span>
     </Button>
   )

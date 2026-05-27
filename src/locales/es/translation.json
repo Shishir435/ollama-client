@@ -8,7 +8,7 @@
       "system": "Sistema"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Error",
       "aria_label": "Reportar un error o solicitar una función",
       "tooltip": "Reportar un error o solicitar una función"
     },
@@ -49,6 +49,12 @@
       "settings_aria": "Navegación de ajustes"
     }
   },
+  "extension": {
+    "name": "Ollama Client - Chat con modelos LLM locales",
+    "short_name": "Ollama Client",
+    "description": "Extensión de Chrome local-first para chat privado con LLM mediante Ollama, LM Studio y llama.cpp, con flujos RAG locales.",
+    "action_default_title": "Abrir Ollama Client"
+  },
   "selection_button": {
     "label": "Preguntar al LLM local",
     "tooltip": "Añadir al cliente LLM local"
@@ -56,6 +62,7 @@
   "welcome": {
     "title": "Bienvenido al chat de LLM local",
     "subtitle": "Conversaciones con IA local de forma sencilla",
+    "badge": "Chat local primero",
     "start_chatting": "Empezar a Chatear",
     "status": {
       "connecting": {
@@ -84,7 +91,8 @@
       "step4": "Vuelve aquí y haz clic en <b>Actualizar</b>",
       "hint": "Sigue la guía de configuración a continuación para instalar Ollama y los modelos.",
       "full_guide_link": "Guía Completa de Configuración",
-      "firefox_warning": "Usuarios de Firefox: ejecute el script ollama-env.sh para habilitar CORS antes de comenzar."
+      "firefox_warning": "Usuarios de Firefox: ejecute el script ollama-env.sh para habilitar CORS antes de comenzar.",
+      "help_prefix": "¿Necesitas ayuda?"
     },
     "features": {
       "private": {
@@ -112,13 +120,21 @@
   "chat": {
     "input": {
       "placeholder": "Escribe un mensaje o ctrl + /",
+      "switch_model": "Cambiar modelo",
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
       "enter_key": "Intro",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "rag_toggle_on": "Contexto inteligente activado",
+      "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "drop_files_here": "Soltar archivos aquí"
+    },
+    "context_preview": {
+      "selection": "Texto seleccionado",
+      "files": "Archivos adjuntos",
+      "chars": "{{count}} caracteres",
+      "files_ready": "{{ready}}/{{total}} archivos listos · {{chars}} caracteres",
+      "files_status": "{{processing}} procesando · {{errors}} errores"
     },
     "editor": {
       "placeholder": "Editar mensaje..."
@@ -128,7 +144,7 @@
       "copied": "Copiado",
       "regenerate": "Regenerar",
       "switch_model_tooltip": "Cambiar modelo",
-      "fork": "Bifurcar conversación",
+      "fork": "Bifurcar",
       "edit": "Editar",
       "export_as": "Exportar como...",
       "more": "Más",
@@ -146,12 +162,12 @@
       "prompt_eval_time": "Tiempo de evaluación del prompt"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} tokens",
-      "prompt_tokens": "{{value}} prompt",
+      "total_tokens": "{{value}} tokens totales",
+      "prompt_tokens": "{{value}} del prompt",
       "generated_tokens": "{{value}} generados",
       "avg_speed": "{{speed}} t/s",
-      "speed_unit": "t/s",
-      "messages": "{{value}} msgs",
+      "speed_unit": "tok/s",
+      "messages": "{{value}} mensajes",
       "tooltip_tokens": "Total de tokens usados en esta sesión",
       "tooltip_time": "Tiempo total de generación de respuestas",
       "tooltip_speed": "Velocidad media de generación",
@@ -404,6 +420,15 @@
       "cache_ttl_description": "Tiempo que se almacenan en caché los resultados de búsqueda (1-60 minutos). Las consultas en caché se devuelven instantáneamente.",
       "cache_max_size_label": "Máx. Consultas en Caché",
       "cache_max_size_description": "Número máximo de consultas de búsqueda para almacenar en caché (10-200). Las entradas más antiguas se eliminan automáticamente cuando se alcanza el límite.",
+      "ann_backend_label": "Backend ANN",
+      "ann_backend_description": "Elige el backend de vecinos más cercanos aproximados usado para la búsqueda vectorial.",
+      "ann_backend_placeholder": "Seleccionar un backend",
+      "ann_backend_group": "Backends",
+      "ann_backend_wasm": "WASM HNSW (recomendado)",
+      "ann_backend_ts": "HNSW en TypeScript",
+      "ann_backend_bruteforce": "Fuerza bruta",
+      "ann_min_vectors_label": "Vectores mínimos para ANN",
+      "ann_min_vectors_description": "Número mínimo de vectores antes de usar ANN (0 = siempre).",
       "enhanced_chunking_label": "Chunking Mejorado",
       "enhanced_chunking_description": "Usar división de caracteres recursiva avanzada para un mejor contexto",
       "enhanced_chunking_info": "El chunking mejorado divide el texto de forma jerárquica (párrafos → oraciones → palabras) para preservar el significado semántico. Se recomienda para RAG.",
@@ -420,6 +445,11 @@
       "temporal_boosting_description": "Priorizar documentación más reciente utilizando puntuación de decaimiento exponencial",
       "reranking_label": "Habilitar Re-Ranking",
       "reranking_description": "Utilice un modelo de codificador cruzado para puntuar la relevancia de los resultados recuperados. Mejora significativamente la precisión.",
+      "reranker_backend_label": "Backend de reranking",
+      "reranker_backend_description": "Elige el backend usado para ejecutar el modelo de reranking.",
+      "reranker_backend_placeholder": "Seleccionar backend de reranking",
+      "reranker_backend_group": "Backends",
+      "reranker_backend_none": "Desactivado",
       "hybrid_search_label": "Habilitar búsqueda híbrida",
       "hybrid_search_description": "Combine la búsqueda por palabras clave (BM25) con la búsqueda semántica para una mejor recuperación.",
       "keyword_weight_label": "Peso de palabra clave",
@@ -434,20 +464,32 @@
       "exclude_casual_description": "Filtre saludos, respuestas cortas y mensajes de baja información.",
       "min_quality_score_label": "Puntuación de calidad mínima",
       "min_quality_score_description": "Puntuación de calidad mínima (0-1) requerida para incrustar contenido.",
+      "embedding_source_label": "Fuente de generación de embeddings",
       "embedding_source_description": "Las incrustaciones se generan usando tu proveedor local (Ollama por defecto)",
       "embedding_source_default_provider": "Proveedor predeterminado (Ollama)",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "Aprendizaje con comentarios del usuario",
+      "feedback_learning_description": "Mejora la calidad de búsqueda aprendiendo de tus comentarios.",
+      "feedback_enable_label": "Activar recopilación de comentarios",
+      "feedback_enable_description": "Recordar qué fragmentos fueron útiles para mejorar futuras recuperaciones.",
+      "feedback_show_chunks_label": "Mostrar fragmentos recuperados",
+      "feedback_show_chunks_description": "Muestra los fragmentos fuente en el chat con botones de comentarios.",
+      "feedback_blend_weight_label": "Peso del aprendizaje por comentarios",
+      "feedback_blend_weight_description": "Cuánto confiar en los comentarios aprendidos frente a las puntuaciones del modelo (0-1).",
+      "feedback_export_button": "Exportar datos de comentarios",
+      "feedback_clear_button": "Borrar todos los comentarios",
+      "feedback_privacy_note": "Todos los comentarios se almacenan localmente. Las consultas se hashean por privacidad. Ningún dato sale de tu dispositivo.",
+      "feedback_stats_title": "Estadísticas de comentarios",
+      "feedback_stats_total": "Comentarios totales",
+      "feedback_stats_helpful": "Tasa de utilidad",
+      "feedback_stats_chunks": "Fragmentos con comentarios",
+      "feedback_stats_queries": "Consultas con comentarios",
+      "feedback_privacy_title": "Privacidad de los comentarios",
+      "feedback_export_success": "Datos de comentarios exportados",
+      "feedback_export_error": "No se pudieron exportar los datos de comentarios",
+      "feedback_clear_confirm_title": "¿Borrar todos los comentarios?",
+      "feedback_clear_confirm_description": "Esto eliminará todos los comentarios guardados. Esta acción no se puede deshacer.",
+      "feedback_clear_success": "Datos de comentarios borrados",
+      "feedback_clear_error": "No se pudieron borrar los datos de comentarios"
     },
     "provider_status": {
       "checking": "Comprobando estado de Provider...",
@@ -463,7 +505,7 @@
       "search_placeholder": "Buscar plantillas, etiquetas o descripciones...",
       "sort_recent": "Recientes",
       "sort_popular": "Populares",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "Ordenar alfabéticamente",
       "all_categories": "Todas las Categorías",
       "no_templates_title": "No se encontraron plantillas",
       "no_templates_search": "Intenta ajustar tu búsqueda o criterios de filtro",
@@ -523,7 +565,7 @@
       "label_on": "Pestaña+",
       "tooltip": "Interactuar con pestañas abiertas"
     },
-    "context": "Context",
+    "context": "Contexto",
     "inspector": {
       "title": "Contexto de Pestaña Extraído",
       "description": "Revisa exactamente qué se utilizará como contexto de pestaña antes de enviar.",
@@ -687,6 +729,17 @@
         "title": "Contexto y Generación",
         "description": "Ajustes de Memoria y Control de Salida"
       },
+      "runtime": {
+        "title": "Tiempo de Ejecución y Calentamiento",
+        "description": "Controlar el calentamiento del modelo y las opciones del tiempo de ejecución.",
+        "keep_alive_label": "Mantener cargado",
+        "keep_alive_description": "Cuánto tiempo mantener el modelo cargado después de una solicitud. Usa segundos o duraciones como 5m.",
+        "keep_alive_placeholder": "ej. 300, 5m, 0 para descargar",
+        "warm_on_select_label": "Calentar modelo al seleccionar",
+        "warm_on_select_description": "Pre-cargar el modelo al cambiar para recibir la primera respuesta más rápido.",
+        "unload_on_switch_label": "Descargar modelo anterior al cambiar",
+        "unload_on_switch_description": "Liberar memoria descargando el último modelo al cambiar de modelo."
+      },
       "parameters": {
         "temperature": {
           "label": "Temperatura",
@@ -727,17 +780,6 @@
           "label": "Repetir Últimos N",
           "validation_min": "Debe ser al menos {{min}}."
         }
-      },
-      "runtime": {
-        "title": "Tiempo de Ejecución y Calentamiento",
-        "description": "Controlar el calentamiento del modelo y las opciones del tiempo de ejecución.",
-        "keep_alive_label": "Mantener cargado",
-        "keep_alive_description": "Cuánto tiempo mantener el modelo cargado después de una solicitud. Usa segundos o duraciones como 5m.",
-        "keep_alive_placeholder": "ej. 300, 5m, 0 para descargar",
-        "warm_on_select_label": "Calentar modelo al seleccionar",
-        "warm_on_select_description": "Pre-cargar el modelo al cambiar para recibir la primera respuesta más rápido.",
-        "unload_on_switch_label": "Descargar modelo anterior al cambiar",
-        "unload_on_switch_description": "Liberar memoria descargando el último modelo al cambiar de modelo."
       }
     },
     "base_url": {
@@ -804,20 +846,32 @@
       "prompts": "Prompts",
       "models": "Modelos",
       "extraction": "Extracción",
+      "context": "Contexto",
       "embeddings": "Incrustaciones",
+      "providers": "Proveedores",
       "voices": "Voces",
       "reset": "Restablecer",
       "guides": "Guías",
       "memory": "Memoria",
-      "shortcuts": "Atajos",
-      "providers": "Proveedores",
-      "context": "Contexto"
+      "shortcuts": "Atajos"
     },
-    "errorBoundary": {
-      "title": "Algo salió mal",
-      "description": "Ocurrió un error inesperado. Hemos registrado este problema internamente.",
-      "exportLogs": "Exportar registros",
-      "reload": "Recargar"
+    "context": {
+      "file_upload": {
+        "title": "Ingesta de archivos",
+        "description": "Configura cómo se procesan los archivos para la recuperación de conocimiento."
+      },
+      "embedding_health": {
+        "title": "Se detectaron dimensiones de embeddings mezcladas",
+        "description": "Los embeddings están almacenados con varias dimensiones ({{dimensions}}). La búsqueda y la memoria pueden fallar hasta que todo se reconstruya.",
+        "note": "La reconstrucción borra todos los embeddings y vuelve a incrustar el historial de chat. Tendrás que volver a subir los archivos para restaurar el conocimiento.",
+        "memory_disabled": "La memoria está desactivada, así que no se reconstruyeron los embeddings del chat.",
+        "action": "Reconstruir embeddings",
+        "action_rebuilding": "Reconstruyendo...",
+        "confirm": "¿Reconstruir embeddings? Esto borrará todos los embeddings y volverá a incrustar el historial de chat. Tendrás que volver a subir los archivos para restaurar el conocimiento.",
+        "progress": "Reconstruyendo embeddings del chat ({{current}}/{{total}})",
+        "success": "Embeddings reconstruidos correctamente.",
+        "error": "No se pudieron reconstruir los embeddings."
+      }
     },
     "memory": {
       "title": "Memoria Contextual",
@@ -841,6 +895,12 @@
     "page": {
       "title": "Ajustes de Ollama Client",
       "description": "Gestiona todos los aspectos de tu configuración de Ollama en un solo lugar. Para consejos y guía de configuración, visita la pestaña Guías."
+    },
+    "sections": {
+      "app": "Aplicación",
+      "ai_models": "IA y Modelos",
+      "customize": "Personalizar",
+      "system": "Sistema"
     },
     "speech": {
       "title": "Ajustes de Voz",
@@ -965,7 +1025,7 @@
       "sort": {
         "recent": "Recientes",
         "popular": "Populares",
-        "alphabetical": "A-Z"
+        "alphabetical": "Alfabético"
       },
       "new_template": "Nueva Plantilla",
       "form": {
@@ -989,21 +1049,26 @@
         "confirm": "Eliminar"
       },
       "created_at": "Creado el {{date}}",
-      "used_times": "Usado {{count}} veces"
+      "used_times": "Usado {{count}} veces",
+      "empty_state": {
+        "title": "No se encontraron plantillas",
+        "description": "Prueba a ajustar la búsqueda o los filtros."
+      },
+      "no_description": "Sin descripción"
     },
     "reset": {
       "title": "Restablecer Ajustes",
       "description": "Borra los datos almacenados por módulo o restablece todo a los valores predeterminados",
+      "danger_zone": {
+        "title": "Zona de Peligro",
+        "description": "Esto borrará todos los datos y no se puede deshacer",
+        "button": "Restablecer Todo"
+      },
       "dialog": {
         "title": "Confirmar Restablecimiento",
         "description": "Esto borrará todos los datos y no se puede deshacer.",
         "confirm": "Sí, Restablecer Todo",
         "cancel": "Cancelar"
-      },
-      "danger_zone": {
-        "title": "Zona de Peligro",
-        "description": "Esto borrará todos los datos y no se puede deshacer",
-        "button": "Restablecer Todo"
       },
       "modules": {
         "theme": {
@@ -1038,14 +1103,10 @@
       "item_count_plural": "{{count}} elementos",
       "reset_button": "Restablecer"
     },
-    "sections": {
-      "app": "Aplicación",
-      "ai_models": "IA y Modelos",
-      "customize": "Personalizar",
-      "system": "Sistema"
-    },
     "providers": {
       "default": "Predeterminado",
+      "beta_badge": "Beta",
+      "beta_notice": "Este proveedor está en beta. Si encuentras algún problema, repórtalo o abre un issue en el repositorio.",
       "enabled": "Habilitado",
       "disabled": "Deshabilitado",
       "inactive": "Inactivo",
@@ -1066,7 +1127,11 @@
         "failed_title": "Error de conexión",
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "No se encontraron modelos",
-        "no_models_description": "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente."
+        "no_models_description": "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente.",
+        "inline_success": "Conexión correcta con {{url}} ({{count}} modelos encontrados)",
+        "inline_no_models": "Conectado a {{url}}, pero se encontraron 0 modelos. ¿El servicio está en ejecución?",
+        "inline_failed": "Error al conectar con {{url}}: {{error}}",
+        "default_url": "URL predeterminada"
       }
     },
     "migration": {
@@ -1089,6 +1154,10 @@
       "import_result": {
         "title": "Resultados de la Importación",
         "description": "Revise el estado de su importación de datos a continuación:",
+        "sync": "Configuración",
+        "vector": "Base de conocimiento (vectores)",
+        "sqlite": "Historial de chat y datos",
+        "errors": "Errores encontrados ({{count}})",
         "labels": {
           "sync": "Preferencias (Sync)",
           "local": "Almacenamiento Local",
@@ -1142,25 +1211,12 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "context": {
-      "file_upload": {
-        "title": "Ingesta de Archivos",
-        "description": "Configurar cómo se procesan los archivos para la recuperación de conocimientos."
-      },
-      "embedding_health": {
-        "title": "Se detectaron dimensiones de incrustación mixtas",
-        "description": "Las incrustaciones se almacenan en múltiples dimensiones ({{dimensions}}). La búsqueda y la memoria pueden fallar hasta que se reconstruya todo.",
-        "note": "Reconstruir borra todas las incrustaciones y vuelve a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
-        "memory_disabled": "La memoria está desactivada, por lo que no se reconstruyeron las incrustaciones de chat.",
-        "action": "Reconstruir incrustaciones",
-        "action_rebuilding": "Reconstruyendo...",
-        "confirm": "¿Reconstruir incrustaciones? Esto borrará todas las incrustaciones y volverá a incrustar el historial de chat. Las subidas de archivos deberán volver a subirse para restaurar los conocimientos.",
-        "progress": "Reconstruyendo incrustaciones de chat ({{current}}/{{total}})",
-        "success": "Incrustaciones reconstruidas con éxito.",
-        "error": "Error al reconstruir las incrustaciones."
-      }
-    },
     "bug_report": "Reportar Error / Función"
+  },
+  "errorBoundary": {
+    "title": "Algo salió mal",
+    "description": "Se produjo un error inesperado. Hemos registrado este problema internamente.",
+    "reload": "Recargar"
   },
   "knowledge_sets": {
     "title": "Conjuntos de conocimiento",

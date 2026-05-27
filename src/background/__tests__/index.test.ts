@@ -99,6 +99,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 // Import handlers to verify calls
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
 import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
@@ -124,6 +125,10 @@ describe("Background Script Entry Point", () => {
   })
 
   describe("Message Routing", () => {
+    it("registers context menu handling on service worker startup", () => {
+      expect(initializeContextMenu).toHaveBeenCalled()
+    })
+
     it("should route GET_MODELS", () => {
       const onMessage = listeners.onMessage[0]
       const sendResponse = vi.fn()

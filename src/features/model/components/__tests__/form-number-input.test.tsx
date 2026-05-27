@@ -14,10 +14,10 @@ import { FormNumberInput } from "../form-number-input"
  * the form state never updated, so the parent's debounced save effect
  * never observed a change and nothing was written to storage.
  *
- * The fix moves FormNumberInput onto `useController`, mirroring the
- * pattern that FormSlider already uses. These tests assert that
- * typing into the input updates the form's reported value, which is
- * the contract the parent form-save effect depends on.
+ * The fix routes FormNumberInput through ControlledNumberInput's
+ * `useController` binding. These tests assert that typing into the
+ * input updates the form's reported value, which is the contract the
+ * parent form-save effect depends on.
  */
 const TestWrapper = ({
   defaultValue,

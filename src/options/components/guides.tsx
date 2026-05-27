@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 
+import { SectionStack } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -12,7 +13,7 @@ export const Guides = () => {
   const { t } = useTranslation()
 
   return (
-    <div className="mx-auto space-y-4">
+    <SectionStack>
       <SettingsCard
         icon={Notebook}
         title={t("guides.title")}
@@ -86,6 +87,6 @@ export const Guides = () => {
           </div>
         </div>
       </SettingsCard>
-    </div>
+    </SectionStack>
   )
 }

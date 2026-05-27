@@ -165,11 +165,27 @@ export default defineConfig({
             }
           ]
         },
+        {
+          label: "Internal",
+          items: [
+            {
+              label: "Frontend Design System",
+              slug: "internal/frontend-design-system"
+            }
+          ]
+        },
         // Auto-populated by starlight-typedoc from the entryPoints above.
         typeDocSidebarGroup,
         {
           label: "Legal",
           items: [{ label: "Privacy Policy", slug: "legal/privacy-policy" }]
+        },
+        {
+          label: "About",
+          items: [
+            { label: "Changelog", slug: "about/changelog" },
+            { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
+          ]
         }
       ],
       head: [

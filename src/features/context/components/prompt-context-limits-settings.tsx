@@ -1,8 +1,9 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
+import { FormGrid } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -49,8 +50,8 @@ export const PromptContextLimitsSettings = () => {
     <SettingsCard
       title={t("settings.prompt_context_limits.title")}
       description={t("settings.prompt_context_limits.description")}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SettingsFormField
+      <FormGrid>
+        <SettingsField
           htmlFor="max-tab-context-chars"
           label={t("settings.prompt_context_limits.max_tab_context_chars")}>
           <Input
@@ -67,9 +68,9 @@ export const PromptContextLimitsSettings = () => {
               )
             }}
           />
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           htmlFor="max-rag-context-chars"
           label={t("settings.prompt_context_limits.max_rag_context_chars")}>
           <Input
@@ -86,8 +87,8 @@ export const PromptContextLimitsSettings = () => {
               )
             }}
           />
-        </SettingsFormField>
-      </div>
+        </SettingsField>
+      </FormGrid>
 
       <SettingsSwitch
         id="auto-refresh-tab-context"

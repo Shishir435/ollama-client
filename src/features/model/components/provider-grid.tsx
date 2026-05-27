@@ -14,9 +14,6 @@ import { isBetaProvider } from "@/lib/providers/registry"
 import type { ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
-const BETA_NOTICE_TEXT =
-  "This provider is in beta. If you face any issue, please report it or open an issue on the repo."
-
 // Status dot color is picked by the first rule that matches.
 const dotStatusRules = [
   { test: (enabled: boolean) => !enabled, cls: "bg-muted-foreground/40" },
@@ -104,7 +101,7 @@ export const ProviderGrid = ({
 
                 {isBetaProvider(provider.id) && (
                   <>
-                    <MiniBadge text="Beta" />
+                    <MiniBadge text={t("settings.providers.beta_badge")} />
                     <Tooltip>
                       <TooltipTrigger
                         render={
@@ -113,7 +110,9 @@ export const ProviderGrid = ({
                         <Info className="h-3 w-3" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-xs text-xs">{BETA_NOTICE_TEXT}</p>
+                        <p className="max-w-xs text-xs">
+                          {t("settings.providers.beta_notice")}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </>

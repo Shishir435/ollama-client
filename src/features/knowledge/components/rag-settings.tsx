@@ -1,7 +1,12 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsFormField, SettingsSwitch } from "@/components/settings"
+import {
+  SettingsActionRow,
+  SettingsField,
+  SettingsSliderField,
+  SettingsSwitch
+} from "@/components/settings"
 import {
   Accordion,
   AccordionContent,
@@ -18,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
@@ -235,44 +239,39 @@ export const RAGSettings = () => {
         />
       </div>
 
-      <SettingsFormField
-        label={`${t("model.embedding_config.search_limit_label")} (Top-K: ${topK})`}
-        description={t("model.embedding_config.search_limit_description")}>
-        <Slider
-          value={[topK]}
-          min={1}
-          max={20}
-          step={1}
-          onValueChange={(value) =>
-            handleTopKChange(Array.isArray(value) ? value : [value])
-          }
-        />
-      </SettingsFormField>
+      <SettingsSliderField
+        label={t("model.embedding_config.search_limit_label")}
+        valueLabel={`Top-K: ${topK}`}
+        description={t("model.embedding_config.search_limit_description")}
+        value={topK}
+        min={1}
+        max={20}
+        step={1}
+        onValueChange={(value) => handleTopKChange([value])}
+      />
 
-      <SettingsFormField
-        label={`${t("knowledge_sets.min_rerank_label")} (${minRerankScore.toFixed(2)})`}
-        description={t("knowledge_sets.min_rerank_description")}>
-        <Slider
-          value={[minRerankScore]}
-          min={0}
-          max={1}
-          step={0.05}
-          onValueChange={(value) => {
-            const next = Array.isArray(value) ? value[0] : value
-            setMinRerankScore(next)
-            setConfig((prev) => ({
-              ...prev,
-              minRerankScore: next
-            }))
-          }}
-        />
-      </SettingsFormField>
+      <SettingsSliderField
+        label={t("knowledge_sets.min_rerank_label")}
+        valueLabel={minRerankScore.toFixed(2)}
+        description={t("knowledge_sets.min_rerank_description")}
+        value={minRerankScore}
+        min={0}
+        max={1}
+        step={0.05}
+        onValueChange={(next) => {
+          setMinRerankScore(next)
+          setConfig((prev) => ({
+            ...prev,
+            minRerankScore: next
+          }))
+        }}
+      />
 
       <Accordion className="w-full">
         <AccordionItem value="knowledge-sets">
           <AccordionTrigger>{t("knowledge_sets.title")}</AccordionTrigger>
           <AccordionContent className="space-y-6 pt-4">
-            <SettingsFormField
+            <SettingsField
               label={t("knowledge_sets.active_label")}
               description={t("knowledge_sets.active_description")}>
               <Select
@@ -293,12 +292,12 @@ export const RAGSettings = () => {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </SettingsFormField>
+            </SettingsField>
 
-            <SettingsFormField
+            <SettingsField
               label={t("knowledge_sets.create_label")}
               description={t("knowledge_sets.create_description")}>
-              <div className="flex gap-2">
+              <SettingsActionRow>
                 <Input
                   value={newSetName}
                   placeholder={t("knowledge_sets.create_placeholder")}
@@ -307,15 +306,15 @@ export const RAGSettings = () => {
                 <Button type="button" onClick={handleCreateKnowledgeSet}>
                   {t("knowledge_sets.create_button")}
                 </Button>
-              </div>
-            </SettingsFormField>
+              </SettingsActionRow>
+            </SettingsField>
 
             {activeSet && (
               <>
-                <SettingsFormField
+                <SettingsField
                   label={t("knowledge_sets.rename_label")}
                   description={t("knowledge_sets.rename_description")}>
-                  <div className="flex gap-2">
+                  <SettingsActionRow>
                     <Input
                       value={knowledgeSetName}
                       placeholder={t("knowledge_sets.rename_placeholder")}
@@ -331,10 +330,10 @@ export const RAGSettings = () => {
                       }>
                       {t("knowledge_sets.rename_button")}
                     </Button>
-                  </div>
-                </SettingsFormField>
+                  </SettingsActionRow>
+                </SettingsField>
 
-                <SettingsFormField
+                <SettingsField
                   label={t("knowledge_sets.delete_label")}
                   description={t("knowledge_sets.delete_description")}>
                   <Button
@@ -344,9 +343,9 @@ export const RAGSettings = () => {
                     disabled={activeSet.id === DEFAULT_KNOWLEDGE_SET_ID}>
                     {t("knowledge_sets.delete_button")}
                   </Button>
-                </SettingsFormField>
+                </SettingsField>
 
-                <SettingsFormField
+                <SettingsField
                   label={t("knowledge_sets.prompt_label")}
                   description={t("knowledge_sets.prompt_description")}>
                   <Textarea
@@ -354,9 +353,9 @@ export const RAGSettings = () => {
                     onChange={handleKnowledgePromptChange}
                     className="min-h-[160px]"
                   />
-                </SettingsFormField>
+                </SettingsField>
 
-                <SettingsFormField
+                <SettingsField
                   label={t("knowledge_sets.question_prompt_label")}
                   description={t("knowledge_sets.question_prompt_description")}>
                   <Textarea
@@ -364,39 +363,35 @@ export const RAGSettings = () => {
                     onChange={handleKnowledgeQuestionPromptChange}
                     className="min-h-[140px]"
                   />
-                </SettingsFormField>
+                </SettingsField>
 
-                <SettingsFormField
-                  label={`${t("knowledge_sets.topk_label")} (${knowledgeTopK})`}
-                  description={t("knowledge_sets.topk_description")}>
-                  <Slider
-                    value={[knowledgeTopK]}
-                    min={1}
-                    max={20}
-                    step={1}
-                    onValueChange={(value) => {
-                      const next = Array.isArray(value) ? value[0] : value
-                      setKnowledgeTopK(next)
-                      updateKnowledgeRetrieval({ topK: next })
-                    }}
-                  />
-                </SettingsFormField>
+                <SettingsSliderField
+                  label={t("knowledge_sets.topk_label")}
+                  valueLabel={knowledgeTopK}
+                  description={t("knowledge_sets.topk_description")}
+                  value={knowledgeTopK}
+                  min={1}
+                  max={20}
+                  step={1}
+                  onValueChange={(next) => {
+                    setKnowledgeTopK(next)
+                    updateKnowledgeRetrieval({ topK: next })
+                  }}
+                />
 
-                <SettingsFormField
-                  label={`${t("knowledge_sets.min_similarity_label")} (${knowledgeMinSimilarity.toFixed(2)})`}
-                  description={t("knowledge_sets.min_similarity_description")}>
-                  <Slider
-                    value={[knowledgeMinSimilarity]}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    onValueChange={(value) => {
-                      const next = Array.isArray(value) ? value[0] : value
-                      setKnowledgeMinSimilarity(next)
-                      updateKnowledgeRetrieval({ minSimilarity: next })
-                    }}
-                  />
-                </SettingsFormField>
+                <SettingsSliderField
+                  label={t("knowledge_sets.min_similarity_label")}
+                  valueLabel={knowledgeMinSimilarity.toFixed(2)}
+                  description={t("knowledge_sets.min_similarity_description")}
+                  value={knowledgeMinSimilarity}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onValueChange={(next) => {
+                    setKnowledgeMinSimilarity(next)
+                    updateKnowledgeRetrieval({ minSimilarity: next })
+                  }}
+                />
               </>
             )}
           </AccordionContent>

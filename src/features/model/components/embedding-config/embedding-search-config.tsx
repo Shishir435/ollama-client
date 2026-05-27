@@ -1,6 +1,10 @@
 import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  SettingsCard,
+  SettingsField,
+  SettingsSliderField
+} from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -11,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import type { EmbeddingConfig } from "@/lib/constants"
 
 export interface EmbeddingSearchConfigProps {
@@ -31,7 +34,7 @@ export const EmbeddingSearchConfig = ({
       title={t("model.embedding_config.search_settings_title")}
       description={t("model.embedding_config.search_settings_description")}>
       <div className="space-y-4">
-        <SettingsFormField
+        <SettingsField
           htmlFor="defaultSearchLimit"
           label={t("model.embedding_config.search_limit_label")}
           description={t("model.embedding_config.search_limit_description")}>
@@ -50,49 +53,24 @@ export const EmbeddingSearchConfig = ({
             min={1}
             max={100}
           />
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsSliderField
           label={t("model.embedding_config.min_similarity_label")}
-          description={t("model.embedding_config.min_similarity_description")}>
-          <div className="flex items-center gap-4">
-            <Slider
-              value={[config.defaultMinSimilarity]}
-              onValueChange={(value) =>
-                updateConfig({
-                  defaultMinSimilarity: Array.isArray(value) ? value[0] : value
-                })
-              }
-              min={0}
-              max={1}
-              step={0.05}
-              className="flex-1"
-            />
-            <Input
-              id="defaultMinSimilarity"
-              type="number"
-              value={config.defaultMinSimilarity.toFixed(2)}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value)
-                if (!Number.isNaN(val) && val >= 0 && val <= 1) {
-                  updateConfig({
-                    defaultMinSimilarity: val
-                  })
-                }
-              }}
-              className="w-24"
-              min={0}
-              max={1}
-              step={0.05}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0</span>
-            <span>1</span>
-          </div>
-        </SettingsFormField>
+          valueLabel={config.defaultMinSimilarity.toFixed(2)}
+          description={t("model.embedding_config.min_similarity_description")}
+          value={config.defaultMinSimilarity}
+          min={0}
+          max={1}
+          step={0.05}
+          leftLabel="0"
+          rightLabel="1"
+          onValueChange={(defaultMinSimilarity) =>
+            updateConfig({ defaultMinSimilarity })
+          }
+        />
 
-        <SettingsFormField
+        <SettingsField
           htmlFor="searchCacheTTL"
           label={t("model.embedding_config.cache_ttl_label")}
           description={t("model.embedding_config.cache_ttl_description")}
@@ -112,9 +90,9 @@ export const EmbeddingSearchConfig = ({
             min={1}
             max={60}
           />
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           htmlFor="searchCacheMaxSize"
           label={t("model.embedding_config.cache_max_size_label")}
           description={t("model.embedding_config.cache_max_size_description")}>
@@ -133,9 +111,9 @@ export const EmbeddingSearchConfig = ({
             min={10}
             max={200}
           />
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           label={t("model.embedding_config.ann_backend_label")}
           description={t("model.embedding_config.ann_backend_description")}
           className="pt-2 border-t">
@@ -167,9 +145,9 @@ export const EmbeddingSearchConfig = ({
               </SelectGroup>
             </SelectContent>
           </Select>
-        </SettingsFormField>
+        </SettingsField>
 
-        <SettingsFormField
+        <SettingsField
           htmlFor="annMinVectors"
           label={t("model.embedding_config.ann_min_vectors_label")}
           description={t("model.embedding_config.ann_min_vectors_description")}>
@@ -187,7 +165,7 @@ export const EmbeddingSearchConfig = ({
             }}
             min={0}
           />
-        </SettingsFormField>
+        </SettingsField>
       </div>
     </SettingsCard>
   )

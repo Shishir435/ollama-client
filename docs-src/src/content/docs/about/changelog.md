@@ -1,0 +1,142 @@
+---
+title: Changelog
+description: Release history for Ollama Client.
+---
+
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.7.0]
+### Added
+- Chrome extension package localization metadata (`default_locale`, manifest `__MSG_*` substitutions, and `_locales` messages) so Chrome Web Store can detect supported languages.
+- 0.7.0 frontend foundation: app-owned layout, form, settings, and feedback primitives that sit above shadcn/Base UI so preset refreshes do not own product behavior.
+- Data-display primitives for repeated provider, model, source, file, metadata, context preview, command item, and info-list patterns.
+- React Hook Form-safe controlled wrappers for number inputs, sliders, text inputs, textareas, selects, and switches.
+- Internal frontend design-system documentation and visual-smoke screenshot capture for options/sidepanel light, dark, and long-locale checks.
+- Selection button overlay that captures selected text and delivers it to the side panel chat via the background port.
+- Composer context preview showing selected text before sending.
+
+### Changed
+- Embedding test tools split into two standalone `SettingsCard` components (`EmbeddingTestGeneration`, `EmbeddingTestSearch`) with `modelExists` guard internalized.
+- Fixed uneven card gap in embedding settings by removing stray spacer text nodes.
+- Bumped package version to `0.7.0`.
+- Chrome Web Store locale metadata is now generated from `src/locales/<lang>/translation.json` extension blocks, making `src/locales` the single source of truth for app translations and extension package localization.
+- Newly synced locale keys now have localized copy across supported languages instead of English fallback text.
+- Migrated high-churn settings surfaces to shared layout/settings primitives, including model parameters, context settings, RAG retrieval controls, text splitting, embedding search/limits/generation, storage stats, database management, and search empty states.
+- Moved control-density sizing and slider cursor behavior out of global CSS fallbacks and into tokenized utilities / component-level classes.
+- Removed dead code: `src/lib/rag/core/` (browser-RAG interface scaffolding never wired up), the orphan `src/stores/speech-store.ts` (live store is `src/features/chat/stores/speech-store.ts`), `src/contents/selection-button.tsx`, `src/background/migrations/rag-quality-migration.ts`, `src/components/ui/sidebar.tsx`, `src/scripts/verify-rag.ts`, `src/contents/i18n-lite.ts` (had zero importers; the live selection-button content script carries its own inline translations), and `src/lib/providers/anthropic.ts` (a 183-LOC class that was never registered in the factory, default-providers, or registry; the README/AGENTS docs incorrectly listed Anthropic as a supported provider).
+- Pruned 29 unused shadcn primitives from `src/components/ui/` and removed the corresponding npm deps (`embla-carousel-react`, `input-otp`, `react-resizable-panels`, `recharts`, `sonner`, `vaul`) — install tree drops by 39 packages.
+- Removed the blanket `src/components/ui/**` lint override in `biome.json`; remaining vendored-shadcn a11y exceptions are now per-line `// biome-ignore` comments inside the offending files.
+- Manifest (CSP, host permissions, web-accessible resources, gecko settings) is no longer duplicated in `package.json`; `wxt.config.ts` is the single source of truth.
+- Migrations consolidated under `src/lib/migration/` (moved `embedding-dimension-migration.ts` over from `src/background/migrations/`, which is now gone).
+- `MESSAGE_KEYS.OLLAMA` map trimmed to keys whose string value *actually* differs from `MESSAGE_KEYS.PROVIDER` (8 entries instead of 17). The dispatcher in `src/background/index.ts` shed the now-dead duplicate `case` arms — those compiled to the same string and were unreachable.
+- Provider factory: replaced the `if/else if` chain that picked OpenAI-compatible subclasses with a `Record<ProviderId, ProviderConstructor>` lookup; collapsed `getProvider` and `getProviderWithConfig` to share one `instantiate(config)` helper.
+- TypeScript target bumped to ES2022; surfaced a real latent class-field initialization bug in 5 OpenAI-compatible provider subclasses (`override capabilities = { ...this.capabilities, ... }` read the child's uninitialized slot under `useDefineForClassFields`). Each capability merge moved into the subclass constructor.
+- `src/types/index.ts` (568 lines) split into six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`); `index.ts` is now a re-export barrel so the 98 existing `@/types` importers keep working.
+
+### Added
+- `src/i18n/resources.ts` is now build-generated from `src/locales/` by `tools/generate-i18n-resources.ts`. It is `.gitignored` and regenerated by `pnpm prepare` (so a fresh install produces it) and by `pnpm dev`/`build`/`package` (which chain `pnpm generate:resources &&` first).
+- `.husky/pre-push` running the full `pnpm test:run`; `pre-commit` no longer runs the full suite, only `test:related` via lint-staged. Commits got faster, the safety net moves to push.
+
+### Removed
+- `*.tsx`, `types.ts`, `index.ts` from `vitest.config.ts` coverage `exclude`. Coverage reports were hiding every UI component, type file, and barrel. They now reflect reality.
+
+### Docs
+- AGENTS.md, README, and CHANGELOG synced to reflect the actual repo layout and provider list. README, AGENTS, and CHANGELOG no longer falsely list Anthropic as a supported provider.
+
+## [0.6.5] - 2026-05-20
+### Added
+- Settings deep-links so other surfaces can open the options page at a specific section.
+
+### Changed
+- Migrated shadcn primitives to the `base-mira` preset on Tailwind v4 across sidepanel and options for consistent design tokens.
+- Trimmed unused dependencies as part of the shadcn preset migration.
+
+### Fixed
+- Chat-stream now handles unexpected runtime-port disconnects without leaving the UI in a stuck loading state.
+- Slider behavior and several lint violations introduced during the shadcn migration.
+
+## [0.6.4] - 2026-05
+### Added
+- Grounding mode plus configurable per-conversation context limits.
+- Tab-content extraction wired into chat context.
+
+### Changed
+- Standardized status styling and replaced ad-hoc emoji status indicators with shared status components.
+- Aligned options and sidepanel UI on shared shadcn preset tokens.
+
+### Fixed
+- i18n strings added for the extracted-tab context popup and the context-settings screen.
+
+## [0.6.3] - 2026-05
+### Added
+- Tab-extraction inspector for debugging page content capture.
+- Cross-browser verification automation (`pnpm verify:browser-smoke`, `pnpm verify:browser-automation`) covering CSP, manifest permissions, and an optional Ollama connectivity check.
+
+### Changed
+- Expanded extension CSP to allow remote provider endpoints (OpenAI, Anthropic, etc.) and added in-UI connection-troubleshooting hints.
+- Hardened streaming-message updates against partial-state races.
+- Extracted-tab content viewer is now a scrollable modal; extracted HTML is sanitized before display.
+
+## [0.6.2] - 2026-04-05
+### Added
+- Multi-provider model support with explicit provider capabilities and routing for Ollama, LM Studio, llama.cpp, and additional providers ( vLLM, LocalAI, KoboldCPP).
+- Full backup/export and restore flows with manifest versioning, partial failure reporting, and ZIP-based data migration.
+- Enhanced RAG pipeline features: hybrid search, reranking, quality filtering, feedback blending, recency boosting, and memory-aware retrieval.
+- Embedding health and rebuild tooling, including progress feedback, dimension health checks, and model status indicators.
+- Search UI enhancements with scoped tabs, result grouping, and dedicated search components.
+- Print/PDF export entrypoint and improved export flows.
+- Expanded i18n coverage across settings, prompts, feedback, and embedding/RAG controls.
+- New welcome screen layout with modular hero/status/features components and refreshed onboarding.
+
+### Changed
+- Embedding strategy and storage now track provider/model metadata, support provider-aware fallbacks, and filter search results by embedding model/provider/dimension.
+- Model selection and provider settings refactored with SelectedModelRef, provider migrations, and capability-aware UI.
+- Chat UI and input UX refined (message bubbles, toolbar, scroll behavior, loading states, and context menus).
+- File upload and extraction pipeline simplified for local PDF/DOCX processing.
+- UI system migrated/refined with updated shadcn/base components, Tailwind v4 upgrades, and layout/styling polish.
+- Settings layout reorganized with better navigation, more granular controls, and migration tooling.
+- Storage migrations updated (provider mappings, embeddings, feedback) with clearer diagnostics and safer defaults.
+
+### Fixed
+- Embedding model detection, download, and fallback flows with improved status checks and timeouts.
+- RAG pipeline edge cases (full mode, empty results) and search ranking inconsistencies.
+- Context menu and background handler stability issues.
+- Chat streaming jitter, scroll flicker, and race conditions around message updates.
+- Tests updated for new provider and embedding metadata.
+
+
+## [0.6.0] - 2026-02-08
+### Added
+- Multi-provider support with routing and provider settings (Ollama, LM Studio, llama.cpp).
+- Internationalization for provider settings and related UI text.
+- RAG enhancements: hybrid search, reranking, quality filtering, async retrieval, and sources UX.
+- File attachment viewer in chat.
+- Multi-browser build targets via WXT for Chrome MV3 and Firefox MV2.
+
+### Changed
+- Settings page layout with sidebar navigation, standardized form fields, and improved UI consistency.
+- Embedding strategy updates with provider-aware embeddings and enforced fallbacks.
+- Model management cleanup, including removal of model pull and embedding download UI.
+- Chat streaming and handler refactors for improved behavior and clarity.
+- Provider display tweaks (full version labels, model name truncation cleanup).
+
+### Fixed
+- Embedding model name normalization and more robust model checks.
+- Legacy Ollama base URL synchronization for provider detection.
+- Branch navigation logic in chat message footer.
+- Minor i18n text cleanup and translation updates.
+
+### Documentation
+- Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
+
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/Shishir435/ollama-client/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/Shishir435/ollama-client/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/Shishir435/ollama-client/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/Shishir435/ollama-client/compare/v0.6.0...v0.6.2
+[0.6.0]: https://github.com/Shishir435/ollama-client/releases/tag/v0.6.0
+

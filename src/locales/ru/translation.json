@@ -49,6 +49,12 @@
       "settings_aria": "Навигация настроек"
     }
   },
+  "extension": {
+    "name": "Ollama Client - чат с локальными LLM-моделями",
+    "short_name": "Ollama Client",
+    "description": "Локальное расширение Chrome для приватного чата с LLM через Ollama, LM Studio и llama.cpp, включая локальные RAG-процессы.",
+    "action_default_title": "Открыть Ollama Client"
+  },
   "selection_button": {
     "label": "Спросить локальный LLM",
     "tooltip": "Добавить в локальный LLM клиент"
@@ -56,6 +62,7 @@
   "welcome": {
     "title": "Добро пожаловать в чат локального LLM",
     "subtitle": "Локальные диалоги с ИИ — это просто",
+    "badge": "Локальный чат",
     "start_chatting": "Начать чат",
     "status": {
       "connecting": {
@@ -84,7 +91,8 @@
       "step4": "Вернитесь сюда и нажмите <b>Обновить</b>",
       "hint": "Следуйте руководству по настройке ниже, чтобы установить Ollama и модели.",
       "full_guide_link": "Полное руководство по настройке",
-      "firefox_warning": "Пользователи Firefox: запустите скрипт ollama-env.sh для включения CORS перед началом работы."
+      "firefox_warning": "Пользователи Firefox: запустите скрипт ollama-env.sh для включения CORS перед началом работы.",
+      "help_prefix": "Нужна помощь?"
     },
     "features": {
       "private": {
@@ -115,11 +123,18 @@
       "switch_model": "Сменить модель",
       "chars": "Символов",
       "enter_to_send": "Отправить",
-      "enter_key": "Enter",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "enter_key": "Клавиша Enter",
+      "rag_toggle_on": "Умный контекст включен",
+      "rag_toggle_off": "Умный контекст выключен",
       "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата",
       "drop_files_here": "Перетащите файлы сюда"
+    },
+    "context_preview": {
+      "selection": "Выбранный текст",
+      "files": "Прикрепленные файлы",
+      "chars": "{{count}} симв.",
+      "files_ready": "{{ready}}/{{total}} файлов готово · {{chars}} симв.",
+      "files_status": "{{processing}} обрабатывается · {{errors}} ошибок"
     },
     "editor": {
       "placeholder": "Редактировать сообщение..."
@@ -129,6 +144,7 @@
       "copied": "Скопировано",
       "regenerate": "Сгенерировать заново",
       "switch_model_tooltip": "Переключить модель",
+      "fork": "Ответвить",
       "edit": "Редактировать",
       "export_as": "Экспортировать как...",
       "more": "Ещё",
@@ -404,6 +420,15 @@
       "cache_ttl_description": "Как долго кэшировать результаты поиска (1-60 минут). Кэшированные запросы возвращаются мгновенно.",
       "cache_max_size_label": "Макс. кэшированных запросов",
       "cache_max_size_description": "Максимальное количество кэшируемых поисковых запросов (10-200). Старые записи автоматически удаляются при достижении лимита.",
+      "ann_backend_label": "ANN-бэкенд",
+      "ann_backend_description": "Выберите бэкенд приближенного поиска ближайших соседей для векторного поиска.",
+      "ann_backend_placeholder": "Выберите бэкенд",
+      "ann_backend_group": "Бэкенды",
+      "ann_backend_wasm": "WASM HNSW (рекомендуется)",
+      "ann_backend_ts": "TypeScript HNSW",
+      "ann_backend_bruteforce": "Полный перебор",
+      "ann_min_vectors_label": "Минимум векторов для ANN",
+      "ann_min_vectors_description": "Минимальное число векторов перед использованием ANN (0 = всегда).",
       "enhanced_chunking_label": "Улучшенное разбиение",
       "enhanced_chunking_description": "Использовать продвинутое рекурсивное разбиение для лучшего контекста",
       "enhanced_chunking_info": "Улучшенное разбиение разделяет текст иерархически (абзацы → предложения → слова) для сохранения семантического значения. Рекомендуется для RAG.",
@@ -420,6 +445,11 @@
       "temporal_boosting_description": "Приоритет более новой документации с использованием оценки экспоненциального затухания",
       "reranking_label": "Включить переранжирование",
       "reranking_description": "Использовать модель кросс-энкодера для оценки релевантности найденных результатов. Значительно повышает точность.",
+      "reranker_backend_label": "Бэкенд реранкера",
+      "reranker_backend_description": "Выберите бэкенд для запуска модели реранкера.",
+      "reranker_backend_placeholder": "Выберите бэкенд реранкера",
+      "reranker_backend_group": "Бэкенды",
+      "reranker_backend_none": "Отключено",
       "hybrid_search_label": "Включить гибридный поиск",
       "hybrid_search_description": "Сочетание поиска по ключевым словам (BM25) и семантического поиска для лучшего охвата.",
       "keyword_weight_label": "Вес ключевых слов",
@@ -434,20 +464,32 @@
       "exclude_casual_description": "Отфильтровывать приветствия, короткие ответы и малоинформативные сообщения.",
       "min_quality_score_label": "Минимальная оценка качества",
       "min_quality_score_description": "Минимальная оценка качества (0-1), необходимая для встраивания контента.",
+      "embedding_source_label": "Источник генерации эмбеддингов",
       "embedding_source_description": "Эмбеддинги генерируются с помощью вашего локального провайдера (по умолчанию Ollama)",
       "embedding_source_default_provider": "Провайдер по умолчанию (Ollama)",
-      "feedback_stats_title": "Feedback statistics",
-      "feedback_stats_total": "Total feedback",
-      "feedback_stats_helpful": "Helpful rate",
-      "feedback_stats_chunks": "Unique chunks",
-      "feedback_stats_queries": "Unique queries",
-      "feedback_privacy_title": "Privacy",
-      "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
-      "feedback_clear_confirm_title": "Clear feedback?",
-      "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
-      "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_learning_title": "Обучение на отзывах пользователя",
+      "feedback_learning_description": "Улучшайте качество поиска, обучаясь на ваших отзывах.",
+      "feedback_enable_label": "Включить сбор отзывов",
+      "feedback_enable_description": "Запоминать, какие фрагменты были полезны, чтобы улучшать будущий поиск.",
+      "feedback_show_chunks_label": "Показывать найденные фрагменты",
+      "feedback_show_chunks_description": "Показывать исходные фрагменты в чате с кнопками обратной связи.",
+      "feedback_blend_weight_label": "Вес обучения на отзывах",
+      "feedback_blend_weight_description": "Насколько доверять изученным отзывам относительно оценок модели (0-1).",
+      "feedback_export_button": "Экспортировать данные отзывов",
+      "feedback_clear_button": "Очистить все отзывы",
+      "feedback_privacy_note": "Все отзывы хранятся локально. Запросы хэшируются для приватности. Данные не покидают ваше устройство.",
+      "feedback_stats_title": "Статистика отзывов",
+      "feedback_stats_total": "Всего отзывов",
+      "feedback_stats_helpful": "Доля полезных",
+      "feedback_stats_chunks": "Фрагменты с отзывами",
+      "feedback_stats_queries": "Запросы с отзывами",
+      "feedback_privacy_title": "Конфиденциальность отзывов",
+      "feedback_export_success": "Данные отзывов экспортированы",
+      "feedback_export_error": "Не удалось экспортировать данные отзывов",
+      "feedback_clear_confirm_title": "Очистить все отзывы?",
+      "feedback_clear_confirm_description": "Это удалит все сохраненные отзывы. Действие нельзя отменить.",
+      "feedback_clear_success": "Данные отзывов очищены",
+      "feedback_clear_error": "Не удалось очистить данные отзывов"
     },
     "provider_status": {
       "checking": "Проверка статуса Provider...",
@@ -523,7 +565,7 @@
       "label_on": "Вкладка+",
       "tooltip": "Взаимодействие с открытыми вкладками"
     },
-    "context": "Context",
+    "context": "Контекст",
     "inspector": {
       "title": "Извлечённый контекст вкладки",
       "description": "Точно проверьте, что будет использоваться как контекст вкладки перед отправкой.",
@@ -687,6 +729,17 @@
         "title": "Контекст и генерация",
         "description": "Настройки памяти и управления выводом"
       },
+      "runtime": {
+        "title": "Среда выполнения и запуск",
+        "description": "Настройки запуска и параметров среды выполнения модели.",
+        "keep_alive_label": "Сохранять в памяти",
+        "keep_alive_description": "Как долго модель должна находиться в памяти после запроса. В секундах или формат как 5m.",
+        "keep_alive_placeholder": "напр. 300, 5m, 0 для выгрузки",
+        "warm_on_select_label": "Запускать модель при выборе",
+        "warm_on_select_description": "Предварительно загружать модель при переключении для ускорения первого ответа.",
+        "unload_on_switch_label": "Выгружать предыдущую модель при смене",
+        "unload_on_switch_description": "Освобождать память, выгружая последнюю модель при переключении на новую."
+      },
       "parameters": {
         "temperature": {
           "label": "Температура (Temperature)",
@@ -727,17 +780,6 @@
           "label": "Repeat Last N",
           "validation_min": "Должно быть не менее {{min}}."
         }
-      },
-      "runtime": {
-        "title": "Среда выполнения и запуск",
-        "description": "Настройки запуска и параметров среды выполнения модели.",
-        "keep_alive_label": "Сохранять в памяти",
-        "keep_alive_description": "Как долго модель должна находиться в памяти после запроса. В секундах или формат как 5m.",
-        "keep_alive_placeholder": "напр. 300, 5m, 0 для выгрузки",
-        "warm_on_select_label": "Запускать модель при выборе",
-        "warm_on_select_description": "Предварительно загружать модель при переключении для ускорения первого ответа.",
-        "unload_on_switch_label": "Выгружать предыдущую модель при смене",
-        "unload_on_switch_description": "Освобождать память, выгружая последнюю модель при переключении на новую."
       }
     },
     "base_url": {
@@ -804,14 +846,32 @@
       "prompts": "Промпты",
       "models": "Модели",
       "extraction": "Извлечение",
+      "context": "Контекст",
       "embeddings": "Эмбеддинги",
+      "providers": "Провайдеры",
       "voices": "Голоса",
       "reset": "Сброс",
       "guides": "Руководства",
       "memory": "Память",
-      "shortcuts": "Горячие клавиши",
-      "providers": "Провайдеры",
-      "context": "Контекст"
+      "shortcuts": "Горячие клавиши"
+    },
+    "context": {
+      "file_upload": {
+        "title": "Обработка файлов",
+        "description": "Настройте, как файлы обрабатываются для извлечения знаний."
+      },
+      "embedding_health": {
+        "title": "Обнаружены смешанные размерности эмбеддингов",
+        "description": "Эмбеддинги сохранены с несколькими размерностями ({{dimensions}}). Поиск и память могут не работать, пока все не будет перестроено.",
+        "note": "Перестроение очищает все эмбеддинги и заново эмбеддит историю чата. Файлы нужно будет загрузить повторно, чтобы восстановить знания.",
+        "memory_disabled": "Память отключена, поэтому эмбеддинги чата не перестраивались.",
+        "action": "Перестроить эмбеддинги",
+        "action_rebuilding": "Перестроение...",
+        "confirm": "Перестроить эмбеддинги? Это очистит все эмбеддинги и заново эмбеддит историю чата. Файлы нужно будет загрузить повторно, чтобы восстановить знания.",
+        "progress": "Перестроение эмбеддингов чата ({{current}}/{{total}})",
+        "success": "Эмбеддинги успешно перестроены.",
+        "error": "Не удалось перестроить эмбеддинги."
+      }
     },
     "memory": {
       "title": "Контекстная память",
@@ -835,6 +895,12 @@
     "page": {
       "title": "Настройки Ollama Client",
       "description": "Управляйте всеми аспектами настройки Ollama в одном месте. Советы и инструкции по настройке ищите во вкладке Руководства."
+    },
+    "sections": {
+      "app": "Приложение",
+      "ai_models": "ИИ и Модели",
+      "customize": "Настройки",
+      "system": "Система"
     },
     "speech": {
       "title": "Настройки речи",
@@ -863,12 +929,6 @@
         "high": "Высоко",
         "very_high": "Очень высоко"
       }
-    },
-    "errorBoundary": {
-      "title": "Что-то пошло не так",
-      "description": "Произошла непредвиденная ошибка. Мы зарегистрировали эту проблему внутри системы.",
-      "exportLogs": "Экспорт логов",
-      "reload": "Перезагрузить"
     },
     "embeddings": {
       "title": "Векторные эмбеддинги",
@@ -989,7 +1049,12 @@
         "confirm": "Удалить"
       },
       "created_at": "Создано {{date}}",
-      "used_times": "Использовано {{count}} раз"
+      "used_times": "Использовано {{count}} раз",
+      "empty_state": {
+        "title": "Шаблоны не найдены",
+        "description": "Попробуйте изменить поиск или фильтры."
+      },
+      "no_description": "Нет описания"
     },
     "reset": {
       "title": "Сброс настроек",
@@ -1038,14 +1103,10 @@
       "item_count_plural": "{{count}} элементов",
       "reset_button": "Сброс"
     },
-    "sections": {
-      "app": "Приложение",
-      "ai_models": "ИИ и Модели",
-      "customize": "Настройки",
-      "system": "Система"
-    },
     "providers": {
       "default": "По умолчанию",
+      "beta_badge": "Бета",
+      "beta_notice": "Этот провайдер находится в бета-версии. Если возникнет проблема, сообщите о ней или откройте issue в репозитории.",
       "enabled": "Включено",
       "disabled": "Отключено",
       "inactive": "Неактивно",
@@ -1066,7 +1127,11 @@
         "failed_title": "Ошибка подключения",
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "Модели не найдены",
-        "no_models_description": "Подключено к {{url}}, но модели не найдены. Проверьте, правильно ли работает сервис."
+        "no_models_description": "Подключено к {{url}}, но модели не найдены. Проверьте, правильно ли работает сервис.",
+        "inline_success": "Успешное подключение к {{url}} (найдено моделей: {{count}})",
+        "inline_no_models": "Подключено к {{url}}, но найдено 0 моделей. Сервис запущен?",
+        "inline_failed": "Не удалось подключиться к {{url}}: {{error}}",
+        "default_url": "URL по умолчанию"
       }
     },
     "migration": {
@@ -1089,6 +1154,10 @@
       "import_result": {
         "title": "Результаты импорта",
         "description": "Ознакомьтесь со статусом импорта данных ниже:",
+        "sync": "Настройки",
+        "vector": "База знаний (векторы)",
+        "sqlite": "История чата и данные",
+        "errors": "Обнаружены ошибки ({{count}})",
         "labels": {
           "sync": "Настройки (Sync)",
           "local": "Локальное хранилище",
@@ -1142,25 +1211,12 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "context": {
-      "file_upload": {
-        "title": "Загрузка файлов",
-        "description": "Настройте, как файлы обрабатываются для извлечения знаний."
-      },
-      "embedding_health": {
-        "title": "Обнаружены смешанные измерения эмбеддингов",
-        "description": "Эмбеддинги хранятся в нескольких измерениях ({{dimensions}}). Поиск и память могут не работать до полного перестроения.",
-        "note": "Перестроение удаляет все эмбеддинги и заново индексирует историю чата. Загруженные файлы потребуется загрузить повторно для восстановления знаний.",
-        "memory_disabled": "Память отключена, поэтому эмбеддинги чата не были перестроены.",
-        "action": "Перестроить эмбеддинги",
-        "action_rebuilding": "Перестроение...",
-        "confirm": "Перестроить эмбеддинги? Это удалит все существующие эмбеддинги и заново проиндексирует историю чата. Файлы потребуется загрузить повторно.",
-        "progress": "Перестроение эмбеддингов чата ({{current}}/{{total}})",
-        "success": "Эмбеддинги успешно перестроены.",
-        "error": "Не удалось перестроить эмбеддинги."
-      }
-    },
     "bug_report": "Сообщить о баге / фиче"
+  },
+  "errorBoundary": {
+    "title": "Что-то пошло не так",
+    "description": "Произошла непредвиденная ошибка. Мы записали эту проблему во внутренний журнал.",
+    "reload": "Перезагрузить"
   },
   "knowledge_sets": {
     "title": "Наборы знаний",

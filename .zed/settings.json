@@ -1,0 +1,23 @@
+{
+  "languages": {
+    "CSS": {
+      "language_servers": [
+        "tailwindcss-intellisense-css",
+        "!vscode-css-language-server",
+        "tailwindcss-language-server"
+      ]
+    }
+  },
+
+  "lsp": {
+    "tailwindcss-language-server": {
+      "settings": {
+        "tailwindCSS": {
+          "experimental": {
+            "configFile": "./src/globals.css"
+          }
+        }
+      }
+    }
+  }
+}

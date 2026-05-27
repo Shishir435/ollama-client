@@ -48,6 +48,29 @@ const translations: Record<string, Record<string, string>> = {
   }
 }
 
+type SelectionCapture = {
+  text: string
+  rect: DOMRect
+}
+
+const isEditableSelectionTarget = (
+  element: Element | null
+): element is HTMLInputElement | HTMLTextAreaElement =>
+  element instanceof HTMLTextAreaElement ||
+  (element instanceof HTMLInputElement &&
+    ![
+      "button",
+      "checkbox",
+      "color",
+      "file",
+      "hidden",
+      "image",
+      "radio",
+      "range",
+      "reset",
+      "submit"
+    ].includes(element.type))
+
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
@@ -68,7 +91,7 @@ export default defineContentScript({
         container = document.createElement("div")
         container.id = "selection-button-root"
         container.style.display = "none"
-        container.style.position = "absolute"
+        container.style.position = "fixed"
         container.style.zIndex = "2147483647"
 
         // Inline styles. The host page can't reach into our shadow tree,
@@ -149,35 +172,98 @@ export default defineContentScript({
     const renderButton = () => {
       if (!container) return
       container.innerHTML = `
-        <button class="selection-button" title="${t("tooltip")}">
+        <button type="button" class="selection-button" title="${t("tooltip")}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
           <span>${t("label")}</span>
         </button>
       `
-      container.querySelector("button")?.addEventListener("click", async () => {
+      const button = container.querySelector("button")
+
+      const sendSelection = async (event: Event) => {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const text =
+          selectionText || window.getSelection()?.toString().trim() || ""
+        if (!text) {
+          hideButton()
+          return
+        }
+
         try {
           await chrome.runtime.sendMessage({
             type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-            payload: selectionText
+            payload: text
           })
           hideButton()
           window.getSelection()?.removeAllRanges()
         } catch (error) {
           console.error("Failed to send selection:", error)
         }
+      }
+
+      button?.addEventListener("pointerdown", (event) => {
+        void sendSelection(event)
+      })
+      button?.addEventListener("click", (event) => {
+        event.preventDefault()
+        event.stopPropagation()
       })
     }
 
     const showButton = (top: number, left: number) => {
       if (!container || !isEnabled) return
       renderButton()
-      container.style.top = `${top}px`
-      container.style.left = `${left}px`
       container.style.display = "block"
+      container.style.visibility = "hidden"
+
+      const viewportMargin = 8
+      const buttonWidth = container.offsetWidth
+      const buttonHeight = container.offsetHeight
+      const minLeft = viewportMargin
+      const maxLeft = window.innerWidth - buttonWidth - viewportMargin
+      const minTop = viewportMargin
+      const maxTop = window.innerHeight - buttonHeight - viewportMargin
+
+      container.style.top = `${Math.max(minTop, Math.min(top, maxTop))}px`
+      container.style.left = `${Math.max(minLeft, Math.min(left, maxLeft))}px`
+      container.style.visibility = "visible"
     }
 
     const hideButton = () => {
       if (container) container.style.display = "none"
+    }
+
+    const getRangeRect = (range: Range) => {
+      const rect = range.getBoundingClientRect()
+      if (rect.width > 0 || rect.height > 0) return rect
+
+      return Array.from(range.getClientRects()).find(
+        (clientRect) => clientRect.width > 0 || clientRect.height > 0
+      )
+    }
+
+    const getSelectionCapture = (): SelectionCapture | null => {
+      const activeElement = document.activeElement
+      if (isEditableSelectionTarget(activeElement)) {
+        const start = activeElement.selectionStart
+        const end = activeElement.selectionEnd
+
+        if (start !== null && end !== null && start !== end) {
+          const text = activeElement.value.slice(start, end).trim()
+          if (text) return { text, rect: activeElement.getBoundingClientRect() }
+        }
+      }
+
+      const selection = window.getSelection()
+      const text = selection?.toString().trim()
+      if (!selection || !text || selection.rangeCount === 0) return null
+
+      const range = selection.getRangeAt(selection.rangeCount - 1)
+      const rect = getRangeRect(range)
+      if (!rect) return null
+
+      return { text, rect }
     }
 
     const handleSelectionChange = () => {
@@ -186,23 +272,17 @@ export default defineContentScript({
         return
       }
 
-      const selection = window.getSelection()
-      const text = selection?.toString().trim()
-
-      if (text && text.length > 0) {
-        const range = selection?.getRangeAt(0)
-        const rect = range?.getBoundingClientRect()
-
-        if (rect) {
-          selectionText = text
-          showButton(
-            rect.bottom + window.scrollY + 10,
-            rect.right + window.scrollX - 30
-          )
-        }
+      const capture = getSelectionCapture()
+      if (capture) {
+        selectionText = capture.text
+        showButton(capture.rect.bottom + 10, capture.rect.right - 30)
       } else {
         hideButton()
       }
+    }
+
+    const queueSelectionCheck = () => {
+      setTimeout(handleSelectionChange, 0)
     }
 
     // Initial config load
@@ -210,8 +290,10 @@ export default defineContentScript({
     ui.mount()
 
     // Listen for selection events
-    document.addEventListener("mouseup", handleSelectionChange)
-    document.addEventListener("keyup", handleSelectionChange)
+    document.addEventListener("selectionchange", queueSelectionCheck, true)
+    document.addEventListener("pointerup", queueSelectionCheck, true)
+    document.addEventListener("mouseup", queueSelectionCheck, true)
+    document.addEventListener("keyup", queueSelectionCheck, true)
 
     // Listen for storage changes to update isEnabled
     plasmoGlobalStorage.watch({
@@ -228,8 +310,10 @@ export default defineContentScript({
     })
 
     ctx.onInvalidated(() => {
-      document.removeEventListener("mouseup", handleSelectionChange)
-      document.removeEventListener("keyup", handleSelectionChange)
+      document.removeEventListener("selectionchange", queueSelectionCheck, true)
+      document.removeEventListener("pointerup", queueSelectionCheck, true)
+      document.removeEventListener("mouseup", queueSelectionCheck, true)
+      document.removeEventListener("keyup", queueSelectionCheck, true)
       ui.remove()
     })
   }

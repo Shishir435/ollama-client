@@ -1,13 +1,14 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { ProgressRow } from "@/components/feedback"
+import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import {
   ConfirmActionDialog,
   SettingsCard,
   StatusAlert
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
@@ -333,7 +334,7 @@ export const ContextSettings = () => {
       : 0
 
   return (
-    <div className="space-y-8">
+    <SectionStack>
       {showMixedDimensions && (
         <div className="space-y-3">
           <StatusAlert
@@ -377,18 +378,13 @@ export const ContextSettings = () => {
           />
 
           {isRebuilding && rebuildProgress && rebuildProgress.total > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {t("settings.context.embedding_health.progress", {
-                    current: rebuildProgress.current,
-                    total: rebuildProgress.total
-                  })}
-                </span>
-                <span>{Math.round(rebuildPercentage)}%</span>
-              </div>
-              <Progress value={rebuildPercentage} />
-            </div>
+            <ProgressRow
+              label={t("settings.context.embedding_health.progress", {
+                current: rebuildProgress.current,
+                total: rebuildProgress.total
+              })}
+              value={rebuildPercentage}
+            />
           )}
         </div>
       )}
@@ -410,10 +406,10 @@ export const ContextSettings = () => {
         />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <TwoColumnGrid>
         <MemorySettings />
         <ChatBackfillPanel />
-      </div>
+      </TwoColumnGrid>
 
       <PromptContextLimitsSettings />
       <GroundingModeSettings />
@@ -425,7 +421,7 @@ export const ContextSettings = () => {
         <RAGSettings />
       </SettingsCard>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <TwoColumnGrid>
         <SettingsCard
           icon={Upload}
           title={t("settings.context.file_upload.title")}
@@ -439,13 +435,13 @@ export const ContextSettings = () => {
           description={t("model.embedding_config.chunking_description")}>
           <TextSplittingSettings />
         </SettingsCard>
-      </div>
+      </TwoColumnGrid>
 
       {storageStats && (
         <StorageStatsCard storageStats={storageStats} cacheStats={cacheStats} />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <TwoColumnGrid>
         <DatabaseManagementCard
           onRemoveDuplicates={() => openConfirm("removeDuplicates")}
           onClearChat={() => openConfirm("clearChat")}
@@ -456,7 +452,7 @@ export const ContextSettings = () => {
         />
 
         <EmbeddingLimitsConfig config={config} updateConfig={updateConfig} />
-      </div>
+      </TwoColumnGrid>
 
       <EmbeddingIndexControls />
 
@@ -474,6 +470,6 @@ export const ContextSettings = () => {
           await confirmConfig.onConfirm()
         }}
       />
-    </div>
+    </SectionStack>
   )
 }

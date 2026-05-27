@@ -49,6 +49,12 @@
       "settings_aria": "सेटिंग्स नेविगेशन"
     }
   },
+  "extension": {
+    "name": "Ollama Client - स्थानीय LLM मॉडल के साथ चैट",
+    "short_name": "Ollama Client",
+    "description": "Ollama, LM Studio और llama.cpp के साथ निजी LLM चैट के लिए लोकल-फर्स्ट Chrome एक्सटेंशन, जिसमें स्थानीय RAG वर्कफ्लो शामिल हैं.",
+    "action_default_title": "Ollama Client खोलें"
+  },
   "selection_button": {
     "label": "स्थानीय LLM से पूछें",
     "tooltip": "स्थानीय LLM क्लाइंट में जोड़ें"
@@ -56,6 +62,7 @@
   "welcome": {
     "title": "स्थानीय LLM चैट में आपका स्वागत है",
     "subtitle": "स्थानीय AI बातचीत हुई आसान",
+    "badge": "लोकल-फर्स्ट चैट",
     "start_chatting": "बातचीत शुरू करें",
     "status": {
       "connecting": {
@@ -84,7 +91,8 @@
       "step4": "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
       "hint": "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
       "full_guide_link": "पूर्ण सेटअप गाइड",
-      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।"
+      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।",
+      "help_prefix": "मदद चाहिए?"
     },
     "features": {
       "private": {
@@ -116,10 +124,17 @@
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
       "enter_key": "एंटर",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
+      "rag_toggle_on": "स्मार्ट संदर्भ चालू है",
+      "rag_toggle_off": "स्मार्ट संदर्भ बंद है",
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
       "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
+    },
+    "context_preview": {
+      "selection": "चुना गया टेक्स्ट",
+      "files": "संलग्न फ़ाइलें",
+      "chars": "{{count}} अक्षर",
+      "files_ready": "{{ready}}/{{total}} फ़ाइलें तैयार · {{chars}} अक्षर",
+      "files_status": "{{processing}} प्रोसेस हो रही · {{errors}} त्रुटियाँ"
     },
     "editor": {
       "placeholder": "संदेश संपादित करें..."
@@ -129,6 +144,7 @@
       "copied": "कॉपी किया गया",
       "regenerate": "पुनः जेनरेट करें",
       "switch_model_tooltip": "मॉडल बदलें",
+      "fork": "फोर्क करें",
       "edit": "संपादित करें",
       "export_as": "इस रूप में निर्यात करें...",
       "more": "और",
@@ -150,7 +166,7 @@
       "prompt_tokens": "{{value}} प्रॉम्प्ट",
       "generated_tokens": "{{value}} उत्पन्न",
       "avg_speed": "{{speed}} t/s",
-      "speed_unit": "t/s",
+      "speed_unit": "tok/s",
       "messages": "{{value}} संदेश",
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
       "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
@@ -304,7 +320,7 @@
       "pattern_empty_error": "साइट पैटर्न खाली नहीं हो सकता",
       "pattern_exists_error": "साइट ओवरराइड पहले से मौजूद है",
       "pattern_invalid_error": "अवैध नियमित अभिव्यक्ति पैटर्न",
-      "examples": "उदाहरण: {{example1}} या {{example2}}",
+      "examples": "उदाहरण: <0>medium.com</0> या <0>^https://twitter\\.com/.*</0>",
       "active_overrides": "सक्रिय ओवरराइड",
       "site_count": "{{count}} साइट",
       "site_count_plural": "{{count}} साइटें",
@@ -326,7 +342,7 @@
       "pattern_empty_error": "पैटर्न खाली नहीं हो सकता",
       "pattern_exists_error": "पैटर्न पहले से मौजूद है",
       "pattern_invalid_error": "अवैध नियमित अभिव्यक्ति पैटर्न",
-      "examples": "URL से मिलान करने के लिए नियमित अभिव्यक्तियों का उपयोग करें। उदाहरण: {{example1}} या {{example2}}",
+      "examples": "URL से मिलान करने के लिए regular expressions का उपयोग करें. उदाहरण: <0>^https://bank\\.</0> या <0>.*\\.private\\..*</0>",
       "active_patterns": "सक्रिय पैटर्न",
       "pattern_count": "{{count}} पैटर्न",
       "pattern_count_plural": "{{count}} पैटर्न",
@@ -404,6 +420,15 @@
       "cache_ttl_description": "खोज परिणामों को कब तक कैश करना है (1-60 मिनट)। कैश की गई क्वेरी तुरंत लौटती है।",
       "cache_max_size_label": "अधिकतम कैश की गई क्वेरी",
       "cache_max_size_description": "कैश करने के लिए खोज क्वेरी की अधिकतम संख्या (10-200)। सीमा पूरी होने पर पुरानी एंट्री स्वचालित रूप से हटा दी जाती हैं।",
+      "ann_backend_label": "ANN बैकएंड",
+      "ann_backend_description": "वेक्टर खोज के लिए इस्तेमाल होने वाला approximate nearest neighbor बैकएंड चुनें.",
+      "ann_backend_placeholder": "बैकएंड चुनें",
+      "ann_backend_group": "बैकएंड",
+      "ann_backend_wasm": "WASM HNSW (अनुशंसित)",
+      "ann_backend_ts": "TypeScript HNSW",
+      "ann_backend_bruteforce": "ब्रूट फोर्स",
+      "ann_min_vectors_label": "ANN न्यूनतम वेक्टर",
+      "ann_min_vectors_description": "ANN इस्तेमाल होने से पहले वेक्टर की न्यूनतम संख्या (0 = हमेशा).",
       "enhanced_chunking_label": "बेहतर चंकिंग",
       "enhanced_chunking_description": "बेहतर संदर्भ के लिए उन्नत पुनरावर्ती वर्ण विभाजन का उपयोग करें",
       "enhanced_chunking_info": "बेहतर चंकिंग अर्थपूर्ण अर्थ को बनाए रखने के लिए टेक्स्ट को श्रेणीबद्ध रूप से (पैराग्राफ → वाक्य → शब्द) विभाजित करती है। यह RAG के लिए अनुशंसित है।",
@@ -420,6 +445,11 @@
       "temporal_boosting_description": "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
       "reranking_label": "री-रैंकिंग सक्षम करें",
       "reranking_description": "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
+      "reranker_backend_label": "रीरैंकर बैकएंड",
+      "reranker_backend_description": "रीरैंकर मॉडल चलाने के लिए इस्तेमाल होने वाला बैकएंड चुनें.",
+      "reranker_backend_placeholder": "रीरैंकर बैकएंड चुनें",
+      "reranker_backend_group": "बैकएंड",
+      "reranker_backend_none": "बंद",
       "hybrid_search_label": "हाइब्रिड खोज सक्षम करें",
       "hybrid_search_description": "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
       "keyword_weight_label": "कीवर्ड भार",
@@ -434,31 +464,32 @@
       "exclude_casual_description": "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
       "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
       "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
+      "embedding_source_label": "Embedding बनाने का स्रोत",
       "embedding_source_description": "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
       "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)",
-      "feedback_learning_title": "उपयोगकर्ता फीडबैक लर्निंग",
-      "feedback_learning_description": "अपने फीडबैक से सीखकर खोज गुणवत्ता में सुधार करें",
-      "feedback_enable_label": "फीडबैक संग्रह सक्षम करें",
-      "feedback_enable_description": "याद रखें कि भविष्य की पुनर्प्राप्ति में सुधार के लिए कौन से चंक्स सहायक थे",
-      "feedback_show_chunks_label": "पुनर्प्राप्त चंक्स दिखाएं",
-      "feedback_show_chunks_description": "फीडबैक बटन के साथ चैट में स्रोत चंक्स प्रदर्शित करें",
-      "feedback_blend_weight_label": "फीडबैक लर्निंग भार",
-      "feedback_blend_weight_description": "सीखे गए फीडबैक बनाम मॉडल स्कोर (0-1) पर कितना भरोसा करना है",
-      "feedback_export_button": "फीडबैक डेटा निर्यात करें",
-      "feedback_clear_button": "सभी फीडबैक साफ़ करें",
-      "feedback_privacy_note": "सभी फीडबैक स्थानीय रूप से संग्रहीत हैं। गोपनीयता के लिए प्रश्नों को हैश किया गया है। कोई भी डेटा आपके डिवाइस को नहीं छोड़ता है।",
-      "feedback_stats_title": "फीडबैक आँकड़े",
-      "feedback_stats_total": "कुल फीडबैक",
-      "feedback_stats_helpful": "सहायक दर",
-      "feedback_stats_chunks": "अद्वितीय चंक्स",
-      "feedback_stats_queries": "अद्वितीय प्रश्न",
-      "feedback_privacy_title": "गोपनीयता",
-      "feedback_export_success": "फीडबैक निर्यात किया गया",
-      "feedback_export_error": "फीडबैक निर्यात करने में विफल",
-      "feedback_clear_confirm_title": "फीडबैक साफ़ करें?",
-      "feedback_clear_confirm_description": "यह स्थायी रूप से सभी फीडबैक को हटा देगा। इसे पूर्ववत नहीं किया जा सकता।",
-      "feedback_clear_success": "फीडबैक साफ़ किया गया",
-      "feedback_clear_error": "फीडबैक साफ़ करने में विफल"
+      "feedback_learning_title": "यूज़र फ़ीडबैक से सीखना",
+      "feedback_learning_description": "आपके फ़ीडबैक से सीखकर खोज की गुणवत्ता बेहतर करें.",
+      "feedback_enable_label": "फ़ीडबैक संग्रह चालू करें",
+      "feedback_enable_description": "भविष्य की retrieval बेहतर करने के लिए याद रखें कि कौन से chunks उपयोगी थे.",
+      "feedback_show_chunks_label": "Retrieved chunks दिखाएँ",
+      "feedback_show_chunks_description": "चैट में source chunks को फ़ीडबैक बटन के साथ दिखाएँ.",
+      "feedback_blend_weight_label": "फ़ीडबैक लर्निंग वेट",
+      "feedback_blend_weight_description": "सीखे गए फ़ीडबैक बनाम मॉडल स्कोर पर कितना भरोसा करना है (0-1).",
+      "feedback_export_button": "फ़ीडबैक डेटा एक्सपोर्ट करें",
+      "feedback_clear_button": "सारा फ़ीडबैक हटाएँ",
+      "feedback_privacy_note": "सारा फ़ीडबैक लोकल रूप से संग्रहित होता है. गोपनीयता के लिए queries hash की जाती हैं. कोई डेटा आपके डिवाइस से बाहर नहीं जाता.",
+      "feedback_stats_title": "फ़ीडबैक आँकड़े",
+      "feedback_stats_total": "कुल फ़ीडबैक",
+      "feedback_stats_helpful": "उपयोगी दर",
+      "feedback_stats_chunks": "फ़ीडबैक वाले chunks",
+      "feedback_stats_queries": "फ़ीडबैक वाली queries",
+      "feedback_privacy_title": "फ़ीडबैक गोपनीयता",
+      "feedback_export_success": "फ़ीडबैक डेटा एक्सपोर्ट हो गया",
+      "feedback_export_error": "फ़ीडबैक डेटा एक्सपोर्ट नहीं हो सका",
+      "feedback_clear_confirm_title": "सारा फ़ीडबैक हटाएँ?",
+      "feedback_clear_confirm_description": "इससे सारा सहेजा गया फ़ीडबैक हट जाएगा. यह क्रिया वापस नहीं की जा सकती.",
+      "feedback_clear_success": "फ़ीडबैक डेटा हटा दिया गया",
+      "feedback_clear_error": "फ़ीडबैक डेटा हटाया नहीं जा सका"
     },
     "provider_status": {
       "checking": "Provider स्थिति जाँच रहा है...",
@@ -474,7 +505,7 @@
       "search_placeholder": "टेम्पलेट, टैग, या विवरण खोजें...",
       "sort_recent": "हाल का",
       "sort_popular": "लोकप्रिय",
-      "sort_alphabetical": "A-Z",
+      "sort_alphabetical": "वर्णानुक्रम से sort करें",
       "all_categories": "सभी श्रेणियां",
       "no_templates_title": "कोई टेम्पलेट नहीं मिला",
       "no_templates_search": "अपनी खोज या फ़िल्टर मानदंड समायोजित करने का प्रयास करें",
@@ -534,7 +565,7 @@
       "label_on": "टैब+",
       "tooltip": "खुले टैब के साथ इंटरैक्ट करें"
     },
-    "context": "Context",
+    "context": "संदर्भ",
     "inspector": {
       "title": "निकाला गया टैब संदर्भ",
       "description": "भेजने से पहले टैब संदर्भ के रूप में क्या उपयोग किया जाएगा, ठीक से समीक्षा करें।",
@@ -698,6 +729,17 @@
         "title": "संदर्भ और जनरेशन",
         "description": "मेमोरी और आउटपुट नियंत्रण सेटिंग्स"
       },
+      "runtime": {
+        "title": "रनटाइम और वार्मअप",
+        "description": "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
+        "keep_alive_label": "जीवित रखें",
+        "keep_alive_description": "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
+        "keep_alive_placeholder": "जैसे 300, 5m, अनलोड के लिए 0",
+        "warm_on_select_label": "चयन पर मॉडल को वार्म करें",
+        "warm_on_select_description": "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
+        "unload_on_switch_label": "बदलते समय पिछले मॉडल को अनलोड करें",
+        "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
+      },
       "parameters": {
         "temperature": {
           "label": "तापमान",
@@ -738,17 +780,6 @@
           "label": "पिछले N दोहराएँ",
           "validation_min": "कम से कम {{min}} होना चाहिए।"
         }
-      },
-      "runtime": {
-        "title": "रनटाइम और वार्मअप",
-        "description": "मॉडल वार्मअप और रनटाइम विकल्पों को नियंत्रित करें।",
-        "keep_alive_label": "जीवित रखें",
-        "keep_alive_description": "अनुरोध के बाद मॉडल को कितनी देर तक लोड रखना है। सेकंड या 5m जैसी अवधि का उपयोग करें।",
-        "keep_alive_placeholder": "जैसे 300, 5m, अनलोड के लिए 0",
-        "warm_on_select_label": "चयन पर मॉडल को वार्म करें",
-        "warm_on_select_description": "पहली प्रतिक्रिया तेज़ी से पाने के लिए मॉडल बदलते समय प्रीलोड करें।",
-        "unload_on_switch_label": "बदलते समय पिछले मॉडल को अनलोड करें",
-        "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
       }
     },
     "base_url": {
@@ -815,14 +846,32 @@
       "prompts": "प्रॉम्प्ट",
       "models": "मॉडल",
       "extraction": "निष्कर्षण",
+      "context": "संदर्भ",
       "embeddings": "एम्बेडिंग",
+      "providers": "प्रदाता",
       "voices": "वॉयस",
       "reset": "रीसेट करें",
       "guides": "गाइड",
       "memory": "मेमोरी",
-      "shortcuts": "शॉर्टकट",
-      "providers": "प्रदाता",
-      "context": "संदर्भ"
+      "shortcuts": "शॉर्टकट"
+    },
+    "context": {
+      "file_upload": {
+        "title": "फ़ाइल इनजेशन",
+        "description": "ज्ञान retrieval के लिए फ़ाइलों को कैसे प्रोसेस किया जाए, यह कॉन्फ़िगर करें."
+      },
+      "embedding_health": {
+        "title": "मिश्रित embedding dimensions मिले",
+        "description": "Embeddings कई dimensions में संग्रहित हैं ({{dimensions}}). जब तक सब कुछ rebuild नहीं होता, search और memory fail हो सकते हैं.",
+        "note": "Rebuild सभी embeddings साफ़ करता है और chat history को फिर से embed करता है. Knowledge restore करने के लिए file uploads दोबारा upload करने होंगे.",
+        "memory_disabled": "Memory बंद है, इसलिए chat embeddings rebuild नहीं हुए.",
+        "action": "Embeddings rebuild करें",
+        "action_rebuilding": "Rebuild हो रहा है...",
+        "confirm": "Embeddings rebuild करें? इससे सभी embeddings साफ़ होंगे और chat history फिर से embed होगी. Knowledge restore करने के लिए file uploads दोबारा upload करने होंगे.",
+        "progress": "Chat embeddings rebuild हो रहे हैं ({{current}}/{{total}})",
+        "success": "Embeddings सफलतापूर्वक rebuild हो गए.",
+        "error": "Embeddings rebuild नहीं हो सके."
+      }
     },
     "memory": {
       "title": "प्रासंगिक मेमोरी",
@@ -846,6 +895,12 @@
     "page": {
       "title": "Ollama क्लाइंट सेटिंग्स",
       "description": "अपने Ollama सेटअप के सभी पहलुओं को एक ही स्थान पर प्रबंधित करें। युक्तियों और सेटअप मार्गदर्शन के लिए, गाइड टैब पर जाएँ।"
+    },
+    "sections": {
+      "app": "ऐप",
+      "ai_models": "AI और मॉडल",
+      "customize": "अनुकूलित करें",
+      "system": "सिस्टम"
     },
     "speech": {
       "title": "स्पीच सेटिंग्स",
@@ -874,12 +929,6 @@
         "high": "उच्च",
         "very_high": "बहुत उच्च"
       }
-    },
-    "errorBoundary": {
-      "title": "कुछ गड़बड़ हो गई",
-      "description": "एक अप्रत्याशित त्रुटि हुई। हमने इस समस्या को आंतरिक रूप से लॉग किया है।",
-      "exportLogs": "लॉग निर्यात करें",
-      "reload": "रीलोड करें"
     },
     "embeddings": {
       "title": "वेक्टर एम्बेडिंग",
@@ -976,7 +1025,7 @@
       "sort": {
         "recent": "हाल का",
         "popular": "लोकप्रिय",
-        "alphabetical": "A-Z"
+        "alphabetical": "वर्णानुक्रम"
       },
       "new_template": "नया टेम्पलेट",
       "form": {
@@ -1000,7 +1049,12 @@
         "confirm": "हटाएँ"
       },
       "created_at": "बनाया गया {{date}}",
-      "used_times": "{{count}} बार उपयोग किया गया"
+      "used_times": "{{count}} बार उपयोग किया गया",
+      "empty_state": {
+        "title": "कोई template नहीं मिला",
+        "description": "अपनी search या filter criteria बदलकर देखें."
+      },
+      "no_description": "कोई description नहीं"
     },
     "reset": {
       "title": "सेटिंग रीसेट करें",
@@ -1049,14 +1103,10 @@
       "item_count_plural": "{{count}} आइटम",
       "reset_button": "रीसेट करें"
     },
-    "sections": {
-      "app": "ऐप",
-      "ai_models": "AI और मॉडल",
-      "customize": "अनुकूलित करें",
-      "system": "सिस्टम"
-    },
     "providers": {
       "default": "डिफ़ॉल्ट",
+      "beta_badge": "बीटा",
+      "beta_notice": "यह प्रदाता बीटा में है। अगर आपको कोई समस्या आती है, तो कृपया उसे रिपोर्ट करें या रेपो पर एक issue खोलें।",
       "enabled": "सक्रिय",
       "disabled": "निष्क्रिय",
       "inactive": "अक्रियाशील",
@@ -1077,7 +1127,11 @@
         "failed_title": "कनेक्शन विफल",
         "failed_description": "{{url}}: {{error}}",
         "no_models_title": "कोई मॉडल नहीं मिला",
-        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।"
+        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।",
+        "inline_success": "{{url}} से सफलतापूर्वक connect हुआ ({{count}} models मिले)",
+        "inline_no_models": "{{url}} से connect हुआ, लेकिन 0 models मिले. क्या service चल रही है?",
+        "inline_failed": "{{url}} से connect नहीं हो सका: {{error}}",
+        "default_url": "डिफ़ॉल्ट URL"
       }
     },
     "migration": {
@@ -1100,6 +1154,10 @@
       "import_result": {
         "title": "आयात परिणाम",
         "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
+        "sync": "सेटिंग्स",
+        "vector": "ज्ञान आधार (वेक्टर)",
+        "sqlite": "Chat History और Data",
+        "errors": "Errors मिले ({{count}})",
         "labels": {
           "sync": "प्राथमिकताएँ (Sync)",
           "local": "स्थानीय संग्रहण",
@@ -1153,25 +1211,12 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "context": {
-      "file_upload": {
-        "title": "फ़ाइल इनजेशन",
-        "description": "कॉन्फ़िगर करें कि ज्ञान पुनर्प्राप्ति के लिए फ़ाइलों को कैसे संसाधित किया जाता है।"
-      },
-      "embedding_health": {
-        "title": "मिश्रित एम्बेडिंग आयाम पाए गए",
-        "description": "एम्बेडिंग कई आयामों ({{dimensions}}) पर संग्रहीत हैं। सब कुछ पुनर्निर्माण होने तक खोज और मेमोरी विफल हो सकती है।",
-        "note": "पुनर्निर्माण सभी एम्बेडिंग को साफ़ करता है और चैट इतिहास को फिर से एम्बेड करता है। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
-        "memory_disabled": "मेमोर बंद है, इसलिए चैट एम्बेडिंग का पुनर्निर्माण नहीं किया गया था।",
-        "action": "एम्बेडिंग फिर से बनाएं",
-        "action_rebuilding": "फिर से बना रहा है...",
-        "confirm": "एम्बेडिंग फिर से बनाएं? यह सभी एम्बेडिंग को साफ़ कर देगा और चैट इतिहास को फिर से एम्बेड करेगा। ज्ञान बहाल करने के लिए फ़ाइल अपलोड को फिर से अपलोड करने की आवश्यकता होगी।",
-        "progress": "चैट एम्बेडिंग फिर से बन रहे हैं ({{current}}/{{total}})",
-        "success": "एम्बेडिंग सफलतापूर्वक फिर से बन गए।",
-        "error": "एम्बेडिंग फिर से बनाने में विफल।"
-      }
-    },
     "bug_report": "बग / सुविधा रिपोर्ट करें"
+  },
+  "errorBoundary": {
+    "title": "कुछ गलत हो गया",
+    "description": "एक अप्रत्याशित error हुआ. हमने इस समस्या को internally log कर लिया है.",
+    "reload": "रीलोड करें"
   },
   "knowledge_sets": {
     "title": "ज्ञान सेट",

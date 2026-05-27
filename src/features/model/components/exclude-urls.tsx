@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 
-import { SettingsCard, SettingsFormField } from "@/components/settings"
+import {
+  SettingsActionRow,
+  SettingsCard,
+  SettingsField
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -64,7 +68,7 @@ export const ExcludedUrls = ({
       title={t("model.exclude_urls.title")}
       description={t("model.exclude_urls.description")}
       contentClassName="space-y-5">
-      <SettingsFormField
+      <SettingsField
         label={
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
@@ -77,7 +81,7 @@ export const ExcludedUrls = ({
             components={[<code key="code" className="rounded bg-muted px-1" />]}
           />
         }>
-        <div className="flex gap-2">
+        <SettingsActionRow>
           <div className="flex-1">
             <Input
               id="exclude-url"
@@ -110,8 +114,8 @@ export const ExcludedUrls = ({
             <Plus className="mr-1 h-3 w-3" />
             {t("model.exclude_urls.add_button")}
           </Button>
-        </div>
-      </SettingsFormField>
+        </SettingsActionRow>
+      </SettingsField>
 
       {patterns.length > 0 ? (
         <div className="space-y-3">

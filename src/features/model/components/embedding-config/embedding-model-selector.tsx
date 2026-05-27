@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import {
   SettingsCard,
-  SettingsFormField,
+  SettingsField,
   SettingsSwitch,
   StatusAlert
 } from "@/components/settings"
@@ -133,7 +133,7 @@ export const EmbeddingModelSelector = ({
         )}
 
         <Card className="p-4 space-y-4">
-          <SettingsFormField
+          <SettingsField
             label={t("settings.embeddings.model_select.label")}
             description={t("settings.embeddings.model_select.description")}>
             <Select value={selectedModel} onValueChange={handleValueChange}>
@@ -188,7 +188,7 @@ export const EmbeddingModelSelector = ({
                 )}
               </SelectContent>
             </Select>
-          </SettingsFormField>
+          </SettingsField>
 
           {hasAdvancedModels && (
             <SettingsSwitch
