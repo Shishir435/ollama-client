@@ -189,7 +189,7 @@ function formatKey(key: string): string {
 }
 ---
 
-<div class="shortcuts-grid">
+<div class="shortcuts-grid not-content">
     {
         categories.map((cat) => (
             <section class="category-section">
@@ -206,7 +206,7 @@ function formatKey(key: string): string {
                                     class="shortcut-icon"
                                     set:html={s.icon}
                                 />
-                                <div>
+                                <div class="shortcut-copy">
                                     <div class="shortcut-action">
                                         {s.action}
                                     </div>
@@ -228,7 +228,7 @@ function formatKey(key: string): string {
     }
 </div>
 
-<p class="shortcuts-note">
+<p class="shortcuts-note not-content">
     <strong>Note:</strong>
     <kbd>⌘</kbd> refers to <kbd>Ctrl</kbd> on Windows/Linux and <kbd>⌘ Cmd</kbd> on
     macOS. Shortcuts are persisted via <code>chrome.storage.sync</code> and synced
@@ -274,9 +274,10 @@ function formatKey(key: string): string {
     }
 
     .shortcut-row {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) max-content;
         align-items: center;
-        justify-content: space-between;
+        gap: 1rem;
         padding: 0.625rem 0.875rem;
         border-bottom: 1px solid var(--sl-color-gray-6);
         transition: background-color 120ms ease;
@@ -292,18 +293,18 @@ function formatKey(key: string): string {
 
     .shortcut-info {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 0.625rem;
         min-width: 0;
     }
 
     .shortcut-icon {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        width: 1.5rem;
-        height: 1rem;
+        width: 1.75rem;
+        height: 1.75rem;
         color: var(--sl-color-gray-3);
     }
 
@@ -311,6 +312,10 @@ function formatKey(key: string): string {
         display: block;
         width: 16px;
         height: 16px;
+    }
+
+    .shortcut-copy {
+        min-width: 0;
     }
 
     .shortcut-action {
@@ -329,6 +334,7 @@ function formatKey(key: string): string {
     .shortcut-keys-wrap {
         display: flex;
         align-items: center;
+        justify-content: flex-end;
         gap: 0.25rem;
         flex-shrink: 0;
     }
@@ -336,7 +342,10 @@ function formatKey(key: string): string {
     .shortcut-key {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         height: 1.5rem;
+        min-width: 1.6rem;
+        margin: 0;
         line-height: 1;
         vertical-align: middle;
         font-family: var(--sl-font-mono);
@@ -361,7 +370,10 @@ function formatKey(key: string): string {
     .shortcuts-note kbd {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         height: 1.5rem;
+        min-width: 1.6rem;
+        margin: 0;
         line-height: 1;
         vertical-align: middle;
         font-family: var(--sl-font-mono);
@@ -372,5 +384,17 @@ function formatKey(key: string): string {
         background: var(--sl-color-gray-7);
         border: 1px solid var(--sl-color-gray-5);
         color: var(--sl-color-gray-2);
+    }
+
+    @media (max-width: 36rem) {
+        .shortcut-row {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .shortcut-keys-wrap {
+            justify-content: flex-start;
+            padding-left: 2.375rem;
+        }
     }
 </style>
