@@ -191,6 +191,57 @@ describe("usePromptTemplates", () => {
     expect(mockSetTemplates).toHaveBeenCalled()
   })
 
+  it("should validate imported templates and avoid duplicate ids", () => {
+    const existingTemplates = [
+      {
+        id: "existing",
+        title: "Existing",
+        userPrompt: "Prompt",
+        createdAt: new Date(),
+        usageCount: 0
+      }
+    ]
+    vi.mocked(useStorage).mockReturnValue([
+      existingTemplates,
+      mockSetTemplates as any,
+      {
+        setRenderValue: vi.fn(),
+        setStoreValue: vi.fn(),
+        remove: vi.fn(),
+        isLoading: false
+      }
+    ])
+
+    const { result } = renderHook(() => usePromptTemplates())
+
+    act(() => {
+      result.current.importTemplates([
+        {
+          id: "existing",
+          title: "Imported",
+          userPrompt: "Use this",
+          tags: ["valid", 42]
+        },
+        { id: "bad-title", title: "", userPrompt: "No title" },
+        { id: "bad-prompt", title: "No prompt", userPrompt: "" },
+        null
+      ])
+    })
+
+    const updater = mockSetTemplates.mock.calls[0][0]
+    const nextTemplates = updater(existingTemplates)
+
+    expect(nextTemplates).toHaveLength(2)
+    expect(nextTemplates[1]).toEqual(
+      expect.objectContaining({
+        title: "Imported",
+        userPrompt: "Use this",
+        tags: ["valid"]
+      })
+    )
+    expect(nextTemplates[1].id).not.toBe("existing")
+  })
+
   it("should export templates", () => {
     const mockTemplates = [
       {

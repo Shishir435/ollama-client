@@ -4,6 +4,63 @@ import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { PromptTemplate } from "@/types"
 
+const normalizeCreatedAt = (value: unknown): Date => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+  return new Date()
+}
+
+const normalizeImportedTemplate = (
+  value: unknown,
+  existingIds: Set<string>
+): PromptTemplate | null => {
+  if (!value || typeof value !== "object") return null
+
+  const candidate = value as Partial<PromptTemplate>
+  if (
+    typeof candidate.title !== "string" ||
+    !candidate.title.trim() ||
+    typeof candidate.userPrompt !== "string" ||
+    !candidate.userPrompt.trim()
+  ) {
+    return null
+  }
+
+  const rawId =
+    typeof candidate.id === "string" && candidate.id.trim()
+      ? candidate.id.trim()
+      : crypto.randomUUID()
+  const id = existingIds.has(rawId) ? crypto.randomUUID() : rawId
+  existingIds.add(id)
+
+  return {
+    id,
+    title: candidate.title.trim(),
+    description:
+      typeof candidate.description === "string"
+        ? candidate.description
+        : undefined,
+    category:
+      typeof candidate.category === "string" ? candidate.category : undefined,
+    systemPrompt:
+      typeof candidate.systemPrompt === "string"
+        ? candidate.systemPrompt
+        : undefined,
+    userPrompt: candidate.userPrompt.trim(),
+    tags: Array.isArray(candidate.tags)
+      ? candidate.tags.filter((tag): tag is string => typeof tag === "string")
+      : undefined,
+    createdAt: normalizeCreatedAt(candidate.createdAt),
+    usageCount:
+      typeof candidate.usageCount === "number" && candidate.usageCount >= 0
+        ? candidate.usageCount
+        : 0
+  }
+}
+
 export const usePromptTemplates = () => {
   const [templates, setTemplates] = useStorage<PromptTemplate[]>(
     {
@@ -17,11 +74,11 @@ export const usePromptTemplates = () => {
     templates && templates.length > 0
       ? templates.map((t) => ({
           ...t,
-          createdAt: new Date(t.createdAt)
+          createdAt: normalizeCreatedAt(t.createdAt)
         }))
       : DEFAULT_PROMPT_TEMPLATES.map((t) => ({
           ...t,
-          createdAt: new Date(t.createdAt)
+          createdAt: normalizeCreatedAt(t.createdAt)
         }))
 
   const addTemplate = useCallback(
@@ -83,20 +140,23 @@ export const usePromptTemplates = () => {
   )
 
   const importTemplates = useCallback(
-    (newTemplates: PromptTemplate[]) => {
-      const templatesWithDefaults = newTemplates.map((template) => ({
-        ...template,
-        createdAt: template.createdAt || new Date(),
-        usageCount: template.usageCount || 0
-      }))
-      setTemplates((prev) => [...(prev || []), ...templatesWithDefaults])
+    (newTemplates: unknown[]) => {
+      setTemplates((prev) => {
+        const current = prev || []
+        const existingIds = new Set(current.map((template) => template.id))
+        const normalized = newTemplates
+          .map((template) => normalizeImportedTemplate(template, existingIds))
+          .filter((template): template is PromptTemplate => Boolean(template))
+
+        return [...current, ...normalized]
+      })
     },
     [setTemplates]
   )
 
   const exportTemplates = useCallback(() => {
-    return templates || []
-  }, [templates])
+    return effectiveTemplates
+  }, [effectiveTemplates])
 
   const resetToDefaults = useCallback(() => {
     setTemplates(DEFAULT_PROMPT_TEMPLATES)
@@ -104,58 +164,56 @@ export const usePromptTemplates = () => {
 
   const getTemplatesByCategory = useCallback(
     (category: string) => {
-      return templates?.filter((t) => t.category === category) || []
+      return effectiveTemplates.filter((t) => t.category === category)
     },
-    [templates]
+    [effectiveTemplates]
   )
 
   const searchTemplates = useCallback(
     (query: string) => {
-      if (!query.trim()) return templates || []
+      if (!query.trim()) return effectiveTemplates
 
       const searchTerm = query.toLowerCase().trim()
-      return (
-        templates?.filter(
-          (template) =>
-            template.title.toLowerCase().includes(searchTerm) ||
-            template.description?.toLowerCase().includes(searchTerm) ||
-            template.userPrompt.toLowerCase().includes(searchTerm) ||
-            template.tags?.some((tag) =>
-              tag.toLowerCase().includes(searchTerm)
-            ) ||
-            template.category?.toLowerCase().includes(searchTerm)
-        ) || []
+      return effectiveTemplates.filter(
+        (template) =>
+          template.title.toLowerCase().includes(searchTerm) ||
+          template.description?.toLowerCase().includes(searchTerm) ||
+          template.userPrompt.toLowerCase().includes(searchTerm) ||
+          template.tags?.some((tag) =>
+            tag.toLowerCase().includes(searchTerm)
+          ) ||
+          template.category?.toLowerCase().includes(searchTerm)
       )
     },
-    [templates]
+    [effectiveTemplates]
   )
 
   const getCategories = useCallback(() => {
     const categories = new Set(
-      templates?.map((t) => t.category).filter(Boolean) || []
+      effectiveTemplates.map((t) => t.category).filter(Boolean)
     )
     return Array.from(categories).sort()
-  }, [templates])
+  }, [effectiveTemplates])
 
   const getPopularTemplates = useCallback(
     (limit: number = 5) => {
-      return [...(templates || [])]
+      return [...effectiveTemplates]
         .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
         .slice(0, limit)
     },
-    [templates]
+    [effectiveTemplates]
   )
 
   const getRecentTemplates = useCallback(
     (limit: number = 5) => {
-      return [...(templates || [])]
+      return [...effectiveTemplates]
         .sort(
           (a, b) =>
             (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
         )
         .slice(0, limit)
     },
-    [templates]
+    [effectiveTemplates]
   )
 
   return {
