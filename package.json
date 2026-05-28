@@ -43,6 +43,7 @@
     "verify:browser-smoke": "node tools/verify-browser-smoke.mjs",
     "verify:local-browsers": "node tools/verify-local-browsers-sequential.mjs",
     "verify:browser-automation": "pnpm verify:browser-smoke && node tools/verify-browser-automation-local.mjs",
+    "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
