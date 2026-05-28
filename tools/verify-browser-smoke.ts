@@ -4,9 +4,29 @@ import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { execSync } from "node:child_process"
 
+interface ExtensionManifest {
+  manifest_version?: number
+  permissions?: string[]
+  host_permissions?: string[]
+  action?: { default_popup?: string }
+  options_ui?: { page?: string }
+  options_page?: string
+  side_panel?: { default_path?: string }
+  background?: {
+    service_worker?: string
+    scripts?: string[]
+  }
+  content_scripts?: Array<{ js?: string[] }>
+  content_security_policy?:
+    | string
+    | {
+        extension_pages?: string
+      }
+}
+
 const rootDir = process.cwd()
 
-const run = (command) => {
+const run = (command: string): void => {
   console.log(`\n▶ ${command}`)
   execSync(command, {
     cwd: rootDir,
@@ -14,18 +34,22 @@ const run = (command) => {
   })
 }
 
-const readManifest = (relativePath) => {
+const readManifest = (relativePath: string): ExtensionManifest => {
   const absolutePath = resolve(rootDir, relativePath)
-  return JSON.parse(readFileSync(absolutePath, "utf8"))
+  return JSON.parse(readFileSync(absolutePath, "utf8")) as ExtensionManifest
 }
 
-const assert = (condition, message) => {
+const assert = (condition: boolean, message: string): void => {
   if (!condition) {
     throw new Error(message)
   }
 }
 
-const expectPermission = (manifest, permission, browserName) => {
+const expectPermission = (
+  manifest: ExtensionManifest,
+  permission: string,
+  browserName: string
+): void => {
   const permissions = manifest.permissions || []
   assert(
     permissions.includes(permission),
@@ -33,7 +57,11 @@ const expectPermission = (manifest, permission, browserName) => {
   )
 }
 
-const expectNoPermission = (manifest, permission, browserName) => {
+const expectNoPermission = (
+  manifest: ExtensionManifest,
+  permission: string,
+  browserName: string
+): void => {
   const permissions = manifest.permissions || []
   assert(
     !permissions.includes(permission),
@@ -41,7 +69,11 @@ const expectNoPermission = (manifest, permission, browserName) => {
   )
 }
 
-const expectHostPermission = (manifest, hostPermission, browserName) => {
+const expectHostPermission = (
+  manifest: ExtensionManifest,
+  hostPermission: string,
+  browserName: string
+): void => {
   const hostPermissions =
     manifest.manifest_version === 2
       ? manifest.permissions || []
@@ -52,7 +84,12 @@ const expectHostPermission = (manifest, hostPermission, browserName) => {
   )
 }
 
-const expectExtensionPage = (manifest, matcher, label, browserName) => {
+const expectExtensionPage = (
+  manifest: ExtensionManifest,
+  matcher: RegExp,
+  label: string,
+  browserName: string
+): void => {
   const pages = [
     manifest.action?.default_popup,
     manifest.options_ui?.page,
@@ -66,14 +103,23 @@ const expectExtensionPage = (manifest, matcher, label, browserName) => {
   )
 }
 
-const expectBuiltFile = (relativePath, label, browserName) => {
+const expectBuiltFile = (
+  relativePath: string,
+  label: string,
+  browserName: string
+): void => {
   assert(
     existsSync(resolve(rootDir, relativePath)),
     `${browserName} build missing file: ${label}`
   )
 }
 
-const expectBackgroundScript = (manifest, matcher, label, browserName) => {
+const expectBackgroundScript = (
+  manifest: ExtensionManifest,
+  matcher: RegExp,
+  label: string,
+  browserName: string
+): void => {
   const serviceWorker = manifest.background?.service_worker
   const scripts = manifest.background?.scripts || []
   const backgroundEntries = [serviceWorker, ...scripts].filter(Boolean)
@@ -84,7 +130,12 @@ const expectBackgroundScript = (manifest, matcher, label, browserName) => {
   )
 }
 
-const expectContentScript = (manifest, matcher, label, browserName) => {
+const expectContentScript = (
+  manifest: ExtensionManifest,
+  matcher: RegExp,
+  label: string,
+  browserName: string
+): void => {
   const scripts = (manifest.content_scripts || []).flatMap(
     (contentScript) => contentScript.js || []
   )
@@ -95,7 +146,11 @@ const expectContentScript = (manifest, matcher, label, browserName) => {
   )
 }
 
-const expectCspToken = (manifest, token, browserName) => {
+const expectCspToken = (
+  manifest: ExtensionManifest,
+  token: string,
+  browserName: string
+): void => {
   const extensionPages =
     typeof manifest.content_security_policy === "string"
       ? manifest.content_security_policy
@@ -106,7 +161,7 @@ const expectCspToken = (manifest, token, browserName) => {
   )
 }
 
-const main = () => {
+const main = (): void => {
   run("pnpm build")
   run("pnpm build:firefox")
   run("bash tools/post-firefox-manifest.sh")

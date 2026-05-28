@@ -9,50 +9,107 @@ import {
   statSync
 } from "node:fs"
 import { createServer } from "node:http"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 import { chromium, firefox } from "playwright"
+import type { BrowserContext, Page, ViewportSize } from "playwright"
+
+interface ChromePreferences {
+  extensions?: {
+    settings?: Record<string, { manifest?: { name?: string } }>
+  }
+}
+
+interface InstalledManifest {
+  name?: string
+}
+
+interface OllamaStatus {
+  ok: boolean
+  model: string
+  models: string[]
+}
+
+interface PageOllamaResult {
+  ok: boolean
+  url?: string
+}
+
+interface ChatVerificationResult {
+  ok: boolean
+  content: string
+  error?: string
+}
+
+interface StaticServer {
+  origin: string
+  close: () => Promise<void>
+}
+
+interface StreamMessage {
+  delta?: unknown
+  done?: unknown
+  error?: unknown
+}
+
+interface OllamaChatLine {
+  message?: {
+    content?: unknown
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null
 
 const chromeExtensionPath = resolve("build/chrome-mv3-prod")
 const firefoxBuildPath = resolve("build/firefox-mv2-prod")
 const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const ollamaRequired = process.env.OLLAMA_REQUIRED === "true"
 const ollamaChatModelOverride = process.env.OLLAMA_CHAT_MODEL || ""
-const chatPrompt = process.env.OLLAMA_CHAT_PROMPT || "Reply with one short sentence: local test ok."
+const chatPrompt =
+  process.env.OLLAMA_CHAT_PROMPT ||
+  "Reply with one short sentence: local test ok."
 const browserHeadful = process.env.BROWSER_HEADFUL === "true"
 const screenshotDir = resolve("artifacts/frontend-smoke")
-const optionsViewport = { width: 1280, height: 900 }
-const sidepanelViewport = { width: 480, height: 820 }
+const optionsViewport: ViewportSize = { width: 1280, height: 900 }
+const sidepanelViewport: ViewportSize = { width: 480, height: 820 }
 
-const logStep = (label) => {
+const logStep = (label: string): void => {
   console.log(`\n=== ${label} ===`)
 }
 
-const assert = (condition, message) => {
+const assert = (condition: boolean, message: string): void => {
   if (!condition) {
     throw new Error(message)
   }
 }
 
-const checkPageLoaded = async (page, label, selector = "#app") => {
+const checkPageLoaded = async (
+  page: Page,
+  label: string,
+  selector = "#app"
+): Promise<void> => {
   await page.waitForLoadState("domcontentloaded")
-  const hasMount = await page.evaluate(
-    (mountSelector) => Boolean(document.querySelector(mountSelector)),
+  const hasMount = await page.evaluate<boolean, string>(
+    (mountSelector: string) => Boolean(document.querySelector(mountSelector)),
     selector
   )
   assert(hasMount, `${label} did not mount expected selector: ${selector}`)
 }
 
 const prepareVisualSmoke = async (
-  page,
-  theme,
+  page: Page,
+  theme: string,
   locale = "en",
   viewport = optionsViewport
-) => {
-  await page.evaluate(
+): Promise<void> => {
+  await page.evaluate<void, { requestedTheme: string; requestedLocale: string }>(
     ({ requestedTheme, requestedLocale }) => {
-      const setExtensionStorage = (values) => {
-        return new Promise((resolve, reject) => {
+      const setExtensionStorage = (
+        values: Record<string, string>
+      ): Promise<void> => {
+        return new Promise<void>((resolve, reject) => {
           if (!globalThis.chrome?.storage?.sync) {
             resolve()
             return
@@ -92,14 +149,20 @@ const prepareVisualSmoke = async (
   await checkPageLoaded(page, "visual smoke page")
 }
 
-const captureVisualSmoke = async (page, name) => {
+const captureVisualSmoke = async (page: Page, name: string): Promise<void> => {
   mkdirSync(screenshotDir, { recursive: true })
   const target = resolve(screenshotDir, `${name}.png`)
   await page.screenshot({ path: target, fullPage: true })
   console.log(`Visual smoke screenshot: ${target}`)
 }
 
-const captureOptionsTabSmoke = async (page, tabKey, name, theme, locale) => {
+const captureOptionsTabSmoke = async (
+  page: Page,
+  tabKey: string,
+  name: string,
+  theme: string,
+  locale: string
+): Promise<void> => {
   await prepareVisualSmoke(page, theme, locale)
   const url = new URL(page.url())
   url.searchParams.set("tab", tabKey)
@@ -109,10 +172,13 @@ const captureOptionsTabSmoke = async (page, tabKey, name, theme, locale) => {
   await captureVisualSmoke(page, name)
 }
 
-const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) => {
+const runChromiumExtensionChecks = async (
+  ollamaModels: string[],
+  forceHeadful = false
+): Promise<void> => {
   logStep("Chromium Extension Automation")
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-chromium-`)
-  let context
+  let context: BrowserContext | undefined
 
   try {
     context = await chromium.launchPersistentContext(userDataDir, {
@@ -148,7 +214,9 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     if (!extensionId) {
       const preferencesPath = findFileRecursive(userDataDir, "Preferences")
       if (preferencesPath) {
-        const preferences = JSON.parse(readFileSync(preferencesPath, "utf8"))
+        const preferences = JSON.parse(
+          readFileSync(preferencesPath, "utf8")
+        ) as ChromePreferences
         const settings = preferences?.extensions?.settings ?? {}
 
         for (const [id, value] of Object.entries(settings)) {
@@ -161,7 +229,7 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
       }
     }
 
-    assert(extensionId, "Failed to resolve Chromium extension id")
+    assert(Boolean(extensionId), "Failed to resolve Chromium extension id")
     console.log(`Extension loaded with id: ${extensionId}`)
 
     const optionsPage = await context.newPage()
@@ -203,12 +271,16 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
           break
         } catch (error) {
           lastError = error
-          console.warn(`Chromium chat verification failed for ${model}: ${String(error)}`)
+          console.warn(
+            `Chromium chat verification failed for ${model}: ${String(error)}`
+          )
         }
       }
       if (!chatVerified) {
         throw new Error(
-          `Failed chat verification in Chromium for candidate models: ${ollamaModels.slice(0, 3).join(", ")}. Last error: ${String(lastError)}`
+          `Failed chat verification in Chromium for candidate models: ${ollamaModels
+            .slice(0, 3)
+            .join(", ")}. Last error: ${String(lastError)}`
         )
       }
     } else if (ollamaRequired) {
@@ -221,12 +293,17 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
     await optionsPage.close()
 
     const sidepanelPage = await context.newPage()
-    await sidepanelPage.goto(`chrome-extension://${extensionId}/sidepanel.html`)
+    await sidepanelPage.goto(
+      `chrome-extension://${extensionId}/sidepanel.html`
+    )
     await checkPageLoaded(sidepanelPage, "Chromium sidepanel page")
     await prepareVisualSmoke(sidepanelPage, "light", "en", sidepanelViewport)
     await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-light")
     await prepareVisualSmoke(sidepanelPage, "dark", "de", sidepanelViewport)
-    await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-dark-long-locale")
+    await captureVisualSmoke(
+      sidepanelPage,
+      "chromium-sidepanel-dark-long-locale"
+    )
     await sidepanelPage.close()
 
     console.log("Chromium extension checks passed")
@@ -238,9 +315,9 @@ const runChromiumExtensionChecks = async (ollamaModels, forceHeadful = false) =>
   }
 }
 
-const resolvePath = (...segments) => resolve(...segments)
+const resolvePath = (...segments: string[]): string => resolve(...segments)
 
-const findFileRecursive = (dir, targetName) => {
+const findFileRecursive = (dir: string, targetName: string): string => {
   const entries = readdirSync(dir)
   for (const entry of entries) {
     const fullPath = resolvePath(dir, entry)
@@ -258,7 +335,7 @@ const findFileRecursive = (dir, targetName) => {
   return ""
 }
 
-const findExtensionIdFromInstalledFiles = (profileDir) => {
+const findExtensionIdFromInstalledFiles = (profileDir: string): string => {
   const extensionsRoot = findDirectoryRecursive(profileDir, "Extensions")
   if (!extensionsRoot) return ""
 
@@ -272,7 +349,9 @@ const findExtensionIdFromInstalledFiles = (profileDir) => {
     for (const versionDir of versionDirs) {
       const manifestPath = resolvePath(idPath, versionDir, "manifest.json")
       try {
-        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+        const manifest = JSON.parse(
+          readFileSync(manifestPath, "utf8")
+        ) as InstalledManifest
         const name = String(manifest?.name || "").toLowerCase()
         if (name.includes("ollama client")) {
           return extensionId
@@ -286,7 +365,7 @@ const findExtensionIdFromInstalledFiles = (profileDir) => {
   return ""
 }
 
-const findDirectoryRecursive = (dir, targetName) => {
+const findDirectoryRecursive = (dir: string, targetName: string): string => {
   const entries = readdirSync(dir)
   for (const entry of entries) {
     const fullPath = resolvePath(dir, entry)
@@ -302,7 +381,9 @@ const findDirectoryRecursive = (dir, targetName) => {
   return ""
 }
 
-const runFirefoxBundleChecks = async (ollamaModels) => {
+const runFirefoxBundleChecks = async (
+  ollamaModels: string[]
+): Promise<void> => {
   logStep("Firefox Runtime Automation")
   const server = await startStaticServer(firefoxBuildPath)
   const browser = await firefox.launch({ headless: !browserHeadful })
@@ -323,12 +404,16 @@ const runFirefoxBundleChecks = async (ollamaModels) => {
           break
         } catch (error) {
           lastError = error
-          console.warn(`Firefox chat verification failed for ${model}: ${String(error)}`)
+          console.warn(
+            `Firefox chat verification failed for ${model}: ${String(error)}`
+          )
         }
       }
       if (!chatVerified) {
         throw new Error(
-          `Failed chat verification in Firefox for candidate models: ${ollamaModels.slice(0, 3).join(", ")}. Last error: ${String(lastError)}`
+          `Failed chat verification in Firefox for candidate models: ${ollamaModels
+            .slice(0, 3)
+            .join(", ")}. Last error: ${String(lastError)}`
         )
       }
     } else if (ollamaRequired) {
@@ -351,7 +436,10 @@ const runFirefoxBundleChecks = async (ollamaModels) => {
   }
 }
 
-const fetchJsonWithTimeout = async (url, timeoutMs = 5000) => {
+const fetchJsonWithTimeout = async (
+  url: string,
+  timeoutMs = 5000
+): Promise<unknown> => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -365,7 +453,27 @@ const fetchJsonWithTimeout = async (url, timeoutMs = 5000) => {
   }
 }
 
-const checkOllamaNodeReachability = async () => {
+const getStringProperty = (value: unknown, property: string): string | null => {
+  if (!isRecord(value)) return null
+  const propertyValue = value[property]
+  return typeof propertyValue === "string" ? propertyValue : null
+}
+
+const getOllamaTagModels = (data: unknown): string[] => {
+  if (!isRecord(data) || !Array.isArray(data.models)) return []
+  return data.models
+    .map((model) => getStringProperty(model, "name"))
+    .filter((model): model is string => Boolean(model))
+}
+
+const getOpenAIModelIds = (data: unknown): string[] => {
+  if (!isRecord(data) || !Array.isArray(data.data)) return []
+  return data.data
+    .map((model) => getStringProperty(model, "id"))
+    .filter((model): model is string => Boolean(model))
+}
+
+const checkOllamaNodeReachability = async (): Promise<OllamaStatus> => {
   logStep("Ollama Reachability (Node)")
   const endpoints = [`${ollamaBaseUrl}/api/tags`, `${ollamaBaseUrl}/v1/models`]
   let lastError = null
@@ -375,15 +483,11 @@ const checkOllamaNodeReachability = async () => {
       const data = await fetchJsonWithTimeout(endpoint, 7000)
       console.log(`Ollama reachable: ${endpoint}`)
       if (endpoint.endsWith("/api/tags")) {
-        const models = pickChatModels(
-          (data?.models || []).map((m) => m?.name).filter(Boolean)
-        )
+        const models = pickChatModels(getOllamaTagModels(data))
         return { ok: true, model: models[0] || "", models }
       }
 
-      const models = pickChatModels(
-        (data?.data || []).map((m) => m?.id).filter(Boolean)
-      )
+      const models = pickChatModels(getOpenAIModelIds(data))
       return { ok: true, model: models[0] || "", models }
     } catch (error) {
       lastError = error
@@ -402,7 +506,7 @@ const checkOllamaNodeReachability = async () => {
   return { ok: false, model: "", models: [] }
 }
 
-const pickChatModels = (models) => {
+const pickChatModels = (models: string[]): string[] => {
   if (ollamaChatModelOverride) {
     return [ollamaChatModelOverride]
   }
@@ -414,7 +518,7 @@ const pickChatModels = (models) => {
   })
 
   const priorityHints = ["gemma:1b", "gemma3:1b", "llama3.2:3b", "qwen3.5"]
-  const prioritized = []
+  const prioritized: string[] = []
 
   for (const hint of priorityHints) {
     const match = chatCandidates.find((model) =>
@@ -431,8 +535,11 @@ const pickChatModels = (models) => {
   return models.length > 0 ? [models[0]] : []
 }
 
-const checkOllamaFromPage = async (page, label) => {
-  const result = await page.evaluate(async (baseUrl) => {
+const checkOllamaFromPage = async (
+  page: Page,
+  label: string
+): Promise<void> => {
+  const result = await page.evaluate<PageOllamaResult, string>(async (baseUrl) => {
     const urls = [`${baseUrl}/api/tags`, `${baseUrl}/v1/models`]
     for (const url of urls) {
       try {
@@ -456,15 +563,21 @@ const checkOllamaFromPage = async (page, label) => {
   console.log(`${label}: Ollama fetch succeeded via ${result.url}`)
 }
 
-const verifyChatConversationFromExtension = async (page, model) => {
-  const response = await page.evaluate(
+const verifyChatConversationFromExtension = async (
+  page: Page,
+  model: string
+): Promise<void> => {
+  const response = await page.evaluate<
+    ChatVerificationResult,
+    { selectedModel: string; prompt: string }
+  >(
     ({ selectedModel, prompt }) =>
-      new Promise((resolve) => {
+      new Promise<ChatVerificationResult>((resolve) => {
         const port = chrome.runtime.connect({ name: "provider-stream-response" })
         let content = ""
         let finished = false
 
-        const finish = (result) => {
+        const finish = (result: ChatVerificationResult): void => {
           if (finished) return
           finished = true
           try {
@@ -481,7 +594,7 @@ const verifyChatConversationFromExtension = async (page, model) => {
           })
         }, 90000)
 
-        port.onMessage.addListener((msg) => {
+        port.onMessage.addListener((msg: StreamMessage) => {
           if (typeof msg?.delta === "string") {
             content += msg.delta
             if (content.trim().length > 0) {
@@ -493,12 +606,18 @@ const verifyChatConversationFromExtension = async (page, model) => {
 
           if (msg?.error) {
             clearTimeout(timeout)
+            const streamError = msg.error
             finish({
               ok: false,
               error:
-                typeof msg.error === "string"
-                  ? msg.error
-                  : msg.error?.message || "Unknown stream error",
+                typeof streamError === "string"
+                  ? streamError
+                  : typeof streamError === "object" &&
+                      streamError !== null &&
+                      "message" in streamError &&
+                      typeof streamError.message === "string"
+                    ? streamError.message
+                    : "Unknown stream error",
               content
             })
             return
@@ -532,10 +651,17 @@ const verifyChatConversationFromExtension = async (page, model) => {
   )
 }
 
-const verifyChatConversationViaHttp = async (page, model, browserLabel) => {
-  const response = await page.evaluate(
+const verifyChatConversationViaHttp = async (
+  page: Page,
+  model: string,
+  browserLabel: string
+): Promise<void> => {
+  const response = await page.evaluate<
+    ChatVerificationResult,
+    { baseUrl: string; selectedModel: string; prompt: string }
+  >(
     ({ baseUrl, selectedModel, prompt }) =>
-      new Promise((resolve) => {
+      new Promise<ChatVerificationResult>((resolve) => {
         const timeout = setTimeout(() => {
           resolve({
             ok: false,
@@ -544,7 +670,7 @@ const verifyChatConversationViaHttp = async (page, model, browserLabel) => {
           })
         }, 90000)
 
-        const finish = (result) => {
+        const finish = (result: ChatVerificationResult): void => {
           clearTimeout(timeout)
           resolve(result)
         }
@@ -595,9 +721,10 @@ const verifyChatConversationViaHttp = async (page, model, browserLabel) => {
               for (const line of lines) {
                 if (!line.trim()) continue
                 try {
-                  const data = JSON.parse(line)
-                  if (typeof data?.message?.content === "string") {
-                    content += data.message.content
+                  const data = JSON.parse(line) as unknown
+                  const parsed = data as OllamaChatLine
+                  if (typeof parsed?.message?.content === "string") {
+                    content += parsed.message.content
                   }
                 } catch {}
               }
@@ -629,8 +756,8 @@ const verifyChatConversationViaHttp = async (page, model, browserLabel) => {
   )
 }
 
-const startStaticServer = async (rootDir) => {
-  const mimeTypes = {
+const startStaticServer = async (rootDir: string): Promise<StaticServer> => {
+  const mimeTypes: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -659,26 +786,33 @@ const startStaticServer = async (rootDir) => {
     }
   })
 
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
-  const address = server.address()
-  const port = typeof address === "object" && address ? address.port : 0
+  await new Promise<void>((resolve) => {
+    server.listen({ port: 0, host: "127.0.0.1" }, () => resolve())
+  })
+  const address = server.address() as AddressInfo | null
+  const port = address?.port ?? 0
 
   return {
     origin: `http://127.0.0.1:${port}`,
-    close: () => new Promise((resolve) => server.close(() => resolve()))
+    close: () => new Promise<void>((resolve) => server.close(() => resolve()))
   }
 }
 
-const main = async () => {
-  console.log("Running local browser automation sequentially (Chromium -> Firefox)")
-  console.log(`Browser mode: ${browserHeadful ? "headful (visible)" : "headless (hidden)"}`)
+const main = async (): Promise<void> => {
+  console.log(
+    "Running local browser automation sequentially (Chromium -> Firefox)"
+  )
+  console.log(
+    `Browser mode: ${browserHeadful ? "headful (visible)" : "headless (hidden)"}`
+  )
   const ollamaStatus = await checkOllamaNodeReachability()
   try {
     await runChromiumExtensionChecks(ollamaStatus.models || [])
   } catch (error) {
     const message = String(error)
     const shouldRetryHeadful =
-      !browserHeadful && message.includes("Failed to resolve Chromium extension id")
+      !browserHeadful &&
+      message.includes("Failed to resolve Chromium extension id")
 
     if (!shouldRetryHeadful) {
       throw error
@@ -693,7 +827,7 @@ const main = async () => {
   console.log("\n✅ Local browser automation passed")
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error("\n❌ Local browser automation failed")
   console.error(error)
   process.exit(1)
