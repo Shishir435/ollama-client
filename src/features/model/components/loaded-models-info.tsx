@@ -122,10 +122,6 @@ export const LoadedModelsInfo = () => {
     fetchModels(true)
   }
 
-  const _toggleExpanded = () => {
-    setIsExpanded(!isExpanded)
-  }
-
   useEffect(() => {
     if (!selectedProviderCapabilities?.modelUnload) return
     fetchModels()
