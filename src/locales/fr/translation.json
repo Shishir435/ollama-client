@@ -19,8 +19,7 @@
     },
     "actions": {
       "retry": "Réessayer",
-      "refresh": "Actualiser",
-      "close": "Fermer"
+      "refresh": "Actualiser"
     },
     "updated_at": "Mis à jour",
     "social": {
@@ -38,16 +37,7 @@
     "save": "Enregistrer",
     "continue": "Continuer l'Importation",
     "reload": "Recharger l'Extension",
-    "close": "Fermer",
-    "status": {
-      "active": "Actif"
-    },
-    "labels": {
-      "performance": "Rendement"
-    },
-    "nav": {
-      "settings_aria": "Navigation des paramètres"
-    }
+    "close": "Fermer"
   },
   "extension": {
     "name": "Ollama Client - Chat avec des modèles LLM locaux",
@@ -83,15 +73,8 @@
       }
     },
     "setup_guide": {
-      "title": "Configuration Rapide (Ollama)",
-      "intro": "Vous aurez besoin d'Ollama en cours d'exécution avec un modèle de chat et un modèle d'embeddings.",
-      "step1": "Installez Ollama et démarrez-le (<code>ollama serve</code>)",
-      "step2": "Téléchargez un modèle de chat (<code>ollama pull qwen2.5:3b</code>)",
-      "step3": "Téléchargez un modèle d'embeddings (<code>ollama pull all-minilm:latest</code>)",
-      "step4": "Revenez ici et cliquez sur <b>Actualiser</b>",
       "hint": "Suivez le guide de configuration ci-dessous pour installer Ollama et les modèles.",
       "full_guide_link": "Guide de Configuration Complet",
-      "firefox_warning": "Utilisateurs Firefox : exécutez le script ollama-env.sh pour activer CORS avant de commencer.",
       "help_prefix": "Besoin d’aide ?"
     },
     "features": {
@@ -130,9 +113,7 @@
       "drop_files_here": "Déposer des fichiers ici"
     },
     "context_preview": {
-      "selection": "Texte sélectionné",
       "files": "Fichiers joints",
-      "chars": "{{count}} caractères",
       "files_ready": "{{ready}}/{{total}} fichiers prêts · {{chars}} caractères",
       "files_status": "{{processing}} traitement · {{errors}} erreurs"
     },
@@ -142,18 +123,13 @@
     "actions": {
       "copy": "Copier",
       "copied": "Copié",
-      "regenerate": "Régénérer",
       "switch_model_tooltip": "Changer de modèle",
       "fork": "Créer une branche",
       "edit": "Modifier",
-      "export_as": "Exporter sous...",
       "more": "Plus",
       "delete": "Supprimer le message"
     },
     "metrics": {
-      "title": "Métriques de Performance",
-      "toggle_aria_label": "Basculer les métriques",
-      "toggle_title": "Basculer les métriques",
       "total_time": "Temps total",
       "generation_speed": "Vitesse de génération",
       "prompt_tokens": "Tokens du prompt",
@@ -162,19 +138,10 @@
       "prompt_eval_time": "Temps d'évaluation du prompt"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} tokens au total",
-      "prompt_tokens": "{{value}} du prompt",
-      "generated_tokens": "{{value}} générés",
-      "avg_speed": "{{speed}} t/s",
-      "speed_unit": "tok/s",
-      "messages": "{{value}} messages",
       "tooltip_tokens": "Total des tokens utilisés dans cette session",
       "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
       "tooltip_messages": "Nombre de réponses IA"
-    },
-    "file": {
-      "loading_content": "Chargement du contenu complet..."
     },
     "reasoning": {
       "aria_label": "Raisonnement du modèle",
@@ -183,7 +150,6 @@
       "done": "Terminé",
       "hide": "Masquer",
       "explore": "Explorer",
-      "loading_thinking": "Réflexion",
       "loading_typing": "Écriture",
       "loading_queued": "En attente"
     },
@@ -205,12 +171,8 @@
       "no_results_description": "Essayez d'ajuster vos mots-clés ou le périmètre de recherche.",
       "start_typing": "Commencez à taper pour rechercher sémantiquement dans votre historique de chat...",
       "start_typing_description": "Recherchez dans votre historique de chat via la recherche sémantique.",
-      "result_badge": "résultat",
-      "results_badge": "résultats",
-      "match_percentage": "% de correspondance",
       "role_you": "Vous",
       "role_assistant": "Assistant",
-      "unknown_session": "Session Inconnue",
       "time_just_now": "À l'instant",
       "time_minute": "minute",
       "time_minutes": "minutes",
@@ -382,7 +344,6 @@
       "chunk_overlap_label": "Chevauchement de Fragments (tokens)",
       "chunk_overlap_description": "Chevauchement entre les fragments. Aide à préserver le contexte aux limites des fragments.",
       "chunking_strategy_label": "Stratégie de Fragmentation",
-      "chunking_strategy_description": "Comment diviser le texte en fragments. L'hybride offre le meilleur équilibre entre contexte et ciblage.",
       "strategy_fixed": "Taille Fixe",
       "strategy_semantic": "Limites Sémantiques",
       "strategy_hybrid": "Hybride (Recommandé)",
@@ -392,8 +353,6 @@
       "batch_size_description": "Nombre de textes à intégrer en parallèle. Les valeurs plus élevées sont plus rapides mais utilisent plus de mémoire.",
       "enable_caching_label": "Activer la Mise en Cache",
       "enable_caching_description": "Mettre en cache les incrustations pour un contenu identique afin d'éviter la régénération",
-      "use_webworker_label": "Utiliser un Web Worker",
-      "use_webworker_description": "Décharger la génération d'incrustation vers un thread d'arrière-plan (recommandé)",
       "limits_title": "Limites et Stockage",
       "limits_description": "Configure les limites de stockage et les politiques de nettoyage",
       "max_embeddings_label": "Max Incrustations par Fichier",
@@ -404,12 +363,6 @@
       "auto_cleanup_description": "Supprimer automatiquement les incrustations anciennes",
       "cleanup_age_label": "Ancienneté de Nettoyage (jours)",
       "cleanup_age_description": "Supprimer les incrustations plus anciennes que ce nombre de jours",
-      "chat_search_title": "Paramètres de Recherche de Chat",
-      "chat_search_description": "Configure la recherche sémantique pour l'historique de chat",
-      "auto_embed_label": "Incruster les Messages de Chat Automatiquement",
-      "auto_embed_description": "Incruster automatiquement les messages de chat pour la recherche sémantique (recommandé)",
-      "backfill_title": "Remplir l'Historique de Chat",
-      "backfill_description": "Générer des incrustations pour tous les messages de chat existants afin d'activer la recherche sémantique",
       "search_settings_title": "Paramètres de Recherche",
       "search_settings_description": "Paramètres par défaut pour la recherche sémantique",
       "search_limit_label": "Limite de Recherche par Défaut",
@@ -424,7 +377,6 @@
       "ann_backend_description": "Choisissez le backend de plus proches voisins approximatifs utilisé pour la recherche vectorielle.",
       "ann_backend_placeholder": "Sélectionner un backend",
       "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (recommandé)",
       "ann_backend_ts": "HNSW TypeScript",
       "ann_backend_bruteforce": "Force brute",
       "ann_min_vectors_label": "Nombre minimal de vecteurs ANN",
@@ -436,34 +388,8 @@
       "rag_settings_description": "Configurez la manière dont les fichiers sont utilisés pour répondre aux questions avec le contexte récupéré",
       "rag_enable_label": "Activer le RAG",
       "rag_enable_description": "Utiliser le contexte récupéré pour répondre aux questions sur vos fichiers",
-      "rag_system_prompt_label": "Prompt système RAG",
-      "rag_system_prompt_description": "Modèle pour le prompt système. Utilisez {context} pour le texte récupéré et {question} pour la requête de l'utilisateur.",
-      "advanced_retrieval_title": "Paramètres de récupération avancés",
-      "adaptive_weights_label": "Poids Hybrides Adaptatifs",
-      "adaptive_weights_description": "Ajustement automatique de la recherche par mots-clés vs sémantique selon le type de requête (ex: code vs concepts)",
-      "temporal_boosting_label": "Renforcement de la Pertinence Temporelle",
-      "temporal_boosting_description": "Prioriser la documentation récente en utilisant un score de décroissance exponentielle",
       "reranking_label": "Activer le ré-classement",
       "reranking_description": "Utilisez un modèle d'encodeur croisé pour évaluer la pertinence des résultats récupérés. Améliore considérablement la précision.",
-      "reranker_backend_label": "Backend de reranking",
-      "reranker_backend_description": "Choisissez le backend utilisé pour exécuter le modèle de reranking.",
-      "reranker_backend_placeholder": "Sélectionner un backend de reranking",
-      "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Désactivé",
-      "hybrid_search_label": "Activer la recherche hybride",
-      "hybrid_search_description": "Combinez la recherche par mot-clé (BM25) avec la recherche sémantique pour un meilleur rappel.",
-      "keyword_weight_label": "Poids du mot-clé",
-      "keyword_weight_description": "Équilibre entre mot-clé (BM25) et recherche sémantique.",
-      "diversity_settings_title": "Paramètres de diversité",
-      "mmr_label": "Activer la diversité MMR",
-      "mmr_description": "La pertinence marginale maximale réduit la redondance dans les résultats de recherche.",
-      "diversity_lambda_label": "Lambda de diversité",
-      "diversity_lambda_description": "Les valeurs inférieures privilégient la diversité, les valeurs supérieures privilégient la pertinence.",
-      "quality_settings_title": "Filtrage de la qualité du contenu",
-      "exclude_casual_label": "Exclure les messages occasionnels",
-      "exclude_casual_description": "Filtrez les salutations, les réponses courtes et les messages à faible information.",
-      "min_quality_score_label": "Score de qualité minimum",
-      "min_quality_score_description": "Score de qualité minimum (0-1) requis pour intégrer le contenu.",
       "embedding_source_label": "Source de génération des embeddings",
       "embedding_source_description": "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
       "embedding_source_default_provider": "Fournisseur par défaut (Ollama)",
@@ -473,8 +399,6 @@
       "feedback_enable_description": "Mémoriser les fragments utiles pour améliorer les récupérations futures.",
       "feedback_show_chunks_label": "Afficher les fragments récupérés",
       "feedback_show_chunks_description": "Afficher les fragments sources dans le chat avec des boutons de retour.",
-      "feedback_blend_weight_label": "Poids de l’apprentissage par retour",
-      "feedback_blend_weight_description": "Niveau de confiance accordé aux retours appris par rapport aux scores du modèle (0-1).",
       "feedback_export_button": "Exporter les données de retour",
       "feedback_clear_button": "Effacer tous les retours",
       "feedback_privacy_note": "Tous les retours sont stockés localement. Les requêtes sont hachées pour la confidentialité. Aucune donnée ne quitte votre appareil.",
@@ -562,8 +486,7 @@
     },
     "toggle": {
       "label_off": "Onglets",
-      "label_on": "Onglet+",
-      "tooltip": "Interagir avec les onglets ouverts"
+      "label_on": "Onglet+"
     },
     "context": "Contexte",
     "inspector": {
@@ -599,15 +522,7 @@
       "title": "Raccourcis Clavier",
       "description": "Personnalisez les raccourcis clavier pour un accès rapide aux fonctionnalités.",
       "recording": "Appuyez sur les touches...",
-      "reset_one": "Réinitialiser par défaut",
       "reset_all": "Réinitialiser Tous les Raccourcis",
-      "conflict_warning": "\"{{key}}\" est déjà utilisé par \"{{existing}}\"",
-      "category_navigation": "Navigation",
-      "category_navigation_desc": "Naviguer dans l'interface",
-      "category_actions": "Actions",
-      "category_actions_desc": "Effectuer des tâches courantes",
-      "category_toggles": "Basculer",
-      "category_toggles_desc": "Activer/désactiver les fonctionnalités",
       "new_chat": "Nouveau Chat",
       "new_chat_desc": "Créer une nouvelle session de chat",
       "focus_input": "Focus sur l'Entrée",
@@ -852,7 +767,6 @@
       "voices": "Voix",
       "reset": "Réinitialiser",
       "guides": "Guides",
-      "memory": "Mémoire",
       "shortcuts": "Raccourcis"
     },
     "context": {
@@ -932,31 +846,7 @@
     },
     "embeddings": {
       "title": "Incrustations Vectorielles",
-      "beta_badge": "Bêta",
       "description": "Les incrustations permettent la recherche sémantique, la génération augmentée par récupération (RAG) et des fonctionnalités sensibles au contexte pour le téléversement de fichiers et l'historique de chat.",
-      "model_label": "Modèle d'Incrustation",
-      "status": {
-        "installed": "Installé",
-        "not_found": "Non trouvé",
-        "checking": "Vérification...",
-        "check_button": "Vérifier le Statut"
-      },
-      "not_loaded": {
-        "title": "Modèle d'incrustation non chargé",
-        "description": "Le modèle d'incrustation est requis pour la recherche sémantique, RAG (Génération Augmentée par Récupération) et les fonctionnalités sensibles au contexte. Téléchargez-le maintenant pour améliorer votre expérience de chat avec une meilleure compréhension du contexte et des capacités de recherche de fichiers.",
-        "download_button": "Télécharger le Modèle"
-      },
-      "downloading": {
-        "title": "Téléchargement du modèle..."
-      },
-      "success": {
-        "title": "Téléchargement réussi",
-        "description": "Le modèle d'incrustation est maintenant prêt à l'emploi. Vous pouvez désormais profiter d'expériences de chat améliorées avec la recherche sémantique et des fonctionnalités sensibles au contexte."
-      },
-      "auto_downloaded": {
-        "title": "Auto-installé",
-        "description": "Le modèle d'incrustation a été téléchargé automatiquement lors de l'installation de l'extension."
-      },
       "test_generation": {
         "title": "Tester la Génération d'Incrustation",
         "description": "Générez une incrustation de test pour vérifier que le modèle d'incrustation fonctionne correctement.",
@@ -986,10 +876,6 @@
         "point_2": "Permettent la recherche sémantique dans votre historique de chat et vos fichiers téléversés",
         "point_3": "Alimentent RAG pour des réponses sensibles au contexte",
         "point_4": "Fournissent un contexte pertinent à partir de vos fichiers pour améliorer les réponses de l'IA"
-      },
-      "rag_mode": {
-        "label": "Contexte Intelligent (RAG)",
-        "description": "Utilise la recherche sémantique pour trouver un contexte pertinent à partir de vos fichiers au lieu d'envoyer tout le contenu du fichier."
       },
       "model_select": {
         "label": "Modèle d'Incrustation",
@@ -1123,15 +1009,17 @@
       "custom_models_description": "Ajoutez des modèles manuellement s'ils n'apparaissent pas dans la liste découverte automatiquement.",
       "test_connection": {
         "success_title": "Connexion réussie",
-        "success_description": "Connecté avec succès à {{name}} sur {{url}} ({{count}} modèles)",
+        "success_description": "Connexion réussie à {{name}} sur {{url}}. {{count}} modèle(s) trouvé(s).",
         "failed_title": "Échec de la connexion",
-        "failed_description": "{{url}} : {{error}}",
+        "failed_description": "Impossible de joindre {{url}}. {{error}}",
         "no_models_title": "Aucun modèle trouvé",
-        "no_models_description": "Connecté à {{url}} mais aucun modèle n'a été trouvé. Vérifiez si le service fonctionne correctement.",
-        "inline_success": "Connexion réussie à {{url}} ({{count}} modèles trouvés)",
-        "inline_no_models": "Connecté à {{url}}, mais 0 modèle trouvé. Le service est-il lancé ?",
-        "inline_failed": "Échec de connexion à {{url}} : {{error}}",
-        "default_url": "URL par défaut"
+        "no_models_description": "{{url}} est joignable, mais aucun modèle n’a été renvoyé. Vérifiez que le fournisseur est en cours d’exécution, que l’URL de base est correcte et qu’au moins un modèle est installé ou chargé.",
+        "inline_success": "Connecté à {{url}}. {{count}} modèle(s) trouvé(s).",
+        "inline_no_models": "{{url}} est joignable, mais aucun modèle n’a été renvoyé. Vérifiez que le fournisseur fonctionne et que des modèles sont installés ou chargés.",
+        "inline_failed": "Impossible de joindre {{url}}. {{error}}",
+        "default_url": "URL par défaut",
+        "api_key_required_title": "Clé API requise",
+        "api_key_required": "Ajoutez une clé API pour {{name}} avant de tester la connexion."
       }
     },
     "migration": {
@@ -1154,10 +1042,6 @@
       "import_result": {
         "title": "Résultats de l'Importation",
         "description": "Passez en revue l'état de votre importation de données ci-dessous :",
-        "sync": "Paramètres",
-        "vector": "Base de connaissances (vecteurs)",
-        "sqlite": "Historique du chat et données",
-        "errors": "Erreurs rencontrées ({{count}})",
         "labels": {
           "sync": "Préférences (Sync)",
           "local": "Stockage Local",

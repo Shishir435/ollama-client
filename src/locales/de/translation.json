@@ -19,8 +19,7 @@
     },
     "actions": {
       "retry": "Wiederholen",
-      "refresh": "Aktualisieren",
-      "close": "Schließen"
+      "refresh": "Aktualisieren"
     },
     "updated_at": "Aktualisiert",
     "social": {
@@ -38,16 +37,7 @@
     "save": "Speichern",
     "continue": "Import Fortsetzen",
     "reload": "Erweiterung Neu Laden",
-    "close": "Schließen",
-    "status": {
-      "active": "Aktiv"
-    },
-    "labels": {
-      "performance": "Leistung"
-    },
-    "nav": {
-      "settings_aria": "Einstellungen-Navigation"
-    }
+    "close": "Schließen"
   },
   "extension": {
     "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
@@ -83,15 +73,8 @@
       }
     },
     "setup_guide": {
-      "title": "Schnelleinrichtung (Ollama)",
-      "intro": "Sie benötigen Ollama, das mit einem Chat-Modell und einem Embeddings-Modell läuft.",
-      "step1": "Ollama installieren und starten (<code>ollama serve</code>)",
-      "step2": "Ein Chat-Modell herunterladen (<code>ollama pull qwen2.5:3b</code>)",
-      "step3": "Ein Embeddings-Modell herunterladen (<code>ollama pull all-minilm:latest</code>)",
-      "step4": "Kehren Sie hierher zurück und klicken Sie auf <b>Aktualisieren</b>",
       "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
       "full_guide_link": "Vollständige Einrichtungsanleitung",
-      "firefox_warning": "Firefox-Benutzer: Führen Sie das ollama-env.sh-Skript aus, um CORS vor dem Start zu aktivieren.",
       "help_prefix": "Brauchen Sie Hilfe?"
     },
     "features": {
@@ -130,9 +113,7 @@
       "drop_files_here": "Dateien hier ablegen"
     },
     "context_preview": {
-      "selection": "Ausgewählter Text",
       "files": "Angehängte Dateien",
-      "chars": "{{count}} Zeichen",
       "files_ready": "{{ready}}/{{total}} Dateien bereit · {{chars}} Zeichen",
       "files_status": "{{processing}} Verarbeitung · {{errors}} Fehler"
     },
@@ -142,18 +123,13 @@
     "actions": {
       "copy": "Kopieren",
       "copied": "Kopiert",
-      "regenerate": "Neu generieren",
       "switch_model_tooltip": "Modell wechseln",
       "fork": "Verzweigen",
       "edit": "Bearbeiten",
-      "export_as": "Exportieren als...",
       "more": "Mehr",
       "delete": "Nachricht löschen"
     },
     "metrics": {
-      "title": "Leistungskennzahlen",
-      "toggle_aria_label": "Kennzahlen umschalten",
-      "toggle_title": "Kennzahlen umschalten",
       "total_time": "Gesamtzeit",
       "generation_speed": "Generierungsgeschwindigkeit",
       "prompt_tokens": "Prompt-Token",
@@ -162,19 +138,10 @@
       "prompt_eval_time": "Prompt-Evaluierungszeit"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} Token",
-      "prompt_tokens": "{{value}} Prompt",
-      "generated_tokens": "{{value}} generiert",
-      "avg_speed": "{{speed}} T/s",
-      "speed_unit": "T/s",
-      "messages": "{{value}} Nachrichten",
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten"
-    },
-    "file": {
-      "loading_content": "Vollständiger Inhalt wird geladen..."
     },
     "reasoning": {
       "aria_label": "Modell-Überlegungen",
@@ -183,7 +150,6 @@
       "done": "Fertig",
       "hide": "Ausblenden",
       "explore": "Erkunden",
-      "loading_thinking": "Überlegt",
       "loading_typing": "Tippt",
       "loading_queued": "Warteschlange"
     },
@@ -205,12 +171,8 @@
       "no_results_description": "Versuchen Sie, Ihre Schlüsselwörter oder den Suchbereich anzupassen.",
       "start_typing": "Beginnen Sie mit der Eingabe, um Ihren Chat-Verlauf semantisch zu durchsuchen...",
       "start_typing_description": "Durchsuchen Sie Ihren Chat-Verlauf mithilfe der semantischen Suche.",
-      "result_badge": "Ergebnis",
-      "results_badge": "Ergebnisse",
-      "match_percentage": "% Übereinstimmung",
       "role_you": "Sie",
       "role_assistant": "Assistent",
-      "unknown_session": "Unbekannte Sitzung",
       "time_just_now": "Gerade eben",
       "time_minute": "Minute",
       "time_minutes": "Minuten",
@@ -382,7 +344,6 @@
       "chunk_overlap_label": "Chunk-Überlappung (Tokens)",
       "chunk_overlap_description": "Überlappung zwischen Chunks. Hilft, den Kontext über Chunk-Grenzen hinweg zu bewahren.",
       "chunking_strategy_label": "Chunking-Strategie",
-      "chunking_strategy_description": "Wie Text in Chunks aufgeteilt wird. Hybrid bietet die beste Balance aus Kontext und Fokus.",
       "strategy_fixed": "Feste Größe",
       "strategy_semantic": "Semantische Grenzen",
       "strategy_hybrid": "Hybrid (Empfohlen)",
@@ -392,8 +353,6 @@
       "batch_size_description": "Anzahl der parallel einzubettenden Texte. Höhere Werte sind schneller, verbrauchen aber mehr Speicher.",
       "enable_caching_label": "Caching aktivieren",
       "enable_caching_description": "Cachen Sie Embeddings für identische Inhalte, um eine erneute Generierung zu vermeiden",
-      "use_webworker_label": "Web Worker verwenden",
-      "use_webworker_description": "Auslagern der Embedding-Generierung auf einen Hintergrund-Thread (empfohlen)",
       "limits_title": "Limits & Speicher",
       "limits_description": "Konfigurieren Sie Speicherlimits und Bereinigungsrichtlinien",
       "max_embeddings_label": "Max. Embeddings pro Datei",
@@ -404,12 +363,6 @@
       "auto_cleanup_description": "Alte Embeddings automatisch löschen",
       "cleanup_age_label": "Bereinigungsalter (Tage)",
       "cleanup_age_description": "Embeddings löschen, die älter als diese Anzahl von Tagen sind",
-      "chat_search_title": "Chat-Sucheinstellungen",
-      "chat_search_description": "Semantische Suche für den Chat-Verlauf konfigurieren",
-      "auto_embed_label": "Chat-Nachrichten automatisch einbetten",
-      "auto_embed_description": "Chat-Nachrichten automatisch für die semantische Suche einbetten (empfohlen)",
-      "backfill_title": "Chat-Verlauf nachfüllen",
-      "backfill_description": "Generieren Sie Embeddings für alle vorhandenen Chat-Nachrichten, um die semantische Suche zu ermöglichen",
       "search_settings_title": "Sucheinstellungen",
       "search_settings_description": "Standardparameter für die semantische Suche",
       "search_limit_label": "Standard-Suchlimit",
@@ -424,7 +377,6 @@
       "ann_backend_description": "Wählen Sie das Backend für approximative nächste Nachbarn, das für die Vektorsuche verwendet wird.",
       "ann_backend_placeholder": "Backend auswählen",
       "ann_backend_group": "Backends",
-      "ann_backend_wasm": "WASM HNSW (empfohlen)",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "Brute Force",
       "ann_min_vectors_label": "Min. ANN-Vektoren",
@@ -436,34 +388,8 @@
       "rag_settings_description": "Konfigurieren Sie, wie Dateien verwendet werden, um Fragen mit abgerufenem Kontext zu beantworten",
       "rag_enable_label": "RAG aktivieren",
       "rag_enable_description": "Verwenden Sie abgerufenem Kontext, um Fragen zu Ihren Dateien zu beantworten",
-      "rag_system_prompt_label": "RAG-System-Prompt",
-      "rag_system_prompt_description": "Vorlage für den System-Prompt. Verwenden Sie {context} für abgerufenen Text und {question} für die Benutzeranfrage.",
-      "advanced_retrieval_title": "Erweiterte Abrufeinstellungen",
-      "adaptive_weights_label": "Adaptive Hybrid-Gewichtung",
-      "adaptive_weights_description": "Automatische Anpassung von Keyword- vs. semantischer Suche basierend auf dem Abfragetyp (z. B. Code vs. Konzepte)",
-      "temporal_boosting_label": "Zeitliche Relevanzverstärkung",
-      "temporal_boosting_description": "Priorisierung neuerer Dokumentation durch exponentielle Zerfallsbewertung",
       "reranking_label": "Re-Ranking aktivieren",
       "reranking_description": "Verwenden Sie ein Cross-Encoder-Modell, um die Relevanz der abgerufenen Ergebnisse zu bewerten. Verbessert die Präzision erheblich.",
-      "reranker_backend_label": "Reranker-Backend",
-      "reranker_backend_description": "Wählen Sie das Backend zum Ausführen des Reranker-Modells.",
-      "reranker_backend_placeholder": "Reranker-Backend auswählen",
-      "reranker_backend_group": "Backends",
-      "reranker_backend_none": "Deaktiviert",
-      "hybrid_search_label": "Hybrid-Suche aktivieren",
-      "hybrid_search_description": "Kombinieren Sie Stichwortsuche (BM25) mit semantischer Suche für eine bessere Trefferquote.",
-      "keyword_weight_label": "Stichwort-Gewichtung",
-      "keyword_weight_description": "Balance zwischen Stichwort (BM25) und semantischer Suche.",
-      "diversity_settings_title": "Diversitätseinstellungen",
-      "mmr_label": "MMR-Diversität aktivieren",
-      "mmr_description": "Maximal Marginal Relevance reduziert Redundanz in den Suchergebnissen.",
-      "diversity_lambda_label": "Diversitäts-Lambda",
-      "diversity_lambda_description": "Niedrigere Werte priorisieren Diversität, höhere Werte priorisieren Relevanz.",
-      "quality_settings_title": "Filterung der Inhaltsqualität",
-      "exclude_casual_label": "Beiläufige Nachrichten ausschließen",
-      "exclude_casual_description": "Filtern Sie Begrüßungen, kurze Antworten und informationsarme Nachrichten heraus.",
-      "min_quality_score_label": "Mindest-Qualitätsfaktor",
-      "min_quality_score_description": "Erforderlicher Mindest-Qualitätsfaktor (0-1) zum Einbetten von Inhalten.",
       "embedding_source_label": "Quelle für Embedding-Erzeugung",
       "embedding_source_description": "Einbettungen werden über Ihren lokalen Provider erzeugt (Ollama standardmäßig)",
       "embedding_source_default_provider": "Standard-Provider (Ollama)",
@@ -473,8 +399,6 @@
       "feedback_enable_description": "Merken, welche Chunks hilfreich waren, um künftige Abrufe zu verbessern.",
       "feedback_show_chunks_label": "Abgerufene Chunks anzeigen",
       "feedback_show_chunks_description": "Quell-Chunks im Chat mit Feedback-Schaltflächen anzeigen.",
-      "feedback_blend_weight_label": "Gewichtung des Feedback-Lernens",
-      "feedback_blend_weight_description": "Wie stark gelerntem Feedback im Vergleich zu Modellbewertungen vertraut wird (0-1).",
       "feedback_export_button": "Feedback-Daten exportieren",
       "feedback_clear_button": "Alles Feedback löschen",
       "feedback_privacy_note": "Alle Feedbackdaten werden lokal gespeichert. Abfragen werden zum Schutz der Privatsphäre gehasht. Keine Daten verlassen Ihr Gerät.",
@@ -562,8 +486,7 @@
     },
     "toggle": {
       "label_off": "Aus",
-      "label_on": "Ein",
-      "tooltip": "Mit offenen Tabs interagieren"
+      "label_on": "Ein"
     },
     "context": "Kontext",
     "inspector": {
@@ -599,15 +522,7 @@
       "title": "Tastaturkürzel",
       "description": "Tastaturkürzel für schnellen Zugriff auf Funktionen anpassen.",
       "recording": "Tasten drücken...",
-      "reset_one": "Auf Standard zurücksetzen",
       "reset_all": "Alle Kürzel zurücksetzen",
-      "conflict_warning": "\"{{key}}\" wird bereits von \"{{existing}}\" verwendet",
-      "category_navigation": "Navigation",
-      "category_navigation_desc": "In der Oberfläche navigieren",
-      "category_actions": "Aktionen",
-      "category_actions_desc": "Häufige Aufgaben ausführen",
-      "category_toggles": "Schalter",
-      "category_toggles_desc": "Funktionen ein-/ausschalten",
       "new_chat": "Neuer Chat",
       "new_chat_desc": "Neue Chat-Sitzung erstellen",
       "focus_input": "Eingabe fokussieren",
@@ -852,7 +767,6 @@
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
-      "memory": "Gedächtnis",
       "shortcuts": "Tastaturkürzel"
     },
     "context": {
@@ -932,31 +846,7 @@
     },
     "embeddings": {
       "title": "Vektor-Embeddings",
-      "beta_badge": "Beta",
       "description": "Embeddings ermöglichen semantische Suche, Retrieval Augmented Generation (RAG) und kontextbezogene Funktionen für Datei-Uploads und den Chat-Verlauf.",
-      "model_label": "Embedding-Modell",
-      "status": {
-        "installed": "Installiert",
-        "not_found": "Nicht gefunden",
-        "checking": "Prüfe...",
-        "check_button": "Status prüfen"
-      },
-      "not_loaded": {
-        "title": "Embedding-Modell nicht geladen",
-        "description": "Das Embedding-Modell ist für die semantische Suche, RAG (Retrieval Augmented Generation) und kontextbezogene Funktionen erforderlich. Laden Sie es jetzt herunter, um Ihr Chat-Erlebnis durch besseres Kontextverständnis und Dateisuchfunktionen zu verbessern.",
-        "download_button": "Modell herunterladen"
-      },
-      "downloading": {
-        "title": "Modell wird heruntergeladen..."
-      },
-      "success": {
-        "title": "Download erfolgreich",
-        "description": "Das Embedding-Modell ist jetzt einsatzbereit. Sie können nun verbesserte Chat-Erlebnisse mit semantischer Suche und kontextbezogenen Funktionen genießen."
-      },
-      "auto_downloaded": {
-        "title": "Automatisch installiert",
-        "description": "Das Embedding-Modell wurde automatisch heruntergeladen, als Sie die Erweiterung installiert haben."
-      },
       "test_generation": {
         "title": "Embedding-Generierung testen",
         "description": "Generieren Sie ein Test-Embedding, um zu überprüfen, ob das Embedding-Modell ordnungsgemäß funktioniert.",
@@ -986,10 +876,6 @@
         "point_2": "Ermöglichen Sie die semantische Suche in Ihrem Chat-Verlauf und hochgeladenen Dateien",
         "point_3": "Betreiben Sie RAG für kontextbezogene Antworten",
         "point_4": "Stellen Sie relevanten Kontext aus Ihren Dateien bereit, um KI-Antworten zu verbessern"
-      },
-      "rag_mode": {
-        "label": "Intelligenter Kontext (RAG)",
-        "description": "Verwenden Sie die semantische Suche, um relevanten Kontext aus Ihren Dateien zu finden, anstatt den gesamten Dateiinhalt zu senden."
       },
       "model_select": {
         "label": "Embedding-Modell",
@@ -1123,15 +1009,17 @@
       "custom_models_description": "Modelle manuell hinzufügen, wenn sie nicht in der automatisch erkannten Liste erscheinen.",
       "test_connection": {
         "success_title": "Verbindung erfolgreich",
-        "success_description": "Erfolgreich mit {{name}} unter {{url}} verbunden ({{count}} Modelle)",
+        "success_description": "Erfolgreich mit {{name}} unter {{url}} verbunden. {{count}} Modell(e) gefunden.",
         "failed_title": "Verbindung fehlgeschlagen",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "{{url}} konnte nicht erreicht werden. {{error}}",
         "no_models_title": "Keine Modelle gefunden",
-        "no_models_description": "Mit {{url}} verbunden, aber keine Modelle gefunden. Prüfen Sie, ob der Dienst ordnungsgemäß läuft.",
-        "inline_success": "Erfolgreich mit {{url}} verbunden ({{count}} Modelle gefunden)",
-        "inline_no_models": "Mit {{url}} verbunden, aber 0 Modelle gefunden. Läuft der Dienst?",
-        "inline_failed": "Verbindung zu {{url}} fehlgeschlagen: {{error}}",
-        "default_url": "Standard-URL"
+        "no_models_description": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Stelle sicher, dass der Anbieter läuft, die Basis-URL korrekt ist und mindestens ein Modell installiert oder geladen ist.",
+        "inline_success": "Mit {{url}} verbunden. {{count}} Modell(e) gefunden.",
+        "inline_no_models": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Prüfe, ob der Anbieter läuft und Modelle installiert oder geladen sind.",
+        "inline_failed": "{{url}} konnte nicht erreicht werden. {{error}}",
+        "default_url": "Standard-URL",
+        "api_key_required_title": "API-Schlüssel erforderlich",
+        "api_key_required": "Füge einen API-Schlüssel für {{name}} hinzu, bevor du die Verbindung testest."
       }
     },
     "migration": {
@@ -1154,10 +1042,6 @@
       "import_result": {
         "title": "Import-Ergebnisse",
         "description": "Überprüfen Sie den Status Ihres Datenimports unten:",
-        "sync": "Einstellungen",
-        "vector": "Wissensdatenbank (Vektoren)",
-        "sqlite": "Chatverlauf und Daten",
-        "errors": "Aufgetretene Fehler ({{count}})",
         "labels": {
           "sync": "Einstellungen (Sync)",
           "local": "Lokaler Speicher",

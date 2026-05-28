@@ -128,19 +128,6 @@ const getCapabilityIcon = (capability: string) => {
   return <Settings className="h-3 w-3" />
 }
 
-const _HeaderSpec = ({
-  label,
-  value
-}: {
-  label: string
-  value: string | number
-}) => (
-  <div className="flex items-center gap-1 rounded bg-muted/50 px-2 py-1 text-xs">
-    <span className="text-muted-foreground">{label}:</span>
-    <span className="font-mono font-medium">{String(value)}</span>
-  </div>
-)
-
 const DetailRow = ({
   icon,
   label,

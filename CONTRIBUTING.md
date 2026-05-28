@@ -95,6 +95,7 @@ pnpm typecheck
 pnpm lint:check          # auto-fix with `pnpm lint:fix`
 pnpm format:check        # auto-fix with `pnpm format:fix`
 pnpm test:run            # full vitest suite
+pnpm verify              # typecheck + lint + full vitest suite
 pnpm build               # Chrome MV3
 pnpm build:firefox       # Firefox MV2
 ```
@@ -104,7 +105,10 @@ Only when relevant:
 ```bash
 pnpm verify:browser-smoke    # manifest / CSP / permissions changed
 pnpm generate:resources      # locale strings changed (also runs on `pnpm install`)
+pnpm docs:generate           # docs changelog/provider matrix source changed
 ```
+
+Docs site source lives in `docs-src/`, but not every docs page is hand-edited there. `tools/generate-docs.ts` generates the changelog page from `CHANGELOG.md` and the provider matrix page from `src/lib/providers/`. Treat `CHANGELOG.md`, provider source files, and `tools/generate-docs.ts` as the source of truth; do not hand-edit the generated pages under `docs-src/src/content/docs/about/changelog.md` or `docs-src/src/content/docs/concepts/provider-matrix.md`.
 
 The git hooks are split:
 

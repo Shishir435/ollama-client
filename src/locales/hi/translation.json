@@ -19,8 +19,7 @@
     },
     "actions": {
       "retry": "पुनः प्रयास करें",
-      "refresh": "रिफ्रेश करें",
-      "close": "बंद करें"
+      "refresh": "रिफ्रेश करें"
     },
     "updated_at": "अपडेट किया गया",
     "social": {
@@ -38,16 +37,7 @@
     "save": "सहेजें",
     "continue": "आयात जारी रखें",
     "reload": "एक्सटेंशन पुनः लोड करें",
-    "close": "बंद करें",
-    "status": {
-      "active": "सक्रिय"
-    },
-    "labels": {
-      "performance": "प्रदर्शन"
-    },
-    "nav": {
-      "settings_aria": "सेटिंग्स नेविगेशन"
-    }
+    "close": "बंद करें"
   },
   "extension": {
     "name": "Ollama Client - स्थानीय LLM मॉडल के साथ चैट",
@@ -83,15 +73,8 @@
       }
     },
     "setup_guide": {
-      "title": "त्वरित सेटअप (Ollama)",
-      "intro": "आपको एक चैट मॉडल और एक एम्बेडिंग मॉडल के साथ Ollama चालू रखना होगा।",
-      "step1": "Ollama इंस्टॉल करें और इसे शुरू करें (<code>ollama serve</code>)",
-      "step2": "एक चैट मॉडल खींचें (<code>ollama pull qwen2.5:3b</code>)",
-      "step3": "एक एम्बेडिंग मॉडल खींचें (<code>ollama pull all-minilm:latest</code>)",
-      "step4": "यहाँ वापस आएँ और <b>रीफ्रेश (Refresh)</b> पर क्लिक करें",
       "hint": "Ollama और मॉडल इंस्टॉल करने के लिए नीचे दिए गए सेटअप गाइड का पालन करें।",
       "full_guide_link": "पूर्ण सेटअप गाइड",
-      "firefox_warning": "Firefox उपयोगकर्ता: शुरू करने से पहले CORS सक्षम करने के लिए ollama-env.sh स्क्रिप्ट चलाएं।",
       "help_prefix": "मदद चाहिए?"
     },
     "features": {
@@ -130,9 +113,7 @@
       "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
     },
     "context_preview": {
-      "selection": "चुना गया टेक्स्ट",
       "files": "संलग्न फ़ाइलें",
-      "chars": "{{count}} अक्षर",
       "files_ready": "{{ready}}/{{total}} फ़ाइलें तैयार · {{chars}} अक्षर",
       "files_status": "{{processing}} प्रोसेस हो रही · {{errors}} त्रुटियाँ"
     },
@@ -142,18 +123,13 @@
     "actions": {
       "copy": "कॉपी करें",
       "copied": "कॉपी किया गया",
-      "regenerate": "पुनः जेनरेट करें",
       "switch_model_tooltip": "मॉडल बदलें",
       "fork": "फोर्क करें",
       "edit": "संपादित करें",
-      "export_as": "इस रूप में निर्यात करें...",
       "more": "और",
       "delete": "संदेश हटाएँ"
     },
     "metrics": {
-      "title": "प्रदर्शन मेट्रिक्स",
-      "toggle_aria_label": "मेट्रिक्स टॉगल करें",
-      "toggle_title": "मेट्रिक्स टॉगल करें",
       "total_time": "कुल समय",
       "generation_speed": "उत्पन्न करने की गति",
       "prompt_tokens": "प्रॉम्प्ट टोकन",
@@ -162,19 +138,10 @@
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} टोकन",
-      "prompt_tokens": "{{value}} प्रॉम्प्ट",
-      "generated_tokens": "{{value}} उत्पन्न",
-      "avg_speed": "{{speed}} t/s",
-      "speed_unit": "tok/s",
-      "messages": "{{value}} संदेश",
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
       "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
       "tooltip_speed": "औसत उत्पन्न करने की गति",
       "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
-    },
-    "file": {
-      "loading_content": "पूरी सामग्री लोड हो रही है..."
     },
     "reasoning": {
       "aria_label": "मॉडल विचार प्रक्रिया",
@@ -183,7 +150,6 @@
       "done": "पूर्ण",
       "hide": "छिपाएं",
       "explore": "अन्वेषण करें",
-      "loading_thinking": "सोच रहा हूँ",
       "loading_typing": "टाइपिंग",
       "loading_queued": "कतार में"
     },
@@ -205,12 +171,8 @@
       "no_results_description": "अपने कीवर्ड या खोज के दायरे को समायोजित करने का प्रयास करें।",
       "start_typing": "सिमेंटिक रूप से अपना चैट इतिहास खोजने के लिए टाइप करना शुरू करें...",
       "start_typing_description": "सिमेंटिक खोज के माध्यम से अपने चैट इतिहास को खोजें।",
-      "result_badge": "परिणाम",
-      "results_badge": "परिणाम",
-      "match_percentage": "% मिलान",
       "role_you": "आप",
       "role_assistant": "सहायक",
-      "unknown_session": "अज्ञात सेशन",
       "time_just_now": "अभी-अभी",
       "time_minute": "मिनट",
       "time_minutes": "मिनट",
@@ -382,7 +344,6 @@
       "chunk_overlap_label": "चंक्स ओवरलैप (टोकन)",
       "chunk_overlap_description": "चंक्स के बीच ओवरलैप। चंक सीमाओं के पार संदर्भ को संरक्षित करने में मदद करता है।",
       "chunking_strategy_label": "चंकिंग रणनीति",
-      "chunking_strategy_description": "टेक्स्ट को चंक्स में कैसे विभाजित किया जाए। हाइब्रिड संदर्भ और फोकस का सबसे अच्छा संतुलन प्रदान करता है।",
       "strategy_fixed": "निश्चित साइज़",
       "strategy_semantic": "सिमेंटिक सीमाएँ",
       "strategy_hybrid": "हाइब्रिड (अनुशंसित)",
@@ -392,8 +353,6 @@
       "batch_size_description": "समानांतर में एम्बेड करने के लिए टेक्स्ट की संख्या। उच्च मान तेज होते हैं लेकिन अधिक मेमोरी का उपयोग करते हैं।",
       "enable_caching_label": "कैशिंग सक्षम करें",
       "enable_caching_description": "पुनः जेनरेट करने से बचने के लिए समान सामग्री के लिए एम्बेडिंग कैश करें",
-      "use_webworker_label": "वेब वर्कर का उपयोग करें",
-      "use_webworker_description": "एम्बेडिंग जनरेशन को बैकग्राउंड थ्रेड पर ऑफ़लोड करें (अनुशंसित)",
       "limits_title": "सीमाएँ और भंडारण",
       "limits_description": "भंडारण सीमाएँ और सफाई नीतियां कॉन्फ़िगर करें",
       "max_embeddings_label": "प्रति फ़ाइल अधिकतम एम्बेडिंग",
@@ -404,12 +363,6 @@
       "auto_cleanup_description": "पुराने एम्बेडिंग को स्वचालित रूप से हटाएँ",
       "cleanup_age_label": "सफाई अवधि (दिन)",
       "cleanup_age_description": "इतने दिनों से पुराने एम्बेडिंग हटाएँ",
-      "chat_search_title": "चैट खोज सेटिंग्स",
-      "chat_search_description": "चैट इतिहास के लिए सिमेंटिक खोज कॉन्फ़िगर करें",
-      "auto_embed_label": "चैट संदेशों को स्वतः-एम्बेड करें",
-      "auto_embed_description": "सिमेंटिक खोज के लिए चैट संदेशों को स्वचालित रूप से एम्बेड करें (अनुशंसित)",
-      "backfill_title": "चैट इतिहास बैकफ़िल करें",
-      "backfill_description": "सिमेंटिक खोज को सक्षम करने के लिए सभी मौजूदा चैट संदेशों के लिए एम्बेडिंग जेनरेट करें",
       "search_settings_title": "खोज सेटिंग्स",
       "search_settings_description": "सिमेंटिक खोज के लिए डिफ़ॉल्ट पैरामीटर",
       "search_limit_label": "डिफ़ॉल्ट खोज सीमा",
@@ -424,7 +377,6 @@
       "ann_backend_description": "वेक्टर खोज के लिए इस्तेमाल होने वाला approximate nearest neighbor बैकएंड चुनें.",
       "ann_backend_placeholder": "बैकएंड चुनें",
       "ann_backend_group": "बैकएंड",
-      "ann_backend_wasm": "WASM HNSW (अनुशंसित)",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "ब्रूट फोर्स",
       "ann_min_vectors_label": "ANN न्यूनतम वेक्टर",
@@ -436,34 +388,8 @@
       "rag_settings_description": "कॉन्फ़िगर करें कि पुनर्प्राप्त संदर्भ के साथ प्रश्नों के उत्तर देने के लिए फ़ाइलों का उपयोग कैसे किया जाता है",
       "rag_enable_label": "RAG सक्षम करें",
       "rag_enable_description": "अपनी फ़ाइलों के बारे में प्रश्नों के उत्तर देने के लिए प्राप्त संदर्भ का उपयोग करें",
-      "rag_system_prompt_label": "RAG सिस्टम प्रॉम्प्ट",
-      "rag_system_prompt_description": "सिस्टम प्रॉम्प्ट के लिए टेम्पलेट। प्राप्त टेक्स्ट के लिए {context} और उपयोगकर्ता क्वेरी के लिए {question} का उपयोग करें।",
-      "advanced_retrieval_title": "उन्नत पुनर्प्राप्ति सेटिंग्स",
-      "adaptive_weights_label": "अनुकूली हाइब्रिड भार",
-      "adaptive_weights_description": "क्वेरी प्रकार (जैसे, कोड बनाम अवधारणाएं) के आधार पर कीवर्ड बनाम शब्दार्थ खोज को स्वचालित रूप से समायोजित करें",
-      "temporal_boosting_label": "कालिक प्रासंगिकता बढ़ावा",
-      "temporal_boosting_description": "घातीय क्षय स्कोरिंग का उपयोग करके नए दस्तावेजों को प्राथमिकता दें",
       "reranking_label": "री-रैंकिंग सक्षम करें",
       "reranking_description": "पुनर्प्राप्त परिणामों की प्रासंगिकता को स्कोर करने के लिए क्रॉस-एन्कोडर मॉडल का उपयोग करें। सटीकता में काफी सुधार करता है।",
-      "reranker_backend_label": "रीरैंकर बैकएंड",
-      "reranker_backend_description": "रीरैंकर मॉडल चलाने के लिए इस्तेमाल होने वाला बैकएंड चुनें.",
-      "reranker_backend_placeholder": "रीरैंकर बैकएंड चुनें",
-      "reranker_backend_group": "बैकएंड",
-      "reranker_backend_none": "बंद",
-      "hybrid_search_label": "हाइब्रिड खोज सक्षम करें",
-      "hybrid_search_description": "बेहतर रिकॉल के लिए कीवर्ड खोज (BM25) को सिमेंटिक खोज के साथ मिलाएं।",
-      "keyword_weight_label": "कीवर्ड भार",
-      "keyword_weight_description": "कीवर्ड (BM25) और सिमेंटिक खोज के बीच संतुलन।",
-      "diversity_settings_title": "विविधता सेटिंग्स",
-      "mmr_label": "MMR विविधता सक्षम करें",
-      "mmr_description": "अधिकतम सीमांत प्रासंगिकता (MMR) खोज परिणामों में अतिरेक को कम करती है।",
-      "diversity_lambda_label": "विविधता लैम्ब्डा",
-      "diversity_lambda_description": "कम मान विविधता को प्राथमिकता देते हैं, उच्च मान प्रासंगिकता को प्राथमिकता देते हैं।",
-      "quality_settings_title": "सामग्री गुणवत्ता फ़िल्टरिंग",
-      "exclude_casual_label": "आकस्मिक संदेशों को बाहर निकालें",
-      "exclude_casual_description": "अभिवादन, संक्षिप्त प्रतिक्रियाओं और कम जानकारी वाले संदेशों को फ़िल्टर करें।",
-      "min_quality_score_label": "न्यूनतम गुणवत्ता स्कोर",
-      "min_quality_score_description": "सामग्री को एम्बेड करने के लिए आवश्यक न्यूनतम गुणवत्ता स्कोर (0-1)।",
       "embedding_source_label": "Embedding बनाने का स्रोत",
       "embedding_source_description": "एम्बेडिंग्स आपके स्थानीय प्रदाता (डिफ़ॉल्ट रूप से Ollama) का उपयोग करके बनाए जाते हैं",
       "embedding_source_default_provider": "डिफ़ॉल्ट प्रदाता (Ollama)",
@@ -473,8 +399,6 @@
       "feedback_enable_description": "भविष्य की retrieval बेहतर करने के लिए याद रखें कि कौन से chunks उपयोगी थे.",
       "feedback_show_chunks_label": "Retrieved chunks दिखाएँ",
       "feedback_show_chunks_description": "चैट में source chunks को फ़ीडबैक बटन के साथ दिखाएँ.",
-      "feedback_blend_weight_label": "फ़ीडबैक लर्निंग वेट",
-      "feedback_blend_weight_description": "सीखे गए फ़ीडबैक बनाम मॉडल स्कोर पर कितना भरोसा करना है (0-1).",
       "feedback_export_button": "फ़ीडबैक डेटा एक्सपोर्ट करें",
       "feedback_clear_button": "सारा फ़ीडबैक हटाएँ",
       "feedback_privacy_note": "सारा फ़ीडबैक लोकल रूप से संग्रहित होता है. गोपनीयता के लिए queries hash की जाती हैं. कोई डेटा आपके डिवाइस से बाहर नहीं जाता.",
@@ -562,8 +486,7 @@
     },
     "toggle": {
       "label_off": "टैब",
-      "label_on": "टैब+",
-      "tooltip": "खुले टैब के साथ इंटरैक्ट करें"
+      "label_on": "टैब+"
     },
     "context": "संदर्भ",
     "inspector": {
@@ -599,15 +522,7 @@
       "title": "कीबोर्ड शॉर्टकट",
       "description": "सुविधाओं तक त्वरित पहुंच के लिए कीबोर्ड शॉर्टकट अनुकूलित करें।",
       "recording": "कुंजियां दबाएं...",
-      "reset_one": "डिफ़ॉल्ट पर रीसेट करें",
       "reset_all": "सभी शॉर्टकट रीसेट करें",
-      "conflict_warning": "\"{{key}}\" पहले से \"{{existing}}\" द्वारा उपयोग में है",
-      "category_navigation": "नेविगेशन",
-      "category_navigation_desc": "इंटरफ़ेस में नेविगेट करें",
-      "category_actions": "क्रियाएं",
-      "category_actions_desc": "सामान्य कार्य करें",
-      "category_toggles": "टॉगल",
-      "category_toggles_desc": "सुविधाएं चालू/बंद करें",
       "new_chat": "नई चैट",
       "new_chat_desc": "एक नई चैट सत्र बनाएं",
       "focus_input": "इनपुट फोकस करें",
@@ -852,7 +767,6 @@
       "voices": "वॉयस",
       "reset": "रीसेट करें",
       "guides": "गाइड",
-      "memory": "मेमोरी",
       "shortcuts": "शॉर्टकट"
     },
     "context": {
@@ -932,31 +846,7 @@
     },
     "embeddings": {
       "title": "वेक्टर एम्बेडिंग",
-      "beta_badge": "बीटा",
       "description": "एम्बेडिंग फ़ाइल अपलोड और चैट इतिहास के लिए सिमेंटिक खोज, पुनर्प्राप्ति संवर्धित जनरेशन, और संदर्भ-जागरूक सुविधाओं को सक्षम करती है।",
-      "model_label": "एम्बेडिंग मॉडल",
-      "status": {
-        "installed": "स्थापित",
-        "not_found": "नहीं मिला",
-        "checking": "जाँच रहा है...",
-        "check_button": "स्थिति जाँचें"
-      },
-      "not_loaded": {
-        "title": "एम्बेडिंग मॉडल लोड नहीं हुआ",
-        "description": "सिमेंटिक खोज, RAG (पुनर्प्राप्ति संवर्धित जनरेशन), और संदर्भ-जागरूक सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है। बेहतर संदर्भ समझ और फ़ाइल खोज क्षमताओं के साथ अपने चैट अनुभव को बढ़ाने के लिए इसे अभी डाउनलोड करें।",
-        "download_button": "मॉडल डाउनलोड करें"
-      },
-      "downloading": {
-        "title": "मॉडल डाउनलोड हो रहा है..."
-      },
-      "success": {
-        "title": "डाउनलोड सफल",
-        "description": "एम्बेडिंग मॉडल अब उपयोग के लिए तैयार है। अब आप सिमेंटिक खोज और संदर्भ-जागरूक सुविधाओं के साथ उन्नत चैट अनुभवों का आनंद ले सकते हैं।"
-      },
-      "auto_downloaded": {
-        "title": "स्वतः-स्थापित",
-        "description": "एक्सटेंशन इंस्टॉल करने पर एम्बेडिंग मॉडल स्वचालित रूप से डाउनलोड हो गया था।"
-      },
       "test_generation": {
         "title": "एम्बेडिंग जनरेशन का परीक्षण करें",
         "description": "यह सत्यापित करने के लिए कि एम्बेडिंग मॉडल सही ढंग से काम कर रहा है, एक परीक्षण एम्बेडिंग जेनरेट करें।",
@@ -986,10 +876,6 @@
         "point_2": "आपके चैट इतिहास और अपलोड की गई फ़ाइलों में सिमेंटिक खोज सक्षम करें",
         "point_3": "संदर्भ-जागरूक प्रतिक्रियाओं के लिए RAG को शक्ति प्रदान करें",
         "point_4": "AI प्रतिक्रियाओं को बेहतर बनाने के लिए आपकी फ़ाइलों से प्रासंगिक संदर्भ प्रदान करें"
-      },
-      "rag_mode": {
-        "label": "स्मार्ट संदर्भ (RAG)",
-        "description": "संपूर्ण फ़ाइल सामग्री भेजने के बजाय अपनी फ़ाइलों से प्रासंगिक संदर्भ खोजने के लिए सिमेंटिक खोज का उपयोग करें।"
       },
       "model_select": {
         "label": "एम्बेडिंग मॉडल",
@@ -1123,15 +1009,17 @@
       "custom_models_description": "यदि वे स्वचालित रूप से खोजी गई सूची में नहीं दिखाई देते हैं तो मैन्युअल रूप से मॉडल जोड़ें।",
       "test_connection": {
         "success_title": "कनेक्शन सफल",
-        "success_description": "{{url}} पर {{name}} से सफलतापूर्वक जुड़ा ({{count}} मॉडल)",
+        "success_description": "{{url}} पर {{name}} से सफलतापूर्वक कनेक्ट हुआ। {{count}} मॉडल मिले।",
         "failed_title": "कनेक्शन विफल",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "{{url}} तक नहीं पहुंचा जा सका। {{error}}",
         "no_models_title": "कोई मॉडल नहीं मिला",
-        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।",
-        "inline_success": "{{url}} से सफलतापूर्वक connect हुआ ({{count}} models मिले)",
-        "inline_no_models": "{{url}} से connect हुआ, लेकिन 0 models मिले. क्या service चल रही है?",
-        "inline_failed": "{{url}} से connect नहीं हो सका: {{error}}",
-        "default_url": "डिफ़ॉल्ट URL"
+        "no_models_description": "{{url}} तक पहुंचा गया, लेकिन कोई मॉडल वापस नहीं मिला। सुनिश्चित करें कि प्रदाता चल रहा है, आधार URL सही है, और कम से कम एक मॉडल इंस्टॉल या लोड है।",
+        "inline_success": "{{url}} से कनेक्ट हुआ। {{count}} मॉडल मिले।",
+        "inline_no_models": "{{url}} तक पहुंचा गया, लेकिन कोई मॉडल वापस नहीं मिला। जांचें कि प्रदाता चल रहा है और मॉडल इंस्टॉल या लोड हैं।",
+        "inline_failed": "{{url}} तक नहीं पहुंचा जा सका। {{error}}",
+        "default_url": "डिफ़ॉल्ट URL",
+        "api_key_required_title": "API कुंजी आवश्यक है",
+        "api_key_required": "कनेक्शन का परीक्षण करने से पहले {{name}} के लिए API कुंजी जोड़ें।"
       }
     },
     "migration": {
@@ -1154,10 +1042,6 @@
       "import_result": {
         "title": "आयात परिणाम",
         "description": "नीचे अपने डेटा आयात की स्थिति की समीक्षा करें:",
-        "sync": "सेटिंग्स",
-        "vector": "ज्ञान आधार (वेक्टर)",
-        "sqlite": "Chat History और Data",
-        "errors": "Errors मिले ({{count}})",
         "labels": {
           "sync": "प्राथमिकताएँ (Sync)",
           "local": "स्थानीय संग्रहण",

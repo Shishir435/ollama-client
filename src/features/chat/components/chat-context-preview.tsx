@@ -1,43 +1,28 @@
-import { FileText, Quote } from "lucide-react"
+import { FileText } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { ContextPreview } from "@/components/data-display"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { UseFileUploadReturn } from "@/features/file-upload/hooks/use-file-upload"
-import {
-  getFileContextPreview,
-  getQuotedSelectionPreview
-} from "../lib/context-preview-summary"
+import { getFileContextPreview } from "../lib/context-preview-summary"
 
 interface ChatContextPreviewProps {
-  input: string
   processingStates: UseFileUploadReturn["processingStates"]
 }
 
 const formatChars = (count: number) => count.toLocaleString()
 
 export const ChatContextPreview = ({
-  input,
   processingStates
 }: ChatContextPreviewProps) => {
   const { t } = useTranslation()
-  const selection = getQuotedSelectionPreview(input)
   const fileContext = getFileContextPreview(processingStates)
 
   const hasFileContext = fileContext.totalCount > 0
 
-  if (!selection && !hasFileContext) return null
+  if (!hasFileContext) return null
 
   const items = [
-    selection && {
-      key: "selection",
-      icon: Quote,
-      title: t("chat.context_preview.selection"),
-      body: selection.text,
-      meta: t("chat.context_preview.chars", {
-        count: formatChars(selection.charCount)
-      })
-    },
     hasFileContext && {
       key: "files",
       icon: FileText,

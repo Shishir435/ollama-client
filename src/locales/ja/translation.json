@@ -19,8 +19,7 @@
     },
     "actions": {
       "retry": "再試行",
-      "refresh": "更新",
-      "close": "閉じる"
+      "refresh": "更新"
     },
     "updated_at": "更新済み",
     "social": {
@@ -38,16 +37,7 @@
     "save": "保存",
     "continue": "インポートを続行",
     "reload": "拡張機能を再読み込み",
-    "close": "閉じる",
-    "status": {
-      "active": "アクティブ"
-    },
-    "labels": {
-      "performance": "パフォーマンス"
-    },
-    "nav": {
-      "settings_aria": "設定ナビゲーション"
-    }
+    "close": "閉じる"
   },
   "extension": {
     "name": "Ollama Client - ローカル LLM モデルとチャット",
@@ -83,15 +73,8 @@
       }
     },
     "setup_guide": {
-      "title": "クイックセットアップ (Ollama)",
-      "intro": "Ollamaを実行し、チャットモデルと埋め込みモデルをそれぞれ1つずつ用意する必要があります。",
-      "step1": "Ollamaをインストールして起動する (<code>ollama serve</code>)",
-      "step2": "チャットモデルをプルする (<code>ollama pull qwen2.5:3b</code>)",
-      "step3": "埋め込みモデルをプルする (<code>ollama pull all-minilm:latest</code>)",
-      "step4": "ここに戻って <b>更新</b> をクリックする",
       "hint": "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
       "full_guide_link": "完全なセットアップガイド",
-      "firefox_warning": "Firefoxユーザー: 開始前にCORSを有効にするためollama-env.shスクリプトを実行してください。",
       "help_prefix": "お困りですか？"
     },
     "features": {
@@ -130,9 +113,7 @@
       "drop_files_here": "ここにファイルをドロップ"
     },
     "context_preview": {
-      "selection": "選択したテキスト",
       "files": "添付ファイル",
-      "chars": "{{count}} 文字",
       "files_ready": "{{ready}}/{{total}} ファイル準備完了 · {{chars}} 文字",
       "files_status": "{{processing}} 処理中 · {{errors}} エラー"
     },
@@ -142,18 +123,13 @@
     "actions": {
       "copy": "コピー",
       "copied": "コピーしました",
-      "regenerate": "再生成",
       "switch_model_tooltip": "モデルを切り替え",
       "fork": "分岐",
       "edit": "編集",
-      "export_as": "エクスポート...",
       "more": "その他",
       "delete": "メッセージを削除"
     },
     "metrics": {
-      "title": "パフォーマンス指標",
-      "toggle_aria_label": "指標を切り替え",
-      "toggle_title": "指標を切り替え",
       "total_time": "合計時間",
       "generation_speed": "生成速度",
       "prompt_tokens": "プロンプトトークン",
@@ -162,19 +138,10 @@
       "prompt_eval_time": "プロンプト評価時間"
     },
     "session_metrics": {
-      "total_tokens": "{{value}} トークン",
-      "prompt_tokens": "{{value}} プロンプト",
-      "generated_tokens": "{{value}} 生成済",
-      "avg_speed": "{{speed}} t/s",
-      "speed_unit": "tok/s",
-      "messages": "{{value}} 件",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
       "tooltip_messages": "AI応答数"
-    },
-    "file": {
-      "loading_content": "コンテンツを読み込み中..."
     },
     "reasoning": {
       "aria_label": "モデルの思考プロセス",
@@ -183,7 +150,6 @@
       "done": "完了",
       "hide": "隠す",
       "explore": "詳細表示",
-      "loading_thinking": "思考中",
       "loading_typing": "入力中",
       "loading_queued": "待機中"
     },
@@ -205,12 +171,8 @@
       "no_results_description": "キーワードまたは検索範囲を調整してみてください。",
       "start_typing": "入力を開始してチャット履歴をセマンティック検索...",
       "start_typing_description": "セマンティック検索を使用してチャット履歴を検索します。",
-      "result_badge": "件",
-      "results_badge": "件",
-      "match_percentage": "% 一致",
       "role_you": "あなた",
       "role_assistant": "アシスタント",
-      "unknown_session": "不明なセッション",
       "time_just_now": "たった今",
       "time_minute": "分",
       "time_minutes": "分",
@@ -382,7 +344,6 @@
       "chunk_overlap_label": "チャンクオーバーラップ (トークン)",
       "chunk_overlap_description": "チャンク間の重複。チャンクの境界を越えて文脈を保持するのに役立ちます。",
       "chunking_strategy_label": "チャンク戦略",
-      "chunking_strategy_description": "テキストをチャンクに分割する方法。ハイブリッドは文脈と焦点のバランスが最適です。",
       "strategy_fixed": "固定サイズ",
       "strategy_semantic": "セマンティック境界",
       "strategy_hybrid": "ハイブリッド (推奨)",
@@ -392,8 +353,6 @@
       "batch_size_description": "並行して埋め込むテキストの数。値が高いほど高速ですが、より多くのメモリを使用します。",
       "enable_caching_label": "キャッシュを有効化",
       "enable_caching_description": "再生成を避けるため、同一コンテンツのエンベディングをキャッシュします",
-      "use_webworker_label": "Web Workerを使用",
-      "use_webworker_description": "エンベディング生成をバックグラウンドスレッドにオフロードします（推奨）",
       "limits_title": "制限とストレージ",
       "limits_description": "ストレージ制限とクリーンアップポリシーを設定します",
       "max_embeddings_label": "ファイルごとの最大エンベディング",
@@ -404,12 +363,6 @@
       "auto_cleanup_description": "古いエンベディングを自動的に削除します",
       "cleanup_age_label": "クリーンアップ期間 (日)",
       "cleanup_age_description": "指定した日数より古いエンベディングを削除します",
-      "chat_search_title": "チャット検索設定",
-      "chat_search_description": "チャット履歴のセマンティック検索を設定します",
-      "auto_embed_label": "チャットメッセージの自動埋め込み",
-      "auto_embed_description": "セマンティック検索用にチャットメッセージを自動的に埋め込みます（推奨）",
-      "backfill_title": "チャット履歴のバックフィル",
-      "backfill_description": "セマンティック検索を有効にするため、既存のすべてのチャットメッセージに対してエンベディングを生成します",
       "search_settings_title": "検索設定",
       "search_settings_description": "セマンティック検索のデフォルトパラメータ",
       "search_limit_label": "デフォルト検索件数",
@@ -424,7 +377,6 @@
       "ann_backend_description": "ベクトル検索で使う近似最近傍探索バックエンドを選択します。",
       "ann_backend_placeholder": "バックエンドを選択",
       "ann_backend_group": "バックエンド",
-      "ann_backend_wasm": "WASM HNSW（推奨）",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "総当たり",
       "ann_min_vectors_label": "ANN 最小ベクトル数",
@@ -436,34 +388,8 @@
       "rag_settings_description": "取得されたコンテキストを使用して、ファイルに関する質問に答える方法を設定します",
       "rag_enable_label": "RAGを有効にする",
       "rag_enable_description": "取得されたコンテキストを使用して、ファイルに関する質問に答えます",
-      "rag_system_prompt_label": "RAGシステムプロンプト",
-      "rag_system_prompt_description": "システムプロンプトのテンプレート。取得されたテキストには {context}、ユーザーのクエリには {question} を使用します。",
-      "advanced_retrieval_title": "高度な検索設定",
-      "adaptive_weights_label": "適応型ハイブリッド重み付け",
-      "adaptive_weights_description": "クエリタイプ（例：コード対概念）に基づいて、キーワード検索とセマンティック検索を自動的に調整します",
-      "temporal_boosting_label": "時間的関連性の向上",
-      "temporal_boosting_description": "指数関数的減衰スコアリングを使用して、新しいドキュメントを優先します",
       "reranking_label": "再ランク付けを有効にする",
       "reranking_description": "クロスエンコーダーモデルを使用して、検索結果の関連性をスコアリングします。精度が大幅に向上します。",
-      "reranker_backend_label": "リランカー バックエンド",
-      "reranker_backend_description": "リランカーモデルを実行するバックエンドを選択します。",
-      "reranker_backend_placeholder": "リランカー バックエンドを選択",
-      "reranker_backend_group": "バックエンド",
-      "reranker_backend_none": "無効",
-      "hybrid_search_label": "ハイブリッド検索を有効にする",
-      "hybrid_search_description": "キーワード検索 (BM25) とセマンティック検索を組み合わせて、再現率を向上させます。",
-      "keyword_weight_label": "キーワードの重み",
-      "keyword_weight_description": "キーワード (BM25) とセマンティック検索のバランス。",
-      "diversity_settings_title": "多様性設定",
-      "mmr_label": "MMR 多様性を有効にする",
-      "mmr_description": "最大限界関連性 (MMR) は、検索結果の冗長性を減らします。",
-      "diversity_lambda_label": "多様性ラムダ",
-      "diversity_lambda_description": "低い値は多様性を優先し、高い値は関連性を優先します。",
-      "quality_settings_title": "コンテンツ品質フィルタリング",
-      "exclude_casual_label": "カジュアルなメッセージを除外",
-      "exclude_casual_description": "挨拶、短い応答、情報の少ないメッセージを除外します。",
-      "min_quality_score_label": "最小品質スコア",
-      "min_quality_score_description": "コンテンツの埋め込みに必要な最小品質スコア (0-1)。",
       "embedding_source_label": "Embedding 生成元",
       "embedding_source_description": "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
       "embedding_source_default_provider": "既定のプロバイダー（Ollama）",
@@ -473,8 +399,6 @@
       "feedback_enable_description": "どのチャンクが役立ったかを記憶し、今後の検索を改善します。",
       "feedback_show_chunks_label": "取得したチャンクを表示",
       "feedback_show_chunks_description": "チャット内にソースチャンクとフィードバックボタンを表示します。",
-      "feedback_blend_weight_label": "フィードバック学習の重み",
-      "feedback_blend_weight_description": "学習済みフィードバックをモデルスコアに対してどの程度信頼するか（0-1）。",
       "feedback_export_button": "フィードバックデータをエクスポート",
       "feedback_clear_button": "すべてのフィードバックを削除",
       "feedback_privacy_note": "すべてのフィードバックはローカルに保存されます。クエリはプライバシー保護のためハッシュ化されます。データがデバイス外に出ることはありません。",
@@ -562,8 +486,7 @@
     },
     "toggle": {
       "label_off": "タブ",
-      "label_on": "タブ+",
-      "tooltip": "開いているタブと対話する"
+      "label_on": "タブ+"
     },
     "context": "コンテキスト",
     "inspector": {
@@ -599,15 +522,7 @@
       "title": "キーボードショートカット",
       "description": "機能への素早いアクセス用にキーボードショートカットをカスタマイズ",
       "recording": "キーを押してください...",
-      "reset_one": "デフォルトにリセット",
       "reset_all": "すべてのショートカットをリセット",
-      "conflict_warning": "\"{{key}}\" は \"{{existing}}\" で既に使用されています",
-      "category_navigation": "ナビゲーション",
-      "category_navigation_desc": "インターフェースを移動する",
-      "category_actions": "アクション",
-      "category_actions_desc": "一般的なタスクを実行する",
-      "category_toggles": "トグル",
-      "category_toggles_desc": "機能のオン/オフを切り替える",
       "new_chat": "新しいチャット",
       "new_chat_desc": "新しいチャットセッションを作成",
       "focus_input": "入力にフォーカス",
@@ -852,7 +767,6 @@
       "voices": "音声",
       "reset": "リセット",
       "guides": "ガイド",
-      "memory": "メモリ",
       "shortcuts": "ショートカット"
     },
     "context": {
@@ -932,31 +846,7 @@
     },
     "embeddings": {
       "title": "ベクトルエンベディング",
-      "beta_badge": "ベータ",
       "description": "エンベディングにより、セマンティック検索、RAG（検索拡張生成）、およびファイルアップロードやチャット履歴のコンテキスト認識機能が可能になります。",
-      "model_label": "エンベディングモデル",
-      "status": {
-        "installed": "インストール済み",
-        "not_found": "見つかりません",
-        "checking": "確認中...",
-        "check_button": "状態を確認"
-      },
-      "not_loaded": {
-        "title": "エンベディングモデルがロードされていません",
-        "description": "エンベディングモデルは、セマンティック検索、RAG（検索拡張生成）、およびコンテキスト認識機能に必要です。今すぐダウンロードして、より良いコンテキスト理解とファイル検索機能でチャット体験を向上させましょう。",
-        "download_button": "モデルをダウンロード"
-      },
-      "downloading": {
-        "title": "モデルをダウンロード中..."
-      },
-      "success": {
-        "title": "ダウンロード成功",
-        "description": "エンベディングモデルを使用する準備が整いました。セマンティック検索とコンテキスト認識機能を備えた強化されたチャット体験をお楽しみいただけます。"
-      },
-      "auto_downloaded": {
-        "title": "自動インストール済み",
-        "description": "拡張機能のインストール時にエンベディングモデルが自動的にダウンロードされました。"
-      },
       "test_generation": {
         "title": "エンベディング生成をテスト",
         "description": "テストエンベディングを生成して、エンベディングモデルが正しく動作していることを確認します。",
@@ -986,10 +876,6 @@
         "point_2": "チャット履歴やアップロードされたファイル全体でセマンティック検索を有効にします",
         "point_3": "コンテキスト認識応答のためのRAGを強化します",
         "point_4": "AIの応答を改善するために、ファイルから関連するコンテキストを提供します"
-      },
-      "rag_mode": {
-        "label": "スマートコンテキスト (RAG)",
-        "description": "ファイルの内容全体を送信する代わりに、セマンティック検索を使用してファイルから関連するコンテキストを見つけます。"
       },
       "model_select": {
         "label": "エンベディングモデル",
@@ -1123,15 +1009,17 @@
       "custom_models_description": "自動検出リストに表示されない場合は、モデルを手動で追加してください。",
       "test_connection": {
         "success_title": "接続成功",
-        "success_description": "{{url}} の {{name}} に正常に接続しました ({{count}} モデル)",
+        "success_description": "{{url}} の {{name}} に正常に接続しました。{{count}} 個のモデルが見つかりました。",
         "failed_title": "接続失敗",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "{{url}} に接続できませんでした。{{error}}",
         "no_models_title": "モデルが見つかりません",
-        "no_models_description": "{{url}} に接続しましたが、モデルが見つかりませんでした。サービスが正しく実行されているか確認してください。",
-        "inline_success": "{{url}} に正常に接続しました（{{count}} 個のモデルを検出）",
-        "inline_no_models": "{{url}} に接続しましたが、モデルは 0 件でした。サービスは実行中ですか？",
-        "inline_failed": "{{url}} への接続に失敗しました: {{error}}",
-        "default_url": "デフォルト URL"
+        "no_models_description": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、ベースURLが正しく、少なくとも1つのモデルがインストールまたはロードされていることを確認してください。",
+        "inline_success": "{{url}} に接続しました。{{count}} 個のモデルが見つかりました。",
+        "inline_no_models": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、モデルがインストールまたはロードされていることを確認してください。",
+        "inline_failed": "{{url}} に接続できませんでした。{{error}}",
+        "default_url": "デフォルト URL",
+        "api_key_required_title": "APIキーが必要です",
+        "api_key_required": "接続をテストする前に、{{name}} のAPIキーを追加してください。"
       }
     },
     "migration": {
@@ -1154,10 +1042,6 @@
       "import_result": {
         "title": "インポート結果",
         "description": "以下のデータインポートのステータスを確認してください:",
-        "sync": "設定",
-        "vector": "ナレッジベース（ベクトル）",
-        "sqlite": "チャット履歴とデータ",
-        "errors": "発生したエラー（{{count}}）",
         "labels": {
           "sync": "環境設定 (Sync)",
           "local": "ローカルストレージ",
