@@ -1,8 +1,30 @@
 ---
 import { SITE_URL } from "@/seo/constants.mjs"
 
+type StarlightHeadTag = {
+  tag: "meta" | "link" | "script" | "style" | "title"
+  attrs?: Record<string, string | number | boolean | undefined>
+  content?: string
+}
+
+type StarlightRouteLocals = {
+  starlightRoute: {
+    head: StarlightHeadTag[]
+    id: string
+    entry: {
+      data: {
+        title: string
+        description: string
+      }
+    }
+    siteTitle: string
+    lastUpdated?: Date
+    lang: string
+  }
+}
+
 const { head, id: slug, entry, siteTitle, lastUpdated, lang } =
-  Astro.locals.starlightRoute
+  (Astro.locals as StarlightRouteLocals).starlightRoute
 
 const base = Astro.site?.toString() ?? SITE_URL
 const site = base.replace(/\/$/, "")
