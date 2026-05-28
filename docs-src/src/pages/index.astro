@@ -27,12 +27,12 @@ const features = [
   {
     title: "Multi-provider local models",
     description:
-      "Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP. Capability-aware routing with provider-aware model selection."
+      "Ollama, LM Studio, llama.cpp, OpenAI, vLLM, LocalAI, KoboldCPP. Capability-aware routing with provider-aware model selection."
   },
   {
     title: "Multi-chat sessions",
     description:
-      "Multiple concurrent chats with branch navigation. Persisted locally in IndexedDB / SQLite with tab-refresh awareness."
+      "Multiple concurrent chats with branch navigation. SQLite-first local persistence with Dexie recovery fallback."
   },
   {
     title: "Enhanced content extraction",
@@ -62,7 +62,7 @@ const features = [
   {
     title: "Advanced configuration",
     description:
-      "Provider base URL control, selected model ref, capability checks, debug logging."
+      "Provider base URL control, selected model mapping, capability checks, debug logging."
   },
   {
     title: "Privacy first",
@@ -85,7 +85,7 @@ const stack = [
   {/* Hero */}
   <section class="border-b border-border/60 pb-20 pt-24 sm:pt-32">
     <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-      Local-first · v0.6.x
+      Local-first · v0.7.0
     </p>
     <h1
       class="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl"

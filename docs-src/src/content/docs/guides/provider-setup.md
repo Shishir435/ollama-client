@@ -3,7 +3,7 @@ title: Provider Setup
 description: Configure Ollama, LM Studio, llama.cpp, or any OpenAI-compatible local server to chat with local LLMs from your browser.
 ---
 
-Recommended setup is Ollama as the primary provider, with LM Studio and llama.cpp as alternatives. Any OpenAI-compatible server (vLLM, LocalAI, KoboldCPP) also works once configured. This guide reflects `v0.6.x` behavior.
+Recommended setup is Ollama as the primary local provider, with LM Studio and llama.cpp as local alternatives. OpenAI, vLLM, LocalAI, and KoboldCPP also work once configured. This guide reflects `v0.7.0` behavior.
 
 ## 1. Install the extension
 
@@ -13,10 +13,11 @@ Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-c
 
 | Provider | Default endpoint | Notes |
 |---|---|---|
-| Ollama | `http://localhost:11434` | Recommended baseline. Full feature support (pull, delete, version). |
-| LM Studio | `http://localhost:1234/v1` | OpenAI-compatible. Chat + embeddings. |
+| Ollama | `http://localhost:11434` | Recommended baseline. Fullest model-management support. |
+| LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat and embeddings with LM Studio model discovery. |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible. Run with `llama-server`. |
-| vLLM / LocalAI / KoboldCPP | `http://localhost:8000/v1` | Any OpenAI-compatible server; use your actual URL. |
+| OpenAI | `https://api.openai.com/v1` | Remote provider; bring your own API key. |
+| vLLM / LocalAI / KoboldCPP | User configured | OpenAI-compatible servers; use your actual URL. |
 
 ## 3. Start Ollama (primary path)
 
@@ -68,8 +69,8 @@ curl http://localhost:8000/v1/models
 ## 6. Reality checks
 
 - Chat generation is fully provider-agnostic.
-- Pull / delete / unload / version actions are Ollama-only.
-- Embedding generation currently flows through Ollama; other providers can read embeddings but not produce them.
+- Model-management actions depend on provider capabilities. Ollama has the fullest support; LM Studio adds pull/unload support.
+- Embedding generation uses the configured provider when supported, then falls back through the shared embedding path and Ollama for reliability.
 
 ## 7. CORS and browser notes
 

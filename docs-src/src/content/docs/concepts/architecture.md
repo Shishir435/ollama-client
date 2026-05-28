@@ -1,9 +1,9 @@
 ---
 title: Architecture
-description: Implementation details, tradeoffs, and constraints for Ollama Client v0.6.x.
+description: Implementation details, tradeoffs, and constraints for Ollama Client v0.7.0.
 ---
 
-This document describes the current implementation as of `v0.6.x` and highlights tradeoffs, assumptions, and known constraints.
+This document describes the current implementation as of `v0.7.0` and highlights tradeoffs, assumptions, and known constraints.
 
 ## Entry points
 
@@ -86,7 +86,7 @@ flowchart TD
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
 - Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
-- Default profiles: Ollama, LM Studio, llama.cpp.
+- Default profiles: Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, and LocalAI.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.
 
@@ -120,15 +120,14 @@ See the [API reference](/reference/lib/repositories/chat-history/) for the full 
 ## RAG / embedding architecture
 
 - Embeddings are generated via a browser-safe strategy chain.
-- Content is chunked and stored in the local SQL WASM store.
+- Content is chunked and indexed locally; chat history uses SQLite, while vector storage remains in IndexedDB via the embeddings storage layer.
 - Query-time retrieval uses hybrid search with adaptive weighting.
 - The pipeline includes diversity filtering and recency / feedback score hooks.
-- Browser-first module contracts for the next refactor are documented in `src/lib/rag/core/interfaces.ts`.
 - Embeddings use a fallback chain: provider-native → shared model → background warmup → Ollama fallback.
-- Background model preparation currently performs pull operations only through Ollama handlers.
+- Background model preparation uses provider capabilities where available; Ollama remains the most complete management path.
 
 :::note[Constraint]
-There is no OCR pipeline and no WASM-based reranker in `v0.6.x`.
+There is no OCR pipeline. Cross-encoder reranking is browser/CSP-sensitive and depends on the bundled ONNX Runtime WASM path being available.
 :::
 
 ## Why a background worker
@@ -191,7 +190,7 @@ These are non-implementation notes for a hypothetical desktop port.
 
 ## Near-term priorities
 
-1. Normalize provider-agnostic naming.
-2. Decide on a single source of truth for chat persistence.
+1. Finish retiring legacy `ollama-*` naming where compatibility does not require it.
+2. Retire Dexie chat-history paths after the SQLite cutover soak.
 3. Expand provider parity for management actions.
 4. Improve retrieval observability and failure diagnostics.

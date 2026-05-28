@@ -10,66 +10,10 @@
  *   - Code blocks: github-light + github-dark-dimmed (configured in
  *     astro.config.mjs via expressiveCode).
  *
- * Starlight's design system is exposed via --sl-* CSS variables;
- * everything below either overrides those or layers on top with
+ * Shared color, font, and radius tokens live in tokens.css. Everything
+ * below either overrides Starlight structure or layers on top with
  * higher-specificity selectors.
  */
-
-/* ---------- Palette ------------------------------------------------------ */
-
-/*
- * Mapped to the extension's `base-mira` shadcn palette
- * (see src/globals.css in the extension). Same primary, same zinc
- * neutrals, so the two surfaces feel like one product.
- */
-:root {
-  /* Fonts */
-  --sl-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --sl-font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular",
-    Menlo, Consolas, monospace;
-
-  /* Light surface — pure white, near-black ink. */
-  --sl-color-white: oklch(0.141 0.005 285.823); /* primary text on light  */
-  --sl-color-gray-1: oklch(0.21 0.006 285.885); /* secondary text         */
-  --sl-color-gray-2: oklch(0.274 0.006 286.033);
-  --sl-color-gray-3: oklch(0.552 0.016 285.938); /* muted-foreground      */
-  --sl-color-gray-4: oklch(0.705 0.015 286.067);
-  --sl-color-gray-5: oklch(0.87 0.006 286.32); /* border-strong           */
-  --sl-color-gray-6: oklch(0.92 0.004 286.32); /* border                  */
-  --sl-color-gray-7: oklch(0.967 0.001 286.375); /* muted / surface-2     */
-  --sl-color-black: oklch(1 0 0); /* page background on light             */
-
-  /* Brand accent — zinc hue, slightly elevated chroma for visibility. */
-  --sl-color-accent-low: oklch(0.967 0.003 286.375 / 0.5);
-  --sl-color-accent: oklch(0.37 0.013 285.805);
-  --sl-color-accent-high: oklch(0.274 0.006 286.033);
-
-  /* Spacing & radii */
-  --sl-content-width: 48rem; /* 768px — shadcn-narrow prose column        */
-  --sl-sidebar-width: 16.5rem;
-  --sl-text-h1: 2.25rem;
-  --sl-text-h2: 1.5rem;
-  --sl-text-h3: 1.25rem;
-  --sl-text-h4: 1.0625rem;
-  --sl-text-h5: 0.9375rem;
-}
-
-/* Dark surface — zinc-950 canvas, near-white ink. */
-:root[data-theme="dark"] {
-  --sl-color-white: oklch(0.985 0 0);
-  --sl-color-gray-1: oklch(0.92 0 0);
-  --sl-color-gray-2: oklch(0.85 0 0);
-  --sl-color-gray-3: oklch(0.705 0.015 286.067); /* muted-foreground dk */
-  --sl-color-gray-4: oklch(0.4 0.006 286);
-  --sl-color-gray-5: oklch(0.274 0.006 286.033); /* border-strong dk    */
-  --sl-color-gray-6: oklch(0.22 0.006 286);
-  --sl-color-gray-7: oklch(0.18 0.005 285);
-  --sl-color-black: oklch(0.141 0.005 285.823); /* zinc-950 canvas       */
-
-  --sl-color-accent-low: oklch(0.274 0.006 286.033 / 0.5);
-  --sl-color-accent: oklch(0.552 0.016 285.938);
-  --sl-color-accent-high: oklch(0.705 0.015 286.067);
-}
 
 /* ---------- Typography --------------------------------------------------- */
 
@@ -273,6 +217,25 @@ starlight-toc nav a[aria-current="true"] {
 .expressive-code .frame .header {
   font-family: var(--sl-font-mono);
   font-size: 0.6875rem !important;
+}
+
+@media (max-width: 50rem) {
+  .expressive-code .copy,
+  .expressive-code button.copy,
+  .expressive-code .copy button {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    min-width: 1.75rem !important;
+    min-height: 1.75rem !important;
+    padding: 0.25rem !important;
+  }
+
+  .expressive-code .copy svg,
+  .expressive-code button.copy svg,
+  .expressive-code .copy button svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
 }
 
 /* ---------- Page meta / "Last updated" footer --------------------------- */

@@ -1,21 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Generates the provider capability matrix page for the docs site.
+ * Generates derived Markdown pages for the docs site.
  *
- * Source of truth: each provider class declares its own
- * `capabilities: ProviderCapabilities` field (literal in the base
- * classes, merged in subclass constructors). This script instantiates
- * each provider with a minimal config, reads the resolved capabilities
- * object, and emits a Markdown table to
- *
- *   docs-src/src/content/docs/concepts/provider-matrix.md
- *
- * which the Starlight build then renders. Re-runs are cheap (<200ms)
- * and the result tracks the code exactly -- adding a new provider or
- * changing a capability flag in TypeScript automatically updates the
- * docs the next time `pnpm docs:build` runs.
+ * Source files stay outside `docs-src`; Starlight consumes generated
+ * pages under `docs-src/src/content/docs/` during docs builds.
  */
-import { writeFileSync } from "node:fs"
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -35,10 +29,44 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(__dirname, "..")
-const OUTPUT_PATH = join(
+const CHANGELOG_INPUT_PATH = join(REPO_ROOT, "CHANGELOG.md")
+const CHANGELOG_OUTPUT_PATH = join(
+  REPO_ROOT,
+  "docs-src/src/content/docs/about/changelog.md"
+)
+const PROVIDER_MATRIX_OUTPUT_PATH = join(
   REPO_ROOT,
   "docs-src/src/content/docs/concepts/provider-matrix.md"
 )
+
+function generateChangelogPage() {
+  console.log("Generating changelog docs...")
+
+  if (!existsSync(CHANGELOG_INPUT_PATH)) {
+    console.error(`CHANGELOG.md not found at ${CHANGELOG_INPUT_PATH}`)
+    process.exit(1)
+  }
+
+  let changelog = readFileSync(CHANGELOG_INPUT_PATH, "utf-8")
+
+  // Strip the first line so Starlight uses the page title from frontmatter.
+  changelog = changelog.replace(/^# Changelog\n/i, "")
+
+  const frontmatter = `---
+title: Changelog
+description: Release history for Ollama Client.
+---
+`
+
+  const content = `${frontmatter}
+${changelog}
+`
+
+  writeFileSync(CHANGELOG_OUTPUT_PATH, content, "utf-8")
+  console.log(
+    `Generated ${CHANGELOG_OUTPUT_PATH.replace(REPO_ROOT + "/", "")}`
+  )
+}
 
 /**
  * Stable list of providers to document. Hard-coded so we don't have to
@@ -148,28 +176,31 @@ const COLUMNS = [
 
 const check = (supported: boolean) => (supported ? "✓" : "—")
 
-const rows = providers.map(({ config, build, notes }) => {
-  const instance = build(config)
-  const cells = COLUMNS.map((col) =>
-    check(instance.capabilities[col.key])
-  ).join(" | ")
-  return { name: config.name, cells, notes }
-})
+function generateProviderMatrix() {
+  console.log("Generating provider matrix docs...")
 
-const header = `| Provider | ${COLUMNS.map((c) => c.label).join(" | ")} |`
-const separator = `|---|${COLUMNS.map(() => "---").join("|")}|`
-const tableLines = rows.map((r) => `| **${r.name}** | ${r.cells} |`)
+  const rows = providers.map(({ config, build, notes }) => {
+    const instance = build(config)
+    const cells = COLUMNS.map((col) =>
+      check(instance.capabilities[col.key])
+    ).join(" | ")
+    return { name: config.name, cells, notes }
+  })
 
-const notesLines = rows
-  .filter((r) => r.notes)
-  .map((r) => `- **${r.name}** — ${r.notes}`)
+  const header = `| Provider | ${COLUMNS.map((c) => c.label).join(" | ")} |`
+  const separator = `|---|${COLUMNS.map(() => "---").join("|")}|`
+  const tableLines = rows.map((r) => `| **${r.name}** | ${r.cells} |`)
 
-/*
- * No timestamp in the rendered file: keep the output deterministic so
- * re-running the generator doesn't churn the git diff. Provenance
- * lives in this script + the source files it reads.
- */
-const markdown = `---
+  const notesLines = rows
+    .filter((r) => r.notes)
+    .map((r) => `- **${r.name}** — ${r.notes}`)
+
+  /*
+   * No timestamp in the rendered file: keep the output deterministic so
+   * re-running the generator doesn't churn the git diff. Provenance
+   * lives in this script + the source files it reads.
+   */
+  const markdown = `---
 title: Provider Capability Matrix
 description: Which features each provider supports. Generated from the extension's TypeScript source at build time.
 sidebar:
@@ -192,18 +223,24 @@ ${notesLines.join("\n")}
 
 ## How this table is built
 
-The generator at \`tools/generate-provider-matrix.ts\` instantiates each provider class with a minimal config and reads its \`capabilities: ProviderCapabilities\` field. The same field is the runtime source of truth for the extension UI's capability-aware routing (chat menu, model-management actions, etc.), so any divergence here would already be a bug.
+The generator at \`tools/generate-docs.ts\` instantiates each provider class with a minimal config and reads its \`capabilities: ProviderCapabilities\` field. The same field is the runtime source of truth for the extension UI's capability-aware routing (chat menu, model-management actions, etc.), so any divergence here would already be a bug.
 
 If you're adding a new provider, register it in:
 
 1. \`src/lib/providers/\` (the class itself)
 2. \`src/lib/providers/factory.ts\` (the factory map)
 3. \`src/lib/providers/manager.ts\` (\`DEFAULT_PROVIDERS\`)
-4. \`tools/generate-provider-matrix.ts\` (this generator's \`providers\` array)
+4. \`tools/generate-docs.ts\` (this generator's \`providers\` array)
 
 The first three are mandatory for the runtime; the fourth keeps the docs honest.
 `
 
-writeFileSync(OUTPUT_PATH, markdown, "utf-8")
-console.log(`✓ Provider matrix written to ${OUTPUT_PATH.replace(REPO_ROOT + "/", "")}`)
-console.log(`  ${providers.length} providers × ${COLUMNS.length} capabilities`)
+  writeFileSync(PROVIDER_MATRIX_OUTPUT_PATH, markdown, "utf-8")
+  console.log(
+    `Generated ${PROVIDER_MATRIX_OUTPUT_PATH.replace(REPO_ROOT + "/", "")}`
+  )
+  console.log(`  ${providers.length} providers × ${COLUMNS.length} capabilities`)
+}
+
+generateProviderMatrix()
+generateChangelogPage()
