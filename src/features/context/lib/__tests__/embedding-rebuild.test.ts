@@ -83,4 +83,22 @@ describe("rebuildEmbeddings", () => {
 
     expect(clearAllVectors).not.toHaveBeenCalled()
   })
+
+  it("stops before clearing existing vectors when message discovery fails", async () => {
+    const clearAllVectors = vi.fn()
+
+    await expect(
+      rebuildEmbeddings({
+        memoryEnabled: true,
+        clearEmbeddingCache: vi.fn(),
+        clearAllVectors,
+        getEmbeddableMessagesBySession: vi
+          .fn()
+          .mockRejectedValue(new Error("source read failed")),
+        embedMessages: vi.fn()
+      })
+    ).rejects.toThrow("source read failed")
+
+    expect(clearAllVectors).not.toHaveBeenCalled()
+  })
 })

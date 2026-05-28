@@ -188,10 +188,11 @@ describe("chatSessionStore", () => {
     })
 
     const { createSession } = chatSessionStore.getState()
-    await createSession()
+    const id = await createSession()
 
     const state = chatSessionStore.getState()
     expect(state.sessions.length).toBe(1)
+    expect(id).toBe(state.sessions[0].id)
     expect(state.sessions[0].title).toBe("New Chat")
     expect(state.sessions[0].messages).toEqual([])
     expect(state.currentSessionId).toBe(state.sessions[0].id)

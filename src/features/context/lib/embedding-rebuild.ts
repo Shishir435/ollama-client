@@ -28,9 +28,9 @@ export const rebuildEmbeddings = async ({
   pauseMs = 100
 }: RebuildEmbeddingsOptions): Promise<RebuildProgress> => {
   clearEmbeddingCache()
-  await clearAllVectors()
 
   if (!memoryEnabled) {
+    await clearAllVectors()
     const progress = { current: 0, total: 0 }
     onProgress?.(progress)
     return progress
@@ -41,6 +41,7 @@ export const rebuildEmbeddings = async ({
   let processedMessages = 0
 
   onProgress?.({ current: 0, total: totalMessages })
+  await clearAllVectors()
 
   for (const [sessionId, messages] of messagesBySession.entries()) {
     if (messages.length === 0) continue

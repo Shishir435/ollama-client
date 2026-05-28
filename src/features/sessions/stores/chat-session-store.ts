@@ -239,6 +239,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       currentSessionId: id,
       hasSession: true
     }))
+    return id
   },
 
   deleteSession: async (id: string) => {

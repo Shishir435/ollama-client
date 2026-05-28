@@ -14,7 +14,6 @@ import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import { getLatestSession } from "@/lib/repositories/chat-history"
 import type { ChatMessage, FileAttachment } from "@/types"
 
 export const useChat = () => {
@@ -63,11 +62,9 @@ export const useChat = () => {
 
   const ensureSessionId = async (): Promise<string | null> => {
     if (currentSessionId) return currentSessionId
-    await createSession()
-    const latest = await getLatestSession()
-    if (!latest) return null
-    setCurrentSessionId(latest.id)
-    return latest.id
+    const sessionId = await createSession()
+    setCurrentSessionId(sessionId)
+    return sessionId
   }
 
   const autoRenameSession = async (sessionId: string, content: string) => {

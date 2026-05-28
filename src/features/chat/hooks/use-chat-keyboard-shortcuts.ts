@@ -11,7 +11,7 @@ import type { ChatMessage } from "@/types"
 interface UseChatKeyboardShortcutsParams {
   messages: ChatMessage[]
   currentSessionId: string | null
-  createSession: () => void
+  createSession: () => Promise<string>
   deleteSession: (id: string) => void
 }
 
