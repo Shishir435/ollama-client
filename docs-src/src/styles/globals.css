@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
 /*
  * Design tokens for the Ollama Client docs site (landing page).
@@ -18,51 +19,6 @@
  */
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 5% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 5% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 5% 10%;
-    --primary: 217 80% 50%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 5% 15%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 95%;
-    --accent-foreground: 240 5% 15%;
-    --destructive: 0 72% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 90%;
-    --input: 240 5% 90%;
-    --ring: 240 5% 64%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 240 6% 6%;
-    --foreground: 0 0% 98%;
-    --card: 240 5% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 5% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 213 90% 65%;
-    --primary-foreground: 240 5% 10%;
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 4% 64%;
-    --accent: 240 4% 20%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 40%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 18%;
-    --input: 240 4% 18%;
-    --ring: 240 4% 64%;
-  }
-
   * {
     box-sizing: border-box;
   }

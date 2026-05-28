@@ -1,0 +1,97 @@
+/*
+ * Shared docs design tokens.
+ *
+ * These mirror the extension's shadcn/base-mira direction while keeping
+ * the current docs design unchanged: neutral surfaces, compact radius,
+ * Geist fonts, and restrained borders.
+ */
+
+:root {
+  /* Landing / Tailwind token inputs. */
+  --background: 0 0% 100%;
+  --foreground: 240 5% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 5% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 5% 10%;
+  --primary: 217 80% 50%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 5% 15%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --accent: 240 5% 95%;
+  --accent-foreground: 240 5% 15%;
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5% 90%;
+  --input: 240 5% 90%;
+  --ring: 240 5% 64%;
+  --radius: 0.5rem;
+
+  /* Starlight token inputs. */
+  --sl-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular",
+    Menlo, Consolas, monospace;
+
+  --sl-color-white: oklch(0.141 0.005 285.823);
+  --sl-color-gray-1: oklch(0.21 0.006 285.885);
+  --sl-color-gray-2: oklch(0.274 0.006 286.033);
+  --sl-color-gray-3: oklch(0.552 0.016 285.938);
+  --sl-color-gray-4: oklch(0.705 0.015 286.067);
+  --sl-color-gray-5: oklch(0.87 0.006 286.32);
+  --sl-color-gray-6: oklch(0.92 0.004 286.32);
+  --sl-color-gray-7: oklch(0.967 0.001 286.375);
+  --sl-color-black: oklch(1 0 0);
+
+  --sl-color-accent-low: oklch(0.967 0.003 286.375 / 0.5);
+  --sl-color-accent: oklch(0.37 0.013 285.805);
+  --sl-color-accent-high: oklch(0.274 0.006 286.033);
+
+  --sl-content-width: 48rem;
+  --sl-sidebar-width: 16.5rem;
+  --sl-text-h1: 2.25rem;
+  --sl-text-h2: 1.5rem;
+  --sl-text-h3: 1.25rem;
+  --sl-text-h4: 1.0625rem;
+  --sl-text-h5: 0.9375rem;
+}
+
+.dark,
+:root[data-theme="dark"] {
+  --background: 240 6% 6%;
+  --foreground: 0 0% 98%;
+  --card: 240 5% 10%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 5% 10%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 213 90% 65%;
+  --primary-foreground: 240 5% 10%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 4% 64%;
+  --accent: 240 4% 20%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 4% 18%;
+  --input: 240 4% 18%;
+  --ring: 240 4% 64%;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-white: oklch(0.985 0 0);
+  --sl-color-gray-1: oklch(0.92 0 0);
+  --sl-color-gray-2: oklch(0.85 0 0);
+  --sl-color-gray-3: oklch(0.705 0.015 286.067);
+  --sl-color-gray-4: oklch(0.4 0.006 286);
+  --sl-color-gray-5: oklch(0.274 0.006 286.033);
+  --sl-color-gray-6: oklch(0.22 0.006 286);
+  --sl-color-gray-7: oklch(0.18 0.005 285);
+  --sl-color-black: oklch(0.141 0.005 285.823);
+
+  --sl-color-accent-low: oklch(0.274 0.006 286.033 / 0.5);
+  --sl-color-accent: oklch(0.552 0.016 285.938);
+  --sl-color-accent-high: oklch(0.705 0.015 286.067);
+}

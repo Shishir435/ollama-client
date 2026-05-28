@@ -91,6 +91,7 @@ export default defineConfig({
       customCss: [
         "@fontsource-variable/geist",
         "@fontsource-variable/geist-mono",
+        "./src/styles/tokens.css",
         "./src/styles/starlight-overrides.css"
       ],
       expressiveCode: {
