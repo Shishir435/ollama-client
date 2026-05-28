@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useChat } from "../use-chat"
 
+const toastMock = vi.hoisted(() => vi.fn())
+
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn((config, defaultValue) => {
@@ -18,6 +20,10 @@ vi.mock("@plasmohq/storage/hook", () => ({
     }
     return [defaultValue, vi.fn()]
   })
+}))
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: toastMock })
 }))
 
 vi.mock("@/lib/embeddings/embedding-client", () => ({
@@ -306,6 +312,80 @@ describe("useChat", () => {
         metrics: expect.objectContaining({
           contextBuildFailed: true
         })
+      })
+    )
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Context preparation failed"
+      })
+    )
+  })
+
+  it("still shows context failure toast when persisting assistant error fails", async () => {
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
+    const addMessage = vi
+      .fn()
+      .mockResolvedValueOnce(123)
+      .mockRejectedValueOnce(new Error("assistant save failed"))
+    const startStream = vi.fn()
+
+    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+      new Error("storage unavailable")
+    )
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
+    vi.mocked(useChatSessions).mockReturnValue({
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Test",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      refreshSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      addMessage,
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
+    })
+
+    const { result } = renderHook(() => useChat())
+
+    await act(async () => {
+      await result.current.sendMessage("Hello")
+    })
+
+    expect(startStream).not.toHaveBeenCalled()
+    expect(addMessage).toHaveBeenCalledTimes(2)
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Context preparation failed"
       })
     )
   })

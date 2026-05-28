@@ -235,7 +235,8 @@ export const ContextSettings = () => {
         clearAllVectors,
         getEmbeddableMessagesBySession,
         embedMessages,
-        onProgress: setRebuildProgress
+        onProgress: setRebuildProgress,
+        onVectorsCleared: loadStats
       })
 
       setRebuildComplete(true)

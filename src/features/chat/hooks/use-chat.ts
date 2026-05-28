@@ -193,19 +193,27 @@ export const useChat = () => {
       setIsLoading(false)
       setIsStreaming(false)
 
-      await addMessage(sessionId, {
-        role: "assistant",
-        content:
-          "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
-        done: true,
-        model:
-          customModel ||
-          config.selectedModelRef?.modelId ||
-          config.selectedModel,
-        metrics: {
-          contextBuildFailed: true
-        }
-      })
+      try {
+        await addMessage(sessionId, {
+          role: "assistant",
+          content:
+            "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+          done: true,
+          model:
+            customModel ||
+            config.selectedModelRef?.modelId ||
+            config.selectedModel,
+          metrics: {
+            contextBuildFailed: true
+          }
+        })
+      } catch (messageError) {
+        logger.error(
+          "Failed to persist context preparation error message",
+          "useChat",
+          { error: messageError }
+        )
+      }
 
       toast({
         variant: "destructive",

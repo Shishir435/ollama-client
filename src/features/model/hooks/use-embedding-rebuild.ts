@@ -2,6 +2,7 @@ import { useCallback, useState } from "react"
 
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
+import { rebuildEmbeddings } from "@/features/context/lib/embedding-rebuild"
 import { clearEmbeddingCache } from "@/lib/embeddings/embedding-client"
 import { clearAllVectors } from "@/lib/embeddings/vector-store"
 
@@ -13,7 +14,7 @@ export interface RebuildProgress {
 export interface UseEmbeddingRebuildOptions {
   /** When true, re-embed all chat messages after clearing vectors. */
   memoryEnabled: boolean
-  /** Called twice: before vectors are cleared, and once rebuild is done. */
+  /** Called after vectors are cleared, and once rebuild is done. */
   onStoreChanged?: () => Promise<void> | void
 }
 
@@ -58,25 +59,15 @@ export const useEmbeddingRebuild = ({
     setProgress(null)
 
     try {
-      clearEmbeddingCache()
-      await clearAllVectors()
-      await onStoreChanged?.()
-
-      if (memoryEnabled) {
-        const { messagesBySession, totalMessages } =
-          await getEmbeddableMessagesBySession()
-        setProgress({ current: 0, total: totalMessages })
-
-        let processed = 0
-        for (const [sessionId, messages] of messagesBySession.entries()) {
-          if (messages.length === 0) continue
-          await embedMessages(messages, sessionId)
-          processed += messages.length
-          setProgress({ current: processed, total: totalMessages })
-          // Yield to keep the UI responsive between sessions.
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
-      }
+      await rebuildEmbeddings({
+        memoryEnabled,
+        clearEmbeddingCache,
+        clearAllVectors,
+        getEmbeddableMessagesBySession,
+        embedMessages,
+        onProgress: setProgress,
+        onVectorsCleared: onStoreChanged
+      })
 
       setComplete(true)
       await onStoreChanged?.()

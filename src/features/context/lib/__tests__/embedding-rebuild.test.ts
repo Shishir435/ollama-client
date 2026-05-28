@@ -9,6 +9,7 @@ describe("rebuildEmbeddings", () => {
     const getEmbeddableMessagesBySession = vi.fn()
     const embedMessages = vi.fn()
     const onProgress = vi.fn()
+    const onVectorsCleared = vi.fn()
 
     const result = await rebuildEmbeddings({
       memoryEnabled: false,
@@ -16,11 +17,13 @@ describe("rebuildEmbeddings", () => {
       clearAllVectors,
       getEmbeddableMessagesBySession,
       embedMessages,
-      onProgress
+      onProgress,
+      onVectorsCleared
     })
 
     expect(clearEmbeddingCache).toHaveBeenCalledTimes(1)
     expect(clearAllVectors).toHaveBeenCalledTimes(1)
+    expect(onVectorsCleared).toHaveBeenCalledTimes(1)
     expect(getEmbeddableMessagesBySession).not.toHaveBeenCalled()
     expect(embedMessages).not.toHaveBeenCalled()
     expect(onProgress).toHaveBeenCalledWith({ current: 0, total: 0 })
@@ -32,6 +35,7 @@ describe("rebuildEmbeddings", () => {
     const clearAllVectors = vi.fn().mockResolvedValue(0)
     const embedMessages = vi.fn().mockResolvedValue(undefined)
     const onProgress = vi.fn()
+    const onVectorsCleared = vi.fn()
     const sessionA: ChatMessage[] = [
       { role: "user" as const, content: "first message" }
     ]
@@ -54,6 +58,7 @@ describe("rebuildEmbeddings", () => {
       }),
       embedMessages,
       onProgress,
+      onVectorsCleared,
       pauseMs: 0
     })
 
@@ -62,6 +67,13 @@ describe("rebuildEmbeddings", () => {
     expect(onProgress).toHaveBeenNthCalledWith(1, { current: 0, total: 3 })
     expect(onProgress).toHaveBeenNthCalledWith(2, { current: 1, total: 3 })
     expect(onProgress).toHaveBeenNthCalledWith(3, { current: 3, total: 3 })
+    expect(onVectorsCleared).toHaveBeenCalledTimes(1)
+    expect(clearAllVectors.mock.invocationCallOrder[0]).toBeLessThan(
+      onVectorsCleared.mock.invocationCallOrder[0]
+    )
+    expect(onVectorsCleared.mock.invocationCallOrder[0]).toBeLessThan(
+      embedMessages.mock.invocationCallOrder[0]
+    )
     expect(result).toEqual({ current: 3, total: 3 })
   })
 
