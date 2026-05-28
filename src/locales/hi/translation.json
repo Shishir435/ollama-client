@@ -1013,15 +1013,17 @@
       "custom_models_description": "यदि वे स्वचालित रूप से खोजी गई सूची में नहीं दिखाई देते हैं तो मैन्युअल रूप से मॉडल जोड़ें।",
       "test_connection": {
         "success_title": "कनेक्शन सफल",
-        "success_description": "{{url}} पर {{name}} से सफलतापूर्वक जुड़ा ({{count}} मॉडल)",
+        "success_description": "Successfully connected to {{name}} at {{url}}. Found {{count}} model(s).",
         "failed_title": "कनेक्शन विफल",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "Could not reach {{url}}. {{error}}",
         "no_models_title": "कोई मॉडल नहीं मिला",
-        "no_models_description": "{{url}} से जुड़ा लेकिन कोई मॉडल नहीं मिला। जांचें कि क्या सेवा सही ढंग से चल रही है।",
-        "inline_success": "{{url}} से सफलतापूर्वक connect हुआ ({{count}} models मिले)",
-        "inline_no_models": "{{url}} से connect हुआ, लेकिन 0 models मिले. क्या service चल रही है?",
-        "inline_failed": "{{url}} से connect नहीं हो सका: {{error}}",
-        "default_url": "डिफ़ॉल्ट URL"
+        "no_models_description": "Reached {{url}}, but no models were returned. Make sure the provider is running, the base URL is correct, and at least one model is installed or loaded.",
+        "inline_success": "Connected to {{url}}. Found {{count}} model(s).",
+        "inline_no_models": "Reached {{url}}, but no models were returned. Check that the provider is running and has models installed or loaded.",
+        "inline_failed": "Could not reach {{url}}. {{error}}",
+        "default_url": "डिफ़ॉल्ट URL",
+        "api_key_required_title": "API key required",
+        "api_key_required": "Add an API key for {{name}} before testing the connection."
       }
     },
     "migration": {

@@ -100,6 +100,17 @@ export const ProviderSettings = () => {
 
   const activeConfig = providers.find((p) => p.id === selectedId)
   const cspCompatibilityHint = getCspCompatibilityHint(activeConfig?.baseUrl)
+  const displayUrl =
+    activeConfig?.baseUrl || t("settings.providers.test_connection.default_url")
+
+  const isLocalProvider = [
+    ProviderId.OLLAMA,
+    ProviderId.LM_STUDIO,
+    ProviderId.LLAMA_CPP,
+    ProviderId.VLLM,
+    ProviderId.LOCALAI,
+    ProviderId.KOBOLDCPP
+  ].includes(activeConfig?.id as ProviderId)
 
   const handleTestConnection = async () => {
     if (!activeConfig) return
@@ -114,6 +125,25 @@ export const ProviderSettings = () => {
     setTestingConnection(true)
     setConnectionStatus(null)
 
+    if (!isLocalProvider && !activeConfig.apiKey?.trim()) {
+      const message = t("settings.providers.test_connection.api_key_required", {
+        name: activeConfig.name
+      })
+
+      setConnectionStatus({
+        success: false,
+        message
+      })
+
+      toast({
+        title: t("settings.providers.test_connection.api_key_required_title"),
+        description: message,
+        variant: "destructive"
+      })
+      setTestingConnection(false)
+      return
+    }
+
     try {
       const provider = await ProviderFactory.getProviderWithConfig(activeConfig)
       console.log(
@@ -125,11 +155,8 @@ export const ProviderSettings = () => {
         models.length
       )
 
-      const displayUrl =
-        activeConfig.baseUrl ||
-        t("settings.providers.test_connection.default_url")
-
-      // Treat 0 models as a connection failure - likely wrong URL or service not running
+      // Treat 0 models as a connection failure: the URL may be wrong, the
+      // service may be offline, auth may have failed, or no models are loaded.
       if (models.length === 0) {
         setConnectionStatus({
           success: false,
@@ -163,7 +190,7 @@ export const ProviderSettings = () => {
           "settings.providers.test_connection.success_description",
           {
             name: activeConfig.name,
-            url: activeConfig.baseUrl,
+            url: displayUrl,
             count: models.length
           }
         ),
@@ -176,9 +203,6 @@ export const ProviderSettings = () => {
       const shouldShowCspHint =
         errorMessage.toLowerCase().includes("failed to fetch") &&
         Boolean(cspCompatibilityHint)
-      const displayUrl =
-        activeConfig.baseUrl ||
-        t("settings.providers.test_connection.default_url")
       const failureMessage = t(
         "settings.providers.test_connection.inline_failed",
         {
@@ -199,7 +223,7 @@ export const ProviderSettings = () => {
         description: t(
           "settings.providers.test_connection.failed_description",
           {
-            url: activeConfig.baseUrl,
+            url: displayUrl,
             error: shouldShowCspHint
               ? `${errorMessage}. ${cspCompatibilityHint}`
               : errorMessage
@@ -263,14 +287,6 @@ export const ProviderSettings = () => {
     return () => clearTimeout(timeoutId)
   }, [activeConfig, hasUnsavedChanges])
 
-  const isLocalProvider = [
-    ProviderId.OLLAMA,
-    ProviderId.LM_STUDIO,
-    ProviderId.LLAMA_CPP,
-    ProviderId.VLLM,
-    ProviderId.LOCALAI,
-    ProviderId.KOBOLDCPP
-  ].includes(activeConfig?.id as ProviderId)
   const isRemoteEndpoint = (() => {
     const url = activeConfig?.baseUrl?.trim()
     if (!url) return false

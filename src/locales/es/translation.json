@@ -1013,15 +1013,17 @@
       "custom_models_description": "Añadir modelos manualmente si no aparecen en la lista descubierta automáticamente.",
       "test_connection": {
         "success_title": "Conexión exitosa",
-        "success_description": "Conectado exitosamente a {{name}} en {{url}} ({{count}} modelos)",
+        "success_description": "Successfully connected to {{name}} at {{url}}. Found {{count}} model(s).",
         "failed_title": "Error de conexión",
-        "failed_description": "{{url}}: {{error}}",
+        "failed_description": "Could not reach {{url}}. {{error}}",
         "no_models_title": "No se encontraron modelos",
-        "no_models_description": "Conectado a {{url}} pero no se encontraron modelos. Compruebe si el servicio se está ejecutando correctamente.",
-        "inline_success": "Conexión correcta con {{url}} ({{count}} modelos encontrados)",
-        "inline_no_models": "Conectado a {{url}}, pero se encontraron 0 modelos. ¿El servicio está en ejecución?",
-        "inline_failed": "Error al conectar con {{url}}: {{error}}",
-        "default_url": "URL predeterminada"
+        "no_models_description": "Reached {{url}}, but no models were returned. Make sure the provider is running, the base URL is correct, and at least one model is installed or loaded.",
+        "inline_success": "Connected to {{url}}. Found {{count}} model(s).",
+        "inline_no_models": "Reached {{url}}, but no models were returned. Check that the provider is running and has models installed or loaded.",
+        "inline_failed": "Could not reach {{url}}. {{error}}",
+        "default_url": "URL predeterminada",
+        "api_key_required_title": "API key required",
+        "api_key_required": "Add an API key for {{name}} before testing the connection."
       }
     },
     "migration": {
