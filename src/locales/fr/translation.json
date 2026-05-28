@@ -130,9 +130,7 @@
       "drop_files_here": "Déposer des fichiers ici"
     },
     "context_preview": {
-      "selection": "Texte sélectionné",
       "files": "Fichiers joints",
-      "chars": "{{count}} caractères",
       "files_ready": "{{ready}}/{{total}} fichiers prêts · {{chars}} caractères",
       "files_status": "{{processing}} traitement · {{errors}} erreurs"
     },

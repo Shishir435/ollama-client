@@ -130,9 +130,7 @@
       "drop_files_here": "Trascina i file qui"
     },
     "context_preview": {
-      "selection": "Testo selezionato",
       "files": "File allegati",
-      "chars": "{{count}} caratteri",
       "files_ready": "{{ready}}/{{total}} file pronti · {{chars}} caratteri",
       "files_status": "{{processing}} in elaborazione · {{errors}} errori"
     },

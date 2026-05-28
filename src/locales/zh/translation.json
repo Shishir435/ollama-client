@@ -130,9 +130,7 @@
       "drop_files_here": "将文件拖到此处"
     },
     "context_preview": {
-      "selection": "已选文本",
       "files": "已附加文件",
-      "chars": "{{count}} 个字符",
       "files_ready": "{{ready}}/{{total}} 个文件就绪 · {{chars}} 个字符",
       "files_status": "{{processing}} 个处理中 · {{errors}} 个错误"
     },
