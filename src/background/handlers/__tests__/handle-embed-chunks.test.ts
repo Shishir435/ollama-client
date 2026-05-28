@@ -198,6 +198,40 @@ describe("Handle Embed Chunks", () => {
       expect(port.disconnect).toHaveBeenCalled()
     })
 
+    it("should ignore duplicate done messages after closing", () => {
+      handleEmbedFileChunksPort(port)
+
+      listeners.message?.({ type: "done" })
+      listeners.message?.({ type: "done" })
+
+      expect(port.postMessage).toHaveBeenCalledTimes(1)
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "done"
+        })
+      )
+      expect(port.disconnect).toHaveBeenCalledTimes(1)
+    })
+
+    it("should reject batches before init", async () => {
+      handleEmbedFileChunksPort(port)
+
+      await listeners.message?.({
+        type: "batch",
+        payload: { chunks: [{ index: 0, text: "chunk1" }] }
+      })
+
+      expect(generateEmbeddingsBatch).not.toHaveBeenCalled()
+      expect(storeVector).not.toHaveBeenCalled()
+      expect(port.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "error",
+          message: "Embedding stream was not initialized"
+        })
+      )
+      expect(port.disconnect).toHaveBeenCalled()
+    })
+
     it("should handle errors during processing", async () => {
       handleEmbedFileChunksPort(port)
 

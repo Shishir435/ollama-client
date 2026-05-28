@@ -170,23 +170,54 @@ export const useChat = () => {
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
     await autoRenameSession(sessionId, titleContent)
 
-    // Build the RAG-augmented body in the background.
-    const ragResult = await buildRagContext({
-      rawInput: userContent,
-      files,
-      messages,
-      hasTabContext,
-      contextText: contextText || "",
-      tabDocuments,
-      memoryEnabled: config.memoryEnabled,
-      maxTabContextChars: config.maxTabContextChars,
-      maxRagContextChars: config.maxRagContextChars,
-      groundedOnlyMode: config.groundedOnlyMode,
-      selectedModel: config.selectedModel,
-      selectedModelRef: config.selectedModelRef,
-      customModel,
-      toast
-    })
+    let ragResult: Awaited<ReturnType<typeof buildRagContext>>
+    try {
+      // Build the RAG-augmented body in the background.
+      ragResult = await buildRagContext({
+        rawInput: userContent,
+        files,
+        messages,
+        hasTabContext,
+        contextText: contextText || "",
+        tabDocuments,
+        memoryEnabled: config.memoryEnabled,
+        maxTabContextChars: config.maxTabContextChars,
+        maxRagContextChars: config.maxRagContextChars,
+        groundedOnlyMode: config.groundedOnlyMode,
+        selectedModel: config.selectedModel,
+        selectedModelRef: config.selectedModelRef,
+        customModel,
+        toast
+      })
+    } catch (error) {
+      logger.error("Failed to build chat context", "useChat", { error })
+      ragSourcesRef.current = null
+      promptContextStatsRef.current = null
+      setIsLoading(false)
+      setIsStreaming(false)
+
+      await addMessage(sessionId, {
+        role: "assistant",
+        content:
+          "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+        done: true,
+        model:
+          customModel ||
+          config.selectedModelRef?.modelId ||
+          config.selectedModel,
+        metrics: {
+          contextBuildFailed: true
+        }
+      })
+
+      toast({
+        variant: "destructive",
+        title: "Context preparation failed",
+        description:
+          "The message was saved, but the assistant could not start because context preparation failed."
+      })
+      return
+    }
 
     let { contentWithRAG } = ragResult
     const { ragSources, promptContextStats } = ragResult

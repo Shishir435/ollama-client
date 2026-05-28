@@ -247,6 +247,83 @@ describe("useChat", () => {
     )
   })
 
+  it("adds a completed assistant error when context preparation fails", async () => {
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
+    const addMessage = vi.fn().mockResolvedValue(123)
+    const startStream = vi.fn()
+
+    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+      new Error("storage unavailable")
+    )
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
+    vi.mocked(useChatSessions).mockReturnValue({
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Test",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue(undefined),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      refreshSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      addMessage,
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
+    })
+
+    const { result } = renderHook(() => useChat())
+
+    await act(async () => {
+      await result.current.sendMessage("Hello")
+    })
+
+    expect(startStream).not.toHaveBeenCalled()
+    expect(addMessage).toHaveBeenNthCalledWith(
+      1,
+      "session-1",
+      expect.objectContaining({
+        role: "user",
+        content: "Hello"
+      })
+    )
+    expect(addMessage).toHaveBeenNthCalledWith(
+      2,
+      "session-1",
+      expect.objectContaining({
+        role: "assistant",
+        done: true,
+        metrics: expect.objectContaining({
+          contextBuildFailed: true
+        })
+      })
+    )
+  })
+
   it("should create session if none exists", async () => {
     const { useChatSessions } = await import(
       "@/features/sessions/stores/chat-session-store"

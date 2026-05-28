@@ -215,6 +215,23 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   })
                 }
 
+                if (!safeConfig.showEmbeddingProgress) {
+                  setProcessingStates((prev) => {
+                    const next = new Map(prev)
+                    next.set(file, {
+                      file,
+                      status: processResult.success ? "success" : "error",
+                      error: processResult.error,
+                      result
+                    })
+                    return next
+                  })
+                }
+
+                if (onFileProcessed) {
+                  onFileProcessed(result)
+                }
+
                 // Skip old chunking system
                 continue
               }

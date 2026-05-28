@@ -3,6 +3,14 @@ import { db } from "@/lib/db"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { chatSessionStore } from "../chat-session-store"
 
+const createDeferred = <T>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
   db: {
@@ -401,5 +409,87 @@ describe("chatSessionStore", () => {
     await chatSessionStore.getState().refreshSessions()
 
     expect(chatSessionStore.getState().currentSessionId).toBe("fresh-head")
+  })
+
+  it("ignores stale message loads after switching sessions", async () => {
+    const slowMessages = createDeferred<any[]>()
+    const fastMessages = createDeferred<any[]>()
+
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: "slow",
+          title: "Slow",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: []
+        },
+        {
+          id: "fast",
+          title: "Fast",
+          createdAt: 2,
+          updatedAt: 2,
+          messages: []
+        }
+      ],
+      currentSessionId: null,
+      hasSession: false
+    })
+
+    vi.mocked(db.sessions.get).mockImplementation((async (id) => ({
+      id: id as unknown as string,
+      title: String(id),
+      createdAt: 1,
+      updatedAt: 1
+    })) as any)
+    vi.mocked(db.messages.where).mockReturnValue({
+      equals: vi.fn((sessionId: string) => ({
+        sortBy: vi.fn(() =>
+          sessionId === "slow" ? slowMessages.promise : fastMessages.promise
+        ),
+        reverse: vi.fn().mockReturnValue({
+          sortBy: vi.fn(() =>
+            sessionId === "slow" ? slowMessages.promise : fastMessages.promise
+          )
+        })
+      }))
+    } as any)
+    vi.mocked(db.files.where).mockReturnValue({
+      anyOf: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) })
+    } as any)
+
+    chatSessionStore.getState().setCurrentSessionId("slow")
+    chatSessionStore.getState().setCurrentSessionId("fast")
+
+    fastMessages.resolve([
+      {
+        id: 2,
+        role: "user",
+        content: "fast message",
+        sessionId: "fast",
+        timestamp: 2
+      }
+    ])
+    await fastMessages.promise
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    slowMessages.resolve([
+      {
+        id: 1,
+        role: "user",
+        content: "slow message",
+        sessionId: "slow",
+        timestamp: 1
+      }
+    ])
+    await slowMessages.promise
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const state = chatSessionStore.getState()
+    expect(state.currentSessionId).toBe("fast")
+    expect(state.sessions.find((s) => s.id === "fast")?.messages).toEqual([
+      expect.objectContaining({ content: "fast message" })
+    ])
+    expect(state.sessions.find((s) => s.id === "slow")?.messages).toEqual([])
   })
 })

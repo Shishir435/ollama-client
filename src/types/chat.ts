@@ -56,6 +56,7 @@ export interface ChatMessage {
     tabContextLength?: number
     ragContextLength?: number
     tabContextTruncated?: boolean
+    contextBuildFailed?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
