@@ -1,20 +1,5 @@
 import type { FileProcessingState } from "@/lib/file-processors/types"
 
-export const getQuotedSelectionPreview = (input: string) => {
-  const quotedLines = input
-    .split("\n")
-    .filter((line) => line.startsWith("> "))
-    .map((line) => line.slice(2))
-
-  const text = quotedLines.join("\n").trim()
-  if (!text) return null
-
-  return {
-    text,
-    charCount: text.length
-  }
-}
-
 export const getFileContextPreview = (
   processingStates: FileProcessingState[]
 ) => {

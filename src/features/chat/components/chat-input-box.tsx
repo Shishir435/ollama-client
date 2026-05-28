@@ -372,7 +372,7 @@ export const ChatInputBox = ({
         <TabsSelect />
       </div>
 
-      <ChatContextPreview input={input} processingStates={processingStates} />
+      <ChatContextPreview processingStates={processingStates} />
 
       <ChatInputAttachmentList
         processingStates={processingStates}
