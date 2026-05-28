@@ -275,6 +275,25 @@ starlight-toc nav a[aria-current="true"] {
   font-size: 0.6875rem !important;
 }
 
+@media (max-width: 50rem) {
+  .expressive-code .copy,
+  .expressive-code button.copy,
+  .expressive-code .copy button {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    min-width: 1.75rem !important;
+    min-height: 1.75rem !important;
+    padding: 0.25rem !important;
+  }
+
+  .expressive-code .copy svg,
+  .expressive-code button.copy svg,
+  .expressive-code .copy button svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+}
+
 /* ---------- Page meta / "Last updated" footer --------------------------- */
 
 footer .sl-flex.meta {

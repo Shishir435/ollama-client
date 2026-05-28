@@ -292,6 +292,14 @@ pre code {
     padding-top: 2.5rem;
   }
 
+  .copy {
+    top: 0.4rem;
+    right: 0.4rem;
+    border-radius: 6px;
+    padding: 0.18rem 0.4rem;
+    font-size: 0.68rem;
+  }
+
   .top-nav {
     gap: 0.5rem;
   }

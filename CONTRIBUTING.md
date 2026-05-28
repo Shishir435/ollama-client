@@ -44,25 +44,25 @@ Read [AGENTS.md](./AGENTS.md) for the full map. Quick orientation:
 | Content scripts (page extraction, selection button) | `src/entrypoints/content.ts`, `src/entrypoints/selection-button.content.tsx` → `src/contents/` |
 | Feature folders (chat, sessions, model, file-upload, prompt, knowledge, memory, context, tabs) | `src/features/<feature>/` |
 | Provider abstraction + implementations | `src/lib/providers/` |
-| Chat-history persistence (Dexie now, SQLite incoming) | `src/lib/repositories/chat-history.ts` (facade) |
+| Chat-history persistence (SQLite live, Dexie recovery fallback) | `src/lib/repositories/chat-history.ts` (facade) |
 | Embeddings, RAG, vector store | `src/lib/embeddings/`, `src/features/chat/rag/` |
 | Shared UI primitives (shadcn) | `src/components/ui/` |
 | i18n source-of-truth | `src/locales/<lang>/translation.json` (NOT `src/i18n/resources.ts` — that file is build-generated) |
 
-### Storage backend (changing during rollout)
+### Storage backend
 
 `src/lib/repositories/chat-history.ts` is a runtime facade. It routes
 every chat-history read/write to one of two backends:
 
 - `dexie-chat-history.ts` — IndexedDB via Dexie (legacy)
-- `sqlite-chat-history.ts` — sql.js (SQLite) persisted to IndexedDB (current target)
+- `sqlite-chat-history.ts` — sql.js (SQLite) persisted to IndexedDB (live primary)
 
 The selection is persisted in extension storage under
-`chat-history-backend`. After the on-install migration succeeds, the
-hook flips to `"sqlite"`. Setting that key to `"dexie"` and reloading
-acts as a kill switch back to the previous store. **Always import
-from `chat-history.ts` (the facade), never from a specific backend
-file.**
+`chat-history-backend`. SQLite is the live primary, while Dexie remains
+as an automatic recovery target during the cutover window. Setting that
+key to `"dexie"` and reloading acts as a kill switch back to the
+previous store. **Always import from `chat-history.ts` (the facade),
+never from a specific backend file.**
 
 ## 3. Where to add things
 
