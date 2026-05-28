@@ -354,10 +354,6 @@ export const ChatInputBox = ({
     }
   }, [appendSelectionToInput])
 
-  const _successCount = processingStates.filter(
-    (s) => s.status === "success"
-  ).length
-
   const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
   const pendingTabCount = selectedTabNums.filter(
     (tabId) => loadingIds?.[tabId]
