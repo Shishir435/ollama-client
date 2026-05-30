@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { z } from "zod"
 import { ConfirmActionDialog } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,8 +11,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { logger } from "@/lib/logger"
 import { Download, MoreHorizontal, RotateCcw, Upload } from "@/lib/lucide-icon"
+import { safeJsonParse } from "@/lib/validation"
 import type { PromptTemplate } from "@/types"
+import { PromptTemplateSchema } from "@/types/ui-state.schemas"
 
 export interface PromptTemplateActionsProps {
   onExport: () => void
@@ -39,15 +43,18 @@ export const PromptTemplateActions = ({
 
     const reader = new FileReader()
     reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(
-          e.target?.result as string
-        ) as PromptTemplate[]
-        onImport(imported)
-      } catch (error) {
-        console.error("Failed to import templates:", error)
+      const result = safeJsonParse(
+        e.target?.result as string,
+        z.array(PromptTemplateSchema)
+      )
+      if (!result.success) {
+        logger.error("Failed to import templates", "PromptTemplateActions", {
+          error: result.error
+        })
         alert("Failed to import templates. Please check the file format.")
+        return
       }
+      onImport(result.data)
     }
     reader.readAsText(file)
 

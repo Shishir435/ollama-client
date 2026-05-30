@@ -1,53 +1,37 @@
 import { useCallback } from "react"
+import { z } from "zod"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
 import { bulkPutSessions } from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
-
-function isValidChatSession(obj: unknown): obj is ChatSession {
-  if (!obj || typeof obj !== "object") return false
-  const candidate = obj as Record<string, unknown>
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.createdAt === "number" &&
-    typeof candidate.updatedAt === "number" &&
-    Array.isArray(candidate.messages) &&
-    candidate.messages.every(
-      (m: unknown) =>
-        m &&
-        typeof m === "object" &&
-        typeof (m as Record<string, unknown>).role === "string" &&
-        typeof (m as Record<string, unknown>).content === "string"
-    )
-  )
-}
+import { ChatSessionImportSchema } from "@/types/chat.schemas"
 
 export const useImportChat = () => {
   const importChat = useCallback(async (files: FileList | null) => {
     if (!files) return
 
     const importedSessions: ChatSession[] = []
+    const ImportPayload = z.union([
+      z.array(ChatSessionImportSchema),
+      ChatSessionImportSchema.transform((s) => [s])
+    ])
 
     for (const file of Array.from(files)) {
       if (!file.name.endsWith(".json")) continue
 
       try {
         const text = await file.text()
-        const parsed = JSON.parse(text)
+        const parsed = ImportPayload.safeParse(JSON.parse(text))
 
-        const sessions = Array.isArray(parsed) ? parsed : [parsed]
-
-        for (const s of sessions) {
-          if (isValidChatSession(s)) {
-            importedSessions.push(s)
-          } else {
-            logger.warn("Invalid session in file", "useImportChat", {
-              fileName: file.name,
-              session: s
-            })
-          }
+        if (!parsed.success) {
+          logger.warn("Invalid session data in file", "useImportChat", {
+            fileName: file.name,
+            error: parsed.error.message
+          })
+          continue
         }
+
+        importedSessions.push(...(parsed.data as ChatSession[]))
       } catch (err) {
         logger.error("Failed to parse import file", "useImportChat", {
           fileName: file.name,

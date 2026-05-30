@@ -1,10 +1,20 @@
 import { exportDB, importInto } from "dexie-export-import"
 import JSZip from "jszip"
+import { z } from "zod"
 import { db as chatDb } from "./db"
 import { vectorDb } from "./embeddings/db"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
 import { exportDatabaseBytes, importDatabaseBytes } from "./sqlite/db"
+import { safeJsonParse } from "./validation"
+
+const BackupManifestSchema = z.object({
+  version: z.number(),
+  timestamp: z.string().optional(),
+  appVersion: z.string().optional()
+})
+
+const StorageObjectSchema = z.record(z.string(), z.unknown())
 
 export type ImportResult = {
   syncStorage: { ok: boolean; error?: string }
@@ -25,7 +35,7 @@ export const backupService = {
     const zip = new JSZip()
 
     // Manifest
-    console.log("[Backup] Exporting manifest...")
+    logger.info("Exporting manifest...", "Backup")
     const manifest = {
       version: MANIFEST_VERSION,
       timestamp: new Date().toISOString(),
@@ -34,23 +44,23 @@ export const backupService = {
     zip.file("manifest.json", JSON.stringify(manifest, null, 2))
 
     // Sync Storage
-    console.log("[Backup] Exporting sync storage...")
+    logger.info("Exporting sync storage...", "Backup")
     const syncData = await chrome.storage.sync.get(null)
     zip.file("sync-storage.json", JSON.stringify(syncData, null, 2))
 
     // Local Storage
-    console.log("[Backup] Exporting local storage...")
+    logger.info("Exporting local storage...", "Backup")
     const localData = await chrome.storage.local.get(null)
     zip.file("local-storage.json", JSON.stringify(localData, null, 2))
 
     // SQLite Database
     try {
-      console.log("[Backup] Exporting SQLite database...")
+      logger.info("Exporting SQLite database...", "Backup")
       const dbBytes = await exportDatabaseBytes()
       zip.file("database.sqlite", dbBytes)
-      console.log("[Backup] SQLite database exported.")
+      logger.info("SQLite database exported.", "Backup")
     } catch (e) {
-      console.error("[Backup] SQLite export failed:", e)
+      logger.error("SQLite export failed:", "Backup", e)
       throw e // Re-throw to see the full stack in the UI
     }
 
@@ -63,12 +73,12 @@ export const backupService = {
 
     for (const item of dexieDbs) {
       try {
-        console.log(`[Backup] Exporting ${item.name}...`)
+        logger.info(`Exporting ${item.name}...`, "Backup")
         const blob = await exportDB(item.db)
         zip.file(item.file, blob)
-        console.log(`[Backup] ${item.name} exported.`)
+        logger.info(`${item.name} exported.`, "Backup")
       } catch (e) {
-        console.error(`[Backup] ${item.name} export failed:`, e)
+        logger.error(`${item.name} export failed:`, "Backup", e)
         // We log but don't throw, allowing partial backups
         zip.file(
           `${item.file}.error.txt`,
@@ -104,7 +114,11 @@ export const backupService = {
       }
 
       const manifestStr = await manifestFile.async("string")
-      const manifest = JSON.parse(manifestStr)
+      const manifestResult = safeJsonParse(manifestStr, BackupManifestSchema)
+      if (!manifestResult.success) {
+        throw new Error("Invalid manifest: failed schema validation")
+      }
+      const manifest = manifestResult.data
       if (manifest.version !== MANIFEST_VERSION) {
         throw new Error(`Unsupported backup version: ${manifest.version}`)
       }
@@ -114,7 +128,11 @@ export const backupService = {
         const syncFile = zip.file("sync-storage.json")
         if (syncFile) {
           const syncStr = await syncFile.async("string")
-          const syncData = JSON.parse(syncStr)
+          const syncResult = safeJsonParse(syncStr, StorageObjectSchema)
+          if (!syncResult.success) {
+            throw new Error("Invalid sync storage: expected a JSON object")
+          }
+          const syncData = syncResult.data
 
           await chrome.storage.sync.clear()
 
@@ -156,7 +174,11 @@ export const backupService = {
         const localFile = zip.file("local-storage.json")
         if (localFile) {
           const localStr = await localFile.async("string")
-          const localData = JSON.parse(localStr)
+          const localResult = safeJsonParse(localStr, StorageObjectSchema)
+          if (!localResult.success) {
+            throw new Error("Invalid local storage: expected a JSON object")
+          }
+          const localData = localResult.data
           await chrome.storage.local.clear()
           await chrome.storage.local.set(localData)
           result.localStorage.ok = true

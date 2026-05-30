@@ -1,5 +1,6 @@
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
+import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface
@@ -32,7 +33,9 @@ const sessionFromRow = (row: Row): ChatSession => ({
 const parseMetrics = (raw: RowValue): ChatMessage["metrics"] => {
   if (typeof raw !== "string" || raw.length === 0) return undefined
   try {
-    return JSON.parse(raw) as ChatMessage["metrics"]
+    const parsed = JSON.parse(raw)
+    const result = ChatMessageMetricsSchema.safeParse(parsed)
+    return result.success ? (result.data as ChatMessage["metrics"]) : undefined
   } catch {
     return undefined
   }

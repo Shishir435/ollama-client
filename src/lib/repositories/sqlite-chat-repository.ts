@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger"
 import { query, run } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
+import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
 import type { ChatRepository } from "./types"
 
 export class SQLiteChatRepository implements ChatRepository {
@@ -112,7 +113,10 @@ export class SQLiteChatRepository implements ChatRepository {
       timestamp: row.timestamp as number,
       parentId: row.parentId as number | undefined,
       done: Boolean(row.done),
-      metrics: row.metrics ? JSON.parse(row.metrics as string) : undefined,
+      metrics: row.metrics
+        ? (ChatMessageMetricsSchema.safeParse(JSON.parse(row.metrics as string))
+            .data as ChatMessage["metrics"])
+        : undefined,
       attachments: fileMap.get(row.id as number) || []
     }))
   }
