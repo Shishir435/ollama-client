@@ -5,6 +5,7 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ContentExtractionConfig } from "@/types"
 
@@ -198,7 +199,7 @@ export default defineContentScript({
           hideButton()
           window.getSelection()?.removeAllRanges()
         } catch (error) {
-          console.error("Failed to send selection:", error)
+          logger.error("Failed to send selection", "SelectionButton", { error })
         }
       }
 

@@ -1,6 +1,7 @@
 import { Readability } from "@mozilla/readability"
 import Defuddle from "defuddle"
 
+import { logger } from "@/lib/logger"
 import { normalizeWhitespaceForLLM } from "@/lib/text-utils"
 import type { ContentExtractionConfig } from "@/types"
 
@@ -40,7 +41,7 @@ const tryDefuddle = (doc: Document): ReadableContent | null => {
         : "defuddle-html"
     }
   } catch (error) {
-    console.warn("[Content Script] Defuddle failed:", error)
+    logger.warn("Defuddle failed", "ContentExtraction", { error })
     return null
   }
 }
@@ -62,7 +63,7 @@ const tryReadability = (
       selectedReason: forced ? "forced-readability" : "auto-readability-better"
     }
   } catch (error) {
-    console.error("[Content Script] Readability failed:", error)
+    logger.error("Readability failed", "ContentExtraction", { error })
     return null
   }
 }

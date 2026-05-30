@@ -37,6 +37,7 @@ import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderHealth } from "@/features/model/hooks/use-provider-health"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { DEFAULT_PROVIDERS, ProviderManager } from "@/lib/providers/manager"
 import { isBetaProvider } from "@/lib/providers/registry"
@@ -81,7 +82,7 @@ export const ProviderSettings = () => {
       const data = await ProviderManager.getProviders()
       setProviders(data)
     } catch (e) {
-      console.error(e)
+      logger.error("Failed to load providers", "ProviderSettings", { error: e })
     } finally {
       setLoading(false)
     }
@@ -115,7 +116,7 @@ export const ProviderSettings = () => {
   const handleTestConnection = async () => {
     if (!activeConfig) return
 
-    console.log("[ProviderSettings] Testing connection with config:", {
+    logger.info("Testing connection with config", "ProviderSettings", {
       id: activeConfig.id,
       name: activeConfig.name,
       baseUrl: activeConfig.baseUrl,
@@ -146,14 +147,14 @@ export const ProviderSettings = () => {
 
     try {
       const provider = await ProviderFactory.getProviderWithConfig(activeConfig)
-      console.log(
-        "[ProviderSettings] Provider instance created, calling getModels()"
+      logger.debug(
+        "Provider instance created, calling getModels()",
+        "ProviderSettings"
       )
       const models = await provider.getModels()
-      console.log(
-        "[ProviderSettings] getModels() succeeded, found models:",
-        models.length
-      )
+      logger.debug("getModels() succeeded", "ProviderSettings", {
+        count: models.length
+      })
 
       // Treat 0 models as a connection failure: the URL may be wrong, the
       // service may be offline, auth may have failed, or no models are loaded.
@@ -197,7 +198,7 @@ export const ProviderSettings = () => {
         variant: "default"
       })
     } catch (error: unknown) {
-      console.error("[ProviderSettings] Connection test failed:", error)
+      logger.error("Connection test failed", "ProviderSettings", { error })
       const errorMessage =
         error instanceof Error ? error.message : "Failed to connect"
       const shouldShowCspHint =
@@ -275,12 +276,12 @@ export const ProviderSettings = () => {
           activeConfig
         )
         setHasUnsavedChanges(false)
-        console.log(
-          "[ProviderSettings] Auto-saved configuration for",
-          activeConfig.name
+        logger.debug(
+          `Auto-saved configuration for ${activeConfig.name}`,
+          "ProviderSettings"
         )
       } catch (e) {
-        console.error("[ProviderSettings] Auto-save failed", e)
+        logger.error("Auto-save failed", "ProviderSettings", { error: e })
       }
     }, 2000)
 
@@ -402,7 +403,11 @@ export const ProviderSettings = () => {
                         { enabled: checked }
                       )
                     } catch (e) {
-                      console.error("Failed to auto-save toggle", e)
+                      logger.error(
+                        "Failed to auto-save toggle",
+                        "ProviderSettings",
+                        { error: e }
+                      )
                     }
                   }}
                 />

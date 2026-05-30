@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { getEmbeddingDimensionStats } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 
 export interface EmbeddingDimensionStats {
   totalVectors: number
@@ -32,7 +33,11 @@ export const useEmbeddingDimensionStats =
         const next = await getEmbeddingDimensionStats()
         setStats(next)
       } catch (error) {
-        console.error("Failed to load embedding dimension stats:", error)
+        logger.error(
+          "Failed to load embedding dimension stats",
+          "useEmbeddingDimensionStats",
+          { error }
+        )
       }
     }, [])
 

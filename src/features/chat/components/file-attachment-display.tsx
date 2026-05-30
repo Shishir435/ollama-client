@@ -11,6 +11,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import type { FileAttachment } from "@/types"
 
 export interface FileAttachmentDisplayProps {
@@ -63,7 +64,9 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
           setFullText(file.textPreview || "No content available")
         }
       } catch (error) {
-        console.error("Failed to fetch file content:", error)
+        logger.error("Failed to fetch file content", "FileAttachmentDisplay", {
+          error
+        })
         setFullText(
           file.textPreview || "Error loading content. Please try again."
         )

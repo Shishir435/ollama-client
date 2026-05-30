@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
+import { logger } from "@/lib/logger"
 import {
   CheckCircle,
   Download,
@@ -64,7 +65,7 @@ export const DataMigrationSettings = () => {
         description: errorMessage,
         variant: "destructive"
       })
-      console.error("Export failed:", error)
+      logger.error("Export failed", "DataMigrationSettings", { error })
     } finally {
       setIsExporting(false)
     }
@@ -92,7 +93,7 @@ export const DataMigrationSettings = () => {
       setImportResult(result)
       setResultDialogOpen(true)
     } catch (error: unknown) {
-      console.error("Import failed:", error)
+      logger.error("Import failed", "DataMigrationSettings", { error })
       setImportResult({
         syncStorage: {
           ok: false,

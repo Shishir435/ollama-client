@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger"
+
 /**
  * Waits for an element to appear in the DOM with retries
  */
@@ -9,15 +11,17 @@ const waitForElement = async (
   for (let i = 0; i < maxAttempts; i++) {
     const element = document.querySelector<HTMLElement>(selector)
     if (element) {
-      console.log(
-        `[YouTube Transcript] Found element with selector "${selector}" after ${i + 1} attempts`
+      logger.debug(
+        `Found element with selector "${selector}" after ${i + 1} attempts`,
+        "TranscriptExtractor"
       )
       return element
     }
     await new Promise((resolve) => setTimeout(resolve, delayMs))
   }
-  console.log(
-    `[YouTube Transcript] Element "${selector}" not found after ${maxAttempts} attempts`
+  logger.debug(
+    `Element "${selector}" not found after ${maxAttempts} attempts`,
+    "TranscriptExtractor"
   )
   return null
 }
@@ -29,28 +33,32 @@ const waitForElement = async (
  * Returns true if transcript panel was opened or already exists
  */
 const openYouTubeTranscript = async (): Promise<boolean> => {
-  console.log("[YouTube Transcript] Starting transcript panel automation")
-  console.log(`[YouTube Transcript] Current URL: ${window.location.href}`)
+  logger.debug("Starting transcript panel automation", "TranscriptExtractor")
+  logger.debug(`Current URL: ${window.location.href}`, "TranscriptExtractor")
 
   if (!window.location.href.includes("youtube.com/watch")) {
-    console.log("[YouTube Transcript] Not a YouTube watch page, skipping")
+    logger.debug("Not a YouTube watch page, skipping", "TranscriptExtractor")
     return false
   }
 
-  console.log("[YouTube Transcript] Checking for existing transcript panel...")
+  logger.debug(
+    "Checking for existing transcript panel...",
+    "TranscriptExtractor"
+  )
   // Check if transcript is already open
   const existingTranscript = document.querySelector("ytd-transcript-renderer")
   if (existingTranscript) {
-    console.log("[YouTube Transcript] Transcript panel already exists!")
+    logger.debug("Transcript panel already exists!", "TranscriptExtractor")
     return true
   }
 
-  console.log(
-    "[YouTube Transcript] Transcript panel not found, attempting to open..."
+  logger.debug(
+    "Transcript panel not found, attempting to open...",
+    "TranscriptExtractor"
   )
 
   // Step 1: Try to click "more" button to expand description
-  console.log("[YouTube Transcript] Step 1: Looking for 'more' button...")
+  logger.debug("Step 1: Looking for 'more' button...", "TranscriptExtractor")
   const moreButton = await waitForElement(
     "tp-yt-paper-button#expand.button.style-scope.ytd-text-inline-expander",
     3,
@@ -59,37 +67,45 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
 
   if (moreButton) {
     const moreButtonText = moreButton.textContent?.trim() || ""
-    console.log(
-      `[YouTube Transcript] Found 'more' button with text: "${moreButtonText}"`
+    logger.debug(
+      `Found 'more' button with text: "${moreButtonText}"`,
+      "TranscriptExtractor"
     )
     if (moreButtonText.includes("more") || moreButtonText.includes("...")) {
-      console.log("[YouTube Transcript] Clicking 'more' button...")
+      logger.debug("Clicking 'more' button...", "TranscriptExtractor")
       moreButton.click()
       // Wait for description to expand
       await new Promise((resolve) => setTimeout(resolve, 500))
-      console.log("[YouTube Transcript] Waited 500ms for description to expand")
+      logger.debug(
+        "Waited 500ms for description to expand",
+        "TranscriptExtractor"
+      )
     } else {
-      console.log(
-        `[YouTube Transcript] 'more' button found but text doesn't match: "${moreButtonText}"`
+      logger.debug(
+        `'more' button found but text doesn't match: "${moreButtonText}"`,
+        "TranscriptExtractor"
       )
     }
   } else {
-    console.log(
-      "[YouTube Transcript] 'more' button not found (may already be expanded)"
+    logger.debug(
+      "'more' button not found (may already be expanded)",
+      "TranscriptExtractor"
     )
   }
 
   // Step 2: Try to find and click "Show transcript" button with retries
-  console.log(
-    "[YouTube Transcript] Step 2: Looking for 'Show transcript' button..."
+  logger.debug(
+    "Step 2: Looking for 'Show transcript' button...",
+    "TranscriptExtractor"
   )
 
   let transcriptButton: HTMLElement | null = null
   const maxRetries = 5
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(
-      `[YouTube Transcript] Attempt ${attempt}/${maxRetries} to find transcript button...`
+    logger.debug(
+      `Attempt ${attempt}/${maxRetries} to find transcript button...`,
+      "TranscriptExtractor"
     )
 
     // Strategy 1: Find the transcript section renderer and get the button from it
@@ -97,7 +113,7 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       "ytd-video-description-transcript-section-renderer"
     )
     if (transcriptSection) {
-      console.log("[YouTube Transcript] Found transcript section renderer")
+      logger.debug("Found transcript section renderer", "TranscriptExtractor")
 
       // Try to find the button inside the section
       const buttonInside = transcriptSection.querySelector<HTMLElement>(
@@ -112,8 +128,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
           ariaLabel.toLowerCase().includes("transcript")
         ) {
           transcriptButton = buttonInside
-          console.log(
-            "[YouTube Transcript] Found button inside transcript section"
+          logger.debug(
+            "Found button inside transcript section",
+            "TranscriptExtractor"
           )
         }
       }
@@ -132,8 +149,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
               current.classList.contains("yt-spec-button-shape-next")
             ) {
               transcriptButton = current
-              console.log(
-                "[YouTube Transcript] Found button by traversing up from touch feedback"
+              logger.debug(
+                "Found button by traversing up from touch feedback",
+                "TranscriptExtractor"
               )
               break
             }
@@ -165,8 +183,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
             ariaLabel.toLowerCase().includes("transcript")
           ) {
             transcriptButton = button
-            console.log(
-              `[YouTube Transcript] Found button via selector: ${selector}`
+            logger.debug(
+              `Found button via selector: ${selector}`,
+              "TranscriptExtractor"
             )
             break
           }
@@ -182,8 +201,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
           "div.yt-spec-touch-feedback-shape__fill"
         )
       )
-      console.log(
-        `[YouTube Transcript] Found ${touchFeedbackDivs.length} touch feedback divs`
+      logger.debug(
+        `Found ${touchFeedbackDivs.length} touch feedback divs`,
+        "TranscriptExtractor"
       )
 
       for (const div of touchFeedbackDivs) {
@@ -200,8 +220,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
               current.classList.contains("yt-spec-button-shape-next")
             ) {
               transcriptButton = current
-              console.log(
-                "[YouTube Transcript] Found button by traversing touch feedback div"
+              logger.debug(
+                "Found button by traversing touch feedback div",
+                "TranscriptExtractor"
               )
               break
             }
@@ -217,8 +238,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       const allButtons = Array.from(
         document.querySelectorAll<HTMLElement>("button, div[role='button']")
       )
-      console.log(
-        `[YouTube Transcript] Found ${allButtons.length} potential buttons for text search`
+      logger.debug(
+        `Found ${allButtons.length} potential buttons for text search`,
+        "TranscriptExtractor"
       )
 
       transcriptButton =
@@ -233,24 +255,20 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
         }) as HTMLElement | undefined) || null
 
       if (transcriptButton) {
-        console.log(`[YouTube Transcript] Found button via text search`)
+        logger.debug("Found button via text search", "TranscriptExtractor")
       }
     }
 
     if (transcriptButton) {
       const buttonText = transcriptButton.textContent?.trim() || ""
       const ariaLabel = transcriptButton.getAttribute("aria-label") || ""
-      console.log(`[YouTube Transcript] Found transcript button!`)
-      console.log(`[YouTube Transcript] Button text: "${buttonText}"`)
-      console.log(`[YouTube Transcript] Button aria-label: "${ariaLabel}"`)
-      console.log(
-        `[YouTube Transcript] Button tag: ${transcriptButton.tagName}`
-      )
-      console.log(
-        `[YouTube Transcript] Button classes: ${transcriptButton.className}`
-      )
-      console.log(`[YouTube Transcript] Button element:`, transcriptButton)
-      console.log(`[YouTube Transcript] Clicking transcript button...`)
+      logger.debug("Found transcript button!", "TranscriptExtractor", {
+        buttonText,
+        ariaLabel,
+        tag: transcriptButton.tagName,
+        classes: transcriptButton.className
+      })
+      logger.debug("Clicking transcript button...", "TranscriptExtractor")
 
       // Try multiple click methods to ensure it works
       // Method 1: Direct click
@@ -285,27 +303,31 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
 
       // Wait for transcript panel to appear
       await new Promise((resolve) => setTimeout(resolve, 1500))
-      console.log(
-        "[YouTube Transcript] Waited 1500ms for transcript panel to appear"
+      logger.debug(
+        "Waited 1500ms for transcript panel to appear",
+        "TranscriptExtractor"
       )
 
       // Verify transcript panel appeared
       const transcriptPanel = document.querySelector("ytd-transcript-renderer")
       if (transcriptPanel) {
-        console.log(
-          "[YouTube Transcript] Transcript panel successfully opened!"
+        logger.debug(
+          "Transcript panel successfully opened!",
+          "TranscriptExtractor"
         )
         return true
       } else {
-        console.log(
-          "[YouTube Transcript] Transcript panel not found after clicking, waiting longer..."
+        logger.debug(
+          "Transcript panel not found after clicking, waiting longer...",
+          "TranscriptExtractor"
         )
         // Wait a bit more and retry
         await new Promise((resolve) => setTimeout(resolve, 1500))
         const retryPanel = document.querySelector("ytd-transcript-renderer")
         if (retryPanel) {
-          console.log(
-            "[YouTube Transcript] Transcript panel appeared after longer wait!"
+          logger.debug(
+            "Transcript panel appeared after longer wait!",
+            "TranscriptExtractor"
           )
           return true
         }
@@ -313,13 +335,17 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
     }
 
     if (attempt < maxRetries) {
-      console.log(`[YouTube Transcript] Waiting before retry ${attempt + 1}...`)
+      logger.debug(
+        `Waiting before retry ${attempt + 1}...`,
+        "TranscriptExtractor"
+      )
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
 
-  console.log(
-    "[YouTube Transcript] Transcript button not found after all retries"
+  logger.debug(
+    "Transcript button not found after all retries",
+    "TranscriptExtractor"
   )
   // Log some button texts for debugging
   const allButtons = Array.from(
@@ -334,33 +360,35 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       classes: btn.className
     }))
     .filter((info) => info.text || info.ariaLabel)
-  console.log("[YouTube Transcript] Sample buttons found:", buttonTexts)
+  logger.debug("Sample buttons found", "TranscriptExtractor", { buttonTexts })
   return false
 }
 
 const extractYouTubeTranscript = async (): Promise<string | null> => {
-  console.log("[YouTube Transcript] Starting transcript extraction...")
+  logger.debug("Starting transcript extraction...", "TranscriptExtractor")
 
   if (!window.location.href.includes("youtube.com/watch")) {
-    console.log("[YouTube Transcript] Not a YouTube watch page")
+    logger.debug("Not a YouTube watch page", "TranscriptExtractor")
     return null
   }
 
   // Try to open transcript panel if not already open
-  console.log("[YouTube Transcript] Attempting to open transcript panel...")
+  logger.debug("Attempting to open transcript panel...", "TranscriptExtractor")
   const opened = await openYouTubeTranscript()
-  console.log(`[YouTube Transcript] Panel open result: ${opened}`)
+  logger.debug(`Panel open result: ${opened}`, "TranscriptExtractor")
 
   const transcriptContainer = document.querySelector("ytd-transcript-renderer")
   if (!transcriptContainer) {
-    console.log(
-      "[YouTube Transcript] Transcript container not found after opening attempt"
+    logger.debug(
+      "Transcript container not found after opening attempt",
+      "TranscriptExtractor"
     )
     return null
   }
 
-  console.log(
-    "[YouTube Transcript] Transcript container found, extracting content..."
+  logger.debug(
+    "Transcript container found, extracting content...",
+    "TranscriptExtractor"
   )
 
   const transcriptLines = transcriptContainer.querySelectorAll("div.cue-group")
@@ -369,10 +397,10 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
   )
   const lines = transcriptLines.length > 0 ? transcriptLines : fallbackLines
 
-  console.log(`[YouTube Transcript] Found ${lines.length} transcript lines`)
+  logger.debug(`Found ${lines.length} transcript lines`, "TranscriptExtractor")
 
   if (lines.length === 0) {
-    console.log("[YouTube Transcript] No transcript lines found")
+    logger.debug("No transcript lines found", "TranscriptExtractor")
     return null
   }
 
@@ -386,11 +414,12 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
 
   const result = transcript.length > 0 ? transcript : null
   if (result) {
-    console.log(
-      `[YouTube Transcript] Successfully extracted transcript (${result.length} chars)`
+    logger.debug(
+      `Successfully extracted transcript (${result.length} chars)`,
+      "TranscriptExtractor"
     )
   } else {
-    console.log("[YouTube Transcript] Empty transcript after processing")
+    logger.debug("Empty transcript after processing", "TranscriptExtractor")
   }
 
   return result
@@ -436,33 +465,35 @@ const extractCourseraTranscript = (): string | null => {
 }
 
 export const getTranscript = async (): Promise<string | null> => {
-  console.log(
-    "[Transcript Extractor] Starting transcript extraction for current page"
+  logger.info(
+    "Starting transcript extraction for current page",
+    "TranscriptExtractor"
   )
-  console.log(`[Transcript Extractor] Current URL: ${window.location.href}`)
+  logger.debug(`Current URL: ${window.location.href}`, "TranscriptExtractor")
 
   const youtubeTranscript = await extractYouTubeTranscript()
   if (youtubeTranscript) {
-    console.log("[Transcript Extractor] YouTube transcript found")
+    logger.info("YouTube transcript found", "TranscriptExtractor")
     return youtubeTranscript
   }
 
-  console.log("[Transcript Extractor] Trying Udemy transcript...")
+  logger.debug("Trying Udemy transcript...", "TranscriptExtractor")
   const udemyTranscript = extractUdemyTranscript()
   if (udemyTranscript) {
-    console.log("[Transcript Extractor] Udemy transcript found")
+    logger.info("Udemy transcript found", "TranscriptExtractor")
     return udemyTranscript
   }
 
-  console.log("[Transcript Extractor] Trying Coursera transcript...")
+  logger.debug("Trying Coursera transcript...", "TranscriptExtractor")
   const courseraTranscript = extractCourseraTranscript()
   if (courseraTranscript) {
-    console.log("[Transcript Extractor] Coursera transcript found")
+    logger.info("Coursera transcript found", "TranscriptExtractor")
     return courseraTranscript
   }
 
-  console.log(
-    "[Transcript Extractor] No transcript found for any supported platform"
+  logger.debug(
+    "No transcript found for any supported platform",
+    "TranscriptExtractor"
   )
   return null
 }

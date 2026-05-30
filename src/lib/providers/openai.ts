@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
 import {
   type ChatRequest,
@@ -56,7 +57,7 @@ export class OpenAIProvider implements LLMProvider {
         })) || []
       )
     } catch (e) {
-      console.error("Failed to fetch OpenAI models", e)
+      logger.error("Failed to fetch models", "OpenAIProvider", { error: e })
       return []
     }
   }

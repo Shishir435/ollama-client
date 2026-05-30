@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { OpenAIProvider } from "./openai"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
@@ -59,19 +60,19 @@ export class LlamaCppProvider extends OpenAIProvider {
     let response: Response | null = null
     for (const url of uniqueEndpoints) {
       try {
-        console.log(`[LlamaCpp] Fetching models from ${url}`)
+        logger.debug(`Fetching models from ${url}`, "LlamaCpp")
         const res = await fetch(url)
         if (res.ok) {
           response = res
           break
         }
       } catch (e) {
-        console.warn(`[LlamaCpp] Failed to fetch from ${url}`, e)
+        logger.warn(`Failed to fetch from ${url}`, "LlamaCpp", { error: e })
       }
     }
 
     if (!response) {
-      console.error("[LlamaCpp] All model fetch attempts failed.")
+      logger.error("All model fetch attempts failed.", "LlamaCpp")
       throw new Error(
         "Failed to connect to llama.cpp server. Check if the service is running and the URL is correct."
       )
@@ -80,7 +81,7 @@ export class LlamaCppProvider extends OpenAIProvider {
     try {
       const json = await response.json()
       // Llama.cpp returns { data: [ { id: "...", meta: { ... } } ] }
-      console.log("[LlamaCpp] Raw response:", JSON.stringify(json, null, 2))
+      logger.debug("Raw response", "LlamaCpp", { response: json })
 
       const list = Array.isArray(json.data)
         ? json.data
@@ -127,7 +128,7 @@ export class LlamaCppProvider extends OpenAIProvider {
         }
       })
     } catch (e) {
-      console.error("[LlamaCpp] Model parse failed", e)
+      logger.error("Model parse failed", "LlamaCpp", { error: e })
       throw new Error("Failed to parse response from llama.cpp server")
     }
   }

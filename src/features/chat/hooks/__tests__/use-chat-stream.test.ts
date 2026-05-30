@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
 import { PROVIDER_MESSAGE_KEYS } from "@/lib/constants/keys"
+import { logger } from "@/lib/logger"
 import type { UseChatStreamProps } from "../use-chat-stream"
 import { useChatStream } from "../use-chat-stream"
 
@@ -11,6 +12,15 @@ vi.mock("@/lib/browser-api", () => ({
     runtime: {
       connect: vi.fn()
     }
+  }
+}))
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }))
 
@@ -205,19 +215,16 @@ describe("useChatStream", () => {
       })
     )
 
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
-
     act(() => {
       result.current.stopStream()
     })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Stop requested but port not created yet"
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Stop requested but port not created yet",
+      "useChatStream"
     )
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
-
-    consoleSpy.mockRestore()
   })
 
   it("should handle stop message failure", () => {
@@ -240,17 +247,13 @@ describe("useChatStream", () => {
       throw new Error("Port disconnected")
     })
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
-
     act(() => {
       result.current.stopStream()
     })
 
-    expect(consoleSpy).toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalled()
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
-
-    consoleSpy.mockRestore()
   })
 
   it("should handle aborted stream", () => {

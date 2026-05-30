@@ -41,6 +41,7 @@ import {
   getStorageStats,
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
   BookOpen,
@@ -137,7 +138,7 @@ export const ContextSettings = () => {
       }
       setCacheStats(cacheStatsValue)
     } catch (error) {
-      console.error("Failed to load stats:", error)
+      logger.error("Failed to load stats", "ContextSettings", { error })
     } finally {
       isLoadingRef.current = false
     }
@@ -167,7 +168,7 @@ export const ContextSettings = () => {
       })
       await loadStats()
     } catch (error) {
-      console.error("Failed to remove duplicates:", error)
+      logger.error("Failed to remove duplicates", "ContextSettings", { error })
       toast({
         title: t(
           "model.embedding_config.database_management.remove_duplicates_error"
@@ -193,7 +194,7 @@ export const ContextSettings = () => {
       })
       await loadStats()
     } catch (error) {
-      console.error("Failed to clear chat vectors:", error)
+      logger.error("Failed to clear chat vectors", "ContextSettings", { error })
       toast({
         title: t("model.embedding_config.database_management.clear_chat_error"),
         variant: "destructive"
@@ -212,7 +213,7 @@ export const ContextSettings = () => {
       })
       await loadStats()
     } catch (error) {
-      console.error("Failed to clear all vectors:", error)
+      logger.error("Failed to clear all vectors", "ContextSettings", { error })
       toast({
         title: t("model.embedding_config.database_management.clear_all_error"),
         variant: "destructive"
@@ -244,7 +245,7 @@ export const ContextSettings = () => {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to rebuild embeddings"
-      console.error("Failed to rebuild embeddings:", error)
+      logger.error("Failed to rebuild embeddings", "ContextSettings", { error })
       setRebuildError(message)
     } finally {
       setIsRebuilding(false)

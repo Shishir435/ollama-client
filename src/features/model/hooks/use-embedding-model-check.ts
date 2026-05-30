@@ -10,6 +10,7 @@ import {
   isLikelyEmbeddingModelName,
   recommendedEmbeddingBaseSet
 } from "@/lib/embeddings/model-name-filter"
+import { logger } from "@/lib/logger"
 import type { ChromeResponse, ProviderModel } from "@/types"
 
 const POLL_INTERVAL_MS = 5_000
@@ -81,8 +82,9 @@ export const useEmbeddingModelCheck = ({
         }
 
         if (response?.data?.debug) {
-          console.log(
-            `[useEmbeddingModelCheck] check debug for ${currentModel}:`,
+          logger.debug(
+            `Check debug for ${currentModel}`,
+            "useEmbeddingModelCheck",
             response.data.debug
           )
         }
@@ -118,9 +120,10 @@ export const useEmbeddingModelCheck = ({
           applyModelChange(nextModel, resolveProviderForModel(nextModel))
         }
       } catch (error) {
-        console.error(
-          "Error checking embedding model in useEmbeddingModelCheck:",
-          error
+        logger.error(
+          "Error checking embedding model",
+          "useEmbeddingModelCheck",
+          { error }
         )
         setModelExists(false)
       }

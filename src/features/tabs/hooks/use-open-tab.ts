@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import type { Tabs } from "webextension-polyfill"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromeResponse } from "@/types"
 
 export const useOpenTabs = (enabled: boolean) => {
@@ -17,7 +18,7 @@ export const useOpenTabs = (enabled: boolean) => {
         setTabs(response.tabs)
       }
     } catch (error) {
-      console.error("Failed to fetch tabs:", error)
+      logger.error("Failed to fetch tabs", "useOpenTab", { error })
     }
   }, [enabled])
 

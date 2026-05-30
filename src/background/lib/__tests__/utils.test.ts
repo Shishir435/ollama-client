@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   getBaseUrl,
@@ -15,6 +16,15 @@ vi.mock("@/lib/browser-api", () => ({
     runtime: {
       lastError: null
     }
+  }
+}))
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }))
 
@@ -48,13 +58,13 @@ describe("Background Utils", () => {
         })
       } as any
       ;(browser.runtime as any).lastError = { message: "Port disconnected" }
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
 
       safePostMessage(port, { delta: "test" } as any)
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("channel may be closed"),
-        "Port disconnected"
+        "BackgroundUtils",
+        { error: "Port disconnected" }
       )
     })
 
@@ -65,13 +75,13 @@ describe("Background Utils", () => {
           throw error
         })
       } as any
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
 
       safePostMessage(port, { delta: "test" } as any)
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("Could not send message"),
-        error
+        "BackgroundUtils",
+        { error }
       )
     })
   })
@@ -91,13 +101,13 @@ describe("Background Utils", () => {
         throw new Error("Channel closed")
       })
       ;(browser.runtime as any).lastError = { message: "Channel closed" }
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
 
       safeSendResponse(sendResponse, { success: true })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("channel may be closed"),
-        "Channel closed"
+        "BackgroundUtils",
+        { error: "Channel closed" }
       )
     })
   })

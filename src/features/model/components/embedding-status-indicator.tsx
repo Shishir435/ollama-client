@@ -20,6 +20,7 @@ import {
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
   Database,
@@ -74,7 +75,7 @@ export const EmbeddingStatusIndicator = () => {
     setIsChecking(true)
     setError(null)
     try {
-      console.info("[EmbeddingStatus] Checking model", {
+      logger.info("Checking model", "EmbeddingStatusIndicator", {
         model: modelName,
         providerId
       })
@@ -92,7 +93,7 @@ export const EmbeddingStatusIndicator = () => {
         )
       ])) as ModelCheckResponse
 
-      console.info("[EmbeddingStatus] Check response", {
+      logger.debug("Check response", "EmbeddingStatusIndicator", {
         model: modelName,
         providerId,
         success: resp?.success,
@@ -110,7 +111,7 @@ export const EmbeddingStatusIndicator = () => {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      console.warn("[EmbeddingStatus] Check failed", {
+      logger.warn("Check failed", "EmbeddingStatusIndicator", {
         model: modelName,
         providerId,
         error: message
@@ -154,7 +155,7 @@ export const EmbeddingStatusIndicator = () => {
     e?.stopPropagation()
     setError(null)
     setRetryCount(0)
-    console.info("[EmbeddingStatus] Manual retry", {
+    logger.info("Manual retry", "EmbeddingStatusIndicator", {
       model: modelName,
       providerId
     })

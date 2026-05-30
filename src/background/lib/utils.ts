@@ -1,5 +1,6 @@
 import { browser } from "@/lib/browser-api"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatStreamMessage,
@@ -27,12 +28,15 @@ export const safePostMessage = (
     // Port closed or disconnected (e.g., tab in back/forward cache)
     // This is expected and not an error condition
     if (browser.runtime.lastError) {
-      console.debug(
-        "Could not send message to port, channel may be closed:",
-        browser.runtime.lastError.message
+      logger.debug(
+        "Could not send message to port, channel may be closed",
+        "BackgroundUtils",
+        { error: browser.runtime.lastError.message }
       )
     } else {
-      console.debug("Could not send message to port:", error)
+      logger.debug("Could not send message to port", "BackgroundUtils", {
+        error
+      })
     }
   }
 }
@@ -51,12 +55,13 @@ export const safeSendResponse = (
     // Message channel closed (e.g., tab in back/forward cache)
     // This is expected and not an error condition
     if (browser.runtime.lastError) {
-      console.debug(
-        "Could not send response, channel may be closed:",
-        browser.runtime.lastError.message
+      logger.debug(
+        "Could not send response, channel may be closed",
+        "BackgroundUtils",
+        { error: browser.runtime.lastError.message }
       )
     } else {
-      console.debug("Could not send response:", error)
+      logger.debug("Could not send response", "BackgroundUtils", { error })
     }
   }
 }

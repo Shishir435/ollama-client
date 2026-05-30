@@ -145,7 +145,7 @@ export const handleChatWithModel = withErrorContext(
         if (isPortClosed()) return
 
         if (process.env.NODE_ENV === "development") {
-          console.log("[ChatStream] chunk", {
+          logger.debug("Chat stream chunk", "ChatStream", {
             hasDelta: typeof chunk.delta === "string" && chunk.delta.length > 0,
             deltaPreview:
               typeof chunk.delta === "string"

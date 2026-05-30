@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type { ChromePort, NetworkError, PortStatusFunction } from "@/types"
 import { clearAbortController } from "./abort-controller-registry"
 import { safePostMessage } from "./utils"
@@ -44,8 +45,9 @@ export const withErrorContext = <T>(
       }
 
       // 4. Handle generic errors with enhanced logging
-      console.error(
-        `[${context.handler}] Error during ${context.operation || "operation"}:`,
+      logger.error(
+        `Error during ${context.operation || "operation"}`,
+        context.handler,
         {
           message: error.message,
           model: context.modelId,

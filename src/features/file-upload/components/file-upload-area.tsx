@@ -8,6 +8,7 @@ import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
+import { logger } from "@/lib/logger"
 
 export interface FileUploadAreaProps {
   onFilesProcessed: (files: ProcessedFile[]) => void
@@ -41,7 +42,7 @@ export const FileUploadArea = ({
     useFileUpload({
       onFileProcessed: handleFileProcessed,
       onError: (error) => {
-        console.error("File processing error:", error)
+        logger.error("File processing error", "FileUploadArea", { error })
       }
     })
 

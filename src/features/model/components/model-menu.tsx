@@ -25,6 +25,7 @@ import {
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { Check, ChevronDown, RotateCcw } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
@@ -90,7 +91,7 @@ export const ModelMenu = ({
           }
         })
         .catch((error) => {
-          console.warn("Failed to trigger model warmup", error)
+          logger.warn("Failed to trigger model warmup", "ModelMenu", { error })
         })
     }
   }

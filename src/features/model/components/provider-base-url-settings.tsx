@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
@@ -46,9 +47,14 @@ export const ProviderBaseUrlSettings = () => {
       })
       setSaved(true)
       refresh()
-      console.log("Base URL updated and DNR rule applied")
+      logger.info(
+        "Base URL updated and DNR rule applied",
+        "ProviderBaseUrlSettings"
+      )
     } catch (err) {
-      console.error("Failed to update base URL:", err)
+      logger.error("Failed to update base URL", "ProviderBaseUrlSettings", {
+        error: err
+      })
     } finally {
       setIsLoading(false)
       setTimeout(() => setSaved(false), 1500)

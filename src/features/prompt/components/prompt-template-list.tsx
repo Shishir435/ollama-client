@@ -20,6 +20,7 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
+import { logger } from "@/lib/logger"
 import {
   Calendar,
   ChevronRight,
@@ -56,7 +57,7 @@ export const PromptTemplateList = ({
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
-      console.error("Failed to copy: ", err)
+      logger.error("Failed to copy", "PromptTemplateList", { error: err })
     }
   }
 

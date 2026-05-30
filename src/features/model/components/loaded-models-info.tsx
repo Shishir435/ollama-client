@@ -17,6 +17,7 @@ import {
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   Brain,
   ChevronDown,
@@ -82,11 +83,15 @@ export const LoadedModelsInfo = () => {
         if (res?.success && res.data?.models) {
           setModels(res.data.models)
         } else {
-          console.error(res?.error)
+          logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
+            error: res?.error
+          })
           setModels([])
         }
       } catch (error) {
-        console.error("Failed to fetch loaded models:", error)
+        logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
+          error
+        })
         setModels([])
       } finally {
         setLoading(false)
@@ -109,10 +114,10 @@ export const LoadedModelsInfo = () => {
       if (res?.success) {
         setModels((prev) => prev.filter((m) => m.name !== modelName))
       } else {
-        console.error("Unload error", res?.error)
+        logger.error("Unload error", "LoadedModelsInfo", { error: res?.error })
       }
     } catch (error) {
-      console.error("Failed to unload model:", error)
+      logger.error("Failed to unload model", "LoadedModelsInfo", { error })
     } finally {
       setUnloading(null)
     }

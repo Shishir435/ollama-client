@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { logger } from "@/lib/logger"
 import { Check, Copy } from "@/lib/lucide-icon"
 
 export const CopyButton = ({ text }: { text: string }) => {
@@ -14,7 +15,11 @@ export const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(text).catch((err) => console.error(err))
+    navigator.clipboard
+      .writeText(text)
+      .catch((err) =>
+        logger.error("Clipboard write failed", "CopyButton", { error: err })
+      )
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
