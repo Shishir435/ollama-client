@@ -247,7 +247,7 @@ export const EmbeddingStatusIndicator = () => {
         }>
         {icon}
       </TooltipTrigger>
-      <TooltipContent side="left" className="max-w-[250px]">
+      <TooltipContent side="left" className="max-w-62.5">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <span className={statusColor}>{statusText}</span>

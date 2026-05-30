@@ -156,7 +156,7 @@ export const ProviderBaseUrlSettings = () => {
                 onClick={handleSubmit}
                 disabled={!urlIsValid || isLoading || saved}
                 className={cn(
-                  "min-w-[80px] transition-all",
+                  "min-w-20 transition-all",
                   saved &&
                     "bg-status-success text-status-success-foreground hover:bg-status-success/90"
                 )}>

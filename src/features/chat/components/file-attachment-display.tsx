@@ -90,7 +90,7 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
           />
         }>
         {getFileIcon(file.fileType)}
-        <span className="max-w-[120px] truncate">{file.fileName}</span>
+        <span className="max-w-30 truncate">{file.fileName}</span>
         <span className="text-[10px] text-muted-foreground">
           {formatFileSize(file.fileSize)}
         </span>
