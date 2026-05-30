@@ -14,12 +14,10 @@ import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { logger } from "@/lib/logger"
 import { Download, MoreHorizontal, RotateCcw, Upload } from "@/lib/lucide-icon"
 import { safeJsonParse } from "@/lib/validation"
-import type { PromptTemplate } from "@/types"
-import { PromptTemplateSchema } from "@/types/ui-state.schemas"
 
 export interface PromptTemplateActionsProps {
   onExport: () => void
-  onImport: (templates: PromptTemplate[]) => void
+  onImport: (templates: unknown) => void
   onReset: () => void
 }
 
@@ -43,9 +41,11 @@ export const PromptTemplateActions = ({
 
     const reader = new FileReader()
     reader.onload = (e) => {
+      // TODO: after production soak (2026-Q3), switch to z.array(PromptTemplateSchema)
+      // and let hook handle per-item skip. Remove the lenient unknown[] approach.
       const result = safeJsonParse(
         e.target?.result as string,
-        z.array(PromptTemplateSchema)
+        z.array(z.unknown())
       )
       if (!result.success) {
         logger.error("Failed to import templates", "PromptTemplateActions", {

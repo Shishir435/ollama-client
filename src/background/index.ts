@@ -264,7 +264,7 @@ browser.runtime.onMessage.addListener(
         browser.tabs
           .query({})
           .then((tabs) => {
-            logger.debug("Queried browser tabs", "BackgroundSW", {
+            logger.info("Queried browser tabs", "BackgroundSW", {
               tabCount: tabs.length
             })
             safeSendResponse(sendResponse, { success: true, tabs })

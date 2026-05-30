@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback } from "react"
 import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateSchema } from "@/types/ui-state.schemas"
@@ -125,8 +126,24 @@ export const usePromptTemplates = () => {
     [setTemplates]
   )
 
-  const exportTemplates = useCallback(() => {
-    return effectiveTemplates
+  const exportTemplates = useCallback((): PromptTemplate[] => {
+    const validated: PromptTemplate[] = []
+    for (const t of effectiveTemplates) {
+      const result = PromptTemplateSchema.safeParse(t)
+      if (result.success) {
+        validated.push(result.data as PromptTemplate)
+      } else {
+        logger.warn(
+          "Skipping invalid template on export",
+          "usePromptTemplates",
+          {
+            id: t.id,
+            error: result.error.message
+          }
+        )
+      }
+    }
+    return validated
   }, [effectiveTemplates])
 
   const resetToDefaults = useCallback(() => {
