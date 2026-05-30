@@ -223,7 +223,13 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
           status: "error",
           message: err instanceof Error ? err.message : String(err)
         } as unknown as ChromeMessage)
-      } catch (_) {}
+      } catch (e) {
+        logger.warn(
+          "Port already closed during error response",
+          "BackgroundSW",
+          { error: e }
+        )
+      }
       port.disconnect()
     }
   }

@@ -316,10 +316,22 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     }
                     try {
                       port.postMessage({ type: "done" })
-                    } catch (_) {}
+                    } catch (e) {
+                      logger.warn(
+                        "Port closed before done signal",
+                        "useFileUpload",
+                        { error: e }
+                      )
+                    }
                     try {
                       port.disconnect()
-                    } catch (_) {}
+                    } catch (e) {
+                      logger.warn(
+                        "Port already disconnected",
+                        "useFileUpload",
+                        { error: e }
+                      )
+                    }
                   } else if (m?.status === "error") {
                     logger.warn("Background embedding error", "useFileUpload", {
                       error: m?.message
@@ -338,7 +350,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     }
                     try {
                       port.disconnect()
-                    } catch (_) {}
+                    } catch (e) {
+                      logger.warn(
+                        "Port already disconnected on error",
+                        "useFileUpload",
+                        { error: e }
+                      )
+                    }
                   }
                 } catch (e) {
                   logger.warn("Error handling port message", "useFileUpload", {
@@ -368,7 +386,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                   )
                   try {
                     port.disconnect()
-                  } catch (_) {}
+                  } catch (e) {
+                    logger.warn(
+                      "Port already disconnected on batch fail",
+                      "useFileUpload",
+                      { error: e }
+                    )
+                  }
                   break
                 }
               }

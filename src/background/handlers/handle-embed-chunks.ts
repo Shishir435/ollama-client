@@ -29,8 +29,12 @@ export const handleEmbedFileChunks = async (
         success: false,
         error: { status: 0, message: "Invalid payload" }
       })
-    } catch (_) {
-      /* ignore */
+    } catch (e) {
+      logger.warn(
+        "Port closed before error response sent",
+        "handleEmbedFileChunks",
+        { error: e }
+      )
     }
     return
   }
@@ -72,8 +76,12 @@ export const handleEmbedFileChunks = async (
         success: true,
         data: { embedded: results.length }
       })
-    } catch (_) {
-      /* ignore if port disconnected */
+    } catch (e) {
+      logger.warn(
+        "Port closed before success response sent",
+        "handleEmbedFileChunks",
+        { error: e }
+      )
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -82,8 +90,12 @@ export const handleEmbedFileChunks = async (
         success: false,
         error: { status: 500, message: errorMessage }
       })
-    } catch (_) {
-      /* ignore */
+    } catch (e) {
+      logger.warn(
+        "Port closed before error response sent",
+        "handleEmbedFileChunks",
+        { error: e }
+      )
     }
   }
 }
@@ -105,7 +117,12 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
     try {
       port.postMessage(message as unknown as ChromeMessage)
       return true
-    } catch (_) {
+    } catch (e) {
+      logger.warn(
+        "Port disconnected during postMessage",
+        "handleEmbedFileChunksPort",
+        { error: e }
+      )
       cancelled = true
       closed = true
       return false
@@ -117,7 +134,13 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
     closed = true
     try {
       port.disconnect()
-    } catch (_) {}
+    } catch (e) {
+      logger.warn(
+        "Port already closed during disconnect",
+        "handleEmbedFileChunksPort",
+        { error: e }
+      )
+    }
   }
 
   port.onMessage.addListener(async (message) => {

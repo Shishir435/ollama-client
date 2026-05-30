@@ -185,7 +185,11 @@ export class OpenAIProvider implements LLMProvider {
                   metrics: latestMetrics
                 })
               }
-            } catch (_e) {}
+            } catch (e) {
+              logger.warn("Failed to parse SSE data line", "OpenAIProvider", {
+                error: e
+              })
+            }
           }
         }
       }
