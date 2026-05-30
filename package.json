@@ -132,7 +132,7 @@
     "@types/turndown": "^5.0.6",
     "@types/webextension-polyfill": "^0.12.5",
     "@vitejs/plugin-react": "^5.2.0",
-    "@vitest/coverage-v8": "4.0.14",
+    "@vitest/coverage-v8": "4.1.7",
     "@vitest/ui": "^4.1.7",
     "babel-plugin-react-compiler": "1.0.0",
     "fake-indexeddb": "^6.2.5",
