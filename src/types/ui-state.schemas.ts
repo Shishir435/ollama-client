@@ -5,8 +5,8 @@ import type { PromptTemplate, Theme } from "./ui-state"
 
 export const PromptTemplateSchema = z.object({
   id: z.string(),
-  title: z.string().min(1),
-  userPrompt: z.string().min(1),
+  title: z.string().trim().min(1),
+  userPrompt: z.string().trim().min(1),
   description: z.string().optional(),
   category: z.string().optional(),
   systemPrompt: z.string().optional(),

@@ -60,7 +60,7 @@ export const backupService = {
       zip.file("database.sqlite", dbBytes)
       logger.info("SQLite database exported.", "Backup")
     } catch (e) {
-      logger.error("SQLite export failed:", "Backup", e)
+      logger.error("SQLite export failed", "Backup", { error: e })
       throw e // Re-throw to see the full stack in the UI
     }
 
@@ -78,7 +78,7 @@ export const backupService = {
         zip.file(item.file, blob)
         logger.info(`${item.name} exported.`, "Backup")
       } catch (e) {
-        logger.error(`${item.name} export failed:`, "Backup", e)
+        logger.error(`${item.name} export failed`, "Backup", { error: e })
         // We log but don't throw, allowing partial backups
         zip.file(
           `${item.file}.error.txt`,

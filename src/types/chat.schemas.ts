@@ -43,16 +43,38 @@ export const ChatMessageMetricsSchema = z.object({
   contextBuildFailed: z.boolean().optional()
 })
 
+// ---- FileAttachment ----
+
+const FileAttachmentSchema = z.object({
+  id: z.number().optional(),
+  fileId: z.string(),
+  fileName: z.string(),
+  fileType: z.string(),
+  fileSize: z.number(),
+  textPreview: z.string().optional(),
+  processedAt: z.number(),
+  sessionId: z.string().optional(),
+  messageId: z.number().optional(),
+  data: z.array(z.number()).optional()
+})
+
+export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
+
 // ---- ChatMessage ----
 
 export const ChatMessageSchema = z.object({
+  id: z.union([z.number(), z.string()]).optional(),
   role: z.enum(["user", "assistant", "system"]),
   content: z.string(),
   thinking: z.string().optional(),
   done: z.boolean().optional(),
   model: z.string().optional(),
+  attachments: z.array(FileAttachmentSchema).optional(),
   timestamp: z.number().optional(),
-  metrics: ChatMessageMetricsSchema.optional()
+  metrics: ChatMessageMetricsSchema.optional(),
+  parentId: z.union([z.number(), z.string()]).optional(),
+  childrenIds: z.array(z.union([z.number(), z.string()])).optional(),
+  siblingIds: z.array(z.union([z.number(), z.string()])).optional()
 })
 
 // ---- ChatSession ----
@@ -62,6 +84,8 @@ export const ChatSessionSchema = z.object({
   title: z.string(),
   createdAt: z.number(),
   updatedAt: z.number(),
+  modelId: z.string().optional(),
+  currentLeafId: z.union([z.number(), z.string()]).optional(),
   messages: z.array(ChatMessageSchema).optional()
 })
 

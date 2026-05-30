@@ -1,5 +1,4 @@
 import { useCallback } from "react"
-import { z } from "zod"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
 import { bulkPutSessions } from "@/lib/repositories/chat-history"
@@ -11,29 +10,47 @@ export const useImportChat = () => {
     if (!files) return
 
     const importedSessions: ChatSession[] = []
-    const ImportPayload = z.union([
-      z.array(ChatSessionImportSchema),
-      ChatSessionImportSchema.transform((s) => [s])
-    ])
 
     for (const file of Array.from(files)) {
       if (!file.name.endsWith(".json")) continue
 
       try {
         const text = await file.text()
-        const parsed = ImportPayload.safeParse(JSON.parse(text))
-
-        if (!parsed.success) {
-          logger.warn("Invalid session data in file", "useImportChat", {
-            fileName: file.name,
-            error: parsed.error.message
+        let raw: unknown
+        try {
+          raw = JSON.parse(text)
+        } catch {
+          logger.warn("File is not valid JSON", "useImportChat", {
+            fileName: file.name
           })
           continue
         }
 
-        importedSessions.push(...(parsed.data as ChatSession[]))
+        const rawSessions = Array.isArray(raw) ? raw : [raw]
+        let fileHadErrors = false
+
+        for (const item of rawSessions) {
+          const parsed = ChatSessionImportSchema.safeParse(item)
+          if (parsed.success) {
+            importedSessions.push(parsed.data as unknown as ChatSession)
+          } else {
+            fileHadErrors = true
+            logger.warn("Skipping invalid session in file", "useImportChat", {
+              fileName: file.name,
+              error: parsed.error.message
+            })
+          }
+        }
+
+        if (fileHadErrors) {
+          logger.warn(
+            "Some sessions were skipped due to validation errors",
+            "useImportChat",
+            { fileName: file.name }
+          )
+        }
       } catch (err) {
-        logger.error("Failed to parse import file", "useImportChat", {
+        logger.error("Failed to import file", "useImportChat", {
           fileName: file.name,
           error: err
         })
