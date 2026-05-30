@@ -72,6 +72,3 @@ artifacts/
 .commandcode/
 
 /docs/
-
-# ignore all markdown files
-*.md

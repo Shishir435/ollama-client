@@ -6,9 +6,9 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
     <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
-  <img alt="Version 0.7.0" src="https://img.shields.io/badge/Version-0.7.0-2563eb?style=for-the-badge" />
+  <img alt="Version 0.7.1" src="https://img.shields.io/badge/Version-0.7.1-2563eb?style=for-the-badge" />
   <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
-  <img alt="Providers" src="https://img.shields.io/badge/Providers-7-1d4ed8?style=for-the-badge" />
+  <img alt="Providers" src="https://img.shields.io/badge/Providers-6-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
@@ -19,13 +19,13 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
 Ollama Client gives you a browser-native chat workspace for local and bring-your-own remote models:
 
 - Chat from the browser sidepanel with streaming responses and cancellation.
-- Route models across Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, and LocalAI.
+- Route models across Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
 - Upload files and use local retrieval-augmented generation over your own content.
 - Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
 - Export, restore, print, and manage local conversation history.
 
-Version `0.7.0` focuses on the frontend foundation: shared app-owned layout, form, settings, feedback, and data-display primitives now sit above shadcn/Base UI, making the options and sidepanel surfaces easier to maintain and less fragile during preset updates.
+Version `0.7.1` continues the frontend foundation with shared app-owned layout, form, settings, feedback, and data-display primitives, plus Zod input validation and structured logging across the provider and storage layers.
 
 ## Supported Providers
 
@@ -34,7 +34,6 @@ Version `0.7.0` focuses on the frontend foundation: shared app-owned layout, for
 | Ollama | `http://localhost:11434` | Default fallback and fullest local model-management support |
 | LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat and embeddings with LM Studio model discovery |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible server via `llama-server` |
-| OpenAI | `https://api.openai.com/v1` | Bring your own API key |
 | vLLM | User configured | OpenAI-compatible local or remote serving |
 | KoboldCPP | User configured | OpenAI-compatible endpoints with KoboldCPP sampler support |
 | LocalAI | User configured | OpenAI-compatible multi-backend local serving |
@@ -111,7 +110,7 @@ Key paths:
 - `src/options/` - settings and configuration shell.
 - `src/background/` - runtime message dispatcher and handlers.
 - `src/features/` - feature-owned UI, hooks, RAG, stores, and workflows.
-- `src/components/forms/`, `src/components/layout/`, `src/components/settings/`, `src/components/feedback/`, `src/components/data-display/` - app-owned 0.7.0 frontend primitives.
+- `src/components/forms/`, `src/components/layout/`, `src/components/settings/`, `src/components/feedback/`, `src/components/data-display/` - app-owned 0.7.1 frontend primitives.
 - `src/components/ui/` - curated shadcn/Base UI primitives only.
 - `src/lib/providers/` - provider registry, factory, manager, and provider implementations.
 - `src/lib/repositories/chat-history.ts` - chat-history facade for SQLite/Dexie routing.

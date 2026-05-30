@@ -2,7 +2,7 @@
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
   "version": "0.7.1",
-  "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
+  "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
     "local llm chrome extension",

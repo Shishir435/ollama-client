@@ -197,9 +197,9 @@ If you change anything under `src/locales/`, run `pnpm generate:resources` manua
 
 If you're touching one of these, expect to refactor as you go:
 
-- `src/features/chat/hooks/use-chat.ts` (god-hook, ~737 LOC; split along stream / abort / thinking / attachments seams)
-- `src/features/sessions/stores/chat-session-store.ts` (Zustand store reads via `src/lib/repositories/chat-history.ts` now — persistence is extracted — but the store itself is still ~450 LOC and could be split along sessions / messages / tree-traversal seams)
-- `src/features/model/components/provider-settings.tsx` and `embedding-settings.tsx` (each ~600+ LOC, no direct tests; split per provider section)
-- `src/contents/index.ts` (large content script, no tests; split into selection-capture / dom-observer / messaging)
+- `src/features/chat/hooks/use-chat.ts` (god-hook, ~305 LOC; split along stream / abort / thinking / attachments seams)
+- `src/features/sessions/stores/chat-session-store.ts` (Zustand store reads via `src/lib/repositories/chat-history.ts` now — persistence is extracted — but the store itself is still ~485 LOC and could be split along sessions / messages / tree-traversal seams)
+- `src/features/model/components/provider-settings.tsx` (~586 LOC, no direct tests; split per provider section) and `embedding-settings.tsx` (~244 LOC, refactored)
+- `src/contents/index.ts` (content script, no tests; split into selection-capture / dom-observer / messaging)
 - `src/types/index.ts` is now a 14-line re-export barrel over six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`). New code should prefer importing from the per-domain path (`@/types/chat`) over the barrel.
 - Dexie → SQLite chat-history cutover has shipped: SQLite is the live primary, Dexie is the auto-fallback recovery target. Vector storage has not migrated yet (still Dexie). Plan to retire Dexie chat-history paths after the cutover soak (~1-2 weeks of telemetry-free production usage) — see the `chat-history.ts` facade for the eventual deletion surface.

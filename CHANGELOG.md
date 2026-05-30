@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-05-30
+### Added
+- Zod runtime validation across all JSON.parse sites in provider, storage, and prompt-import paths.
+- Structured logger (`src/lib/logger.ts`) replacing ad-hoc `console.*` calls throughout the background, provider, and storage layers.
+- `pnpm verify` convenience script: `pnpm typecheck && pnpm lint:check && pnpm test:run`.
+
+### Changed
+- Provider factory: replaced `if/else if` chain with `Record<ProviderId, ProviderConstructor>` lookup.
+- Docs synced: README, AGENTS.md, and docs-src version/LOC references updated for 0.7.1.
+
+### Fixed
+- Removed catch-and-silence patterns in provider error handling — all catch blocks now log through the structured logger.
+
 ## [0.7.0]
 ### Added
 - Chrome extension package localization metadata (`default_locale`, manifest `__MSG_*` substitutions, and `_locales` messages) so Chrome Web Store can detect supported languages.
@@ -126,7 +139,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/Shishir435/ollama-client/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/Shishir435/ollama-client/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/Shishir435/ollama-client/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/Shishir435/ollama-client/compare/v0.6.2...v0.6.3
