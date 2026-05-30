@@ -1,6 +1,7 @@
 ---
 title: Architecture
 description: Implementation details, tradeoffs, and constraints for Ollama Client v0.7.1.
+---
 
 This document describes the current implementation as of `v0.7.1` and highlights tradeoffs, assumptions, and known constraints.
 

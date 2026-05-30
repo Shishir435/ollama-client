@@ -36,7 +36,7 @@ pnpm docs:build             # Astro build → docs/ (committed for GitHub Pages)
 pnpm generate:resources     # Regenerate src/i18n/resources.ts from src/locales/
 ```
 
-Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR.
+Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs-src/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
 
 ## Architecture
 
