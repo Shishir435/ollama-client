@@ -9,6 +9,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
+import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 
 export interface FeedbackButtonsProps {
@@ -47,7 +48,7 @@ export const FeedbackButtons = ({
 
       await Promise.all(promises)
     } catch (e) {
-      console.error("Failed to record feedback", e)
+      logger.error("Failed to record feedback", "FeedbackButtons", { error: e })
       // Revert on error? Or just log
     }
   }

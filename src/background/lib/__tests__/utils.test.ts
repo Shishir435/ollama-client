@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createMockPort } from "@/background/handlers/__tests__/test-utils"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { ChatStreamMessage } from "@/types"
 import {
   getBaseUrl,
   getPullAbortControllerKey,
@@ -15,6 +18,15 @@ vi.mock("@/lib/browser-api", () => ({
     runtime: {
       lastError: null
     }
+  }
+}))
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }))
 
@@ -33,8 +45,8 @@ describe("Background Utils", () => {
 
   describe("safePostMessage", () => {
     it("should post message to port", () => {
-      const port = { postMessage: vi.fn() } as any
-      const message = { delta: "test" } as any
+      const port = createMockPort()
+      const message: ChatStreamMessage = { delta: "test" }
 
       safePostMessage(port, message)
 
@@ -42,36 +54,34 @@ describe("Background Utils", () => {
     })
 
     it("should handle port disconnect (runtime.lastError)", () => {
-      const port = {
-        postMessage: vi.fn().mockImplementation(() => {
-          throw new Error("Port disconnected")
-        })
-      } as any
+      const port = createMockPort()
+      vi.mocked(port.postMessage).mockImplementation(() => {
+        throw new Error("Port disconnected")
+      })
       ;(browser.runtime as any).lastError = { message: "Port disconnected" }
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
 
-      safePostMessage(port, { delta: "test" } as any)
+      safePostMessage(port, { delta: "test" })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("channel may be closed"),
-        "Port disconnected"
+        "BackgroundUtils",
+        { error: "Port disconnected" }
       )
     })
 
     it("should handle other errors", () => {
       const error = new Error("Random error")
-      const port = {
-        postMessage: vi.fn().mockImplementation(() => {
-          throw error
-        })
-      } as any
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
+      const port = createMockPort()
+      vi.mocked(port.postMessage).mockImplementation(() => {
+        throw error
+      })
 
-      safePostMessage(port, { delta: "test" } as any)
+      safePostMessage(port, { delta: "test" })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("Could not send message"),
-        error
+        "BackgroundUtils",
+        { error }
       )
     })
   })
@@ -91,13 +101,13 @@ describe("Background Utils", () => {
         throw new Error("Channel closed")
       })
       ;(browser.runtime as any).lastError = { message: "Channel closed" }
-      const consoleSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
 
       safeSendResponse(sendResponse, { success: true })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("channel may be closed"),
-        "Channel closed"
+        "BackgroundUtils",
+        { error: "Channel closed" }
       )
     })
   })

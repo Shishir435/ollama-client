@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { z } from "zod"
 import { ConfirmActionDialog } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,12 +11,13 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { logger } from "@/lib/logger"
 import { Download, MoreHorizontal, RotateCcw, Upload } from "@/lib/lucide-icon"
-import type { PromptTemplate } from "@/types"
+import { safeJsonParse } from "@/lib/validation"
 
 export interface PromptTemplateActionsProps {
   onExport: () => void
-  onImport: (templates: PromptTemplate[]) => void
+  onImport: (templates: unknown) => void
   onReset: () => void
 }
 
@@ -39,15 +41,20 @@ export const PromptTemplateActions = ({
 
     const reader = new FileReader()
     reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(
-          e.target?.result as string
-        ) as PromptTemplate[]
-        onImport(imported)
-      } catch (error) {
-        console.error("Failed to import templates:", error)
+      // TODO: after production soak (2026-Q3), switch to z.array(PromptTemplateSchema)
+      // and let hook handle per-item skip. Remove the lenient unknown[] approach.
+      const result = safeJsonParse(
+        e.target?.result as string,
+        z.array(z.unknown())
+      )
+      if (!result.success) {
+        logger.error("Failed to import templates", "PromptTemplateActions", {
+          error: result.error
+        })
         alert("Failed to import templates. Please check the file format.")
+        return
       }
+      onImport(result.data)
     }
     reader.readAsText(file)
 

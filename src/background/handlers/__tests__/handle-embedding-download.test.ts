@@ -5,6 +5,7 @@ import {
   checkEmbeddingModelExists,
   downloadEmbeddingModelSilently
 } from "../handle-embedding-download"
+import { createMockResponse } from "./test-utils"
 
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({
@@ -53,46 +54,42 @@ describe("Handle Embedding Download", () => {
 
   describe("checkEmbeddingModelExists", () => {
     it("should return true if model exists", async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse({
           models: [{ name: "nomic-embed-text:latest" }]
         })
-      } as any)
+      )
 
       const result = await checkEmbeddingModelExists("nomic-embed-text")
       expect(result.exists).toBe(true)
     })
 
     it("should return true if model exists with tag match", async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse({
           models: [{ name: "nomic-embed-text:latest" }]
         })
-      } as any)
+      )
 
       const result = await checkEmbeddingModelExists("nomic-embed-text:latest")
       expect(result.exists).toBe(true)
     })
 
     it("should return false if model not found", async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse({
           models: [{ name: "llama2:latest" }]
         })
-      } as any)
+      )
 
       const result = await checkEmbeddingModelExists("nomic-embed-text")
       expect(result.exists).toBe(false)
     })
 
     it("should return false on API error", async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: false,
-        statusText: "Server Error"
-      } as any)
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse(null, { ok: false, statusText: "Server Error" })
+      )
 
       const result = await checkEmbeddingModelExists("nomic-embed-text")
       expect(result.exists).toBe(false)
@@ -109,12 +106,11 @@ describe("Handle Embedding Download", () => {
   describe("downloadEmbeddingModelSilently", () => {
     it("should skip download if model exists", async () => {
       // Mock checkEmbeddingModelExists behavior by mocking fetch response
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse({
           models: [{ name: "nomic-embed-text:latest" }]
         })
-      } as any)
+      )
 
       const result = await downloadEmbeddingModelSilently("nomic-embed-text")
 
@@ -131,13 +127,8 @@ describe("Handle Embedding Download", () => {
       // First call (check): not found
       // Second call (pull): success
       vi.mocked(fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ models: [] })
-        } as any)
-        .mockResolvedValueOnce({
-          ok: true
-        } as any)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
+        .mockResolvedValueOnce(createMockResponse(null))
 
       const result = await downloadEmbeddingModelSilently("nomic-embed-text")
 
@@ -162,16 +153,14 @@ describe("Handle Embedding Download", () => {
 
     it("should handle download failure", async () => {
       vi.mocked(fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ models: [] })
-        } as any)
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          statusText: "Internal Server Error",
-          text: async () => "Error details"
-        } as any)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
+        .mockResolvedValueOnce(
+          createMockResponse("Error details", {
+            ok: false,
+            status: 500,
+            statusText: "Internal Server Error"
+          })
+        )
 
       const result = await downloadEmbeddingModelSilently("nomic-embed-text")
 
@@ -181,10 +170,7 @@ describe("Handle Embedding Download", () => {
 
     it("should handle network error during download", async () => {
       vi.mocked(fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ models: [] })
-        } as any)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
         .mockRejectedValueOnce(new Error("Network Error"))
 
       const result = await downloadEmbeddingModelSilently("nomic-embed-text")

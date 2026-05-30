@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ThemeState } from "@/types"
+import { ThemeSchema } from "@/types/ui-state.schemas"
 
 export const useThemeStore = create<ThemeState>()(
   persist(
@@ -17,7 +18,12 @@ export const useThemeStore = create<ThemeState>()(
       storage: {
         getItem: async (name) => {
           const value = await plasmoGlobalStorage.get(name)
-          return value ? JSON.parse(value) : null
+          if (!value) return null
+          try {
+            return JSON.parse(value)
+          } catch {
+            return null
+          }
         },
         setItem: async (name, value) => {
           await plasmoGlobalStorage.set(name, value)
@@ -41,8 +47,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         const parsed =
           typeof newValue === "string" ? JSON.parse(newValue) : newValue
 
-        if (parsed?.state?.theme) {
-          useThemeStore.setState({ theme: parsed.state.theme })
+        const themeResult = ThemeSchema.safeParse(parsed?.state?.theme)
+        if (themeResult.success) {
+          useThemeStore.setState({ theme: themeResult.data })
         } else {
           // Fallback to rehydrate if structure doesn't match
           useThemeStore.persist.rehydrate()

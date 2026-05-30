@@ -15,6 +15,7 @@ import {
 } from "@/features/chat/hooks/use-semantic-chat-search"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
+import { logger } from "@/lib/logger"
 import { Loader2 } from "@/lib/lucide-icon"
 
 import { SearchEmptyState } from "./search/search-empty-state"
@@ -115,7 +116,7 @@ export const SemanticChatSearchDialog = ({
       .catch((err) => {
         // Only log error if this is still the current search
         if (currentSearchRef.current === searchPromise) {
-          console.error("Search error:", err)
+          logger.error("Search error", "SemanticSearch", { error: err })
         }
       })
 

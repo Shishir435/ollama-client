@@ -1,4 +1,5 @@
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChromePort } from "@/types"
 
 const selectionBridgePorts = new Set<ChromePort>()
@@ -23,9 +24,10 @@ export const postSelectionToSidePanels = (selectionText: string) => {
         fromBackground: true
       })
     } catch (error) {
-      console.warn(
-        "Failed to post selection to side panel port:",
-        error instanceof Error ? error.message : String(error)
+      logger.warn(
+        "Failed to post selection to side panel port",
+        "SelectionBridge",
+        { error: error instanceof Error ? error.message : String(error) }
       )
       selectionBridgePorts.delete(port)
     }

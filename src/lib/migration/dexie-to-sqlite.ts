@@ -1,9 +1,18 @@
+import { z } from "zod"
 import { db as dexieDb } from "@/lib/db"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { markSqliteHealthy } from "@/lib/repositories/sqlite-chat-history"
 import { SQLiteChatRepository } from "@/lib/repositories/sqlite-chat-repository"
 import { flushSave, initSQLite } from "@/lib/sqlite/db"
+import { safeJsonParse } from "@/lib/validation"
+
+const MigrationProgressSchema = z.object({
+  totalSessions: z.number(),
+  completedSessions: z.number().default(0),
+  currentSessionId: z.string().nullable(),
+  lastUpdated: z.number()
+})
 
 export const MIGRATION_STATUS_KEY = "sqlite_migration_status"
 const MIGRATION_PROGRESS_KEY = "sqlite_migration_progress"
@@ -68,15 +77,18 @@ export const runDexieToSQLiteMigration = async (
     let startIndex = 0
 
     if (savedProgress) {
-      try {
-        const progress = JSON.parse(savedProgress) as MigrationProgress
-        completedSessions = progress.completedSessions || 0
+      const progressResult = safeJsonParse(
+        savedProgress,
+        MigrationProgressSchema
+      )
+      if (progressResult.success) {
+        completedSessions = progressResult.data.completedSessions
         startIndex = completedSessions
         logger.info(
           `Resuming migration from session ${startIndex}/${totalSessions}`,
           "Migration"
         )
-      } catch (_e) {
+      } else {
         logger.warn(
           "Failed to parse saved progress, starting fresh",
           "Migration"
@@ -264,9 +276,10 @@ export const getMigrationStatus = async (): Promise<MigrationStatus> => {
 
   let progress: MigrationProgress | undefined
   if (progressStr) {
-    try {
-      progress = JSON.parse(progressStr)
-    } catch (_e) {
+    const progressResult = safeJsonParse(progressStr, MigrationProgressSchema)
+    if (progressResult.success) {
+      progress = progressResult.data as MigrationProgress
+    } else {
       logger.warn("Failed to parse migration progress", "Migration")
     }
   }

@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChromeMessage } from "@/types"
@@ -67,7 +68,7 @@ export const ChatInputBox = ({
     clearAllProcessingStates
   } = useFileUpload({
     onError: (error) => {
-      console.error("File processing error:", error)
+      logger.error("File processing error", "ChatInputBox", { error })
       toast({
         variant: "destructive",
         title: "File Upload Failed",

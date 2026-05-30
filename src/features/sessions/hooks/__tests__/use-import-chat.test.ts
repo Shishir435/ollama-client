@@ -179,7 +179,7 @@ describe("useImportChat", () => {
       }
     } as unknown as FileList
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     await act(async () => {
       await result.current.importChat(fileList)

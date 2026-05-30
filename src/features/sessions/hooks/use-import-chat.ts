@@ -3,25 +3,7 @@ import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
 import { bulkPutSessions } from "@/lib/repositories/chat-history"
 import type { ChatSession } from "@/types"
-
-function isValidChatSession(obj: unknown): obj is ChatSession {
-  if (!obj || typeof obj !== "object") return false
-  const candidate = obj as Record<string, unknown>
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.title === "string" &&
-    typeof candidate.createdAt === "number" &&
-    typeof candidate.updatedAt === "number" &&
-    Array.isArray(candidate.messages) &&
-    candidate.messages.every(
-      (m: unknown) =>
-        m &&
-        typeof m === "object" &&
-        typeof (m as Record<string, unknown>).role === "string" &&
-        typeof (m as Record<string, unknown>).content === "string"
-    )
-  )
-}
+import { ChatSessionImportSchema } from "@/types/chat.schemas"
 
 export const useImportChat = () => {
   const importChat = useCallback(async (files: FileList | null) => {
@@ -34,22 +16,41 @@ export const useImportChat = () => {
 
       try {
         const text = await file.text()
-        const parsed = JSON.parse(text)
+        let raw: unknown
+        try {
+          raw = JSON.parse(text)
+        } catch {
+          logger.warn("File is not valid JSON", "useImportChat", {
+            fileName: file.name
+          })
+          continue
+        }
 
-        const sessions = Array.isArray(parsed) ? parsed : [parsed]
+        const rawSessions = Array.isArray(raw) ? raw : [raw]
+        let fileHadErrors = false
 
-        for (const s of sessions) {
-          if (isValidChatSession(s)) {
-            importedSessions.push(s)
+        for (const item of rawSessions) {
+          const parsed = ChatSessionImportSchema.safeParse(item)
+          if (parsed.success) {
+            importedSessions.push(parsed.data as unknown as ChatSession)
           } else {
-            logger.warn("Invalid session in file", "useImportChat", {
+            fileHadErrors = true
+            logger.warn("Skipping invalid session in file", "useImportChat", {
               fileName: file.name,
-              session: s
+              error: parsed.error.message
             })
           }
         }
+
+        if (fileHadErrors) {
+          logger.warn(
+            "Some sessions were skipped due to validation errors",
+            "useImportChat",
+            { fileName: file.name }
+          )
+        }
       } catch (err) {
-        logger.error("Failed to parse import file", "useImportChat", {
+        logger.error("Failed to import file", "useImportChat", {
           fileName: file.name,
           error: err
         })

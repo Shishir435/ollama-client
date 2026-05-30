@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
+import { logger } from "@/lib/logger"
 import {
   Clock,
   Copy,
@@ -101,7 +102,9 @@ export const PromptSelectorDialog = ({
     try {
       await navigator.clipboard.writeText(text)
     } catch (err) {
-      console.error("Failed to copy text: ", err)
+      logger.error("Failed to copy text", "PromptSelectorDialog", {
+        error: err
+      })
     }
   }
 

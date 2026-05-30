@@ -187,9 +187,10 @@ export const checkEmbeddingModelExists = async (
           return ""
         })
         .filter((name) => name.length > 0)
-      console.log(
-        `[checkEmbeddingModelExists] Checking '${normalizedModelName}' against provider models:`,
-        modelNames
+      logger.debug(
+        `Checking '${normalizedModelName}' against provider models`,
+        "checkEmbeddingModelExists",
+        { modelNames }
       )
 
       // Normalize model names for comparison (remove tags)
@@ -205,8 +206,9 @@ export const checkEmbeddingModelExists = async (
           m.startsWith(`${normalizedModelName}:`) ||
           m.startsWith(`${normalizedSearchName}:`)
         if (isMatch) {
-          console.log(
-            `[checkEmbeddingModelExists] Found match: '${m}' matches '${normalizedModelName}'`
+          logger.debug(
+            `Found match: '${m}' matches '${normalizedModelName}'`,
+            "checkEmbeddingModelExists"
           )
         }
         return isMatch
@@ -238,14 +240,16 @@ export const checkEmbeddingModelExists = async (
         models: modelNames,
         method: "provider-failed-not-found"
       }
-      console.warn(
-        `[checkEmbeddingModelExists] Model '${normalizedModelName}' NOT found in provider models.`
+      logger.warn(
+        `Model '${normalizedModelName}' NOT found in provider models`,
+        "checkEmbeddingModelExists"
       )
     }
   } catch (error) {
-    console.warn(
-      "[checkEmbeddingModelExists] Provider check failed, trying fallback",
-      error
+    logger.warn(
+      "Provider check failed, trying fallback",
+      "checkEmbeddingModelExists",
+      { error }
     )
     providerDebug = { error, method: "provider-error" }
   }

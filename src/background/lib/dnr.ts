@@ -1,11 +1,13 @@
 import { isChromiumBased } from "@/lib/browser-api"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const updateDNRRules = async (): Promise<void> => {
   if (!isChromiumBased()) {
-    console.warn(
-      "DNR not available: Firefox requires local provider origin configuration"
+    logger.warn(
+      "DNR not available: Firefox requires local provider origin configuration",
+      "DNR"
     )
     return
   }
@@ -49,6 +51,6 @@ export const updateDNRRules = async (): Promise<void> => {
     })
   } catch (error) {
     // Don't throw - allow extension to continue without DNR
-    console.error("Failed to update DNR rules:", error)
+    logger.error("Failed to update DNR rules", "DNR", { error })
   }
 }

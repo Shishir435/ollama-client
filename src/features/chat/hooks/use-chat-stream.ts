@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast"
 
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
@@ -181,7 +182,7 @@ export const useChatStream = ({
 
     const listener = (msg: StreamMessage) => {
       if (DEBUG_THINKING_STREAM) {
-        console.debug("[Stream] msg", {
+        logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
           hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
           deltaPreview:
@@ -196,7 +197,7 @@ export const useChatStream = ({
           done: msg.done,
           error: msg.error
         })
-        console.log("MSG", JSON.stringify(msg, null, 3))
+        logger.debug("MSG", "useChatStream", JSON.stringify(msg, null, 3))
       }
       if (firstChunk) {
         setIsStreaming(true)
@@ -216,7 +217,9 @@ export const useChatStream = ({
 
       if (msg.thinkingDelta) {
         if (DEBUG_THINKING_STREAM) {
-          console.debug("[ThinkingStream] delta", msg.thinkingDelta)
+          logger.debug("ThinkingStream delta", "useChatStream", {
+            delta: msg.thinkingDelta
+          })
         }
         assistantMessage.thinking = `${assistantMessage.thinking || ""}${msg.thinkingDelta}`
         didUpdate = true
@@ -230,7 +233,7 @@ export const useChatStream = ({
 
         if (thinking) {
           if (DEBUG_THINKING_STREAM) {
-            console.debug("[ThinkingStream] parsed", thinking)
+            logger.debug("ThinkingStream parsed", "useChatStream", { thinking })
           }
           assistantMessage.thinking = `${assistantMessage.thinking || ""}${thinking}`
           didUpdate = true
@@ -304,10 +307,9 @@ export const useChatStream = ({
 
     port.onDisconnect.addListener(() => {
       if (browser.runtime.lastError) {
-        console.debug(
-          "[ChatStream] Port disconnected unexpectedly:",
-          browser.runtime.lastError.message
-        )
+        logger.debug("Port disconnected unexpectedly", "useChatStream", {
+          error: browser.runtime.lastError.message
+        })
       }
       if (!assistantMessage.done) {
         setIsLoading(false)
@@ -337,7 +339,7 @@ export const useChatStream = ({
   const stopStream = () => {
     // Handle case where port hasn't been created yet
     if (!portRef.current) {
-      console.warn("Stop requested but port not created yet")
+      logger.warn("Stop requested but port not created yet", "useChatStream")
       setIsLoading(false)
       setIsStreaming(false)
       return
@@ -348,7 +350,7 @@ export const useChatStream = ({
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION
       })
     } catch (error) {
-      console.error("Failed to send stop message:", error)
+      logger.error("Failed to send stop message", "useChatStream", { error })
     } finally {
       // Always reset state, even if message fails
       setIsLoading(false)

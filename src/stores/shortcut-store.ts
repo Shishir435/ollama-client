@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { ZustandPersistedStateSchema } from "@/types/ui-state.schemas"
 
 export type ShortcutAction =
   | "newChat"
@@ -253,7 +254,12 @@ export const useShortcutStore = create<ShortcutState>()(
               return null
             }
           }
-          return value as unknown as ReturnType<typeof JSON.parse>
+          // Storage returned a pre-parsed object (chrome.storage does this)
+          const parsed = ZustandPersistedStateSchema.safeParse(value)
+          if (parsed.success) {
+            return value as ReturnType<typeof JSON.parse>
+          }
+          return null
         },
         setItem: async (name, value) => {
           await plasmoGlobalStorage.set(name, value)

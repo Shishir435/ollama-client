@@ -36,6 +36,7 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
@@ -76,7 +77,9 @@ if (isChromiumBased() && "sidePanel" in browser) {
 
   sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((error: Error) => console.error("SidePanel error:", error))
+    .catch((error: Error) =>
+      logger.error("SidePanel error", "BackgroundSW", { error })
+    )
 
   // Explicit action handler to avoid browser/version quirks where panel behavior
   // is not applied consistently.
@@ -94,9 +97,10 @@ if (isChromiumBased() && "sidePanel" in browser) {
           tabId: tab.id
         })
         .catch((error) => {
-          console.warn(
-            "Failed to open side panel, falling back to popup:",
-            error
+          logger.warn(
+            "Failed to open side panel, falling back to popup",
+            "BackgroundSW",
+            { error }
           )
           openClientWindow()
         })
@@ -111,7 +115,10 @@ if (isChromiumBased() && "sidePanel" in browser) {
 }
 
 if (!isChromiumBased()) {
-  console.warn("DNR not available: skipping CORS workaround (likely Firefox)")
+  logger.warn(
+    "DNR not available: skipping CORS workaround (likely Firefox)",
+    "BackgroundSW"
+  )
 }
 
 if (isChromiumBased()) {
@@ -120,7 +127,10 @@ if (isChromiumBased()) {
 
     // Auto-download embedding model on first install
     if (details.reason === "install") {
-      console.log("Extension installed - downloading embedding model...")
+      logger.info(
+        "Extension installed - downloading embedding model",
+        "BackgroundSW"
+      )
 
       // Check if already downloaded
       const alreadyDownloaded = await plasmoGlobalStorage.get<boolean>(
@@ -132,17 +142,23 @@ if (isChromiumBased()) {
         downloadEmbeddingModelSilently(DEFAULT_EMBEDDING_MODEL)
           .then((result) => {
             if (result.success) {
-              console.log(
-                `✅ Successfully downloaded embedding model: ${DEFAULT_EMBEDDING_MODEL}`
+              logger.info(
+                `Successfully downloaded embedding model: ${DEFAULT_EMBEDDING_MODEL}`,
+                "BackgroundSW"
               )
             } else {
-              console.warn(
-                `⚠️ Failed to auto-download embedding model: ${result.error}`
+              logger.warn(
+                `Failed to auto-download embedding model: ${result.error}`,
+                "BackgroundSW"
               )
             }
           })
           .catch((error) => {
-            console.error("Error during embedding model download:", error)
+            logger.error(
+              "Error during embedding model download",
+              "BackgroundSW",
+              { error }
+            )
           })
       }
     }
@@ -178,7 +194,7 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
     }
 
     if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
-      console.log("Stop generation requested")
+      logger.info("Stop generation requested", "BackgroundSW")
       abortAndClearController(port.name) // Reset the controller
     }
   })
@@ -197,13 +213,23 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
     try {
       handleEmbedFileChunksPort(port)
     } catch (err) {
-      console.error("Error attaching embed chunks port handler:", err)
+      logger.error(
+        "Error attaching embed chunks port handler",
+        "BackgroundSW",
+        { error: err }
+      )
       try {
         port.postMessage({
           status: "error",
           message: err instanceof Error ? err.message : String(err)
         } as unknown as ChromeMessage)
-      } catch (_) {}
+      } catch (e) {
+        logger.warn(
+          "Port already closed during error response",
+          "BackgroundSW",
+          { error: e }
+        )
+      }
       port.disconnect()
     }
   }
@@ -235,10 +261,29 @@ browser.runtime.onMessage.addListener(
       }
 
       case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
-        browser.tabs.query({}).then((tabs) => {
-          console.log(tabs)
-          safeSendResponse(sendResponse, { success: true, tabs })
-        })
+        browser.tabs
+          .query({})
+          .then((tabs) => {
+            logger.info("Queried browser tabs", "BackgroundSW", {
+              tabCount: tabs.length
+            })
+            safeSendResponse(sendResponse, { success: true, tabs })
+          })
+          .catch((error: unknown) => {
+            logger.error("Failed to query browser tabs", "BackgroundSW", {
+              error
+            })
+            safeSendResponse(sendResponse, {
+              success: false,
+              error: {
+                status: 0,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to query tabs"
+              }
+            })
+          })
         return true
       }
 
@@ -402,10 +447,9 @@ browser.runtime.onMessage.addListener(
           const tabId = _sender.tab?.id
           if (windowId && sidePanel.open) {
             sidePanel.open({ windowId, tabId }).catch((err: unknown) => {
-              console.error(
-                "Failed to open sidepanel:",
-                err instanceof Error ? err.message : String(err)
-              )
+              logger.error("Failed to open sidepanel", "BackgroundSW", {
+                error: err instanceof Error ? err.message : String(err)
+              })
             })
           }
         }
@@ -424,9 +468,10 @@ browser.runtime.onMessage.addListener(
                   fromBackground: true
                 })
                 .catch((err) => {
-                  console.log(
-                    "Could not forward selection to chat (sidepanel might be closed):",
-                    err
+                  logger.debug(
+                    "Could not forward selection to chat (sidepanel might be closed)",
+                    "BackgroundSW",
+                    { error: err }
                   )
                 })
             }, 500)

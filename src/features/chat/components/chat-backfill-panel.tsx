@@ -8,6 +8,7 @@ import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messa
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -54,7 +55,7 @@ export const ChatBackfillPanel = () => {
       const errorMessage =
         err instanceof Error ? err.message : "Backfill failed"
       setError(errorMessage)
-      console.error("Backfill error:", err)
+      logger.error("Backfill error", "ChatBackfillPanel", { error: err })
     } finally {
       setIsRunning(false)
     }

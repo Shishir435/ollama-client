@@ -148,10 +148,13 @@ importers:
         version: 7.2.4
       vectra:
         specifier: ^0.11.1
-        version: 0.11.1(ws@8.21.0)(zod@3.25.76)
+        version: 0.11.1(ws@8.21.0)(zod@4.4.3)
       webextension-polyfill:
         specifier: ^0.12.0
         version: 0.12.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
       zustand:
         specifier: ^5.0.13
         version: 5.0.13(@types/react@19.0.0)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -6637,9 +6640,6 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
-
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -6790,7 +6790,7 @@ snapshots:
     dependencies:
       sitemap: 9.0.1
       stream-replace-string: 2.0.0
-      zod: 4.3.6
+      zod: 4.4.3
 
   '@astrojs/starlight@0.39.2(astro@6.1.10(@types/node@24.12.4)(jiti@2.7.0)(less@4.3.0)(lightningcss@1.32.0)(rollup@4.60.4)(sass@1.89.0)(typescript@5.9.3)(yaml@2.9.0))(typescript@5.9.3)':
     dependencies:
@@ -11676,7 +11676,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@4.104.0(ws@8.21.0)(zod@3.25.76):
+  openai@4.104.0(ws@8.21.0)(zod@4.4.3):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -11687,7 +11687,7 @@ snapshots:
       node-fetch: 2.7.0
     optionalDependencies:
       ws: 8.21.0
-      zod: 3.25.76
+      zod: 4.4.3
     transitivePeerDependencies:
       - encoding
 
@@ -13115,14 +13115,14 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vectra@0.11.1(ws@8.21.0)(zod@3.25.76):
+  vectra@0.11.1(ws@8.21.0)(zod@4.4.3):
     dependencies:
       axios: 1.16.1
       cheerio: 1.2.0
       dotenv: 16.6.1
       gpt-3-encoder: 1.1.4
       json-colorizer: 3.0.1
-      openai: 4.104.0(ws@8.21.0)(zod@3.25.76)
+      openai: 4.104.0(ws@8.21.0)(zod@4.4.3)
       turndown: 7.2.4
       uuid: 11.1.1
       wink-bm25-text-search: 3.1.2
@@ -13536,8 +13536,6 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
-
-  zod@4.3.6: {}
 
   zod@4.4.3: {}
 

@@ -5,6 +5,7 @@ import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-
 import { rebuildEmbeddings } from "@/features/context/lib/embedding-rebuild"
 import { clearEmbeddingCache } from "@/lib/embeddings/embedding-client"
 import { clearAllVectors } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 
 export interface RebuildProgress {
   current: number
@@ -74,7 +75,9 @@ export const useEmbeddingRebuild = ({
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Failed to rebuild embeddings"
-      console.error("Failed to rebuild embeddings:", e)
+      logger.error("Failed to rebuild embeddings", "useEmbeddingRebuild", {
+        error: e
+      })
       setError(message)
     } finally {
       setIsRebuilding(false)

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { OpenAIProvider } from "./openai"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
@@ -65,9 +66,10 @@ export class LMStudioProvider extends OpenAIProvider {
         }
       }))
     } catch (_e) {
-      console.warn(
-        "LMStudio /api/v0/models failed, falling back to openai compat",
-        _e
+      logger.warn(
+        "/api/v0/models failed, falling back to openai compat",
+        "LMStudio",
+        { error: _e }
       )
       return super.getModels()
     }

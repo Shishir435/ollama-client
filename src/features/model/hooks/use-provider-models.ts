@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -25,17 +26,16 @@ import { isEmbeddingModel } from "../lib/model-utils"
 const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   const providers = await ProviderManager.getProviders()
   const enabledProviders = providers.filter((p) => p.enabled)
-  console.log(
-    "[useProviderModels] Enabled providers:",
-    enabledProviders.map((p) => p.id)
-  )
+  logger.info("Enabled providers", "useProviderModels", {
+    providers: enabledProviders.map((p) => p.id)
+  })
 
   const allModels: ProviderModel[] = []
 
   await Promise.all(
     enabledProviders.map(async (config) => {
       try {
-        console.log(`[useProviderModels] Fetching for ${config.id}...`)
+        logger.debug(`Fetching for ${config.id}`, "useProviderModels")
         const provider = await ProviderFactory.getProvider(config.id)
         const providerModels = await provider.getModels()
         const customs = config.customModels || []
@@ -73,7 +73,11 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
           allModels.push(model)
         })
       } catch (e) {
-        console.error(`Failed to fetch models for ${config.id}`, e)
+        logger.error(
+          `Failed to fetch models for ${config.id}`,
+          "useProviderModels",
+          { error: e }
+        )
       }
     })
   )
@@ -84,8 +88,9 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   allModels.forEach((m) => {
     if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
       if (mappings[m.name]) {
-        console.warn(
-          `[useProviderModels] Model name collision: "${m.name}" is served by both "${mappings[m.name]}" and "${m.providerId}". Keeping first mapping.`
+        logger.warn(
+          `Model name collision: "${m.name}" is served by both "${mappings[m.name]}" and "${m.providerId}". Keeping first mapping.`,
+          "useProviderModels"
         )
       } else {
         mappings[m.name] = m.providerId
@@ -244,7 +249,11 @@ export const useProviderModels = () => {
       }
     }
     runMigration().catch((error) => {
-      console.error("Failed to migrate selected model reference", error)
+      logger.error(
+        "Failed to migrate selected model reference",
+        "useProviderModels",
+        { error }
+      )
     })
   }, [
     isStorageLoading,
@@ -308,7 +317,7 @@ export const useProviderModels = () => {
       })
     },
     onError: (err) => {
-      console.error("Error deleting model:", err)
+      logger.error("Error deleting model", "useProviderModels", { error: err })
     }
   })
 

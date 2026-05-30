@@ -1,4 +1,5 @@
 import { LEGACY_STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   type ProviderConfig,
@@ -116,7 +117,11 @@ export const ProviderManager = {
         // But if we return the legacy URL, the UI will show it, and if user saves, it updates.
       }
     } catch (e) {
-      console.warn("Failed to check legacy provider URL in getProviders", e)
+      logger.warn(
+        "Failed to check legacy provider URL in getProviders",
+        "ProviderManager",
+        { error: e }
+      )
     }
 
     if (missing.length > 0) {
@@ -161,7 +166,9 @@ export const ProviderManager = {
             updates.baseUrl
           )
         } catch (e) {
-          console.warn("Failed to sync legacy provider URL", e)
+          logger.warn("Failed to sync legacy provider URL", "ProviderManager", {
+            error: e
+          })
         }
       }
     }

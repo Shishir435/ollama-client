@@ -1,8 +1,10 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback } from "react"
 import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { PromptTemplate } from "@/types"
+import { PromptTemplateSchema } from "@/types/ui-state.schemas"
 
 const normalizeCreatedAt = (value: unknown): Date => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value
@@ -17,48 +19,15 @@ const normalizeImportedTemplate = (
   value: unknown,
   existingIds: Set<string>
 ): PromptTemplate | null => {
-  if (!value || typeof value !== "object") return null
+  const parsed = PromptTemplateSchema.safeParse(value)
+  if (!parsed.success) return null
 
-  const candidate = value as Partial<PromptTemplate>
-  if (
-    typeof candidate.title !== "string" ||
-    !candidate.title.trim() ||
-    typeof candidate.userPrompt !== "string" ||
-    !candidate.userPrompt.trim()
-  ) {
-    return null
-  }
-
-  const rawId =
-    typeof candidate.id === "string" && candidate.id.trim()
-      ? candidate.id.trim()
-      : crypto.randomUUID()
+  const template = parsed.data
+  const rawId = template.id.trim() || crypto.randomUUID()
   const id = existingIds.has(rawId) ? crypto.randomUUID() : rawId
   existingIds.add(id)
 
-  return {
-    id,
-    title: candidate.title.trim(),
-    description:
-      typeof candidate.description === "string"
-        ? candidate.description
-        : undefined,
-    category:
-      typeof candidate.category === "string" ? candidate.category : undefined,
-    systemPrompt:
-      typeof candidate.systemPrompt === "string"
-        ? candidate.systemPrompt
-        : undefined,
-    userPrompt: candidate.userPrompt.trim(),
-    tags: Array.isArray(candidate.tags)
-      ? candidate.tags.filter((tag): tag is string => typeof tag === "string")
-      : undefined,
-    createdAt: normalizeCreatedAt(candidate.createdAt),
-    usageCount:
-      typeof candidate.usageCount === "number" && candidate.usageCount >= 0
-        ? candidate.usageCount
-        : 0
-  }
+  return { ...template, id }
 }
 
 export const usePromptTemplates = () => {
@@ -140,11 +109,14 @@ export const usePromptTemplates = () => {
   )
 
   const importTemplates = useCallback(
-    (newTemplates: unknown[]) => {
+    (newTemplates: unknown) => {
+      const items = Array.isArray(newTemplates) ? newTemplates : []
+      if (items.length === 0) return
+
       setTemplates((prev) => {
         const current = prev || []
         const existingIds = new Set(current.map((template) => template.id))
-        const normalized = newTemplates
+        const normalized = items
           .map((template) => normalizeImportedTemplate(template, existingIds))
           .filter((template): template is PromptTemplate => Boolean(template))
 
@@ -154,8 +126,24 @@ export const usePromptTemplates = () => {
     [setTemplates]
   )
 
-  const exportTemplates = useCallback(() => {
-    return effectiveTemplates
+  const exportTemplates = useCallback((): PromptTemplate[] => {
+    const validated: PromptTemplate[] = []
+    for (const t of effectiveTemplates) {
+      const result = PromptTemplateSchema.safeParse(t)
+      if (result.success) {
+        validated.push(result.data as PromptTemplate)
+      } else {
+        logger.warn(
+          "Skipping invalid template on export",
+          "usePromptTemplates",
+          {
+            id: t.id,
+            error: result.error.message
+          }
+        )
+      }
+    }
+    return validated
   }, [effectiveTemplates])
 
   const resetToDefaults = useCallback(() => {

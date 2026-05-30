@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger"
 import type {
   ChatStreamMessage,
   OllamaChatRequest,
@@ -35,15 +36,16 @@ export class OllamaProvider implements LLMProvider {
       if (!this.config.baseUrl) {
         return []
       }
-      console.log(
-        `[OllamaProvider] Fetching models from ${this.config.baseUrl}`
+      logger.debug(
+        `Fetching models from ${this.config.baseUrl}`,
+        "OllamaProvider"
       )
       const response = await fetch(`${this.config.baseUrl}/api/tags`)
       if (!response.ok) return []
       const data = await response.json()
       return (data.models as ProviderModel[]) || []
     } catch (e) {
-      console.error("Failed to fetch Ollama models", e)
+      logger.error("Failed to fetch models", "OllamaProvider", { error: e })
       return []
     }
   }
@@ -165,7 +167,7 @@ export class OllamaProvider implements LLMProvider {
                 : undefined
             })
           } catch (e) {
-            console.warn("Failed to parse Ollama chunk", e)
+            logger.warn("Failed to parse chunk", "OllamaProvider", { error: e })
           }
         }
       }
@@ -188,7 +190,9 @@ export class OllamaProvider implements LLMProvider {
       if (!res.ok) return null
       return await res.json()
     } catch (e) {
-      console.error("Failed to fetch Ollama model details", e)
+      logger.error("Failed to fetch model details", "OllamaProvider", {
+        error: e
+      })
       return null
     }
   }
@@ -225,10 +229,9 @@ export class OllamaProvider implements LLMProvider {
         }
       } else {
         const errorText = await response.text()
-        console.warn(
-          `[Ollama] /api/embed failed: ${response.status}`,
-          errorText
-        )
+        logger.warn(`/api/embed failed: ${response.status}`, "OllamaProvider", {
+          error: errorText
+        })
       }
     } catch (_error) {
       // Continue to legacy fallback.
@@ -244,9 +247,10 @@ export class OllamaProvider implements LLMProvider {
 
       if (!legacyResponse.ok) {
         const errorText = await legacyResponse.text()
-        console.warn(
-          `[Ollama] /api/embeddings failed: ${legacyResponse.status}`,
-          errorText
+        logger.warn(
+          `/api/embeddings failed: ${legacyResponse.status}`,
+          "OllamaProvider",
+          { error: errorText }
         )
         const message = errorText
           ? `Ollama Embedding Error: ${legacyResponse.status} ${errorText}`
@@ -260,7 +264,7 @@ export class OllamaProvider implements LLMProvider {
       }
       return legacyData.embedding
     } catch (error) {
-      console.error("[Ollama] Both embed endpoints failed", error)
+      logger.error("Both embed endpoints failed", "OllamaProvider", { error })
       throw error
     }
   }

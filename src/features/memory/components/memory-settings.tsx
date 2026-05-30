@@ -13,6 +13,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -45,7 +46,7 @@ export const MemorySettings = () => {
       // Refresh stats
       loadStats()
     } catch (error) {
-      console.error("Failed to clear memory:", error)
+      logger.error("Failed to clear memory", "MemorySettings", { error })
       toast({
         title: t("settings.memory.clear.error"),
         variant: "destructive"
@@ -60,7 +61,7 @@ export const MemorySettings = () => {
       const s = await getStorageStats()
       setStats(s)
     } catch (error) {
-      console.error("Failed to load stats:", error)
+      logger.error("Failed to load stats", "MemorySettings", { error })
     }
   }, [])
 

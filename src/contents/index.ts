@@ -8,6 +8,7 @@ import {
   extractContentWithLoading,
   getEffectiveConfig
 } from "@/lib/content-extractor"
+import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
@@ -143,9 +144,10 @@ const handleGetPageContent = async (
         )
       ])
     } catch (error) {
-      console.warn(
-        "[Content Script] Enhanced extraction failed, falling back to basic extraction:",
-        error
+      logger.warn(
+        "Enhanced extraction failed, falling back to basic extraction",
+        "ContentScript",
+        { error }
       )
     }
   }
@@ -172,8 +174,9 @@ const handleGetPageContent = async (
     readable.readableText
 
   if (!finalContent || finalContent.trim().length < 50) {
-    console.error(
-      `[Content Script] Extraction failed: Only ${finalContent?.length || 0} chars extracted`
+    logger.error(
+      `Extraction failed: Only ${finalContent?.length || 0} chars extracted`,
+      "ContentScript"
     )
     throw new Error(
       `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
@@ -229,9 +232,11 @@ browser.runtime.onMessage.addListener(
 
     contentDebugLog("[Content Script] Starting GET_PAGE_CONTENT handler")
     handleGetPageContent(sendResponse).catch((err) => {
-      console.error("[Content Script] Error in content script:", err)
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error("[Content Script] Error details:", errorMessage)
+      logger.error("Error in content script", "ContentScript", {
+        error: err,
+        errorMessage
+      })
       safeSendResponse(sendResponse, {
         html: `Failed to parse content. Error: ${errorMessage}`,
         title: document.title || "Untitled"

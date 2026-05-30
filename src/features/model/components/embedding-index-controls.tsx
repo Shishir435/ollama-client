@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
+import { logger } from "@/lib/logger"
 import { Database, Loader2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -40,7 +41,9 @@ export const EmbeddingIndexControls = () => {
 
       setRebuildResult(`✅ ${t("settings.embeddings.rebuild_index.success")}`)
     } catch (error) {
-      console.error("Failed to rebuild index:", error)
+      logger.error("Failed to rebuild index", "EmbeddingIndexControls", {
+        error
+      })
       setRebuildResult(`❌ ${t("settings.embeddings.rebuild_index.error")}`)
     } finally {
       setIsRebuildingIndex(false)
