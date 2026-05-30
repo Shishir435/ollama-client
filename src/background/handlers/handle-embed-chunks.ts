@@ -98,24 +98,40 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
   let totalChunks = 0
   let processed = 0
   let cancelled = false
+  let closed = false
+
+  const postMessage = (message: Record<string, unknown>) => {
+    if (closed) return false
+    try {
+      port.postMessage(message as unknown as ChromeMessage)
+      return true
+    } catch (_) {
+      cancelled = true
+      closed = true
+      return false
+    }
+  }
+
+  const closePort = () => {
+    if (closed) return
+    closed = true
+    try {
+      port.disconnect()
+    } catch (_) {}
+  }
 
   port.onMessage.addListener(async (message) => {
+    if (closed) return
     const msg = message as ChromeMessage
     try {
       if (msg.cancel) {
         cancelled = true
-        try {
-          port.postMessage({
-            status: "cancelled",
-            processed,
-            total: totalChunks
-          })
-        } catch (_) {
-          // Port already disconnected
-        }
-        try {
-          port.disconnect()
-        } catch (_) {}
+        postMessage({
+          status: "cancelled",
+          processed,
+          total: totalChunks
+        })
+        closePort()
         return
       }
 
@@ -130,15 +146,22 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
         processed = 0
         cancelled = false
 
-        try {
-          port.postMessage({ status: "initialized" })
-        } catch (_) {
-          // Port disconnected
-        }
+        postMessage({ status: "initialized" })
         return
       }
 
       if (msg.type === "batch") {
+        if (!metadata) {
+          postMessage({
+            status: "error",
+            message: "Embedding stream was not initialized",
+            processed,
+            total: totalChunks
+          })
+          closePort()
+          return
+        }
+
         const batch = (
           msg.payload as { chunks: { index: number; text: string }[] }
         ).chunks
@@ -182,46 +205,33 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
         }
 
         // Send progress update
-        try {
-          port.postMessage({
-            status: "progress",
-            processed,
-            total: totalChunks
-          })
-        } catch (_) {
-          // Port disconnected, stop processing
-          cancelled = true
-        }
+        postMessage({
+          status: "progress",
+          processed,
+          total: totalChunks
+        })
         return
       }
 
       if (msg.type === "done") {
-        try {
-          port.postMessage({ status: "done", processed, total: totalChunks })
-        } catch (_) {
-          // Port already disconnected
-        }
-        try {
-          port.disconnect()
-        } catch (_) {}
+        postMessage({ status: "done", processed, total: totalChunks })
+        closePort()
         return
       }
     } catch (err) {
       const eMsg = err instanceof Error ? err.message : String(err)
-      try {
-        port.postMessage({
-          status: "error",
-          message: eMsg,
-          processed,
-          total: totalChunks
-        })
-      } catch (_) {
-        // Port disconnected, can't send error
-      }
+      postMessage({
+        status: "error",
+        message: eMsg,
+        processed,
+        total: totalChunks
+      })
+      closePort()
     }
   })
 
   port.onDisconnect.addListener(() => {
     cancelled = true
+    closed = true
   })
 }

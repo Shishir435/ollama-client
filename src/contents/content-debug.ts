@@ -1,0 +1,14 @@
+interface ContentDebugWindow extends Window {
+  __OLLAMA_CLIENT_CONTENT_DEBUG__?: boolean
+}
+
+export const isContentDebugEnabled = (): boolean =>
+  Boolean(
+    (window as unknown as ContentDebugWindow).__OLLAMA_CLIENT_CONTENT_DEBUG__
+  )
+
+export const contentDebugLog = (...args: unknown[]): void => {
+  if (isContentDebugEnabled()) {
+    console.log(...args)
+  }
+}

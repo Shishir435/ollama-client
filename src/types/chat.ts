@@ -56,6 +56,7 @@ export interface ChatMessage {
     tabContextLength?: number
     ragContextLength?: number
     tabContextTruncated?: boolean
+    contextBuildFailed?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
@@ -138,7 +139,7 @@ export interface ChatSessionState {
   currentSessionId: string | null
   hasSession: boolean
   hydrated: boolean
-  createSession: () => Promise<void>
+  createSession: () => Promise<string>
   deleteSession: (id: string) => Promise<void>
   updateMessages: (
     id: string,

@@ -6,6 +6,8 @@
  * test entry points. They never affect user-facing behavior.
  */
 
+import { contentDebugLog } from "./content-debug"
+
 interface ContentScriptWindow extends Window {
   __providerContentScript?: boolean
   __ollamaContentScript?: boolean
@@ -61,16 +63,16 @@ const addYouTubeIndicator = (): void => {
 
 const installDebugHelpers = (): void => {
   w().__testTranscript = async () => {
-    console.log("[Manual Test] Starting manual transcript test...")
+    contentDebugLog("[Manual Test] Starting manual transcript test...")
     try {
       const { getTranscript } = await import("@/lib/transcript-extractor")
       const transcript = await getTranscript()
-      console.log(
+      contentDebugLog(
         "[Manual Test] Transcript result:",
         transcript ? `${transcript.length} chars` : "null"
       )
       if (transcript) {
-        console.log(
+        contentDebugLog(
           "[Manual Test] First 200 chars:",
           transcript.substring(0, 200)
         )
@@ -81,7 +83,7 @@ const installDebugHelpers = (): void => {
   }
 
   w().__testExtraction = async () => {
-    console.log("[Manual Test] Starting manual extraction test...")
+    contentDebugLog("[Manual Test] Starting manual extraction test...")
     try {
       const { extractContentWithLoading } = await import(
         "@/lib/content-extractor"
@@ -92,8 +94,8 @@ const installDebugHelpers = (): void => {
       const result = await extractContentWithLoading(
         DEFAULT_CONTENT_EXTRACTION_CONFIG
       )
-      console.log("[Manual Test] Extraction result:", result.metrics)
-      console.log(
+      contentDebugLog("[Manual Test] Extraction result:", result.metrics)
+      contentDebugLog(
         "[Manual Test] Detected patterns:",
         result.logEntry.detectedPatterns
       )
@@ -105,7 +107,7 @@ const installDebugHelpers = (): void => {
   w().__getExtractionLogs = () => {
     const logs =
       w().__providerExtractionLogs || w().__ollamaExtractionLogs || []
-    console.log("[Content Script] Extraction logs:", logs)
+    contentDebugLog("[Content Script] Extraction logs:", logs)
     return logs
   }
 }
@@ -120,10 +122,10 @@ export const initYouTubeFeatures = (): void => {
   addYouTubeIndicator()
   installDebugHelpers()
 
-  console.log("[Content Script] Manual tests:")
-  console.log("  - window.__testTranscript() - Test transcript extraction")
-  console.log("  - window.__testExtraction() - Test content extraction")
-  console.log(
+  contentDebugLog("[Content Script] Manual tests:")
+  contentDebugLog("  - window.__testTranscript() - Test transcript extraction")
+  contentDebugLog("  - window.__testExtraction() - Test content extraction")
+  contentDebugLog(
     "  - window.__getExtractionLogs() - Get extraction logs for feedback"
   )
 }

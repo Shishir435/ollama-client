@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useChat } from "../use-chat"
 
+const toastMock = vi.hoisted(() => vi.fn())
+
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn((config, defaultValue) => {
@@ -20,18 +22,8 @@ vi.mock("@plasmohq/storage/hook", () => ({
   })
 }))
 
-vi.mock("@/lib/db", () => ({
-  db: {
-    sessions: {
-      orderBy: vi.fn().mockReturnValue({
-        reverse: vi.fn().mockReturnValue({
-          first: vi
-            .fn()
-            .mockResolvedValue({ id: "session-1", title: "New Chat" })
-        })
-      })
-    }
-  }
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: toastMock })
 }))
 
 vi.mock("@/lib/embeddings/embedding-client", () => ({
@@ -112,7 +104,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
     ],
     updateMessages: vi.fn().mockResolvedValue(undefined),
     renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-    createSession: vi.fn().mockResolvedValue(undefined),
+    createSession: vi.fn().mockResolvedValue("session-1"),
     setCurrentSessionId: vi.fn(),
     hasSession: true,
     deleteSession: vi.fn().mockResolvedValue(undefined),
@@ -206,7 +198,7 @@ describe("useChat", () => {
       ],
       updateMessages,
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-      createSession: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
       deleteSession: vi.fn().mockResolvedValue(undefined),
@@ -247,11 +239,162 @@ describe("useChat", () => {
     )
   })
 
+  it("adds a completed assistant error when context preparation fails", async () => {
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
+    const addMessage = vi.fn().mockResolvedValue(123)
+    const startStream = vi.fn()
+
+    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+      new Error("storage unavailable")
+    )
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
+    vi.mocked(useChatSessions).mockReturnValue({
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Test",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      refreshSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      addMessage,
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
+    })
+
+    const { result } = renderHook(() => useChat())
+
+    await act(async () => {
+      await result.current.sendMessage("Hello")
+    })
+
+    expect(startStream).not.toHaveBeenCalled()
+    expect(addMessage).toHaveBeenNthCalledWith(
+      1,
+      "session-1",
+      expect.objectContaining({
+        role: "user",
+        content: "Hello"
+      })
+    )
+    expect(addMessage).toHaveBeenNthCalledWith(
+      2,
+      "session-1",
+      expect.objectContaining({
+        role: "assistant",
+        done: true,
+        metrics: expect.objectContaining({
+          contextBuildFailed: true
+        })
+      })
+    )
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Context preparation failed"
+      })
+    )
+  })
+
+  it("still shows context failure toast when persisting assistant error fails", async () => {
+    const { useChatStream } = await import(
+      "@/features/chat/hooks/use-chat-stream"
+    )
+    const { useChatSessions } = await import(
+      "@/features/sessions/stores/chat-session-store"
+    )
+    const addMessage = vi
+      .fn()
+      .mockResolvedValueOnce(123)
+      .mockRejectedValueOnce(new Error("assistant save failed"))
+    const startStream = vi.fn()
+
+    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+      new Error("storage unavailable")
+    )
+    vi.mocked(useChatStream).mockReturnValue({
+      startStream,
+      stopStream: vi.fn()
+    })
+    vi.mocked(useChatSessions).mockReturnValue({
+      currentSessionId: "session-1",
+      sessions: [
+        {
+          id: "session-1",
+          title: "Test",
+          messages: [],
+          createdAt: 0,
+          updatedAt: 0
+        }
+      ],
+      updateMessages: vi.fn().mockResolvedValue(undefined),
+      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
+      setCurrentSessionId: vi.fn(),
+      hasSession: true,
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      loadSessions: vi.fn().mockResolvedValue(undefined),
+      refreshSessions: vi.fn().mockResolvedValue(undefined),
+      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
+      addMessage,
+      highlightedMessage: null,
+      setHighlightedMessage: vi.fn(),
+      updateMessage: vi.fn().mockResolvedValue(undefined),
+      deleteMessage: vi.fn().mockResolvedValue(undefined),
+      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
+      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
+      hasMoreMessages: false,
+      forkMessage: vi.fn().mockResolvedValue(undefined),
+      navigateToNode: vi.fn().mockResolvedValue(undefined)
+    })
+
+    const { result } = renderHook(() => useChat())
+
+    await act(async () => {
+      await result.current.sendMessage("Hello")
+    })
+
+    expect(startStream).not.toHaveBeenCalled()
+    expect(addMessage).toHaveBeenCalledTimes(2)
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Context preparation failed"
+      })
+    )
+  })
+
   it("should create session if none exists", async () => {
     const { useChatSessions } = await import(
       "@/features/sessions/stores/chat-session-store"
     )
-    const createSession = vi.fn().mockResolvedValue(undefined)
+    const createSession = vi.fn().mockResolvedValue("session-1")
     const setCurrentSessionId = vi.fn()
 
     vi.mocked(useChatSessions).mockReturnValue({
@@ -288,63 +431,6 @@ describe("useChat", () => {
     expect(setCurrentSessionId).toHaveBeenCalledWith("session-1")
   })
 
-  it("should handle session creation failure", async () => {
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
-    const { db } = await import("@/lib/db")
-
-    vi.mocked(useChatSessions).mockReturnValue({
-      currentSessionId: null,
-      sessions: [],
-      hasSession: false,
-      deleteSession: vi.fn().mockResolvedValue(undefined),
-      loadSessions: vi.fn().mockResolvedValue(undefined),
-      refreshSessions: vi.fn().mockResolvedValue(undefined),
-      loadSessionMessages: vi.fn().mockResolvedValue(undefined),
-      highlightedMessage: null,
-      setHighlightedMessage: vi.fn(),
-      updateMessages: vi.fn().mockResolvedValue(undefined),
-      renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-      createSession: vi.fn().mockResolvedValue(undefined),
-      setCurrentSessionId: vi.fn(),
-      addMessage: vi.fn().mockResolvedValue(undefined),
-      updateMessage: vi.fn().mockResolvedValue(undefined),
-      deleteMessage: vi.fn().mockResolvedValue(undefined),
-      ensureMessageLoaded: vi.fn().mockResolvedValue(undefined),
-      loadMoreMessages: vi.fn().mockResolvedValue(undefined),
-      hasMoreMessages: false,
-      forkMessage: vi.fn().mockResolvedValue(undefined),
-      navigateToNode: vi.fn().mockResolvedValue(undefined)
-    })
-
-    // Mock db to return null for latest session
-    vi.mocked(
-      db.sessions.orderBy("createdAt").reverse().first
-    ).mockResolvedValue(undefined)
-
-    const { result } = renderHook(() => useChat())
-
-    await act(async () => {
-      await result.current.sendMessage("Hello")
-    })
-
-    // Should return early and not send message
-    await import("@/features/chat/hooks/use-chat-stream")
-    // We need to get the mock to check calls
-    // But since we can't easily access the internal startStream mock from here without re-mocking,
-    // we rely on the fact that if sessionId is null, it returns early.
-    // A better check is to verify setCurrentSessionId was NOT called with a valid ID
-    // But since we mocked createSession, we can check if it was called.
-    // Actually, ensureSessionId calls createSession, then db.first().
-    // If db.first() returns null, it returns null.
-    // sendMessage checks if sessionId is null and returns.
-
-    // Let's verify startStream is NOT called
-    // We need to ensure useChatStream mock is set up for this test if not global
-    // It is global, but we can spy on it or re-mock it.
-  })
-
   it("should rename session from 'New Chat' to first message", async () => {
     const { useChatSessions } = await import(
       "@/features/sessions/stores/chat-session-store"
@@ -364,7 +450,7 @@ describe("useChat", () => {
       ],
       updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle,
-      createSession: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
       deleteSession: vi.fn().mockResolvedValue(undefined),
@@ -414,7 +500,7 @@ describe("useChat", () => {
       ],
       updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle,
-      createSession: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
       deleteSession: vi.fn().mockResolvedValue(undefined),
@@ -586,7 +672,7 @@ describe("useChat", () => {
       ],
       updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
-      createSession: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
       deleteSession: vi.fn().mockResolvedValue(undefined),

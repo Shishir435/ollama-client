@@ -12,6 +12,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
 import type { ChromeMessage, ContentExtractionConfig } from "@/types"
 
+import { contentDebugLog } from "./content-debug"
 import { extractReadableContent, resolvePageTitle } from "./content-extraction"
 import { installContentScriptMarkers, registerYouTubeInit } from "./debug-init"
 import {
@@ -24,8 +25,8 @@ import { isExcludedUrl } from "./url-filter"
 installContentScriptMarkers()
 registerYouTubeInit()
 
-console.log("[Content Script] Content script loaded")
-console.log(`[Content Script] URL: ${window.location.href}`)
+contentDebugLog("[Content Script] Content script loaded")
+contentDebugLog(`[Content Script] URL: ${window.location.href}`)
 
 const resolveActiveConfig = async (
   currentUrl: string
@@ -96,7 +97,7 @@ const handleGetPageContent = async (
   )
 
   if (!tabAccessEnabled) {
-    console.log("[Content Script] Tab access is disabled")
+    contentDebugLog("[Content Script] Tab access is disabled")
     safeSendResponse(sendResponse, {
       html: "Tab access is disabled by the user.",
       title: document.title || "Untitled"
@@ -105,10 +106,10 @@ const handleGetPageContent = async (
   }
 
   const currentUrl = window.location.href
-  console.log(`[Content Script] Processing URL: ${currentUrl}`)
+  contentDebugLog(`[Content Script] Processing URL: ${currentUrl}`)
 
   if (await isExcludedUrl(currentUrl)) {
-    console.log("[Content Script] URL is excluded")
+    contentDebugLog("[Content Script] URL is excluded")
     safeSendResponse(sendResponse, {
       html: "This page is excluded by your settings.",
       title: document.title || "Untitled"
@@ -119,7 +120,7 @@ const handleGetPageContent = async (
   const { effectiveConfig, hasSiteOverride } =
     await resolveActiveConfig(currentUrl)
 
-  console.log("[Content Script] Using config:", {
+  contentDebugLog("[Content Script] Using config:", {
     enabled: effectiveConfig.enabled,
     scrollStrategy: effectiveConfig.scrollStrategy,
     scrollDepth: `${(effectiveConfig.scrollDepth * 100).toFixed(0)}%`,
@@ -130,7 +131,7 @@ const handleGetPageContent = async (
     ReturnType<typeof extractContentWithLoading>
   > | null = null
   if (effectiveConfig.enabled) {
-    console.log("[Content Script] Starting enhanced content extraction...")
+    contentDebugLog("[Content Script] Starting enhanced content extraction...")
     try {
       extractionResult = await Promise.race([
         extractContentWithLoading(effectiveConfig),
@@ -150,19 +151,19 @@ const handleGetPageContent = async (
   }
 
   const scraper = effectiveConfig.contentScraper || "auto"
-  console.log(`[Content Script] Using scraper: ${scraper}`)
+  contentDebugLog(`[Content Script] Using scraper: ${scraper}`)
 
   const readable = extractReadableContent(document, scraper)
   const pageTitle = resolvePageTitle(document, readable.pageTitle)
 
-  console.log(`[Content Script] Extracted title: "${pageTitle}"`)
-  console.log(
+  contentDebugLog(`[Content Script] Extracted title: "${pageTitle}"`)
+  contentDebugLog(
     `[Content Script] Extracted ${readable.readableText.length} chars of readable text via ${readable.selectedExtractor}`
   )
 
-  console.log("[Content Script] Starting transcript extraction...")
+  contentDebugLog("[Content Script] Starting transcript extraction...")
   const transcript = await getTranscript()
-  console.log(
+  contentDebugLog(
     `[Content Script] Transcript extraction completed. Result: ${transcript ? `${transcript.length} chars` : "null"}`
   )
 
@@ -222,11 +223,11 @@ const handleGetPageContent = async (
 
 browser.runtime.onMessage.addListener(
   (message: ChromeMessage, _sender, sendResponse) => {
-    console.log("[Content Script] Message received:", message.type)
+    contentDebugLog("[Content Script] Message received:", message.type)
 
     if (message.type !== MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) return
 
-    console.log("[Content Script] Starting GET_PAGE_CONTENT handler")
+    contentDebugLog("[Content Script] Starting GET_PAGE_CONTENT handler")
     handleGetPageContent(sendResponse).catch((err) => {
       console.error("[Content Script] Error in content script:", err)
       const errorMessage = err instanceof Error ? err.message : String(err)

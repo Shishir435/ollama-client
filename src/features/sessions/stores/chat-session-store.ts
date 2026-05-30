@@ -18,6 +18,8 @@ import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import type { ChatMessage, ChatSession, ChatSessionState } from "@/types"
 
+let loadSessionMessagesRequestId = 0
+
 export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   sessions: [],
   currentSessionId: null,
@@ -67,11 +69,18 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
   },
 
   loadSessionMessages: async (sessionId: string) => {
+    const requestId = ++loadSessionMessagesRequestId
+    const isStaleLoad = () =>
+      requestId !== loadSessionMessagesRequestId ||
+      get().currentSessionId !== sessionId
+
     const session = await repo.getSession(sessionId)
+    if (isStaleLoad()) return
     if (!session) return
 
     const allMessages =
       await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
+    if (isStaleLoad()) return
 
     if (allMessages.length === 0) {
       set((state) => ({
@@ -103,6 +112,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       .filter((id): id is number => typeof id === "number")
     const files =
       messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+    if (isStaleLoad()) return
     const filesByMessageId = groupFilesByMessageId(files)
 
     const messagesWithData = enrichPathWithSiblingsAndAttachments(
@@ -229,6 +239,7 @@ export const chatSessionStore = create<ChatSessionState>((set, get) => ({
       currentSessionId: id,
       hasSession: true
     }))
+    return id
   },
 
   deleteSession: async (id: string) => {

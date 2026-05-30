@@ -1,7 +1,10 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
 import { useProviderModels } from "../use-provider-models"
 
 const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
@@ -119,6 +122,33 @@ const createWrapper = () => {
 describe("useProviderModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useStorage).mockImplementation(((
+      config: any,
+      initialValue: any
+    ) => {
+      if (config.key === "llm_providers_config_v1") {
+        return [
+          mockProviderConfig,
+          vi.fn().mockResolvedValue(undefined),
+          { isLoading: false }
+        ]
+      }
+      return [
+        initialValue,
+        vi.fn().mockResolvedValue(undefined),
+        { isLoading: false }
+      ]
+    }) as any)
+    vi.mocked(ProviderFactory.getProvider).mockResolvedValue(
+      mockOllamaProvider as any
+    )
+    vi.mocked(ProviderManager.getProviders).mockResolvedValue([
+      mockOllamaProvider.config as any
+    ])
+    vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(
+      mockOllamaProvider.config as any
+    )
+    vi.mocked(ProviderManager.saveModelMappings).mockResolvedValue(undefined)
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = url.toString()
       if (urlStr.includes("/api/version")) {
@@ -182,6 +212,95 @@ describe("useProviderModels", () => {
       })
 
       expect(result.current.status).toBe("empty")
+    })
+
+    it("marks legacy selected model as a conflict when multiple providers expose it", async () => {
+      const setSelectionConflictModel = vi.fn().mockResolvedValue(undefined)
+      const setSelectedModel = vi.fn().mockResolvedValue(undefined)
+      const setSelectedModelRef = vi.fn().mockResolvedValue(undefined)
+      const providers = [
+        {
+          id: "ollama",
+          type: "ollama",
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          name: "Ollama"
+        },
+        {
+          id: "lm studio",
+          type: "openai",
+          enabled: true,
+          baseUrl: "http://localhost:1234",
+          name: "LM Studio"
+        }
+      ] as any[]
+      const providerById = new Map(
+        providers.map((config) => [
+          config.id,
+          {
+            ...mockOllamaProvider,
+            id: config.id,
+            config,
+            getModels: vi.fn().mockResolvedValue([
+              {
+                name: "shared-model",
+                model: "shared-model",
+                size: 0,
+                details: { family: "llama" }
+              }
+            ])
+          }
+        ])
+      )
+
+      vi.mocked(ProviderManager.getProviders).mockResolvedValueOnce(
+        providers as any
+      )
+      vi.mocked(ProviderFactory.getProvider).mockImplementation(
+        async (providerId: string) => providerById.get(providerId) as any
+      )
+      vi.mocked(useStorage).mockImplementation(((
+        config: any,
+        initialValue: any
+      ) => {
+        if (config.key === "llm_providers_config_v1") {
+          return [
+            providers,
+            vi.fn().mockResolvedValue(undefined),
+            {
+              isLoading: false
+            }
+          ]
+        }
+        if (config.key === "provider-selected-model") {
+          return ["shared-model", setSelectedModel, { isLoading: false }]
+        }
+        if (config.key === "provider-selected-model-ref") {
+          return [null, setSelectedModelRef, { isLoading: false }]
+        }
+        if (config.key === "provider-selection-conflict-model") {
+          return [null, setSelectionConflictModel, { isLoading: false }]
+        }
+        return [
+          initialValue,
+          vi.fn().mockResolvedValue(undefined),
+          { isLoading: false }
+        ]
+      }) as any)
+
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+
+      await waitFor(() => {
+        expect(result.current.models).toHaveLength(2)
+      })
+      await waitFor(() => {
+        expect(setSelectionConflictModel).toHaveBeenCalledWith("shared-model")
+      })
+
+      expect(setSelectedModel).not.toHaveBeenCalled()
+      expect(setSelectedModelRef).not.toHaveBeenCalled()
     })
   })
 

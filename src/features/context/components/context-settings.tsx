@@ -14,6 +14,7 @@ import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messa
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
+import { rebuildEmbeddings } from "@/features/context/lib/embedding-rebuild"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
 import {
   RAGSettings,
@@ -228,29 +229,15 @@ export const ContextSettings = () => {
     setRebuildProgress(null)
 
     try {
-      clearEmbeddingCache()
-      await clearAllVectors()
-      await loadStats()
-
-      if (memoryEnabled) {
-        const { messagesBySession, totalMessages } =
-          await getEmbeddableMessagesBySession()
-
-        setRebuildProgress({ current: 0, total: totalMessages })
-
-        let processedMessages = 0
-        for (const [sessionId, messages] of messagesBySession.entries()) {
-          if (messages.length === 0) continue
-          await embedMessages(messages, sessionId)
-          processedMessages += messages.length
-          setRebuildProgress({
-            current: processedMessages,
-            total: totalMessages
-          })
-
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
-      }
+      await rebuildEmbeddings({
+        memoryEnabled,
+        clearEmbeddingCache,
+        clearAllVectors,
+        getEmbeddableMessagesBySession,
+        embedMessages,
+        onProgress: setRebuildProgress,
+        onVectorsCleared: loadStats
+      })
 
       setRebuildComplete(true)
       await loadStats()
