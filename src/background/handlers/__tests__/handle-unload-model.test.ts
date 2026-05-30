@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { handleUnloadModel } from "../handle-unload-model"
+import { createMockResponse } from "./test-utils"
 
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({
@@ -30,10 +31,9 @@ describe("Handle Unload Model", () => {
   })
 
   it("should successfully unload a model", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ done_reason: "unload" })
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse({ done_reason: "unload" })
+    )
 
     await handleUnloadModel("llama2", mockSendResponse)
 
@@ -56,11 +56,13 @@ describe("Handle Unload Model", () => {
   })
 
   it("should handle API errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: "Internal Server Error"
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse(null, {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error"
+      })
+    )
 
     await handleUnloadModel("llama2", mockSendResponse)
 
@@ -82,10 +84,9 @@ describe("Handle Unload Model", () => {
   })
 
   it("should handle non-unload done reasons", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ done_reason: "stop" })
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse({ done_reason: "stop" })
+    )
 
     await handleUnloadModel("llama2", mockSendResponse)
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { handleGetLoadedModels } from "../handle-get-loaded-model"
+import { createMockResponse } from "./test-utils"
 
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn(),
@@ -32,10 +33,7 @@ describe("handleGetLoadedModels", () => {
       models: [{ name: "llama2:latest", size: 3825819519 }]
     }
 
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue(mockData)
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse(mockData))
 
     const sendResponse = vi.fn()
     await handleGetLoadedModels(undefined, sendResponse)
@@ -49,10 +47,7 @@ describe("handleGetLoadedModels", () => {
 
   it("should use custom base URL", async () => {
     vi.mocked(getBaseUrl).mockResolvedValue("http://custom:8080")
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({})
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({}))
 
     const sendResponse = vi.fn()
     await handleGetLoadedModels(undefined, sendResponse)
@@ -61,11 +56,13 @@ describe("handleGetLoadedModels", () => {
   })
 
   it("should handle API errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: "Internal Server Error"
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse(null, {
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error"
+      })
+    )
 
     const sendResponse = vi.fn()
     await handleGetLoadedModels(undefined, sendResponse)
@@ -89,10 +86,9 @@ describe("handleGetLoadedModels", () => {
   })
 
   it("should handle JSON parsing errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockRejectedValue(new Error("Invalid JSON"))
-    } as any)
+    const mockResp = createMockResponse(null)
+    vi.mocked(mockResp.json).mockRejectedValue(new Error("Invalid JSON"))
+    vi.mocked(fetch).mockResolvedValue(mockResp)
 
     const sendResponse = vi.fn()
     await handleGetLoadedModels(undefined, sendResponse)

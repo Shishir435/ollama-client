@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import { handleGetProviderVersion } from "../handle-get-provider-version"
+import { createMockResponse } from "./test-utils"
 
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn(),
@@ -18,10 +19,7 @@ describe("handleGetProviderVersion", () => {
   it("should get provider version successfully", async () => {
     const mockData = { version: "0.1.17" }
 
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue(mockData)
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse(mockData))
 
     const sendResponse = vi.fn()
     await handleGetProviderVersion(sendResponse)
@@ -35,10 +33,9 @@ describe("handleGetProviderVersion", () => {
 
   it("should use custom base URL", async () => {
     vi.mocked(getBaseUrl).mockResolvedValue("http://custom:8080")
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({ version: "0.1.17" })
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse({ version: "0.1.17" })
+    )
 
     const sendResponse = vi.fn()
     await handleGetProviderVersion(sendResponse)
@@ -47,11 +44,13 @@ describe("handleGetProviderVersion", () => {
   })
 
   it("should handle API errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 404,
-      statusText: "Not Found"
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse(null, {
+        ok: false,
+        status: 404,
+        statusText: "Not Found"
+      })
+    )
 
     const sendResponse = vi.fn()
     await handleGetProviderVersion(sendResponse)

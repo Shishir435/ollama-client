@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createMockPort } from "@/background/handlers/__tests__/test-utils"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { ChatStreamMessage } from "@/types"
 import {
   getBaseUrl,
   getPullAbortControllerKey,
@@ -43,8 +45,8 @@ describe("Background Utils", () => {
 
   describe("safePostMessage", () => {
     it("should post message to port", () => {
-      const port = { postMessage: vi.fn() } as any
-      const message = { delta: "test" } as any
+      const port = createMockPort()
+      const message: ChatStreamMessage = { delta: "test" }
 
       safePostMessage(port, message)
 
@@ -52,14 +54,13 @@ describe("Background Utils", () => {
     })
 
     it("should handle port disconnect (runtime.lastError)", () => {
-      const port = {
-        postMessage: vi.fn().mockImplementation(() => {
-          throw new Error("Port disconnected")
-        })
-      } as any
+      const port = createMockPort()
+      vi.mocked(port.postMessage).mockImplementation(() => {
+        throw new Error("Port disconnected")
+      })
       ;(browser.runtime as any).lastError = { message: "Port disconnected" }
 
-      safePostMessage(port, { delta: "test" } as any)
+      safePostMessage(port, { delta: "test" })
 
       expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("channel may be closed"),
@@ -70,13 +71,12 @@ describe("Background Utils", () => {
 
     it("should handle other errors", () => {
       const error = new Error("Random error")
-      const port = {
-        postMessage: vi.fn().mockImplementation(() => {
-          throw error
-        })
-      } as any
+      const port = createMockPort()
+      vi.mocked(port.postMessage).mockImplementation(() => {
+        throw error
+      })
 
-      safePostMessage(port, { delta: "test" } as any)
+      safePostMessage(port, { delta: "test" })
 
       expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("Could not send message"),

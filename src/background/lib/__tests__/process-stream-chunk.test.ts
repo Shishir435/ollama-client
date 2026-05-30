@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { createMockPort } from "@/background/handlers/__tests__/test-utils"
 import {
   processRemainingMetricsBuffer,
   processStreamChunk
@@ -17,7 +18,7 @@ describe("Process Stream Chunk", () => {
   describe("processStreamChunk", () => {
     it("should process complete JSON line", () => {
       const chunk = encoder.encode('{"message":{"content":"Hello"}}\n')
-      const port = {} as any
+      const port = createMockPort()
 
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
@@ -29,7 +30,7 @@ describe("Process Stream Chunk", () => {
 
     it("should buffer incomplete line", () => {
       const chunk = encoder.encode('{"message":{"content":"Hel')
-      const port = {} as any
+      const port = createMockPort()
 
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
@@ -41,7 +42,7 @@ describe("Process Stream Chunk", () => {
     it("should process buffered content + new chunk", () => {
       const chunk = encoder.encode('lo"}}\n')
       const buffer = '{"message":{"content":"Hel'
-      const port = {} as any
+      const port = createMockPort()
 
       const result = processStreamChunk(
         chunk,
@@ -60,7 +61,7 @@ describe("Process Stream Chunk", () => {
       const chunk = encoder.encode(
         '{"message":{"content":"A"}}\n{"message":{"content":"B"}}\n'
       )
-      const port = {} as any
+      const port = createMockPort()
 
       const result = processStreamChunk(chunk, decoder, "", "", port)
 
@@ -72,7 +73,7 @@ describe("Process Stream Chunk", () => {
 
     it("should handle done signal", () => {
       const chunk = encoder.encode('{"done":true,"total_duration":100}\n')
-      const port = {} as any
+      const port = createMockPort()
 
       const result = processStreamChunk(chunk, decoder, "", "Final Text", port)
 
@@ -86,7 +87,7 @@ describe("Process Stream Chunk", () => {
 
     it("should ignore invalid JSON", () => {
       const chunk = encoder.encode("Invalid JSON\n")
-      const port = {} as any
+      const port = createMockPort()
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
       const result = processStreamChunk(chunk, decoder, "", "", port)
@@ -100,7 +101,7 @@ describe("Process Stream Chunk", () => {
   describe("processRemainingMetricsBuffer", () => {
     it("should process valid metrics in buffer", () => {
       const buffer = '{"done":true,"total_duration":100}'
-      const port = {} as any
+      const port = createMockPort()
 
       processRemainingMetricsBuffer(buffer, "Final", port)
 
@@ -113,7 +114,7 @@ describe("Process Stream Chunk", () => {
 
     it("should ignore incomplete/invalid buffer", () => {
       const buffer = '{"done":true'
-      const port = {} as any
+      const port = createMockPort()
 
       processRemainingMetricsBuffer(buffer, "Final", port)
 

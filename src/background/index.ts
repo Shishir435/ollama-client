@@ -261,12 +261,29 @@ browser.runtime.onMessage.addListener(
       }
 
       case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
-        browser.tabs.query({}).then((tabs) => {
-          logger.debug("Queried browser tabs", "BackgroundSW", {
-            tabCount: tabs.length
+        browser.tabs
+          .query({})
+          .then((tabs) => {
+            logger.debug("Queried browser tabs", "BackgroundSW", {
+              tabCount: tabs.length
+            })
+            safeSendResponse(sendResponse, { success: true, tabs })
           })
-          safeSendResponse(sendResponse, { success: true, tabs })
-        })
+          .catch((error: unknown) => {
+            logger.error("Failed to query browser tabs", "BackgroundSW", {
+              error
+            })
+            safeSendResponse(sendResponse, {
+              success: false,
+              error: {
+                status: 0,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to query tabs"
+              }
+            })
+          })
         return true
       }
 

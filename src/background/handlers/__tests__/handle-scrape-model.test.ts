@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { handleScrapeModel } from "../handle-scrape-model"
+import { createMockResponse } from "./test-utils"
 
 vi.mock("@/background/lib/utils", () => ({
   safeSendResponse: vi.fn()
@@ -16,9 +17,7 @@ describe("handleScrapeModel", () => {
 
   it("should scrape model search results successfully", async () => {
     const mockHtml = "<html>Model search results</html>"
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockResolvedValue(mockHtml)
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse(mockHtml))
 
     const sendResponse = vi.fn()
     await handleScrapeModel("llama", sendResponse)
@@ -33,9 +32,7 @@ describe("handleScrapeModel", () => {
   })
 
   it("should encode query parameters", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockResolvedValue("<html></html>")
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse("<html></html>"))
 
     const sendResponse = vi.fn()
     await handleScrapeModel("llama 2 chat", sendResponse)
@@ -58,9 +55,9 @@ describe("handleScrapeModel", () => {
   })
 
   it("should handle text parsing errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockRejectedValue(new Error("Parse error"))
-    } as any)
+    const mockResp = createMockResponse(null)
+    vi.mocked(mockResp.text).mockRejectedValue(new Error("Parse error"))
+    vi.mocked(fetch).mockResolvedValue(mockResp)
 
     const sendResponse = vi.fn()
     await handleScrapeModel("llama", sendResponse)

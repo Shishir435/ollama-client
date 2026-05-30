@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { handleScrapeModelVariants } from "../handle-scrape-model-variants"
+import { createMockResponse } from "./test-utils"
 
 vi.mock("@/background/lib/utils", () => ({
   safeSendResponse: vi.fn()
@@ -16,9 +17,7 @@ describe("handleScrapeModelVariants", () => {
 
   it("should scrape model variants successfully", async () => {
     const mockHtml = "<html>Model variants page</html>"
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockResolvedValue(mockHtml)
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse(mockHtml))
 
     const sendResponse = vi.fn()
     await handleScrapeModelVariants("llama2", sendResponse)
@@ -33,9 +32,7 @@ describe("handleScrapeModelVariants", () => {
   })
 
   it("should encode model name", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockResolvedValue("<html></html>")
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse("<html></html>"))
 
     const sendResponse = vi.fn()
     await handleScrapeModelVariants("llama 2", sendResponse)
@@ -58,9 +55,9 @@ describe("handleScrapeModelVariants", () => {
   })
 
   it("should handle text parsing errors", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      text: vi.fn().mockRejectedValue(new Error("Parse error"))
-    } as any)
+    const mockResp = createMockResponse(null)
+    vi.mocked(mockResp.text).mockRejectedValue(new Error("Parse error"))
+    vi.mocked(fetch).mockResolvedValue(mockResp)
 
     const sendResponse = vi.fn()
     await handleScrapeModelVariants("llama2", sendResponse)

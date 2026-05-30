@@ -6,7 +6,13 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { safePostMessage } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import type { ModelPullMessage } from "@/types"
 import { handleModelPull } from "../handle-model-pull"
+import {
+  createMockPort,
+  createMockResponse,
+  createMockStreamResponse
+} from "./test-utils"
 
 // Mock dependencies
 vi.mock("@/background/handlers/handle-pull-stream", () => ({
@@ -33,7 +39,7 @@ vi.mock("@/lib/providers/factory", () => ({
 global.fetch = vi.fn()
 
 describe("Handle Model Pull", () => {
-  const mockPort = { name: "test-port" } as any
+  const mockPort = createMockPort()
   const isPortClosed = vi.fn().mockReturnValue(false)
 
   beforeEach(() => {
@@ -50,12 +56,11 @@ describe("Handle Model Pull", () => {
   })
 
   it("should initiate pull successfully", async () => {
-    const msg = { payload: "llama2" } as any
+    const msg = { payload: "llama2" } satisfies ModelPullMessage
 
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      body: "stream"
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockStreamResponse(["stream-data"])
+    )
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
@@ -71,7 +76,7 @@ describe("Handle Model Pull", () => {
   })
 
   it("should handle cancellation", async () => {
-    const msg = { payload: "llama2", cancel: true } as any
+    const msg = { payload: "llama2", cancel: true } satisfies ModelPullMessage
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
@@ -80,13 +85,15 @@ describe("Handle Model Pull", () => {
   })
 
   it("should handle fetch errors", async () => {
-    const msg = { payload: "llama2" } as any
+    const msg = { payload: "llama2" } satisfies ModelPullMessage
 
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 404,
-      statusText: "Not Found"
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(
+      createMockResponse(null, {
+        ok: false,
+        status: 404,
+        statusText: "Not Found"
+      })
+    )
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
@@ -97,12 +104,9 @@ describe("Handle Model Pull", () => {
   })
 
   it("should handle missing body", async () => {
-    const msg = { payload: "llama2" } as any
+    const msg = { payload: "llama2" } satisfies ModelPullMessage
 
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      body: null
-    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse(null, { ok: true }))
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
@@ -112,7 +116,7 @@ describe("Handle Model Pull", () => {
   })
 
   it("should handle network errors", async () => {
-    const msg = { payload: "llama2" } as any
+    const msg = { payload: "llama2" } satisfies ModelPullMessage
 
     vi.mocked(fetch).mockRejectedValue(new Error("Network Error"))
 
@@ -124,7 +128,7 @@ describe("Handle Model Pull", () => {
   })
 
   it("should handle abort errors specially", async () => {
-    const msg = { payload: "llama2" } as any
+    const msg = { payload: "llama2" } satisfies ModelPullMessage
     const abortError = new Error("Aborted")
     abortError.name = "AbortError"
 
