@@ -176,6 +176,95 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("Line 1\nLine 2")
       })
 
+      it("should open Udemy transcript tab before extracting cues", async () => {
+        const transcriptTab = document.createElement("button")
+        transcriptTab.setAttribute("role", "tab")
+        transcriptTab.innerHTML = `<span class="ud-btn-label">Transcript</span>`
+        transcriptTab.addEventListener("click", () => {
+          if (document.querySelector('[data-purpose="transcript-panel"]')) {
+            return
+          }
+
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue-active" role="button">
+                <span data-purpose="cue-text">All right, guys.</span>
+              </p>
+            </div>
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">
+                  So pending callbacks, the third phase.
+                </span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptTab)
+
+        const result = await getTranscript()
+        expect(result).toBe(
+          "All right, guys.\nSo pending callbacks, the third phase."
+        )
+      })
+
+      it("should open Udemy transcript from icon-only toggle", async () => {
+        const transcriptToggle = document.createElement("button")
+        transcriptToggle.setAttribute("type", "button")
+        transcriptToggle.setAttribute("data-purpose", "transcript-toggle")
+        transcriptToggle.setAttribute("aria-expanded", "false")
+        transcriptToggle.innerHTML = `
+          <svg aria-label="Transcript in sidebar region" role="img">
+            <use xlink:href="#icon-transcript"></use>
+          </svg>
+        `
+        transcriptToggle.addEventListener("click", () => {
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">Icon toggle transcript.</span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptToggle)
+
+        const result = await getTranscript()
+        expect(result).toBe("Icon toggle transcript.")
+      })
+
+      it("should press Udemy icon-only transcript control with pointer events", async () => {
+        const transcriptToggle = document.createElement("button")
+        transcriptToggle.setAttribute("type", "button")
+        transcriptToggle.setAttribute("aria-expanded", "false")
+        transcriptToggle.innerHTML = `
+          <svg aria-label="Transcript in sidebar region" role="img">
+            <use xlink:href="#icon-transcript"></use>
+          </svg>
+        `
+        transcriptToggle.addEventListener("mousedown", () => {
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">Pressed transcript.</span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptToggle)
+
+        const result = await getTranscript()
+        expect(result).toBe("Pressed transcript.")
+      })
       it("should return null if panel missing", async () => {
         const result = await getTranscript()
         expect(result).toBeNull()

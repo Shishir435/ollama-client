@@ -24,6 +24,10 @@ const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR =
 const MODERN_TRANSCRIPT_SEGMENT_SELECTOR = "transcript-segment-view-model"
 const LEGACY_TRANSCRIPT_SEGMENT_SELECTOR =
   "div.cue-group, ytd-transcript-segment-renderer"
+const UDEMY_TRANSCRIPT_PANEL_SELECTOR = '[data-purpose="transcript-panel"]'
+const UDEMY_TRANSCRIPT_CUE_SELECTOR = '[data-purpose="cue-text"]'
+const UDEMY_TRANSCRIPT_TOGGLE_SELECTOR =
+  'button[data-purpose="transcript-toggle"], [data-purpose="transcript-toggle"], svg[aria-label*="transcript" i]'
 
 /**
  * Waits for an element to appear in the DOM with retries
@@ -50,6 +54,9 @@ const waitForElement = async (
   )
   return null
 }
+
+const sleep = (delayMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, delayMs))
 
 /**
  * Attempts to open the YouTube transcript panel by clicking:
@@ -687,29 +694,212 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
   return result
 }
 
-const extractUdemyTranscript = (): string | null => {
-  if (
-    !(
-      window.location.href.includes("udemy.com/course/") &&
-      window.location.href.includes("/learn/lecture/")
-    )
-  )
-    return null
+const isUdemyLecturePage = (): boolean =>
+  window.location.href.includes("udemy.com/course/") &&
+  window.location.href.includes("/learn/lecture/")
 
+const extractUdemyPanelTranscript = (): string | null => {
   const transcriptPanel = document.querySelector(
-    '[data-purpose="transcript-panel"]'
+    UDEMY_TRANSCRIPT_PANEL_SELECTOR
   )
   if (!transcriptPanel) return null
 
-  const cues = transcriptPanel.querySelectorAll('[data-purpose="cue-text"]')
+  const cues = transcriptPanel.querySelectorAll(UDEMY_TRANSCRIPT_CUE_SELECTOR)
+  logger.info(
+    `Found ${cues.length} Udemy transcript cues`,
+    "TranscriptExtractor"
+  )
   if (!cues || cues.length === 0) return null
 
   const transcript = Array.from(cues)
-    .map((cue) => cue.textContent?.trim())
+    .map((cue) => normalizeTranscriptLine(cue.textContent || ""))
     .filter(Boolean)
     .join("\n")
 
   return transcript.length > 0 ? transcript : null
+}
+
+const findUdemyTranscriptButton = (): HTMLElement | null => {
+  const clickableSelector = 'button, [role="button"], [role="tab"]'
+  const toClickable = (element: HTMLElement): HTMLElement =>
+    element.closest<HTMLElement>(clickableSelector) || element
+  const isVisible = (element: HTMLElement): boolean => {
+    const style = window.getComputedStyle(element)
+    const rect = element.getBoundingClientRect()
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      style.pointerEvents !== "none" &&
+      rect.width > 0 &&
+      rect.height > 0
+    )
+  }
+  const candidates = Array.from(
+    new Set(
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          [
+            UDEMY_TRANSCRIPT_TOGGLE_SELECTOR,
+            'button[aria-label*="transcript" i]',
+            'button[data-purpose*="transcript" i]',
+            '[role="tab"][aria-label*="transcript" i]',
+            '[role="tab"][data-purpose*="transcript" i]',
+            'svg[aria-label*="transcript" i]',
+            clickableSelector
+          ].join(", ")
+        )
+      ).map(toClickable)
+    )
+  )
+
+  const transcriptCandidates = candidates.filter((candidate) => {
+    const text = normalizeTranscriptLine(candidate.textContent || "")
+    const ariaLabel = candidate.getAttribute("aria-label") || ""
+    const dataPurpose = candidate.getAttribute("data-purpose") || ""
+    const iconAriaLabel =
+      candidate
+        .querySelector<HTMLElement>('svg[aria-label*="transcript" i]')
+        ?.getAttribute("aria-label") || ""
+
+    return (
+      text.toLowerCase() === "transcript" ||
+      text.toLowerCase().includes("transcript") ||
+      ariaLabel.toLowerCase().includes("transcript") ||
+      dataPurpose.toLowerCase().includes("transcript") ||
+      iconAriaLabel.toLowerCase().includes("transcript")
+    )
+  })
+
+  return transcriptCandidates.find(isVisible) || transcriptCandidates[0] || null
+}
+
+const dispatchMouseEvent = (element: HTMLElement, type: string): void => {
+  element.dispatchEvent(
+    new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    })
+  )
+}
+
+const dispatchPointerEvent = (element: HTMLElement, type: string): void => {
+  if (typeof PointerEvent === "function") {
+    element.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: "mouse",
+        isPrimary: true
+      })
+    )
+    return
+  }
+
+  dispatchMouseEvent(element, type.replace("pointer", "mouse"))
+}
+
+const clickUdemyTranscriptButton = async (
+  transcriptButton: HTMLElement
+): Promise<void> => {
+  transcriptButton.scrollIntoView({ block: "center", inline: "center" })
+  transcriptButton.focus()
+
+  dispatchPointerEvent(transcriptButton, "pointerover")
+  dispatchMouseEvent(transcriptButton, "mouseover")
+  dispatchPointerEvent(transcriptButton, "pointerdown")
+  dispatchMouseEvent(transcriptButton, "mousedown")
+  dispatchPointerEvent(transcriptButton, "pointerup")
+  dispatchMouseEvent(transcriptButton, "mouseup")
+  transcriptButton.click()
+  dispatchMouseEvent(transcriptButton, "click")
+
+  await sleep(500)
+}
+
+const wakeUdemyPlayerControls = async (): Promise<void> => {
+  const targets = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      [
+        '[data-purpose="video-player"]',
+        '[class*="video-player"]',
+        '[class*="video-viewer"]',
+        "video",
+        "body"
+      ].join(", ")
+    )
+  )
+
+  logger.debug("Waking Udemy player controls", "TranscriptExtractor", {
+    targets: targets.length,
+    toggles: document.querySelectorAll(UDEMY_TRANSCRIPT_TOGGLE_SELECTOR).length
+  })
+
+  for (const target of targets.slice(0, 5)) {
+    dispatchPointerEvent(target, "pointerover")
+    dispatchMouseEvent(target, "mouseover")
+    dispatchPointerEvent(target, "pointermove")
+    dispatchMouseEvent(target, "mousemove")
+  }
+
+  await sleep(300)
+}
+
+const openUdemyTranscript = async (): Promise<boolean> => {
+  if (!isUdemyLecturePage()) return false
+  if (document.querySelector(UDEMY_TRANSCRIPT_PANEL_SELECTOR)) return true
+
+  let transcriptButton: HTMLElement | null = null
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    transcriptButton = findUdemyTranscriptButton()
+    if (transcriptButton) break
+
+    logger.debug(
+      `Udemy transcript button not found, retrying (${attempt}/10)`,
+      "TranscriptExtractor",
+      {
+        toggles: document.querySelectorAll(UDEMY_TRANSCRIPT_TOGGLE_SELECTOR)
+          .length
+      }
+    )
+    await wakeUdemyPlayerControls()
+  }
+
+  if (!transcriptButton) {
+    logger.debug("Udemy transcript button not found", "TranscriptExtractor")
+    return false
+  }
+
+  logger.info("Clicking Udemy transcript button", "TranscriptExtractor", {
+    text: normalizeTranscriptLine(transcriptButton.textContent || ""),
+    ariaLabel: transcriptButton.getAttribute("aria-label"),
+    ariaExpanded: transcriptButton.getAttribute("aria-expanded"),
+    dataPurpose: transcriptButton.getAttribute("data-purpose"),
+    iconAriaLabel:
+      transcriptButton
+        .querySelector<HTMLElement>('svg[aria-label*="transcript" i]')
+        ?.getAttribute("aria-label") || null,
+    role: transcriptButton.getAttribute("role"),
+    tag: transcriptButton.tagName.toLowerCase()
+  })
+
+  await clickUdemyTranscriptButton(transcriptButton)
+
+  const panel = await waitForElement(UDEMY_TRANSCRIPT_PANEL_SELECTOR, 30, 300)
+  return !!panel
+}
+
+const extractUdemyTranscript = async (): Promise<string | null> => {
+  if (!isUdemyLecturePage()) return null
+
+  const existingTranscript = extractUdemyPanelTranscript()
+  if (existingTranscript) return existingTranscript
+
+  const opened = await openUdemyTranscript()
+  logger.debug(`Udemy panel open result: ${opened}`, "TranscriptExtractor")
+
+  return extractUdemyPanelTranscript()
 }
 
 const extractCourseraTranscript = (): string | null => {
@@ -740,7 +930,7 @@ export const getTranscript = async (): Promise<string | null> => {
   }
 
   logger.debug("Trying Udemy transcript...", "TranscriptExtractor")
-  const udemyTranscript = extractUdemyTranscript()
+  const udemyTranscript = await extractUdemyTranscript()
   if (udemyTranscript) {
     logger.info("Udemy transcript found", "TranscriptExtractor")
     return udemyTranscript

@@ -104,6 +104,20 @@ const isYouTubeWatchPage = (url: string): boolean => {
   }
 }
 
+const isUdemyLecturePage = (url: string): boolean => {
+  try {
+    const parsed = new URL(url)
+    return (
+      (parsed.hostname === "udemy.com" ||
+        parsed.hostname.endsWith(".udemy.com")) &&
+      parsed.pathname.includes("/course/") &&
+      parsed.pathname.includes("/learn/lecture/")
+    )
+  } catch {
+    return url.includes("udemy.com/course/") && url.includes("/learn/lecture/")
+  }
+}
+
 const buildExtractionDebug = ({
   currentUrl,
   pageTitle,
@@ -167,7 +181,7 @@ const sendTranscriptOnlyResponse = ({
   currentUrl: string
   pageTitle: string
   transcript: string | null
-  platform: "youtube"
+  platform: "youtube" | "udemy"
   missingMessage: string
   allowMissing?: boolean
 }): boolean => {
@@ -219,6 +233,7 @@ const handleGetPageContent = async (
   const currentUrl = window.location.href
   contentDebugLog(`[Content Script] Processing URL: ${currentUrl}`)
   const youtubeWatchPage = isYouTubeWatchPage(currentUrl)
+  const udemyLecturePage = isUdemyLecturePage(currentUrl)
 
   if (await isExcludedUrl(currentUrl)) {
     contentDebugLog("[Content Script] URL is excluded")
@@ -265,6 +280,34 @@ const handleGetPageContent = async (
       allowMissing: true
     })
     return
+  }
+
+  if (udemyLecturePage) {
+    logger.info(
+      "Udemy lecture page detected; trying transcript before page extraction",
+      "ContentScript",
+      { url: currentUrl }
+    )
+    const pageTitle = resolvePageTitle(document, "")
+    const transcript = await getTranscript()
+    const sent = sendTranscriptOnlyResponse({
+      sendResponse,
+      currentUrl,
+      pageTitle,
+      transcript,
+      platform: "udemy",
+      missingMessage: "No transcript found for this Udemy lecture."
+    })
+
+    if (sent) return
+
+    logger.info(
+      "Udemy transcript not found; falling back to regular page extraction",
+      "ContentScript",
+      {
+        url: currentUrl
+      }
+    )
   }
 
   let extractionResult: Awaited<
