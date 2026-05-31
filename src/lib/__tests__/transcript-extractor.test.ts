@@ -108,7 +108,7 @@ describe("Transcript Extractor", () => {
         )
 
         const result = await getTranscript()
-        expect(result).toBe("Hello world Next line")
+        expect(result).toBe("Hello world\nNext line")
       })
 
       it("should extract transcript from modern YouTube transcript panel", async () => {

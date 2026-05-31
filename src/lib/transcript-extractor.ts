@@ -506,15 +506,17 @@ const parseJson3Transcript = (payload: unknown): string | null => {
   if (!Array.isArray(events)) return null
 
   const transcript = events
-    .flatMap((event) => {
+    .map((event) => {
       const segs = (event as { segs?: unknown }).segs
-      if (!Array.isArray(segs)) return []
-      return segs.map((seg) => (seg as { utf8?: unknown }).utf8)
+      if (!Array.isArray(segs)) return ""
+      return segs
+        .map((seg) => (seg as { utf8?: unknown }).utf8)
+        .filter((text): text is string => typeof text === "string")
+        .join("")
     })
-    .filter((text): text is string => typeof text === "string")
     .map(normalizeTranscriptLine)
     .filter(Boolean)
-    .join(" ")
+    .join("\n")
 
   return transcript || null
 }
