@@ -536,12 +536,21 @@ const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
     []
   const selectedTrack = selectCaptionTrack(tracks)
 
-  logger.info("YouTube caption tracks found", "TranscriptExtractor", {
-    count: tracks.length,
-    selected: selectedTrack ? getCaptionTrackLabel(selectedTrack) : null
-  })
+  if (!selectedTrack?.baseUrl) {
+    logger.debug(
+      "No usable YouTube caption tracks found",
+      "TranscriptExtractor",
+      {
+        count: tracks.length
+      }
+    )
+    return null
+  }
 
-  if (!selectedTrack?.baseUrl) return null
+  logger.info("Using YouTube caption track", "TranscriptExtractor", {
+    count: tracks.length,
+    selected: getCaptionTrackLabel(selectedTrack)
+  })
 
   try {
     const captionUrl = new URL(selectedTrack.baseUrl)
@@ -813,7 +822,6 @@ const clickUdemyTranscriptButton = async (
   dispatchPointerEvent(transcriptButton, "pointerup")
   dispatchMouseEvent(transcriptButton, "mouseup")
   transcriptButton.click()
-  dispatchMouseEvent(transcriptButton, "click")
 
   await sleep(500)
 }
@@ -863,7 +871,9 @@ const openUdemyTranscript = async (): Promise<boolean> => {
           .length
       }
     )
-    await wakeUdemyPlayerControls()
+    if (attempt < 10) {
+      await wakeUdemyPlayerControls()
+    }
   }
 
   if (!transcriptButton) {
