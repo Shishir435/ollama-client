@@ -7,10 +7,13 @@ describe("Transcript Extractor", () => {
   beforeEach(() => {
     // Reset DOM
     document.body.innerHTML = ""
+    document.head.innerHTML = ""
     vi.clearAllMocks()
 
     // Mock console to keep output clean
     vi.spyOn(console, "log").mockImplementation(() => {})
+    vi.spyOn(console, "info").mockImplementation(() => {})
+    vi.spyOn(console, "warn").mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -54,6 +57,81 @@ describe("Transcript Extractor", () => {
 
         const result = await getTranscript()
         expect(result).toBe("Hello world")
+      })
+
+      it("should extract transcript from legacy segment renderers", async () => {
+        const renderer = document.createElement("ytd-transcript-renderer")
+        renderer.innerHTML = `
+          <ytd-transcript-segment-renderer>
+            <yt-formatted-string>Legacy line one.</yt-formatted-string>
+          </ytd-transcript-segment-renderer>
+          <ytd-transcript-segment-renderer>
+            <yt-formatted-string>Legacy line two.</yt-formatted-string>
+          </ytd-transcript-segment-renderer>
+        `
+        document.body.appendChild(renderer)
+
+        const result = await getTranscript()
+        expect(result).toBe("Legacy line one.\nLegacy line two.")
+      })
+
+      it("should extract transcript from YouTube caption tracks", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue(
+              JSON.stringify({
+                events: [
+                  { segs: [{ utf8: "Hello " }, { utf8: "world" }] },
+                  { segs: [{ utf8: "Next line" }] }
+                ]
+              })
+            )
+          })
+        )
+
+        const result = await getTranscript()
+        expect(result).toBe("Hello world Next line")
+      })
+
+      it("should extract transcript from modern YouTube transcript panel", async () => {
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <div aria-hidden="true">0:00</div>
+            <span class="ytAttributedStringHost" role="text">
+              First transcript line.
+            </span>
+          </transcript-segment-view-model>
+          <transcript-segment-view-model>
+            <div aria-hidden="true">0:07</div>
+            <span class="ytAttributedStringHost" role="text">
+              Second transcript line.
+            </span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        const result = await getTranscript()
+        expect(result).toBe("First transcript line.\nSecond transcript line.")
       })
 
       it("should handle empty transcript", async () => {

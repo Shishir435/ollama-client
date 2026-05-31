@@ -245,6 +245,7 @@ export const buildRagContext = async (
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
                 4
               ),
+              maxTokens: maxTabContextChars,
               minSimilarity: retrievalOverrides?.minSimilarity
             }
           )

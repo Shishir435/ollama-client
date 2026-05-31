@@ -90,6 +90,116 @@ const safeSendResponse = (
   }
 }
 
+const isYouTubeWatchPage = (url: string): boolean => {
+  try {
+    const parsed = new URL(url)
+    return (
+      (parsed.hostname === "youtube.com" ||
+        parsed.hostname.endsWith(".youtube.com")) &&
+      parsed.pathname === "/watch" &&
+      parsed.searchParams.has("v")
+    )
+  } catch {
+    return url.includes("youtube.com/watch?v=")
+  }
+}
+
+const buildExtractionDebug = ({
+  currentUrl,
+  pageTitle,
+  scraper,
+  transcript,
+  finalContent,
+  extractionResult,
+  selectedExtractor,
+  selectedReason
+}: {
+  currentUrl: string
+  pageTitle: string
+  scraper: string
+  transcript: string | null
+  finalContent: string
+  extractionResult: Awaited<ReturnType<typeof extractContentWithLoading>> | null
+  selectedExtractor: string
+  selectedReason: string
+}) => {
+  const profile = detectSiteProfile(currentUrl)
+  const contentHash = quickHash(finalContent)
+  const capturedAt = Date.now()
+  const reliability = measureReliability(finalContent)
+
+  return {
+    url: currentUrl,
+    title: pageTitle,
+    scraper,
+    profile,
+    hasTranscript: !!transcript,
+    transcriptLength: transcript?.length || 0,
+    contentLength: finalContent.length,
+    contentHash,
+    revisionId: `${capturedAt}-${contentHash}`,
+    capturedAt,
+    reliabilityScore: reliability.reliabilityScore,
+    reliabilitySignals: reliability.reliabilitySignals,
+    extractionDurationMs: extractionResult?.metrics?.duration,
+    scrollSteps: extractionResult?.metrics?.scrollSteps,
+    mutationsDetected: extractionResult?.metrics?.mutationsDetected,
+    detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+    selectedExtractor,
+    selectedReason,
+    filteredSectionCount: 0,
+    keptSectionCount: 0,
+    effectiveContextLength: finalContent.length,
+    preview: finalContent.slice(0, 400)
+  }
+}
+
+const sendTranscriptOnlyResponse = ({
+  sendResponse,
+  currentUrl,
+  pageTitle,
+  transcript,
+  platform,
+  missingMessage,
+  allowMissing = false
+}: {
+  sendResponse: (response: unknown) => void
+  currentUrl: string
+  pageTitle: string
+  transcript: string | null
+  platform: "youtube"
+  missingMessage: string
+  allowMissing?: boolean
+}): boolean => {
+  const hasTranscript = !!transcript?.trim()
+  const finalContent = hasTranscript ? transcript.trim() : missingMessage
+
+  if (!hasTranscript && !allowMissing) return false
+
+  const extractionDebug = buildExtractionDebug({
+    currentUrl,
+    pageTitle,
+    scraper: `${platform}-transcript`,
+    transcript: hasTranscript ? finalContent : null,
+    finalContent,
+    extractionResult: null,
+    selectedExtractor: `${platform}-transcript`,
+    selectedReason: `${platform}-transcript-only`
+  })
+
+  ;(
+    window as unknown as { __lastProviderExtractionResult?: unknown }
+  ).__lastProviderExtractionResult = extractionDebug
+
+  safeSendResponse(sendResponse, {
+    html: finalContent,
+    title: pageTitle,
+    extractionDebug
+  })
+
+  return true
+}
+
 const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
@@ -108,6 +218,7 @@ const handleGetPageContent = async (
 
   const currentUrl = window.location.href
   contentDebugLog(`[Content Script] Processing URL: ${currentUrl}`)
+  const youtubeWatchPage = isYouTubeWatchPage(currentUrl)
 
   if (await isExcludedUrl(currentUrl)) {
     contentDebugLog("[Content Script] URL is excluded")
@@ -127,6 +238,34 @@ const handleGetPageContent = async (
     scrollDepth: `${(effectiveConfig.scrollDepth * 100).toFixed(0)}%`,
     site: hasSiteOverride ? "Custom site config" : "Global config"
   })
+
+  if (youtubeWatchPage) {
+    logger.info(
+      "YouTube watch page detected; extracting title and transcript only",
+      "ContentScript",
+      { url: currentUrl }
+    )
+    const pageTitle = resolvePageTitle(document, "")
+    const transcript = await getTranscript()
+
+    if (!transcript?.trim()) {
+      logger.warn("YouTube transcript extraction failed", "ContentScript", {
+        url: currentUrl,
+        transcriptLength: transcript?.length || 0
+      })
+    }
+
+    sendTranscriptOnlyResponse({
+      sendResponse,
+      currentUrl,
+      pageTitle,
+      transcript,
+      platform: "youtube",
+      missingMessage: "No transcript found for this YouTube video.",
+      allowMissing: true
+    })
+    return
+  }
 
   let extractionResult: Awaited<
     ReturnType<typeof extractContentWithLoading>
@@ -183,35 +322,16 @@ const handleGetPageContent = async (
     )
   }
 
-  const profile = detectSiteProfile(currentUrl)
-  const contentHash = quickHash(finalContent)
-  const capturedAt = Date.now()
-  const reliability = measureReliability(finalContent)
-
-  const extractionDebug = {
-    url: currentUrl,
-    title: pageTitle,
+  const extractionDebug = buildExtractionDebug({
+    currentUrl,
+    pageTitle,
     scraper,
-    profile,
-    hasTranscript: !!transcript,
-    transcriptLength: transcript?.length || 0,
-    contentLength: finalContent.length,
-    contentHash,
-    revisionId: `${capturedAt}-${contentHash}`,
-    capturedAt,
-    reliabilityScore: reliability.reliabilityScore,
-    reliabilitySignals: reliability.reliabilitySignals,
-    extractionDurationMs: extractionResult?.metrics?.duration,
-    scrollSteps: extractionResult?.metrics?.scrollSteps,
-    mutationsDetected: extractionResult?.metrics?.mutationsDetected,
-    detectedPatterns: extractionResult?.metrics?.detectedPatterns || [],
+    transcript,
+    finalContent,
+    extractionResult,
     selectedExtractor: readable.selectedExtractor,
-    selectedReason: readable.selectedReason,
-    filteredSectionCount: 0,
-    keptSectionCount: 0,
-    effectiveContextLength: finalContent.length,
-    preview: finalContent.slice(0, 400)
-  }
+    selectedReason: readable.selectedReason
+  })
 
   ;(
     window as unknown as { __lastProviderExtractionResult?: unknown }

@@ -46,6 +46,10 @@ export class Logger {
     this.currentLevel = defaultLevel
   }
 
+  setLevel(level: LogLevel) {
+    this.currentLevel = level
+  }
+
   private log(
     level: LogLevel,
     message: string,
@@ -106,4 +110,7 @@ export class Logger {
   }
 }
 
-export const logger = new Logger()
+const defaultLogLevel =
+  process.env.NODE_ENV === "development" ? LogLevel.DEBUG : LogLevel.INFO
+
+export const logger = new Logger(defaultLogLevel)
