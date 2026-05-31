@@ -246,6 +246,9 @@ describe("page (tab) context", () => {
     expect(result.contentWithRAG).toContain("<page>Page text</page>")
     expect(result.ragSources?.sources).toHaveLength(1)
     expect(result.promptContextStats.tabContextLength).toBeGreaterThan(0)
+    expect(mockedRetrieveFromSources.mock.calls[0]?.[2]).toMatchObject({
+      maxTokens: 4000
+    })
   })
 
   it("when hasTabContext is true but retriever returns empty, no page block is added; tab-fallback fires instead", async () => {

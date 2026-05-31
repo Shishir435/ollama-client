@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-06-01
+### Fixed
+- YouTube watch pages now extract only the video title and transcript instead of falling back to generic page content.
+- YouTube transcript extraction now supports modern transcript panels, legacy segment renderers, and caption-track fallback data.
+- Udemy lecture pages now try the transcript panel first and fall back to normal page extraction when no transcript is available.
+- Removed stale provider configs, such as OpenAI entries no longer present in the provider UI, from saved provider settings.
+- Restored the lockfile dependency resolution for frozen CI installs.
+
+### Changed
+- Tab-context retrieval now respects the configured maximum context budget during RAG retrieval.
+- Local development logging defaults to debug level for easier extraction troubleshooting.
+
 ## [0.7.1] - 2026-05-30
 ### Added
 - Zod runtime validation across all JSON.parse sites in provider, storage, and prompt-import paths.
@@ -139,7 +151,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/Shishir435/ollama-client/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Shishir435/ollama-client/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/Shishir435/ollama-client/compare/v0.6.4...v0.6.5

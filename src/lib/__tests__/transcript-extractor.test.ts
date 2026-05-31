@@ -7,10 +7,13 @@ describe("Transcript Extractor", () => {
   beforeEach(() => {
     // Reset DOM
     document.body.innerHTML = ""
+    document.head.innerHTML = ""
     vi.clearAllMocks()
 
     // Mock console to keep output clean
     vi.spyOn(console, "log").mockImplementation(() => {})
+    vi.spyOn(console, "info").mockImplementation(() => {})
+    vi.spyOn(console, "warn").mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -56,6 +59,81 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("Hello world")
       })
 
+      it("should extract transcript from legacy segment renderers", async () => {
+        const renderer = document.createElement("ytd-transcript-renderer")
+        renderer.innerHTML = `
+          <ytd-transcript-segment-renderer>
+            <yt-formatted-string>Legacy line one.</yt-formatted-string>
+          </ytd-transcript-segment-renderer>
+          <ytd-transcript-segment-renderer>
+            <yt-formatted-string>Legacy line two.</yt-formatted-string>
+          </ytd-transcript-segment-renderer>
+        `
+        document.body.appendChild(renderer)
+
+        const result = await getTranscript()
+        expect(result).toBe("Legacy line one.\nLegacy line two.")
+      })
+
+      it("should extract transcript from YouTube caption tracks", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue(
+              JSON.stringify({
+                events: [
+                  { segs: [{ utf8: "Hello " }, { utf8: "world" }] },
+                  { segs: [{ utf8: "Next line" }] }
+                ]
+              })
+            )
+          })
+        )
+
+        const result = await getTranscript()
+        expect(result).toBe("Hello world\nNext line")
+      })
+
+      it("should extract transcript from modern YouTube transcript panel", async () => {
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <div aria-hidden="true">0:00</div>
+            <span class="ytAttributedStringHost" role="text">
+              First transcript line.
+            </span>
+          </transcript-segment-view-model>
+          <transcript-segment-view-model>
+            <div aria-hidden="true">0:07</div>
+            <span class="ytAttributedStringHost" role="text">
+              Second transcript line.
+            </span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        const result = await getTranscript()
+        expect(result).toBe("First transcript line.\nSecond transcript line.")
+      })
+
       it("should handle empty transcript", async () => {
         // Setup DOM with empty transcript renderer
         const renderer = document.createElement("ytd-transcript-renderer")
@@ -98,6 +176,95 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("Line 1\nLine 2")
       })
 
+      it("should open Udemy transcript tab before extracting cues", async () => {
+        const transcriptTab = document.createElement("button")
+        transcriptTab.setAttribute("role", "tab")
+        transcriptTab.innerHTML = `<span class="ud-btn-label">Transcript</span>`
+        transcriptTab.addEventListener("click", () => {
+          if (document.querySelector('[data-purpose="transcript-panel"]')) {
+            return
+          }
+
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue-active" role="button">
+                <span data-purpose="cue-text">All right, guys.</span>
+              </p>
+            </div>
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">
+                  So pending callbacks, the third phase.
+                </span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptTab)
+
+        const result = await getTranscript()
+        expect(result).toBe(
+          "All right, guys.\nSo pending callbacks, the third phase."
+        )
+      })
+
+      it("should open Udemy transcript from icon-only toggle", async () => {
+        const transcriptToggle = document.createElement("button")
+        transcriptToggle.setAttribute("type", "button")
+        transcriptToggle.setAttribute("data-purpose", "transcript-toggle")
+        transcriptToggle.setAttribute("aria-expanded", "false")
+        transcriptToggle.innerHTML = `
+          <svg aria-label="Transcript in sidebar region" role="img">
+            <use xlink:href="#icon-transcript"></use>
+          </svg>
+        `
+        transcriptToggle.addEventListener("click", () => {
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">Icon toggle transcript.</span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptToggle)
+
+        const result = await getTranscript()
+        expect(result).toBe("Icon toggle transcript.")
+      })
+
+      it("should press Udemy icon-only transcript control with pointer events", async () => {
+        const transcriptToggle = document.createElement("button")
+        transcriptToggle.setAttribute("type", "button")
+        transcriptToggle.setAttribute("aria-expanded", "false")
+        transcriptToggle.innerHTML = `
+          <svg aria-label="Transcript in sidebar region" role="img">
+            <use xlink:href="#icon-transcript"></use>
+          </svg>
+        `
+        transcriptToggle.addEventListener("mousedown", () => {
+          const panel = document.createElement("div")
+          panel.setAttribute("data-purpose", "transcript-panel")
+          panel.innerHTML = `
+            <div class="transcript--cue-container--Vuwj6">
+              <p data-purpose="transcript-cue" role="button">
+                <span data-purpose="cue-text">Pressed transcript.</span>
+              </p>
+            </div>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptToggle)
+
+        const result = await getTranscript()
+        expect(result).toBe("Pressed transcript.")
+      })
       it("should return null if panel missing", async () => {
         const result = await getTranscript()
         expect(result).toBeNull()
