@@ -53,6 +53,22 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
   }
 ]
 
+const DEFAULT_PROVIDER_IDS = new Set(DEFAULT_PROVIDERS.map((p) => p.id))
+
+const sanitizeStoredProviders = (
+  providers: ProviderConfig[]
+): { providers: ProviderConfig[]; removed: ProviderConfig[] } => {
+  const sanitized = providers.filter((provider) =>
+    DEFAULT_PROVIDER_IDS.has(provider.id)
+  )
+  return {
+    providers: sanitized,
+    removed: providers.filter(
+      (provider) => !DEFAULT_PROVIDER_IDS.has(provider.id)
+    )
+  }
+}
+
 const validateProviderBaseUrl = (baseUrl?: string): void => {
   if (!baseUrl) return
   let parsed: URL
@@ -82,6 +98,18 @@ export const ProviderManager = {
     if (!stored || stored.length === 0) {
       await ProviderManager.saveProviders(DEFAULT_PROVIDERS)
       return DEFAULT_PROVIDERS
+    }
+
+    const sanitized = sanitizeStoredProviders(stored)
+    if (sanitized.removed.length > 0) {
+      logger.info(
+        "Removed provider configs not present in the provider UI",
+        "ProviderManager",
+        {
+          providers: sanitized.removed.map((provider) => provider.id)
+        }
+      )
+      stored = sanitized.providers
     }
 
     // Merge new defaults if they are missing from stored config
@@ -128,6 +156,10 @@ export const ProviderManager = {
       const merged = [...stored, ...missing]
       await ProviderManager.saveProviders(merged)
       return merged
+    }
+
+    if (sanitized.removed.length > 0) {
+      await ProviderManager.saveProviders(stored)
     }
 
     return stored
