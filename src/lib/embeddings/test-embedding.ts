@@ -6,6 +6,7 @@
  * import('/src/lib/embeddings/test-embedding.ts').then(m => m.testEmbeddingGeneration('Hello world'))
  */
 
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { generateEmbedding } from "./embedding-client"
 import { storeVector } from "./vector-store"
@@ -65,7 +66,7 @@ export const testEmbeddingGeneration = async (
     )
     return { success: true, id }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
     logger.error("[Test Embedding] Error", "testEmbeddingGeneration", {
       error: errorMessage
     })
@@ -131,7 +132,7 @@ export const testBatchEmbeddingGeneration = async (
         successCount++
       } catch (error) {
         errors.push(
-          `Storage error for text ${i + 1}: ${error instanceof Error ? error.message : String(error)}`
+          `Storage error for text ${i + 1}: ${getErrorMessage(error)}`
         )
       }
     }
@@ -148,7 +149,7 @@ export const testBatchEmbeddingGeneration = async (
 
     return { success: errors.length === 0, count: successCount, errors }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
     logger.error("[Test Embedding] Error", "testBatchEmbeddingGeneration", {
       error: errorMessage
     })

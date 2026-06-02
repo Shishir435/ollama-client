@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { getBaseUrl } from "@/background/lib/utils"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -6,6 +7,7 @@ import {
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
@@ -31,7 +33,14 @@ export const checkEmbeddingModelExists = async (
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<T>((_, reject) => {
       timeoutId = setTimeout(
-        () => reject(new Error(`${label} timed out`)),
+        () =>
+          reject(
+            createAppError(`${label} timed out`, {
+              kind: "network",
+              retryable: true,
+              context: "embedding-download"
+            })
+          ),
         CHECK_TIMEOUT_MS
       )
     })
@@ -352,7 +361,7 @@ export const downloadEmbeddingModelSilently = async (
     )
     return { success: true }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
     logger.error(
       "Error downloading embedding model",
       "downloadEmbeddingModelSilently",
@@ -428,12 +437,6 @@ export const handlePrepareEmbeddingModel = async (
         error
       }
     )
-    sendResponse({
-      success: false,
-      error: {
-        status: 0,
-        message: error instanceof Error ? error.message : String(error)
-      }
-    })
+    sendResponse(createErrorResponse(error))
   }
 }

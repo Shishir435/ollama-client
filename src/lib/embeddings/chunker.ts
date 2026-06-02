@@ -1,4 +1,5 @@
 import type { ChunkingStrategy } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 
 /**
  * Configuration for the text chunking process.
@@ -375,11 +376,13 @@ export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
 
   // Validate inputs
   if (chunkSize <= 0) {
-    throw new Error("Chunk size must be positive")
+    throw createAppError("Chunk size must be positive", { kind: "validation" })
   }
 
   if (chunkOverlap < 0 || chunkOverlap >= chunkSize) {
-    throw new Error("Overlap must be between 0 and chunk size")
+    throw createAppError("Overlap must be between 0 and chunk size", {
+      kind: "validation"
+    })
   }
 
   if (!text || text.trim().length === 0) {

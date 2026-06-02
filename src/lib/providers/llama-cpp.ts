@@ -1,3 +1,4 @@
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { OpenAIProvider } from "./openai"
@@ -73,8 +74,13 @@ export class LlamaCppProvider extends OpenAIProvider {
 
     if (!response) {
       logger.error("All model fetch attempts failed.", "LlamaCpp")
-      throw new Error(
-        "Failed to connect to llama.cpp server. Check if the service is running and the URL is correct."
+      throw createAppError(
+        "Failed to connect to llama.cpp server. Check if the service is running and the URL is correct.",
+        {
+          kind: "provider",
+          providerId: ProviderId.LLAMA_CPP,
+          retryable: true
+        }
       )
     }
 
@@ -129,7 +135,11 @@ export class LlamaCppProvider extends OpenAIProvider {
       })
     } catch (e) {
       logger.error("Model parse failed", "LlamaCpp", { error: e })
-      throw new Error("Failed to parse response from llama.cpp server")
+      throw createAppError("Failed to parse response from llama.cpp server", {
+        kind: "provider",
+        providerId: ProviderId.LLAMA_CPP,
+        cause: e
+      })
     }
   }
 }

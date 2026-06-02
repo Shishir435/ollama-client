@@ -1,4 +1,5 @@
 import { LEGACY_STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
@@ -75,15 +76,21 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
   try {
     parsed = new URL(baseUrl)
   } catch {
-    throw new Error(`Invalid provider URL: ${baseUrl}`)
+    throw createAppError(`Invalid provider URL: ${baseUrl}`, {
+      kind: "validation"
+    })
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("Only HTTP(S) provider URLs are supported")
+    throw createAppError("Only HTTP(S) provider URLs are supported", {
+      kind: "validation"
+    })
   }
 
   if (parsed.username || parsed.password) {
-    throw new Error("Provider URL must not include embedded credentials")
+    throw createAppError("Provider URL must not include embedded credentials", {
+      kind: "validation"
+    })
   }
 }
 

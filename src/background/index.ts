@@ -36,6 +36,7 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -388,7 +389,7 @@ browser.runtime.onMessage.addListener(
               success: false,
               error: {
                 status: 0,
-                message: error instanceof Error ? error.message : String(error)
+                message: getErrorMessage(error)
               }
             })
           })
@@ -481,7 +482,7 @@ browser.runtime.onMessage.addListener(
               success: false,
               error: {
                 status: 0,
-                message: error instanceof Error ? error.message : String(error)
+                message: getErrorMessage(error)
               }
             })
           })

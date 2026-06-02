@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type {
   ContentExtractionConfig,
@@ -352,7 +353,7 @@ export const extractContentWithLoading = async (
           }
         )
       } catch (error) {
-        const errorMsg = `Scroll error: ${error instanceof Error ? error.message : String(error)}`
+        const errorMsg = `Scroll error: ${getErrorMessage(error)}`
         errors.push(errorMsg)
         logger.error("Scroll error", "extractContentWithLoading", {
           error: errorMsg
@@ -373,7 +374,7 @@ export const extractContentWithLoading = async (
           }
         )
       } catch (error) {
-        const errorMsg = `Mutation observer error: ${error instanceof Error ? error.message : String(error)}`
+        const errorMsg = `Mutation observer error: ${getErrorMessage(error)}`
         errors.push(errorMsg)
         logger.error("Mutation observer error", "extractContentWithLoading", {
           error: errorMsg
@@ -388,7 +389,7 @@ export const extractContentWithLoading = async (
         await waitForNetworkIdle(config.networkIdleTimeout)
         logger.verbose("Network idle detected", "extractContentWithLoading")
       } catch (error) {
-        const errorMsg = `Network idle error: ${error instanceof Error ? error.message : String(error)}`
+        const errorMsg = `Network idle error: ${getErrorMessage(error)}`
         errors.push(errorMsg)
         logger.error("Network idle error", "extractContentWithLoading", {
           error: errorMsg
@@ -468,7 +469,7 @@ export const extractContentWithLoading = async (
       logEntry
     }
   } catch (error) {
-    const errorMsg = `Extraction error: ${error instanceof Error ? error.message : String(error)}`
+    const errorMsg = `Extraction error: ${getErrorMessage(error)}`
     errors.push(errorMsg)
     logger.error("Extraction error", "extractContentWithLoading", {
       error: errorMsg

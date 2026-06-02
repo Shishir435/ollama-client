@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import type { ProviderModelListResponse, SendResponseFunction } from "@/types"
 
@@ -19,10 +20,6 @@ export const handleGetModels = async (
     const data: ProviderModelListResponse = await res.json()
     safeSendResponse(sendResponse, { success: true, data })
   } catch (err) {
-    const error = err as Error
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: { status: 0, message: error.message }
-    })
+    safeSendResponse(sendResponse, createErrorResponse(err))
   }
 }

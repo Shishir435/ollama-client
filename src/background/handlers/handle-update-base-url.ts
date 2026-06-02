@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { safeSendResponse } from "@/background/lib/utils"
 import { isChromiumBased } from "@/lib/browser-api"
 import type { SendResponseFunction } from "@/types"
@@ -49,10 +50,6 @@ export const handleUpdateBaseUrl = async (
 
     safeSendResponse(sendResponse, { success: true })
   } catch (err) {
-    const error = err as Error
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: { status: 0, message: error.message }
-    })
+    safeSendResponse(sendResponse, createErrorResponse(err))
   }
 }

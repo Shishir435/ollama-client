@@ -1,3 +1,4 @@
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
 import {
@@ -97,7 +98,13 @@ export class OpenAIProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`OpenAI Error (${response.status}): ${errorText}`)
+      throw createAppError(`OpenAI Error (${response.status}): ${errorText}`, {
+        kind: "provider",
+        status: response.status,
+        providerId: this.id,
+        retryable: response.status >= 500,
+        debug: errorText
+      })
     }
 
     const startTime = Date.now()
@@ -110,7 +117,12 @@ export class OpenAIProvider implements LLMProvider {
     startTime: number
   ) {
     const reader = response.body?.getReader()
-    if (!reader) throw new Error("Response body is null")
+    if (!reader) {
+      throw createAppError("Response body is null", {
+        kind: "provider",
+        providerId: this.id
+      })
+    }
 
     const decoder = new TextDecoder()
     let buffer = ""
@@ -229,8 +241,15 @@ export class OpenAIProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(
-        `OpenAI Embedding Error (${response.status}): ${errorText}`
+      throw createAppError(
+        `OpenAI Embedding Error (${response.status}): ${errorText}`,
+        {
+          kind: "provider",
+          status: response.status,
+          providerId: this.id,
+          retryable: response.status >= 500,
+          debug: errorText
+        }
       )
     }
 
@@ -257,8 +276,15 @@ export class OpenAIProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(
-        `OpenAI Embedding Error (${response.status}): ${errorText}`
+      throw createAppError(
+        `OpenAI Embedding Error (${response.status}): ${errorText}`,
+        {
+          kind: "provider",
+          status: response.status,
+          providerId: this.id,
+          retryable: response.status >= 500,
+          debug: errorText
+        }
       )
     }
 

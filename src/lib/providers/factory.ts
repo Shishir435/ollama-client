@@ -1,4 +1,5 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import { KoboldCppProvider } from "./koboldcpp"
 import { LlamaCppProvider } from "./llama-cpp"
 import { LMStudioProvider } from "./lm-studio"
@@ -35,7 +36,9 @@ function instantiate(config: ProviderConfig): LLMProvider {
       return new Ctor(config)
     }
     default:
-      throw new Error(`Unsupported provider type: ${config.type}`)
+      throw createAppError(`Unsupported provider type: ${config.type}`, {
+        kind: "validation"
+      })
   }
 }
 
@@ -59,7 +62,12 @@ export const ProviderFactory = {
 
   async getProvider(providerId: string): Promise<LLMProvider> {
     const config = await ProviderManager.getProviderConfig(providerId)
-    if (!config) throw new Error(`Provider ${providerId} not found`)
+    if (!config) {
+      throw createAppError(`Provider ${providerId} not found`, {
+        kind: "provider",
+        providerId
+      })
+    }
 
     const provider = instantiate(config)
     instances.set(providerId, provider)

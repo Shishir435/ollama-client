@@ -1,4 +1,5 @@
 import { fromDocuments } from "@/lib/embeddings/vector-store"
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { getTextSplitter } from "@/lib/text-processing"
 import type { Document } from "@/lib/text-processing/types"
@@ -132,7 +133,7 @@ export async function processKnowledge(
       chunkCount: chunks.length
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
 
     logger.error("Error processing document", "processKnowledge", {
       fileName,

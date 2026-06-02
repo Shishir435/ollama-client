@@ -4,18 +4,19 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
+import { normalizeError } from "@/background/lib/error-handler"
 import {
   getBaseUrl,
   getPullAbortControllerKey,
   safePostMessage
 } from "@/background/lib/utils"
+import { isAbortError } from "@/lib/error-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type {
   ChromePort,
   DefaultProviderPullRequest,
   ModelPullMessage,
-  NetworkError,
   PortStatusFunction
 } from "@/types"
 
@@ -94,12 +95,11 @@ export const handleModelPull = async (
 
     await handlePullStream(res, port, isPortClosed, modelName)
   } catch (err) {
-    const error = err as NetworkError
-    if (error.name === "AbortError") {
+    if (isAbortError(err)) {
       safePostMessage(port, { error: "Download cancelled" })
     } else {
       safePostMessage(port, {
-        error: { status: 0, message: error.message || "Failed to pull model" }
+        error: normalizeError(err, { fallbackMessage: "Failed to pull model" })
       })
     }
     clearAbortController(controllerKey)

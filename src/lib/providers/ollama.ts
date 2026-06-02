@@ -1,3 +1,4 @@
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type {
   ChatStreamMessage,
@@ -114,11 +115,22 @@ export class OllamaProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Ollama Error (${response.status}): ${errorText}`)
+      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
+        kind: "provider",
+        status: response.status,
+        providerId: ProviderId.OLLAMA,
+        retryable: response.status >= 500,
+        debug: errorText
+      })
     }
 
     const reader = response.body?.getReader()
-    if (!reader) throw new Error("Response body is null")
+    if (!reader) {
+      throw createAppError("Response body is null", {
+        kind: "provider",
+        providerId: ProviderId.OLLAMA
+      })
+    }
 
     const decoder = new TextDecoder()
     try {
@@ -136,7 +148,12 @@ export class OllamaProvider implements LLMProvider {
           if (!line.trim()) continue
           try {
             const data = JSON.parse(line)
-            if (data.error) throw new Error(data.error)
+            if (data.error) {
+              throw createAppError(data.error, {
+                kind: "provider",
+                providerId: ProviderId.OLLAMA
+              })
+            }
 
             const thinkingDelta =
               data.message?.thinking ||
@@ -255,12 +272,24 @@ export class OllamaProvider implements LLMProvider {
         const message = errorText
           ? `Ollama Embedding Error: ${legacyResponse.status} ${errorText}`
           : `Ollama Embedding Error: ${legacyResponse.status}`
-        throw new Error(message)
+        throw createAppError(message, {
+          kind: "provider",
+          status: legacyResponse.status,
+          providerId: ProviderId.OLLAMA,
+          retryable: legacyResponse.status >= 500,
+          debug: errorText
+        })
       }
 
       const legacyData = await legacyResponse.json()
       if (!Array.isArray(legacyData.embedding)) {
-        throw new Error("Ollama Embedding Error: invalid embedding response")
+        throw createAppError(
+          "Ollama Embedding Error: invalid embedding response",
+          {
+            kind: "provider",
+            providerId: ProviderId.OLLAMA
+          }
+        )
       }
       return legacyData.embedding
     } catch (error) {
