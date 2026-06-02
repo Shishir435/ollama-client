@@ -55,15 +55,15 @@ export const ModelSystemSection = ({
           name="system"
           placeholder={t("settings.model.system.prompt_placeholder")}
           onBlur={onSave}
-          className="min-h-[100px] resize-none"
+          className="min-h-25 resize-none"
         />
         <SettingsActionRow>
           <Button type="button" variant="outline" onClick={onSave}>
-            <Check className="mr-2 h-4 w-4" />
+            <Check className="mr-0.5 size-3" />
             {t("common.save")}
           </Button>
           <Button type="button" variant="ghost" onClick={onResetSystemPrompt}>
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="mr-0.5 size-3" />
             {t("settings.prompts.reset")}
           </Button>
         </SettingsActionRow>
