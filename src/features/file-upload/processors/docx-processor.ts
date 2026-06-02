@@ -1,3 +1,4 @@
+import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 
 // Lazy load mammoth to reduce initial bundle size
@@ -49,9 +50,11 @@ export class DocxProcessor implements FileProcessor {
         }
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error"
-      throw new Error(`Failed to process DOCX: ${errorMessage}`)
+      const errorMessage = getErrorMessage(error, "Unknown error")
+      throw createAppError(`Failed to process DOCX: ${errorMessage}`, {
+        kind: "validation",
+        cause: error
+      })
     }
   }
 

@@ -7,6 +7,7 @@ import {
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -122,7 +123,7 @@ const getStoredEmbeddingModel = async (): Promise<string> => {
 }
 
 const isContextLengthError = (error: unknown): boolean => {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = getErrorMessage(error)
   return /context length|input length|too long|max(?:imum)? context/i.test(
     message
   )
@@ -418,8 +419,7 @@ export const generateEmbeddingWithStrategy = async (
         return result
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
+      const errorMessage = getErrorMessage(error)
       routeErrors.push(`${attempt.route}: ${errorMessage}`)
       logger.warn(
         `Embedding route failed: ${attempt.route}`,
@@ -445,10 +445,15 @@ export const generateEmbeddingWithStrategy = async (
     }
   }
 
-  throw new Error(
+  throw createAppError(
     `All embedding routes failed. Attempted: ${attemptedRoutes.join(" -> ")}. Last error: ${
       routeErrors[routeErrors.length - 1] || "unknown"
-    }`
+    }`,
+    {
+      kind: "provider",
+      retryable: true,
+      debug: { attemptedRoutes, routeErrors }
+    }
   )
 }
 

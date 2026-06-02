@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import type { PullStreamMessage } from "@/types"
 
@@ -36,10 +37,7 @@ export const useModelPull = () => {
         port.disconnect()
       }
       if (message.error) {
-        const errorMessage =
-          typeof message.error === "string"
-            ? message.error
-            : message.error.message
+        const errorMessage = formatErrorForDisplay(message.error).message
         setProgress(`❌ Failed: ${errorMessage}`)
         setPullingModel(null)
         port.disconnect()

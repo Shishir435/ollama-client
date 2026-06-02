@@ -3,6 +3,7 @@ import JSZip from "jszip"
 import { z } from "zod"
 import { db as chatDb } from "./db"
 import { vectorDb } from "./embeddings/db"
+import { createAppError, getErrorMessage } from "./error-utils"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
 import { exportDatabaseBytes, importDatabaseBytes } from "./sqlite/db"
@@ -110,17 +111,26 @@ export const backupService = {
       // Manifest
       const manifestFile = zip.file("manifest.json")
       if (!manifestFile) {
-        throw new Error("Missing manifest.json in backup file")
+        throw createAppError("Missing manifest.json in backup file", {
+          kind: "validation"
+        })
       }
 
       const manifestStr = await manifestFile.async("string")
       const manifestResult = safeJsonParse(manifestStr, BackupManifestSchema)
       if (!manifestResult.success) {
-        throw new Error("Invalid manifest: failed schema validation")
+        throw createAppError("Invalid manifest: failed schema validation", {
+          kind: "validation"
+        })
       }
       const manifest = manifestResult.data
       if (manifest.version !== MANIFEST_VERSION) {
-        throw new Error(`Unsupported backup version: ${manifest.version}`)
+        throw createAppError(
+          `Unsupported backup version: ${manifest.version}`,
+          {
+            kind: "validation"
+          }
+        )
       }
 
       // Sync Storage
@@ -130,7 +140,10 @@ export const backupService = {
           const syncStr = await syncFile.async("string")
           const syncResult = safeJsonParse(syncStr, StorageObjectSchema)
           if (!syncResult.success) {
-            throw new Error("Invalid sync storage: expected a JSON object")
+            throw createAppError(
+              "Invalid sync storage: expected a JSON object",
+              { kind: "validation" }
+            )
           }
           const syncData = syncResult.data
 
@@ -176,7 +189,10 @@ export const backupService = {
           const localStr = await localFile.async("string")
           const localResult = safeJsonParse(localStr, StorageObjectSchema)
           if (!localResult.success) {
-            throw new Error("Invalid local storage: expected a JSON object")
+            throw createAppError(
+              "Invalid local storage: expected a JSON object",
+              { kind: "validation" }
+            )
           }
           const localData = localResult.data
           await chrome.storage.local.clear()
@@ -273,8 +289,11 @@ export const backupService = {
       return result
     } catch (e) {
       // If we completely fail to parse zip or manifest:
-      const errorMessage = e instanceof Error ? e.message : "Unknown error"
-      throw new Error(`Failed to read backup file: ${errorMessage}`)
+      const errorMessage = getErrorMessage(e, "Unknown error")
+      throw createAppError(`Failed to read backup file: ${errorMessage}`, {
+        kind: "validation",
+        cause: e
+      })
     }
   }
 }

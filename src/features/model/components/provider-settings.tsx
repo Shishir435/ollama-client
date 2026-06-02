@@ -37,6 +37,7 @@ import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderHealth } from "@/features/model/hooks/use-provider-health"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { DEFAULT_PROVIDERS, ProviderManager } from "@/lib/providers/manager"
@@ -199,8 +200,7 @@ export const ProviderSettings = () => {
       })
     } catch (error: unknown) {
       logger.error("Connection test failed", "ProviderSettings", { error })
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to connect"
+      const errorMessage = getDisplayErrorMessage(error, "Failed to connect")
       const shouldShowCspHint =
         errorMessage.toLowerCase().includes("failed to fetch") &&
         Boolean(cspCompatibilityHint)

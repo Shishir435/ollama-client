@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -58,8 +59,7 @@ export const DataMigrationSettings = () => {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error"
+      const errorMessage = getDisplayErrorMessage(error, "Unknown error")
       toast({
         title: t("settings.migration.export.error_title"),
         description: errorMessage,
@@ -97,7 +97,7 @@ export const DataMigrationSettings = () => {
       setImportResult({
         syncStorage: {
           ok: false,
-          error: error instanceof Error ? error.message : "Unknown error"
+          error: getDisplayErrorMessage(error, "Unknown error")
         },
         localStorage: {
           ok: false,

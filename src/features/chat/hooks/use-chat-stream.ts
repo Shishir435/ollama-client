@@ -4,6 +4,10 @@ import { useToast } from "@/hooks/use-toast"
 
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
+import {
+  formatErrorForDisplay,
+  getDisplayErrorMessage
+} from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
 
@@ -36,6 +40,12 @@ interface StreamMessage {
   error?: {
     status: number
     message: string
+    kind?: import("@/types/errors").AppErrorKind
+    userMessage?: string
+    retryable?: boolean
+    context?: string
+    providerId?: string
+    debug?: unknown
   }
   aborted?: boolean
   metrics?: Record<string, unknown>
@@ -265,10 +275,16 @@ export const useChatStream = ({
         let finalMessages: ChatMessage[]
 
         if (msg.error) {
+          const displayError = formatErrorForDisplay(
+            msg.error,
+            t("chat.errors.unknown_error_description")
+          )
           const errMsg =
+            msg.error.userMessage ??
             ERROR_MESSAGES[msg.error.status] ??
             t("chat.errors.unknown_error", {
-              message: msg.error.message || t("chat.errors.no_message")
+              message:
+                getDisplayErrorMessage(msg.error) || t("chat.errors.no_message")
             })
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
@@ -276,9 +292,10 @@ export const useChatStream = ({
           ]
           toast({
             variant: "destructive",
-            title: t("chat.errors.response_failed_title"),
-            description:
-              msg.error.message || t("chat.errors.unknown_error_description")
+            title: displayError.kind
+              ? displayError.title
+              : t("chat.errors.response_failed_title"),
+            description: displayError.message
           })
         } else {
           finalMessages = [

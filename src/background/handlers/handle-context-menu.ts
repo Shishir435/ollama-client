@@ -6,6 +6,7 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeSidePanel } from "@/types"
@@ -31,7 +32,7 @@ const removeContextMenu = (id: string) => {
     if (removal && typeof removal.catch === "function") {
       return removal.catch((error) => {
         logger.debug("Context menu cleanup skipped", "initializeContextMenu", {
-          error: error instanceof Error ? error.message : String(error)
+          error: getErrorMessage(error)
         })
       })
     }
@@ -39,7 +40,7 @@ const removeContextMenu = (id: string) => {
     return Promise.resolve()
   } catch (error) {
     logger.debug("Context menu cleanup skipped", "initializeContextMenu", {
-      error: error instanceof Error ? error.message : String(error)
+      error: getErrorMessage(error)
     })
     return Promise.resolve()
   }
@@ -83,7 +84,7 @@ export const initializeContextMenu = () => {
 
         sidePanel.open(options).catch((err: unknown) => {
           logger.warn("Failed to open sidepanel", "initializeContextMenu", {
-            error: err instanceof Error ? err.message : String(err)
+            error: getErrorMessage(err)
           })
         })
       }

@@ -37,6 +37,9 @@ export interface ChromeResponse {
   error?: {
     status: number
     message: string
+    kind?: import("./errors").AppErrorKind
+    userMessage?: string
+    retryable?: boolean
     context?: string
     providerId?: string
   }

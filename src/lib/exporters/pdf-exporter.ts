@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next"
 
+import { createAppError } from "@/lib/error-utils"
 import type { ChatMessage, ChatSession } from "@/types"
 
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
@@ -16,8 +17,9 @@ const renderPdf = async (html: string, filename: string) => {
   if (!printWindow) {
     localStorage.removeItem("print_html")
     localStorage.removeItem("print_filename")
-    throw new Error(
-      "Failed to open print window. Please check if popups are blocked."
+    throw createAppError(
+      "Failed to open print window. Please check if popups are blocked.",
+      { kind: "validation" }
     )
   }
 }

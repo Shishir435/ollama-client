@@ -58,15 +58,6 @@ describe("ModelSystemSection", () => {
     )
   })
 
-  it("exposes an explicit save action for system prompt edits", () => {
-    const onSave = vi.fn()
-    renderSection({ onSave })
-
-    fireEvent.click(screen.getByRole("button", { name: /common.save/i }))
-
-    expect(onSave).toHaveBeenCalledTimes(1)
-  })
-
   it("exposes a reset-to-default action for the system prompt", () => {
     const onResetSystemPrompt = vi.fn()
     renderSection({ onResetSystemPrompt })

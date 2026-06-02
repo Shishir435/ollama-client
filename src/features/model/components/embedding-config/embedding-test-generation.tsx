@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { Loader2, Sparkles } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -28,7 +29,7 @@ export const EmbeddingTestGeneration = ({
       const embeddingResult = await generateEmbedding(testText)
 
       if ("error" in embeddingResult) {
-        setResult(`Error: ${embeddingResult.error}`)
+        setResult(`Error: ${getDisplayErrorMessage(embeddingResult.error)}`)
         return
       }
 
@@ -36,9 +37,7 @@ export const EmbeddingTestGeneration = ({
         `✅ Success! Embedding generated (${embeddingResult.embedding.length}D).`
       )
     } catch (error) {
-      setResult(
-        `Error: ${error instanceof Error ? error.message : String(error)}`
-      )
+      setResult(`Error: ${getDisplayErrorMessage(error)}`)
     } finally {
       setIsTesting(false)
     }

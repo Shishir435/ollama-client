@@ -5,6 +5,8 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
+import { getDisplayErrorMessage } from "@/lib/error-display"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -52,7 +54,7 @@ export const useFileSearch = () => {
         const embeddingResult = await generateEmbedding(query.trim())
 
         if ("error" in embeddingResult) {
-          throw new Error(embeddingResult.error)
+          throw createAppError(embeddingResult.error, { kind: "provider" })
         }
 
         // Get search options
@@ -87,8 +89,7 @@ export const useFileSearch = () => {
 
         return fileResults
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Search failed"
+        const errorMessage = getDisplayErrorMessage(err, "Search failed")
         setError(errorMessage)
         logger.error("File search error", "useFileSearch", { error: err })
         return []

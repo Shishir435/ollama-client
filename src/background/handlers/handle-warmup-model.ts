@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { safeSendResponse } from "@/background/lib/utils"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -137,12 +138,6 @@ export const handleWarmupModel = async (
     safeSendResponse(sendResponse, { success: true })
   } catch (error) {
     logger.warn("Warmup model failed", "WarmupModel", { error })
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 0,
-        message: error instanceof Error ? error.message : String(error)
-      }
-    })
+    safeSendResponse(sendResponse, createErrorResponse(error))
   }
 }

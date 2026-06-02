@@ -7,3 +7,5 @@ export interface ParseError extends Error {
   line?: string
   data?: unknown
 }
+
+export type { AppErrorKind } from "@/lib/error-utils"

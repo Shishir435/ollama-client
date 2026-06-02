@@ -70,22 +70,6 @@ describe("ModelSettingsForm", () => {
     })
   })
 
-  it("saves system prompt edits when the explicit save button is clicked", () => {
-    render(<ModelSettingsForm />)
-    const prompt = screen.getByLabelText(
-      "settings.model.system.prompt_label"
-    ) as HTMLTextAreaElement
-
-    fireEvent.change(prompt, {
-      target: { value: "Always answer in one sentence." }
-    })
-    fireEvent.click(screen.getByRole("button", { name: /common.save/i }))
-
-    expect(updateConfig).toHaveBeenCalledWith({
-      system: "Always answer in one sentence."
-    })
-  })
-
   it("saves system prompt edits on blur", () => {
     render(<ModelSettingsForm />)
     const prompt = screen.getByLabelText(

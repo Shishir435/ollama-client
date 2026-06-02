@@ -41,6 +41,7 @@ import {
   getStorageStats,
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
@@ -243,8 +244,10 @@ export const ContextSettings = () => {
       setRebuildComplete(true)
       await loadStats()
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to rebuild embeddings"
+      const message = getDisplayErrorMessage(
+        error,
+        "Failed to rebuild embeddings"
+      )
       logger.error("Failed to rebuild embeddings", "ContextSettings", { error })
       setRebuildError(message)
     } finally {

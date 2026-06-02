@@ -20,6 +20,7 @@ import {
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
@@ -106,11 +107,11 @@ export const EmbeddingStatusIndicator = () => {
       } else {
         setModelExists(false)
         if (resp?.error) {
-          setError(resp.error.message || "Unknown error")
+          setError(getDisplayErrorMessage(resp.error, "Unknown error"))
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = getDisplayErrorMessage(err, "Unknown error")
       logger.warn("Check failed", "EmbeddingStatusIndicator", {
         model: modelName,
         providerId,

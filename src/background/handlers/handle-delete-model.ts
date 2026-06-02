@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import type { SendResponseFunction } from "@/types"
 
@@ -29,13 +30,9 @@ export const handleDeleteModel = async (
       })
     }
   } catch (err) {
-    const error = err as Error
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 0,
-        message: error.message || "Unknown error occurred"
-      }
-    })
+    safeSendResponse(
+      sendResponse,
+      createErrorResponse(err, { fallbackMessage: "Unknown error occurred" })
+    )
   }
 }

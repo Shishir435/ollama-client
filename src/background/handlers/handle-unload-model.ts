@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
@@ -62,10 +63,6 @@ export const handleUnloadModel = async (
 
     safeSendResponse(sendResponse, { success: wasUnloaded, data })
   } catch (err) {
-    const error = err as Error
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: { status: 0, message: error.message }
-    })
+    safeSendResponse(sendResponse, createErrorResponse(err))
   }
 }

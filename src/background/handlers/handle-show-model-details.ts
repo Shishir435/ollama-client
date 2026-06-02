@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { SendResponseFunction } from "@/types"
 
@@ -22,10 +23,6 @@ export const handleShowModelDetails = async (
     const data = await provider.getModelDetails(model)
     sendResponse({ success: true, data })
   } catch (err) {
-    const error = err as Error
-    sendResponse({
-      success: false,
-      error: { status: 0, message: error.message }
-    })
+    sendResponse(createErrorResponse(err))
   }
 }

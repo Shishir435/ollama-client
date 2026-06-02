@@ -3,6 +3,7 @@ import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
 import { HtmlProcessor } from "@/features/file-upload/processors/html-processor"
 import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
 import { TextProcessor } from "@/features/file-upload/processors/text-processor"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { FileProcessor, ProcessedFile } from "./types"
 
@@ -61,8 +62,9 @@ export async function processFile(file: File): Promise<ProcessedFile> {
       fileName: file.name,
       fileType: file.type
     })
-    throw new Error(
-      `No processor available for file type: ${file.type || file.name}`
+    throw createAppError(
+      `No processor available for file type: ${file.type || file.name}`,
+      { kind: "validation" }
     )
   }
 

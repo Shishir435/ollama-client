@@ -1,3 +1,4 @@
+import { createErrorResponse } from "@/background/lib/error-handler"
 import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
@@ -84,12 +85,8 @@ export const handleEmbedFileChunks = async (
       )
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
     try {
-      sendResponse({
-        success: false,
-        error: { status: 500, message: errorMessage }
-      })
+      sendResponse(createErrorResponse(error, { status: 500 }))
     } catch (e) {
       logger.warn(
         "Port closed before error response sent",

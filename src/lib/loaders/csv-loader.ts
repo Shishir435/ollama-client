@@ -1,4 +1,5 @@
 import { dsvFormat } from "d3-dsv"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { CsvLoaderOptions, DocumentLoader, LoaderDocument } from "./types"
 
@@ -30,15 +31,18 @@ export class CsvLoader implements DocumentLoader {
     const parsed = psv.parseRows(raw.trim())
 
     if (parsed.length === 0) {
-      throw new Error("CSV file is empty or invalid")
+      throw createAppError("CSV file is empty or invalid", {
+        kind: "validation"
+      })
     }
 
     // Extract specific column if requested
     if (this.column !== undefined) {
       const headers = parsed[0]
       if (!headers?.includes(this.column)) {
-        throw new Error(
-          `Column "${this.column}" not found in CSV. Available columns: ${headers?.join(", ")}`
+        throw createAppError(
+          `Column "${this.column}" not found in CSV. Available columns: ${headers?.join(", ")}`,
+          { kind: "validation" }
         )
       }
 
@@ -66,8 +70,13 @@ export class CsvLoader implements DocumentLoader {
       const res = await fetch(this.url)
 
       if (!res.ok) {
-        throw new Error(
-          `Failed to fetch CSV file: ${res.status} ${res.statusText}`
+        throw createAppError(
+          `Failed to fetch CSV file: ${res.status} ${res.statusText}`,
+          {
+            kind: "network",
+            status: res.status,
+            retryable: res.status >= 500
+          }
         )
       }
 
@@ -82,8 +91,9 @@ export class CsvLoader implements DocumentLoader {
       // Validate parsed data
       for (let i = 0; i < parsed.length; i++) {
         if (typeof parsed[i] !== "string") {
-          throw new Error(
-            `Expected string at row ${i}, got ${typeof parsed[i]}`
+          throw createAppError(
+            `Expected string at row ${i}, got ${typeof parsed[i]}`,
+            { kind: "validation" }
           )
         }
       }

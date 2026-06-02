@@ -6,6 +6,8 @@ import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchHybrid } from "@/lib/embeddings/vector-store"
+import { getDisplayErrorMessage } from "@/lib/error-display"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -52,7 +54,7 @@ export const useSemanticChatSearch = () => {
         const embeddingResult = await generateEmbedding(query.trim())
 
         if ("error" in embeddingResult) {
-          throw new Error(embeddingResult.error)
+          throw createAppError(embeddingResult.error, { kind: "provider" })
         }
 
         // Get search options from config or provided options
@@ -102,8 +104,7 @@ export const useSemanticChatSearch = () => {
 
         return chatResults
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Search failed"
+        const errorMessage = getDisplayErrorMessage(err, "Search failed")
         setError(errorMessage)
         logger.error("Semantic search error", "useSemanticChatSearch", {
           error: err

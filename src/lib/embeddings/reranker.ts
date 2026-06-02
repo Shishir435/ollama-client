@@ -1,4 +1,5 @@
 import { cosineSimilarity } from "@/lib/embeddings/embedding-client"
+import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 
 export type RerankerBackend = "none" | "cosine"
@@ -91,7 +92,7 @@ class RerankerService {
       return ranked
     } catch (error) {
       logger.error("Reranking failed, using fallback", "RerankerService", {
-        error: error instanceof Error ? error.message : String(error)
+        error: getErrorMessage(error)
       })
       return documents.map((d) => ({ ...d, score: 0.5 }))
     }

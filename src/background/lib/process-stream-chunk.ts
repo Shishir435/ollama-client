@@ -1,4 +1,5 @@
 import { safePostMessage } from "@/background/lib/utils"
+import { isNamedError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type {
   ChromePort,
@@ -57,13 +58,12 @@ export const processStreamChunk = (
         })
         return { buffer, fullText, isDone: true }
       }
-    } catch (err) {
-      const error = err as Error
+    } catch (error) {
       logger.warn("Failed to parse chunk line", "processStreamChunk", {
         error,
         line: trimmedLine
       })
-      if (error.name === "SyntaxError") {
+      if (isNamedError(error, "SyntaxError")) {
         logger.warn(
           "Multiple parse errors detected, connection may be corrupted",
           "processStreamChunk"

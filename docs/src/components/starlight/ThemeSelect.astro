@@ -7,12 +7,12 @@
 ---
 
 <button
-  id="theme-toggle"
   class="theme-toggle-btn"
+  data-theme-toggle
   aria-label="Toggle theme"
 >
   <svg
-    id="sun-icon"
+    data-sun-icon
     style="display:none"
     width="16"
     height="16"
@@ -34,7 +34,7 @@
     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
   </svg>
   <svg
-    id="moon-icon"
+    data-moon-icon
     width="16"
     height="16"
     viewBox="0 0 24 24"
@@ -52,20 +52,35 @@
   .theme-toggle-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
     background: none;
     border: none;
     padding: 0;
+    border-radius: 0.375rem;
     cursor: pointer;
     color: inherit;
+  }
+
+  .theme-toggle-btn:hover {
+    background: var(--sl-color-gray-6);
   }
 </style>
 
 <script>
   const html = document.documentElement
-  const btn = document.getElementById("theme-toggle")
-  if (btn) {
-    const sun = document.getElementById("sun-icon")
-    const moon = document.getElementById("moon-icon")
+  const buttons = document.querySelectorAll("[data-theme-toggle]")
+  if (buttons.length > 0) {
+    const syncIcons = () => {
+      const isDark = resolveDark()
+      for (const button of buttons) {
+        const sun = button.querySelector("[data-sun-icon]")
+        const moon = button.querySelector("[data-moon-icon]")
+        if (sun instanceof HTMLElement) sun.style.display = isDark ? "" : "none"
+        if (moon instanceof HTMLElement) moon.style.display = isDark ? "none" : ""
+      }
+    }
 
     function resolveDark() {
       if (html.dataset.theme) return html.dataset.theme === "dark"
@@ -75,23 +90,19 @@
       return window.matchMedia("(prefers-color-scheme: dark)").matches
     }
 
-    function syncIcons() {
-      const isDark = resolveDark()
-      if (sun) sun.style.display = isDark ? "" : "none"
-      if (moon) moon.style.display = isDark ? "none" : ""
-    }
-
     syncIcons()
 
     const mo = new MutationObserver(syncIcons)
     mo.observe(html, { attributes: true, attributeFilter: ["data-theme"] })
 
-    btn.addEventListener("click", () => {
-      const isDark = resolveDark()
-      html.dataset.theme = isDark ? "light" : "dark"
-      html.classList.toggle("dark", !isDark)
-      localStorage.setItem("theme", isDark ? "light" : "dark")
-      localStorage.setItem("starlight-theme", isDark ? "light" : "dark")
-    })
+    for (const button of buttons) {
+      button.addEventListener("click", () => {
+        const isDark = resolveDark()
+        html.dataset.theme = isDark ? "light" : "dark"
+        html.classList.toggle("dark", !isDark)
+        localStorage.setItem("theme", isDark ? "light" : "dark")
+        localStorage.setItem("starlight-theme", isDark ? "light" : "dark")
+      })
+    }
   }
 </script>

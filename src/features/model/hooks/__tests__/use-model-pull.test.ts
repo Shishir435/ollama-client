@@ -101,6 +101,32 @@ describe("useModelPull", () => {
     expect(result.current.pullingModel).toBeNull()
   })
 
+  it("should show provider guidance for typed pull errors", () => {
+    const { result } = renderHook(() => useModelPull())
+
+    act(() => {
+      result.current.pullModel("llama2")
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: {
+          status: 500,
+          kind: "provider",
+          message: "Pull failed",
+          retryable: true
+        }
+      })
+    })
+
+    expect(result.current.progress).toBe(
+      "❌ Failed: Pull failed. Check the selected provider, model, and provider logs. This may be temporary; try again."
+    )
+    expect(result.current.pullingModel).toBeNull()
+  })
+
   it("should cancel pull", () => {
     const { result } = renderHook(() => useModelPull())
 

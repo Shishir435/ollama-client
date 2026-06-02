@@ -3,6 +3,7 @@ import {
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { getErrorMessage } from "@/lib/error-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   type EmbeddingStrategyCapabilities,
@@ -179,7 +180,7 @@ export const generateEmbedding = async (
       providerId: resolved.providerId
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
     return {
       error: `Error generating embedding: ${errorMessage}`,
       code: "NETWORK_ERROR"
