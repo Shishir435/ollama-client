@@ -9,7 +9,7 @@ import {
   KEYWORDS,
   SITE_TITLE,
   SITE_DESCRIPTION,
-  SITE_URL,
+  SITE_URL
 } from "./src/seo/constants.mjs"
 
 /**
@@ -28,7 +28,7 @@ export default defineConfig({
   site: SITE_URL,
   base: "/",
   trailingSlash: "ignore",
-  outDir: "../docs",
+  outDir: "dist",
   build: {
     format: "directory"
   },
@@ -86,7 +86,7 @@ export default defineConfig({
       ],
       editLink: {
         baseUrl:
-          "https://github.com/Shishir435/ollama-client/edit/main/docs-src/"
+          "https://github.com/Shishir435/ollama-client/edit/main/docs/"
       },
       customCss: [
         "@fontsource-variable/geist",

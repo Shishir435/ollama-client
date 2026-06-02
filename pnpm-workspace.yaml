@@ -1,6 +1,6 @@
 packages:
   - "."
-  - "docs-src"
+  - "docs"
 
 allowBuilds:
   '@parcel/watcher': true

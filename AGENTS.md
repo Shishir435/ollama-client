@@ -30,13 +30,13 @@ pnpm format:check           # Biome format check
 pnpm format:fix             # Biome format --write
 pnpm typecheck              # tsc --noEmit
 
-pnpm docs:dev               # Astro dev for the marketing/docs site (docs-src/)
-pnpm docs:build             # Astro build → docs/ (committed for GitHub Pages)
+pnpm docs:dev               # Astro dev for the marketing/docs site (docs/)
+pnpm docs:build             # Astro build → docs/dist/ (Vercel output)
 
 pnpm generate:resources     # Regenerate src/i18n/resources.ts from src/locales/
 ```
 
-Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs-src/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
+Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
 
 ## Architecture
 

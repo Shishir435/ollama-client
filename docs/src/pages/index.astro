@@ -1,6 +1,11 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro"
-import { LANDING_TITLE, LANDING_DESCRIPTION, SITE_TITLE } from "@/seo/constants.mjs"
+import {
+  APP_VERSION,
+  LANDING_TITLE,
+  LANDING_DESCRIPTION,
+  SITE_TITLE
+} from "@/seo/constants.mjs"
 
 const title = LANDING_TITLE
 const description = LANDING_DESCRIPTION
@@ -20,7 +25,8 @@ const jsonLd = {
   url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
   downloadUrl:
     "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-  codeRepository: "https://github.com/Shishir435/ollama-client"
+  codeRepository: "https://github.com/Shishir435/ollama-client",
+  softwareVersion: APP_VERSION
 }
 
 const features = [
@@ -85,7 +91,7 @@ const stack = [
   {/* Hero */}
   <section class="border-b border-border/60 pb-20 pt-24 sm:pt-32">
     <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-      Local-first · v0.7.0
+      Local-first · v{APP_VERSION}
     </p>
     <h1
       class="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl"

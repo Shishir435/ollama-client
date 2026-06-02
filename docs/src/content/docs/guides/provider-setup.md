@@ -3,7 +3,7 @@ title: Provider Setup
 description: Configure Ollama, LM Studio, llama.cpp, or any OpenAI-compatible local server to chat with local LLMs from your browser.
 ---
 
-Recommended setup is Ollama as the primary local provider, with LM Studio and llama.cpp as local alternatives. vLLM, LocalAI, and KoboldCPP also work once configured. This guide reflects `v0.7.1` behavior.
+Recommended setup is Ollama as the primary local provider, with LM Studio and llama.cpp as local alternatives. vLLM, LocalAI, and KoboldCPP also work once configured.
 
 ## 1. Install the extension
 

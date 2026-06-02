@@ -2,8 +2,8 @@
 /**
  * Generates derived Markdown pages for the docs site.
  *
- * Source files stay outside `docs-src`; Starlight consumes generated
- * pages under `docs-src/src/content/docs/` during docs builds.
+ * Source files stay outside `docs`; Starlight consumes generated
+ * pages under `docs/src/content/docs/` during docs builds.
  */
 import {
   existsSync,
@@ -32,11 +32,11 @@ const REPO_ROOT = join(__dirname, "..")
 const CHANGELOG_INPUT_PATH = join(REPO_ROOT, "CHANGELOG.md")
 const CHANGELOG_OUTPUT_PATH = join(
   REPO_ROOT,
-  "docs-src/src/content/docs/about/changelog.md"
+  "docs/src/content/docs/about/changelog.md"
 )
 const PROVIDER_MATRIX_OUTPUT_PATH = join(
   REPO_ROOT,
-  "docs-src/src/content/docs/concepts/provider-matrix.md"
+  "docs/src/content/docs/concepts/provider-matrix.md"
 )
 
 function generateChangelogPage() {

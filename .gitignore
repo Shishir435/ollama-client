@@ -55,14 +55,15 @@ src/i18n/resources.ts
 
 # generated at build time by starlight-typedoc from the extension's
 # TypeScript source. Regenerated on every `pnpm docs/:build`.
-docs-src/src/content/docs/reference/
+docs/src/content/docs/reference/
 
 # generated at build time by tools/generate-docs.ts
-docs-src/src/content/docs/about/changelog.md
-docs-src/src/content/docs/concepts/provider-matrix.md
+docs/src/content/docs/about/changelog.md
+docs/src/content/docs/concepts/provider-matrix.md
 
 # astro / starlight build caches
-docs-src/.astro/
+docs/.astro/
+docs/dist/
 
 # one-off audit/transfer artifacts
 artifacts/
@@ -70,5 +71,3 @@ artifacts/
 *.diff
 
 .commandcode/
-
-/docs/
