@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -32,9 +32,9 @@
   "scripts": {
     "dev": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-dev wxt",
     "build": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
-    "docs:dev": "pnpm docs:generate && pnpm -F @ollama-client/docs dev",
-    "docs:build": "pnpm docs:generate && pnpm -F @ollama-client/docs build",
-    "docs:preview": "pnpm -F @ollama-client/docs preview",
+    "docs:dev": "pnpm docs:generate && pnpm --dir docs dev",
+    "docs:build": "pnpm docs:generate && pnpm --dir docs build",
+    "docs:preview": "pnpm --dir docs preview",
     "docs:generate": "npx tsx tools/generate-docs.ts",
     "package": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt zip",
     "dev:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-dev wxt -b firefox --mv2",

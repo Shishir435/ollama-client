@@ -1,9 +1,9 @@
 ---
 title: Architecture
-description: Implementation details, tradeoffs, and constraints for Ollama Client v0.7.1.
+description: Implementation details, tradeoffs, and constraints for Ollama Client.
 ---
 
-This document describes the current implementation as of `v0.7.1` and highlights tradeoffs, assumptions, and known constraints.
+This document describes the current implementation and highlights tradeoffs, assumptions, and known constraints.
 
 ## Entry points
 
@@ -86,7 +86,7 @@ flowchart TD
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
 - Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
-- Default profiles: Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, and LocalAI.
+- Default profiles: Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.
 

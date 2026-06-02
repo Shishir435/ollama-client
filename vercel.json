@@ -1,5 +1,5 @@
 {
   "buildCommand": "pnpm docs:build",
-  "outputDirectory": "docs",
+  "outputDirectory": "docs/dist",
   "installCommand": "pnpm install --frozen-lockfile"
 }

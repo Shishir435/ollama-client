@@ -6,7 +6,7 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
 
-Supported providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, LocalAI**.
+Supported user-facing providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, LocalAI**. `openai.ts` is the shared OpenAI-compatible base implementation, not a separate configured provider.
 
 ## Development Commands
 
@@ -30,13 +30,13 @@ pnpm format:check           # Biome format check
 pnpm format:fix             # Biome format --write
 pnpm typecheck              # tsc --noEmit
 
-pnpm docs:dev               # Astro dev for the marketing/docs site (docs-src/)
-pnpm docs:build             # Astro build → docs/ (committed for GitHub Pages)
+pnpm docs:dev               # Astro dev for the marketing/docs site (docs/)
+pnpm docs:build             # Astro build → docs/dist/ (Vercel output)
 
 pnpm generate:resources     # Regenerate src/i18n/resources.ts from src/locales/
 ```
 
-Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs-src/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
+Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 - `factory.ts` — `ProviderFactory.getProviderForModel()` and friends
 - `manager.ts` — `ProviderManager` for config + model mappings via `ProviderStorageKey`
 - `selected-model.ts` — currently-active model state
-- Individual provider implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`, `openai.ts`, `vllm.ts`, `koboldcpp.ts`, `localai.ts`. OpenAI-compatible subclasses are picked from a small `OPENAI_COMPAT_CONSTRUCTORS` map inside `factory.ts`; anything not in that map falls back to plain `OpenAIProvider`.
+- Individual provider implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`, `vllm.ts`, `koboldcpp.ts`, `localai.ts`; `openai.ts` provides the shared OpenAI-compatible base class. OpenAI-compatible subclasses are picked from a small `OPENAI_COMPAT_CONSTRUCTORS` map inside `factory.ts`; anything not in that map falls back to plain `OpenAIProvider`.
 
 **Default fallback** is Ollama when no explicit model→provider mapping exists.
 
@@ -153,6 +153,10 @@ Uses Biome (not ESLint/Prettier):
 ### shadcn primitives
 
 `src/components/ui/` is a curated set of in-use shadcn primitives, not the default kitchen-sink install. Before adding a new primitive, check whether an existing one or a small component composition would do. If you add one, verify it is actually imported somewhere before merging.
+
+### React Hook Form fields
+
+When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/` (`ControlledTextInput`, `ControlledTextarea`, `ControlledNumberInput`, `ControlledSelect`, `ControlledSlider`, `ControlledSwitch`). Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX.
 
 ### i18n build pipeline
 

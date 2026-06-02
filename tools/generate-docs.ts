@@ -2,8 +2,8 @@
 /**
  * Generates derived Markdown pages for the docs site.
  *
- * Source files stay outside `docs-src`; Starlight consumes generated
- * pages under `docs-src/src/content/docs/` during docs builds.
+ * Source files stay outside `docs`; Starlight consumes generated
+ * pages under `docs/src/content/docs/` during docs builds.
  */
 import {
   existsSync,
@@ -18,7 +18,6 @@ import { LlamaCppProvider } from "../src/lib/providers/llama-cpp"
 import { LMStudioProvider } from "../src/lib/providers/lm-studio"
 import { LocalAIProvider } from "../src/lib/providers/localai"
 import { OllamaProvider } from "../src/lib/providers/ollama"
-import { OpenAIProvider } from "../src/lib/providers/openai"
 import { VllmProvider } from "../src/lib/providers/vllm"
 import {
   type LLMProvider,
@@ -32,11 +31,11 @@ const REPO_ROOT = join(__dirname, "..")
 const CHANGELOG_INPUT_PATH = join(REPO_ROOT, "CHANGELOG.md")
 const CHANGELOG_OUTPUT_PATH = join(
   REPO_ROOT,
-  "docs-src/src/content/docs/about/changelog.md"
+  "docs/src/content/docs/about/changelog.md"
 )
 const PROVIDER_MATRIX_OUTPUT_PATH = join(
   REPO_ROOT,
-  "docs-src/src/content/docs/concepts/provider-matrix.md"
+  "docs/src/content/docs/concepts/provider-matrix.md"
 )
 
 function generateChangelogPage() {
@@ -147,18 +146,6 @@ const providers: Array<{
     build: (c) => new KoboldCppProvider(c),
     notes: "OpenAI-compatible with KoboldCPP's extended sampler controls."
   },
-  {
-    config: {
-      id: ProviderId.OPENAI,
-      type: ProviderType.OPENAI,
-      name: "OpenAI-compatible (generic)",
-      enabled: false,
-      baseUrl: "http://localhost:8000/v1"
-    },
-    build: (c) => new OpenAIProvider(c),
-    notes:
-      "Fallback for any OpenAI-compatible server we don't have a dedicated class for."
-  }
 ]
 
 /** Capability columns in the order they appear in the table. */

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Marketing + docs site for the Ollama Client extension. Built with Astro; output goes to ../docs for GitHub Pages.",
+  "description": "Marketing + docs site for the Ollama Client extension. Built with Astro for Vercel.",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
