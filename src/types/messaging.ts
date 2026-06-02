@@ -42,7 +42,6 @@ export interface ChromeResponse {
     retryable?: boolean
     context?: string
     providerId?: string
-    debug?: unknown
   }
   tabs?: browser.Tabs.Tab[]
   html?: string

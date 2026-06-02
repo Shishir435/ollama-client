@@ -31,8 +31,6 @@ type ErrorEnvelopeOptions = {
   providerId?: string
 }
 
-const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred"
-
 export const normalizeError = (
   error: unknown,
   options: ErrorEnvelopeOptions = {}
@@ -43,7 +41,7 @@ export const normalizeError = (
 
   return {
     status: options.status ?? networkError.status ?? 0,
-    message: message || options.fallbackMessage || DEFAULT_ERROR_MESSAGE,
+    message,
     ...(isAppError(error) && { kind: error.kind }),
     ...(isAppError(error) &&
       error.userMessage && { userMessage: error.userMessage }),
@@ -60,9 +58,7 @@ export const normalizeError = (
       isAppError(error) &&
       error.providerId && {
         providerId: error.providerId
-      }),
-    ...(isAppError(error) &&
-      error.debug !== undefined && { debug: error.debug })
+      })
   }
 }
 
@@ -118,7 +114,6 @@ export const withErrorContext = <T>(
             err && typeof err === "object" && "status" in err
               ? ((err as Partial<NetworkError>).status ?? 500)
               : 500,
-          fallbackMessage: DEFAULT_ERROR_MESSAGE,
           context: `${context.handler}${context.operation ? ` - ${context.operation}` : ""}`,
           providerId: context.providerId
         })

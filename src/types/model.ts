@@ -185,7 +185,6 @@ export interface PullStreamMessage {
         retryable?: boolean
         context?: string
         providerId?: string
-        debug?: unknown
       }
 }
 

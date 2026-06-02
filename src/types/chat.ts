@@ -87,7 +87,6 @@ export interface ChatStreamMessage {
     retryable?: boolean
     context?: string
     providerId?: string
-    debug?: unknown
   }
   metrics?: {
     total_duration?: number

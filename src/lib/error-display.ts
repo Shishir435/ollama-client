@@ -48,7 +48,9 @@ export const getDisplayErrorMessage = (
   fallbackMessage = "Something went wrong"
 ) => {
   if (typeof error === "string") return error || fallbackMessage
-  if (isAppError(error)) return error.userMessage || error.message
+  if (isAppError(error)) {
+    return error.userMessage || error.message || fallbackMessage
+  }
   if (error && typeof error === "object") {
     const envelope = error as ErrorEnvelope
     return envelope.userMessage || envelope.message || fallbackMessage

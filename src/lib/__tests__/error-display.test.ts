@@ -38,4 +38,10 @@ describe("error-display", () => {
       "Download cancelled"
     )
   })
+
+  it("uses fallback for app errors with no displayable message", () => {
+    expect(getDisplayErrorMessage(createAppError(""), "Fallback message")).toBe(
+      "Fallback message"
+    )
+  })
 })

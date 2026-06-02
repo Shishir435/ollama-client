@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { isAbortError } from "@/lib/error-utils"
+import { createAppError, isAbortError } from "@/lib/error-utils"
 import {
   createErrorResponse,
   normalizeError,
@@ -44,6 +44,21 @@ describe("error-handler", () => {
         message: "Bad gateway",
         context: "handler - operation",
         providerId: "ollama"
+      })
+    })
+
+    it("does not expose internal debug payloads", () => {
+      expect(
+        normalizeError(
+          createAppError("Provider failed", {
+            kind: "provider",
+            debug: "raw provider payload"
+          })
+        )
+      ).toEqual({
+        status: 0,
+        message: "Provider failed",
+        kind: "provider"
       })
     })
   })
