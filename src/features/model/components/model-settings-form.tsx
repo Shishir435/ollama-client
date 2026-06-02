@@ -150,6 +150,8 @@ export const ModelSettingsForm = () => {
 
   // Save debounced form changes to storage
   useEffect(() => {
+    // `debouncedValues` is the timing trigger; `saveFormChanges` reads
+    // the latest form state via `methods.getValues()`.
     void debouncedValues
     saveFormChanges()
   }, [debouncedValues, saveFormChanges])

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -35,6 +35,7 @@ export const ModelPerformanceSection = ({
     stringifyKeepAlive(config.keep_alive)
   )
   const debouncedKeepAlive = useDebounce(keepAliveInput, 500)
+  const keepAliveInputRef = useRef(keepAliveInput)
 
   const saveKeepAlive = useCallback(
     (value: string) => {
@@ -45,6 +46,9 @@ export const ModelPerformanceSection = ({
     },
     [config.keep_alive, updateConfig]
   )
+  const saveKeepAliveRef = useRef(saveKeepAlive)
+  keepAliveInputRef.current = keepAliveInput
+  saveKeepAliveRef.current = saveKeepAlive
 
   useEffect(() => {
     setKeepAliveInput(stringifyKeepAlive(config.keep_alive))
@@ -56,9 +60,9 @@ export const ModelPerformanceSection = ({
 
   useEffect(
     () => () => {
-      saveKeepAlive(keepAliveInput)
+      saveKeepAliveRef.current(keepAliveInputRef.current)
     },
-    [keepAliveInput, saveKeepAlive]
+    []
   )
 
   return (
