@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -21,7 +21,21 @@ import {
   fieldValidations
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
+import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import { Settings } from "@/lib/lucide-icon"
+
+const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
+  "system",
+  "temperature",
+  "top_k",
+  "top_p",
+  "min_p",
+  "seed",
+  "num_ctx",
+  "num_predict",
+  "repeat_penalty",
+  "repeat_last_n"
+]
 
 export const ModelSettingsForm = () => {
   const { t } = useTranslation()
@@ -107,49 +121,55 @@ export const ModelSettingsForm = () => {
     500
   )
 
+  const saveFormChanges = useCallback(
+    ({ showToast = true }: { showToast?: boolean } = {}) => {
+      if (!formSyncedRef.current) return
+
+      const currentValues = methods.getValues()
+      let hasChanges = false
+      const updates: Partial<FormValues> = {}
+
+      for (const key of MODEL_CONFIG_FORM_KEYS) {
+        const formVal = currentValues[key]
+        if (formVal === config[key as keyof typeof config]) continue
+
+        const validation = fieldValidations[key]
+        if (validation && !validation(formVal)) continue
+
+        Object.assign(updates, { [key]: formVal })
+        hasChanges = true
+      }
+
+      if (hasChanges) {
+        updateConfig(updates as Partial<typeof config>)
+        if (showToast) toast.success("Saved", { duration: 2000 })
+      }
+    },
+    [config, updateConfig, methods]
+  )
+
   // Save debounced form changes to storage
   useEffect(() => {
-    if (!formSyncedRef.current) return
+    void debouncedValues
+    saveFormChanges()
+  }, [debouncedValues, saveFormChanges])
 
-    // Fast path: check if any debounced value differs from config
-    const keys: (keyof FormValues)[] = [
-      "system",
-      "temperature",
-      "top_k",
-      "top_p",
-      "min_p",
-      "seed",
-      "num_ctx",
-      "num_predict",
-      "repeat_penalty",
-      "repeat_last_n"
-    ]
+  // Flush unsaved edits when user switches settings tabs before debounce fires.
+  useEffect(
+    () => () => {
+      saveFormChanges({ showToast: false })
+    },
+    [saveFormChanges]
+  )
 
-    const hasAnyChange = keys.some(
-      (k) => debouncedValues[k] !== config[k as keyof typeof config]
-    )
-    if (!hasAnyChange) return
-
-    const currentValues = methods.getValues()
-    let hasChanges = false
-    const updates: Partial<FormValues> = {}
-
-    for (const key of keys) {
-      const formVal = currentValues[key]
-      if (formVal === config[key as keyof typeof config]) continue
-
-      const validation = fieldValidations[key]
-      if (validation && !validation(formVal)) continue
-
-      Object.assign(updates, { [key]: formVal })
-      hasChanges = true
-    }
-
-    if (hasChanges) {
-      updateConfig(updates as Partial<typeof config>)
-      toast.success("Saved", { duration: 2000 })
-    }
-  }, [debouncedValues, config, updateConfig, methods])
+  const handleResetSystemPrompt = useCallback(() => {
+    methods.setValue("system", DEFAULT_MODEL_CONFIG.system, {
+      shouldDirty: true,
+      shouldValidate: true
+    })
+    updateConfig({ system: DEFAULT_MODEL_CONFIG.system })
+    toast.success("Saved", { duration: 2000 })
+  }, [methods, updateConfig])
 
   if (!selectedModel) {
     return (
@@ -191,7 +211,12 @@ export const ModelSettingsForm = () => {
           />
           <LoadedModelsInfo />
         </SettingsCard>
-        <ModelSystemSection config={config} updateConfig={updateConfig} />
+        <ModelSystemSection
+          config={config}
+          updateConfig={updateConfig}
+          onSave={saveFormChanges}
+          onResetSystemPrompt={handleResetSystemPrompt}
+        />
         <ModelPerformanceSection config={config} updateConfig={updateConfig} />
         <ModelParametersSection />
       </SectionStack>

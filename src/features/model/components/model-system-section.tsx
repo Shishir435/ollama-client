@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { ControlledTextarea } from "@/components/forms"
 import {
   SettingsActionRow,
   SettingsCard,
@@ -10,21 +10,23 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
-import { MessageSquare, StopCircle } from "@/lib/lucide-icon"
+import { Check, MessageSquare, RotateCcw, StopCircle } from "@/lib/lucide-icon"
 
 export interface ModelSystemSectionProps {
   config: ProviderModelConfig
   updateConfig: (updates: Partial<ProviderModelConfig>) => void
+  onSave: () => void
+  onResetSystemPrompt: () => void
 }
 
 export const ModelSystemSection = ({
   config,
-  updateConfig
+  updateConfig,
+  onSave,
+  onResetSystemPrompt
 }: ModelSystemSectionProps) => {
   const { t } = useTranslation()
-  const { register } = useFormContext()
   const [newStop, setNewStop] = useState("")
 
   const handleAddStop = () => {
@@ -48,12 +50,23 @@ export const ModelSystemSection = ({
         htmlFor="system"
         label={t("settings.model.system.prompt_label")}
         className="space-y-3">
-        <Textarea
+        <ControlledTextarea
           id="system"
+          name="system"
           placeholder={t("settings.model.system.prompt_placeholder")}
-          {...register("system")}
+          onBlur={onSave}
           className="min-h-[100px] resize-none"
         />
+        <SettingsActionRow>
+          <Button type="button" variant="outline" onClick={onSave}>
+            <Check className="mr-2 h-4 w-4" />
+            {t("common.save")}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onResetSystemPrompt}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {t("settings.prompts.reset")}
+          </Button>
+        </SettingsActionRow>
       </SettingsField>
       <Separator />
       <SettingsField

@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -21,19 +21,22 @@ export const useModelConfig = (modelName: string) => {
     }
   }, [modelName, modelConfigs])
 
-  const update = (newConfig: Partial<typeof DEFAULT_MODEL_CONFIG>) => {
-    setModelConfigs((prev) => {
-      const prevConfig = prev?.[modelName] ?? {}
-      return {
-        ...prev,
-        [modelName]: {
-          ...DEFAULT_MODEL_CONFIG,
-          ...prevConfig,
-          ...newConfig
+  const update = useCallback(
+    (newConfig: Partial<typeof DEFAULT_MODEL_CONFIG>) => {
+      setModelConfigs((prev) => {
+        const prevConfig = prev?.[modelName] ?? {}
+        return {
+          ...prev,
+          [modelName]: {
+            ...DEFAULT_MODEL_CONFIG,
+            ...prevConfig,
+            ...newConfig
+          }
         }
-      }
-    })
-  }
+      })
+    },
+    [modelName, setModelConfigs]
+  )
 
   return [config, update] as const
 }

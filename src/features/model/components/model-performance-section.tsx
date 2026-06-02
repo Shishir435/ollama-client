@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -36,16 +36,30 @@ export const ModelPerformanceSection = ({
   )
   const debouncedKeepAlive = useDebounce(keepAliveInput, 500)
 
+  const saveKeepAlive = useCallback(
+    (value: string) => {
+      const parsed = parseKeepAlive(value)
+      if (parsed !== config.keep_alive) {
+        updateConfig({ keep_alive: parsed })
+      }
+    },
+    [config.keep_alive, updateConfig]
+  )
+
   useEffect(() => {
     setKeepAliveInput(stringifyKeepAlive(config.keep_alive))
   }, [config.keep_alive])
 
   useEffect(() => {
-    const parsed = parseKeepAlive(debouncedKeepAlive)
-    if (parsed !== config.keep_alive) {
-      updateConfig({ keep_alive: parsed })
-    }
-  }, [debouncedKeepAlive, config.keep_alive, updateConfig])
+    saveKeepAlive(debouncedKeepAlive)
+  }, [debouncedKeepAlive, saveKeepAlive])
+
+  useEffect(
+    () => () => {
+      saveKeepAlive(keepAliveInput)
+    },
+    [keepAliveInput, saveKeepAlive]
+  )
 
   return (
     <SettingsCard
@@ -61,6 +75,7 @@ export const ModelPerformanceSection = ({
           id="keep-alive"
           value={keepAliveInput}
           onChange={(e) => setKeepAliveInput(e.target.value)}
+          onBlur={() => saveKeepAlive(keepAliveInput)}
           placeholder={t("settings.model.runtime.keep_alive_placeholder")}
         />
       </SettingsField>
