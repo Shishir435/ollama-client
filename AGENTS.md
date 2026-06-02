@@ -154,6 +154,10 @@ Uses Biome (not ESLint/Prettier):
 
 `src/components/ui/` is a curated set of in-use shadcn primitives, not the default kitchen-sink install. Before adding a new primitive, check whether an existing one or a small component composition would do. If you add one, verify it is actually imported somewhere before merging.
 
+### React Hook Form fields
+
+When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/` (`ControlledTextInput`, `ControlledTextarea`, `ControlledNumberInput`, `ControlledSelect`, `ControlledSlider`, `ControlledSwitch`). Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX.
+
 ### i18n build pipeline
 
 `src/i18n/resources.ts` and Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json` are **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The typed resources file is `.gitignored`; `_locales` is committed because extension packages need it.
