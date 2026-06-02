@@ -88,7 +88,14 @@ function routeFromSource(path: string) {
 function cleanMarkdown(body: string) {
   return body
     .replace(/^import\s+.*$/gm, "")
-    .replace(/<([A-Z][A-Za-z0-9]*)\s*\/>/g, "_Rendered component: $1._")
+    .replace(
+      /<([A-Z][A-Za-z0-9.]*)\b[^>]*>([\s\S]*?)<\/\1>/g,
+      "\n\n$2\n\n"
+    )
+    .replace(
+      /<([A-Z][A-Za-z0-9.]*)\b[^>]*\/>/g,
+      "_Rendered component: $1._"
+    )
     .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
