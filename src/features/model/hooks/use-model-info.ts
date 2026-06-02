@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
 import type { ChromeResponse, ProviderModelDetails } from "@/types"
@@ -24,7 +25,13 @@ export const useModelInfo = (model: string, providerId?: string) => {
       })) as ChromeResponse & { data?: ProviderModelDetails }
 
       if (!res?.success) {
-        throw new Error("Failed to fetch model info")
+        throw createAppError(
+          res?.error?.message || "Failed to fetch model info",
+          {
+            kind: "provider",
+            cause: res?.error
+          }
+        )
       }
 
       return res.data ?? null

@@ -1,3 +1,4 @@
+import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 
@@ -83,9 +84,11 @@ export class PdfProcessor implements FileProcessor {
         }
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error"
-      throw new Error(`Failed to process PDF: ${errorMessage}`)
+      const errorMessage = getErrorMessage(error, "Unknown error")
+      throw createAppError(`Failed to process PDF: ${errorMessage}`, {
+        kind: "validation",
+        cause: error
+      })
     }
   }
 

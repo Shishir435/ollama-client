@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -108,19 +109,31 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
 const fetchProviderVersion = async (providerId: string): Promise<string> => {
   const provider = await ProviderFactory.getProvider(providerId)
   if (!provider.capabilities.providerVersion) {
-    throw new Error("Version endpoint is not supported by this provider")
+    throw createAppError("Version endpoint is not supported by this provider", {
+      kind: "provider"
+    })
   }
 
   const baseUrl = provider.config.baseUrl || "http://localhost:11434"
 
   if (provider.id === ProviderId.OLLAMA) {
     const response = await fetch(`${baseUrl}/api/version`)
-    if (!response.ok) throw new Error("Failed to fetch version")
+    if (!response.ok) {
+      throw createAppError("Failed to fetch version", {
+        kind: "network",
+        retryable: true
+      })
+    }
     const data = await response.json()
     return data.version as string
   }
 
-  throw new Error("Version endpoint is not implemented for this provider")
+  throw createAppError(
+    "Version endpoint is not implemented for this provider",
+    {
+      kind: "provider"
+    }
+  )
 }
 
 /**
@@ -293,7 +306,9 @@ export const useProviderModels = () => {
 
       const provider = await ProviderFactory.getProvider(providerId)
       if (!provider.capabilities.modelDelete) {
-        throw new Error("Model delete is not supported by this provider")
+        throw createAppError("Model delete is not supported by this provider", {
+          kind: "provider"
+        })
       }
 
       if (provider.id === DEFAULT_PROVIDER_ID) {
@@ -303,12 +318,20 @@ export const useProviderModels = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: modelName })
         })
-        if (!response.ok) throw new Error("Failed to delete model")
+        if (!response.ok) {
+          throw createAppError("Failed to delete model", {
+            kind: "network",
+            retryable: true
+          })
+        }
         return
       }
 
-      throw new Error(
-        "Model delete endpoint is not configured for this provider"
+      throw createAppError(
+        "Model delete endpoint is not configured for this provider",
+        {
+          kind: "provider"
+        }
       )
     },
     onSuccess: () => {

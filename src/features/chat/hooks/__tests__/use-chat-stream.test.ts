@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger"
 import type { UseChatStreamProps } from "../use-chat-stream"
 import { useChatStream } from "../use-chat-stream"
 
+const mockToast = vi.hoisted(() => vi.fn())
+
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
   browser: {
@@ -22,6 +24,10 @@ vi.mock("@/lib/logger", () => ({
     warn: vi.fn(),
     error: vi.fn()
   }
+}))
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: mockToast })
 }))
 
 describe("useChatStream", () => {
@@ -178,6 +184,42 @@ describe("useChatStream", () => {
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(mockPort.disconnect).toHaveBeenCalled()
+  })
+
+  it("should show typed provider errors with guidance", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "Hello" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: {
+          status: 500,
+          kind: "provider",
+          message: "Provider failed",
+          retryable: true
+        }
+      })
+    })
+
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: "destructive",
+      title: "Provider error",
+      description:
+        "Provider failed. Check the selected provider, model, and provider logs. This may be temporary; try again."
+    })
   })
 
   it("should stop stream correctly", () => {

@@ -3,6 +3,8 @@ import { useState } from "react"
 
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL, MESSAGE_KEYS } from "@/lib/constants"
+import { getDisplayErrorMessage } from "@/lib/error-display"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
 import type { ChromeResponse } from "@/types"
@@ -23,7 +25,14 @@ const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
   })) as ChromeResponse & { html?: string }
 
   if (res.error || !res.success || !res.html) {
-    throw new Error(res.error?.message || "Failed to fetch search results")
+    throw createAppError(
+      getDisplayErrorMessage(res.error, "Failed to fetch search results"),
+      {
+        kind: "provider",
+        retryable: true,
+        cause: res.error
+      }
+    )
   }
 
   const parser = new DOMParser()
@@ -56,7 +65,14 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
   })) as ChromeResponse & { html?: string }
 
   if (res.error || !res.success || !res.html) {
-    throw new Error(res.error?.message || "Failed to fetch model variants")
+    throw createAppError(
+      getDisplayErrorMessage(res.error, "Failed to fetch model variants"),
+      {
+        kind: "provider",
+        retryable: true,
+        cause: res.error
+      }
+    )
   }
 
   const parser = new DOMParser()

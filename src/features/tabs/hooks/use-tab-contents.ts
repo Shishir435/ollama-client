@@ -5,6 +5,7 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeResponse } from "@/types"
 
@@ -85,7 +86,7 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         }
       }))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorMessage = getDisplayErrorMessage(err)
       setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
       set((s) => {
         const newLoading = { ...s.loadingIds }

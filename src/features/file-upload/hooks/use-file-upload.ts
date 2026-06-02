@@ -8,6 +8,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isFileTypeSupported, processFile } from "@/lib/file-processors"
 import type {
   FileProcessingState,
@@ -429,8 +430,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
             onFileProcessed(result)
           }
         } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error"
+          const errorMessage = getDisplayErrorMessage(error, "Unknown error")
           setProcessingStates((prev) => {
             const next = new Map(prev)
             next.set(file, {

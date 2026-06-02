@@ -1,3 +1,4 @@
+import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { HtmlLoader } from "@/lib/loaders/html-loader"
 
@@ -49,9 +50,11 @@ export class HtmlProcessor implements FileProcessor {
         }
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error"
-      throw new Error(`Failed to process HTML file: ${errorMessage}`)
+      const errorMessage = getErrorMessage(error, "Unknown error")
+      throw createAppError(`Failed to process HTML file: ${errorMessage}`, {
+        kind: "validation",
+        cause: error
+      })
     }
   }
 
