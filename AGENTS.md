@@ -6,7 +6,7 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
 
-Supported providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, OpenAI, vLLM, KoboldCPP, LocalAI**.
+Supported user-facing providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, LocalAI**. `openai.ts` is the shared OpenAI-compatible base implementation, not a separate configured provider.
 
 ## Development Commands
 
@@ -69,7 +69,7 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 - `factory.ts` — `ProviderFactory.getProviderForModel()` and friends
 - `manager.ts` — `ProviderManager` for config + model mappings via `ProviderStorageKey`
 - `selected-model.ts` — currently-active model state
-- Individual provider implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`, `openai.ts`, `vllm.ts`, `koboldcpp.ts`, `localai.ts`. OpenAI-compatible subclasses are picked from a small `OPENAI_COMPAT_CONSTRUCTORS` map inside `factory.ts`; anything not in that map falls back to plain `OpenAIProvider`.
+- Individual provider implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`, `vllm.ts`, `koboldcpp.ts`, `localai.ts`; `openai.ts` provides the shared OpenAI-compatible base class. OpenAI-compatible subclasses are picked from a small `OPENAI_COMPAT_CONSTRUCTORS` map inside `factory.ts`; anything not in that map falls back to plain `OpenAIProvider`.
 
 **Default fallback** is Ollama when no explicit model→provider mapping exists.
 

@@ -18,7 +18,6 @@ import { LlamaCppProvider } from "../src/lib/providers/llama-cpp"
 import { LMStudioProvider } from "../src/lib/providers/lm-studio"
 import { LocalAIProvider } from "../src/lib/providers/localai"
 import { OllamaProvider } from "../src/lib/providers/ollama"
-import { OpenAIProvider } from "../src/lib/providers/openai"
 import { VllmProvider } from "../src/lib/providers/vllm"
 import {
   type LLMProvider,
@@ -147,18 +146,6 @@ const providers: Array<{
     build: (c) => new KoboldCppProvider(c),
     notes: "OpenAI-compatible with KoboldCPP's extended sampler controls."
   },
-  {
-    config: {
-      id: ProviderId.OPENAI,
-      type: ProviderType.OPENAI,
-      name: "OpenAI-compatible (generic)",
-      enabled: false,
-      baseUrl: "http://localhost:8000/v1"
-    },
-    build: (c) => new OpenAIProvider(c),
-    notes:
-      "Fallback for any OpenAI-compatible server we don't have a dedicated class for."
-  }
 ]
 
 /** Capability columns in the order they appear in the table. */
