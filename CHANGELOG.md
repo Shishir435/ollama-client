@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-06-02
+### Added
+- Standardized error handling across all background handlers, providers, and storage layers with typed error envelopes and centralized `error-handler.ts`.
+- Improved user-facing error display with guidance text mapped to common failure modes (connection refused, model not found, auth errors, etc.).
+
+### Fixed
+- System prompt now autosaves on change;
+- Astro docs BaseLayout: replaced invalid Tailwind v4 `supports-[backdrop-filter]` syntax with standard `supports-backdrop-filter`.
+- Theme toggle button on mobile screens: switched from duplicate `id` attributes to `data-theme-toggle` + `querySelectorAll` so multiple toggle instances work correctly.
+
 ## [0.7.2] - 2026-06-01
 ### Fixed
 - YouTube watch pages now extract only the video title and transcript instead of falling back to generic page content.
