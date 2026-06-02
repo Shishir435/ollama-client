@@ -1,4 +1,5 @@
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
+import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import {
   BookOpen,
   Bug,
@@ -103,7 +104,7 @@ export const CONTENT_SCRAPER_OPTIONS = [
 export const GUIDES = [
   {
     labelKey: "guides.items.setup.label",
-    href: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
+    href: EXTERNAL_URLS.SETUP_GUIDE,
     icon: BookOpen,
     descriptionKey: "guides.items.setup.description",
     badgeKey: "guides.items.setup.badge"

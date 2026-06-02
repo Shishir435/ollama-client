@@ -16,7 +16,12 @@ const findAppPackageJson = () => {
 
       if (existsSync(packagePath)) {
         const candidate = JSON.parse(readFileSync(packagePath, "utf-8"))
-        if (candidate.name === "ollama-client") return candidate
+        if (candidate.name === "ollama-client") {
+          return {
+            path: packagePath,
+            packageJson: candidate
+          }
+        }
       }
 
       const parentDir = dirname(currentDir)
@@ -28,11 +33,45 @@ const findAppPackageJson = () => {
   throw new Error("Could not find root ollama-client package.json")
 }
 
-const packageJson = findAppPackageJson()
+const appPackage = findAppPackageJson()
+const appRoot = dirname(appPackage.path)
 
-export const APP_VERSION = packageJson.version
+const loadEnvFile = (path) => {
+  if (!existsSync(path)) return
 
-export const SITE_URL = "https://ollama-client.shishirchaurasiya.in"
+  for (const line of readFileSync(path, "utf-8").split("\n")) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/)
+    if (!match || process.env[match[1]] !== undefined) continue
+
+    process.env[match[1]] = match[2].replace(/^["']|["']$/g, "")
+  }
+}
+
+for (const envPath of [
+  join(appRoot, ".env"),
+  join(appRoot, ".env.local"),
+  join(appRoot, "docs/.env"),
+  join(appRoot, "docs/.env.local")
+]) {
+  loadEnvFile(envPath)
+}
+
+export const APP_VERSION = appPackage.packageJson.version
+
+const DEFAULT_SITE_URL = "https://ollama-client.shishirchaurasiya.in"
+
+const normalizeSiteUrl = (url) => {
+  const trimmed = (url || DEFAULT_SITE_URL).trim().replace(/\/+$/, "")
+  if (!trimmed) return DEFAULT_SITE_URL
+  return /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+export const SITE_URL = normalizeSiteUrl(
+  process.env.PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL
+)
 
 export const SITE_TITLE = "Ollama Client"
 
