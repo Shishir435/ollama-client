@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
-import { Check, MessageSquare, RotateCcw, StopCircle } from "@/lib/lucide-icon"
+import { MessageSquare, RotateCcw, StopCircle } from "@/lib/lucide-icon"
 
 export interface ModelSystemSectionProps {
   config: ProviderModelConfig
@@ -58,10 +58,6 @@ export const ModelSystemSection = ({
           className="min-h-25 resize-none"
         />
         <SettingsActionRow>
-          <Button type="button" variant="outline" onClick={onSave}>
-            <Check className="mr-0.5 size-3" />
-            {t("common.save")}
-          </Button>
           <Button type="button" variant="ghost" onClick={onResetSystemPrompt}>
             <RotateCcw className="mr-0.5 size-3" />
             {t("settings.prompts.reset")}
