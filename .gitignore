@@ -61,6 +61,12 @@ docs/src/content/docs/reference/
 docs/src/content/docs/about/changelog.md
 docs/src/content/docs/concepts/provider-matrix.md
 
+# generated at build time by tools/generate-llms-docs.ts
+docs/public/llms.txt
+docs/public/llms-full.txt
+docs/public/ai.txt
+docs/public/**/*.md
+
 # astro / starlight build caches
 docs/.astro/
 docs/dist/

@@ -30,6 +30,7 @@ const base = Astro.site?.toString() ?? SITE_URL
 const site = base.replace(/\/$/, "")
 const ogUrl = `${site}/og/${slug}.png`
 const pageUrl = `${site}/${slug}/`
+const markdownUrl = `${site}/${slug}.md`
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -54,4 +55,5 @@ const jsonLd = {
 <meta property="og:image:height" content="630" />
 <meta name="twitter:image" content={ogUrl} />
 <meta name="twitter:image:alt" content={entry.data.title} />
+<link rel="alternate" type="text/markdown" href={markdownUrl} />
 <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

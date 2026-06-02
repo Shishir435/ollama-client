@@ -2,8 +2,12 @@
  * External URLs used throughout the extension.
  * Keep all hardcoded links here so they can be updated in one place.
  */
+const DEFAULT_DOCS_HOME = "https://ollama-client.shishirchaurasiya.in"
+const DOCS_HOME = DEFAULT_DOCS_HOME.replace(/\/+$/, "")
+
 export const EXTERNAL_URLS = {
-  SETUP_GUIDE: "https://ollama-client.shishirchaurasiya.in/ollama-setup-guide",
+  DOCS_HOME,
+  SETUP_GUIDE: `${DOCS_HOME}/guides/provider-setup/`,
   FIREFOX_CORS_SCRIPT:
     "https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh"
 } as const

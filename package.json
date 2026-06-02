@@ -35,7 +35,7 @@
     "docs:dev": "pnpm docs:generate && pnpm --dir docs dev",
     "docs:build": "pnpm docs:generate && pnpm --dir docs build",
     "docs:preview": "pnpm --dir docs preview",
-    "docs:generate": "npx tsx tools/generate-docs.ts",
+    "docs:generate": "npx tsx tools/generate-docs.ts && npx tsx tools/generate-llms-docs.ts",
     "package": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt zip",
     "dev:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-dev wxt -b firefox --mv2",
     "build:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt build -b firefox --mv2 --mode production",

@@ -1,5 +1,7 @@
 // Shared script content from tools/ollama-env.sh
 // This ensures both error messages have the same script content
+import { EXTERNAL_URLS } from "@/lib/constants/urls"
+
 const OLLAMA_ENV_SCRIPT_CONTENT = `#!/bin/bash
 
 # Cross-platform Ollama environment setup script
@@ -258,7 +260,7 @@ OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*,http://localhost:3000
 
 </details>
 
-📖 For step-by-step instructions: [ollama-setup-guide](https://ollama-client.shishirchaurasiya.in/ollama-setup-guide)  
+📖 For step-by-step instructions: [provider-setup](${EXTERNAL_URLS.SETUP_GUIDE})  
 🔗 Official docs: [https://ollama.com](https://ollama.com)
 `,
 
