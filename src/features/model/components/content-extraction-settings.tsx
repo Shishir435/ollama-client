@@ -20,6 +20,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
+import { SELECTION_ACTIONS } from "@/features/selection-actions/actions"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   STORAGE_KEYS
@@ -360,6 +361,71 @@ const ContentExtractionSettingsForm = ({
           onUpdate({ showSelectionButton: checked })
         }
       />
+
+      <SettingsSwitch
+        id="selection-actions-enabled"
+        label="Enable Selection Actions"
+        description="Show local AI actions when text is selected on a page."
+        checked={config.selectionActionsEnabled}
+        onCheckedChange={(checked) =>
+          onUpdate({ selectionActionsEnabled: checked })
+        }
+      />
+
+      <SettingsField
+        label="Minimum selected characters"
+        description="Selections shorter than this stay hidden.">
+        <Input
+          type="number"
+          min={1}
+          max={500}
+          value={
+            config.selectionActionsMinChars ??
+            DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsMinChars
+          }
+          onChange={(event) =>
+            onUpdate({
+              selectionActionsMinChars: Math.max(
+                1,
+                Number(event.target.value) || 1
+              )
+            })
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Selection action list"
+        description="Choose which local text actions appear in the page toolbar.">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {SELECTION_ACTIONS.map((action) => {
+            const enabledIds =
+              config.selectionActionsEnabledIds ??
+              DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsEnabledIds
+            const checked = enabledIds.includes(action.id)
+            return (
+              <label
+                key={action.id}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...new Set([...enabledIds, action.id])]
+                      : enabledIds.filter((id) => id !== action.id)
+                    onUpdate({
+                      selectionActionsEnabledIds:
+                        next.length > 0 ? next : [SELECTION_ACTIONS[0].id]
+                    })
+                  }}
+                />
+                <span>{action.label}</span>
+              </label>
+            )
+          })}
+        </div>
+      </SettingsField>
 
       <Separator />
 

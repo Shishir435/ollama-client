@@ -4,6 +4,9 @@ export type ContentScraper = "auto" | "defuddle" | "readability"
 export interface ContentExtractionConfig {
   enabled: boolean
   showSelectionButton: boolean // Whether to show the floating AI button on text selection
+  selectionActionsEnabled: boolean
+  selectionActionsMinChars: number
+  selectionActionsEnabledIds: string[]
   contentScraper: ContentScraper // Which scraper to use: auto (try defuddle then readability), defuddle, or readability
   excludedUrlPatterns: string[] // URL patterns to exclude from extraction
   scrollStrategy: ScrollStrategy

@@ -14,6 +14,15 @@ export interface ChromeMessage {
   name?: string
   cancel?: boolean
   fromBackground?: boolean
+  error?: {
+    status: number
+    message: string
+    kind?: import("./errors").AppErrorKind
+    userMessage?: string
+    retryable?: boolean
+    context?: string
+    providerId?: string
+  }
 }
 
 export interface ChromePort extends browser.Runtime.Port {

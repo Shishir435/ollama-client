@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-06-03
+### Added
+- Selection Actions: selected page text now opens a local AI action toolbar with Summarize, Rewrite, Shorten, Fix Grammar, Explain, Extract Action Items, Translate to English, and Custom Prompt actions.
+- Floating result panel with streaming output, retry/cancel, copy, Open in Chat, and preview-first Replace/Insert controls.
+- Safe page editing helpers for `input`, `textarea`, and simple single-block `contenteditable` selections. Generated output is inserted as plain text only so page UI and heading/list structure are preserved.
+- Selection Actions settings for enablement, minimum selected characters, and enabled action list.
+
+### Changed
+- Bumped package version to `0.8.0`.
+
 ## [0.7.3] - 2026-06-02
 ### Added
 - Standardized error handling across all background handlers, providers, and storage layers with typed error envelopes and centralized `error-handler.ts`.
@@ -161,7 +171,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Shishir435/ollama-client/compare/v0.7.3...v0.8.0
+[0.7.3]: https://github.com/Shishir435/ollama-client/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/Shishir435/ollama-client/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Shishir435/ollama-client/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...v0.7.0

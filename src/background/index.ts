@@ -18,6 +18,7 @@ import { handleGetProviderVersion } from "@/background/handlers/handle-get-provi
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
 import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
+import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
 import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
@@ -30,6 +31,7 @@ import {
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
 import { safeSendResponse } from "@/background/lib/utils"
+import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -197,6 +199,19 @@ browser.runtime.onConnect.addListener((port: ChromePort) => {
     if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
       logger.info("Stop generation requested", "BackgroundSW")
       abortAndClearController(port.name) // Reset the controller
+    }
+
+    if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {
+      await handleSelectionAction(
+        msg as unknown as SelectionActionMessage,
+        port,
+        getPortStatus
+      )
+    }
+
+    if (msg.type === MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION) {
+      logger.info("Selection action cancel requested", "BackgroundSW")
+      abortAndClearController(port.name)
     }
   })
 

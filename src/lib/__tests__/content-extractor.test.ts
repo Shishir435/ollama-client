@@ -20,7 +20,10 @@ describe("Content Extractor", () => {
     contentScraper: "auto",
     excludedUrlPatterns: [],
     maxWaitTime: 0,
-    showSelectionButton: false
+    showSelectionButton: false,
+    selectionActionsEnabled: true,
+    selectionActionsMinChars: 3,
+    selectionActionsEnabledIds: ["summarize"]
   }
 
   describe("extractDomain", () => {
