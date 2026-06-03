@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "询问本地 LLM",
-    "tooltip": "添加到本地 LLM 客户端"
+    "tooltip": "添加到本地 LLM 客户端",
+    "actions": {
+      "summarize": {
+        "label": "总结",
+        "short": "总结"
+      },
+      "rewrite": {
+        "label": "专业改写",
+        "short": "改写"
+      },
+      "shorten": {
+        "label": "缩短",
+        "short": "缩短"
+      },
+      "fix-grammar": {
+        "label": "修正语法",
+        "short": "语法"
+      },
+      "explain": {
+        "label": "简单解释",
+        "short": "解释"
+      },
+      "action-items": {
+        "label": "提取行动项",
+        "short": "行动"
+      },
+      "translate-english": {
+        "label": "翻译成英文",
+        "short": "英文"
+      },
+      "custom": {
+        "label": "自定义提示",
+        "short": "自定义"
+      }
+    },
+    "panel": {
+      "reasoning_active": "推理中…",
+      "reasoning_done": "推理",
+      "working": "处理中…",
+      "thinking": "思考中…",
+      "back": "返回工具栏",
+      "drag_panel": "拖动面板",
+      "drag_toolbar": "拖动工具栏",
+      "pin": "固定面板",
+      "unpin": "取消固定",
+      "close": "关闭",
+      "more": "更多操作",
+      "open_chat": "在对话中打开",
+      "open_chat_tip": "在对话中打开结果",
+      "copy": "复制结果",
+      "retry": "重试",
+      "insert": "插入到下方",
+      "insert_tip": "将结果插入选区下方",
+      "replace": "替换",
+      "replace_tip": "替换所选文本",
+      "cancel": "取消",
+      "cancel_tip": "取消生成",
+      "run": "运行",
+      "instruction_ph": "指令"
+    }
   },
   "welcome": {
     "title": "欢迎使用本地 LLM 聊天",

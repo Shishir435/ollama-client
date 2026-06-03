@@ -41,6 +41,13 @@
           }
         }
       }
+    },
+    "typescript-language-server": {
+      "initialization_options": {
+        "typescript": {
+          "tsdk": "./node_modules/typescript/lib"
+        }
+      }
     }
   },
   "file_scan_exclusions": [

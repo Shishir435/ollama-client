@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "ローカルLLMに聞く",
-    "tooltip": "ローカルLLMクライアントに追加"
+    "tooltip": "ローカルLLMクライアントに追加",
+    "actions": {
+      "summarize": {
+        "label": "要約する",
+        "short": "要約"
+      },
+      "rewrite": {
+        "label": "プロらしく書き直す",
+        "short": "書き直し"
+      },
+      "shorten": {
+        "label": "短くする",
+        "short": "短縮"
+      },
+      "fix-grammar": {
+        "label": "文法を修正する",
+        "short": "文法"
+      },
+      "explain": {
+        "label": "簡単に説明する",
+        "short": "説明"
+      },
+      "action-items": {
+        "label": "アクション項目を抽出",
+        "short": "アクション"
+      },
+      "translate-english": {
+        "label": "英語に翻訳する",
+        "short": "英訳"
+      },
+      "custom": {
+        "label": "カスタムプロンプト",
+        "short": "カスタム"
+      }
+    },
+    "panel": {
+      "reasoning_active": "推論中…",
+      "reasoning_done": "推論",
+      "working": "処理中…",
+      "thinking": "考え中…",
+      "back": "ツールバーに戻る",
+      "drag_panel": "パネルを移動",
+      "drag_toolbar": "ツールバーを移動",
+      "pin": "パネルをピン留め",
+      "unpin": "ピンを外す",
+      "close": "閉じる",
+      "more": "その他のアクション",
+      "open_chat": "チャットで開く",
+      "open_chat_tip": "結果をチャットで開く",
+      "copy": "結果をコピー",
+      "retry": "やり直し",
+      "insert": "下に挿入",
+      "insert_tip": "選択範囲の下に結果を挿入",
+      "replace": "置き換え",
+      "replace_tip": "選択テキストを置き換え",
+      "cancel": "キャンセル",
+      "cancel_tip": "生成をキャンセル",
+      "run": "実行",
+      "instruction_ph": "指示"
+    }
   },
   "welcome": {
     "title": "ローカルLLMチャットへようこそ",

@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
   ChatStreamMessage,
+  ChromeMessage,
   ChromePort,
   ChromeResponse,
   PullStreamMessage,
@@ -16,7 +17,7 @@ import type {
  */
 export const safePostMessage = (
   port: ChromePort,
-  message: ChatStreamMessage | PullStreamMessage
+  message: ChatStreamMessage | PullStreamMessage | ChromeMessage
 ): void => {
   try {
     // Type assertion needed because ChromePort.postMessage expects ChromeMessage

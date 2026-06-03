@@ -1,320 +1,616 @@
+import type { PointerEvent as ReactPointerEvent } from "react"
+import { flushSync } from "react-dom"
+import { createRoot, type Root } from "react-dom/client"
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root"
 import { defineContentScript } from "wxt/utils/define-content-script"
+import { isEmbeddingModel } from "@/features/model/lib/model-utils"
+import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
+import {
+  getSelectionCapture,
+  insertAfterContentEditableSelection,
+  insertAfterEditableSelection,
+  replaceContentEditableSelection,
+  replaceEditableSelection,
+  type SelectionCapture,
+  toSelectionPayload
+} from "@/features/selection-actions/dom"
+import { buildShadowStyles } from "@/features/selection-actions/overlay-shadow-styles"
+import { connectSelectionStream } from "@/features/selection-actions/overlay-stream"
+import type {
+  SelectionActionId,
+  SelectionActionRequest
+} from "@/features/selection-actions/types"
+import i18n from "@/i18n/config"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { ContentExtractionConfig } from "@/types"
+import { isSelectedModelRef } from "@/lib/providers/selected-model"
+import type {
+  ChromeResponse,
+  ContentExtractionConfig,
+  ProviderModel
+} from "@/types"
+import appStyles from "../globals.css?inline"
 
-// Lite translations embedded directly to avoid imports
-const translations: Record<string, Record<string, string>> = {
-  de: {
-    "selection_button.label": "Lokalen LLM fragen",
-    "selection_button.tooltip": "Zum Local LLM Client hinzufügen"
-  },
-  en: {
-    "selection_button.label": "Ask Local LLM",
-    "selection_button.tooltip": "Add to Local LLM Client"
-  },
-  es: {
-    "selection_button.label": "Preguntar al LLM local",
-    "selection_button.tooltip": "Añadir al cliente LLM local"
-  },
-  fr: {
-    "selection_button.label": "Demander au LLM local",
-    "selection_button.tooltip": "Ajouter au client LLM local"
-  },
-  hi: {
-    "selection_button.label": "स्थानीय LLM से पूछें",
-    "selection_button.tooltip": "स्थानीय LLM क्लाइंट में जोड़ें"
-  },
-  it: {
-    "selection_button.label": "Chiedi al LLM locale",
-    "selection_button.tooltip": "Aggiungi al client LLM locale"
-  },
-  ja: {
-    "selection_button.label": "ローカルLLMに聞く",
-    "selection_button.tooltip": "ローカルLLMクライアントに追加"
-  },
-  ru: {
-    "selection_button.label": "Спросить локальный LLM",
-    "selection_button.tooltip": "Добавить в локальный LLM клиент"
-  },
-  zh: {
-    "selection_button.label": "询问本地 LLM",
-    "selection_button.tooltip": "添加到本地 LLM 客户端"
-  }
-}
+type PanelState = "idle" | "streaming" | "done" | "error"
+type OverlayMode = "toolbar" | "panel"
 
-type SelectionCapture = {
-  text: string
-  rect: DOMRect
-}
-
-const isEditableSelectionTarget = (
-  element: Element | null
-): element is HTMLInputElement | HTMLTextAreaElement =>
-  element instanceof HTMLTextAreaElement ||
-  (element instanceof HTMLInputElement &&
-    ![
-      "button",
-      "checkbox",
-      "color",
-      "file",
-      "hidden",
-      "image",
-      "radio",
-      "range",
-      "reset",
-      "submit"
-    ].includes(element.type))
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(value, max))
 
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
   cssInjectionMode: "ui",
   async main(ctx) {
+    // ── DOM refs ──────────────────────────────────────────────────────────
     let container: HTMLDivElement | null = null
-    let isEnabled = true
-    let currentLanguage = "en"
-    let selectionText = ""
+    let tooltipContainer: HTMLElement | ShadowRoot | null = null
+    let root: Root | null = null
 
-    // Create the UI using WXT shadow root helper
+    // ── Overlay state ─────────────────────────────────────────────────────
+    let config: ContentExtractionConfig = DEFAULT_CONTENT_EXTRACTION_CONFIG
+    let currentCapture: SelectionCapture | null = null
+    let currentAction: SelectionActionId = "summarize"
+    let overlayMode: OverlayMode = "toolbar"
+    let panelState: PanelState = "idle"
+    let resultText = ""
+    let errorText = ""
+    let isThinking = false
+    let thinkingText = ""
+    let isMoreMenuOpen = false
+    let isPinned = false
+    let customInstruction = ""
+    let overlayInteractingUntil = 0
+
+    // ── Model state ───────────────────────────────────────────────────────
+    let availableModels: ProviderModel[] = []
+    let panelModel = ""
+    let panelProviderId: string | undefined
+    let modelsLoadedOnce = false
+
+    // ── Stream ────────────────────────────────────────────────────────────
+    let streamPort: chrome.runtime.Port | null = null
+
+    // ── Shadow DOM setup ──────────────────────────────────────────────────
     const ui = await createShadowRootUi(ctx, {
-      name: "provider-selection-button",
+      name: "provider-selection-actions",
       position: "inline",
       anchor: "body",
       append: "last",
       onMount: (uiContainer) => {
         container = document.createElement("div")
-        container.id = "selection-button-root"
+        container.id = "selection-actions-root"
         container.style.display = "none"
         container.style.position = "fixed"
         container.style.zIndex = "2147483647"
+        tooltipContainer = container
 
-        // Inline styles. The host page can't reach into our shadow tree,
-        // and our shadow tree can't see the app's `.dark` class — so dark
-        // mode is driven by `prefers-color-scheme` and surfaced via local
-        // custom properties that both themes write to.
         const style = document.createElement("style")
-        style.textContent = `
-          :host {
-            --sb-bg: #f4f4f5;
-            --sb-fg: #18181b;
-            --sb-border: #e4e4e7;
-            --sb-bg-hover: #e4e4e7;
-          }
-          @media (prefers-color-scheme: dark) {
-            :host {
-              --sb-bg: #27272a;
-              --sb-fg: #fafafa;
-              --sb-border: #3f3f46;
-              --sb-bg-hover: #3f3f46;
-            }
-          }
-          .selection-button {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            height: 32px;
-            padding: 0 12px;
-            background: var(--sb-bg);
-            color: var(--sb-fg);
-            border: 1px solid var(--sb-border);
-            border-radius: 8px;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s;
-            user-select: none;
-            white-space: nowrap;
-          }
-          .selection-button:hover {
-            background: var(--sb-bg-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-          }
-          .selection-button svg {
-            width: 14px;
-            height: 14px;
-          }
-        `
+        style.textContent = buildShadowStyles(appStyles)
+
         uiContainer.append(style)
         uiContainer.append(container)
+        root = createRoot(container)
+
+        const mark = markOverlayInteraction
+        container.addEventListener("pointerdown", mark, true)
+        container.addEventListener("mousedown", mark, true)
+        container.addEventListener("click", mark, true)
+        container.addEventListener("keydown", mark, true)
+        container.addEventListener("input", mark, true)
+        container.addEventListener("focusin", mark, true)
+
+        // Stop keyboard events from bubbling out of the shadow DOM into the
+        // host page. Without this, sites like GitHub intercept keypresses
+        // (e.g. "t" opens file finder, "/" focuses search) while the user is
+        // typing in our Input. Capture-phase listeners on document (Escape,
+        // selectionchange) still fire because capture runs before bubble.
+        const stopKey = (e: Event) => e.stopPropagation()
+        container.addEventListener("keydown", stopKey)
+        container.addEventListener("keyup", stopKey)
+        container.addEventListener("keypress", stopKey)
+
         return container
       }
     })
 
+    // ── Config + model sync ───────────────────────────────────────────────
+    const syncLanguage = async () => {
+      const stored = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.LANGUAGE
+      )
+      if (stored && i18n.language !== stored) {
+        await i18n.changeLanguage(stored)
+      }
+    }
+
     const updateConfig = async () => {
-      const config = await plasmoGlobalStorage.get<ContentExtractionConfig>(
+      const stored = await plasmoGlobalStorage.get<ContentExtractionConfig>(
         STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
       )
-      isEnabled =
-        config?.showSelectionButton ??
-        DEFAULT_CONTENT_EXTRACTION_CONFIG.showSelectionButton
-      currentLanguage =
-        (await plasmoGlobalStorage.get<string>(STORAGE_KEYS.LANGUAGE)) || "en"
+      config = { ...DEFAULT_CONTENT_EXTRACTION_CONFIG, ...(stored ?? {}) }
     }
 
-    const t = (key: "label" | "tooltip") => {
-      const lang = currentLanguage.split("-")[0]
-      const pack = translations[lang] || translations.en
-      return (
-        pack[`selection_button.${key}`] ||
-        translations.en[`selection_button.${key}`]
+    const syncPanelModel = async () => {
+      const ref = await plasmoGlobalStorage.get<unknown>(
+        STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
       )
-    }
-
-    const renderButton = () => {
-      if (!container) return
-      container.innerHTML = `
-        <button type="button" class="selection-button" title="${t("tooltip")}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
-          <span>${t("label")}</span>
-        </button>
-      `
-      const button = container.querySelector("button")
-
-      const sendSelection = async (event: Event) => {
-        event.preventDefault()
-        event.stopPropagation()
-
-        const text =
-          selectionText || window.getSelection()?.toString().trim() || ""
-        if (!text) {
-          hideButton()
-          return
-        }
-
-        try {
-          await chrome.runtime.sendMessage({
-            type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-            payload: text
-          })
-          hideButton()
-          window.getSelection()?.removeAllRanges()
-        } catch (error) {
-          logger.error("Failed to send selection", "SelectionButton", { error })
+      const fallback = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.PROVIDER.SELECTED_MODEL
+      )
+      if (!panelModel) {
+        if (isSelectedModelRef(ref)) {
+          panelModel = ref.modelId
+          panelProviderId = ref.providerId
+        } else if (fallback) {
+          panelModel = fallback
+          panelProviderId = undefined
         }
       }
-
-      button?.addEventListener("pointerdown", (event) => {
-        void sendSelection(event)
-      })
-      button?.addEventListener("click", (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-      })
     }
 
-    const showButton = (top: number, left: number) => {
-      if (!container || !isEnabled) return
-      renderButton()
+    const fetchModels = async () => {
+      if (modelsLoadedOnce) return
+      try {
+        const resp = (await chrome.runtime.sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.GET_MODELS
+        })) as ChromeResponse
+        if (resp?.success && resp.data && "models" in (resp.data as object)) {
+          const all = (resp.data as { models: ProviderModel[] }).models
+          availableModels = all.filter(
+            (m) => !isEmbeddingModel(m.model, m.details?.families ?? [])
+          )
+          modelsLoadedOnce = true
+          renderOverlay(false)
+        }
+      } catch {
+        // background not ready yet
+      }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const enabledActionIds = () =>
+      (config.selectionActionsEnabledIds?.length
+        ? config.selectionActionsEnabledIds
+        : DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsEnabledIds) as SelectionActionId[]
+
+    const markOverlayInteraction = () => {
+      overlayInteractingUntil = Date.now() + 900
+    }
+
+    // ── Placement ─────────────────────────────────────────────────────────
+    const place = (top: number, anchorLeft: number) => {
+      if (!container) return
       container.style.display = "block"
       container.style.visibility = "hidden"
 
       const viewportMargin = 8
-      const buttonWidth = container.offsetWidth
-      const buttonHeight = container.offsetHeight
-      const minLeft = viewportMargin
-      const maxLeft = window.innerWidth - buttonWidth - viewportMargin
-      const minTop = viewportMargin
-      const maxTop = window.innerHeight - buttonHeight - viewportMargin
+      const width = container.offsetWidth
+      const height = container.offsetHeight
+      const maxLeft = window.innerWidth - width - viewportMargin
+      const maxTop = window.innerHeight - height - viewportMargin
+      const targetLeft = clamp(anchorLeft - width / 2, viewportMargin, maxLeft)
+      const targetTop = clamp(top, viewportMargin, maxTop)
 
-      container.style.top = `${Math.max(minTop, Math.min(top, maxTop))}px`
-      container.style.left = `${Math.max(minLeft, Math.min(left, maxLeft))}px`
+      container.style.left = `${targetLeft}px`
+      container.style.top = `${targetTop}px`
+
+      // Some pages (e.g. YouTube) apply CSS transforms to ancestor elements
+      // which shift the fixed-positioning context. Measure actual viewport
+      // position and correct for any drift.
+      const actual = container.getBoundingClientRect()
+      const driftX = actual.left - targetLeft
+      const driftY = actual.top - targetTop
+      if (Math.abs(driftX) > 0.5 || Math.abs(driftY) > 0.5) {
+        container.style.left = `${targetLeft - driftX}px`
+        container.style.top = `${targetTop - driftY}px`
+      }
+
       container.style.visibility = "visible"
     }
 
-    const hideButton = () => {
-      if (container) container.style.display = "none"
-    }
+    const handleDragStart = (event: ReactPointerEvent<HTMLElement>) => {
+      if (!container) return
+      event.preventDefault()
+      event.stopPropagation()
+      markOverlayInteraction()
+      isPinned = true
 
-    const getRangeRect = (range: Range) => {
-      const rect = range.getBoundingClientRect()
-      if (rect.width > 0 || rect.height > 0) return rect
+      const rect = container.getBoundingClientRect()
+      const offsetX = event.clientX - rect.left
+      const offsetY = event.clientY - rect.top
 
-      return Array.from(range.getClientRects()).find(
-        (clientRect) => clientRect.width > 0 || clientRect.height > 0
-      )
-    }
-
-    const getSelectionCapture = (): SelectionCapture | null => {
-      const activeElement = document.activeElement
-      if (isEditableSelectionTarget(activeElement)) {
-        const start = activeElement.selectionStart
-        const end = activeElement.selectionEnd
-
-        if (start !== null && end !== null && start !== end) {
-          const text = activeElement.value.slice(start, end).trim()
-          if (text) return { text, rect: activeElement.getBoundingClientRect() }
-        }
+      const handleMove = (e: PointerEvent) => {
+        if (!container) return
+        const margin = 8
+        const w = container.offsetWidth
+        const h = container.offsetHeight
+        container.style.left = `${clamp(e.clientX - offsetX, margin, window.innerWidth - w - margin)}px`
+        container.style.top = `${clamp(e.clientY - offsetY, margin, window.innerHeight - h - margin)}px`
+      }
+      const handleUp = () => {
+        document.removeEventListener("pointermove", handleMove, true)
+        document.removeEventListener("pointerup", handleUp, true)
+        renderOverlay(false)
       }
 
-      const selection = window.getSelection()
-      const text = selection?.toString().trim()
-      if (!selection || !text || selection.rangeCount === 0) return null
+      document.addEventListener("pointermove", handleMove, true)
+      document.addEventListener("pointerup", handleUp, true)
+      renderOverlay(false)
+    }
 
-      const range = selection.getRangeAt(selection.rangeCount - 1)
-      const rect = getRangeRect(range)
-      if (!rect) return null
+    // ── Render ────────────────────────────────────────────────────────────
+    const renderOverlay = (shouldPlace = true) => {
+      if (!root || !container || !currentCapture) return
+      const hasResult = panelState === "done" && !!resultText.trim()
+      const canReplace = hasResult && currentCapture.canReplace
+      const canInsert = hasResult && currentCapture.canInsert
 
-      return { text, rect }
+      const jsx = (
+        <SelectionActionsOverlay
+          mode={overlayMode}
+          panelState={panelState}
+          currentAction={currentAction}
+          enabledActionIds={enabledActionIds()}
+          isMoreMenuOpen={isMoreMenuOpen}
+          resultText={resultText}
+          errorText={errorText}
+          isThinking={isThinking}
+          thinkingText={thinkingText}
+          availableModels={availableModels}
+          panelModel={panelModel}
+          onModelChange={(model, providerId) => {
+            panelModel = model
+            panelProviderId = providerId
+            renderOverlay(false)
+          }}
+          canReplace={canReplace}
+          canInsert={canInsert}
+          tooltipContainer={tooltipContainer}
+          isPinned={isPinned}
+          customInstruction={customInstruction}
+          onRunAction={runAction}
+          onActionChange={runAction}
+          onBack={goBackToToolbar}
+          onToggleMore={() => {
+            markOverlayInteraction()
+            isMoreMenuOpen = !isMoreMenuOpen
+            renderOverlay()
+          }}
+          onCopy={() => void copyResult()}
+          onReplace={replaceSelection}
+          onInsertBelow={insertBelow}
+          onOpenChat={() => void openInChat()}
+          onRetry={() => void startAction()}
+          onCancel={() => {
+            stopStream()
+            panelState = "done"
+            isThinking = false
+            thinkingText = ""
+            renderOverlay(false)
+          }}
+          onClose={hide}
+          onTogglePin={() => {
+            markOverlayInteraction()
+            isPinned = !isPinned
+            renderOverlay(false)
+          }}
+          onCustomInstructionChange={(value) => {
+            markOverlayInteraction()
+            customInstruction = value
+            renderOverlay(false)
+          }}
+          onRunCustom={() => void startAction()}
+          onDragStart={handleDragStart}
+        />
+      )
+
+      // flushSync only when we need to read rendered dimensions for placement.
+      // Non-placement renders (streaming chunks, typing) go through React's
+      // normal scheduler — no paint-blocking.
+      if (shouldPlace && !isPinned) {
+        flushSync(() => root?.render(jsx))
+        place(
+          currentCapture.rect.bottom + 10,
+          currentCapture.rect.left + currentCapture.rect.width / 2
+        )
+      } else {
+        root.render(jsx)
+      }
+    }
+
+    // ── Stream ────────────────────────────────────────────────────────────
+    const stopStream = () => {
+      if (!streamPort) return
+      streamPort.postMessage({
+        type: MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION
+      })
+      streamPort.disconnect()
+      streamPort = null
+    }
+
+    const startAction = async () => {
+      if (!currentCapture) return
+      stopStream()
+      resultText = ""
+      errorText = ""
+      isThinking = false
+      thinkingText = ""
+      panelState = "streaming"
+      overlayMode = "panel"
+      renderOverlay()
+
+      const request: SelectionActionRequest = {
+        actionId: currentAction,
+        selection: toSelectionPayload(currentCapture),
+        customInstruction,
+        ...(panelModel && { model: panelModel }),
+        ...(panelProviderId && { providerId: panelProviderId })
+      }
+
+      streamPort = connectSelectionStream(request, {
+        onChunk: ({ visibleDelta, thinkingDelta, isThinking: thinking }) => {
+          resultText += visibleDelta
+          thinkingText += thinkingDelta
+          isThinking = thinking
+          renderOverlay(false)
+        },
+        onDone: () => {
+          panelState = "done"
+          isThinking = false
+          streamPort?.disconnect()
+          streamPort = null
+          renderOverlay(false)
+        },
+        onError: (message) => {
+          panelState = "error"
+          errorText = message
+          isThinking = false
+          streamPort?.disconnect()
+          streamPort = null
+          renderOverlay(false)
+        }
+      })
+    }
+
+    // ── Actions ───────────────────────────────────────────────────────────
+    const runAction = (actionId: SelectionActionId) => {
+      markOverlayInteraction()
+      stopStream()
+      currentAction = actionId
+      isMoreMenuOpen = false
+      overlayMode = "panel"
+      resultText = ""
+      errorText = ""
+      isThinking = false
+      thinkingText = ""
+      void fetchModels()
+
+      if (actionId === "custom") {
+        panelState = "idle"
+        renderOverlay()
+        return
+      }
+
+      void startAction()
+    }
+
+    const hide = () => {
+      stopStream()
+      root?.render(null)
+      if (container) container.style.display = "none"
+      overlayMode = "toolbar"
+      panelState = "idle"
+      resultText = ""
+      errorText = ""
+      isThinking = false
+      thinkingText = ""
+      customInstruction = ""
+      isMoreMenuOpen = false
+      isPinned = false
+    }
+
+    const goBackToToolbar = () => {
+      stopStream()
+      overlayMode = "toolbar"
+      panelState = "idle"
+      resultText = ""
+      errorText = ""
+      isThinking = false
+      thinkingText = ""
+      customInstruction = ""
+      isMoreMenuOpen = false
+      isPinned = false
+      renderOverlay()
+    }
+
+    const openInChat = async () => {
+      const text = resultText.trim() || currentCapture?.text.trim()
+      if (!text) return
+      await chrome.runtime.sendMessage({
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: text
+      })
+      hide()
+      window.getSelection()?.removeAllRanges()
+    }
+
+    const copyResult = async () => {
+      const text = resultText.trim()
+      if (!text) return
+      await navigator.clipboard.writeText(text)
+    }
+
+    const replaceSelection = () => {
+      if (!currentCapture || !resultText.trim()) return
+      const text = resultText.trim()
+      let changed = false
+
+      if (currentCapture.editableTarget) {
+        currentCapture.editableTarget.focus()
+        changed = replaceEditableSelection(
+          currentCapture.editableTarget,
+          text,
+          currentCapture.selectionStart,
+          currentCapture.selectionEnd
+        )
+      } else if (currentCapture.range && currentCapture.contentEditableRoot) {
+        changed = replaceContentEditableSelection(
+          currentCapture.range,
+          currentCapture.contentEditableRoot,
+          text
+        )
+      }
+
+      if (changed) hide()
+    }
+
+    const insertBelow = () => {
+      if (!currentCapture || !resultText.trim()) return
+      const text = resultText.trim()
+      let changed = false
+
+      if (currentCapture.editableTarget) {
+        currentCapture.editableTarget.focus()
+        changed = insertAfterEditableSelection(
+          currentCapture.editableTarget,
+          text,
+          currentCapture.selectionEnd
+        )
+      } else if (currentCapture.range && currentCapture.contentEditableRoot) {
+        changed = insertAfterContentEditableSelection(
+          currentCapture.range,
+          currentCapture.contentEditableRoot,
+          text
+        )
+      }
+
+      if (changed) hide()
+    }
+
+    // ── Selection detection ───────────────────────────────────────────────
+    const showForSelection = (capture: SelectionCapture) => {
+      currentCapture = { ...capture, range: capture.range?.cloneRange() }
+      if (!enabledActionIds().includes(currentAction)) {
+        currentAction = enabledActionIds()[0] ?? "summarize"
+      }
+      overlayMode = "toolbar"
+      panelState = "idle"
+      resultText = ""
+      errorText = ""
+      customInstruction = ""
+      isMoreMenuOpen = false
+      renderOverlay()
     }
 
     const handleSelectionChange = () => {
-      if (!isEnabled) {
-        hideButton()
+      if (Date.now() < overlayInteractingUntil) return
+      if (isPinned || overlayMode === "panel") return
+      if (!config.showSelectionButton || !config.selectionActionsEnabled) {
+        hide()
         return
       }
 
       const capture = getSelectionCapture()
-      if (capture) {
-        selectionText = capture.text
-        showButton(capture.rect.bottom + 10, capture.rect.right - 30)
-      } else {
-        hideButton()
+      const minChars =
+        config.selectionActionsMinChars ??
+        DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsMinChars
+      if (!capture || capture.text.length < minChars) {
+        hide()
+        return
+      }
+      showForSelection(capture)
+    }
+
+    const queueSelectionCheck = () =>
+      window.setTimeout(handleSelectionChange, 80)
+
+    // ── Theme sync ────────────────────────────────────────────────────────
+    const applyTheme = async () => {
+      if (!container) return
+      const result = await chrome.storage.sync.get(
+        STORAGE_KEYS.THEME.PREFERENCE
+      )
+      const pref =
+        (result[STORAGE_KEYS.THEME.PREFERENCE] as string | undefined) ??
+        "system"
+      const isDark =
+        pref === "dark"
+          ? true
+          : pref === "light"
+            ? false
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+      container.classList.toggle("dark", isDark)
+    }
+
+    const handleThemeChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: "sync" | "local" | "managed" | "session"
+    ) => {
+      if (area === "sync" && STORAGE_KEYS.THEME.PREFERENCE in changes) {
+        void applyTheme()
       }
     }
 
-    const queueSelectionCheck = () => {
-      setTimeout(handleSelectionChange, 0)
-    }
-
-    // Initial config load
-    await updateConfig()
+    // ── Bootstrap ─────────────────────────────────────────────────────────
+    await Promise.all([updateConfig(), syncPanelModel(), syncLanguage()])
     ui.mount()
+    void applyTheme()
 
-    // Listen for selection events
+    // ── Storage watchers ──────────────────────────────────────────────────
+    chrome.storage.onChanged.addListener(handleThemeChange)
+    const storageWatchCallbacks = {
+      [STORAGE_KEYS.LANGUAGE]: (change: { newValue?: unknown }) => {
+        const lng = change.newValue as string | undefined
+        if (lng) void i18n.changeLanguage(lng)
+      },
+      [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (change: {
+        newValue?: unknown
+      }) => {
+        config = {
+          ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+          ...((change.newValue as Partial<ContentExtractionConfig>) ?? {})
+        }
+        if (!config.showSelectionButton || !config.selectionActionsEnabled)
+          hide()
+      },
+      [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
+        panelModel = ""
+        modelsLoadedOnce = false
+        void syncPanelModel()
+      },
+      [STORAGE_KEYS.PROVIDER.SELECTED_MODEL]: () => {
+        panelModel = ""
+        modelsLoadedOnce = false
+        void syncPanelModel()
+      }
+    }
+    plasmoGlobalStorage.watch(storageWatchCallbacks)
+
+    // ── DOM event listeners ───────────────────────────────────────────────
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") hide()
+    }
     document.addEventListener("selectionchange", queueSelectionCheck, true)
     document.addEventListener("pointerup", queueSelectionCheck, true)
     document.addEventListener("mouseup", queueSelectionCheck, true)
     document.addEventListener("keyup", queueSelectionCheck, true)
-
-    // Listen for storage changes to update isEnabled
-    plasmoGlobalStorage.watch({
-      [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (c) => {
-        isEnabled =
-          c.newValue?.showSelectionButton ??
-          DEFAULT_CONTENT_EXTRACTION_CONFIG.showSelectionButton
-        if (!isEnabled) hideButton()
-      },
-      [STORAGE_KEYS.LANGUAGE]: (c) => {
-        currentLanguage = c.newValue || "en"
-        if (container?.style.display === "block") renderButton()
-      }
-    })
+    document.addEventListener("keydown", handleEscape, true)
 
     ctx.onInvalidated(() => {
       document.removeEventListener("selectionchange", queueSelectionCheck, true)
       document.removeEventListener("pointerup", queueSelectionCheck, true)
       document.removeEventListener("mouseup", queueSelectionCheck, true)
       document.removeEventListener("keyup", queueSelectionCheck, true)
+      document.removeEventListener("keydown", handleEscape, true)
+      chrome.storage.onChanged.removeListener(handleThemeChange)
+      plasmoGlobalStorage.unwatch(storageWatchCallbacks)
+      stopStream()
+      root?.unmount()
       ui.remove()
     })
   }

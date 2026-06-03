@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "स्थानीय LLM से पूछें",
-    "tooltip": "स्थानीय LLM क्लाइंट में जोड़ें"
+    "tooltip": "स्थानीय LLM क्लाइंट में जोड़ें",
+    "actions": {
+      "summarize": {
+        "label": "सारांश करें",
+        "short": "सारांश"
+      },
+      "rewrite": {
+        "label": "पेशेवर तरीके से फिर लिखें",
+        "short": "पुनर्लेखन"
+      },
+      "shorten": {
+        "label": "छोटा करें",
+        "short": "छोटा"
+      },
+      "fix-grammar": {
+        "label": "व्याकरण ठीक करें",
+        "short": "व्याकरण"
+      },
+      "explain": {
+        "label": "सरल भाषा में समझाएं",
+        "short": "समझाएं"
+      },
+      "action-items": {
+        "label": "कार्य बिंदु निकालें",
+        "short": "कार्य"
+      },
+      "translate-english": {
+        "label": "अंग्रेजी में अनुवाद करें",
+        "short": "अंग्रेजी"
+      },
+      "custom": {
+        "label": "कस्टम निर्देश",
+        "short": "कस्टम"
+      }
+    },
+    "panel": {
+      "reasoning_active": "विचार कर रहा है…",
+      "reasoning_done": "विचार",
+      "working": "प्रक्रिया हो रही है…",
+      "thinking": "सोच रहा है…",
+      "back": "टूलबार पर वापस",
+      "drag_panel": "पैनल खींचें",
+      "drag_toolbar": "टूलबार खींचें",
+      "pin": "पैनल पिन करें",
+      "unpin": "पैनल अनपिन करें",
+      "close": "बंद करें",
+      "more": "अधिक क्रियाएं",
+      "open_chat": "चैट में खोलें",
+      "open_chat_tip": "परिणाम को चैट में खोलें",
+      "copy": "परिणाम कॉपी करें",
+      "retry": "पुनः प्रयास",
+      "insert": "नीचे डालें",
+      "insert_tip": "चयन के नीचे परिणाम डालें",
+      "replace": "बदलें",
+      "replace_tip": "चयनित टेक्स्ट बदलें",
+      "cancel": "रद्द करें",
+      "cancel_tip": "जनरेशन रद्द करें",
+      "run": "चलाएं",
+      "instruction_ph": "निर्देश"
+    }
   },
   "welcome": {
     "title": "स्थानीय LLM चैट में आपका स्वागत है",

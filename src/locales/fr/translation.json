@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "Demander au LLM local",
-    "tooltip": "Ajouter au client LLM local"
+    "tooltip": "Ajouter au client LLM local",
+    "actions": {
+      "summarize": {
+        "label": "Résumer",
+        "short": "Résumé"
+      },
+      "rewrite": {
+        "label": "Réécrire professionnellement",
+        "short": "Réécrire"
+      },
+      "shorten": {
+        "label": "Raccourcir",
+        "short": "Raccourcir"
+      },
+      "fix-grammar": {
+        "label": "Corriger la grammaire",
+        "short": "Grammaire"
+      },
+      "explain": {
+        "label": "Expliquer simplement",
+        "short": "Expliquer"
+      },
+      "action-items": {
+        "label": "Extraire les actions",
+        "short": "Actions"
+      },
+      "translate-english": {
+        "label": "Traduire en anglais",
+        "short": "Anglais"
+      },
+      "custom": {
+        "label": "Instruction personnalisée",
+        "short": "Personnalisé"
+      }
+    },
+    "panel": {
+      "reasoning_active": "Raisonnement…",
+      "reasoning_done": "Raisonnement",
+      "working": "En cours…",
+      "thinking": "Réflexion…",
+      "back": "Retour à la barre",
+      "drag_panel": "Déplacer le panneau",
+      "drag_toolbar": "Déplacer la barre",
+      "pin": "Épingler le panneau",
+      "unpin": "Désépingler le panneau",
+      "close": "Fermer",
+      "more": "Plus d'actions",
+      "open_chat": "Ouvrir dans le chat",
+      "open_chat_tip": "Ouvrir le résultat dans le chat",
+      "copy": "Copier le résultat",
+      "retry": "Réessayer",
+      "insert": "Insérer en dessous",
+      "insert_tip": "Insérer le résultat sous la sélection",
+      "replace": "Remplacer",
+      "replace_tip": "Remplacer le texte sélectionné",
+      "cancel": "Annuler",
+      "cancel_tip": "Annuler la génération",
+      "run": "Exécuter",
+      "instruction_ph": "Instruction"
+    }
   },
   "welcome": {
     "title": "Bienvenue sur le chat LLM local",

@@ -15,7 +15,9 @@ export const PROVIDER_MESSAGE_KEYS = {
   GET_PROVIDER_VERSION: "get-provider-version",
   CHECK_EMBEDDING_MODEL: "check-embedding-model",
   PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
-  EMBED_FILE_CHUNKS: "embed-file-chunks"
+  EMBED_FILE_CHUNKS: "embed-file-chunks",
+  START_SELECTION_ACTION: "start-selection-action",
+  CANCEL_SELECTION_ACTION: "cancel-selection-action"
 }
 
 /**
@@ -46,7 +48,10 @@ export const MESSAGE_KEYS = {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat",
-    SELECTION_BRIDGE_PORT: "selection-bridge-port"
+    SELECTION_BRIDGE_PORT: "selection-bridge-port",
+    SELECTION_ACTION_CHUNK: "selection-action-chunk",
+    SELECTION_ACTION_DONE: "selection-action-done",
+    SELECTION_ACTION_ERROR: "selection-action-error"
   },
   APP: {
     RELOAD: "app-reload"

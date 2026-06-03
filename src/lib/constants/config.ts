@@ -1,3 +1,4 @@
+import { DEFAULT_SELECTION_ACTION_IDS } from "@/features/selection-actions/actions"
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -150,6 +151,9 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
 export const DEFAULT_CONTENT_EXTRACTION_CONFIG: ContentExtractionConfig = {
   enabled: true,
   showSelectionButton: true,
+  selectionActionsEnabled: true,
+  selectionActionsMinChars: 3,
+  selectionActionsEnabledIds: DEFAULT_SELECTION_ACTION_IDS,
   contentScraper: "auto", // Try defuddle first, then readability
   excludedUrlPatterns: DEFAULT_EXCLUDE_URLS,
   scrollStrategy: "smart",
