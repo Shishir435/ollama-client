@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import {
-  getSelectionCapture,
   getRangeRect,
+  getSelectionCapture,
   insertAfterContentEditableSelection,
   insertAfterEditableSelection,
   isEditableInput,
@@ -26,6 +26,14 @@ describe("selection action DOM helpers", () => {
     expect(textarea.selectionStart).toBe(11)
     expect(inputListener).toHaveBeenCalledOnce()
     expect(changeListener).toHaveBeenCalledOnce()
+  })
+
+  it("replaceEditableSelection returns false when selection start equals end", () => {
+    const input = document.createElement("input")
+    input.value = "hello"
+    input.setSelectionRange(3, 3)
+    expect(replaceEditableSelection(input, "x")).toBe(false)
+    expect(input.value).toBe("hello")
   })
 
   it("inserts below textarea selection without replacing text", () => {
@@ -69,6 +77,66 @@ describe("selection action DOM helpers", () => {
     textarea.remove()
   })
 
+  it("returns null getSelectionCapture when nothing selected", () => {
+    expect(getSelectionCapture(document)).toBeNull()
+  })
+
+  it("returns null getSelectionCapture for empty textarea selection (cursor only)", () => {
+    const textarea = document.createElement("textarea")
+    textarea.value = "hello"
+    document.body.append(textarea)
+    textarea.focus()
+    textarea.setSelectionRange(2, 2)
+
+    expect(getSelectionCapture(document)).toBeNull()
+    textarea.remove()
+  })
+
+  it("maps SelectionCapture to SelectionPayload via toSelectionPayload", () => {
+    const textarea = document.createElement("textarea")
+    textarea.value = "pick me"
+    document.body.append(textarea)
+    textarea.focus()
+    textarea.setSelectionRange(0, 7)
+
+    const capture = getSelectionCapture(document)
+    expect(capture).not.toBeNull()
+    if (!capture) return
+
+    const mockDoc = {
+      location: { href: "https://example.com/page" },
+      title: "Test Page"
+    } as unknown as Document
+
+    const payload = toSelectionPayload(capture, mockDoc)
+    expect(payload.selectedText).toBe("pick me")
+    expect(payload.pageUrl).toBe("https://example.com/page")
+    expect(payload.pageTitle).toBe("Test Page")
+    expect(payload.selectionType).toBe("textarea")
+    expect(payload.canReplace).toBe(true)
+    expect(payload.canInsert).toBe(true)
+
+    textarea.remove()
+  })
+
+  it("isEditableInput accepts textarea and text input", () => {
+    const textarea = document.createElement("textarea")
+    const textInput = document.createElement("input")
+    textInput.type = "text"
+    expect(isEditableInput(textarea)).toBe(true)
+    expect(isEditableInput(textInput)).toBe(true)
+  })
+
+  it("isEditableInput rejects button, checkbox, file, password, submit inputs", () => {
+    for (const type of ["button", "checkbox", "file", "password", "submit"]) {
+      const input = document.createElement("input")
+      input.type = type
+      expect(isEditableInput(input), `type=${type}`).toBe(false)
+    }
+    expect(isEditableInput(null)).toBe(false)
+    expect(isEditableInput(document.createElement("div"))).toBe(false)
+  })
+
   it("preserves heading element when replacing contenteditable text", () => {
     const editor = document.createElement("div")
     editor.contentEditable = "true"
@@ -93,7 +161,7 @@ describe("selection action DOM helpers", () => {
     editor.remove()
   })
 
-  it("rejects multi-block contenteditable range replace", () => {
+  it("rejects multi-block contenteditable range for replace", () => {
     const editor = document.createElement("div")
     editor.contentEditable = "true"
     editor.innerHTML = "<p>First para</p><p>Second para</p>"
@@ -128,6 +196,7 @@ describe("selection action DOM helpers", () => {
     const textAfterBr = br!.nextSibling as Text
     expect(textAfterBr?.nodeType).toBe(Node.TEXT_NODE)
     expect(textAfterBr?.textContent).toBe("inserted")
+
     editor.remove()
   })
 
@@ -144,65 +213,6 @@ describe("selection action DOM helpers", () => {
 
     expect(insertAfterContentEditableSelection(range, editor, "x")).toBe(false)
     editor.remove()
-  })
-
-  it("returns null getSelectionCapture when nothing selected", () => {
-    expect(getSelectionCapture(document)).toBeNull()
-  })
-
-  it("returns null getSelectionCapture for empty textarea selection", () => {
-    const textarea = document.createElement("textarea")
-    textarea.value = "hello"
-    document.body.append(textarea)
-    textarea.focus()
-    textarea.setSelectionRange(2, 2)
-
-    expect(getSelectionCapture(document)).toBeNull()
-    textarea.remove()
-  })
-
-  it("maps SelectionCapture to SelectionPayload via toSelectionPayload", () => {
-    const textarea = document.createElement("textarea")
-    textarea.value = "pick me"
-    document.body.append(textarea)
-    textarea.focus()
-    textarea.setSelectionRange(0, 7)
-
-    const capture = getSelectionCapture(document)
-    expect(capture).not.toBeNull()
-
-    const mockDoc = {
-      location: { href: "https://example.com/page" },
-      title: "Test Page"
-    } as unknown as Document
-
-    const payload = toSelectionPayload(capture!, mockDoc)
-    expect(payload.selectedText).toBe("pick me")
-    expect(payload.pageUrl).toBe("https://example.com/page")
-    expect(payload.pageTitle).toBe("Test Page")
-    expect(payload.selectionType).toBe("textarea")
-    expect(payload.canReplace).toBe(true)
-    expect(payload.canInsert).toBe(true)
-
-    textarea.remove()
-  })
-
-  it("isEditableInput accepts textarea and text input", () => {
-    const textarea = document.createElement("textarea")
-    const textInput = document.createElement("input")
-    textInput.type = "text"
-    expect(isEditableInput(textarea)).toBe(true)
-    expect(isEditableInput(textInput)).toBe(true)
-  })
-
-  it("isEditableInput rejects button, checkbox, file, password inputs", () => {
-    for (const type of ["button", "checkbox", "file", "password", "submit"]) {
-      const input = document.createElement("input")
-      input.type = type
-      expect(isEditableInput(input), `type=${type}`).toBe(false)
-    }
-    expect(isEditableInput(null)).toBe(false)
-    expect(isEditableInput(document.createElement("div"))).toBe(false)
   })
 
   it("getRangeRect falls back to getClientRects when getBoundingClientRect is zero", () => {
@@ -269,13 +279,5 @@ describe("selection action DOM helpers", () => {
 
     expect(getRangeRect(range)).toBeNull()
     div.remove()
-  })
-
-  it("replaceEditableSelection returns false when selection start equals end", () => {
-    const input = document.createElement("input")
-    input.value = "hello"
-    input.setSelectionRange(3, 3)
-    expect(replaceEditableSelection(input, "x")).toBe(false)
-    expect(input.value).toBe("hello")
   })
 })

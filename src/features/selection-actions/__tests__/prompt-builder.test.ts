@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { SELECTION_ACTIONS } from "../actions"
+import {
+  DEFAULT_SELECTION_ACTION_IDS,
+  getSelectionAction,
+  SELECTION_ACTIONS
+} from "../actions"
 import { buildSelectionActionPrompt } from "../prompt-builder"
 import type { SelectionPayload } from "../types"
 
@@ -48,5 +52,41 @@ describe("selection action prompt builder", () => {
     })
 
     expect(prompt.messages[1].content).toContain("Make this more polite.")
+  })
+
+  it("ignores customInstruction for non-custom actions", () => {
+    const prompt = buildSelectionActionPrompt({
+      actionId: "shorten",
+      selection,
+      customInstruction: "This should be ignored."
+    })
+
+    expect(prompt.messages[1].content).not.toContain("This should be ignored.")
+    expect(prompt.messages[1].content).toContain("Action: Shorten")
+  })
+
+  it("uses 'Untitled' when pageTitle is empty", () => {
+    const prompt = buildSelectionActionPrompt({
+      actionId: "explain",
+      selection: { ...selection, pageTitle: "" }
+    })
+    expect(prompt.messages[1].content).toContain("Page title: Untitled")
+  })
+})
+
+describe("getSelectionAction", () => {
+  it("returns correct definition for every registered action", () => {
+    for (const id of DEFAULT_SELECTION_ACTION_IDS) {
+      const action = getSelectionAction(id)
+      expect(action.id).toBe(id)
+      expect(action.label).toBeTruthy()
+      expect(action.shortLabel).toBeTruthy()
+      expect(action.instruction).toBeTruthy()
+    }
+  })
+
+  it("falls back to first action (summarize) for unknown id", () => {
+    const action = getSelectionAction("nonexistent" as never)
+    expect(action.id).toBe("summarize")
   })
 })
