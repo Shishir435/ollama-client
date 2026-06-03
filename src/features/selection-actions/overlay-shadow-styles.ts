@@ -125,7 +125,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     border-radius: var(--sa-radius-lg);
     box-shadow: var(--sa-shadow);
     font-family: var(--font-sans, system-ui, sans-serif);
-    font-size: 0.75rem;
+    font-size: 12px;
     line-height: 1.4;
   }
   .sa-toolbar-strip {
@@ -232,7 +232,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     background: transparent;
     color: var(--sa-muted);
     font: inherit;
-    font-size: 0.75rem;
+    font-size: 12px;
     cursor: pointer;
     padding: 0;
     padding-right: 14px;
@@ -249,7 +249,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     outline: none;
   }
   .sa-model-name {
-    font-size: 0.75rem;
+    font-size: 12px;
     color: var(--sa-muted);
   }
 
@@ -340,7 +340,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     background: var(--sa-hover);
     color: var(--sa-muted);
     font: inherit;
-    font-size: 0.6875rem;
+    font-size: 11px;
     text-align: left;
     cursor: pointer;
     border: none;
@@ -354,7 +354,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     min-width: 0;
   }
   .sa-thinking-chevron {
-    font-size: 0.5rem;
+    font-size: 8px;
     opacity: 0.6;
   }
   .sa-thinking-chevron-end {
@@ -377,7 +377,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     max-height: 140px;
     overflow-y: auto;
     padding: 8px 10px;
-    font-size: 0.6875rem;
+    font-size: 11px;
     color: var(--sa-muted);
     line-height: 1.5;
     white-space: pre-wrap;

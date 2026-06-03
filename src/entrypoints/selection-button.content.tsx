@@ -174,10 +174,23 @@ export default defineContentScript({
       const height = container.offsetHeight
       const maxLeft = window.innerWidth - width - viewportMargin
       const maxTop = window.innerHeight - height - viewportMargin
-      const desiredLeft = anchorLeft - width / 2
+      const targetLeft = clamp(anchorLeft - width / 2, viewportMargin, maxLeft)
+      const targetTop = clamp(top, viewportMargin, maxTop)
 
-      container.style.top = `${clamp(top, viewportMargin, maxTop)}px`
-      container.style.left = `${clamp(desiredLeft, viewportMargin, maxLeft)}px`
+      container.style.left = `${targetLeft}px`
+      container.style.top = `${targetTop}px`
+
+      // Some pages (e.g. YouTube) apply CSS transforms to ancestor elements
+      // which shift the fixed-positioning context. Measure actual viewport
+      // position and correct for any drift.
+      const actual = container.getBoundingClientRect()
+      const driftX = actual.left - targetLeft
+      const driftY = actual.top - targetTop
+      if (Math.abs(driftX) > 0.5 || Math.abs(driftY) > 0.5) {
+        container.style.left = `${targetLeft - driftX}px`
+        container.style.top = `${targetTop - driftY}px`
+      }
+
       container.style.visibility = "visible"
     }
 

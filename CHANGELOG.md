@@ -11,9 +11,23 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Floating result panel with streaming output, retry/cancel, copy, Open in Chat, and preview-first Replace/Insert controls.
 - Safe page editing helpers for `input`, `textarea`, and simple single-block `contenteditable` selections. Generated output is inserted as plain text only so page UI and heading/list structure are preserved.
 - Selection Actions settings for enablement, minimum selected characters, and enabled action list.
+- Thinking/reasoning model support in the selection overlay: live "Reasoning…" section with animated pulse indicator auto-expands during streaming and collapses when done.
+- Inline model selector in the panel header (same row as title); filters out embedding models; syncs with sidebar model selection.
 
 ### Changed
 - Bumped package version to `0.8.0`.
+- Selection overlay panel split into focused sub-components: `PanelHeader`, `PanelThinking`, `PanelFooter`, `SelectionPanel`, `SelectionToolbar`.
+- Panel uses shadcn `Card` and `buttonVariants` for design-system consistency with the rest of the extension.
+- Shadow DOM CSS extracted to `overlay-shadow-styles.ts`; stream chunk/done/error logic extracted to `overlay-stream.ts`; content script reduced from 966 to ~530 lines.
+- Embedding models filtered from the panel model selector using the same `isEmbeddingModel` check as the sidebar.
+
+### Fixed
+- Shadow DOM CSS variables now isolated from host-page design tokens (YouTube, etc.) by pinning all tokens with concrete OKLCH values on the container element.
+- Tailwind rem-based sizing (`h-7`, `size-*`, `gap-*`) fixed on pages with non-standard root font-size (e.g. YouTube `html{font-size:62.5%}`) by overriding `--spacing`, `--text-xs`, and `--radius` with absolute `px` values.
+- All remaining `rem` values in shadow DOM custom CSS replaced with `px` so sizing is consistent across all host pages.
+- Toolbar/panel placement corrected for pages that apply CSS `transform` to ancestor elements (creates a shifted fixed-positioning context); drift is measured and compensated after initial placement.
+- Tooltip dark mode background uses card colour instead of foreground in shadow DOM context.
+- Tooltip arrow hidden in shadow DOM.
 
 ## [0.7.3] - 2026-06-02
 ### Added
