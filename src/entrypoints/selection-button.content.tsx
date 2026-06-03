@@ -3,6 +3,7 @@ import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root"
 import { defineContentScript } from "wxt/utils/define-content-script"
+import { isEmbeddingModel } from "@/features/model/lib/model-utils"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
   getSelectionCapture,
@@ -23,7 +24,18 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { ChromeMessage, ContentExtractionConfig } from "@/types"
+import { isSelectedModelRef } from "@/lib/providers/selected-model"
+import {
+  makeThinkingParserState,
+  splitThinkingDelta,
+  type ThinkingParserState
+} from "@/lib/thinking-parser"
+import type {
+  ChromeMessage,
+  ChromeResponse,
+  ContentExtractionConfig,
+  ProviderModel
+} from "@/types"
 import appStyles from "../globals.css?inline"
 
 type PanelState = "idle" | "streaming" | "done" | "error"
@@ -48,6 +60,13 @@ export default defineContentScript({
     let errorText = ""
     let panelState: PanelState = "idle"
     let streamPort: chrome.runtime.Port | null = null
+    let isThinking = false
+    let thinkingText = ""
+    let thinkingState: ThinkingParserState = makeThinkingParserState()
+    let availableModels: ProviderModel[] = []
+    let panelModel = ""
+    let panelProviderId: string | undefined
+    let modelsLoadedOnce = false
     let isMoreMenuOpen = false
     let isPinned = false
     let customInstruction = ""
@@ -56,6 +75,48 @@ export default defineContentScript({
 
     const markOverlayInteraction = () => {
       overlayInteractingUntil = Date.now() + 900
+    }
+
+    const syncPanelModel = async () => {
+      const ref = await plasmoGlobalStorage.get<unknown>(
+        STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
+      )
+      const fallback = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.PROVIDER.SELECTED_MODEL
+      )
+      if (!panelModel) {
+        if (isSelectedModelRef(ref)) {
+          panelModel = ref.modelId
+          panelProviderId = ref.providerId
+        } else if (fallback) {
+          panelModel = fallback
+          panelProviderId = undefined
+        }
+      }
+    }
+
+    const fetchModels = async () => {
+      if (modelsLoadedOnce) return
+      try {
+        const resp = (await chrome.runtime.sendMessage({
+          type: MESSAGE_KEYS.PROVIDER.GET_MODELS
+        })) as ChromeResponse
+        if (
+          resp?.success &&
+          resp.data &&
+          typeof resp.data === "object" &&
+          "models" in resp.data
+        ) {
+          const allModels = (resp.data as { models: ProviderModel[] }).models
+          availableModels = allModels.filter(
+            (m) => !isEmbeddingModel(m.model, m.details?.families ?? [])
+          )
+          modelsLoadedOnce = true
+          renderOverlay(false)
+        }
+      } catch {
+        // background not ready yet
+      }
     }
 
     const ui = await createShadowRootUi(ctx, {
@@ -233,8 +294,10 @@ export default defineContentScript({
           }
           .sa-panel-header {
             justify-content: space-between;
-            margin-bottom: 12px;
             align-items: flex-start;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--sa-border);
           }
           .sa-title {
             min-width: 0;
@@ -247,42 +310,60 @@ export default defineContentScript({
           }
           .sa-title-wrap {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 8px;
             min-width: 0;
           }
           .sa-drag-handle {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 1.625rem;
+            width: 1.5rem;
             height: var(--control-height-sm, 1.75rem);
             color: var(--sa-muted);
             cursor: grab;
             touch-action: none;
+            flex-shrink: 0;
           }
           .sa-drag-handle:active {
             cursor: grabbing;
           }
-          .sa-action-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 2.75rem;
-            height: 2.75rem;
-            flex: 0 0 auto;
-            border-radius: var(--sa-radius-lg);
-            color: var(--accent-foreground);
-            background: var(--accent);
-          }
-          .sa-action-icon img {
-            width: 2rem;
-            height: 2rem;
-            border-radius: var(--sa-radius-md);
-          }
           .sa-title-meta {
-            display: grid;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
             min-width: 0;
+            padding-top: 2px;
+          }
+          .sa-model-row {
+            display: flex;
+            align-items: center;
+          }
+          .sa-model-inline {
+            appearance: none;
+            -webkit-appearance: none;
+            border: none;
+            background: transparent;
+            color: var(--sa-muted);
+            font: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0;
+            padding-right: 14px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0 center;
+            background-size: 10px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .sa-model-inline:focus {
+            outline: none;
+          }
+          .sa-model-name {
+            font-size: 0.75rem;
           }
           .sa-result {
             min-height: 96px;
@@ -370,6 +451,66 @@ export default defineContentScript({
             justify-content: flex-start;
             text-align: left;
           }
+          .sa-thinking-section {
+            border: 1px solid var(--sa-border);
+            border-radius: var(--sa-radius-md);
+            margin-bottom: 8px;
+            overflow: hidden;
+          }
+          .sa-thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            padding: 5px 8px;
+            background: var(--sa-hover);
+            color: var(--sa-muted);
+            font: inherit;
+            font-size: 0.6875rem;
+            text-align: left;
+            cursor: pointer;
+            border: none;
+            user-select: none;
+          }
+          .sa-thinking-header:hover {
+            background: color-mix(in oklch, var(--sa-border) 60%, var(--sa-hover));
+          }
+          .sa-thinking-label {
+            flex: 1;
+            min-width: 0;
+          }
+          .sa-thinking-chevron {
+            font-size: 0.5rem;
+            opacity: 0.6;
+          }
+          .sa-thinking-chevron-end {
+            margin-left: auto;
+          }
+          @keyframes sa-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+          }
+          .sa-thinking-pulse {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--sa-accent);
+            flex-shrink: 0;
+            animation: sa-pulse 1.2s ease-in-out infinite;
+          }
+          .sa-thinking-body {
+            max-height: 140px;
+            overflow-y: auto;
+            padding: 8px 10px;
+            font-size: 0.6875rem;
+            color: var(--sa-muted);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: color-mix(in oklch, var(--sa-hover) 50%, transparent);
+            border-top: 1px solid var(--sa-border);
+          }
         `
         uiContainer.append(style)
         uiContainer.append(container)
@@ -436,6 +577,15 @@ export default defineContentScript({
             isMoreMenuOpen={isMoreMenuOpen}
             resultText={resultText}
             errorText={errorText}
+            isThinking={isThinking}
+            thinkingText={thinkingText}
+            availableModels={availableModels}
+            panelModel={panelModel}
+            onModelChange={(model, providerId) => {
+              panelModel = model
+              panelProviderId = providerId
+              renderOverlay(false)
+            }}
             canReplace={canReplace}
             canInsert={canInsert}
             tooltipContainer={tooltipContainer}
@@ -495,6 +645,9 @@ export default defineContentScript({
       panelState = "idle"
       resultText = ""
       errorText = ""
+      isThinking = false
+      thinkingText = ""
+      thinkingState = makeThinkingParserState()
       customInstruction = ""
       isMoreMenuOpen = false
       isPinned = false
@@ -524,6 +677,7 @@ export default defineContentScript({
       overlayMode = "panel"
       resultText = ""
       errorText = ""
+      void fetchModels()
 
       if (actionId === "custom") {
         panelState = "idle"
@@ -586,6 +740,9 @@ export default defineContentScript({
       stopStream()
       resultText = ""
       errorText = ""
+      isThinking = false
+      thinkingText = ""
+      thinkingState = makeThinkingParserState()
       panelState = "streaming"
       overlayMode = "panel"
       renderOverlay()
@@ -593,7 +750,9 @@ export default defineContentScript({
       const request: SelectionActionRequest = {
         actionId: currentAction,
         selection: toSelectionPayload(currentCapture),
-        customInstruction
+        customInstruction,
+        ...(panelModel && { model: panelModel }),
+        ...(panelProviderId && { providerId: panelProviderId })
       }
 
       streamPort = chrome.runtime.connect({
@@ -603,8 +762,23 @@ export default defineContentScript({
       streamPort.onMessage.addListener((raw) => {
         const message = raw as ChromeMessage
         if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK) {
-          const payload = message.payload as { delta?: string } | undefined
-          resultText += payload?.delta ?? ""
+          const payload = message.payload as
+            | {
+                delta?: string
+                thinkingDelta?: string
+              }
+            | undefined
+          const rawDelta = payload?.delta ?? ""
+          const rawThinkingDelta = payload?.thinkingDelta ?? ""
+          const { visible, thinking: inlineThinking } = splitThinkingDelta(
+            rawDelta,
+            thinkingState
+          )
+          resultText += visible
+          thinkingText += rawThinkingDelta + inlineThinking
+          isThinking =
+            !resultText &&
+            (rawThinkingDelta.length > 0 || thinkingState.inThinking)
           renderOverlay(false)
         }
         if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE) {
@@ -712,7 +886,7 @@ export default defineContentScript({
       if (event.key === "Escape") hide()
     }
 
-    await updateConfig()
+    await Promise.all([updateConfig(), syncPanelModel()])
     ui.mount()
 
     const applyTheme = async () => {
@@ -758,6 +932,14 @@ export default defineContentScript({
         }
         if (!config.showSelectionButton || !config.selectionActionsEnabled)
           hide()
+      },
+      [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
+        panelModel = ""
+        void syncPanelModel()
+      },
+      [STORAGE_KEYS.PROVIDER.SELECTED_MODEL]: () => {
+        panelModel = ""
+        void syncPanelModel()
       }
     })
 

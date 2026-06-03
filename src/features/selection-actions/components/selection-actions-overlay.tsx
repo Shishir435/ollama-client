@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { useEffect, useState } from "react"
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +19,7 @@ import {
   SquarePen,
   X
 } from "@/lib/lucide-icon"
+import type { ProviderModel } from "@/types"
 import { SELECTION_ACTIONS } from "../actions"
 import type { SelectionActionId } from "../types"
 
@@ -33,6 +35,11 @@ interface SelectionActionsOverlayProps {
   isMoreMenuOpen: boolean
   resultText: string
   errorText: string
+  isThinking: boolean
+  thinkingText: string
+  availableModels: ProviderModel[]
+  panelModel: string
+  onModelChange: (model: string, providerId?: string) => void
   canReplace: boolean
   canInsert: boolean
   tooltipContainer: HTMLElement | ShadowRoot | null
@@ -76,12 +83,16 @@ const iconForAction = (actionId: SelectionActionId) => {
 export const SelectionActionsOverlay = ({
   mode,
   panelState,
-  appIconUrl,
   currentAction,
   enabledActionIds,
   isMoreMenuOpen,
   resultText,
   errorText,
+  isThinking,
+  thinkingText,
+  availableModels,
+  panelModel,
+  onModelChange,
   canReplace,
   canInsert,
   tooltipContainer,
@@ -101,6 +112,16 @@ export const SelectionActionsOverlay = ({
   onRunCustom,
   onDragStart
 }: SelectionActionsOverlayProps) => {
+  const [thinkingExpanded, setThinkingExpanded] = useState(false)
+
+  useEffect(() => {
+    if (isThinking) {
+      setThinkingExpanded(true)
+    } else if (thinkingText) {
+      setThinkingExpanded(false)
+    }
+  }, [isThinking, thinkingText])
+
   const actions = SELECTION_ACTIONS.filter((action) =>
     enabledActionIds.includes(action.id)
   )
@@ -252,9 +273,63 @@ export const SelectionActionsOverlay = ({
       <div className="sa-result sa-error">{errorText}</div>
     ) : (
       <div className="sa-result">
-        {resultText || <span className="sa-muted">Working...</span>}
+        {resultText || (
+          <span className="sa-muted">
+            {isThinking ? "Thinking…" : "Working…"}
+          </span>
+        )}
       </div>
     )
+
+  const thinkingSection = thinkingText ? (
+    <div className="sa-thinking-section">
+      <button
+        type="button"
+        className="sa-thinking-header"
+        onClick={() => setThinkingExpanded((v) => !v)}>
+        {isThinking ? (
+          <span className="sa-thinking-pulse" aria-hidden="true" />
+        ) : (
+          <span className="sa-thinking-chevron">
+            {thinkingExpanded ? "▾" : "▸"}
+          </span>
+        )}
+        <span className="sa-thinking-label">
+          {isThinking ? "Reasoning…" : "Reasoning"}
+        </span>
+        {!isThinking && (
+          <span className="sa-thinking-chevron sa-thinking-chevron-end">
+            {thinkingExpanded ? "▾" : "▸"}
+          </span>
+        )}
+      </button>
+      {thinkingExpanded && (
+        <div className="sa-thinking-body">{thinkingText}</div>
+      )}
+    </div>
+  ) : null
+
+  const modelSelector =
+    availableModels.length > 0 ? (
+      <select
+        className="sa-model-inline"
+        value={panelModel}
+        onChange={(e) => {
+          const m = availableModels.find((x) => x.model === e.target.value)
+          onModelChange(e.target.value, m?.providerId)
+        }}>
+        {panelModel && !availableModels.find((m) => m.model === panelModel) && (
+          <option value={panelModel}>{panelModel}</option>
+        )}
+        {availableModels.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.name || m.model}
+          </option>
+        ))}
+      </select>
+    ) : panelModel ? (
+      <span className="sa-model-name sa-muted">{panelModel}</span>
+    ) : null
 
   return (
     <TooltipProvider>
@@ -275,11 +350,11 @@ export const SelectionActionsOverlay = ({
                 Drag panel
               </TooltipContent>
             </Tooltip>
-            <div className="sa-action-icon">
-              <img src={appIconUrl} alt="" />
-            </div>
             <div className="sa-title-meta">
               <div className="sa-title">{selectedAction.label}</div>
+              {modelSelector && (
+                <div className="sa-model-row">{modelSelector}</div>
+              )}
             </div>
           </div>
           <div className="sa-header-actions">
@@ -344,6 +419,7 @@ export const SelectionActionsOverlay = ({
             </Tooltip>
           </form>
         )}
+        {thinkingSection}
         {body}
         <div className="sa-panel-actions">
           <div className="sa-action-group">
