@@ -75,8 +75,6 @@ export default defineContentScript({
     // ── Stream ────────────────────────────────────────────────────────────
     let streamPort: chrome.runtime.Port | null = null
 
-    const appIconUrl = chrome.runtime.getURL("assets/icon-32.png")
-
     // ── Shadow DOM setup ──────────────────────────────────────────────────
     const ui = await createShadowRootUi(ctx, {
       name: "provider-selection-actions",
@@ -257,7 +255,6 @@ export default defineContentScript({
           <SelectionActionsOverlay
             mode={overlayMode}
             panelState={panelState}
-            appIconUrl={appIconUrl}
             currentAction={currentAction}
             enabledActionIds={enabledActionIds()}
             isMoreMenuOpen={isMoreMenuOpen}
@@ -415,7 +412,9 @@ export default defineContentScript({
       errorText = ""
       isThinking = false
       thinkingText = ""
+      customInstruction = ""
       isMoreMenuOpen = false
+      isPinned = false
       renderOverlay()
     }
 
@@ -554,48 +553,52 @@ export default defineContentScript({
 
     // ── Storage watchers ──────────────────────────────────────────────────
     chrome.storage.onChanged.addListener(handleThemeChange)
-    plasmoGlobalStorage.watch({
-      [STORAGE_KEYS.LANGUAGE]: (change) => {
+    const storageWatchCallbacks = {
+      [STORAGE_KEYS.LANGUAGE]: (change: { newValue?: unknown }) => {
         const lng = change.newValue as string | undefined
         if (lng) void i18n.changeLanguage(lng)
       },
-      [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (change) => {
+      [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (change: {
+        newValue?: unknown
+      }) => {
         config = {
           ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-          ...(change.newValue ?? {})
+          ...((change.newValue as Partial<ContentExtractionConfig>) ?? {})
         }
         if (!config.showSelectionButton || !config.selectionActionsEnabled)
           hide()
       },
       [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
         panelModel = ""
+        modelsLoadedOnce = false
         void syncPanelModel()
       },
       [STORAGE_KEYS.PROVIDER.SELECTED_MODEL]: () => {
         panelModel = ""
+        modelsLoadedOnce = false
         void syncPanelModel()
       }
-    })
+    }
+    plasmoGlobalStorage.watch(storageWatchCallbacks)
 
     // ── DOM event listeners ───────────────────────────────────────────────
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") hide()
+    }
     document.addEventListener("selectionchange", queueSelectionCheck, true)
     document.addEventListener("pointerup", queueSelectionCheck, true)
     document.addEventListener("mouseup", queueSelectionCheck, true)
     document.addEventListener("keyup", queueSelectionCheck, true)
-    document.addEventListener(
-      "keydown",
-      (e) => {
-        if (e.key === "Escape") hide()
-      },
-      true
-    )
+    document.addEventListener("keydown", handleEscape, true)
 
     ctx.onInvalidated(() => {
       document.removeEventListener("selectionchange", queueSelectionCheck, true)
       document.removeEventListener("pointerup", queueSelectionCheck, true)
       document.removeEventListener("mouseup", queueSelectionCheck, true)
       document.removeEventListener("keyup", queueSelectionCheck, true)
+      document.removeEventListener("keydown", handleEscape, true)
       chrome.storage.onChanged.removeListener(handleThemeChange)
+      plasmoGlobalStorage.unwatch(storageWatchCallbacks)
       stopStream()
       root?.unmount()
       ui.remove()

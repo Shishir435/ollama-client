@@ -10,7 +10,6 @@ export type SelectionPanelState = "idle" | "streaming" | "done" | "error"
 interface SelectionActionsOverlayProps {
   mode: SelectionOverlayMode
   panelState: SelectionPanelState
-  appIconUrl: string
   currentAction: SelectionActionId
   enabledActionIds: SelectionActionId[]
   isMoreMenuOpen: boolean
@@ -111,7 +110,6 @@ export const SelectionActionsOverlay = ({
       tooltipContainer={tooltipContainer}
       onActionChange={onActionChange}
       onModelChange={onModelChange}
-      onRunAction={onRunAction}
       onCopy={onCopy}
       onReplace={onReplace}
       onInsertBelow={onInsertBelow}
