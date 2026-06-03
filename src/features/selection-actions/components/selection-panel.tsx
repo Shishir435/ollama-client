@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { ProviderModel } from "@/types"
@@ -117,9 +118,9 @@ export function SelectionPanel({
                 value={customInstruction}
                 onChange={(e) => onCustomInstructionChange(e.target.value)}
               />
-              <button type="submit" className="sa-button primary">
+              <Button type="submit" variant="default" size="sm">
                 Run
-              </button>
+              </Button>
             </form>
           )}
           <PanelThinking isThinking={isThinking} thinkingText={thinkingText} />

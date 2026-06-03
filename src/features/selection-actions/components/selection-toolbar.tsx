@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
@@ -96,7 +97,11 @@ export function SelectionToolbar({
                 render={
                   <button
                     type="button"
-                    className={`sa-button ${action.id === currentAction ? "primary" : ""}`}
+                    className={buttonVariants({
+                      variant:
+                        action.id === currentAction ? "default" : "ghost",
+                      size: "icon"
+                    })}
                     aria-label={action.label}
                     onPointerDown={(e) => {
                       e.preventDefault()
@@ -119,7 +124,7 @@ export function SelectionToolbar({
               render={
                 <button
                   type="button"
-                  className="sa-button"
+                  className={buttonVariants({ variant: "ghost", size: "icon" })}
                   aria-label="More actions"
                   aria-expanded={isMoreMenuOpen}
                   onPointerDown={(e) => {
@@ -142,7 +147,7 @@ export function SelectionToolbar({
               render={
                 <button
                   type="button"
-                  className="sa-button"
+                  className={buttonVariants({ variant: "ghost", size: "icon" })}
                   aria-label="Open in Chat"
                   onPointerDown={(e) => {
                     e.preventDefault()
@@ -164,7 +169,7 @@ export function SelectionToolbar({
               render={
                 <button
                   type="button"
-                  className="sa-button"
+                  className={buttonVariants({ variant: "ghost", size: "icon" })}
                   aria-label="Close"
                   onPointerDown={(e) => {
                     e.preventDefault()
@@ -185,7 +190,10 @@ export function SelectionToolbar({
               <button
                 key={action.id}
                 type="button"
-                className="sa-button sa-menu-item"
+                className={
+                  buttonVariants({ variant: "ghost", size: "sm" }) +
+                  " sa-menu-item"
+                }
                 aria-label={action.label}
                 onPointerDown={(e) => {
                   e.preventDefault()

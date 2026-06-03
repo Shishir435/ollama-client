@@ -1,3 +1,4 @@
+import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
@@ -41,7 +42,7 @@ export function PanelFooter({
             render={
               <button
                 type="button"
-                className="sa-button outline icon-only"
+                className={buttonVariants({ variant: "outline", size: "icon" })}
                 aria-label="Copy result"
                 disabled={!resultText.trim()}
                 onClick={onCopy}
@@ -59,7 +60,7 @@ export function PanelFooter({
             render={
               <button
                 type="button"
-                className="sa-button outline icon-only"
+                className={buttonVariants({ variant: "outline", size: "icon" })}
                 aria-label="Retry action"
                 disabled={panelState === "streaming"}
                 onClick={onRetry}
@@ -80,7 +81,10 @@ export function PanelFooter({
               render={
                 <button
                   type="button"
-                  className="sa-button outline"
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "default"
+                  })}
                   onClick={onInsertBelow}
                 />
               }>
@@ -97,7 +101,10 @@ export function PanelFooter({
             render={
               <button
                 type="button"
-                className="sa-button outline primary"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "default"
+                })}
                 disabled={!resultText.trim()}
                 onClick={onOpenChat}
               />
@@ -116,7 +123,10 @@ export function PanelFooter({
               render={
                 <button
                   type="button"
-                  className="sa-button fill"
+                  className={buttonVariants({
+                    variant: "default",
+                    size: "default"
+                  })}
                   onClick={onReplace}
                 />
               }>
@@ -135,7 +145,10 @@ export function PanelFooter({
               render={
                 <button
                   type="button"
-                  className="sa-button danger"
+                  className={buttonVariants({
+                    variant: "destructive",
+                    size: "default"
+                  })}
                   onClick={onCancel}
                 />
               }>

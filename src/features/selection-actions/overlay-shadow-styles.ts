@@ -73,70 +73,11 @@ export const buildShadowStyles = (appStyles: string): string => `
     display: none;
   }
 
-  /* Shared button + input */
-  .sa-button,
-  .sa-input {
-    box-sizing: border-box;
-    height: var(--control-height-sm, 1.75rem);
-    border: 1px solid transparent;
-    border-radius: var(--sa-radius-md);
-    background: transparent;
-    color: var(--sa-fg);
-    font: inherit;
-  }
-  .sa-button {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 0 0.75rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-  }
-  .sa-button:hover:not(:disabled) {
-    background: var(--sa-hover);
-  }
-  .sa-button:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 1px;
-  }
-  .sa-button.primary {
-    background: var(--accent);
-    color: var(--accent-foreground);
-    font-weight: 600;
-  }
-  .sa-toolbar .sa-button {
-    width: var(--control-height-sm, 1.75rem);
-    height: var(--control-height-sm, 1.75rem);
-    padding: 0;
-  }
-  .sa-toolbar .sa-button.primary {
-    width: var(--control-height-sm, 1.75rem);
-    min-width: var(--control-height-sm, 1.75rem);
-    padding: 0;
-  }
+  /* Toolbar label hidden (text shown in panel mode only) */
   .sa-toolbar .sa-label {
     display: none;
   }
-  .sa-button.outline {
-    border-color: var(--sa-border);
-    background: var(--sa-bg);
-  }
-  .sa-button.fill {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    border-color: var(--primary);
-  }
-  .sa-button.danger {
-    color: var(--sa-danger);
-  }
-  .sa-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-  .sa-button svg,
+
   .sa-drag-handle svg {
     width: 14px;
     height: 14px;
@@ -306,15 +247,6 @@ export const buildShadowStyles = (appStyles: string): string => `
   .apply-group {
     margin-left: auto;
   }
-  .sa-panel-actions .sa-button {
-    min-width: 2.625rem;
-    height: var(--control-height-sm, 1.75rem);
-    padding: 0 0.625rem;
-  }
-  .sa-panel-actions .icon-only {
-    width: 2.625rem;
-    padding: 0;
-  }
 
   /* Toolbar more menu */
   .sa-menu {
@@ -332,9 +264,7 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
   .sa-menu-item {
     width: 100% !important;
-    height: var(--control-height-sm, 1.75rem);
-    padding: 0 0.625rem !important;
-    justify-content: flex-start;
+    justify-content: flex-start !important;
     text-align: left;
   }
 

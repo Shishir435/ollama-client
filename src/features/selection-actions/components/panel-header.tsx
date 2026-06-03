@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
@@ -75,7 +76,10 @@ export function PanelHeader({
             render={
               <button
                 type="button"
-                className={`sa-button ${isPinned ? "primary" : ""}`}
+                className={buttonVariants({
+                  variant: isPinned ? "secondary" : "ghost",
+                  size: "icon-sm"
+                })}
                 aria-label={isPinned ? "Unpin panel" : "Pin panel"}
                 onClick={onTogglePin}
               />
@@ -92,7 +96,10 @@ export function PanelHeader({
             render={
               <button
                 type="button"
-                className="sa-button"
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "icon-sm"
+                })}
                 aria-label="Close"
                 onClick={onClose}
               />
