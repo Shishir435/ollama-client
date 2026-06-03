@@ -28,7 +28,6 @@ interface SelectionPanelProps {
   tooltipContainer: HTMLElement | ShadowRoot | null
   onActionChange: (actionId: SelectionActionId) => void
   onModelChange: (model: string, providerId?: string) => void
-  onRunAction: (actionId: SelectionActionId) => void
   onCopy: () => void
   onReplace: () => void
   onInsertBelow: () => void

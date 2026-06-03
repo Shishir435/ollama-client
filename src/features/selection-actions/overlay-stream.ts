@@ -30,6 +30,12 @@ export function connectSelectionStream(
     name: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION
   })
 
+  port.onDisconnect.addListener(() => {
+    if (chrome.runtime.lastError) {
+      callbacks.onError("Connection lost. Try again.")
+    }
+  })
+
   port.onMessage.addListener((raw) => {
     const message = raw as ChromeMessage
 
