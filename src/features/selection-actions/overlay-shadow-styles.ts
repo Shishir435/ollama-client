@@ -296,9 +296,58 @@ export const buildShadowStyles = (appStyles: string): string => `
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+  .sa-result--md {
+    white-space: normal;
+  }
   .sa-error {
     color: var(--sa-danger);
   }
+
+  /* Markdown prose inside panel */
+  .sa-markdown { font-size: 15px; line-height: 1.55; color: var(--sa-fg); overflow-wrap: anywhere; }
+  .sa-markdown p { margin: 0 0 8px; }
+  .sa-markdown p:last-child { margin-bottom: 0; }
+  .sa-markdown ul, .sa-markdown ol { margin: 0 0 8px; padding-left: 20px; }
+  .sa-markdown ul { list-style-type: disc; }
+  .sa-markdown ol { list-style-type: decimal; }
+  .sa-markdown li { margin-bottom: 3px; }
+  .sa-markdown li p { margin: 0; }
+  .sa-markdown strong { font-weight: 600; }
+  .sa-markdown em { font-style: italic; }
+  .sa-markdown h1, .sa-markdown h2, .sa-markdown h3,
+  .sa-markdown h4, .sa-markdown h5, .sa-markdown h6 {
+    font-weight: 700; margin: 10px 0 4px; line-height: 1.3;
+  }
+  .sa-markdown h1 { font-size: 17px; }
+  .sa-markdown h2 { font-size: 16px; }
+  .sa-markdown h3, .sa-markdown h4, .sa-markdown h5, .sa-markdown h6 { font-size: 15px; }
+  .sa-markdown a { color: var(--sa-accent); text-decoration: underline; cursor: pointer; }
+  .sa-markdown code {
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    background: var(--muted);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  .sa-markdown pre {
+    background: var(--muted);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 0 0 8px;
+  }
+  .sa-markdown pre code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+  }
+  .sa-markdown blockquote {
+    border-left: 3px solid var(--sa-border);
+    margin: 0 0 8px;
+    padding: 2px 12px;
+    color: var(--sa-muted);
+  }
+  .sa-markdown hr { border: none; border-top: 1px solid var(--sa-border); margin: 10px 0; }
   .sa-muted {
     color: var(--sa-muted);
   }
