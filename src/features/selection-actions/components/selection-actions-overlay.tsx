@@ -27,6 +27,7 @@ interface SelectionActionsOverlayProps {
   isPinned: boolean
   customInstruction: string
   onRunAction: (actionId: SelectionActionId) => void
+  onActionChange: (actionId: SelectionActionId) => void
   onToggleMore: () => void
   onCopy: () => void
   onReplace: () => void
@@ -35,6 +36,7 @@ interface SelectionActionsOverlayProps {
   onRetry: () => void
   onCancel: () => void
   onClose: () => void
+  onBack: () => void
   onTogglePin: () => void
   onCustomInstructionChange: (value: string) => void
   onRunCustom: () => void
@@ -60,6 +62,7 @@ export const SelectionActionsOverlay = ({
   isPinned,
   customInstruction,
   onRunAction,
+  onActionChange,
   onToggleMore,
   onCopy,
   onReplace,
@@ -68,6 +71,7 @@ export const SelectionActionsOverlay = ({
   onRetry,
   onCancel,
   onClose,
+  onBack,
   onTogglePin,
   onCustomInstructionChange,
   onRunCustom,
@@ -93,6 +97,7 @@ export const SelectionActionsOverlay = ({
     <SelectionPanel
       panelState={panelState}
       currentAction={currentAction}
+      enabledActionIds={enabledActionIds}
       isThinking={isThinking}
       thinkingText={thinkingText}
       resultText={resultText}
@@ -104,6 +109,7 @@ export const SelectionActionsOverlay = ({
       isPinned={isPinned}
       customInstruction={customInstruction}
       tooltipContainer={tooltipContainer}
+      onActionChange={onActionChange}
       onModelChange={onModelChange}
       onRunAction={onRunAction}
       onCopy={onCopy}
@@ -113,6 +119,7 @@ export const SelectionActionsOverlay = ({
       onRetry={onRetry}
       onCancel={onCancel}
       onClose={onClose}
+      onBack={onBack}
       onTogglePin={onTogglePin}
       onCustomInstructionChange={onCustomInstructionChange}
       onRunCustom={onRunCustom}

@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -62,6 +63,7 @@ export function SelectionToolbar({
   onClose,
   onDragStart
 }: SelectionToolbarProps) {
+  const { t } = useTranslation()
   const actions = SELECTION_ACTIONS.filter((a) =>
     enabledActionIds.includes(a.id)
   )
@@ -87,7 +89,7 @@ export function SelectionToolbar({
               <GripHorizontal aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              Drag toolbar
+              {t("selection_button.panel.drag_toolbar")}
             </TooltipContent>
           </Tooltip>
 
@@ -102,7 +104,10 @@ export function SelectionToolbar({
                         action.id === currentAction ? "default" : "ghost",
                       size: "icon"
                     })}
-                    aria-label={action.label}
+                    aria-label={t(
+                      `selection_button.actions.${action.id}.label`,
+                      action.label
+                    )}
                     onPointerDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -111,10 +116,15 @@ export function SelectionToolbar({
                   />
                 }>
                 {iconForAction(action.id)}
-                <span className="sa-label">{action.shortLabel}</span>
+                <span className="sa-label">
+                  {t(
+                    `selection_button.actions.${action.id}.short`,
+                    action.shortLabel
+                  )}
+                </span>
               </TooltipTrigger>
               <TooltipContent container={tooltipContainer}>
-                {action.label}
+                {t(`selection_button.actions.${action.id}.label`, action.label)}
               </TooltipContent>
             </Tooltip>
           ))}
@@ -125,7 +135,7 @@ export function SelectionToolbar({
                 <button
                   type="button"
                   className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label="More actions"
+                  aria-label={t("selection_button.panel.more")}
                   aria-expanded={isMoreMenuOpen}
                   onPointerDown={(e) => {
                     e.preventDefault()
@@ -135,10 +145,12 @@ export function SelectionToolbar({
                 />
               }>
               <MoreHorizontal aria-hidden="true" />
-              <span className="sa-label">More</span>
+              <span className="sa-label">
+                {t("selection_button.panel.more")}
+              </span>
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              More actions
+              {t("selection_button.panel.more")}
             </TooltipContent>
           </Tooltip>
 
@@ -148,7 +160,7 @@ export function SelectionToolbar({
                 <button
                   type="button"
                   className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label="Open in Chat"
+                  aria-label={t("selection_button.panel.open_chat")}
                   onPointerDown={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -157,10 +169,12 @@ export function SelectionToolbar({
                 />
               }>
               <MessageSquare aria-hidden="true" />
-              <span className="sa-label">Open in Chat</span>
+              <span className="sa-label">
+                {t("selection_button.panel.open_chat")}
+              </span>
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              Open in Chat
+              {t("selection_button.panel.open_chat")}
             </TooltipContent>
           </Tooltip>
 
@@ -170,7 +184,7 @@ export function SelectionToolbar({
                 <button
                   type="button"
                   className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label="Close"
+                  aria-label={t("selection_button.panel.close")}
                   onPointerDown={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -180,7 +194,9 @@ export function SelectionToolbar({
               }>
               <X aria-hidden="true" />
             </TooltipTrigger>
-            <TooltipContent container={tooltipContainer}>Close</TooltipContent>
+            <TooltipContent container={tooltipContainer}>
+              {t("selection_button.panel.close")}
+            </TooltipContent>
           </Tooltip>
         </div>
 
@@ -194,13 +210,16 @@ export function SelectionToolbar({
                   buttonVariants({ variant: "ghost", size: "sm" }) +
                   " sa-menu-item"
                 }
-                aria-label={action.label}
+                aria-label={t(
+                  `selection_button.actions.${action.id}.label`,
+                  action.label
+                )}
                 onPointerDown={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
                   onRunAction(action.id)
                 }}>
-                {action.label}
+                {t(`selection_button.actions.${action.id}.label`, action.label)}
               </button>
             ))}
           </div>

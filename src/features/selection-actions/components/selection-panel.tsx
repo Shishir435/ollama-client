@@ -1,10 +1,10 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { ProviderModel } from "@/types"
-import { SELECTION_ACTIONS } from "../actions"
 import type { SelectionActionId } from "../types"
 import { PanelFooter } from "./panel-footer"
 import { PanelHeader } from "./panel-header"
@@ -14,6 +14,7 @@ import type { SelectionPanelState } from "./selection-actions-overlay"
 interface SelectionPanelProps {
   panelState: SelectionPanelState
   currentAction: SelectionActionId
+  enabledActionIds: SelectionActionId[]
   isThinking: boolean
   thinkingText: string
   resultText: string
@@ -25,6 +26,7 @@ interface SelectionPanelProps {
   isPinned: boolean
   customInstruction: string
   tooltipContainer: HTMLElement | ShadowRoot | null
+  onActionChange: (actionId: SelectionActionId) => void
   onModelChange: (model: string, providerId?: string) => void
   onRunAction: (actionId: SelectionActionId) => void
   onCopy: () => void
@@ -34,6 +36,7 @@ interface SelectionPanelProps {
   onRetry: () => void
   onCancel: () => void
   onClose: () => void
+  onBack: () => void
   onTogglePin: () => void
   onCustomInstructionChange: (value: string) => void
   onRunCustom: () => void
@@ -43,6 +46,7 @@ interface SelectionPanelProps {
 export function SelectionPanel({
   panelState,
   currentAction,
+  enabledActionIds,
   isThinking,
   thinkingText,
   resultText,
@@ -54,6 +58,7 @@ export function SelectionPanel({
   isPinned,
   customInstruction,
   tooltipContainer,
+  onActionChange,
   onModelChange,
   onCopy,
   onReplace,
@@ -62,15 +67,13 @@ export function SelectionPanel({
   onRetry,
   onCancel,
   onClose,
+  onBack,
   onTogglePin,
   onCustomInstructionChange,
   onRunCustom,
   onDragStart
 }: SelectionPanelProps) {
-  const selectedAction =
-    SELECTION_ACTIONS.find((a) => a.id === currentAction) ??
-    SELECTION_ACTIONS[0]
-
+  const { t } = useTranslation()
   const body =
     panelState === "error" ? (
       <div className="sa-result sa-error">{errorText}</div>
@@ -78,7 +81,9 @@ export function SelectionPanel({
       <div className="sa-result">
         {resultText || (
           <span className="sa-muted">
-            {isThinking ? "Thinking…" : "Working…"}
+            {isThinking
+              ? t("selection_button.panel.thinking")
+              : t("selection_button.panel.working")}
           </span>
         )}
       </div>
@@ -89,16 +94,19 @@ export function SelectionPanel({
       <Card
         className="sa-panel-card"
         role="dialog"
-        aria-label="Selection action result">
+        aria-label={t("selection_button.panel.working")}>
         <CardHeader className="sa-card-header">
           <PanelHeader
-            actionLabel={selectedAction.label}
+            currentAction={currentAction}
+            enabledActionIds={enabledActionIds}
             panelModel={panelModel}
             availableModels={availableModels}
             isPinned={isPinned}
             tooltipContainer={tooltipContainer}
+            onActionChange={onActionChange}
             onModelChange={onModelChange}
             onTogglePin={onTogglePin}
+            onBack={onBack}
             onClose={onClose}
             onDragStart={onDragStart}
           />
@@ -114,12 +122,12 @@ export function SelectionPanel({
               }}>
               <Input
                 aria-label="Custom prompt instruction"
-                placeholder="Instruction"
+                placeholder={t("selection_button.panel.instruction_ph")}
                 value={customInstruction}
                 onChange={(e) => onCustomInstructionChange(e.target.value)}
               />
               <Button type="submit" variant="default" size="sm">
-                Run
+                {t("selection_button.panel.run")}
               </Button>
             </form>
           )}

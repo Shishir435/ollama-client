@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 interface PanelThinkingProps {
   isThinking: boolean
@@ -9,6 +10,7 @@ export function PanelThinking({
   isThinking,
   thinkingText
 }: PanelThinkingProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
@@ -33,7 +35,9 @@ export function PanelThinking({
           <span className="sa-thinking-chevron">{expanded ? "▾" : "▸"}</span>
         )}
         <span className="sa-thinking-label">
-          {isThinking ? "Reasoning…" : "Reasoning"}
+          {isThinking
+            ? t("selection_button.panel.reasoning_active")
+            : t("selection_button.panel.reasoning_done")}
         </span>
         {!isThinking && (
           <span className="sa-thinking-chevron sa-thinking-chevron-end">

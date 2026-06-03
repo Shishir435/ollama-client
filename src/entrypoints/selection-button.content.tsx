@@ -20,6 +20,7 @@ import type {
   SelectionActionId,
   SelectionActionRequest
 } from "@/features/selection-actions/types"
+import i18n from "@/i18n/config"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   MESSAGE_KEYS,
@@ -104,11 +105,31 @@ export default defineContentScript({
         container.addEventListener("keydown", mark, true)
         container.addEventListener("input", mark, true)
         container.addEventListener("focusin", mark, true)
+
+        // Stop keyboard events from bubbling out of the shadow DOM into the
+        // host page. Without this, sites like GitHub intercept keypresses
+        // (e.g. "t" opens file finder, "/" focuses search) while the user is
+        // typing in our Input. Capture-phase listeners on document (Escape,
+        // selectionchange) still fire because capture runs before bubble.
+        const stopKey = (e: Event) => e.stopPropagation()
+        container.addEventListener("keydown", stopKey)
+        container.addEventListener("keyup", stopKey)
+        container.addEventListener("keypress", stopKey)
+
         return container
       }
     })
 
     // ── Config + model sync ───────────────────────────────────────────────
+    const syncLanguage = async () => {
+      const stored = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.LANGUAGE
+      )
+      if (stored && i18n.language !== stored) {
+        await i18n.changeLanguage(stored)
+      }
+    }
+
     const updateConfig = async () => {
       const stored = await plasmoGlobalStorage.get<ContentExtractionConfig>(
         STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
@@ -257,6 +278,8 @@ export default defineContentScript({
             isPinned={isPinned}
             customInstruction={customInstruction}
             onRunAction={runAction}
+            onActionChange={runAction}
+            onBack={goBackToToolbar}
             onToggleMore={() => {
               markOverlayInteraction()
               isMoreMenuOpen = !isMoreMenuOpen
@@ -350,11 +373,14 @@ export default defineContentScript({
     // ── Actions ───────────────────────────────────────────────────────────
     const runAction = (actionId: SelectionActionId) => {
       markOverlayInteraction()
+      stopStream()
       currentAction = actionId
       isMoreMenuOpen = false
       overlayMode = "panel"
       resultText = ""
       errorText = ""
+      isThinking = false
+      thinkingText = ""
       void fetchModels()
 
       if (actionId === "custom") {
@@ -379,6 +405,18 @@ export default defineContentScript({
       customInstruction = ""
       isMoreMenuOpen = false
       isPinned = false
+    }
+
+    const goBackToToolbar = () => {
+      stopStream()
+      overlayMode = "toolbar"
+      panelState = "idle"
+      resultText = ""
+      errorText = ""
+      isThinking = false
+      thinkingText = ""
+      isMoreMenuOpen = false
+      renderOverlay()
     }
 
     const openInChat = async () => {
@@ -510,13 +548,17 @@ export default defineContentScript({
     }
 
     // ── Bootstrap ─────────────────────────────────────────────────────────
-    await Promise.all([updateConfig(), syncPanelModel()])
+    await Promise.all([updateConfig(), syncPanelModel(), syncLanguage()])
     ui.mount()
     void applyTheme()
 
     // ── Storage watchers ──────────────────────────────────────────────────
     chrome.storage.onChanged.addListener(handleThemeChange)
     plasmoGlobalStorage.watch({
+      [STORAGE_KEYS.LANGUAGE]: (change) => {
+        const lng = change.newValue as string | undefined
+        if (lng) void i18n.changeLanguage(lng)
+      },
       [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (change) => {
         config = {
           ...DEFAULT_CONTENT_EXTRACTION_CONFIG,

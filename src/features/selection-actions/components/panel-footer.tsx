@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -34,6 +35,7 @@ export function PanelFooter({
   onOpenChat,
   onCancel
 }: PanelFooterProps) {
+  const { t } = useTranslation()
   return (
     <div className="sa-panel-actions">
       <div className="sa-action-group">
@@ -43,7 +45,7 @@ export function PanelFooter({
               <button
                 type="button"
                 className={buttonVariants({ variant: "outline", size: "icon" })}
-                aria-label="Copy result"
+                aria-label={t("selection_button.panel.copy")}
                 disabled={!resultText.trim()}
                 onClick={onCopy}
               />
@@ -51,7 +53,7 @@ export function PanelFooter({
             <Copy aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent container={tooltipContainer}>
-            Copy result
+            {t("selection_button.panel.copy")}
           </TooltipContent>
         </Tooltip>
 
@@ -61,7 +63,7 @@ export function PanelFooter({
               <button
                 type="button"
                 className={buttonVariants({ variant: "outline", size: "icon" })}
-                aria-label="Retry action"
+                aria-label={t("selection_button.panel.retry")}
                 disabled={panelState === "streaming"}
                 onClick={onRetry}
               />
@@ -69,7 +71,7 @@ export function PanelFooter({
             <RefreshCw aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent container={tooltipContainer}>
-            Retry action
+            {t("selection_button.panel.retry")}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -88,10 +90,10 @@ export function PanelFooter({
                   onClick={onInsertBelow}
                 />
               }>
-              Insert Below
+              {t("selection_button.panel.insert")}
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              Insert result below selection
+              {t("selection_button.panel.insert_tip")}
             </TooltipContent>
           </Tooltip>
         )}
@@ -110,10 +112,10 @@ export function PanelFooter({
               />
             }>
             <MessageSquare aria-hidden="true" />
-            Open in Chat
+            {t("selection_button.panel.open_chat")}
           </TooltipTrigger>
           <TooltipContent container={tooltipContainer}>
-            Open result in chat
+            {t("selection_button.panel.open_chat_tip")}
           </TooltipContent>
         </Tooltip>
 
@@ -131,10 +133,10 @@ export function PanelFooter({
                 />
               }>
               <SquarePen aria-hidden="true" />
-              Replace
+              {t("selection_button.panel.replace")}
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              Replace selected text
+              {t("selection_button.panel.replace_tip")}
             </TooltipContent>
           </Tooltip>
         )}
@@ -152,10 +154,10 @@ export function PanelFooter({
                   onClick={onCancel}
                 />
               }>
-              Cancel
+              {t("selection_button.panel.cancel")}
             </TooltipTrigger>
             <TooltipContent container={tooltipContainer}>
-              Cancel generation
+              {t("selection_button.panel.cancel_tip")}
             </TooltipContent>
           </Tooltip>
         )}

@@ -1,36 +1,50 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { GripHorizontal, Pin, X } from "@/lib/lucide-icon"
+import { ArrowLeft, GripHorizontal, Pin, X } from "@/lib/lucide-icon"
 import type { ProviderModel } from "@/types"
+import { SELECTION_ACTIONS } from "../actions"
+import type { SelectionActionId } from "../types"
 
 interface PanelHeaderProps {
-  actionLabel: string
+  currentAction: SelectionActionId
+  enabledActionIds: SelectionActionId[]
   panelModel: string
   availableModels: ProviderModel[]
   isPinned: boolean
   tooltipContainer: HTMLElement | ShadowRoot | null
+  onActionChange: (actionId: SelectionActionId) => void
   onModelChange: (model: string, providerId?: string) => void
   onTogglePin: () => void
+  onBack: () => void
   onClose: () => void
   onDragStart: (event: ReactPointerEvent<HTMLElement>) => void
 }
 
 export function PanelHeader({
-  actionLabel,
+  currentAction,
+  enabledActionIds,
   panelModel,
   availableModels,
   isPinned,
   tooltipContainer,
+  onActionChange,
   onModelChange,
   onTogglePin,
+  onBack,
   onClose,
   onDragStart
 }: PanelHeaderProps) {
+  const { t } = useTranslation()
+  const enabledActions = SELECTION_ACTIONS.filter((a) =>
+    enabledActionIds.includes(a.id)
+  )
+
   const modelNode =
     availableModels.length > 0 ? (
       <select
@@ -58,19 +72,47 @@ export function PanelHeader({
       <Tooltip>
         <TooltipTrigger
           render={
-            <div className="sa-drag-handle" onPointerDown={onDragStart} />
+            <button
+              type="button"
+              className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+              aria-label={t("selection_button.panel.back")}
+              onClick={onBack}
+            />
           }>
-          <GripHorizontal aria-hidden="true" />
+          <ArrowLeft aria-hidden="true" />
         </TooltipTrigger>
-        <TooltipContent container={tooltipContainer}>Drag panel</TooltipContent>
+        <TooltipContent container={tooltipContainer}>
+          {t("selection_button.panel.back")}
+        </TooltipContent>
       </Tooltip>
 
       <div className="sa-title-row">
-        <span className="sa-title">{actionLabel}</span>
+        <select
+          className="sa-action-select"
+          value={currentAction}
+          onChange={(e) => onActionChange(e.target.value as SelectionActionId)}>
+          {enabledActions.map((a) => (
+            <option key={a.id} value={a.id}>
+              {t(`selection_button.actions.${a.id}.label`, a.label)}
+            </option>
+          ))}
+        </select>
         {modelNode}
       </div>
 
       <div className="sa-header-actions">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <div className="sa-drag-handle" onPointerDown={onDragStart} />
+            }>
+            <GripHorizontal aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent container={tooltipContainer}>
+            {t("selection_button.panel.drag_panel")}
+          </TooltipContent>
+        </Tooltip>
+
         <Tooltip>
           <TooltipTrigger
             render={
@@ -80,14 +122,20 @@ export function PanelHeader({
                   variant: isPinned ? "secondary" : "ghost",
                   size: "icon-sm"
                 })}
-                aria-label={isPinned ? "Unpin panel" : "Pin panel"}
+                aria-label={
+                  isPinned
+                    ? t("selection_button.panel.unpin")
+                    : t("selection_button.panel.pin")
+                }
                 onClick={onTogglePin}
               />
             }>
             <Pin aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent container={tooltipContainer}>
-            {isPinned ? "Unpin panel" : "Pin panel"}
+            {isPinned
+              ? t("selection_button.panel.unpin")
+              : t("selection_button.panel.pin")}
           </TooltipContent>
         </Tooltip>
 
@@ -100,13 +148,15 @@ export function PanelHeader({
                   variant: "ghost",
                   size: "icon-sm"
                 })}
-                aria-label="Close"
+                aria-label={t("selection_button.panel.close")}
                 onClick={onClose}
               />
             }>
             <X aria-hidden="true" />
           </TooltipTrigger>
-          <TooltipContent container={tooltipContainer}>Close</TooltipContent>
+          <TooltipContent container={tooltipContainer}>
+            {t("selection_button.panel.close")}
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>

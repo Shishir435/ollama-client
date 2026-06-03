@@ -165,7 +165,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     padding: 0;
     box-shadow: var(--sa-shadow);
     font-family: var(--font-sans, system-ui, sans-serif);
-    font-size: 0.75rem;
+    font-size: 12px;
     line-height: 1.4;
   }
   .sa-card-header {
@@ -215,8 +215,8 @@ export const buildShadowStyles = (appStyles: string): string => `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
-    height: var(--control-height-sm, 1.75rem);
+    width: 24px;
+    height: 28px;
     color: var(--sa-muted);
     cursor: grab;
     touch-action: none;
@@ -251,6 +251,35 @@ export const buildShadowStyles = (appStyles: string): string => `
   .sa-model-name {
     font-size: 12px;
     color: var(--sa-muted);
+  }
+  .sa-action-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--sa-fg);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    cursor: pointer;
+    padding: 0 16px 0 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-size: 10px;
+    min-width: 0;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sa-action-select:focus {
+    outline: none;
+  }
+  .dark .sa-action-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   }
 
   /* Result area */

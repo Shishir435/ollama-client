@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",
-    "tooltip": "Zum Local LLM Client hinzufügen"
+    "tooltip": "Zum Local LLM Client hinzufügen",
+    "actions": {
+      "summarize": {
+        "label": "Zusammenfassen",
+        "short": "Zusammenf."
+      },
+      "rewrite": {
+        "label": "Professionell umschreiben",
+        "short": "Umschreiben"
+      },
+      "shorten": {
+        "label": "Kürzen",
+        "short": "Kürzen"
+      },
+      "fix-grammar": {
+        "label": "Grammatik korrigieren",
+        "short": "Grammatik"
+      },
+      "explain": {
+        "label": "Einfach erklären",
+        "short": "Erklären"
+      },
+      "action-items": {
+        "label": "Aufgaben extrahieren",
+        "short": "Aufgaben"
+      },
+      "translate-english": {
+        "label": "Ins Englische übersetzen",
+        "short": "Englisch"
+      },
+      "custom": {
+        "label": "Eigene Anweisung",
+        "short": "Eigene"
+      }
+    },
+    "panel": {
+      "reasoning_active": "Denkt nach…",
+      "reasoning_done": "Überlegung",
+      "working": "Wird bearbeitet…",
+      "thinking": "Überlegt…",
+      "back": "Zurück zur Symbolleiste",
+      "drag_panel": "Fenster verschieben",
+      "drag_toolbar": "Leiste verschieben",
+      "pin": "Fenster anheften",
+      "unpin": "Fenster lösen",
+      "close": "Schließen",
+      "more": "Weitere Aktionen",
+      "open_chat": "Im Chat öffnen",
+      "open_chat_tip": "Ergebnis im Chat öffnen",
+      "copy": "Ergebnis kopieren",
+      "retry": "Erneut versuchen",
+      "insert": "Darunter einfügen",
+      "insert_tip": "Ergebnis unter Auswahl einfügen",
+      "replace": "Ersetzen",
+      "replace_tip": "Ausgewählten Text ersetzen",
+      "cancel": "Abbrechen",
+      "cancel_tip": "Generierung abbrechen",
+      "run": "Ausführen",
+      "instruction_ph": "Anweisung"
+    }
   },
   "welcome": {
     "title": "Willkommen beim Local LLM Chat",

@@ -3,6 +3,7 @@ export {
   Activity,
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
   BookOpen,
   Bot,

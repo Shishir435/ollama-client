@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "Preguntar al LLM local",
-    "tooltip": "Añadir al cliente LLM local"
+    "tooltip": "Añadir al cliente LLM local",
+    "actions": {
+      "summarize": {
+        "label": "Resumir",
+        "short": "Resumen"
+      },
+      "rewrite": {
+        "label": "Reescribir profesionalmente",
+        "short": "Reescribir"
+      },
+      "shorten": {
+        "label": "Acortar",
+        "short": "Acortar"
+      },
+      "fix-grammar": {
+        "label": "Corregir gramática",
+        "short": "Gramática"
+      },
+      "explain": {
+        "label": "Explicar de forma sencilla",
+        "short": "Explicar"
+      },
+      "action-items": {
+        "label": "Extraer acciones",
+        "short": "Acciones"
+      },
+      "translate-english": {
+        "label": "Traducir al inglés",
+        "short": "Inglés"
+      },
+      "custom": {
+        "label": "Instrucción personalizada",
+        "short": "Personalizar"
+      }
+    },
+    "panel": {
+      "reasoning_active": "Razonando…",
+      "reasoning_done": "Razonamiento",
+      "working": "Procesando…",
+      "thinking": "Pensando…",
+      "back": "Volver a la barra",
+      "drag_panel": "Arrastrar panel",
+      "drag_toolbar": "Arrastrar barra",
+      "pin": "Fijar panel",
+      "unpin": "Desfijar panel",
+      "close": "Cerrar",
+      "more": "Más acciones",
+      "open_chat": "Abrir en chat",
+      "open_chat_tip": "Abrir resultado en el chat",
+      "copy": "Copiar resultado",
+      "retry": "Reintentar",
+      "insert": "Insertar debajo",
+      "insert_tip": "Insertar resultado bajo la selección",
+      "replace": "Reemplazar",
+      "replace_tip": "Reemplazar texto seleccionado",
+      "cancel": "Cancelar",
+      "cancel_tip": "Cancelar generación",
+      "run": "Ejecutar",
+      "instruction_ph": "Instrucción"
+    }
   },
   "welcome": {
     "title": "Bienvenido al chat de LLM local",

@@ -47,7 +47,66 @@
   },
   "selection_button": {
     "label": "Ask Local LLM",
-    "tooltip": "Add to Local LLM Client"
+    "tooltip": "Add to Local LLM Client",
+    "actions": {
+      "summarize": {
+        "label": "Summarize",
+        "short": "Summary"
+      },
+      "rewrite": {
+        "label": "Rewrite professionally",
+        "short": "Rewrite"
+      },
+      "shorten": {
+        "label": "Shorten",
+        "short": "Shorten"
+      },
+      "fix-grammar": {
+        "label": "Fix grammar",
+        "short": "Grammar"
+      },
+      "explain": {
+        "label": "Explain simply",
+        "short": "Explain"
+      },
+      "action-items": {
+        "label": "Extract action items",
+        "short": "Actions"
+      },
+      "translate-english": {
+        "label": "Translate to English",
+        "short": "English"
+      },
+      "custom": {
+        "label": "Custom prompt",
+        "short": "Custom"
+      }
+    },
+    "panel": {
+      "reasoning_active": "Reasoning…",
+      "reasoning_done": "Reasoning",
+      "working": "Working…",
+      "thinking": "Thinking…",
+      "back": "Back to toolbar",
+      "drag_panel": "Drag panel",
+      "drag_toolbar": "Drag toolbar",
+      "pin": "Pin panel",
+      "unpin": "Unpin panel",
+      "close": "Close",
+      "more": "More actions",
+      "open_chat": "Open in Chat",
+      "open_chat_tip": "Open result in chat",
+      "copy": "Copy result",
+      "retry": "Retry action",
+      "insert": "Insert Below",
+      "insert_tip": "Insert result below selection",
+      "replace": "Replace",
+      "replace_tip": "Replace selected text",
+      "cancel": "Cancel",
+      "cancel_tip": "Cancel generation",
+      "run": "Run",
+      "instruction_ph": "Instruction"
+    }
   },
   "welcome": {
     "title": "Welcome to Local LLM Chat",
