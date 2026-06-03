@@ -175,8 +175,7 @@ export default defineContentScript({
           [data-slot="tooltip-arrow"] {
             display: none !important;
           }
-          .sa-toolbar,
-          .sa-panel {
+          .sa-toolbar {
             box-sizing: border-box;
             max-width: calc(100vw - 16px);
             background: var(--sa-bg);
@@ -270,7 +269,6 @@ export default defineContentScript({
             opacity: 0.45;
           }
           .sa-button svg,
-          .sa-action-icon svg,
           .sa-drag-handle svg {
             width: 14px;
             height: 14px;
@@ -281,38 +279,57 @@ export default defineContentScript({
             stroke-linecap: round;
             stroke-linejoin: round;
           }
-          .sa-panel {
+          /* Card overrides for the panel */
+          .sa-panel-card {
             width: min(470px, calc(100vw - 16px));
-            padding: 18px;
+            gap: 0;
+            padding: 0;
+            box-shadow: var(--sa-shadow);
+            font-family: var(--font-sans, system-ui, sans-serif);
+            font-size: 0.75rem;
+            line-height: 1.4;
           }
-          .sa-panel-header,
-          .sa-panel-actions,
-          .sa-header-actions {
+          .sa-card-header {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid var(--sa-border);
+            gap: 0;
+            display: block;
+          }
+          .sa-card-content {
+            padding: 12px 16px 4px;
+          }
+          .sa-card-footer {
+            padding: 0 16px 14px;
+          }
+          /* Panel header */
+          .sa-panel-header {
             display: flex;
             align-items: center;
             gap: 6px;
           }
-          .sa-panel-header {
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--sa-border);
+          .sa-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
           }
-          .sa-title {
+          .sa-title-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex: 1;
             min-width: 0;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-size: 16px;
+          }
+          .sa-title {
+            font-size: 15px;
             line-height: 1.25;
             font-weight: 700;
-          }
-          .sa-title-wrap {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 0;
+            max-width: 220px;
           }
           .sa-drag-handle {
             display: inline-flex;
@@ -327,17 +344,6 @@ export default defineContentScript({
           }
           .sa-drag-handle:active {
             cursor: grabbing;
-          }
-          .sa-title-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            min-width: 0;
-            padding-top: 2px;
-          }
-          .sa-model-row {
-            display: flex;
-            align-items: center;
           }
           .sa-model-inline {
             appearance: none;
@@ -354,7 +360,7 @@ export default defineContentScript({
             background-repeat: no-repeat;
             background-position: right 0 center;
             background-size: 10px;
-            max-width: 200px;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -364,6 +370,7 @@ export default defineContentScript({
           }
           .sa-model-name {
             font-size: 0.75rem;
+            color: var(--sa-muted);
           }
           .sa-result {
             min-height: 96px;
