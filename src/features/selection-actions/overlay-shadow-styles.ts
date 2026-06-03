@@ -11,11 +11,26 @@ export const buildShadowStyles = (appStyles: string): string => `
   #selection-actions-root {
     font-size: 16px;
 
+    /*
+     * Pin Tailwind v4 CSS vars to absolute px values so rem-based host
+     * pages (e.g. YouTube: html{font-size:62.5%}) don't shrink our UI.
+     * --spacing fixes h-*, size-*, gap-*, px-*, py-* (all calc(var(--spacing)*N))
+     * --text-xs fixes button/label font sizes
+     * --radius fixes rounded-* variants
+     */
+    --spacing: 4px;
+    --text-xs: 12px;
+    --text-xs--line-height: 1.625;
+    --text-sm: 14px;
+    --text-sm--line-height: 1.4286;
+
     /* Radius */
-    --radius: 0.625rem;
-    --radius-sm: calc(0.625rem - 4px);
-    --radius-md: calc(0.625rem - 2px);
-    --radius-lg: 0.625rem;
+    --radius: 10px;
+    --radius-xs: 2px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
 
     /* Light mode tokens */
     --background: oklch(1 0 0);
@@ -38,7 +53,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     --input: oklch(0.92 0.004 286.32);
     --ring: oklch(0.705 0.015 286.067);
 
-    /* sa- aliases referencing our own tokens (safe) */
+    /* sa- aliases */
     --sa-radius-lg: var(--radius-lg);
     --sa-radius-md: var(--radius-md);
     --sa-bg: var(--background);
@@ -83,8 +98,8 @@ export const buildShadowStyles = (appStyles: string): string => `
     font-size: 12px !important;
     line-height: 1.4 !important;
     font-family: system-ui, sans-serif !important;
-    padding: 0.375rem 0.75rem !important;
-    max-width: 18rem !important;
+    padding: 6px 12px !important;
+    max-width: 288px !important;
     box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.12) !important;
   }
   .dark [data-slot="tooltip-content"] {
