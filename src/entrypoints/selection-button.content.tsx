@@ -250,66 +250,70 @@ export default defineContentScript({
       const canReplace = hasResult && currentCapture.canReplace
       const canInsert = hasResult && currentCapture.canInsert
 
-      flushSync(() => {
-        root?.render(
-          <SelectionActionsOverlay
-            mode={overlayMode}
-            panelState={panelState}
-            currentAction={currentAction}
-            enabledActionIds={enabledActionIds()}
-            isMoreMenuOpen={isMoreMenuOpen}
-            resultText={resultText}
-            errorText={errorText}
-            isThinking={isThinking}
-            thinkingText={thinkingText}
-            availableModels={availableModels}
-            panelModel={panelModel}
-            onModelChange={(model, providerId) => {
-              panelModel = model
-              panelProviderId = providerId
-              renderOverlay(false)
-            }}
-            canReplace={canReplace}
-            canInsert={canInsert}
-            tooltipContainer={tooltipContainer}
-            isPinned={isPinned}
-            customInstruction={customInstruction}
-            onRunAction={runAction}
-            onActionChange={runAction}
-            onBack={goBackToToolbar}
-            onToggleMore={() => {
-              markOverlayInteraction()
-              isMoreMenuOpen = !isMoreMenuOpen
-              renderOverlay()
-            }}
-            onCopy={() => void copyResult()}
-            onReplace={replaceSelection}
-            onInsertBelow={insertBelow}
-            onOpenChat={() => void openInChat()}
-            onRetry={() => void startAction()}
-            onCancel={stopStream}
-            onClose={hide}
-            onTogglePin={() => {
-              markOverlayInteraction()
-              isPinned = !isPinned
-              renderOverlay(false)
-            }}
-            onCustomInstructionChange={(value) => {
-              markOverlayInteraction()
-              customInstruction = value
-              renderOverlay(false)
-            }}
-            onRunCustom={() => void startAction()}
-            onDragStart={handleDragStart}
-          />
-        )
-      })
+      const jsx = (
+        <SelectionActionsOverlay
+          mode={overlayMode}
+          panelState={panelState}
+          currentAction={currentAction}
+          enabledActionIds={enabledActionIds()}
+          isMoreMenuOpen={isMoreMenuOpen}
+          resultText={resultText}
+          errorText={errorText}
+          isThinking={isThinking}
+          thinkingText={thinkingText}
+          availableModels={availableModels}
+          panelModel={panelModel}
+          onModelChange={(model, providerId) => {
+            panelModel = model
+            panelProviderId = providerId
+            renderOverlay(false)
+          }}
+          canReplace={canReplace}
+          canInsert={canInsert}
+          tooltipContainer={tooltipContainer}
+          isPinned={isPinned}
+          customInstruction={customInstruction}
+          onRunAction={runAction}
+          onActionChange={runAction}
+          onBack={goBackToToolbar}
+          onToggleMore={() => {
+            markOverlayInteraction()
+            isMoreMenuOpen = !isMoreMenuOpen
+            renderOverlay()
+          }}
+          onCopy={() => void copyResult()}
+          onReplace={replaceSelection}
+          onInsertBelow={insertBelow}
+          onOpenChat={() => void openInChat()}
+          onRetry={() => void startAction()}
+          onCancel={stopStream}
+          onClose={hide}
+          onTogglePin={() => {
+            markOverlayInteraction()
+            isPinned = !isPinned
+            renderOverlay(false)
+          }}
+          onCustomInstructionChange={(value) => {
+            markOverlayInteraction()
+            customInstruction = value
+            renderOverlay(false)
+          }}
+          onRunCustom={() => void startAction()}
+          onDragStart={handleDragStart}
+        />
+      )
 
+      // flushSync only when we need to read rendered dimensions for placement.
+      // Non-placement renders (streaming chunks, typing) go through React's
+      // normal scheduler — no paint-blocking.
       if (shouldPlace && !isPinned) {
+        flushSync(() => root?.render(jsx))
         place(
           currentCapture.rect.bottom + 10,
           currentCapture.rect.left + currentCapture.rect.width / 2
         )
+      } else {
+        root.render(jsx)
       }
     }
 
