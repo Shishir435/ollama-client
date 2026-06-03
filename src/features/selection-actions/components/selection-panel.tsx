@@ -8,6 +8,7 @@ import type { ProviderModel } from "@/types"
 import type { SelectionActionId } from "../types"
 import { PanelFooter } from "./panel-footer"
 import { PanelHeader } from "./panel-header"
+import { PanelMarkdown } from "./panel-markdown"
 import { PanelThinking } from "./panel-thinking"
 import type { SelectionPanelState } from "./selection-actions-overlay"
 
@@ -76,15 +77,17 @@ export function SelectionPanel({
   const body =
     panelState === "error" ? (
       <div className="sa-result sa-error">{errorText}</div>
+    ) : resultText ? (
+      <div className="sa-result sa-result--md">
+        <PanelMarkdown content={resultText} />
+      </div>
     ) : (
       <div className="sa-result">
-        {resultText || (
-          <span className="sa-muted">
-            {isThinking
-              ? t("selection_button.panel.thinking")
-              : t("selection_button.panel.working")}
-          </span>
-        )}
+        <span className="sa-muted">
+          {isThinking
+            ? t("selection_button.panel.thinking")
+            : t("selection_button.panel.working")}
+        </span>
       </div>
     )
 
