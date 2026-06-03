@@ -96,8 +96,6 @@ describe("jsonExporter", () => {
       .calls[0]
     expect(filename).toBe("My Chat.json")
     expect(blob.type).toBe("application/json")
-    const text = blob
-    // verify content is valid JSON containing session id
     expect(blob).toBeInstanceOf(Blob)
   })
 

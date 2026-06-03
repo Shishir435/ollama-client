@@ -15,7 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("sql.js/dist/sql-wasm.js", () => ({ default: vi.fn() }))
-vi.mock("./migrations/add-thinking-column", () => ({
+vi.mock("../migrations/add-thinking-column", () => ({
   ensureMessagesThinkingColumn: vi.fn()
 }))
 vi.mock("@/lib/logger", () => ({

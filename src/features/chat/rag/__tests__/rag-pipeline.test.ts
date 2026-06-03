@@ -36,9 +36,11 @@ vi.mock("@/lib/embeddings/recency-boost", () => ({
   applyRecencyBoost: vi.fn()
 }))
 
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { applyRecencyBoost } from "@/lib/embeddings/recency-boost"
+import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"
 
 const makeDoc = (id: number, content: string): VectorDocument => ({
@@ -82,8 +84,6 @@ describe("formatEnhancedResults", () => {
     expect(sources[0].page).toBe(3)
   })
 })
-
-import { getEmbeddingConfig } from "@/lib/embeddings/config"
 
 // ─── retrieveContextEnhanced — full mode (BUG-02) ────────────────────────────
 describe("retrieveContextEnhanced — full mode", () => {
@@ -359,8 +359,6 @@ describe("formatEnhancedResults — token budget", () => {
     expect((sources[0] as any).isMemory).toBe(true)
   })
 })
-
-import { rerankerService } from "@/lib/embeddings/reranker"
 
 // ─── Stage 2 — reranking enabled ─────────────────────────────────────────────
 describe("retrieveContextEnhanced — reranking enabled", () => {
