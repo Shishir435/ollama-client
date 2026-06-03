@@ -64,48 +64,55 @@ export default defineContentScript({
       anchor: "body",
       append: "last",
       onMount: (uiContainer) => {
-        tooltipContainer = uiContainer
         container = document.createElement("div")
         container.id = "selection-actions-root"
         container.style.display = "none"
         container.style.position = "fixed"
         container.style.zIndex = "2147483647"
+        tooltipContainer = container
 
         const style = document.createElement("style")
         style.textContent = `
           ${appStyles}
 
           :host {
-            --background: oklch(1 0 0);
-            --foreground: oklch(0.141 0.005 285.823);
-            --color-background: var(--background);
-            --color-foreground: var(--foreground);
+            --radius: 0.625rem;
+          }
+          #selection-actions-root {
             --sa-radius-lg: var(--radius-lg, var(--radius, 0.625rem));
             --sa-radius-md: var(--radius-md, calc(var(--radius, 0.625rem) - 2px));
-            --sa-bg: #ffffff;
-            --sa-fg: #18181b;
-            --sa-muted: #71717a;
-            --sa-border: #e4e4e7;
-            --sa-hover: #f4f4f5;
-            --sa-accent: #2563eb;
-            --sa-danger: #dc2626;
-            --sa-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+            --sa-bg: var(--background);
+            --sa-fg: var(--foreground);
+            --sa-muted: var(--muted-foreground);
+            --sa-border: var(--border);
+            --sa-hover: var(--muted);
+            --sa-accent: var(--primary);
+            --sa-danger: var(--destructive);
+            --sa-shadow: 0 4px 24px oklch(0.141 0.005 285.823 / 0.18);
           }
-          @media (prefers-color-scheme: dark) {
-            :host {
-              --background: oklch(0.141 0.005 285.823);
-              --foreground: oklch(0.985 0 0);
-              --color-background: var(--background);
-              --color-foreground: var(--foreground);
-              --sa-bg: #18181b;
-              --sa-fg: #fafafa;
-              --sa-muted: #a1a1aa;
-              --sa-border: #3f3f46;
-              --sa-hover: #27272a;
-              --sa-accent: #60a5fa;
-              --sa-danger: #f87171;
-              --sa-shadow: 0 16px 32px rgba(0, 0, 0, 0.36);
-            }
+          #selection-actions-root.dark {
+            --sa-shadow: 0 4px 24px oklch(0 0 0 / 0.36);
+          }
+          [data-slot="tooltip-content"] {
+            box-sizing: border-box !important;
+            border-radius: var(--radius-md, calc(var(--radius, 0.625rem) - 2px)) !important;
+            background-color: var(--foreground) !important;
+            color: var(--background) !important;
+            font-size: 0.75rem !important;
+            line-height: 1.4 !important;
+            font-family: var(--font-sans, system-ui, sans-serif) !important;
+            padding: 0.375rem 0.75rem !important;
+            max-width: 18rem !important;
+            box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.12) !important;
+          }
+          .dark [data-slot="tooltip-content"] {
+            background-color: var(--card) !important;
+            color: var(--card-foreground) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.28) !important;
+          }
+          [data-slot="tooltip-arrow"] {
+            display: none !important;
           }
           .sa-toolbar,
           .sa-panel {
@@ -116,8 +123,8 @@ export default defineContentScript({
             border: 1px solid var(--sa-border);
             border-radius: var(--sa-radius-lg);
             box-shadow: var(--sa-shadow);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            font-size: 12px;
+            font-family: var(--font-sans, system-ui, sans-serif);
+            font-size: 0.75rem;
             line-height: 1.4;
           }
           .sa-toolbar {
@@ -142,7 +149,7 @@ export default defineContentScript({
           .sa-button,
           .sa-input {
             box-sizing: border-box;
-            height: 36px;
+            height: var(--control-height-sm, 1.75rem);
             border: 1px solid transparent;
             border-radius: var(--sa-radius-md);
             background: transparent;
@@ -155,7 +162,7 @@ export default defineContentScript({
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 0 12px;
+            padding: 0 0.75rem;
             cursor: pointer;
             white-space: nowrap;
             transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
@@ -163,19 +170,23 @@ export default defineContentScript({
           .sa-button:hover:not(:disabled) {
             background: var(--sa-hover);
           }
+          .sa-button:focus-visible {
+            outline: 2px solid var(--ring);
+            outline-offset: 1px;
+          }
           .sa-button.primary {
-            color: var(--sa-accent);
+            background: var(--accent);
+            color: var(--accent-foreground);
             font-weight: 600;
-            background: rgba(37, 99, 235, 0.1);
           }
           .sa-toolbar .sa-button {
-            width: 38px;
-            height: 38px;
+            width: var(--control-height-sm, 1.75rem);
+            height: var(--control-height-sm, 1.75rem);
             padding: 0;
           }
           .sa-toolbar .sa-button.primary {
-            width: 38px;
-            min-width: 38px;
+            width: var(--control-height-sm, 1.75rem);
+            min-width: var(--control-height-sm, 1.75rem);
             padding: 0;
           }
           .sa-toolbar .sa-label {
@@ -186,9 +197,9 @@ export default defineContentScript({
             background: var(--sa-bg);
           }
           .sa-button.fill {
-            background: var(--sa-accent);
-            color: #ffffff;
-            border-color: var(--sa-accent);
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border-color: var(--primary);
           }
           .sa-button.danger {
             color: var(--sa-danger);
@@ -200,8 +211,9 @@ export default defineContentScript({
           .sa-button svg,
           .sa-action-icon svg,
           .sa-drag-handle svg {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
             fill: none;
             stroke: currentColor;
             stroke-width: 2;
@@ -243,8 +255,8 @@ export default defineContentScript({
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
-            height: 36px;
+            width: 1.625rem;
+            height: var(--control-height-sm, 1.75rem);
             color: var(--sa-muted);
             cursor: grab;
             touch-action: none;
@@ -256,16 +268,16 @@ export default defineContentScript({
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 44px;
-            height: 44px;
+            width: 2.75rem;
+            height: 2.75rem;
             flex: 0 0 auto;
             border-radius: var(--sa-radius-lg);
-            color: var(--sa-accent);
-            background: rgba(37, 99, 235, 0.1);
+            color: var(--accent-foreground);
+            background: var(--accent);
           }
           .sa-action-icon img {
-            width: 32px;
-            height: 32px;
+            width: 2rem;
+            height: 2rem;
             border-radius: var(--sa-radius-md);
           }
           .sa-title-meta {
@@ -296,10 +308,15 @@ export default defineContentScript({
           .sa-input {
             width: 100%;
             min-width: 0;
-            padding: 0 8px;
-            height: 36px;
-            border-color: var(--sa-border);
-            background: var(--sa-bg);
+            padding: 0 0.5rem;
+            border-color: var(--input, var(--sa-border));
+            background: color-mix(in oklch, var(--input, var(--sa-border)) 20%, transparent);
+          }
+          .sa-input:focus-visible,
+          .sa-input:focus {
+            outline: none;
+            border-color: var(--ring);
+            box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent);
           }
           .sa-panel-actions {
             flex-wrap: nowrap;
@@ -322,12 +339,12 @@ export default defineContentScript({
             margin-left: auto;
           }
           .sa-panel-actions .sa-button {
-            min-width: 42px;
-            height: 34px;
-            padding: 0 10px;
+            min-width: 2.625rem;
+            height: var(--control-height-sm, 1.75rem);
+            padding: 0 0.625rem;
           }
           .sa-panel-actions .icon-only {
-            width: 42px;
+            width: 2.625rem;
             padding: 0;
           }
           .sa-muted {
@@ -348,8 +365,8 @@ export default defineContentScript({
           }
           .sa-menu-item {
             width: 100% !important;
-            height: 34px;
-            padding: 0 10px !important;
+            height: var(--control-height-sm, 1.75rem);
+            padding: 0 0.625rem !important;
             justify-content: flex-start;
             text-align: left;
           }
@@ -583,7 +600,8 @@ export default defineContentScript({
         name: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION
       })
 
-      streamPort.onMessage.addListener((message: ChromeMessage) => {
+      streamPort.onMessage.addListener((raw) => {
+        const message = raw as ChromeMessage
         if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK) {
           const payload = message.payload as { delta?: string } | undefined
           resultText += payload?.delta ?? ""
@@ -598,7 +616,7 @@ export default defineContentScript({
         if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR) {
           panelState = "error"
           errorText =
-            message.error?.message || "Selection Action failed. Try again."
+            message.error?.message ?? "Selection Action failed. Try again."
           streamPort?.disconnect()
           streamPort = null
           renderOverlay(false)
@@ -697,6 +715,35 @@ export default defineContentScript({
     await updateConfig()
     ui.mount()
 
+    const applyTheme = async () => {
+      if (!container) return
+      const result = await chrome.storage.sync.get(
+        STORAGE_KEYS.THEME.PREFERENCE
+      )
+      const pref =
+        (result[STORAGE_KEYS.THEME.PREFERENCE] as string | undefined) ??
+        "system"
+      const isDark =
+        pref === "dark"
+          ? true
+          : pref === "light"
+            ? false
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+      container.classList.toggle("dark", isDark)
+    }
+
+    const handleThemeChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: "sync" | "local" | "managed" | "session"
+    ) => {
+      if (area === "sync" && STORAGE_KEYS.THEME.PREFERENCE in changes) {
+        void applyTheme()
+      }
+    }
+
+    void applyTheme()
+    chrome.storage.onChanged.addListener(handleThemeChange)
+
     document.addEventListener("selectionchange", queueSelectionCheck, true)
     document.addEventListener("pointerup", queueSelectionCheck, true)
     document.addEventListener("mouseup", queueSelectionCheck, true)
@@ -720,6 +767,7 @@ export default defineContentScript({
       document.removeEventListener("mouseup", queueSelectionCheck, true)
       document.removeEventListener("keyup", queueSelectionCheck, true)
       document.removeEventListener("keydown", handleKeyDown, true)
+      chrome.storage.onChanged.removeListener(handleThemeChange)
       stopStream()
       root?.unmount()
       ui.remove()
