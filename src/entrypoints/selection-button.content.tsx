@@ -289,6 +289,8 @@ export default defineContentScript({
           onCancel={() => {
             stopStream()
             panelState = "done"
+            isThinking = false
+            thinkingText = ""
             renderOverlay(false)
           }}
           onClose={hide}
