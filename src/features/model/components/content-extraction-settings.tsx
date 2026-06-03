@@ -351,18 +351,6 @@ const ContentExtractionSettingsForm = ({
       />
 
       <SettingsSwitch
-        id="show-selection-button"
-        label={t("settings.content_extraction.selection_button.label")}
-        description={t(
-          "settings.content_extraction.selection_button.description"
-        )}
-        checked={config.showSelectionButton}
-        onCheckedChange={(checked) =>
-          onUpdate({ showSelectionButton: checked })
-        }
-      />
-
-      <SettingsSwitch
         id="selection-actions-enabled"
         label="Enable Selection Actions"
         description="Show local AI actions when text is selected on a page."
