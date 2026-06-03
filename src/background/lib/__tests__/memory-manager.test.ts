@@ -13,7 +13,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 describe("memoryManager.saveChatToMemory", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   const payload = {
