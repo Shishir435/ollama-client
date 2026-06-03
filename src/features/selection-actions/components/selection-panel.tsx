@@ -120,9 +120,11 @@ export function SelectionPanel({
               className="sa-custom-row"
               onSubmit={(e) => {
                 e.preventDefault()
+                if (!customInstruction.trim()) return
                 onRunCustom()
               }}>
               <Input
+                required
                 aria-label="Custom prompt instruction"
                 placeholder={t("selection_button.panel.instruction_ph")}
                 value={customInstruction}

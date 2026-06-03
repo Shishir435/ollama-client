@@ -286,7 +286,11 @@ export default defineContentScript({
           onInsertBelow={insertBelow}
           onOpenChat={() => void openInChat()}
           onRetry={() => void startAction()}
-          onCancel={stopStream}
+          onCancel={() => {
+            stopStream()
+            panelState = "done"
+            renderOverlay(false)
+          }}
           onClose={hide}
           onTogglePin={() => {
             markOverlayInteraction()

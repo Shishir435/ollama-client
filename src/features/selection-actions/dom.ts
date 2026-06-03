@@ -216,7 +216,10 @@ export const insertAfterContentEditableSelection = (
 ): boolean => {
   if (!isSingleEditableBlockRange(range, root)) return false
   range.collapse(false)
-  range.insertNode(document.createTextNode(`\n${insertion}`))
+  const frag = document.createDocumentFragment()
+  frag.appendChild(document.createElement("br"))
+  frag.appendChild(document.createTextNode(insertion))
+  range.insertNode(frag)
   dispatchEditEvents(root)
   return true
 }

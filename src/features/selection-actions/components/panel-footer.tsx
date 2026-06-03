@@ -83,6 +83,7 @@ export function PanelFooter({
               render={
                 <button
                   type="button"
+                  aria-label={t("selection_button.panel.insert")}
                   className={buttonVariants({
                     variant: "outline",
                     size: "default"
@@ -103,6 +104,7 @@ export function PanelFooter({
             render={
               <button
                 type="button"
+                aria-label={t("selection_button.panel.open_chat")}
                 className={buttonVariants({
                   variant: "outline",
                   size: "default"
@@ -125,6 +127,7 @@ export function PanelFooter({
               render={
                 <button
                   type="button"
+                  aria-label={t("selection_button.panel.replace")}
                   className={buttonVariants({
                     variant: "default",
                     size: "default"
