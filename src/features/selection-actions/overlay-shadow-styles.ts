@@ -1,12 +1,46 @@
 export const buildShadowStyles = (appStyles: string): string => `
   ${appStyles}
 
-  :host {
-    --radius: 0.625rem;
-  }
+  /*
+   * Inject ALL design tokens with concrete values on the root container.
+   * This prevents host-page CSS variables (e.g. YouTube's --card) from
+   * leaking in via CSS custom property inheritance.
+   * font-size: 16px normalises rem units regardless of the host page's
+   * root font-size (some sites set html { font-size: 62.5% }).
+   */
   #selection-actions-root {
-    --sa-radius-lg: var(--radius-lg, var(--radius, 0.625rem));
-    --sa-radius-md: var(--radius-md, calc(var(--radius, 0.625rem) - 2px));
+    font-size: 16px;
+
+    /* Radius */
+    --radius: 0.625rem;
+    --radius-sm: calc(0.625rem - 4px);
+    --radius-md: calc(0.625rem - 2px);
+    --radius-lg: 0.625rem;
+
+    /* Light mode tokens */
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.141 0.005 285.823);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.141 0.005 285.823);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.141 0.005 285.823);
+    --primary: oklch(0.21 0.006 285.885);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.967 0.001 286.375);
+    --muted-foreground: oklch(0.552 0.016 285.938);
+    --accent: oklch(0.967 0.001 286.375);
+    --accent-foreground: oklch(0.21 0.006 285.885);
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.92 0.004 286.32);
+    --input: oklch(0.92 0.004 286.32);
+    --ring: oklch(0.705 0.015 286.067);
+
+    /* sa- aliases referencing our own tokens (safe) */
+    --sa-radius-lg: var(--radius-lg);
+    --sa-radius-md: var(--radius-md);
     --sa-bg: var(--background);
     --sa-fg: var(--foreground);
     --sa-muted: var(--muted-foreground);
@@ -16,19 +50,39 @@ export const buildShadowStyles = (appStyles: string): string => `
     --sa-danger: var(--destructive);
     --sa-shadow: 0 4px 24px oklch(0.141 0.005 285.823 / 0.18);
   }
+
+  /* Dark mode: override only changed tokens */
   #selection-actions-root.dark {
+    --background: oklch(0.141 0.005 285.823);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.21 0.006 285.885);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.21 0.006 285.885);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.92 0.004 286.32);
+    --primary-foreground: oklch(0.21 0.006 285.885);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.274 0.006 286.033);
+    --muted-foreground: oklch(0.705 0.015 286.067);
+    --accent: oklch(0.274 0.006 286.033);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.552 0.016 285.938);
     --sa-shadow: 0 4px 24px oklch(0 0 0 / 0.36);
   }
 
   /* Tooltip overrides for shadow DOM */
   [data-slot="tooltip-content"] {
     box-sizing: border-box !important;
-    border-radius: var(--radius-md, calc(var(--radius, 0.625rem) - 2px)) !important;
+    border-radius: var(--radius-md) !important;
     background-color: var(--foreground) !important;
     color: var(--background) !important;
-    font-size: 0.75rem !important;
+    font-size: 12px !important;
     line-height: 1.4 !important;
-    font-family: var(--font-sans, system-ui, sans-serif) !important;
+    font-family: system-ui, sans-serif !important;
     padding: 0.375rem 0.75rem !important;
     max-width: 18rem !important;
     box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.12) !important;
@@ -210,19 +264,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     display: flex;
     gap: 6px;
     margin-bottom: 8px;
-  }
-  .sa-input {
-    width: 100%;
-    min-width: 0;
-    padding: 0 0.5rem;
-    border-color: var(--input, var(--sa-border));
-    background: color-mix(in oklch, var(--input, var(--sa-border)) 20%, transparent);
-  }
-  .sa-input:focus-visible,
-  .sa-input:focus {
-    outline: none;
-    border-color: var(--ring);
-    box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent);
   }
 
   /* Panel footer actions */

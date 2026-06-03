@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { ProviderModel } from "@/types"
 import { SELECTION_ACTIONS } from "../actions"
@@ -111,8 +112,7 @@ export function SelectionPanel({
                 e.preventDefault()
                 onRunCustom()
               }}>
-              <input
-                className="sa-input"
+              <Input
                 aria-label="Custom prompt instruction"
                 placeholder="Instruction"
                 value={customInstruction}
