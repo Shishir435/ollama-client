@@ -27,7 +27,6 @@ import {
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
-import { makeThinkingParserState } from "@/lib/thinking-parser"
 import type {
   ChromeResponse,
   ContentExtractionConfig,
