@@ -2,12 +2,7 @@ import type React from "react"
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { Paperclip } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -61,29 +56,23 @@ export const FileUploadButton = ({
         onChange={handleFileChange}
         disabled={disabled}
       />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-                "hover:bg-muted hover:text-foreground",
-                "focus:bg-muted focus:text-foreground focus:opacity-100",
-                disabled && "opacity-50 cursor-not-allowed",
-                className
-              )}
-              onClick={handleClick}
-              disabled={disabled}
-              aria-label={t("file_upload.button.aria_label")}
-            />
-          }>
-          <Paperclip className="h-4 w-4" />
-        </TooltipTrigger>
-        <TooltipContent>{t("file_upload.button.tooltip")}</TooltipContent>
-      </Tooltip>
+      <TooltipActionButton
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "size-8 shrink-0 rounded-lg transition-all duration-200",
+          "hover:bg-muted hover:text-foreground",
+          "focus:bg-muted focus:text-foreground focus:opacity-100",
+          disabled && "opacity-50 cursor-not-allowed",
+          className
+        )}
+        onClick={handleClick}
+        disabled={disabled}
+        ariaLabel={t("file_upload.button.aria_label")}
+        tooltip={t("file_upload.button.tooltip")}
+        icon={<Paperclip className="size-4" />}
+      />
     </>
   )
 }

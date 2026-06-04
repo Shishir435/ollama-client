@@ -74,7 +74,7 @@ export const SpeechSettings = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <Mic className="size-4 text-muted-foreground" />
               <Label htmlFor="voice-select" className="text-sm font-medium">
                 {t("settings.speech.voice_label")}
               </Label>
@@ -136,7 +136,7 @@ export const SpeechSettings = () => {
         <div className="border-t pt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Settings className="h-4 w-4 text-muted-foreground" />
+              <Settings className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">
                 {t("settings.speech.preview_title")}
               </span>

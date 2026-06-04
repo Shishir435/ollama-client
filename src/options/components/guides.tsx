@@ -27,7 +27,7 @@ export const Guides = () => {
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
-                      <Icon className="h-4 w-4" />
+                      <Icon className="size-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
@@ -51,7 +51,7 @@ export const Guides = () => {
                       buttonVariants({ variant: "link" }),
                       "flex items-center justify-center"
                     )}>
-                    <ExternalLink className="h-3 w-3" />
+                    <ExternalLink className="size-3" />
                   </a>
                 </CardContent>
               </Card>
@@ -78,7 +78,7 @@ export const Guides = () => {
                 <img
                   src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=975260&theme=light&t=1749479481982"
                   alt={t("guides.support.image_alt")}
-                  className="h-[48px] w-[220px] rounded border"
+                  className="h-12 w-55 rounded border"
                   width="220"
                   height="48"
                 />

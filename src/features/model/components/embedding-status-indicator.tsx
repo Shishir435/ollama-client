@@ -2,12 +2,8 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
@@ -236,19 +232,16 @@ export const EmbeddingStatusIndicator = () => {
   }, [progress, toast])
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={modelExists === false ? handleDownload : handleRetry}
-            className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
-          />
-        }>
-        {icon}
-      </TooltipTrigger>
-      <TooltipContent side="left" className="max-w-62.5">
+    <TooltipActionButton
+      variant="secondary"
+      size="icon"
+      onClick={modelExists === false ? handleDownload : handleRetry}
+      className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+      ariaLabel={statusText}
+      tooltipSide="left"
+      tooltipClassName="max-w-62.5"
+      icon={icon}
+      tooltip={
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <span className={statusColor}>{statusText}</span>
@@ -270,7 +263,7 @@ export const EmbeddingStatusIndicator = () => {
                 variant="secondary"
                 className="h-7 text-xs w-full"
                 onClick={handleDownload}>
-                <Download className="mr-2 h-3 w-3" />
+                <Download className="mr-2 size-3" />
                 {t("model.embedding_status.download_button")}
               </Button>
             </div>
@@ -283,7 +276,7 @@ export const EmbeddingStatusIndicator = () => {
             </div>
           )}
         </div>
-      </TooltipContent>
-    </Tooltip>
+      }
+    />
   )
 }

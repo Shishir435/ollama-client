@@ -1,12 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { logger } from "@/lib/logger"
 import { Check, Copy } from "@/lib/lucide-icon"
 
@@ -25,26 +20,20 @@ export const CopyButton = ({ text }: { text: string }) => {
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label="copy"
-            size="icon"
-            variant="ghost"
-            className="size-4"
-            onClick={handleCopy}
-          />
-        }>
-        {copied ? (
+    <TooltipActionButton
+      ariaLabel={t("chat.actions.copy")}
+      tooltip={copied ? t("chat.actions.copied") : t("chat.actions.copy")}
+      size="icon"
+      variant="ghost"
+      className="size-4"
+      onClick={handleCopy}
+      icon={
+        copied ? (
           <Check className="size-3.5 text-status-success" />
         ) : (
           <Copy className="size-3.5" />
-        )}
-      </TooltipTrigger>
-      <TooltipContent>
-        {copied ? t("chat.actions.copied") : t("chat.actions.copy")}
-      </TooltipContent>
-    </Tooltip>
+        )
+      }
+    />
   )
 }

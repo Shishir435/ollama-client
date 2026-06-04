@@ -63,7 +63,7 @@ export const SearchResultItem = ({
                 : t("chat.search.role_assistant")}
             </Badge>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0 bg-muted/50 px-1.5 py-0.5 rounded-full">
-              <Clock className="h-3 w-3" />
+              <Clock className="size-3" />
               {formatTimestamp(result.timestamp)}
             </span>
           </div>
@@ -78,7 +78,7 @@ export const SearchResultItem = ({
           {truncateText(result.messageContent, 300)}
         </p>
       </div>
-      <ExternalLink className="h-4 w-4 absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
+      <ExternalLink className="size-4 absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
     </button>
   )
 }

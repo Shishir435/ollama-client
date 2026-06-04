@@ -160,7 +160,7 @@ const ContentExtractionSettingsForm = ({
       htmlFor={field.id}
       label={
         <>
-          <field.icon className="h-3 w-3" />
+          <field.icon className="size-3" />
           {t(
             `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
           )}
@@ -204,7 +204,7 @@ const ContentExtractionSettingsForm = ({
       <SettingsField
         label={
           <>
-            <FileText className="h-4 w-4" />
+            <FileText className="size-4" />
             {t("settings.content_extraction.scraper.label")}
           </>
         }
@@ -226,12 +226,12 @@ const ContentExtractionSettingsForm = ({
                 )}>
                 <span
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors",
+                    "flex size-10 shrink-0 items-center justify-center rounded-md transition-colors",
                     isSelected
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted group-hover:bg-muted/80"
                   )}>
-                  <Icon className="h-5 w-5" />
+                  <Icon className="size-5" />
                 </span>
                 <span className="flex-1 space-y-1.5 min-w-0">
                   <span className="flex items-center gap-2 flex-wrap">
@@ -285,7 +285,7 @@ const ContentExtractionSettingsForm = ({
       htmlFor={id || "scroll-strategy"}
       label={
         <>
-          <Target className="h-4 w-4" />
+          <Target className="size-4" />
           {t("settings.content_extraction.scroll_strategy.label")}
         </>
       }
@@ -318,7 +318,7 @@ const ContentExtractionSettingsForm = ({
       <SettingsSliderField
         label={
           <>
-            <Zap className="h-4 w-4" />
+            <Zap className="size-4" />
             {t("settings.content_extraction.scroll_depth.label")}
           </>
         }

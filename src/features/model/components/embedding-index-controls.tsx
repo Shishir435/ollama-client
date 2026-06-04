@@ -64,12 +64,12 @@ export const EmbeddingIndexControls = () => {
           disabled={isRebuildingIndex}>
           {isRebuildingIndex ? (
             <>
-              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+              <Loader2 className="size-3 mr-2 animate-spin" />
               {t("settings.embeddings.rebuild_index.button_rebuilding")}
             </>
           ) : (
             <>
-              <Database className="h-3 w-3 mr-1" />
+              <Database className="size-3 mr-1" />
               {t("settings.embeddings.rebuild_index.button")}
             </>
           )}

@@ -22,7 +22,7 @@ export const SectionHeader = ({
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+        {Icon && <Icon className="size-4 text-muted-foreground" />}
         <h3 className="text-sm font-semibold">{title}</h3>
         {badge && <MiniBadge text={badge} />}
       </div>

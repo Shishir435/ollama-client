@@ -203,7 +203,7 @@ const ModuleResetItem = ({
           setTimeout(() => setResetting(false), 1000)
         }}>
         {t("settings.reset.reset_button")}{" "}
-        {resetting ? <CircleCheck className="h-4 w-4" /> : ""}
+        {resetting ? <CircleCheck className="size-4" /> : ""}
       </Button>
     </Card>
   )

@@ -302,7 +302,7 @@ export const ProviderSettings = () => {
   if (loading) {
     return (
       <div className="flex justify-center p-8">
-        <Loader2 className="animate-spin h-6 w-6" />
+        <Loader2 className="animate-spin size-6" />
       </div>
     )
   }
@@ -364,7 +364,7 @@ export const ProviderSettings = () => {
                           render={
                             <span className="inline-flex text-muted-foreground hover:text-foreground" />
                           }>
-                          <Info className="h-3.5 w-3.5" />
+                          <Info className="size-3.5" />
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="max-w-xs">
@@ -419,9 +419,9 @@ export const ProviderSettings = () => {
                 onClick={handleTestConnection}
                 disabled={testingConnection}>
                 {testingConnection ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
-                  <Zap className="w-4 h-4 mr-2" />
+                  <Zap className="size-4 mr-2" />
                 )}
                 {t("settings.providers.test")}
               </Button>
@@ -466,7 +466,7 @@ export const ProviderSettings = () => {
                   <Button
                     onClick={() => handleSave(activeConfig)}
                     disabled={!hasUnsavedChanges}>
-                    <Save className="w-4 h-4 mr-2" />
+                    <Save className="size-4 mr-2" />
                     {t("settings.providers.save")}
                   </Button>
                 </SettingsActionRow>
@@ -545,7 +545,7 @@ export const ProviderSettings = () => {
                             input.value = ""
                           }
                         }}>
-                        <Plus className="h-4 w-4" />
+                        <Plus className="size-4" />
                       </Button>
                     </SettingsActionRow>
 
@@ -568,7 +568,7 @@ export const ProviderSettings = () => {
                                   })
                                 }}
                                 className="hover:text-destructive transition-colors">
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="size-3.5" />
                               </button>
                             </div>
                           ))}

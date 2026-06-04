@@ -1,8 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { MultiSelect } from "@/components/multi-select"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,11 +10,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -99,6 +94,26 @@ export const TabsSelect = () => {
   const updatedSelectedCount = selectedTabIds.filter(
     (id) => updatedIds[parseInt(id, 10)]
   ).length
+  const selectedTabActions: ActionConfig[] = [
+    {
+      key: "view-content",
+      variant: "outline",
+      size: "icon",
+      className: "size-7",
+      onClick: () => setShowInspector(true),
+      label: t("tabs.select.view_content"),
+      icon: <Eye className="size-4" />
+    },
+    {
+      key: "refresh",
+      variant: "outline",
+      size: "icon",
+      className: "size-7",
+      onClick: refreshSelectedTabContents,
+      label: t("tabs.select.refresh_now"),
+      icon: <RefreshCw className="size-4" />
+    }
+  ]
 
   return (
     <div className="space-y-2">
@@ -130,36 +145,7 @@ export const TabsSelect = () => {
                   {t("tabs.select.updated")}
                 </span>
               )}
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setShowInspector(true)}
-                      aria-label={t("tabs.select.view_content")}
-                    />
-                  }>
-                  <Eye className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>{t("tabs.select.view_content")}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={refreshSelectedTabContents}
-                      aria-label={t("tabs.select.refresh_now")}
-                    />
-                  }>
-                  <RefreshCw className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>{t("tabs.select.refresh_now")}</TooltipContent>
-              </Tooltip>
+              <ActionGroup actions={selectedTabActions} className="gap-1.5" />
             </div>
           </div>
 

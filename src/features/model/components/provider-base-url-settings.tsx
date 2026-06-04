@@ -98,7 +98,7 @@ export const ProviderBaseUrlSettings = () => {
             )}
             {!isLocalhost && urlIsValid && (
               <Badge variant="outline" className="ml-auto text-xs">
-                <ExternalLink className="mr-1 h-3 w-3" />
+                <ExternalLink className="mr-1 size-3" />
                 {t("settings.base_url.badges.remote")}
               </Badge>
             )}
@@ -112,13 +112,13 @@ export const ProviderBaseUrlSettings = () => {
                 <div className="text-sm">{t("settings.base_url.label")}</div>
                 {!urlIsValid && providerUrl && (
                   <p className="flex items-center gap-1 text-xs text-destructive">
-                    <span className="inline-block h-1 w-1 rounded-full bg-destructive" />
+                    <span className="inline-block size-1 rounded-full bg-destructive" />
                     {t("settings.base_url.error_invalid_url")}
                   </p>
                 )}
                 {urlIsValid && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <p className="h-1 w-1 rounded-full bg-status-success" />
+                    <p className="size-1 rounded-full bg-status-success" />
                     {isLocalhost
                       ? t("settings.base_url.status_local")
                       : t("settings.base_url.status_remote")}
@@ -149,7 +149,7 @@ export const ProviderBaseUrlSettings = () => {
                   }}
                 />
                 {saved && (
-                  <Check className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-status-success" />
+                  <Check className="absolute right-2 top-1/2 size-4 -translate-y-1/2 text-status-success" />
                 )}
               </div>
               <Button
@@ -162,12 +162,12 @@ export const ProviderBaseUrlSettings = () => {
                 )}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-1 size-4 animate-spin" />
                     {t("settings.base_url.button.saving")}
                   </>
                 ) : saved ? (
                   <>
-                    <Check className="mr-1 h-4 w-4" />
+                    <Check className="mr-1 size-4" />
                     {t("settings.base_url.button.saved")}
                   </>
                 ) : (

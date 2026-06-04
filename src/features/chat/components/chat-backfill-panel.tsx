@@ -136,17 +136,17 @@ export const ChatBackfillPanel = () => {
         variant={completed ? "outline" : "default"}>
         {isRunning ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" />
             {t("chat.backfill.button_processing")}
           </>
         ) : completed ? (
           <>
-            <Sparkles className="h-4 w-4 mr-2" />
+            <Sparkles className="size-4 mr-2" />
             {t("chat.backfill.button_completed")}
           </>
         ) : (
           <>
-            <Sparkles className="h-4 w-4 mr-2" />
+            <Sparkles className="size-4 mr-2" />
             {t("chat.backfill.button_start")}
           </>
         )}

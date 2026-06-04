@@ -55,7 +55,7 @@ export const FeatureCard = ({
           "flex size-11 items-center justify-center rounded-[14px] shadow-sm transition-transform duration-300 group-hover:scale-110",
           iconBg
         )}>
-        <Icon className="h-5 w-5 text-background" />
+        <Icon className="size-5 text-background" />
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-[15px] font-semibold leading-tight text-foreground">

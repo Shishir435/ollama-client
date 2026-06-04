@@ -1,17 +1,13 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { Download, FileDown, FileText } from "@/lib/lucide-icon"
@@ -90,37 +86,40 @@ export const ChatExportButton = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-                    !showAllSessions && "opacity-0 group-hover:opacity-100",
-                    "hover:bg-muted hover:text-foreground",
-                    "focus:bg-muted focus:text-foreground focus:opacity-100"
-                  )}
-                  aria-label={
-                    showAllSessions
-                      ? t("sessions.export.aria_label_all")
-                      : t("sessions.export.aria_label")
-                  }
-                />
-              }
-            />
-          }>
-          <Download className="h-4 w-4" />
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {showAllSessions
+      <TooltipActionButton
+        trigger={
+          <PopoverTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "size-8 shrink-0 rounded-lg transition-all duration-200",
+                  !showAllSessions && "opacity-0 group-hover:opacity-100",
+                  "hover:bg-muted hover:text-foreground",
+                  "focus:bg-muted focus:text-foreground focus:opacity-100"
+                )}
+                aria-label={
+                  showAllSessions
+                    ? t("sessions.export.aria_label_all")
+                    : t("sessions.export.aria_label")
+                }
+              />
+            }
+          />
+        }
+        ariaLabel={
+          showAllSessions
+            ? t("sessions.export.aria_label_all")
+            : t("sessions.export.aria_label")
+        }
+        tooltip={
+          showAllSessions
             ? t("sessions.export.tooltip_all")
-            : t("sessions.export.tooltip")}
-        </TooltipContent>
-      </Tooltip>
+            : t("sessions.export.tooltip")
+        }
+        icon={<Download className="size-4" />}
+      />
 
       {options.length > 0 && (
         <PopoverContent
@@ -137,7 +136,7 @@ export const ChatExportButton = ({
                   action()
                 }}
                 className="h-8 justify-start px-2 text-sm hover:bg-muted">
-                <Icon className="mr-2 h-4 w-4" />
+                <Icon className="mr-2 size-4" />
                 {label}
               </Button>
             ))}

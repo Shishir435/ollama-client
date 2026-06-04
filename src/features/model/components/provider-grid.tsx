@@ -91,7 +91,7 @@ export const ProviderGrid = ({
             <span className="flex items-center gap-2 min-w-0">
               <span
                 className={cn(
-                  "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                  "inline-block size-2.5 shrink-0 rounded-full",
                   getStatusDotClass(provider.enabled, hasFailed, isConnected)
                 )}
               />
@@ -107,7 +107,7 @@ export const ProviderGrid = ({
                         render={
                           <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
                         }>
-                        <Info className="h-3 w-3" />
+                        <Info className="size-3" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs text-xs">

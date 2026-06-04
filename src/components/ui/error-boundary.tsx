@@ -50,7 +50,7 @@ class ErrorBoundaryBase extends Component<Props, State> {
           <Card className="w-full max-w-lg border-destructive/50">
             <CardHeader>
               <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="w-6 h-6" />
+                <AlertCircle className="size-6" />
                 <CardTitle>{t("errorBoundary.title")}</CardTitle>
               </div>
             </CardHeader>
@@ -69,7 +69,7 @@ class ErrorBoundaryBase extends Component<Props, State> {
                 variant="default"
                 className="w-full sm:w-auto"
                 onClick={this.handleReload}>
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
                 {t("errorBoundary.reload")}
               </Button>
             </CardFooter>

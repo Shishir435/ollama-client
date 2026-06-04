@@ -133,10 +133,10 @@ export const FilePreview = ({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-6 w-6 shrink-0 opacity-70 transition-opacity hover:opacity-100"
+        className="size-6 shrink-0 opacity-70 transition-opacity hover:opacity-100"
         onClick={onRemove}
         aria-label={t("file_upload.preview.remove_aria_label")}>
-        <X className="h-3 w-3" />
+        <X className="size-3" />
       </Button>
     </div>
   )

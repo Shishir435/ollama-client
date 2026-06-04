@@ -1,12 +1,7 @@
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   AlertTriangle,
@@ -19,11 +14,11 @@ import { STATUS_STYLES } from "@/lib/ui-status"
 
 const iconMap = {
   loading: (
-    <Loader2 className={`h-4 w-4 animate-spin ${STATUS_STYLES.neutral.text}`} />
+    <Loader2 className={`size-4 animate-spin ${STATUS_STYLES.neutral.text}`} />
   ),
-  error: <XCircle className={`h-4 w-4 ${STATUS_STYLES.danger.text}`} />,
-  empty: <AlertTriangle className={`h-4 w-4 ${STATUS_STYLES.warning.text}`} />,
-  ready: <CheckCircle className={`h-4 w-4 ${STATUS_STYLES.success.text}`} />
+  error: <XCircle className={`size-4 ${STATUS_STYLES.danger.text}`} />,
+  empty: <AlertTriangle className={`size-4 ${STATUS_STYLES.warning.text}`} />,
+  ready: <CheckCircle className={`size-4 ${STATUS_STYLES.success.text}`} />
 }
 
 export const ProviderStatusIndicator = () => {
@@ -47,37 +42,36 @@ export const ProviderStatusIndicator = () => {
   }, [refresh])
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => refresh()}
-            className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
-          />
-        }>
-        {iconMap[status]}
-      </TooltipTrigger>
-      <TooltipContent side="left">
-        <div className="flex items-center gap-2 text-sm">
-          <span>{getLabelMap()[status]}</span>
-          {status !== "loading" && (
-            <RefreshCw
-              className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation()
-                refresh()
-              }}
-            />
-          )}
-        </div>
-        {status === "error" && error && (
-          <div className={`mt-1 max-w-xs text-xs ${STATUS_STYLES.danger.text}`}>
-            {error}
+    <TooltipActionButton
+      variant="secondary"
+      size="icon"
+      onClick={() => refresh()}
+      className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+      ariaLabel={getLabelMap()[status]}
+      tooltipSide="left"
+      icon={iconMap[status]}
+      tooltip={
+        <>
+          <div className="flex items-center gap-2 text-sm">
+            <span>{getLabelMap()[status]}</span>
+            {status !== "loading" && (
+              <RefreshCw
+                className="size-3.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  refresh()
+                }}
+              />
+            )}
           </div>
-        )}
-      </TooltipContent>
-    </Tooltip>
+          {status === "error" && error && (
+            <div
+              className={`mt-1 max-w-xs text-xs ${STATUS_STYLES.danger.text}`}>
+              {error}
+            </div>
+          )}
+        </>
+      }
+    />
   )
 }

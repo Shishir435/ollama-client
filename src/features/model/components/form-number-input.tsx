@@ -72,7 +72,7 @@ export const FormNumberInput = ({
       label={
         Icon ? (
           <div className="flex items-center gap-2">
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
             <span>{label}</span>
           </div>
         ) : (

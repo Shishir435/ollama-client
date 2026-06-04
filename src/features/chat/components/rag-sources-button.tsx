@@ -1,5 +1,6 @@
 import { Info, ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,11 +13,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import type { RetrievedChunk } from "@/features/chat/components/retrieved-context-card"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
@@ -77,33 +73,38 @@ export function RAGSourcesButton({
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-muted-foreground hover:text-foreground"
-                    aria-label={`View ${sources.length} retrieved source${
-                      sources.length > 1 ? "s" : ""
-                    }`}
-                  />
-                }
-              />
-            }>
+        <TooltipActionButton
+          trigger={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-muted-foreground hover:text-foreground"
+                  aria-label={`View ${sources.length} retrieved source${
+                    sources.length > 1 ? "s" : ""
+                  }`}
+                />
+              }
+            />
+          }
+          ariaLabel={`View ${sources.length} retrieved source${
+            sources.length > 1 ? "s" : ""
+          }`}
+          tooltip={`${sources.length} RAG source${
+            sources.length > 1 ? "s" : ""
+          }`}
+          tooltipSide="top"
+          tooltipSideOffset={6}
+          icon={
             <div className="relative">
-              <Info className="h-3.5 w-3.5" />
-              <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+              <Info className="size-3.5" />
+              <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
                 {sources.length}
               </span>
             </div>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={6}>
-            {`${sources.length} RAG source${sources.length > 1 ? "s" : ""}`}
-          </TooltipContent>
-        </Tooltip>
+          }
+        />
         <PopoverContent
           className="w-96 max-h-115 overflow-y-auto scrollbar-none p-3"
           align="start">
@@ -137,27 +138,27 @@ export function RAGSourcesButton({
                           size="icon"
                           variant={feedback === true ? "default" : "ghost"}
                           className={cn(
-                            "h-6 w-6",
+                            "size-6",
                             feedback === true &&
                               "bg-status-success text-status-success-foreground hover:bg-status-success/90"
                           )}
                           onClick={() => handleFeedback(source, true)}
                           disabled={submittingFeedback}
                           aria-label="Helpful">
-                          <ThumbsUp className="h-3.5 w-3.5" />
+                          <ThumbsUp className="size-3.5" />
                         </Button>
                         <Button
                           size="icon"
                           variant={feedback === false ? "default" : "ghost"}
                           className={cn(
-                            "h-6 w-6",
+                            "size-6",
                             feedback === false &&
                               "bg-status-danger text-status-danger-foreground hover:bg-status-danger/90"
                           )}
                           onClick={() => handleFeedback(source, false)}
                           disabled={submittingFeedback}
                           aria-label="Not helpful">
-                          <ThumbsDown className="h-3.5 w-3.5" />
+                          <ThumbsDown className="size-3.5" />
                         </Button>
                       </div>
                     )}
@@ -216,7 +217,7 @@ export function RAGSourcesButton({
                   )}
                   onClick={() => handleFeedback(activeSource, true)}
                   disabled={submittingFeedback}>
-                  <ThumbsUp className="mr-1 h-4 w-4" />
+                  <ThumbsUp className="mr-1 size-4" />
                   Helpful
                 </Button>
                 <Button
@@ -232,7 +233,7 @@ export function RAGSourcesButton({
                   )}
                   onClick={() => handleFeedback(activeSource, false)}
                   disabled={submittingFeedback}>
-                  <ThumbsDown className="mr-1 h-4 w-4" />
+                  <ThumbsDown className="mr-1 size-4" />
                   Not helpful
                 </Button>
               </div>
