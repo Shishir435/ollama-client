@@ -356,7 +356,10 @@ const ContentExtractionSettingsForm = ({
         description="Show local AI actions when text is selected on a page."
         checked={config.selectionActionsEnabled}
         onCheckedChange={(checked) =>
-          onUpdate({ selectionActionsEnabled: checked })
+          onUpdate({
+            selectionActionsEnabled: checked,
+            showSelectionButton: checked
+          })
         }
       />
 
