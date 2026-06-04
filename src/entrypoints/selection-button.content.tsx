@@ -178,6 +178,8 @@ export default defineContentScript({
         ? config.selectionActionsEnabledIds
         : DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsEnabledIds) as SelectionActionId[]
 
+    const selectionActionsVisible = () => config.selectionActionsEnabled
+
     const markOverlayInteraction = () => {
       overlayInteractingUntil = Date.now() + 900
     }
@@ -288,7 +290,9 @@ export default defineContentScript({
           onRetry={() => void startAction()}
           onCancel={() => {
             stopStream()
-            panelState = "done"
+            panelState = "idle"
+            resultText = ""
+            errorText = ""
             isThinking = false
             thinkingText = ""
             renderOverlay(false)
@@ -510,7 +514,7 @@ export default defineContentScript({
     const handleSelectionChange = () => {
       if (Date.now() < overlayInteractingUntil) return
       if (isPinned || overlayMode === "panel") return
-      if (!config.showSelectionButton || !config.selectionActionsEnabled) {
+      if (!selectionActionsVisible()) {
         hide()
         return
       }
@@ -575,8 +579,7 @@ export default defineContentScript({
           ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
           ...((change.newValue as Partial<ContentExtractionConfig>) ?? {})
         }
-        if (!config.showSelectionButton || !config.selectionActionsEnabled)
-          hide()
+        if (!selectionActionsVisible()) hide()
       },
       [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
         panelModel = ""

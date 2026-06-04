@@ -1,4 +1,5 @@
 import type React from "react"
+import { createElement, type ElementType, isValidElement } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ export interface TooltipActionButtonProps
   icon?: LucideIcon | React.ReactNode
   iconClassName?: string
   showLabel?: boolean
+  labelClassName?: string
   trigger?: React.ReactElement
   tooltipContainer?: HTMLElement | ShadowRoot | null
   tooltipSide?: React.ComponentProps<typeof TooltipContent>["side"]
@@ -36,6 +38,7 @@ export function TooltipActionButton({
   icon,
   iconClassName,
   showLabel = false,
+  labelClassName,
   trigger,
   tooltipContainer,
   tooltipSide = "top",
@@ -56,12 +59,14 @@ export function TooltipActionButton({
       : typeof resolvedTooltip === "string"
         ? resolvedTooltip
         : undefined)
-  const Icon = typeof icon === "function" ? icon : null
-  const renderedIcon = Icon ? (
-    <Icon aria-hidden="true" className={iconClassName} />
-  ) : (
-    (icon as React.ReactNode)
-  )
+  const renderedIcon = isValidElement(icon)
+    ? icon
+    : icon
+      ? createElement(icon as ElementType, {
+          "aria-hidden": true,
+          className: iconClassName
+        })
+      : null
 
   return (
     <Tooltip>
@@ -76,7 +81,7 @@ export function TooltipActionButton({
           )
         }>
         {renderedIcon}
-        {showLabel && resolvedLabel}
+        {showLabel && <span className={labelClassName}>{resolvedLabel}</span>}
       </TooltipTrigger>
       <TooltipContent
         container={tooltipContainer}

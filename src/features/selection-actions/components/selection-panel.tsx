@@ -74,29 +74,41 @@ export function SelectionPanel({
   onDragStart
 }: SelectionPanelProps) {
   const { t } = useTranslation()
-  const body =
-    panelState === "error" ? (
-      <div className="sa-result sa-error">{errorText}</div>
-    ) : resultText ? (
-      <div className="sa-result sa-result--md">
-        <PanelMarkdown content={resultText} />
-      </div>
-    ) : (
-      <div className="sa-result">
-        <span className="sa-muted">
-          {isThinking
-            ? t("selection_button.panel.thinking")
-            : t("selection_button.panel.working")}
-        </span>
-      </div>
-    )
+  const actionLabel = t(
+    `selection_button.actions.${currentAction}.label`,
+    currentAction
+  )
+  const body = (() => {
+    if (panelState === "error") {
+      return <div className="sa-result sa-error">{errorText}</div>
+    }
+
+    if (resultText) {
+      return (
+        <div className="sa-result sa-result--md">
+          <PanelMarkdown content={resultText} />
+        </div>
+      )
+    }
+
+    if (panelState === "streaming") {
+      return (
+        <div className="sa-result">
+          <span className="sa-muted">
+            {isThinking
+              ? t("selection_button.panel.thinking")
+              : t("selection_button.panel.working")}
+          </span>
+        </div>
+      )
+    }
+
+    return null
+  })()
 
   return (
     <TooltipProvider>
-      <Card
-        className="sa-panel-card"
-        role="dialog"
-        aria-label={t("selection_button.panel.working")}>
+      <Card className="sa-panel-card" role="dialog" aria-label={actionLabel}>
         <CardHeader className="sa-card-header">
           <PanelHeader
             currentAction={currentAction}

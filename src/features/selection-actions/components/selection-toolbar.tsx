@@ -87,7 +87,8 @@ export function SelectionToolbar({
       onRunAction(action.id)
     },
     icon: iconForAction(action.id),
-    showLabel: true
+    showLabel: true,
+    labelClassName: "sa-label"
   }))
   const toolbarActionConfigs: ActionConfig[] = [
     {
@@ -100,7 +101,8 @@ export function SelectionToolbar({
         onToggleMore()
       },
       icon: MoreHorizontal,
-      showLabel: true
+      showLabel: true,
+      labelClassName: "sa-label"
     },
     {
       key: "open-chat",
@@ -111,7 +113,8 @@ export function SelectionToolbar({
         onOpenChat()
       },
       icon: MessageSquare,
-      showLabel: true
+      showLabel: true,
+      labelClassName: "sa-label"
     },
     {
       key: "close",
