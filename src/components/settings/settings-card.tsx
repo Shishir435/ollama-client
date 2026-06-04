@@ -56,7 +56,7 @@ export const SettingsCard = ({
       <CardHeader className={headerClassName || "pb-4"}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
+            {Icon && <Icon className="size-5 text-muted-foreground" />}
             <CardTitle className="text-lg">{title}</CardTitle>
             {badge && <MiniBadge text={badge} />}
           </div>

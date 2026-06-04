@@ -222,7 +222,7 @@ export const PromptTemplateForm = ({
           onClick={handleSubmit}
           disabled={!template.title.trim() || !template.userPrompt.trim()}
           className="w-full">
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 size-4" />
           {t("settings.prompts.form.create_button")}
         </Button>
       )}

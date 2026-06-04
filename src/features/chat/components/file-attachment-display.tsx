@@ -20,9 +20,9 @@ export interface FileAttachmentDisplayProps {
 
 function getFileIcon(fileType: string) {
   if (fileType === "application/pdf" || fileType.includes("document")) {
-    return <FileText className="h-3 w-3" />
+    return <FileText className="size-3" />
   }
-  return <FileIcon className="h-3 w-3" />
+  return <FileIcon className="size-3" />
 }
 
 function formatFileSize(bytes: number): string {
@@ -112,7 +112,7 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
           <div className="relative">
             {isLoading ? (
               <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <Loader2 className="size-6 animate-spin mr-2" />
                 <span className="text-sm">Loading full content...</span>
               </div>
             ) : (

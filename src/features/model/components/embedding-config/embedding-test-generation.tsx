@@ -56,7 +56,7 @@ export const EmbeddingTestGeneration = ({
           disabled={isTesting}>
           {isTesting ? (
             <>
-              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+              <Loader2 className="size-3 mr-2 animate-spin" />
               {t("settings.embeddings.test_generation.button_testing")}
             </>
           ) : (

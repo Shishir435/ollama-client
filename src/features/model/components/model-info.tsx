@@ -1,8 +1,8 @@
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Collapsible,
@@ -10,11 +10,6 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import {
   ChevronDown,
@@ -106,26 +101,26 @@ const flattenObject = (
 }
 
 const getIconForKey = (key: string) => {
-  if (key.includes("parameter")) return <Database className="h-3 w-3" />
+  if (key.includes("parameter")) return <Database className="size-3" />
   if (key.includes("context") || key.includes("length"))
-    return <FileText className="h-3 w-3" />
-  if (key.includes("architecture")) return <Cpu className="h-3 w-3" />
-  if (key.includes("quantization")) return <Layers className="h-3 w-3" />
-  if (key.includes("file")) return <Settings className="h-3 w-3" />
-  return <Info className="h-3 w-3" />
+    return <FileText className="size-3" />
+  if (key.includes("architecture")) return <Cpu className="size-3" />
+  if (key.includes("quantization")) return <Layers className="size-3" />
+  if (key.includes("file")) return <Settings className="size-3" />
+  return <Info className="size-3" />
 }
 
 const getCapabilityIcon = (capability: string) => {
   const cap = capability.toLowerCase()
   if (cap.includes("chat") || cap.includes("conversation"))
-    return <Zap className="h-3 w-3" />
+    return <Zap className="size-3" />
   if (cap.includes("code") || cap.includes("programming"))
-    return <Cpu className="h-3 w-3" />
+    return <Cpu className="size-3" />
   if (cap.includes("file") || cap.includes("document"))
-    return <FileText className="h-3 w-3" />
+    return <FileText className="size-3" />
   if (cap.includes("data") || cap.includes("analysis"))
-    return <Database className="h-3 w-3" />
-  return <Settings className="h-3 w-3" />
+    return <Database className="size-3" />
+  return <Settings className="size-3" />
 }
 
 const DetailRow = ({
@@ -207,7 +202,7 @@ export const ModelInfo = ({
     return (
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2 text-xs text-destructive">
-          <Info className="h-3 w-3" />
+          <Info className="size-3" />
           {error}
         </div>
       </div>
@@ -226,12 +221,12 @@ export const ModelInfo = ({
             <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
           }>
           <div className="flex items-center gap-2">
-            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <Cpu className="size-4 text-muted-foreground" />
             <h3 className="text-lg font-semibold">
               {t("settings.model_info.title")}
             </h3>
             {loading && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
             )}
           </div>
 
@@ -260,32 +255,26 @@ export const ModelInfo = ({
             )}
 
             <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRefresh()
-                      }}
-                      disabled={refreshing}
-                      className="h-8 w-8 p-0"
-                    />
-                  }>
+              <TooltipActionButton
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRefresh()
+                }}
+                disabled={refreshing}
+                className="size-8 p-0"
+                label={t("settings.model_info.refresh_tooltip")}
+                icon={
                   <RefreshCw
-                    className={cn("h-4 w-4", refreshing && "animate-spin")}
+                    className={cn("size-4", refreshing && "animate-spin")}
                   />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t("settings.model_info.refresh_tooltip")}</p>
-                </TooltipContent>
-              </Tooltip>
+                }
+              />
 
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform duration-200",
+                  "size-4 transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -297,7 +286,7 @@ export const ModelInfo = ({
           <div className="border-t border-border px-4 pb-4 pt-4">
             {!modelInfo || error ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Cpu className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                <Cpu className="mb-2 size-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
                   {error
                     ? t("settings.model_info.error_fetching")
@@ -312,7 +301,7 @@ export const ModelInfo = ({
                 {capabilities.length > 0 && (
                   <Card className="p-3">
                     <div className="mb-2 flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-primary" />
+                      <Zap className="size-4 text-primary" />
                       <h4 className="font-semibold">
                         {t("settings.model_info.capabilities")}
                       </h4>
@@ -333,7 +322,7 @@ export const ModelInfo = ({
 
                 <div>
                   <div className="mb-2 flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <Settings className="size-4 text-muted-foreground" />
                     <h4 className="font-semibold">
                       {t("settings.model_info.technical_details")}
                     </h4>

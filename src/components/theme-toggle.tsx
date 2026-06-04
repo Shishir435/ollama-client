@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -6,11 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { Moon, Sun } from "@/lib/lucide-icon"
 import { useThemeStore } from "@/stores/theme"
 
@@ -20,28 +16,30 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
 
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size={showText ? "default" : "icon"}
-                  aria-label={t("common.theme.toggle_aria_label")}
-                  autoFocus={false}
-                />
-              }
-            />
-          }>
+      <TooltipActionButton
+        trigger={
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size={showText ? "default" : "icon"}
+                aria-label={t("common.theme.toggle_aria_label")}
+                autoFocus={false}
+              />
+            }
+          />
+        }
+        ariaLabel={t("common.theme.toggle_aria_label")}
+        tooltip={t("common.theme.toggle")}
+        label={<span className="capitalize">{theme}</span>}
+        showLabel={showText}
+        icon={
           <div className="relative size-3">
             <Sun className="absolute inset-0 size-full rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute inset-0 size-full rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </div>
-          {showText && <span className="capitalize">{theme}</span>}
-        </TooltipTrigger>
-        <TooltipContent side="top">{t("common.theme.toggle")}</TooltipContent>
-      </Tooltip>
+        }
+      />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")}>
           {t("common.theme.light")}

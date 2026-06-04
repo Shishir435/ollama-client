@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
+import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Tooltip,
@@ -73,6 +74,56 @@ export function SelectionToolbar({
   const moreActions = MORE_ACTION_IDS.map((id) =>
     actions.find((a) => a.id === id)
   ).filter(Boolean)
+  const quickActionConfigs: ActionConfig[] = quickActions.map((action) => ({
+    key: action.id,
+    variant: action.id === currentAction ? "default" : "ghost",
+    size: "icon",
+    label: t(`selection_button.actions.${action.id}.short`, action.shortLabel),
+    ariaLabel: t(`selection_button.actions.${action.id}.label`, action.label),
+    tooltip: t(`selection_button.actions.${action.id}.label`, action.label),
+    onPointerDown: (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onRunAction(action.id)
+    },
+    icon: iconForAction(action.id),
+    showLabel: true
+  }))
+  const toolbarActionConfigs: ActionConfig[] = [
+    {
+      key: "more",
+      label: t("selection_button.panel.more"),
+      "aria-expanded": isMoreMenuOpen,
+      onPointerDown: (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onToggleMore()
+      },
+      icon: MoreHorizontal,
+      showLabel: true
+    },
+    {
+      key: "open-chat",
+      label: t("selection_button.panel.open_chat"),
+      onPointerDown: (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onOpenChat()
+      },
+      icon: MessageSquare,
+      showLabel: true
+    },
+    {
+      key: "close",
+      label: t("selection_button.panel.close"),
+      onPointerDown: (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onClose()
+      },
+      icon: X
+    }
+  ]
 
   return (
     <TooltipProvider>
@@ -93,111 +144,17 @@ export function SelectionToolbar({
             </TooltipContent>
           </Tooltip>
 
-          {quickActions.map((action) => (
-            <Tooltip key={action.id}>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    className={buttonVariants({
-                      variant:
-                        action.id === currentAction ? "default" : "ghost",
-                      size: "icon"
-                    })}
-                    aria-label={t(
-                      `selection_button.actions.${action.id}.label`,
-                      action.label
-                    )}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onRunAction(action.id)
-                    }}
-                  />
-                }>
-                {iconForAction(action.id)}
-                <span className="sa-label">
-                  {t(
-                    `selection_button.actions.${action.id}.short`,
-                    action.shortLabel
-                  )}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent container={tooltipContainer}>
-                {t(`selection_button.actions.${action.id}.label`, action.label)}
-              </TooltipContent>
-            </Tooltip>
-          ))}
+          <ActionGroup
+            actions={quickActionConfigs}
+            tooltipContainer={tooltipContainer}
+            wrap={false}
+          />
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label={t("selection_button.panel.more")}
-                  aria-expanded={isMoreMenuOpen}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onToggleMore()
-                  }}
-                />
-              }>
-              <MoreHorizontal aria-hidden="true" />
-              <span className="sa-label">
-                {t("selection_button.panel.more")}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent container={tooltipContainer}>
-              {t("selection_button.panel.more")}
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label={t("selection_button.panel.open_chat")}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onOpenChat()
-                  }}
-                />
-              }>
-              <MessageSquare aria-hidden="true" />
-              <span className="sa-label">
-                {t("selection_button.panel.open_chat")}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent container={tooltipContainer}>
-              {t("selection_button.panel.open_chat")}
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  className={buttonVariants({ variant: "ghost", size: "icon" })}
-                  aria-label={t("selection_button.panel.close")}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onClose()
-                  }}
-                />
-              }>
-              <X aria-hidden="true" />
-            </TooltipTrigger>
-            <TooltipContent container={tooltipContainer}>
-              {t("selection_button.panel.close")}
-            </TooltipContent>
-          </Tooltip>
+          <ActionGroup
+            actions={toolbarActionConfigs}
+            tooltipContainer={tooltipContainer}
+            wrap={false}
+          />
         </div>
 
         {isMoreMenuOpen && (

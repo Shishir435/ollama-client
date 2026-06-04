@@ -355,12 +355,12 @@ export const ContextSettings = () => {
                 disabled={isRebuilding || isCleaning}>
                 {isRebuilding ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="size-4 mr-2 animate-spin" />
                     {t("settings.context.embedding_health.action_rebuilding")}
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="size-4 mr-2" />
                     {t("settings.context.embedding_health.action")}
                   </>
                 )}

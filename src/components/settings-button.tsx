@@ -1,10 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { openOptionsInTab } from "@/lib/browser-api"
 import { Settings } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -31,23 +26,18 @@ export const SettingsButton = ({
   const { t } = useTranslation()
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant={variant}
-            size={size}
-            className={cn(className)}
-            onClick={() => {
-              void openOptionsInTab()
-            }}
-            aria-label={t("common.settings.aria_label")}
-          />
-        }>
-        <Settings size="16" className={iconClassName || "opacity-80"} />
-        {showText && <span>{t("common.settings.label")}</span>}
-      </TooltipTrigger>
-      <TooltipContent>{t("common.settings.tooltip")}</TooltipContent>
-    </Tooltip>
+    <TooltipActionButton
+      variant={variant}
+      size={size}
+      className={cn(className)}
+      onClick={() => {
+        void openOptionsInTab()
+      }}
+      ariaLabel={t("common.settings.aria_label")}
+      tooltip={t("common.settings.tooltip")}
+      label={t("common.settings.label")}
+      showLabel={showText}
+      icon={<Settings size="16" className={iconClassName || "opacity-80"} />}
+    />
   )
 }

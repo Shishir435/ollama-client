@@ -1,13 +1,8 @@
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { type ActionConfig, ActionGroup } from "@/components/actions"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
@@ -52,54 +47,38 @@ export const FeedbackButtons = ({
       // Revert on error? Or just log
     }
   }
+  const feedbackActions: ActionConfig[] = [
+    {
+      key: "helpful",
+      className: cn(
+        "size-6",
+        feedback === "up"
+          ? "text-status-success hover:text-status-success/80"
+          : "text-muted-foreground hover:text-foreground"
+      ),
+      onClick: () => handleFeedback(true),
+      disabled: feedback !== null,
+      label: t("chat.feedback.helpful_tooltip"),
+      icon: <ThumbsUp className="size-3.5" />
+    },
+    {
+      key: "not-helpful",
+      className: cn(
+        "size-6",
+        feedback === "down"
+          ? "text-status-danger hover:text-status-danger/80"
+          : "text-muted-foreground hover:text-foreground"
+      ),
+      onClick: () => handleFeedback(false),
+      disabled: feedback !== null,
+      label: t("chat.feedback.not_helpful_tooltip"),
+      icon: <ThumbsDown className="size-3.5" />
+    }
+  ]
 
   return (
     <TooltipProvider delay={300}>
-      <div className={cn("flex items-center gap-1", className)}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-6 w-6",
-                  feedback === "up"
-                    ? "text-status-success hover:text-status-success/80"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => handleFeedback(true)}
-                disabled={feedback !== null}
-              />
-            }>
-            <ThumbsUp className="h-3.5 w-3.5" />
-          </TooltipTrigger>
-          <TooltipContent>{t("chat.feedback.helpful_tooltip")}</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-6 w-6",
-                  feedback === "down"
-                    ? "text-status-danger hover:text-status-danger/80"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => handleFeedback(false)}
-                disabled={feedback !== null}
-              />
-            }>
-            <ThumbsDown className="h-3.5 w-3.5" />
-          </TooltipTrigger>
-          <TooltipContent>
-            {t("chat.feedback.not_helpful_tooltip")}
-          </TooltipContent>
-        </Tooltip>
-      </div>
+      <ActionGroup actions={feedbackActions} className={className} />
     </TooltipProvider>
   )
 }

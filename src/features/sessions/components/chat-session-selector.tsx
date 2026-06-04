@@ -85,7 +85,7 @@ export const ChatSessionSelector = ({
               onClick={createSession}
               className="flex h-10 w-full items-center justify-start rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors duration-200 hover:opacity-90"
               aria-label={t("sessions.selector.create_new_aria")}>
-              <SquarePen className="mr-2 h-4 w-4" />
+              <SquarePen className="mr-2 size-4" />
               {t("sessions.selector.start_new")}
             </Button>
             {searchTrigger}

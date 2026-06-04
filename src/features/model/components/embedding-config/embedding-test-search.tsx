@@ -72,9 +72,9 @@ export const EmbeddingTestSearch = ({
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}>
           {isSearching ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="size-3 animate-spin" />
           ) : (
-            <Search className="h-3 w-3" />
+            <Search className="size-3" />
           )}
         </Button>
       </div>

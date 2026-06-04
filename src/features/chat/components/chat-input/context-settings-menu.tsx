@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { AppWindow, BrainCircuit, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,11 +11,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { Layers } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -45,24 +41,22 @@ export const ContextSettingsMenu = () => {
 
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 rounded-lg"
-                  aria-label={t("tabs.context")}
-                />
-              }
-            />
-          }>
-          <Layers className="size-4" />
-        </TooltipTrigger>
-        <TooltipContent>{t("tabs.context")}</TooltipContent>
-      </Tooltip>
+      <TooltipActionButton
+        trigger={
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-lg"
+                aria-label={t("tabs.context")}
+              />
+            }
+          />
+        }
+        label={t("tabs.context")}
+        icon={<Layers className="size-4" />}
+      />
       <DropdownMenuContent align="start" className="w-max">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="text-xs items-center gap-1.5 flex uppercase tracking-wide text-muted-foreground px-2 py-1.5 font-bold">
@@ -73,14 +67,14 @@ export const ContextSettingsMenu = () => {
             checked={tabAccess}
             onCheckedChange={(value) => setTabAccess(Boolean(value))}
             className="gap-2 text-xs py-2">
-            <AppWindow className="h-3.5 w-3.5" />
+            <AppWindow className="size-3.5" />
             {tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")}
           </DropdownMenuCheckboxItem>
           <DropdownMenuCheckboxItem
             checked={useRAG}
             onCheckedChange={(value) => setUseRAG(Boolean(value))}
             className="gap-2 text-xs py-2">
-            <BrainCircuit className="h-3.5 w-3.5" />
+            <BrainCircuit className="size-3.5" />
             {useRAG
               ? t("chat.input.rag_toggle_on")
               : t("chat.input.rag_toggle_off")}
@@ -89,7 +83,7 @@ export const ContextSettingsMenu = () => {
             checked={groundedOnlyMode}
             onCheckedChange={(value) => setGroundedOnlyMode(Boolean(value))}
             className="gap-2 text-xs py-2">
-            <ShieldCheck className="h-3.5 w-3.5" />
+            <ShieldCheck className="size-3.5" />
             {t("settings.grounding_mode.label")}
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>

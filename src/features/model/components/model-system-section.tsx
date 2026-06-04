@@ -69,7 +69,7 @@ export const ModelSystemSection = ({
         htmlFor="stop-sequences"
         label={
           <div className="flex items-center gap-2">
-            <StopCircle className="h-4 w-4" />
+            <StopCircle className="size-4" />
             <span>{t("settings.model.system.stop_sequences_label")}</span>
           </div>
         }

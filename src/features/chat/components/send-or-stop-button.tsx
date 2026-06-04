@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { Circle, SendHorizontal } from "@/lib/lucide-icon"
 
@@ -22,35 +17,26 @@ export const SendOrStopButton = ({
 }) => {
   const { t } = useTranslation()
   const { isLoading, isStreaming } = useLoadStream()
+  const label =
+    isStreaming || isLoading
+      ? t("chat.send.stop_generation")
+      : sendLabel || t("chat.send.send_message")
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-            disabled={!isStreaming && !isLoading && disabledSend}
-            aria-label={
-              isStreaming || isLoading
-                ? t("chat.send.stop_generation")
-                : sendLabel || t("chat.send.send_message")
-            }
-          />
-        }>
-        {isStreaming || isLoading ? (
+    <TooltipActionButton
+      onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
+      variant="ghost"
+      size="icon"
+      className="rounded-full"
+      disabled={!isStreaming && !isLoading && disabledSend}
+      label={label}
+      icon={
+        isStreaming || isLoading ? (
           <Circle size={16} className="animate-pulse text-status-danger" />
         ) : (
           <SendHorizontal size={16} />
-        )}
-      </TooltipTrigger>
-      <TooltipContent>
-        {isStreaming || isLoading
-          ? t("chat.send.stop_generation")
-          : sendLabel || t("chat.send.send_message")}
-      </TooltipContent>
-    </Tooltip>
+        )
+      }
+    />
   )
 }

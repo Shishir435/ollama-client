@@ -127,7 +127,7 @@ export const PromptSelectorDialog = ({
 
             <div className="mt-4 flex gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
                   placeholder={t("prompts.selector.search_placeholder")}
                   value={searchQuery}
@@ -150,9 +150,9 @@ export const PromptSelectorDialog = ({
                     )
                   }
                   className="gap-2">
-                  {sortBy === "recent" && <Clock className="h-4 w-4" />}
-                  {sortBy === "popular" && <Star className="h-4 w-4" />}
-                  {sortBy === "alphabetical" && <Filter className="h-4 w-4" />}
+                  {sortBy === "recent" && <Clock className="size-4" />}
+                  {sortBy === "popular" && <Star className="size-4" />}
+                  {sortBy === "alphabetical" && <Filter className="size-4" />}
                   {sortBy === "recent" && t("prompts.selector.sort_recent")}
                   {sortBy === "popular" && t("prompts.selector.sort_popular")}
                   {sortBy === "alphabetical" &&
@@ -209,7 +209,7 @@ export const PromptSelectorDialog = ({
                               <Badge
                                 variant="outline"
                                 className="gap-1 text-xs">
-                                <Zap className="h-3 w-3" />
+                                <Zap className="size-3" />
                                 {template.usageCount}
                               </Badge>
                             )}
@@ -232,7 +232,7 @@ export const PromptSelectorDialog = ({
                                   key={tag}
                                   variant="outline"
                                   className="px-1.5 py-0.5 text-xs">
-                                  <Tag className="mr-1 h-2.5 w-2.5" />
+                                  <Tag className="mr-1 size-2.5" />
                                   {tag}
                                 </Badge>
                               ))}
@@ -255,7 +255,7 @@ export const PromptSelectorDialog = ({
                               e.stopPropagation()
                               setPreviewTemplate(template)
                             }}>
-                            <Eye className="h-4 w-4" />
+                            <Eye className="size-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -264,7 +264,7 @@ export const PromptSelectorDialog = ({
                               e.stopPropagation()
                               copyToClipboard(template.userPrompt)
                             }}>
-                            <Copy className="h-4 w-4" />
+                            <Copy className="size-4" />
                           </Button>
                         </div>
                       </div>
@@ -275,7 +275,7 @@ export const PromptSelectorDialog = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-12 text-center">
-              <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <Search className="mb-4 size-12 text-muted-foreground/50" />
               <h3 className="mb-2 text-lg font-semibold">
                 {t("prompts.selector.no_templates_title")}
               </h3>
@@ -368,7 +368,7 @@ export const PromptSelectorDialog = ({
               <Button
                 variant="outline"
                 onClick={() => copyToClipboard(previewTemplate.userPrompt)}>
-                <Copy className="mr-2 h-4 w-4" />
+                <Copy className="mr-2 size-4" />
                 {t("prompts.selector.copy")}
               </Button>
             </div>

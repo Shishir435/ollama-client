@@ -1,5 +1,6 @@
 import { FileSearch } from "lucide-react"
 import { useState } from "react"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,11 +13,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 
 type UsedChunk = {
   id: string | number
@@ -50,29 +46,31 @@ export const UsedContextButton = ({
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                    aria-label={`Used context (${chunks.length})`}
-                  />
-                }
-              />
-            }>
+        <TooltipActionButton
+          trigger={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-muted-foreground hover:text-foreground"
+                  aria-label={`Used context (${chunks.length})`}
+                />
+              }
+            />
+          }
+          ariaLabel={`Used context (${chunks.length})`}
+          tooltip="Used context"
+          tooltipSide="top"
+          icon={
             <div className="relative">
-              <FileSearch className="h-3.5 w-3.5" />
-              <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+              <FileSearch className="size-3.5" />
+              <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
                 {chunks.length}
               </span>
             </div>
-          </TooltipTrigger>
-          <TooltipContent side="top">Used context</TooltipContent>
-        </Tooltip>
+          }
+        />
         <PopoverContent
           className="w-96 max-h-115 overflow-y-auto p-3 scrollbar-none"
           align="start">

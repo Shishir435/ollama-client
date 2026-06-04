@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { Mic, MicOff } from "@/lib/lucide-icon"
 
@@ -27,27 +22,22 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-4"
-            aria-label={getLabel()}
-            title={getLabel()}
-            onClick={() => !isLoadingVoices && toggle(text)}
-            disabled={isLoadingVoices}
-            type="button"
-          />
-        }>
-        {speaking ? (
+    <TooltipActionButton
+      size="icon"
+      variant="ghost"
+      className="size-4"
+      label={getLabel()}
+      title={getLabel()}
+      onClick={() => !isLoadingVoices && toggle(text)}
+      disabled={isLoadingVoices}
+      type="button"
+      icon={
+        speaking ? (
           <MicOff className="size-3.5 text-destructive" />
         ) : (
           <Mic className="size-3.5" />
-        )}
-      </TooltipTrigger>
-      <TooltipContent>{getLabel()}</TooltipContent>
-    </Tooltip>
+        )
+      }
+    />
   )
 }

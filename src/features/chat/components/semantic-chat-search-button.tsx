@@ -20,7 +20,7 @@ export const SemanticChatSearchButton = () => {
         onClick={openSearchDialog}
         className="flex h-10 w-full items-center justify-start rounded-lg border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
         title={t("chat.search.button_title")}>
-        <Search className="mr-2 h-4 w-4" />
+        <Search className="mr-2 size-4" />
         {t("chat.search.button_label")}
         <MiniBadge text={t("chat.search.beta_badge")} />
       </Button>

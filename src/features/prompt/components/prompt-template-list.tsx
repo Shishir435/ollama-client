@@ -79,7 +79,7 @@ export const PromptTemplateList = ({
                 <div className="flex items-center gap-2">
                   <ChevronRight
                     className={cn(
-                      "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
                       isExpanded && "rotate-90"
                     )}
                   />
@@ -113,15 +113,15 @@ export const PromptTemplateList = ({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="size-8"
                       onClick={(e) => {
                         e.stopPropagation()
                         copyToClipboard(template.userPrompt, template.id)
                       }}>
                       {copiedId === template.id ? (
-                        <CopyCheck className="h-4 w-4 text-status-success" />
+                        <CopyCheck className="size-4 text-status-success" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Copy className="size-4" />
                       )}
                     </Button>
 
@@ -131,11 +131,11 @@ export const PromptTemplateList = ({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={(e) => e.stopPropagation()}
                           />
                         }>
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
@@ -183,7 +183,7 @@ export const PromptTemplateList = ({
                     <div className="flex gap-4 px-4 py-3 text-sm text-muted-foreground">
                       {template.createdAt && (
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" />
+                          <Calendar className="size-3.5" />
                           {t("settings.prompts.created_at", {
                             date: new Date(
                               template.createdAt
@@ -193,7 +193,7 @@ export const PromptTemplateList = ({
                       )}
                       {(template.usageCount || 0) > 0 && (
                         <div className="flex items-center gap-1.5">
-                          <Star className="h-3.5 w-3.5" />
+                          <Star className="size-3.5" />
                           {t("settings.prompts.used_times", {
                             count: template.usageCount
                           })}

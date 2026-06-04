@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
@@ -148,12 +143,12 @@ export const LoadedModelsInfo = () => {
             <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
           }>
           <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-muted-foreground" />
+            <Brain className="size-4 text-muted-foreground" />
             <h3 className="text-lg font-semibold">
               {t("settings.loaded_models.title")}
             </h3>
             {loading && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
             )}
           </div>
 
@@ -175,32 +170,26 @@ export const LoadedModelsInfo = () => {
             )}
 
             <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRefresh()
-                      }}
-                      disabled={refreshing}
-                      className="h-8 w-8 p-0"
-                    />
-                  }>
+              <TooltipActionButton
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRefresh()
+                }}
+                disabled={refreshing}
+                className="size-8 p-0"
+                label={t("settings.loaded_models.refresh_tooltip")}
+                icon={
                   <RefreshCw
-                    className={cn("h-4 w-4", refreshing && "animate-spin")}
+                    className={cn("size-4", refreshing && "animate-spin")}
                   />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t("settings.loaded_models.refresh_tooltip")}</p>
-                </TooltipContent>
-              </Tooltip>
+                }
+              />
 
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform duration-200",
+                  "size-4 transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -212,7 +201,7 @@ export const LoadedModelsInfo = () => {
           <div className="border-t border-border px-4 pb-4">
             {models.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Brain className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                <Brain className="mb-2 size-8 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
                   {t("settings.loaded_models.no_models_title")}
                 </p>
@@ -253,31 +242,23 @@ export const LoadedModelsInfo = () => {
                       </div>
                     </div>
 
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="size-8"
-                            onClick={() => unloadModel(model.name)}
-                            disabled={unloading === model.name}
-                          />
-                        }>
-                        {unloading === model.name ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                    <TooltipActionButton
+                      size="sm"
+                      variant="destructive"
+                      className="size-8"
+                      onClick={() => unloadModel(model.name)}
+                      disabled={unloading === model.name}
+                      label={t("settings.loaded_models.unload_tooltip", {
+                        name: model.name
+                      })}
+                      icon={
+                        unloading === model.name ? (
+                          <Loader2 className="size-4 animate-spin" />
                         ) : (
-                          <Trash className="h-4 w-4" />
-                        )}
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          {t("settings.loaded_models.unload_tooltip", {
-                            name: model.name
-                          })}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
+                          <Trash className="size-4" />
+                        )
+                      }
+                    />
                   </Card>
                 ))}
               </div>

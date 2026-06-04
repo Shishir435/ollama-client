@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,11 +18,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser } from "@/lib/browser-api"
 import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
@@ -119,58 +115,58 @@ export const ModelMenu = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        {trigger ? (
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                aria-label={tooltipTextContent}
-                render={trigger as React.ReactElement}
-              />
-            }
-          />
-        ) : (
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                aria-label={tooltipTextContent}
-                render={
-                  <Button
-                    variant="ghost"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
-                  />
-                }
-              />
-            }>
-            {selectedModel ? (
-              <div className="flex items-center gap-1.5">
-                {(() => {
-                  const SelectedModelIcon = getModelIcon(selectedModel)
-                  return (
-                    <SelectedModelIcon className="size-4 text-muted-foreground" />
-                  )
-                })()}
-                <span className="truncate font-medium">
+      <TooltipActionButton
+        trigger={
+          trigger ? (
+            <PopoverTrigger
+              aria-label={tooltipTextContent}
+              render={trigger as React.ReactElement}
+            />
+          ) : (
+            <PopoverTrigger
+              aria-label={tooltipTextContent}
+              render={
+                <Button
+                  variant="ghost"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                />
+              }
+            />
+          )
+        }
+        tooltip={tooltipTextContent}
+        icon={
+          trigger ? null : (
+            <>
+              {selectedModel ? (
+                <div className="flex items-center gap-1.5">
                   {(() => {
-                    const name =
-                      models.find((m) => m.name === selectedModel)?.name ||
-                      selectedModel
-                    return name.length > 15 ? `${name.slice(0, 15)}...` : name
+                    const SelectedModelIcon = getModelIcon(selectedModel)
+                    return (
+                      <SelectedModelIcon className="size-4 text-muted-foreground" />
+                    )
                   })()}
+                  <span className="truncate font-medium">
+                    {(() => {
+                      const name =
+                        models.find((m) => m.name === selectedModel)?.name ||
+                        selectedModel
+                      return name.length > 15 ? `${name.slice(0, 15)}...` : name
+                    })()}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">
+                  {t("model.menu.select_placeholder")}
                 </span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">
-                {t("model.menu.select_placeholder")}
-              </span>
-            )}
-            <ChevronDown className="size-4 opacity-50" />
-          </TooltipTrigger>
-        )}
-        <TooltipContent>{tooltipTextContent}</TooltipContent>
-      </Tooltip>
+              )}
+              <ChevronDown className="size-4 opacity-50" />
+            </>
+          )
+        }
+      />
 
       <PopoverContent className="w-[320px] p-0" align="start">
         <Command className="max-h-100 w-full">
@@ -185,28 +181,22 @@ export const ModelMenu = ({
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t("model.menu.models_label")}
               </span>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      onClick={() => refresh()}
-                      variant="ghost"
-                      size="icon"
-                      className="size-6"
-                      aria-label={t("model.menu.refresh_aria_label")}
-                    />
-                  }>
+              <TooltipActionButton
+                onClick={() => refresh()}
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                ariaLabel={t("model.menu.refresh_aria_label")}
+                tooltip={t("model.menu.refresh_tooltip")}
+                icon={
                   <RotateCcw
                     className={cn(
                       "size-3.5 transition-transform",
                       isLoading && "animate-spin"
                     )}
                   />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("model.menu.refresh_tooltip")}
-                </TooltipContent>
-              </Tooltip>
+                }
+              />
             </div>
             <CommandInput
               placeholder={t("model.menu.search_placeholder")}
@@ -230,7 +220,7 @@ export const ModelMenu = ({
                       value={model.name}
                       onSelect={() => handleSelect(model.name, providerId)}
                       className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
                         <ModelIcon className="size-4 text-muted-foreground" />
                       </div>
 
@@ -250,7 +240,7 @@ export const ModelMenu = ({
                             ? selectedModelRef.modelId === model.name &&
                               selectedModelRef.providerId === providerId
                             : selectedModel === model.name) && (
-                            <Check className="h-3.5 w-3.5 text-primary" />
+                            <Check className="size-3.5 text-primary" />
                           )}
                         </div>
 

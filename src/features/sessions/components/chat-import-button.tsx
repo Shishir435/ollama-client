@@ -2,12 +2,7 @@ import type React from "react"
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 import { useImportChat } from "@/features/sessions/hooks/use-import-chat"
 import { Upload } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -36,25 +31,19 @@ export const ChatImportButton = () => {
         multiple
         onChange={handleFileChange}
       />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-8 w-8 shrink-0 rounded-lg transition-all duration-200",
-                "hover:bg-muted hover:text-foreground",
-                "focus:bg-muted focus:text-foreground focus:opacity-100"
-              )}
-              onClick={handleClick}
-              aria-label={t("sessions.import.aria_label")}
-            />
-          }>
-          <Upload className="h-4 w-4" />
-        </TooltipTrigger>
-        <TooltipContent>{t("sessions.import.tooltip")}</TooltipContent>
-      </Tooltip>
+      <TooltipActionButton
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "size-8 shrink-0 rounded-lg transition-all duration-200",
+          "hover:bg-muted hover:text-foreground",
+          "focus:bg-muted focus:text-foreground focus:opacity-100"
+        )}
+        onClick={handleClick}
+        ariaLabel={t("sessions.import.aria_label")}
+        tooltip={t("sessions.import.tooltip")}
+        icon={<Upload className="size-4" />}
+      />
     </>
   )
 }

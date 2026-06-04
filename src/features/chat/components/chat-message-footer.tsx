@@ -1,11 +1,15 @@
 import { useTranslation } from "react-i18next"
 
+import {
+  ActionMenuGrid,
+  type ActionMenuItemConfig,
+  TooltipActionButton
+} from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -69,14 +73,13 @@ export const ChatMessageFooter = ({
     onNavigate?.(targetNodeId)
   }
 
-  const actionItems = [
+  const actionItems: ActionMenuItemConfig[] = [
     onExport
       ? {
           key: "markdown",
           label: "Markdown",
           onClick: () => onExport("markdown"),
-          icon: <BookOpen className="size-4" />,
-          destructive: false
+          icon: <BookOpen className="size-4" />
         }
       : null,
     onExport
@@ -84,8 +87,7 @@ export const ChatMessageFooter = ({
           key: "pdf",
           label: "PDF",
           onClick: () => onExport("pdf"),
-          icon: <FileDown className="size-4" />,
-          destructive: false
+          icon: <FileDown className="size-4" />
         }
       : null,
     onExport
@@ -93,8 +95,7 @@ export const ChatMessageFooter = ({
           key: "json",
           label: "JSON",
           onClick: () => onExport("json"),
-          icon: <Code className="size-4" />,
-          destructive: false
+          icon: <Code className="size-4" />
         }
       : null,
     onExport
@@ -102,8 +103,7 @@ export const ChatMessageFooter = ({
           key: "text",
           label: "Text",
           onClick: () => onExport("text"),
-          icon: <FileText className="size-4" />,
-          destructive: false
+          icon: <FileText className="size-4" />
         }
       : null,
     onDelete
@@ -115,13 +115,7 @@ export const ChatMessageFooter = ({
           destructive: true
         }
       : null
-  ].filter(Boolean) as Array<{
-    key: string
-    label: string
-    onClick: () => void
-    icon: React.ReactNode
-    destructive: boolean
-  }>
+  ].filter(Boolean) as ActionMenuItemConfig[]
 
   return (
     <div
@@ -141,7 +135,7 @@ export const ChatMessageFooter = ({
             onClick={() => {
               if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
             }}>
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className="size-3" />
           </Button>
           <span className="min-w-6 text-center text-[10px] font-medium text-muted-foreground">
             {siblingIndex + 1} / {siblingIds.length}
@@ -156,7 +150,7 @@ export const ChatMessageFooter = ({
               if (siblingIndex < siblingIds.length - 1)
                 navigateToSibling(siblingIndex + 1)
             }}>
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="size-3" />
           </Button>
         </div>
       )}
@@ -189,26 +183,15 @@ export const ChatMessageFooter = ({
           )}
 
         {onEdit && isUser && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  aria-label="edit"
-                  size="icon"
-                  className="size-8"
-                  onClick={onEdit}
-                  title={
-                    isUser ? t("chat.actions.fork") : t("chat.actions.edit")
-                  }
-                />
-              }>
-              <GitFork className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              {isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
-            </TooltipContent>
-          </Tooltip>
+          <TooltipActionButton
+            variant="ghost"
+            label={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
+            size="icon"
+            className="size-8"
+            onClick={onEdit}
+            title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
+            icon={<GitFork className="size-3.5" />}
+          />
         )}
 
         {!isUser && msg.model && !isLoading && (
@@ -226,50 +209,29 @@ export const ChatMessageFooter = ({
         )}
 
         <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <DropdownMenuTrigger render={<span className="flex" />} />
-              }>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                aria-label={t("chat.actions.more")}>
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">{t("chat.actions.more")}</TooltipContent>
-          </Tooltip>
+          <TooltipActionButton
+            trigger={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    aria-label={t("chat.actions.more")}
+                  />
+                }
+              />
+            }
+            label={t("chat.actions.more")}
+            icon={<MoreHorizontal className="size-3.5" />}
+          />
           <DropdownMenuContent
             align={isUser ? "end" : "start"}
             sideOffset={6}
             className="w-auto rounded-lg border-muted/60 p-1.5 shadow-md data-open:animate-none data-closed:animate-none">
             {actionItems.length > 0 && (
               <DropdownMenuGroup>
-                <div className="grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1">
-                  {actionItems.map((item) => (
-                    <Tooltip key={item.key}>
-                      <TooltipTrigger
-                        render={
-                          <DropdownMenuItem
-                            onClick={item.onClick}
-                            aria-label={item.label}
-                            className={
-                              item.destructive
-                                ? "size-8 justify-center rounded-md text-destructive hover:bg-destructive/10"
-                                : "size-8 justify-center rounded-md hover:bg-muted/60"
-                            }
-                          />
-                        }>
-                        {item.icon}
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={10}>
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                <ActionMenuGrid actions={actionItems} />
               </DropdownMenuGroup>
             )}
           </DropdownMenuContent>

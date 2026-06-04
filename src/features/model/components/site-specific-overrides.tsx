@@ -118,7 +118,7 @@ export const SiteSpecificOverrides = ({
       key={field.id}
       label={
         <div className="flex items-center gap-1.5">
-          <field.icon className="h-3 w-3" />
+          <field.icon className="size-3" />
           {field.label}
         </div>
       }
@@ -197,7 +197,7 @@ export const SiteSpecificOverrides = ({
       <SettingsField
         label={
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Globe className="size-4 text-muted-foreground" />
             {t("model.site_overrides.add_pattern_label")}
           </div>
         }
@@ -230,7 +230,7 @@ export const SiteSpecificOverrides = ({
             />
             {sitePatternError && (
               <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                <AlertCircle className="h-3 w-3" />
+                <AlertCircle className="size-3" />
                 {sitePatternError}
               </div>
             )}
@@ -240,7 +240,7 @@ export const SiteSpecificOverrides = ({
             size="sm"
             className="h-9 whitespace-nowrap px-3"
             disabled={!newSitePattern.trim()}>
-            <Plus className="mr-1 h-3 w-3" />
+            <Plus className="mr-1 size-3" />
             {t("model.site_overrides.add_button")}
           </Button>
         </SettingsActionRow>
@@ -278,7 +278,7 @@ export const SiteSpecificOverrides = ({
                   {selectedSiteOverride ||
                     t("model.site_overrides.select_placeholder")}
                 </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
               </PopoverTrigger>
               <PopoverContent
                 className="w-(--radix-popover-trigger-width) p-0"
@@ -303,7 +303,7 @@ export const SiteSpecificOverrides = ({
                           }}>
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4",
+                              "mr-2 size-4",
                               selectedSiteOverride === pattern
                                 ? "opacity-100"
                                 : "opacity-0"
@@ -333,7 +333,7 @@ export const SiteSpecificOverrides = ({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 w-8 p-0"
+                      className="size-8 p-0"
                       onClick={() => {
                         onRemoveSiteOverride(selectedSiteOverride)
                         const remaining = Object.keys(
@@ -343,7 +343,7 @@ export const SiteSpecificOverrides = ({
                           remaining.length > 0 ? remaining[0] : null
                         )
                       }}>
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="size-3" />
                     </Button>
                   </div>
                 </CardHeader>

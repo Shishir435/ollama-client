@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,11 +18,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import {
@@ -86,10 +82,10 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-4" />
+            <Skeleton className="size-4" />
             <Skeleton className="h-5 w-24" />
           </div>
-          <Skeleton className="h-4 w-4" />
+          <Skeleton className="size-4" />
         </div>
         <div className="space-y-2 p-3">
           {[...Array(3)].map((_, i) => (
@@ -97,7 +93,7 @@ export const ModelList = (): React.ReactElement => {
               // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton items don't need unique keys
               key={`skeleton-${i}`}
               className="flex items-center gap-3 p-2">
-              <Skeleton className="h-8 w-8 rounded" />
+              <Skeleton className="size-8 rounded" />
               <div className="flex-1 space-y-1">
                 <Skeleton className="h-4 w-1/2" />
                 <Skeleton className="h-3 w-1/3" />
@@ -114,7 +110,7 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <Database className="size-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title")}
             </span>
@@ -127,7 +123,7 @@ export const ModelList = (): React.ReactElement => {
             size="sm"
             onClick={() => refresh()}
             className="h-8">
-            <RefreshCw className="mr-1 h-3 w-3" />
+            <RefreshCw className="mr-1 size-3" />
             {t("settings.model_list.retry")}
           </Button>
         </div>
@@ -140,7 +136,7 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <Database className="size-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title")}
             </span>
@@ -155,7 +151,7 @@ export const ModelList = (): React.ReactElement => {
             size="sm"
             onClick={() => refresh()}
             className="h-8">
-            <RefreshCw className="mr-1 h-3 w-3" />
+            <RefreshCw className="mr-1 size-3" />
             {t("settings.model_list.refresh")}
           </Button>
         </div>
@@ -171,38 +167,32 @@ export const ModelList = (): React.ReactElement => {
           className="flex w-full items-center justify-between p-2 text-left hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => setIsOpen(!isOpen)}>
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <Database className="size-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title_count", { count: models.length })}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRefresh()
-                    }}
-                    disabled={refreshing}
-                    className="h-8 w-8 p-0"
-                  />
-                }>
+            <TooltipActionButton
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRefresh()
+              }}
+              disabled={refreshing}
+              className="size-8 p-0"
+              label={t("settings.model_list.refresh_tooltip")}
+              icon={
                 <RefreshCw
-                  className={cn("h-4 w-4", refreshing && "animate-spin")}
+                  className={cn("size-4", refreshing && "animate-spin")}
                 />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t("settings.model_list.refresh_tooltip")}</p>
-              </TooltipContent>
-            </Tooltip>
+              }
+            />
             {isOpen ? (
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="size-4" />
             ) : (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="size-4" />
             )}
           </div>
         </button>
@@ -219,7 +209,7 @@ export const ModelList = (): React.ReactElement => {
                       className="flex-1 cursor-pointer border-0 shadow-none transition-colors hover:bg-muted/50">
                       <CardContent className="p-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
                             <ModelIcon className="size-4 text-muted-foreground" />
                           </div>
 
@@ -230,12 +220,12 @@ export const ModelList = (): React.ReactElement => {
 
                             <div className="mt-1 flex items-center gap-3">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <HardDrive className="h-3 w-3" />
+                                <HardDrive className="size-3" />
                                 <span>{formatFileSize(model.size, t)}</span>
                               </div>
 
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
+                                <Calendar className="size-3" />
                                 <span>{formatDate(model.modified_at, t)}</span>
                               </div>
 
@@ -253,14 +243,14 @@ export const ModelList = (): React.ReactElement => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                  className="size-6 text-destructive hover:bg-destructive/10"
                                   onClick={(e) => e.stopPropagation()}
                                   disabled={
                                     model.providerId !== DEFAULT_PROVIDER_ID
                                   }
                                 />
                               }>
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="size-4" />
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>

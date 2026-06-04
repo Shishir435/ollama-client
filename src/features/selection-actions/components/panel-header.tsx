@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { buttonVariants } from "@/components/ui/button"
+import { type ActionConfig, ActionGroup } from "@/components/actions"
 import {
   Tooltip,
   TooltipContent,
@@ -44,6 +44,36 @@ export function PanelHeader({
   const enabledActions = SELECTION_ACTIONS.filter((a) =>
     enabledActionIds.includes(a.id)
   )
+  const backAction: ActionConfig[] = [
+    {
+      key: "back",
+      variant: "ghost",
+      size: "icon-sm",
+      label: t("selection_button.panel.back"),
+      onClick: onBack,
+      icon: ArrowLeft
+    }
+  ]
+  const headerActions: ActionConfig[] = [
+    {
+      key: "pin",
+      variant: isPinned ? "secondary" : "ghost",
+      size: "icon-sm",
+      label: isPinned
+        ? t("selection_button.panel.unpin")
+        : t("selection_button.panel.pin"),
+      onClick: onTogglePin,
+      icon: Pin
+    },
+    {
+      key: "close",
+      variant: "ghost",
+      size: "icon-sm",
+      label: t("selection_button.panel.close"),
+      onClick: onClose,
+      icon: X
+    }
+  ]
 
   const modelNode =
     availableModels.length > 0 ? (
@@ -69,22 +99,11 @@ export function PanelHeader({
 
   return (
     <div className="sa-panel-header">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-              aria-label={t("selection_button.panel.back")}
-              onClick={onBack}
-            />
-          }>
-          <ArrowLeft aria-hidden="true" />
-        </TooltipTrigger>
-        <TooltipContent container={tooltipContainer}>
-          {t("selection_button.panel.back")}
-        </TooltipContent>
-      </Tooltip>
+      <ActionGroup
+        actions={backAction}
+        tooltipContainer={tooltipContainer}
+        wrap={false}
+      />
 
       <div className="sa-title-row">
         <select
@@ -113,51 +132,11 @@ export function PanelHeader({
           </TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                className={buttonVariants({
-                  variant: isPinned ? "secondary" : "ghost",
-                  size: "icon-sm"
-                })}
-                aria-label={
-                  isPinned
-                    ? t("selection_button.panel.unpin")
-                    : t("selection_button.panel.pin")
-                }
-                onClick={onTogglePin}
-              />
-            }>
-            <Pin aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent container={tooltipContainer}>
-            {isPinned
-              ? t("selection_button.panel.unpin")
-              : t("selection_button.panel.pin")}
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                className={buttonVariants({
-                  variant: "ghost",
-                  size: "icon-sm"
-                })}
-                aria-label={t("selection_button.panel.close")}
-                onClick={onClose}
-              />
-            }>
-            <X aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent container={tooltipContainer}>
-            {t("selection_button.panel.close")}
-          </TooltipContent>
-        </Tooltip>
+        <ActionGroup
+          actions={headerActions}
+          tooltipContainer={tooltipContainer}
+          wrap={false}
+        />
       </div>
     </div>
   )

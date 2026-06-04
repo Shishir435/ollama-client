@@ -98,27 +98,27 @@ export function RetrievedContextCard({
                 size="icon"
                 variant={feedback === true ? "default" : "ghost"}
                 className={cn(
-                  "h-7 w-7",
+                  "size-7",
                   feedback === true &&
                     "bg-status-success hover:bg-status-success/90 text-status-success-foreground"
                 )}
                 onClick={() => handleFeedback(true)}
                 disabled={isSubmitting}
                 title="This was helpful">
-                <ThumbsUp className="h-4 w-4" />
+                <ThumbsUp className="size-4" />
               </Button>
               <Button
                 size="icon"
                 variant={feedback === false ? "default" : "ghost"}
                 className={cn(
-                  "h-7 w-7",
+                  "size-7",
                   feedback === false &&
                     "bg-status-danger hover:bg-status-danger/90 text-status-danger-foreground"
                 )}
                 onClick={() => handleFeedback(false)}
                 disabled={isSubmitting}
                 title="This was not helpful">
-                <ThumbsDown className="h-4 w-4" />
+                <ThumbsDown className="size-4" />
               </Button>
             </div>
           )}
