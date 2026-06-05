@@ -75,15 +75,15 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 
 ### Storage
 
-Chat-history storage is in the cutover window from Dexie → sql.js (SQLite-in-WASM). SQLite is the live primary; Dexie is retained as an auto-fallback recovery target until the cutover soak finishes.
+Chat-history storage now runs on sql.js (SQLite-in-WASM). The Dexie chat-history fallback has been retired; Dexie remains only for vector embeddings and knowledge-set storage.
 
-- **Chat / sessions / messages / files**: routed through `src/lib/repositories/chat-history.ts` — a 26-function facade that dispatches to either `dexie-chat-history.ts` or `sqlite-chat-history.ts` based on the persisted `chat-history-backend` key. On boot the facade reconciles split-brain (Dexie outpaces SQLite → flip back to Dexie). Direct imports of `src/lib/db.ts` (Dexie) outside `src/lib/repositories/` are legacy; new code goes through the facade.
-- **SQLite**: `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`). The Dexie→SQLite migration and the on-install `runEmbeddingDimensionMigration` both live under `src/lib/migration/`. Background `src/background/index.ts` invokes the latter from `onInstalled`; UI hooks (e.g. `src/hooks/use-sqlite-migration.ts`) drive the former. There is no `src/background/migrations/` directory anymore.
-- **SQLite durability contract**: writes are debounced 1s to IndexedDB. End-of-migration completion, backend pointer flips, and page-unload all force-flush via `flushSave()` to prevent the "completed flag outlives the data" race. SQLite also writes a `chat-history-sqlite-healthy-v1` cookie in `kv_store` once a migration completes — the facade's auto-fallback honors that cookie and won't false-positive on legitimate deletes.
+- **Chat / sessions / messages / files**: routed through `src/lib/repositories/chat-history.ts` — a SQLite-only facade over `src/lib/repositories/sqlite-chat-history.ts`. New code should keep using the facade rather than importing SQLite internals directly.
+- **SQLite**: `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`). The on-install `runEmbeddingDimensionMigration` lives under `src/lib/migration/` and is invoked from `src/background/index.ts`. There is no `src/background/migrations/` directory anymore.
+- **SQLite durability contract**: writes are debounced 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()` where needed.
 - **Vectors / embeddings**: `src/lib/embeddings/` (HNSW + keyword index). Vector storage still lives in IndexedDB via `lib/embeddings/storage.ts`. The vector store has not been migrated to SQLite yet.
-- **Settings / config / per-extension state**: `@plasmohq/storage` accessed through `src/lib/plasmo-global-storage.ts`. Note: stored in `chrome.storage.sync`, which Chrome replicates across devices — keep per-device flags (migration status, backend pointer) here advisedly.
+- **Settings / config / per-extension state**: `@plasmohq/storage` accessed through `src/lib/plasmo-global-storage.ts`. Sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
 
-When picking a storage layer for new chat-history work, go through `src/lib/repositories/chat-history.ts` rather than touching Dexie or SQLite directly. The long-term direction is to retire Dexie entirely once the cutover has soaked.
+When picking a storage layer for new chat-history work, go through `src/lib/repositories/chat-history.ts` rather than touching SQLite directly.
 
 ### Key Constants (`src/lib/constants/`)
 
@@ -206,4 +206,4 @@ If you're touching one of these, expect to refactor as you go:
 - `src/features/model/components/provider-settings.tsx` (~586 LOC, no direct tests; split per provider section) and `embedding-settings.tsx` (~244 LOC, refactored)
 - `src/contents/index.ts` (content script, no tests; split into selection-capture / dom-observer / messaging)
 - `src/types/index.ts` is now a 14-line re-export barrel over six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`). New code should prefer importing from the per-domain path (`@/types/chat`) over the barrel.
-- Dexie → SQLite chat-history cutover has shipped: SQLite is the live primary, Dexie is the auto-fallback recovery target. Vector storage has not migrated yet (still Dexie). Plan to retire Dexie chat-history paths after the cutover soak (~1-2 weeks of telemetry-free production usage) — see the `chat-history.ts` facade for the eventual deletion surface.
+- Dexie chat-history paths are retired. Vector storage and knowledge sets still use Dexie; chat history stays SQLite-only through the facade.

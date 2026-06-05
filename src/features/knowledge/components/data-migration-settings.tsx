@@ -108,10 +108,6 @@ export const DataMigrationSettings = () => {
           error: t("settings.migration.import_result.status.aborted")
         },
         dexie: {
-          chatDb: {
-            ok: false,
-            error: t("settings.migration.import_result.status.aborted")
-          },
           vectorDb: {
             ok: false,
             error: t("settings.migration.import_result.status.aborted")
@@ -131,14 +127,9 @@ export const DataMigrationSettings = () => {
 
   const closeResultDialogAndReload = () => {
     setResultDialogOpen(false)
-    // Auto-reload whenever chat-history data was restored on at least
-    // one leg. Older backups (pre-SQLite cutover) don't carry a
-    // `database.sqlite`, so requiring SQLite success would strand
-    // those users on the result dialog and force a manual reload.
-    // Vector/knowledge DB failures are also non-fatal for the reload
-    // decision — the chat-side data is the one users notice.
-    const restoredChatHistory =
-      importResult?.database.ok || importResult?.dexie.chatDb.ok
+    // Auto-reload when the SQLite chat-history database was restored.
+    // Vector/knowledge DB failures are non-fatal for the reload decision.
+    const restoredChatHistory = importResult?.database.ok
     if (restoredChatHistory) {
       browser.runtime
         .sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
@@ -235,10 +226,6 @@ export const DataMigrationSettings = () => {
                   result: importResult.database
                 },
                 {
-                  label: t("settings.migration.import_result.labels.chatDb"),
-                  result: importResult.dexie.chatDb
-                },
-                {
                   label: t("settings.migration.import_result.labels.vectorDb"),
                   result: importResult.dexie.vectorDb
                 },
@@ -278,7 +265,7 @@ export const DataMigrationSettings = () => {
 
           <AlertDialogFooter>
             <AlertDialogAction onClick={closeResultDialogAndReload}>
-              {importResult?.database.ok || importResult?.dexie.chatDb.ok
+              {importResult?.database.ok
                 ? t("common.reload")
                 : t("common.close")}
             </AlertDialogAction>

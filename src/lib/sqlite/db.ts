@@ -196,7 +196,7 @@ const scheduleAutoSave = () => {
  * operation will rely on the data being durable:
  *
  *   - end of a migration (before persisting "migration completed")
- *   - before flipping `chat-history-backend` to "sqlite"
+ *   - before exposing newly imported SQLite chat data
  *   - on page/sidepanel unload
  *
  * No-op if no database is open yet.

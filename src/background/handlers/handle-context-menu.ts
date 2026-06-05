@@ -8,7 +8,7 @@ import {
 } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { ChromeSidePanel } from "@/types"
 
 let isContextMenuListenerRegistered = false
@@ -71,7 +71,7 @@ export const initializeContextMenu = () => {
       info.selectionText
     ) {
       // 1. Persist selection to storage (so sidepanel can pick it up on mount)
-      await plasmoGlobalStorage.set(
+      await setPlasmoStoredValue(
         STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
         info.selectionText
       )

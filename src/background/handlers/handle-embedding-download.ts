@@ -9,7 +9,10 @@ import {
 } from "@/lib/constants"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  plasmoGlobalStorage,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
 
 /**
@@ -312,10 +315,7 @@ export const downloadEmbeddingModelSilently = async (
         "downloadEmbeddingModelSilently",
         { modelName: normalizedModelName }
       )
-      await plasmoGlobalStorage.set(
-        STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
-        true
-      )
+      await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
       return { success: true }
     }
 
@@ -348,7 +348,7 @@ export const downloadEmbeddingModelSilently = async (
     }
 
     // Mark as auto-downloaded
-    await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
+    await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
     await plasmoGlobalStorage.set(
       STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
       normalizedModelName

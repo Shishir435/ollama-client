@@ -43,7 +43,7 @@
     "verify:browser-smoke": "npx tsx tools/verify-browser-smoke.ts",
     "verify:local-browsers": "npx tsx tools/verify-local-browsers-sequential.ts",
     "verify:browser-automation": "pnpm verify:browser-smoke && npx tsx tools/verify-browser-automation-local.ts",
-    "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run",
+    "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -60,7 +60,8 @@
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
     "prepare": "husky && pnpm generate:resources",
-    "generate:resources": "npx tsx tools/generate-i18n-resources.ts"
+    "generate:resources": "npx tsx tools/generate-i18n-resources.ts",
+    "check:generated": "pnpm generate:resources && git diff --exit-code -- src/i18n/resources.ts public/_locales"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

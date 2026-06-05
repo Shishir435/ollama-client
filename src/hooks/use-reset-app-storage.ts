@@ -1,10 +1,13 @@
 import { useCallback } from "react"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { db as dexieDb } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  plasmoDeviceStorage,
+  plasmoGlobalStorage,
+  removePlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -16,7 +19,6 @@ export const useResetAppStorage = () => {
       const allKeys = getAllResetKeys()
 
       if (key === "all" || key === "CHAT_SESSIONS") {
-        await dexieDb.delete()
         await resetSQLiteDatabase()
       }
 
@@ -26,12 +28,13 @@ export const useResetAppStorage = () => {
 
       if (key === "all") {
         await plasmoGlobalStorage.clear()
+        await plasmoDeviceStorage.clear()
         sessionStorage.clear()
       } else if (key !== "CHAT_SESSIONS" && key !== "FEEDBACK") {
         const keysToRemove = allKeys[key] || []
         if (keysToRemove.length > 0) {
           await Promise.all(
-            keysToRemove.map((key) => plasmoGlobalStorage.remove(key))
+            keysToRemove.map((key) => removePlasmoStoredValue(key))
           )
         }
       }

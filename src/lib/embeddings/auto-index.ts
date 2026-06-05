@@ -1,6 +1,9 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import { keywordIndexManager } from "./keyword-index"
 import { vectorDb } from "./vector-store"
 
@@ -35,7 +38,7 @@ export async function buildKeywordIndexFromExisting(
 
   if (allVectors.length === 0) {
     logger.verbose("No vectors to index", "buildKeywordIndexFromExisting")
-    await plasmoGlobalStorage.set(
+    await setPlasmoStoredValue(
       STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT,
       true
     )
@@ -43,7 +46,7 @@ export async function buildKeywordIndexFromExisting(
   }
 
   // Build keyword index for basic full-text search
-  const isBuilt = await plasmoGlobalStorage.get<boolean>(
+  const isBuilt = await getPlasmoStoredValue<boolean>(
     STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT
   )
 
@@ -52,10 +55,7 @@ export async function buildKeywordIndexFromExisting(
   }
 
   // Mark as built
-  await plasmoGlobalStorage.set(
-    STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT,
-    true
-  )
+  await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT, true)
 
   const duration = performance.now() - startTime
   logger.info("Keyword index build complete", "buildKeywordIndexFromExisting", {
@@ -69,7 +69,7 @@ export async function buildKeywordIndexFromExisting(
  * Returns true if index is already built
  */
 export async function isKeywordIndexBuilt(): Promise<boolean> {
-  const built = await plasmoGlobalStorage.get<boolean>(
+  const built = await getPlasmoStoredValue<boolean>(
     STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT
   )
   return built ?? false

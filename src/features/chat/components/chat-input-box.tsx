@@ -26,9 +26,16 @@ import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStorageForKey,
+  plasmoGlobalStorage
+} from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ChromeMessage } from "@/types"
+
+const pendingSelectionStorage = getPlasmoStorageForKey(
+  STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
+)
 
 export const ChatInputBox = ({
   messages,
@@ -277,7 +284,7 @@ export const ChatInputBox = ({
       const lastAppend = lastSelectionAppendRef.current
 
       if (lastAppend?.text === pendingText && now - lastAppend.at < 2000) {
-        await plasmoGlobalStorage.remove(
+        await pendingSelectionStorage.remove(
           STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
         )
         return
@@ -289,7 +296,7 @@ export const ChatInputBox = ({
       appendInput(selectionText)
       textareaRef.current?.focus()
 
-      await plasmoGlobalStorage.remove(
+      await pendingSelectionStorage.remove(
         STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
       )
     },
@@ -299,7 +306,7 @@ export const ChatInputBox = ({
   useEffect(() => {
     // Check for pending selection (from context menu or selection button when sidebar was closed)
     const checkPendingSelection = async () => {
-      const pendingText = await plasmoGlobalStorage.get<string>(
+      const pendingText = await pendingSelectionStorage.get<string>(
         STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
       )
 
@@ -316,7 +323,7 @@ export const ChatInputBox = ({
       }
     }
 
-    plasmoGlobalStorage.watch(pendingSelectionWatch)
+    pendingSelectionStorage.watch(pendingSelectionWatch)
 
     const selectionBridgePort = chrome.runtime.connect({
       name: MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT
@@ -348,7 +355,7 @@ export const ChatInputBox = ({
 
     chrome.runtime.onMessage.addListener(handleMessage)
     return () => {
-      plasmoGlobalStorage.unwatch(pendingSelectionWatch)
+      pendingSelectionStorage.unwatch(pendingSelectionWatch)
       selectionBridgePort.onMessage.removeListener(handlePortMessage)
       selectionBridgePort.disconnect()
       chrome.runtime.onMessage.removeListener(handleMessage)

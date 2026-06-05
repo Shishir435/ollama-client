@@ -25,9 +25,6 @@ describe("storage key registry", () => {
 
   it("marks local durability and handoff flags as device-local", () => {
     expect(
-      getStorageKeyMetadata(STORAGE_KEYS.CHAT_HISTORY.BACKEND)
-    ).toMatchObject({ scope: "device-local" })
-    expect(
       getStorageKeyMetadata(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
     ).toMatchObject({ scope: "device-local" })
     expect(

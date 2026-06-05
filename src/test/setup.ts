@@ -25,6 +25,26 @@ global.chrome = {
 } as unknown as typeof chrome
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStorageForKey: vi.fn(() => ({
+    get: vi.fn().mockResolvedValue(undefined),
+    set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+    watch: vi.fn(),
+    unwatch: vi.fn()
+  })),
+  getPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
+  setPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
+  removePlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
+  isDeviceLocalStorageKey: vi.fn().mockReturnValue(false),
+  plasmoDeviceStorage: {
+    get: vi.fn().mockResolvedValue(undefined),
+    set: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+    watch: vi.fn(),
+    unwatch: vi.fn()
+  },
   plasmoGlobalStorage: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
