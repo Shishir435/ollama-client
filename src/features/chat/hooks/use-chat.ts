@@ -1,10 +1,8 @@
 import { useEffect, useRef } from "react"
-import type {
-  PromptContextStats,
-  RagSources
-} from "@/features/chat/hooks/build-rag-context"
 import { buildRagContext } from "@/features/chat/hooks/build-rag-context"
 import { useChatConfig } from "@/features/chat/hooks/use-chat-config"
+import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
+import { useChatSessionLifecycle } from "@/features/chat/hooks/use-chat-session-lifecycle"
 import { useChatStreaming } from "@/features/chat/hooks/use-chat-streaming"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -51,70 +49,27 @@ export const useChat = () => {
       setIsStreaming
     })
 
-  // Carry RAG sources + prompt stats from sendMessage() → generateResponse()
-  // so they can be attached to the assistant placeholder message.
-  const ragSourcesRef = useRef<RagSources | null>(null)
-  const promptContextStatsRef = useRef<PromptContextStats | null>(null)
-
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [])
 
-  const ensureSessionId = async (): Promise<string | null> => {
-    if (currentSessionId) return currentSessionId
-    const sessionId = await createSession()
-    setCurrentSessionId(sessionId)
-    return sessionId
-  }
+  const { ensureSessionId, autoRenameSession } = useChatSessionLifecycle({
+    currentSessionId,
+    sessions,
+    createSession,
+    setCurrentSessionId,
+    renameSessionTitle
+  })
 
-  const autoRenameSession = async (sessionId: string, content: string) => {
-    const currentTitle = sessions.find((s) => s.id === sessionId)?.title
-    if (currentTitle === "New Chat") {
-      const firstLine = content.split("\n")[0].slice(0, 40)
-      await renameSessionTitle(sessionId, firstLine)
-    }
-  }
-
-  const generateResponse = async (
-    customModel?: string,
-    sessionIdParam?: string,
-    contextMessages?: ChatMessage[]
-  ) => {
-    const sessionId = sessionIdParam || currentSessionId
-    if (!sessionId) return
-
-    const modelForRequest =
-      customModel || config.selectedModelRef?.modelId || config.selectedModel
-    if (!modelForRequest) return
-
-    const assistantMessage: ChatMessage = {
-      role: "assistant",
-      content: "",
-      model: modelForRequest,
-      metrics: ragSourcesRef.current
-        ? {
-            ragSources: ragSourcesRef.current.sources,
-            ragQuery: ragSourcesRef.current.query,
-            ...(promptContextStatsRef.current || {})
-          }
-        : promptContextStatsRef.current || undefined
-    }
-    ragSourcesRef.current = null
-    promptContextStatsRef.current = null
-
-    const assistantId = await addMessage(sessionId, assistantMessage)
-    currentStreamingMessageIdRef.current = assistantId
-
-    const history = contextMessages || messages
-
-    startStream({
-      model: modelForRequest,
-      providerId: config.selectedModelRef?.providerId,
-      messages: history,
-      sessionId,
-      generatedMessage: { ...assistantMessage, id: assistantId }
+  const { generateResponse, setNextResponseMetrics, clearNextResponseMetrics } =
+    useChatResponse({
+      config,
+      currentSessionId,
+      messages,
+      addMessage,
+      startStream,
+      currentStreamingMessageIdRef
     })
-  }
 
   const sendMessage = async (
     customInput?: string,
@@ -188,8 +143,7 @@ export const useChat = () => {
       })
     } catch (error) {
       logger.error("Failed to build chat context", "useChat", { error })
-      ragSourcesRef.current = null
-      promptContextStatsRef.current = null
+      clearNextResponseMetrics()
       setIsLoading(false)
       setIsStreaming(false)
 
@@ -266,8 +220,7 @@ export const useChat = () => {
       { ...userMessage, content: contentWithRAG }
     ]
 
-    ragSourcesRef.current = ragSources
-    promptContextStatsRef.current = promptContextStats
+    setNextResponseMetrics(ragSources, promptContextStats)
 
     logger.info("Prompt context stats", "useChat", {
       sessionId,

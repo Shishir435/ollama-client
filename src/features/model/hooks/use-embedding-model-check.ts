@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
@@ -11,7 +10,8 @@ import {
   recommendedEmbeddingBaseSet
 } from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
-import type { ChromeResponse, ProviderModel } from "@/types"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import type { ProviderModel } from "@/types"
 
 const POLL_INTERVAL_MS = 5_000
 
@@ -74,12 +74,12 @@ export const useEmbeddingModelCheck = ({
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
         const looksLikeEmbedding = isLikelyEmbeddingModelName(currentModel)
         const currentProviderId = resolveProviderForModel(currentModel)
-        const response = (await browser.runtime.sendMessage({
-          type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
-          payload: { model: currentModel, providerId: currentProviderId }
-        })) as ChromeResponse & {
-          data?: { exists?: boolean; debug?: object }
-        }
+        const response = await sendRuntimeMessage(
+          MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
+          {
+            payload: { model: currentModel, providerId: currentProviderId }
+          }
+        )
 
         if (response?.data?.debug) {
           logger.debug(

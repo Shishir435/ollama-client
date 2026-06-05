@@ -6,7 +6,7 @@ import { LMStudioProvider } from "./lm-studio"
 import { LocalAIProvider } from "./localai"
 import { ProviderManager } from "./manager"
 import { OllamaProvider } from "./ollama"
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import {
   type LLMProvider,
   type ProviderConfig,
@@ -17,8 +17,8 @@ import { VllmProvider } from "./vllm"
 
 type ProviderConstructor = new (config: ProviderConfig) => LLMProvider
 
-// Subclasses of OpenAIProvider, keyed by ProviderId. Anything not in this map
-// uses plain OpenAIProvider.
+// Subclasses of the shared OpenAI-compatible base, keyed by ProviderId.
+// Anything not in this map uses the plain OpenAI-compatible provider.
 const OPENAI_COMPAT_CONSTRUCTORS: Record<string, ProviderConstructor> = {
   [ProviderId.LM_STUDIO]: LMStudioProvider,
   [ProviderId.LLAMA_CPP]: LlamaCppProvider,
@@ -32,7 +32,8 @@ function instantiate(config: ProviderConfig): LLMProvider {
     case ProviderType.OLLAMA:
       return new OllamaProvider(config)
     case ProviderType.OPENAI: {
-      const Ctor = OPENAI_COMPAT_CONSTRUCTORS[config.id] ?? OpenAIProvider
+      const Ctor =
+        OPENAI_COMPAT_CONSTRUCTORS[config.id] ?? OpenAICompatibleProvider
       return new Ctor(config)
     }
     default:

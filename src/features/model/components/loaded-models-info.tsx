@@ -10,7 +10,6 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
@@ -20,25 +19,11 @@ import {
   RefreshCw,
   Trash
 } from "@/lib/lucide-icon"
+import {
+  type LoadedRuntimeModel,
+  sendRuntimeMessage
+} from "@/lib/runtime-messages"
 import { cn } from "@/lib/utils"
-import type { ChromeResponse } from "@/types"
-
-interface LoadedModel {
-  name: string
-  model: string
-  size: number
-  digest: string
-  details: {
-    parent_model: string
-    format: string
-    family: string
-    families: string[]
-    parameter_size: string
-    quantization_level: string
-  }
-  expires_at: string
-  size_vram: number
-}
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 B"
@@ -52,7 +37,7 @@ export const LoadedModelsInfo = () => {
   const { t } = useTranslation()
   const { selectedProviderCapabilities, selectedProviderId } =
     useProviderModels()
-  const [models, setModels] = useState<LoadedModel[]>([])
+  const [models, setModels] = useState<LoadedRuntimeModel[]>([])
   const [loading, setLoading] = useState(false)
   const [unloading, setUnloading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -67,14 +52,14 @@ export const LoadedModelsInfo = () => {
       }
 
       try {
-        const res = (await browser.runtime.sendMessage({
-          type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS,
-          payload: {
-            providerId: selectedProviderId
+        const res = await sendRuntimeMessage(
+          MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS,
+          {
+            payload: {
+              providerId: selectedProviderId
+            }
           }
-        })) as ChromeResponse & {
-          data?: { models?: LoadedModel[] }
-        }
+        )
         if (res?.success && res.data?.models) {
           setModels(res.data.models)
         } else {
@@ -99,13 +84,12 @@ export const LoadedModelsInfo = () => {
   const unloadModel = async (modelName: string) => {
     setUnloading(modelName)
     try {
-      const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL,
+      const res = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, {
         payload: {
           model: modelName,
           providerId: selectedProviderId
         }
-      })) as ChromeResponse
+      })
       if (res?.success) {
         setModels((prev) => prev.filter((m) => m.name !== modelName))
       } else {

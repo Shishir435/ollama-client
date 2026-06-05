@@ -11,11 +11,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { Check, ExternalLink, Loader2, Server } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { cn } from "@/lib/utils"
 
 export const ProviderBaseUrlSettings = () => {
@@ -41,8 +41,7 @@ export const ProviderBaseUrlSettings = () => {
     try {
       // Update storage first
       await setStorageUrl(providerUrl)
-      await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL,
+      await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, {
         payload: providerUrl
       })
       setSaved(true)

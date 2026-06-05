@@ -1,13 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
-import { browser } from "@/lib/browser-api"
 import { DEFAULT_MODEL_LIBRARY_BASE_URL, MESSAGE_KEYS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
-import type { ChromeResponse } from "@/types"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 
 interface ModelMeta {
   name: string
@@ -19,10 +18,9 @@ interface ModelMeta {
 }
 
 const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
-  const res = (await browser.runtime.sendMessage({
-    type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL,
+  const res = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, {
     query
-  })) as ChromeResponse & { html?: string }
+  })
 
   if (res.error || !res.success || !res.html) {
     throw createAppError(
@@ -59,10 +57,12 @@ const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
 }
 
 const fetchModelVariants = async (modelName: string): Promise<string[]> => {
-  const res = (await browser.runtime.sendMessage({
-    type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS,
-    name: modelName
-  })) as ChromeResponse & { html?: string }
+  const res = await sendRuntimeMessage(
+    MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS,
+    {
+      name: modelName
+    }
+  )
 
   if (res.error || !res.success || !res.html) {
     throw createAppError(

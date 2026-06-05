@@ -6,6 +6,7 @@ import {
   type SelectionCapture
 } from "@/features/selection-actions/dom"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 
 export async function openSelectionResultInChat(
   resultText: string,
@@ -14,8 +15,7 @@ export async function openSelectionResultInChat(
   const text = resultText.trim() || capture?.text.trim()
   if (!text) return false
 
-  await chrome.runtime.sendMessage({
-    type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+  await sendRuntimeMessage(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT, {
     payload: text
   })
   window.getSelection()?.removeAllRanges()
