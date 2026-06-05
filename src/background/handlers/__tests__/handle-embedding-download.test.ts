@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  plasmoGlobalStorage,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import {
   checkEmbeddingModelExists,
   downloadEmbeddingModelSilently
@@ -16,7 +19,8 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     set: vi.fn(),
     get: vi.fn()
-  }
+  },
+  setPlasmoStoredValue: vi.fn()
 }))
 
 // Mock ProviderFactory - returns a provider that doesn't find the model
@@ -115,7 +119,7 @@ describe("Handle Embedding Download", () => {
       const result = await downloadEmbeddingModelSilently("nomic-embed-text")
 
       expect(result.success).toBe(true)
-      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+      expect(setPlasmoStoredValue).toHaveBeenCalledWith(
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
         true
       )
@@ -141,7 +145,7 @@ describe("Handle Embedding Download", () => {
           body: JSON.stringify({ name: "nomic-embed-text", stream: false })
         })
       )
-      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+      expect(setPlasmoStoredValue).toHaveBeenCalledWith(
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
         true
       )

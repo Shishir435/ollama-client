@@ -117,14 +117,5 @@ export const STORAGE_KEYS = {
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"
   },
-  SHORTCUTS: "keyboard-shortcuts",
-  CHAT_HISTORY: {
-    /**
-     * Active backend for chat history reads/writes. Set to "sqlite"
-     * after `runDexieToSQLiteMigration` succeeds. A user can force a
-     * fallback by setting this to "dexie" in extension storage as a
-     * kill switch if SQLite is misbehaving.
-     */
-    BACKEND: "chat-history-backend"
-  }
+  SHORTCUTS: "keyboard-shortcuts"
 }

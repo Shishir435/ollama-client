@@ -1105,7 +1105,6 @@
           "sync": "Настройки (Sync)",
           "local": "Локальное хранилище",
           "database": "База данных (SQLite)",
-          "chatDb": "История чата (Dexie)",
           "vectorDb": "Векторные вложения (Dexie)",
           "knowledgeDb": "Базы знаний (Dexie)"
         },

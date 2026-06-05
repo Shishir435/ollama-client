@@ -1105,7 +1105,6 @@
           "sync": "偏好设置 (Sync)",
           "local": "本地存储",
           "database": "数据库 (SQLite)",
-          "chatDb": "聊天记录 (Dexie)",
           "vectorDb": "向量嵌入 (Dexie)",
           "knowledgeDb": "知识库 (Dexie)"
         },

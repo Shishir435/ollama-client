@@ -25,13 +25,6 @@ vi.mock("../sqlite/db", () => ({
   importDatabaseBytes: vi.fn().mockResolvedValue(undefined)
 }))
 
-vi.mock("../db", () => ({
-  db: {
-    delete: vi.fn().mockResolvedValue(undefined),
-    open: vi.fn().mockResolvedValue(undefined)
-  }
-}))
-
 vi.mock("../embeddings/db", () => ({
   vectorDb: {
     delete: vi.fn().mockResolvedValue(undefined),
@@ -90,7 +83,6 @@ describe("backupService", () => {
       expect(calledFiles).toContain("sync-storage.json")
       expect(calledFiles).toContain("local-storage.json")
       expect(calledFiles).toContain("database.sqlite")
-      expect(calledFiles).toContain("chat-db.json")
       expect(calledFiles).toContain("vector-db.json")
       expect(calledFiles).toContain("knowledge-db.json")
     })
@@ -151,8 +143,6 @@ describe("backupService", () => {
             return mockFile(JSON.stringify({ localKey: "localValue" }))
           if (name === "database.sqlite")
             return { async: vi.fn().mockResolvedValue(new Uint8Array([1])) }
-          if (name === "chat-db.json")
-            return { async: vi.fn().mockResolvedValue(new Blob()) }
           if (name === "vector-db.json")
             return { async: vi.fn().mockResolvedValue(new Blob()) }
           if (name === "knowledge-db.json")
@@ -167,7 +157,6 @@ describe("backupService", () => {
       expect(result.syncStorage.ok).toBe(true)
       expect(result.localStorage.ok).toBe(true)
       expect(result.database.ok).toBe(true)
-      expect(result.dexie.chatDb.ok).toBe(true)
       expect(result.dexie.vectorDb.ok).toBe(true)
       expect(result.dexie.knowledgeDb.ok).toBe(true)
 
@@ -178,7 +167,7 @@ describe("backupService", () => {
         localKey: "localValue"
       })
       expect(importDatabaseBytes).toHaveBeenCalled()
-      expect(importInto).toHaveBeenCalledTimes(3)
+      expect(importInto).toHaveBeenCalledTimes(2)
     })
 
     it("should report failures for individual components", async () => {

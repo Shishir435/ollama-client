@@ -46,7 +46,7 @@ The RAG pipeline is browser-first and local-first:
 3. Hybrid retrieval combines keyword and dense search.
 4. Retrieved snippets are injected into the prompt context before generation.
 
-Chat/session/message/file history is SQLite-first through `sql.js`, persisted into IndexedDB. Dexie remains as an automatic recovery fallback during the SQLite cutover window. Vector embeddings still live in IndexedDB through the embeddings storage layer.
+Chat/session/message/file history is SQLite-only through `sql.js`, persisted into IndexedDB. Vector embeddings still live in IndexedDB through the embeddings storage layer.
 
 ## Install
 
@@ -110,7 +110,7 @@ Key paths:
 - `src/components/forms/`, `src/components/layout/`, `src/components/settings/`, `src/components/feedback/`, `src/components/data-display/` - app-owned frontend primitives.
 - `src/components/ui/` - curated shadcn/Base UI primitives only.
 - `src/lib/providers/` - provider registry, factory, manager, and provider implementations.
-- `src/lib/repositories/chat-history.ts` - chat-history facade for SQLite/Dexie routing.
+- `src/lib/repositories/chat-history.ts` - chat-history facade backed by SQLite.
 - `src/lib/sqlite/` - sql.js database, schema, and migrations.
 - `src/lib/embeddings/` - chunking, embedding strategy, HNSW, keyword index, and vector storage.
 

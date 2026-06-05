@@ -170,12 +170,6 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     key: STORAGE_KEYS.SHORTCUTS,
     scope: "sync-safe",
     reason: "Keyboard shortcut preferences."
-  },
-  [STORAGE_KEYS.CHAT_HISTORY.BACKEND]: {
-    key: STORAGE_KEYS.CHAT_HISTORY.BACKEND,
-    scope: "device-local",
-    reason:
-      "Backend pointer describes local IndexedDB/SQLite readiness and must not cross devices."
   }
 }
 

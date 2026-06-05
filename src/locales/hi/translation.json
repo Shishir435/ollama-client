@@ -1105,7 +1105,6 @@
           "sync": "प्राथमिकताएँ (Sync)",
           "local": "स्थानीय संग्रहण",
           "database": "डेटाबेस (SQLite)",
-          "chatDb": "चैट इतिहास (Dexie)",
           "vectorDb": "वेक्टर एम्बेडिंग (Dexie)",
           "knowledgeDb": "ज्ञान सेट (Dexie)"
         },

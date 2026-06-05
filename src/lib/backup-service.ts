@@ -1,7 +1,6 @@
 import { exportDB, importInto } from "dexie-export-import"
 import JSZip from "jszip"
 import { z } from "zod"
-import { db as chatDb } from "./db"
 import { vectorDb } from "./embeddings/db"
 import { createAppError, getErrorMessage } from "./error-utils"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
@@ -22,7 +21,6 @@ export type ImportResult = {
   localStorage: { ok: boolean; error?: string }
   database: { ok: boolean; error?: string }
   dexie: {
-    chatDb: { ok: boolean; error?: string }
     vectorDb: { ok: boolean; error?: string }
     knowledgeDb: { ok: boolean; error?: string }
   }
@@ -65,9 +63,8 @@ export const backupService = {
       throw e // Re-throw to see the full stack in the UI
     }
 
-    // Dexie Databases
+    // Dexie-backed vector/knowledge databases. Chat history is SQLite-only.
     const dexieDbs = [
-      { name: "Chat DB", db: chatDb, file: "chat-db.json" },
       { name: "Vector DB", db: vectorDb, file: "vector-db.json" },
       { name: "Knowledge DB", db: knowledgeDb, file: "knowledge-db.json" }
     ]
@@ -99,7 +96,6 @@ export const backupService = {
       localStorage: { ok: false },
       database: { ok: false },
       dexie: {
-        chatDb: { ok: false },
         vectorDb: { ok: false },
         knowledgeDb: { ok: false }
       }
@@ -228,26 +224,7 @@ export const backupService = {
         }
       }
 
-      // Dexie Databases
-      try {
-        const chatDbFile = zip.file("chat-db.json")
-        if (chatDbFile) {
-          const chatDbBlob = await chatDbFile.async("blob")
-          await chatDb.delete()
-          await chatDb.open()
-          await importInto(chatDb, chatDbBlob, {
-            overwriteValues: true,
-            clearTablesBeforeImport: true
-          })
-          result.dexie.chatDb.ok = true
-        }
-      } catch (e) {
-        result.dexie.chatDb = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
+      // Dexie-backed vector/knowledge databases.
       try {
         const vectorDbFile = zip.file("vector-db.json")
         if (vectorDbFile) {

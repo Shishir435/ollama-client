@@ -1105,7 +1105,6 @@
           "sync": "Einstellungen (Sync)",
           "local": "Lokaler Speicher",
           "database": "Datenbank (SQLite)",
-          "chatDb": "Chat-Verlauf (Dexie)",
           "vectorDb": "Vektor-Embeddings (Dexie)",
           "knowledgeDb": "Wissensdatenbanken (Dexie)"
         },

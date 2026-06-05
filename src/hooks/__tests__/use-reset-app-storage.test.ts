@@ -1,9 +1,13 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
-import { db } from "@/lib/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  plasmoDeviceStorage,
+  plasmoGlobalStorage,
+  removePlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
+import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 vi.mock("@/lib/embeddings/feedback-service", () => ({
   feedbackService: {
@@ -11,17 +15,19 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
   }
 }))
 
-vi.mock("@/lib/db", () => ({
-  db: {
-    delete: vi.fn().mockResolvedValue(undefined)
-  }
+vi.mock("@/lib/sqlite/db", () => ({
+  resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
+  plasmoDeviceStorage: {
+    clear: vi.fn().mockResolvedValue(undefined)
+  },
   plasmoGlobalStorage: {
     clear: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined)
-  }
+  },
+  removePlasmoStoredValue: vi.fn().mockResolvedValue(undefined)
 }))
 
 describe("useResetAppStorage", () => {
@@ -35,9 +41,10 @@ describe("useResetAppStorage", () => {
 
     await reset("all")
 
-    expect(db.delete).toHaveBeenCalled()
+    expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).toHaveBeenCalled()
     expect(plasmoGlobalStorage.clear).toHaveBeenCalled()
+    expect(plasmoDeviceStorage.clear).toHaveBeenCalled()
   })
 
   it("should reset only chat sessions when key is 'CHAT_SESSIONS'", async () => {
@@ -46,9 +53,9 @@ describe("useResetAppStorage", () => {
 
     await reset("CHAT_SESSIONS")
 
-    expect(db.delete).toHaveBeenCalled()
+    expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
-    expect(plasmoGlobalStorage.remove).not.toHaveBeenCalled()
+    expect(removePlasmoStoredValue).not.toHaveBeenCalled()
   })
 
   it("should reset only feedback when key is 'FEEDBACK'", async () => {
@@ -58,8 +65,8 @@ describe("useResetAppStorage", () => {
     await reset("FEEDBACK")
 
     expect(feedbackService.clearAllFeedback).toHaveBeenCalled()
-    expect(db.delete).not.toHaveBeenCalled()
-    expect(plasmoGlobalStorage.remove).not.toHaveBeenCalled()
+    expect(resetSQLiteDatabase).not.toHaveBeenCalled()
+    expect(removePlasmoStoredValue).not.toHaveBeenCalled()
   })
 
   it("should reset specific module keys when key is a module name", async () => {
@@ -69,8 +76,8 @@ describe("useResetAppStorage", () => {
     // THEME module usually has keys
     await reset("THEME")
 
-    expect(plasmoGlobalStorage.remove).toHaveBeenCalled()
-    expect(db.delete).not.toHaveBeenCalled()
+    expect(removePlasmoStoredValue).toHaveBeenCalled()
+    expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
   })
 })

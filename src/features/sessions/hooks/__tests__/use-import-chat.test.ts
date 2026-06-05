@@ -1,16 +1,12 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
-import { db } from "@/lib/db"
+import { bulkPutSessions } from "@/lib/repositories/chat-history"
 import { useImportChat } from "../use-import-chat"
 
 // Mock dependencies
-vi.mock("@/lib/db", () => ({
-  db: {
-    sessions: {
-      bulkPut: vi.fn()
-    }
-  }
+vi.mock("@/lib/repositories/chat-history", () => ({
+  bulkPutSessions: vi.fn()
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
@@ -36,7 +32,7 @@ describe("useImportChat", () => {
       await result.current.importChat(null)
     })
 
-    expect(db.sessions.bulkPut).not.toHaveBeenCalled()
+    expect(bulkPutSessions).not.toHaveBeenCalled()
   })
 
   it("should skip non-JSON files", async () => {
@@ -55,7 +51,7 @@ describe("useImportChat", () => {
       await result.current.importChat(fileList)
     })
 
-    expect(db.sessions.bulkPut).not.toHaveBeenCalled()
+    expect(bulkPutSessions).not.toHaveBeenCalled()
   })
 
   it("should import valid single session", async () => {
@@ -80,13 +76,13 @@ describe("useImportChat", () => {
       }
     } as unknown as FileList
 
-    vi.mocked(db.sessions.bulkPut).mockResolvedValue(1)
+    vi.mocked(bulkPutSessions).mockResolvedValue(undefined)
 
     await act(async () => {
       await result.current.importChat(fileList)
     })
 
-    expect(db.sessions.bulkPut).toHaveBeenCalledWith([session])
+    expect(bulkPutSessions).toHaveBeenCalledWith([session])
     expect(chatSessionStore.setState).toHaveBeenCalled()
   })
 
@@ -121,13 +117,13 @@ describe("useImportChat", () => {
       }
     } as unknown as FileList
 
-    vi.mocked(db.sessions.bulkPut).mockResolvedValue(2)
+    vi.mocked(bulkPutSessions).mockResolvedValue(undefined)
 
     await act(async () => {
       await result.current.importChat(fileList)
     })
 
-    expect(db.sessions.bulkPut).toHaveBeenCalledWith(sessions)
+    expect(bulkPutSessions).toHaveBeenCalledWith(sessions)
   })
 
   it("should skip invalid sessions", async () => {
@@ -160,7 +156,7 @@ describe("useImportChat", () => {
     })
 
     expect(consoleSpy).toHaveBeenCalled()
-    expect(db.sessions.bulkPut).not.toHaveBeenCalled()
+    expect(bulkPutSessions).not.toHaveBeenCalled()
 
     consoleSpy.mockRestore()
   })
@@ -186,7 +182,7 @@ describe("useImportChat", () => {
     })
 
     expect(consoleSpy).toHaveBeenCalled()
-    expect(db.sessions.bulkPut).not.toHaveBeenCalled()
+    expect(bulkPutSessions).not.toHaveBeenCalled()
 
     consoleSpy.mockRestore()
   })
@@ -219,7 +215,7 @@ describe("useImportChat", () => {
       await result.current.importChat(fileList)
     })
 
-    expect(db.sessions.bulkPut).not.toHaveBeenCalled()
+    expect(bulkPutSessions).not.toHaveBeenCalled()
   })
 
   it("should process multiple files", async () => {
@@ -256,12 +252,12 @@ describe("useImportChat", () => {
       }
     } as unknown as FileList
 
-    vi.mocked(db.sessions.bulkPut).mockResolvedValue(2)
+    vi.mocked(bulkPutSessions).mockResolvedValue(undefined)
 
     await act(async () => {
       await result.current.importChat(fileList)
     })
 
-    expect(db.sessions.bulkPut).toHaveBeenCalledWith([session1, session2])
+    expect(bulkPutSessions).toHaveBeenCalledWith([session1, session2])
   })
 })

@@ -102,18 +102,18 @@ Runtime ports support continuous chunk delivery better than one-shot messages, a
 
 ## Storage architecture
 
-- **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point — it routes between SQLite and a Dexie auto-fallback at runtime.
+- **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point and now routes to SQLite only.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
-- **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper, backed by `chrome.storage.sync`.
-- **Export / restore**: ZIP bundles with versioned manifests; includes both the SQLite blob and the Dexie database dumps.
+- **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
+- **Export / restore**: ZIP bundles with versioned manifests; includes the chat SQLite blob plus Dexie dumps for vector embeddings and knowledge sets.
 
-### Chat-history routing + safety net
+### Chat-history storage
 
-The facade resolves the active backend on boot from a persisted `chat-history-backend` key. Three guarantees follow:
+The facade exposes one chat-history API while the implementation stays SQLite-only. Three guarantees follow:
 
-1. **Durability**: SQLite writes are debounced 1s to IndexedDB, but the migration and the backend-pointer flip force-flush via `flushSave()` before announcing themselves. The "completion flag outlives the data" race that bit the original cutover can't recur.
-2. **Health cookie**: a successful migration writes a `chat-history-sqlite-healthy-v1` row into SQLite's `kv_store` and flushes. On boot, the facade trusts SQLite unconditionally when the cookie is present — legitimate deletes that bring SQLite below the stale Dexie snapshot won't trip a false fallback.
-3. **Auto-fallback recovery**: if the cookie is missing AND Dexie has strictly more messages than SQLite (the split-brain symptom from the pre-flush race or from cross-device sync of the completed flag), the facade flips routing back to Dexie and persists the flip. The user sees their data immediately; the migration hook re-attempts the catch-up.
+1. **Durability**: SQLite writes are debounced 1s to IndexedDB, and explicit reset/export/unload paths force-flush via `flushSave()` where needed.
+2. **Single source**: chat sessions, messages, branches, and file metadata read and write through one normalized SQLite schema.
+3. **Export path**: full-data export includes the SQLite database blob, so chat history remains restorable without any Dexie chat dump.
 
 See the [API reference](/reference/lib/repositories/chat-history/) for the full surface.
 
@@ -143,10 +143,10 @@ There is no OCR pipeline. Cross-encoder reranking is browser/CSP-sensitive and d
 - *Pro:* avoids migration breakage.
 - *Con:* causes confusion in multi-provider code paths.
 
-**SQLite-as-live with Dexie auto-fallback**
+**SQLite-only chat history**
 
-- *Pro:* SQLite is the live chat-history backend (better query model, single normalized schema, easier export); Dexie is retained as an automatic recovery target so a partially-stranded migration can never lose user data.
-- *Con:* both stores are present in the bundle during the cutover window, and the facade carries the routing + split-brain-detection logic on every boot.
+- *Pro:* one normalized chat store, smaller bundle surface, simpler boot path, and clearer export semantics.
+- *Con:* rollback now depends on full-data export or browser-level IndexedDB recovery, not a live Dexie chat fallback.
 
 **Provider-agnostic chat with provider-specific management features**
 
@@ -191,6 +191,6 @@ These are non-implementation notes for a hypothetical desktop port.
 ## Near-term priorities
 
 1. Finish retiring legacy `ollama-*` naming where compatibility does not require it.
-2. Retire Dexie chat-history paths after the SQLite cutover soak.
+2. Migrate vector storage and knowledge sets off Dexie when the SQLite path is ready.
 3. Expand provider parity for management actions.
 4. Improve retrieval observability and failure diagnostics.

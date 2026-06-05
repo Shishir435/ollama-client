@@ -3,10 +3,7 @@ import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
 
 /**
- * SQLite-backed implementation of the chat-history persistence surface
- * exposed by `dexie-chat-history.ts`. Same function names, same
- * argument shapes, same return shapes — the facade in
- * `chat-history.ts` picks one or the other at runtime.
+ * SQLite-backed implementation of the chat-history persistence surface.
  *
  * The migration-time class `SQLiteChatRepository` is kept separately
  * because it has migration-specific helpers (addMessageIfNotExists,
@@ -410,16 +407,8 @@ export const deleteFilesByMessageIds = async (
 // ----- Health cookie -------------------------------------------------------
 
 /**
- * Key stored in `kv_store` once SQLite is the confirmed source of
- * truth -- i.e. a Dexie -> SQLite migration completed AND flushed
- * to IndexedDB. The presence of this row is the signal the facade
- * uses to skip the "Dexie outpaces SQLite -> fall back" heuristic.
- *
- * Without this cookie, the auto-fallback would false-positive for
- * users who legitimately deleted sessions after migrating: Dexie's
- * stale pre-migration snapshot would still hold the deleted rows,
- * making Dexie strictly greater than SQLite and resurrecting the
- * deleted sessions in the UI on next reload.
+ * Key stored in `kv_store` once SQLite has been initialized as the
+ * confirmed chat-history source of truth.
  */
 const SQLITE_HEALTHY_KEY = "chat-history-sqlite-healthy-v1"
 

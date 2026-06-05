@@ -1,6 +1,10 @@
 import { vectorDb } from "@/lib/embeddings/db"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStoredValue,
+  removePlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 
 const MIGRATION_KEY = "embeddings.migration.embedding_dim.v1.completed"
 const MIGRATION_PROGRESS_KEY = "embeddings.migration.embedding_dim.v1.progress"
@@ -14,16 +18,14 @@ interface MigrationProgress {
 }
 
 export async function runEmbeddingDimensionMigration(): Promise<void> {
-  const completed = await plasmoGlobalStorage.get<boolean>(MIGRATION_KEY)
+  const completed = await getPlasmoStoredValue<boolean>(MIGRATION_KEY)
   if (completed) {
     return
   }
 
   const total = await vectorDb.vectors.count()
   const progress: MigrationProgress =
-    (await plasmoGlobalStorage.get<MigrationProgress>(
-      MIGRATION_PROGRESS_KEY
-    )) || {
+    (await getPlasmoStoredValue<MigrationProgress>(MIGRATION_PROGRESS_KEY)) || {
       processed: 0,
       total,
       updated: 0
@@ -68,13 +70,13 @@ export async function runEmbeddingDimensionMigration(): Promise<void> {
     }
 
     progress.processed = Math.min(offset + batch.length, total)
-    await plasmoGlobalStorage.set(MIGRATION_PROGRESS_KEY, progress)
+    await setPlasmoStoredValue(MIGRATION_PROGRESS_KEY, progress)
 
     await new Promise((resolve) => setTimeout(resolve, DELAY_MS))
   }
 
-  await plasmoGlobalStorage.set(MIGRATION_KEY, true)
-  await plasmoGlobalStorage.remove(MIGRATION_PROGRESS_KEY)
+  await setPlasmoStoredValue(MIGRATION_KEY, true)
+  await removePlasmoStoredValue(MIGRATION_PROGRESS_KEY)
 
   logger.info(
     "Embedding dimension migration completed",

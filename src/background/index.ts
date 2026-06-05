@@ -41,7 +41,10 @@ import {
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import type {
   ChatWithModelMessage,
@@ -136,7 +139,7 @@ if (isChromiumBased()) {
       )
 
       // Check if already downloaded
-      const alreadyDownloaded = await plasmoGlobalStorage.get<boolean>(
+      const alreadyDownloaded = await getPlasmoStoredValue<boolean>(
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED
       )
 
@@ -449,7 +452,7 @@ browser.runtime.onMessage.addListener(
           return true
         }
 
-        const pendingSelectionWrite = plasmoGlobalStorage.set(
+        const pendingSelectionWrite = setPlasmoStoredValue(
           STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
           selectionText
         )

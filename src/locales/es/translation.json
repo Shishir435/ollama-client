@@ -1105,7 +1105,6 @@
           "sync": "Preferencias (Sync)",
           "local": "Almacenamiento Local",
           "database": "Base de datos (SQLite)",
-          "chatDb": "Historial de chat (Dexie)",
           "vectorDb": "Incrustaciones vectoriales (Dexie)",
           "knowledgeDb": "Bases de conocimiento (Dexie)"
         },
