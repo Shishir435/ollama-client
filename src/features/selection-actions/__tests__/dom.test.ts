@@ -190,10 +190,12 @@ describe("selection action DOM helpers", () => {
     expect(insertAfterContentEditableSelection(range, editor, "inserted")).toBe(
       true
     )
-    const p = editor.querySelector("p")!
+    const p = editor.querySelector("p")
+    expect(p).not.toBeNull()
+    if (!p) return
     const br = p.querySelector("br")
     expect(br).not.toBeNull()
-    const textAfterBr = br!.nextSibling as Text
+    const textAfterBr = br?.nextSibling as Text
     expect(textAfterBr?.nodeType).toBe(Node.TEXT_NODE)
     expect(textAfterBr?.textContent).toBe("inserted")
 

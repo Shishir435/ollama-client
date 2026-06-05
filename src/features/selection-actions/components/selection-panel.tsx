@@ -5,12 +5,11 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { ProviderModel } from "@/types"
-import type { SelectionActionId } from "../types"
+import type { SelectionActionId, SelectionPanelState } from "../types"
 import { PanelFooter } from "./panel-footer"
 import { PanelHeader } from "./panel-header"
 import { PanelMarkdown } from "./panel-markdown"
 import { PanelThinking } from "./panel-thinking"
-import type { SelectionPanelState } from "./selection-actions-overlay"
 
 interface SelectionPanelProps {
   panelState: SelectionPanelState
@@ -127,7 +126,7 @@ export function SelectionPanel({
         </CardHeader>
 
         <CardContent className="sa-card-content">
-          {currentAction === "custom" && panelState === "idle" && (
+          {currentAction === "custom" && panelState === "open" && (
             <form
               className="sa-custom-row"
               onSubmit={(e) => {

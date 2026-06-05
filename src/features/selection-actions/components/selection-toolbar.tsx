@@ -1,45 +1,22 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { type ActionConfig, ActionGroup } from "@/components/actions"
-import { buttonVariants } from "@/components/ui/button"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+  type ActionConfig,
+  ActionGroup,
+  commandToActionConfig,
+  TooltipActionButton
+} from "@/components/actions"
+import { Button } from "@/components/ui/button"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   GripHorizontal,
-  HelpCircle,
   MessageSquare,
   MoreHorizontal,
-  Scissors,
-  Sparkles,
-  SquarePen,
   X
 } from "@/lib/lucide-icon"
+import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
 import type { SelectionActionId } from "../types"
-
-const QUICK_ACTION_IDS: SelectionActionId[] = [
-  "summarize",
-  "rewrite",
-  "explain"
-]
-const MORE_ACTION_IDS: SelectionActionId[] = [
-  "shorten",
-  "fix-grammar",
-  "translate-english",
-  "action-items",
-  "custom"
-]
-
-const iconForAction = (actionId: SelectionActionId) => {
-  if (actionId === "rewrite") return <SquarePen aria-hidden="true" />
-  if (actionId === "explain") return <HelpCircle aria-hidden="true" />
-  if (actionId === "shorten") return <Scissors aria-hidden="true" />
-  return <Sparkles aria-hidden="true" />
-}
 
 interface SelectionToolbarProps {
   currentAction: SelectionActionId
@@ -68,28 +45,28 @@ export function SelectionToolbar({
   const actions = SELECTION_ACTIONS.filter((a) =>
     enabledActionIds.includes(a.id)
   )
-  const quickActions = QUICK_ACTION_IDS.map((id) =>
-    actions.find((a) => a.id === id)
-  ).filter(Boolean)
-  const moreActions = MORE_ACTION_IDS.map((id) =>
-    actions.find((a) => a.id === id)
-  ).filter(Boolean)
-  const quickActionConfigs: ActionConfig[] = quickActions.map((action) => ({
-    key: action.id,
-    variant: action.id === currentAction ? "default" : "ghost",
-    size: "icon",
-    label: t(`selection_button.actions.${action.id}.short`, action.shortLabel),
-    ariaLabel: t(`selection_button.actions.${action.id}.label`, action.label),
-    tooltip: t(`selection_button.actions.${action.id}.label`, action.label),
-    onPointerDown: (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      onRunAction(action.id)
-    },
-    icon: iconForAction(action.id),
-    showLabel: true,
-    labelClassName: "sa-label"
-  }))
+  const orderedActions = (placement: "quick" | "more") =>
+    actions.filter(
+      (action) => selectionActionCommand(action.id).placement === placement
+    )
+  const quickActions = orderedActions("quick")
+  const moreActions = orderedActions("more")
+  const quickActionConfigs: ActionConfig[] = quickActions.map((action) =>
+    commandToActionConfig({
+      command: selectionActionCommand(action.id),
+      t,
+      labelKey: selectionActionCommand(action.id).shortLabelKey,
+      variant: action.id === currentAction ? "default" : "ghost",
+      size: "icon",
+      onPointerDown: (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onRunAction(action.id)
+      },
+      showLabel: true,
+      labelClassName: "sa-label"
+    })
+  )
   const toolbarActionConfigs: ActionConfig[] = [
     {
       key: "more",
@@ -132,20 +109,17 @@ export function SelectionToolbar({
     <TooltipProvider>
       <div className="sa-toolbar" role="toolbar" aria-label="Selection actions">
         <div className="sa-toolbar-strip">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <div
-                  className="sa-drag-handle sa-toolbar-drag"
-                  onPointerDown={onDragStart}
-                />
-              }>
-              <GripHorizontal aria-hidden="true" />
-            </TooltipTrigger>
-            <TooltipContent container={tooltipContainer}>
-              {t("selection_button.panel.drag_toolbar")}
-            </TooltipContent>
-          </Tooltip>
+          <TooltipActionButton
+            trigger={
+              <div
+                className="sa-drag-handle sa-toolbar-drag"
+                onPointerDown={onDragStart}
+              />
+            }
+            icon={GripHorizontal}
+            label={t("selection_button.panel.drag_toolbar")}
+            tooltipContainer={tooltipContainer}
+          />
 
           <ActionGroup
             actions={quickActionConfigs}
@@ -163,13 +137,12 @@ export function SelectionToolbar({
         {isMoreMenuOpen && (
           <div className="sa-menu" role="menu">
             {moreActions.map((action) => (
-              <button
+              <Button
                 key={action.id}
                 type="button"
-                className={
-                  buttonVariants({ variant: "ghost", size: "sm" }) +
-                  " sa-menu-item"
-                }
+                variant="ghost"
+                size="sm"
+                className="sa-menu-item"
                 aria-label={t(
                   `selection_button.actions.${action.id}.label`,
                   action.label
@@ -180,7 +153,7 @@ export function SelectionToolbar({
                   onRunAction(action.id)
                 }}>
                 {t(`selection_button.actions.${action.id}.label`, action.label)}
-              </button>
+              </Button>
             ))}
           </div>
         )}

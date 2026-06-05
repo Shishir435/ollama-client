@@ -12,6 +12,17 @@ export default defineConfig({
   outDir: process.env.WXT_OUTPUT_DIR || "build",
   outDirTemplate: "",
   publicDir: "public",
+  zip: {
+    exclude: ["assets/icon-promo-light.png"]
+  },
+  hooks: {
+    "build:publicAssets": (_wxt, files) => {
+      const promoIndex = files.findIndex(
+        (file) => file.relativeDest === "assets/icon-promo-light.png"
+      )
+      if (promoIndex !== -1) files.splice(promoIndex, 1)
+    }
+  },
   manifest: {
     name: "__MSG_extName__",
     short_name: "__MSG_extShortName__",
@@ -46,7 +57,7 @@ export default defineConfig({
     ],
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm", "assets/icon-32.png", "chunks/*.js"],
+        resources: ["assets/*.wasm", "chunks/*.js", "content-scripts/*.css"],
         matches: ["<all_urls>"]
       }
     ],

@@ -1,11 +1,12 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import type { ProviderModel } from "@/types"
-import type { SelectionActionId } from "../types"
+import type {
+  SelectionActionId,
+  SelectionOverlayMode,
+  SelectionPanelState
+} from "../types"
 import { SelectionPanel } from "./selection-panel"
 import { SelectionToolbar } from "./selection-toolbar"
-
-export type SelectionOverlayMode = "toolbar" | "panel"
-export type SelectionPanelState = "idle" | "streaming" | "done" | "error"
 
 interface SelectionActionsOverlayProps {
   mode: SelectionOverlayMode

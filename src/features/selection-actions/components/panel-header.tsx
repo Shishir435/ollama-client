@@ -1,11 +1,10 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { type ActionConfig, ActionGroup } from "@/components/actions"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+  type ActionConfig,
+  ActionGroup,
+  TooltipActionButton
+} from "@/components/actions"
 import { ArrowLeft, GripHorizontal, Pin, X } from "@/lib/lucide-icon"
 import type { ProviderModel } from "@/types"
 import { SELECTION_ACTIONS } from "../actions"
@@ -120,17 +119,14 @@ export function PanelHeader({
       </div>
 
       <div className="sa-header-actions">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <div className="sa-drag-handle" onPointerDown={onDragStart} />
-            }>
-            <GripHorizontal aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent container={tooltipContainer}>
-            {t("selection_button.panel.drag_panel")}
-          </TooltipContent>
-        </Tooltip>
+        <TooltipActionButton
+          trigger={
+            <div className="sa-drag-handle" onPointerDown={onDragStart} />
+          }
+          icon={GripHorizontal}
+          label={t("selection_button.panel.drag_panel")}
+          tooltipContainer={tooltipContainer}
+        />
 
         <ActionGroup
           actions={headerActions}
