@@ -62,7 +62,7 @@ export const SettingsSidebar = ({
                         )}>
                         <span
                           className={cn(
-                            "absolute left-0.5 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full transition-all duration-200",
+                            "absolute left-0.5 top-1/2 -translate-y-1/2 h-5 w-0.75 rounded-full transition-all duration-200",
                             isActive
                               ? "bg-sidebar-primary opacity-100"
                               : "bg-transparent opacity-0 group-hover:bg-sidebar-primary group-hover:opacity-40"

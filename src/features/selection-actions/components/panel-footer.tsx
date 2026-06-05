@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { Copy, MessageSquare, RefreshCw, SquarePen } from "@/lib/lucide-icon"
-import type { SelectionPanelState } from "./selection-actions-overlay"
+import type { SelectionPanelState } from "../types"
 
 interface PanelFooterProps {
   panelState: SelectionPanelState

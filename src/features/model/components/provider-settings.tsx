@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
 import {
@@ -28,11 +29,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderHealth } from "@/features/model/hooks/use-provider-health"
 import { toast } from "@/hooks/use-toast"
@@ -359,19 +355,15 @@ export const ProviderSettings = () => {
                   {isBetaProvider(activeConfig.id) && (
                     <>
                       <MiniBadge text={t("settings.providers.beta_badge")} />
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <span className="inline-flex text-muted-foreground hover:text-foreground" />
-                          }>
-                          <Info className="size-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">
-                            {t("settings.providers.beta_notice")}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <TooltipActionButton
+                        trigger={
+                          <span className="inline-flex text-muted-foreground hover:text-foreground" />
+                        }
+                        icon={Info}
+                        iconClassName="size-3.5"
+                        label={t("settings.providers.beta_notice")}
+                        tooltipClassName="max-w-xs"
+                      />
                     </>
                   )}
                 </CardTitle>

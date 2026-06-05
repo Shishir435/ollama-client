@@ -17,6 +17,14 @@ export type SelectionKind =
   | "contenteditable"
   | "unknown"
 
+export type SelectionOverlayMode = "toolbar" | "panel"
+export type SelectionPanelState =
+  | "idle"
+  | "open"
+  | "streaming"
+  | "done"
+  | "error"
+
 export interface SelectionPayload {
   selectedText: string
   pageUrl: string

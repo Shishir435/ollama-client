@@ -1,15 +1,11 @@
-import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { Info } from "@/lib/lucide-icon"
 import { isBetaProvider } from "@/lib/providers/registry"
 import type { ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
@@ -102,19 +98,15 @@ export const ProviderGrid = ({
                 {isBetaProvider(provider.id) && (
                   <>
                     <MiniBadge text={t("settings.providers.beta_badge")} />
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
-                        }>
-                        <Info className="size-3" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-xs">
-                          {t("settings.providers.beta_notice")}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <TooltipActionButton
+                      trigger={
+                        <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
+                      }
+                      icon={Info}
+                      iconClassName="size-3"
+                      label={t("settings.providers.beta_notice")}
+                      tooltipClassName="max-w-xs text-xs"
+                    />
                   </>
                 )}
 
