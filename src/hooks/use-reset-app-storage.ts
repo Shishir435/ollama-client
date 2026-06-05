@@ -5,6 +5,7 @@ import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
@@ -37,11 +38,9 @@ export const useResetAppStorage = () => {
 
       if (key === "all" || key === "CHAT_SESSIONS") {
         // Tell other extension pages to reload so they pick up the fresh state.
-        try {
-          chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
-        } catch {
+        sendRuntimeMessage(MESSAGE_KEYS.APP.RELOAD).catch(() => {
           /* not available in test */
-        }
+        })
         setTimeout(() => window.location.reload(), 100)
         return "Resetting..."
       }

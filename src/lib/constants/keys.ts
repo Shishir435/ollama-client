@@ -18,7 +18,7 @@ export const PROVIDER_MESSAGE_KEYS = {
   EMBED_FILE_CHUNKS: "embed-file-chunks",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action"
-}
+} as const
 
 /**
  * Legacy Ollama-named message keys.
@@ -39,7 +39,7 @@ export const LEGACY_OLLAMA_MESSAGE_KEYS = {
   UPDATE_BASE_URL: "ollama-update-base-url",
   GET_LOADED_MODELS: "get-loaded-model",
   GET_OLLAMA_VERSION: "get-ollama-version"
-}
+} as const
 
 export const MESSAGE_KEYS = {
   PROVIDER: PROVIDER_MESSAGE_KEYS,
@@ -56,7 +56,7 @@ export const MESSAGE_KEYS = {
   APP: {
     RELOAD: "app-reload"
   }
-}
+} as const
 
 export const LEGACY_STORAGE_KEYS = {
   OLLAMA: {

@@ -6,7 +6,6 @@ import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useToast } from "@/hooks/use-toast"
-import { browser } from "@/lib/browser-api"
 import type { EmbeddingConfig } from "@/lib/constants"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -26,8 +25,8 @@ import {
   RefreshCw
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { STATUS_STYLES } from "@/lib/ui-status"
-import type { ModelCheckResponse } from "@/types"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
@@ -77,18 +76,17 @@ export const EmbeddingStatusIndicator = () => {
         providerId
       })
 
-      const resp = (await Promise.race([
-        browser.runtime.sendMessage({
-          type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
+      const resp = await Promise.race([
+        sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, {
           payload: { model: modelName, providerId }
         }),
-        new Promise((_, reject) =>
+        new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error("Status check timed out")),
             CHECK_TIMEOUT_MS
           )
         )
-      ])) as ModelCheckResponse
+      ])
 
       logger.debug("Check response", "EmbeddingStatusIndicator", {
         model: modelName,

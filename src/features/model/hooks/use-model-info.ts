@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
-import type { ChromeResponse, ProviderModelDetails } from "@/types"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
 
 export const useModelInfo = (model: string, providerId?: string) => {
   const {
@@ -16,13 +15,15 @@ export const useModelInfo = (model: string, providerId?: string) => {
   } = useQuery({
     queryKey: [...queryKeys.model.info(model), providerId || "auto"],
     queryFn: async () => {
-      const res = (await browser.runtime.sendMessage({
-        type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-        payload: {
-          model,
-          providerId
+      const res = await sendRuntimeMessage(
+        MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
+        {
+          payload: {
+            model,
+            providerId
+          }
         }
-      })) as ChromeResponse & { data?: ProviderModelDetails }
+      )
 
       if (!res?.success) {
         throw createAppError(

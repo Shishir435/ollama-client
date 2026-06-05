@@ -6,11 +6,8 @@ import {
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
-import type {
-  ChromeResponse,
-  ContentExtractionConfig,
-  ProviderModel
-} from "@/types"
+import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 export async function syncSelectionLanguage() {
   const { default: i18n } = await import("@/i18n/config")
@@ -52,15 +49,13 @@ export async function loadSelectedPanelModel(currentModel: string): Promise<{
 }
 
 export async function loadAvailablePanelModels(): Promise<ProviderModel[]> {
-  const resp = (await chrome.runtime.sendMessage({
-    type: MESSAGE_KEYS.PROVIDER.GET_MODELS
-  })) as ChromeResponse
+  const resp = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.GET_MODELS)
 
-  if (!resp?.success || !resp.data || !("models" in (resp.data as object))) {
+  if (!resp?.success || !resp.data?.models) {
     return []
   }
 
-  const all = (resp.data as { models: ProviderModel[] }).models
+  const all = resp.data.models
   return all.filter(
     (m) => !isEmbeddingModel(m.model, m.details?.families ?? [])
   )
