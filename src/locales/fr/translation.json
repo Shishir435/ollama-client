@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "Sélectionner les onglets ouverts",
+      "search_placeholder": "Rechercher des onglets...",
       "ready": "{{selected}}/{{total}} onglets prêts",
       "updated": "Mis à jour",
       "view_content": "Voir le contenu extrait",

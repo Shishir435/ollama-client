@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "选择打开的标签页",
+      "search_placeholder": "搜索标签页...",
       "ready": "{{selected}}/{{total}} 个标签页就绪",
       "updated": "已更新",
       "view_content": "查看提取的内容",

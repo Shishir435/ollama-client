@@ -285,62 +285,66 @@ export const buildRagContext = async (
                   .filter(Boolean) as string[])
               : undefined
 
-          if (!fileIds && activeKnowledgeSet?.id) {
+          const hasExplicitKnowledgeSet =
+            !!activeKnowledgeSet?.id &&
+            activeKnowledgeSet.id !== DEFAULT_KNOWLEDGE_SET_ID
+
+          if (!fileIds && hasExplicitKnowledgeSet) {
             const setFileIds = await getKnowledgeSetFileIds(
               activeKnowledgeSet.id
             )
             if (setFileIds.length > 0) fileIds = setFileIds
           }
 
-          if (
-            fileIds &&
-            activeKnowledgeSet?.id === DEFAULT_KNOWLEDGE_SET_ID &&
-            fileIds.length === 0
-          ) {
-            fileIds = undefined
-          }
-
-          logger.verbose("RAG searching for context", "useChat", {
-            scope: fileIds ? "Specific Files" : "Global",
-            suggestedTopK: queryClassification.suggestedTopK,
-            suggestedMode: queryClassification.suggestedMode
-          })
-
-          const context = await retrieveContext(queryForRag, fileIds, {
-            mode: queryClassification.suggestedMode,
-            topK: retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-            useReranking: true,
-            minSimilarity: retrievalOverrides?.minSimilarity,
-            minRerankScore: retrievalOverrides?.minRerankScore,
-            includeMemory: memoryEnabled,
-            memoryTopK: 2
-          })
-
-          if (context.documents.length > 0) {
-            logger.info("RAG found relevant chunks", "useChat", {
-              chunkCount: context.documents.length
+          if (fileIds && fileIds.length > 0) {
+            logger.verbose("RAG searching for context", "useChat", {
+              scope: "Specific Files",
+              suggestedTopK: queryClassification.suggestedTopK,
+              suggestedMode: queryClassification.suggestedMode
             })
-            const clamped = clampContext(
-              context.formattedContext,
-              maxRagContextChars
-            )
-            ragSources = {
-              sources: [...(ragSources?.sources || []), ...context.sources],
-              query: queryForRag
-            }
-            context.sources.forEach((source) => {
-              usedContextChunks.push({
-                id: source.id,
-                title: source.title,
-                excerpt: source.content.slice(0, 220),
-                score: source.score,
-                sectionPath: source.source || source.type,
-                source: source.source,
-                chunkIndex: source.chunkIndex
+
+            const context = await retrieveContext(queryForRag, fileIds, {
+              mode: queryClassification.suggestedMode,
+              topK:
+                retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
+              useReranking: true,
+              minSimilarity: retrievalOverrides?.minSimilarity,
+              minRerankScore: retrievalOverrides?.minRerankScore,
+              includeMemory: memoryEnabled,
+              memoryTopK: 2
+            })
+
+            if (context.documents.length > 0) {
+              logger.info("RAG found relevant chunks", "useChat", {
+                chunkCount: context.documents.length
               })
-            })
-            contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
-            ragContextLength += clamped.text.length
+              const clamped = clampContext(
+                context.formattedContext,
+                maxRagContextChars
+              )
+              ragSources = {
+                sources: [...(ragSources?.sources || []), ...context.sources],
+                query: queryForRag
+              }
+              context.sources.forEach((source) => {
+                usedContextChunks.push({
+                  id: source.id,
+                  title: source.title,
+                  excerpt: source.content.slice(0, 220),
+                  score: source.score,
+                  sectionPath: source.source || source.type,
+                  source: source.source,
+                  chunkIndex: source.chunkIndex
+                })
+              })
+              contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
+              ragContextLength += clamped.text.length
+            }
+          } else {
+            logger.info(
+              "Skipping file RAG: no scoped files selected",
+              "useChat"
+            )
           }
         }
       }

@@ -8,7 +8,7 @@ export const AppShell = ({
 }: React.ComponentProps<"div">) => (
   <div
     className={cn(
-      "flex h-screen flex-col overflow-hidden bg-background text-foreground",
+      "flex h-screen flex-col overflow-hidden bg-surface-chat text-foreground",
       className
     )}
     {...props}
@@ -20,7 +20,7 @@ export const PageHeader = ({
   ...props
 }: React.ComponentProps<"header">) => (
   <header
-    className={cn("flex-none border-b bg-background", className)}
+    className={cn("flex-none border-b bg-surface-chat", className)}
     {...props}
   />
 )

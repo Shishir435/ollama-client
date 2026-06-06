@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "Select open tabs",
+      "search_placeholder": "Search tabs...",
       "ready": "{{selected}}/{{total}} tabs ready",
       "updated": "Updated",
       "view_content": "View extracted content",

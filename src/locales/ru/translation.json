@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "Выберите открытые вкладки",
+      "search_placeholder": "Искать вкладки...",
       "ready": "{{selected}}/{{total}} вкладок готово",
       "updated": "Обновлено",
       "view_content": "Просмотреть извлечённый контент",

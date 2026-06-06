@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "開いているタブを選択",
+      "search_placeholder": "タブを検索...",
       "ready": "{{selected}}/{{total}} タブ準備完了",
       "updated": "更新済み",
       "view_content": "抽出されたコンテンツを表示",

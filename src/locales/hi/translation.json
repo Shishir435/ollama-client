@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "खुले टैब चुनें",
+      "search_placeholder": "टैब खोजें...",
       "ready": "{{selected}}/{{total}} टैब तैयार",
       "updated": "अपडेट किया",
       "view_content": "निकाली गई सामग्री देखें",

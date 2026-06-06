@@ -13,7 +13,7 @@ export const ChatInputAttachmentList = ({
   if (processingStates.length === 0) return null
 
   return (
-    <div className="mb-2 space-y-1">
+    <div className="flex flex-wrap gap-1.5 px-2 pt-2">
       {processingStates.map((state) => (
         <FilePreview
           key={state.file.name}

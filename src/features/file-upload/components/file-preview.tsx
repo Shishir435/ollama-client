@@ -1,6 +1,11 @@
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
 import { FILE_UPLOAD } from "@/lib/constants"
 import type { FileProcessingState } from "@/lib/file-processors/types"
@@ -24,6 +29,8 @@ export const FilePreview = ({
 }: FilePreviewProps) => {
   const { t } = useTranslation()
   const { file, status, error, progress } = processingState
+  const previewText = processingState.result?.text?.trim()
+  const previewCharCount = previewText?.length ?? 0
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`
@@ -103,41 +110,75 @@ export const FilePreview = ({
   }
 
   return (
-    <div
-      className={cn(
-        "group relative flex items-center gap-2 rounded-lg border p-2 text-sm transition-all",
-        getStatusColor()
-      )}>
-      {getStatusIcon()}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="truncate font-medium">{file.name}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatFileSize(file.size)}
-          </span>
+    <div className="group relative">
+      <Popover>
+        <div
+          className={cn(
+            "flex h-7 max-w-[min(24rem,100%)] items-center rounded-chip border text-xs transition-colors",
+            getStatusColor()
+          )}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 px-2"
+              />
+            }>
+            {getStatusIcon()}
+            <span className="min-w-0 truncate font-medium">{file.name}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {formatFileSize(file.size)}
+            </span>
+          </PopoverTrigger>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="mr-0.5 size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={onRemove}
+            aria-label={t("file_upload.preview.remove_aria_label")}>
+            <X className="size-3" />
+          </Button>
         </div>
-        {status === "processing" && (
-          <div className="mt-1">
-            <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-              <span>{getProcessingMessage()}</span>
-              <span>{Math.round(progress || 0)}%</span>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="max-h-[min(30rem,calc(100vh-8rem))] w-[min(24rem,calc(100vw-1.25rem))] rounded-panel p-3">
+          <div className="flex items-start gap-2">
+            {getStatusIcon()}
+            <div className="min-w-0 flex-1">
+              <div className="break-all text-sm font-medium">{file.name}</div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                <span>{formatFileSize(file.size)}</span>
+                {status === "success" && (
+                  <span>
+                    {t("tabs.inspector.chars", { count: previewCharCount })}
+                  </span>
+                )}
+              </div>
             </div>
-            <Progress value={progress || 0} className="h-1" />
           </div>
-        )}
-        {status === "error" && error && (
-          <div className="mt-1 text-xs text-destructive">{error}</div>
-        )}
-      </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="size-6 shrink-0 opacity-70 transition-opacity hover:opacity-100"
-        onClick={onRemove}
-        aria-label={t("file_upload.preview.remove_aria_label")}>
-        <X className="size-3" />
-      </Button>
+          {status === "processing" && (
+            <div className="mt-3">
+              <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{getProcessingMessage()}</span>
+                <span>{Math.round(progress || 0)}%</span>
+              </div>
+              <Progress value={progress || 0} className="h-1" />
+            </div>
+          )}
+          {status === "success" && (
+            <div className="mt-3 max-h-64 overflow-y-auto rounded-control border border-border/35 bg-background/35">
+              <pre className="whitespace-pre-wrap break-words p-2 font-sans text-xs leading-relaxed text-muted-foreground">
+                {previewText || t("file_upload.area.files_ready", { count: 1 })}
+              </pre>
+            </div>
+          )}
+          {status === "error" && error && (
+            <div className="mt-3 text-xs text-destructive">{error}</div>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

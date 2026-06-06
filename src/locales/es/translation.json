@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "Seleccionar pestañas abiertas",
+      "search_placeholder": "Buscar pestañas...",
       "ready": "{{selected}}/{{total}} pestañas listas",
       "updated": "Actualizado",
       "view_content": "Ver contenido extraído",

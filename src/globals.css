@@ -214,10 +214,10 @@
   --app-agent: var(--primary);
   --app-tool: oklch(0.76 0.11 265);
   --app-user: oklch(0.78 0.12 225);
-  --surface-sidebar: oklch(0.18 0.018 245);
-  --surface-chat: oklch(0.145 0.012 245);
-  --surface-composer: oklch(0.18 0.018 245);
-  --surface-message: oklch(0.2 0.018 245);
+  --surface-sidebar: oklch(0.165 0.012 235);
+  --surface-chat: oklch(0.13 0.009 235);
+  --surface-composer: oklch(0.178 0.012 235);
+  --surface-message: oklch(0.185 0.01 235);
 
   --chart-1: oklch(0.871 0.006 286.286);
   --chart-2: oklch(0.552 0.016 285.938);
