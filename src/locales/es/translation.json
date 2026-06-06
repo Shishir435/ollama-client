@@ -218,6 +218,7 @@
       "loading_queued": "En cola",
       "trace": {
         "planning": "Planificando",
+        "thinking": "Pensando",
         "page": "Leyendo página",
         "files": "RAG",
         "web": "Buscando en la web",

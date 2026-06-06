@@ -218,6 +218,7 @@
       "loading_queued": "Queued",
       "trace": {
         "planning": "Planning",
+        "thinking": "Thinking",
         "page": "Reading page",
         "files": "RAG",
         "web": "Searching web",

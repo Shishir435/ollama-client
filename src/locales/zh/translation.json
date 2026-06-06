@@ -218,6 +218,7 @@
       "loading_queued": "排队中",
       "trace": {
         "planning": "规划",
+        "thinking": "思考中",
         "page": "读取页面",
         "files": "RAG",
         "web": "搜索网页",

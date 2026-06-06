@@ -218,6 +218,7 @@
       "loading_queued": "En attente",
       "trace": {
         "planning": "Planification",
+        "thinking": "Réflexion",
         "page": "Lecture de la page",
         "files": "RAG",
         "web": "Recherche web",
