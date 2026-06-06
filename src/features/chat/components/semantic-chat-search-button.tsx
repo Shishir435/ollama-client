@@ -21,7 +21,7 @@ export const SemanticChatSearchButton = () => {
             type="button"
             variant="outline"
             onClick={openSearchDialog}
-            className="flex h-10 w-full items-center justify-start rounded-lg border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+            className="flex h-9 w-full items-center justify-start rounded-control border-border/50 bg-background/70 shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
           />
         }
         icon={<Search className="mr-2 size-4" />}

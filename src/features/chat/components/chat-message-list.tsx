@@ -116,7 +116,7 @@ export const ChatMessageList = ({
   }, [])
 
   return (
-    <div className="relative flex-1 h-full px-4 py-2">
+    <div className="relative h-full flex-1 px-3 py-2 sm:px-4">
       <Virtuoso
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
@@ -161,7 +161,10 @@ export const ChatMessageList = ({
 
           return (
             <div className={cn(paddingTop, "pr-2")}>
-              <div className={isHighlighted ? "rounded-lg bg-accent/20" : ""}>
+              <div
+                className={
+                  isHighlighted ? "rounded-panel bg-app-primary-soft/70" : ""
+                }>
                 <ChatMessageBubble
                   msg={msg}
                   isLoading={isLoading && isLastAssistantMessage}
@@ -191,7 +194,7 @@ export const ChatMessageList = ({
             type="button"
             size="sm"
             variant="secondary"
-            className="pointer-events-auto h-8 gap-1 rounded-full px-3 text-xs shadow-md"
+            className="pointer-events-auto h-8 gap-1 rounded-chip px-3 text-xs shadow-md"
             onClick={() => {
               if (restoreBottomTimeoutRef.current !== null) {
                 window.clearTimeout(restoreBottomTimeoutRef.current)

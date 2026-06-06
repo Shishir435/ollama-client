@@ -21,7 +21,7 @@ export const ChatDeleteButton = ({
       variant="ghost"
       size="icon"
       className={cn(
-        "size-8 shrink-0 rounded-lg transition-all duration-200",
+        "size-7 shrink-0 rounded-control transition-all duration-200",
         "opacity-0 group-hover:opacity-100",
         "hover:bg-destructive/10 hover:text-destructive",
         "focus:bg-destructive/10 focus:text-destructive focus:opacity-100"

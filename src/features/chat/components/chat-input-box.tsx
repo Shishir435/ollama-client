@@ -7,6 +7,8 @@ import { ChatContextPreview } from "@/features/chat/components/chat-context-prev
 import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
 import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
+import { ComposerContextChips } from "@/features/chat/components/chat-input/composer-context-chips"
+import { ComposerShell } from "@/features/chat/components/chat-input/composer-shell"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
@@ -391,19 +393,19 @@ export const ChatInputBox = ({
         />
       )}
 
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Drag and drop zone wrapper */}
-      <div
+      <ComposerShell
+        isFocused={isFocused}
+        isDragging={isDragging}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={cn(
-          "relative rounded-lg border bg-card transition-all duration-300",
-          isFocused
-            ? "border-primary/40 shadow-sm"
-            : "border-border/40 hover:border-border/80",
-          isDragging && "border-primary border-dashed bg-primary/10"
-        )}>
+        onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
+        <ComposerContextChips
+          useRAG={Boolean(useRAG)}
+          tabAccess={Boolean(tabAccess)}
+          onToggleRAG={() => setUseRAG(!useRAG)}
+          onToggleTabs={() => setTabAccess(!tabAccess)}
+        />
 
         <Textarea
           id="chat-input-textarea"
@@ -447,7 +449,7 @@ export const ChatInputBox = ({
             }
           />
         </div>
-      </div>
+      </ComposerShell>
     </div>
   )
 }

@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/geist";
 
 @plugin "@tailwindcss/typography";
 @plugin "tailwind-scrollbar" {
@@ -74,12 +73,27 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  --color-surface-sidebar: var(--surface-sidebar);
+  --color-surface-chat: var(--surface-chat);
+  --color-surface-composer: var(--surface-composer);
+  --color-surface-message: var(--surface-message);
+
+  --color-app-primary: var(--app-primary);
+  --color-app-primary-soft: var(--app-primary-soft);
+  --color-app-agent: var(--app-agent);
+  --color-app-tool: var(--app-tool);
+  --color-app-user: var(--app-user);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: "Inter Variable", sans-serif;
+  --radius-control: var(--radius-control);
+  --radius-panel: var(--radius-panel);
+  --radius-chip: var(--radius-chip);
+  --radius-message: var(--radius-message);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -90,7 +104,11 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.4375rem;
+  --radius-control: calc(var(--radius) - 1px);
+  --radius-panel: calc(var(--radius) + 1px);
+  --radius-chip: 999rem;
+  --radius-message: calc(var(--radius) + 1px);
   --control-height-sm: 1.75rem;
   --control-height-md: 2.25rem;
   --control-height-lg: 2.75rem;
@@ -127,13 +145,23 @@
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
 
+  --app-primary: var(--primary);
+  --app-primary-soft: var(--secondary);
+  --app-agent: var(--primary);
+  --app-tool: oklch(0.53 0.12 265);
+  --app-user: oklch(0.48 0.13 225);
+  --surface-sidebar: oklch(0.985 0.006 195);
+  --surface-chat: oklch(0.995 0.002 195);
+  --surface-composer: oklch(0.99 0.004 195);
+  --surface-message: oklch(0.98 0.004 195);
+
   --chart-1: oklch(0.871 0.006 286.286);
   --chart-2: oklch(0.552 0.016 285.938);
   --chart-3: oklch(0.442 0.017 285.786);
   --chart-4: oklch(0.37 0.013 285.805);
   --chart-5: oklch(0.274 0.006 286.033);
 
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: var(--surface-sidebar);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -181,13 +209,23 @@
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
 
+  --app-primary: var(--primary);
+  --app-primary-soft: var(--secondary);
+  --app-agent: var(--primary);
+  --app-tool: oklch(0.76 0.11 265);
+  --app-user: oklch(0.78 0.12 225);
+  --surface-sidebar: oklch(0.18 0.018 245);
+  --surface-chat: oklch(0.145 0.012 245);
+  --surface-composer: oklch(0.18 0.018 245);
+  --surface-message: oklch(0.2 0.018 245);
+
   --chart-1: oklch(0.871 0.006 286.286);
   --chart-2: oklch(0.552 0.016 285.938);
   --chart-3: oklch(0.442 0.017 285.786);
   --chart-4: oklch(0.37 0.013 285.805);
   --chart-5: oklch(0.274 0.006 286.033);
 
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: var(--surface-sidebar);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.442 0.017 285.786);
   --sidebar-primary-foreground: oklch(0.985 0 0);

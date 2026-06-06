@@ -135,7 +135,7 @@ export const VoiceSelector = ({
         className="w-[440px] p-0 shadow-md"
         align="center"
         sideOffset={6}>
-        <Command className="rounded-lg border-0" shouldFilter={false}>
+        <Command className="rounded-panel border-0" shouldFilter={false}>
           <CommandInput
             placeholder={t("chat.voice_selector.search_placeholder")}
             value={searchQuery}
@@ -148,7 +148,7 @@ export const VoiceSelector = ({
           <CommandList className="max-h-[320px] overflow-y-auto scrollbar-none">
             <CommandEmpty className="py-8">
               <div className="flex flex-col items-center gap-2 text-center">
-                <div className="rounded-full bg-muted p-3">
+                <div className="rounded-chip bg-muted p-3">
                   <Mic className="size-5 text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
@@ -191,7 +191,7 @@ export const VoiceSelector = ({
                             setSearchQuery("")
                           }}
                           className={cn(
-                            "group mx-1 flex items-center gap-3 rounded-md p-3 cursor-pointer transition-all",
+                            "group mx-1 flex items-center gap-3 rounded-control p-3 cursor-pointer transition-all",
                             "aria-selected:bg-accent/50",
                             isSelected
                               ? "bg-accent text-accent-foreground shadow-xs"

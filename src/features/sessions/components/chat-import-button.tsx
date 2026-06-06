@@ -35,7 +35,7 @@ export const ChatImportButton = () => {
         variant="ghost"
         size="icon"
         className={cn(
-          "size-8 shrink-0 rounded-lg transition-all duration-200",
+          "size-7 shrink-0 rounded-control transition-all duration-200",
           "hover:bg-muted hover:text-foreground",
           "focus:bg-muted focus:text-foreground focus:opacity-100"
         )}

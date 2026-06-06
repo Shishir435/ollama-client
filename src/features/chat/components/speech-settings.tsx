@@ -165,7 +165,7 @@ export const SpeechSettings = () => {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="rounded-md bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
+                className="rounded-control bg-secondary px-3 py-1 text-xs transition-colors hover:bg-secondary/80"
                 onClick={() => {
                   if ("speechSynthesis" in window) {
                     // Cancel any ongoing speech

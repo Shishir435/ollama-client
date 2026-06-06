@@ -14,7 +14,7 @@ export const ChatHeader = () => {
 
   return (
     <div className="sticky top-0 z-30 px-2 pt-2">
-      <div className="flex items-center justify-between rounded-lg border border-sidebar-border bg-sidebar px-2 py-2 shadow-xs">
+      <div className="flex items-center justify-between rounded-panel border border-sidebar-border bg-surface-sidebar px-2 py-1.5 shadow-xs">
         <ChatSessionSelector searchTrigger={<SemanticChatSearchButton />} />
         <div className="flex items-center gap-2">
           {currentSessionId && (

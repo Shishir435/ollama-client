@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 
 import {
+  ActionGroup,
   ActionMenuGrid,
   type ActionMenuItemConfig,
   TooltipActionButton
@@ -24,13 +25,13 @@ import { SpeechButton } from "@/features/chat/components/speech-button"
 import { UsedContextButton } from "@/features/chat/components/used-context-button"
 import {
   BookOpen,
+  Bot,
   ChevronLeft,
   ChevronRight,
   Code,
   FileDown,
   FileText,
   GitFork,
-  MoreHorizontal,
   Trash2
 } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
@@ -116,47 +117,49 @@ export const ChatMessageFooter = ({
         }
       : null
   ].filter(Boolean) as ActionMenuItemConfig[]
+  const footerButtonClass =
+    "size-7 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
 
   return (
     <div
       className={
-        "flex w-full items-center gap-3 " +
+        "flex w-full items-center gap-2 text-muted-foreground " +
         (isUser ? "flex-row-reverse" : "flex-row")
       }>
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex items-center gap-0.5 rounded-full px-1 py-0.5">
-          <Button
+        <div className="flex h-7 items-center gap-0.5 rounded-chip bg-background/45 px-0.5">
+          <TooltipActionButton
             variant="ghost"
-            aria-label="previous"
+            ariaLabel={t("chat.actions.previous_branch", "Previous branch")}
             size="icon"
-            className="size-5 rounded-full"
+            className="size-6 rounded-control"
             disabled={siblingIndex <= 0}
             onClick={() => {
               if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
-            }}>
-            <ChevronLeft className="size-3" />
-          </Button>
+            }}
+            icon={<ChevronLeft className="size-3.5" />}
+          />
           <span className="min-w-6 text-center text-[10px] font-medium text-muted-foreground">
             {siblingIndex + 1} / {siblingIds.length}
           </span>
-          <Button
+          <TooltipActionButton
             variant="ghost"
-            aria-label="next"
+            ariaLabel={t("chat.actions.next_branch", "Next branch")}
             size="icon"
-            className="size-5 rounded-full"
+            className="size-6 rounded-control"
             disabled={siblingIndex >= siblingIds.length - 1}
             onClick={() => {
               if (siblingIndex < siblingIds.length - 1)
                 navigateToSibling(siblingIndex + 1)
-            }}>
-            <ChevronRight className="size-3" />
-          </Button>
+            }}
+            icon={<ChevronRight className="size-3.5" />}
+          />
         </div>
       )}
 
       {/* Main Actions Group */}
-      <div className="flex items-center gap-1.5 rounded-full px-1.5 py-0.5 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+      <div className="flex min-h-7 items-center gap-1 rounded-chip bg-background/35 px-1 opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
         <CopyButton text={msg.content} />
 
         <SpeechButton text={msg.content} />
@@ -187,10 +190,9 @@ export const ChatMessageFooter = ({
             variant="ghost"
             label={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
             size="icon"
-            className="size-8"
+            className={footerButtonClass}
             onClick={onEdit}
-            title={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
-            icon={<GitFork className="size-3.5" />}
+            icon={<GitFork className="size-4" />}
           />
         )}
 
@@ -208,44 +210,72 @@ export const ChatMessageFooter = ({
           </Tooltip>
         )}
 
-        <DropdownMenu>
-          <TooltipActionButton
-            trigger={
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                    aria-label={t("chat.actions.more")}
-                  />
-                }
-              />
-            }
-            label={t("chat.actions.more")}
-            icon={<MoreHorizontal className="size-3.5" />}
-          />
-          <DropdownMenuContent
-            align={isUser ? "end" : "start"}
-            sideOffset={6}
-            className="w-auto rounded-lg border-muted/60 p-1.5 shadow-md data-open:animate-none data-closed:animate-none">
-            {actionItems.length > 0 && (
+        {onExport && (
+          <DropdownMenu>
+            <TooltipActionButton
+              trigger={
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={footerButtonClass}
+                      aria-label={t("chat.actions.export", "Export")}
+                    />
+                  }
+                />
+              }
+              label={t("chat.actions.export", "Export")}
+              icon={<FileDown className="size-4" />}
+            />
+            <DropdownMenuContent
+              align={isUser ? "end" : "start"}
+              sideOffset={6}
+              className="w-auto rounded-panel border-muted/60 p-1.5 shadow-md data-open:animate-none data-closed:animate-none">
               <DropdownMenuGroup>
-                <ActionMenuGrid actions={actionItems} />
+                <ActionMenuGrid
+                  actions={actionItems.filter((item) => item.key !== "delete")}
+                />
               </DropdownMenuGroup>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <ActionGroup
+          wrap={false}
+          actions={[
+            {
+              key: "delete",
+              hidden: !onDelete,
+              label: t("chat.actions.delete"),
+              className: footerButtonClass,
+              onClick: () => onDelete?.(),
+              icon: <Trash2 className="size-4" />
+            }
+          ]}
+        />
       </div>
 
-      <div className="ml-auto text-[10px] text-muted-foreground/60 tabular-nums">
-        {isUser
-          ? new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit"
-            })
-          : `${msg.model?.slice(0, 25)}`}
-      </div>
+      {isUser ? (
+        <div className="ml-auto text-[10px] text-muted-foreground/55 tabular-nums">
+          {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}
+        </div>
+      ) : (
+        msg.model && (
+          <Tooltip>
+            <TooltipTrigger render={<span />}>
+              <span className="ml-auto inline-flex h-7 max-w-40 items-center gap-1 rounded-chip bg-background/35 px-2 text-[10px] text-muted-foreground/70">
+                <Bot className="size-3.5 shrink-0" />
+                <span className="truncate">{msg.model}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{msg.model}</TooltipContent>
+          </Tooltip>
+        )
+      )}
     </div>
   )
 }

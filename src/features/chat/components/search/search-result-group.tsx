@@ -19,7 +19,7 @@ export const SearchResultGroup = ({
   return (
     <div key={sessionId} className="space-y-3">
       <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background py-2 -mx-3 px-3">
-        <div className="bg-primary/10 p-1 rounded-md">
+        <div className="bg-primary/10 p-1 rounded-control">
           <MessageSquare className="size-3.5 text-primary" />
         </div>
         <span className="text-sm font-semibold truncate flex-1 tracking-tight">
@@ -27,7 +27,7 @@ export const SearchResultGroup = ({
         </span>
         <Badge
           variant="secondary"
-          className="text-[10px] h-5 px-1.5 rounded-full">
+          className="text-[10px] h-5 px-1.5 rounded-chip">
           {results.length}
         </Badge>
       </div>

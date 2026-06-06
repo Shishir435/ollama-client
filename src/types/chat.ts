@@ -49,6 +49,7 @@ export interface ChatMessage {
       source?: string
       chunkIndex?: number
     }>
+    toolRuns?: ToolRun[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
     promptInputLength?: number
@@ -61,6 +62,20 @@ export interface ChatMessage {
   parentId?: number | string
   childrenIds?: Array<number | string>
   siblingIds?: Array<number | string>
+}
+
+export interface ToolRun {
+  toolId: string
+  label: string
+  status: "pending" | "running" | "done" | "error"
+  startedAt: number
+  completedAt?: number
+  sources?: Array<{
+    title: string
+    url?: string
+    excerpt?: string
+  }>
+  error?: string
 }
 
 export interface ChatSession {

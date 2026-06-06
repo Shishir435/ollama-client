@@ -99,7 +99,7 @@ export function RAGSourcesButton({
           icon={
             <div className="relative">
               <Info className="size-3.5" />
-              <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+              <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-chip bg-primary text-[8px] font-bold text-primary-foreground">
                 {sources.length}
               </span>
             </div>

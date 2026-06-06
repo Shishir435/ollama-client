@@ -37,7 +37,8 @@
     "save": "Speichern",
     "continue": "Import Fortsetzen",
     "reload": "Erweiterung Neu Laden",
-    "close": "Schließen"
+    "close": "Schließen",
+    "remove": "Entfernen"
   },
   "extension": {
     "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
@@ -1087,7 +1088,8 @@
       "export": {
         "label": "Vollständiges Backup Exportieren",
         "description": "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
-        "button": "Alles Exportieren"
+        "button": "Alles Exportieren",
+        "error_title": "Export fehlgeschlagen"
       },
       "import": {
         "label": "Backup Importieren",
@@ -1114,7 +1116,8 @@
           "aborted": "Abgebrochen"
         }
       }
-    }
+    },
+    "saved": "Gespeichert"
   },
   "guides": {
     "title": "Hilfreiche Anleitungen & Dokumentation",
@@ -1198,5 +1201,8 @@
       "performance_default": "Standard-Provider-Embedding-Generierung: ~500ms pro Chunk",
       "provider_hint": "Stellen Sie sicher, dass Ihr lokaler Provider läuft (Standard: localhost:11434)"
     }
+  },
+  "errors": {
+    "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
   }
 }

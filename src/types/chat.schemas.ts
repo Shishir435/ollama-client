@@ -23,6 +23,24 @@ const UsedContextChunkSchema = z.object({
   chunkIndex: z.number().optional()
 })
 
+const ToolRunSchema = z.object({
+  toolId: z.string(),
+  label: z.string(),
+  status: z.enum(["pending", "running", "done", "error"]),
+  startedAt: z.number(),
+  completedAt: z.number().optional(),
+  sources: z
+    .array(
+      z.object({
+        title: z.string(),
+        url: z.string().optional(),
+        excerpt: z.string().optional()
+      })
+    )
+    .optional(),
+  error: z.string().optional()
+})
+
 export const ChatMessageMetricsSchema = z.object({
   total_duration: z.number().optional(),
   load_duration: z.number().optional(),
@@ -33,6 +51,7 @@ export const ChatMessageMetricsSchema = z.object({
   ragQuery: z.string().optional(),
   ragSources: z.array(RagSourceSchema).optional(),
   usedContextChunks: z.array(UsedContextChunkSchema).optional(),
+  toolRuns: z.array(ToolRunSchema).optional(),
   groundedOnlyMode: z.boolean().optional(),
   insufficientContext: z.boolean().optional(),
   promptInputLength: z.number().optional(),

@@ -22,7 +22,7 @@ export const ChatSessionFooter = ({ sessionCount }: ChatSessionFooterProps) => {
         </div>
       </div>
 
-      <div className="border-t border-sidebar-border bg-sidebar-accent/80 p-3 pt-2">
+      <div className="border-t border-sidebar-border bg-sidebar-accent/60 p-3 pt-2">
         <div className="flex items-center justify-center gap-2 text-center text-xs text-sidebar-foreground/70">
           {sessionCount === 1
             ? t("sessions.selector.session_count", {
