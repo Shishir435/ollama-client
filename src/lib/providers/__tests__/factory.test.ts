@@ -6,7 +6,7 @@ import { LMStudioProvider } from "../lm-studio"
 import { LocalAIProvider } from "../localai"
 import { ProviderManager } from "../manager"
 import { OllamaProvider } from "../ollama"
-import { OpenAIProvider } from "../openai"
+import { OpenAICompatibleProvider } from "../openai-compatible"
 import { ProviderId, ProviderType } from "../types"
 import { VllmProvider } from "../vllm"
 
@@ -28,9 +28,9 @@ vi.mock("../ollama", () => {
   }
 })
 
-vi.mock("../openai", () => {
+vi.mock("../openai-compatible", () => {
   return {
-    OpenAIProvider: vi
+    OpenAICompatibleProvider: vi
       .fn()
       // biome-ignore lint: Vitest mock constructor requires regular function
       .mockImplementation(function () {
@@ -149,7 +149,7 @@ describe("ProviderFactory", () => {
       expect(LlamaCppProvider).toHaveBeenCalled()
     })
 
-    it("should return OpenAIProvider for other OPENAI type", async () => {
+    it("should return OpenAICompatibleProvider for other OPENAI type", async () => {
       vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
         id: "openai-custom",
         name: "Custom OpenAI",
@@ -159,7 +159,7 @@ describe("ProviderFactory", () => {
       })
 
       const _provider = await ProviderFactory.getProvider("openai-custom")
-      expect(OpenAIProvider).toHaveBeenCalled()
+      expect(OpenAICompatibleProvider).toHaveBeenCalled()
     })
 
     it("should return VllmProvider for VLLM id", async () => {

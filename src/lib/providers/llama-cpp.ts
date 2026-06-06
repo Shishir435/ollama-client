@@ -1,7 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
 /**
@@ -19,7 +19,7 @@ interface LlamaCppModel {
   }
 }
 
-export class LlamaCppProvider extends OpenAIProvider {
+export class LlamaCppProvider extends OpenAICompatibleProvider {
   id = ProviderId.LLAMA_CPP
 
   constructor(config: ProviderConfig) {

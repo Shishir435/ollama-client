@@ -1,12 +1,12 @@
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
 /**
  * Specialized provider for LM Studio specific metadata.
  */
-export class LMStudioProvider extends OpenAIProvider {
+export class LMStudioProvider extends OpenAICompatibleProvider {
   id = ProviderId.LM_STUDIO
 
   constructor(config: ProviderConfig) {

@@ -1,7 +1,7 @@
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type ProviderConfig, ProviderId } from "./types"
 
-export class VllmProvider extends OpenAIProvider {
+export class VllmProvider extends OpenAICompatibleProvider {
   id = ProviderId.VLLM
 
   constructor(config: ProviderConfig) {

@@ -1,7 +1,7 @@
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type ProviderConfig, ProviderId } from "./types"
 
-export class LocalAIProvider extends OpenAIProvider {
+export class LocalAIProvider extends OpenAICompatibleProvider {
   id = ProviderId.LOCALAI
 
   constructor(config: ProviderConfig) {
