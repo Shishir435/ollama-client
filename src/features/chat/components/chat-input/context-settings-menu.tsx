@@ -1,5 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
-import { AppWindow, BrainCircuit, ShieldCheck } from "lucide-react"
+import { AppWindow, Database, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -50,7 +50,7 @@ export const ContextSettingsMenu = () => {
       key: "files",
       checked: useRAG,
       onCheckedChange: (value: boolean) => setUseRAG(value),
-      icon: BrainCircuit,
+      icon: Database,
       label: useRAG
         ? t("chat.input.rag_toggle_on")
         : t("chat.input.rag_toggle_off")
@@ -73,7 +73,7 @@ export const ContextSettingsMenu = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-control"
+                className="size-8 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
                 aria-label={t("tabs.context")}
               />
             }

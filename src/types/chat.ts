@@ -159,10 +159,6 @@ export interface ChatSessionState {
   hydrated: boolean
   createSession: () => Promise<string>
   deleteSession: (id: string) => Promise<void>
-  updateMessages: (
-    id: string,
-    messages: ChatSession["messages"]
-  ) => Promise<void>
   renameSessionTitle: (id: string, title: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>

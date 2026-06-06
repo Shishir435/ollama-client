@@ -187,7 +187,10 @@
       "fork": "Fork Conversation",
       "edit": "Edit",
       "more": "More",
-      "delete": "Delete Message"
+      "delete": "Delete Message",
+      "export": "Export",
+      "previous_branch": "Previous branch",
+      "next_branch": "Next branch"
     },
     "metrics": {
       "total_time": "Total Time",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Prompt Tokens",
       "generated_tokens": "Generated Tokens",
       "load_time": "Load Time",
-      "prompt_eval_time": "Prompt Eval Time"
+      "prompt_eval_time": "Prompt Eval Time",
+      "speed_unit": "t/s"
     },
     "session_metrics": {
       "tooltip_tokens": "Total tokens used in this session",
@@ -211,7 +215,14 @@
       "hide": "Hide",
       "explore": "Explore",
       "loading_typing": "Typing",
-      "loading_queued": "Queued"
+      "loading_queued": "Queued",
+      "trace": {
+        "planning": "Planning",
+        "page": "Reading page",
+        "files": "RAG",
+        "web": "Searching web",
+        "answering": "Answering"
+      }
     },
     "feedback": {
       "helpful_tooltip": "This was helpful",
@@ -287,6 +298,11 @@
       "no_message": "No message",
       "response_failed_title": "Response Generation Failed",
       "unknown_error_description": "An unknown error occurred"
+    },
+    "composer": {
+      "rag": "Files",
+      "tabs": "Page",
+      "web": "Web"
     }
   },
   "file_upload": {

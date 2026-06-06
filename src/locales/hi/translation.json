@@ -187,7 +187,10 @@
       "fork": "फोर्क करें",
       "edit": "संपादित करें",
       "more": "और",
-      "delete": "संदेश हटाएँ"
+      "delete": "संदेश हटाएँ",
+      "export": "निर्यात",
+      "previous_branch": "पिछली शाखा",
+      "next_branch": "अगली शाखा"
     },
     "metrics": {
       "total_time": "कुल समय",
@@ -195,7 +198,8 @@
       "prompt_tokens": "प्रॉम्प्ट टोकन",
       "generated_tokens": "उत्पन्न टोकन",
       "load_time": "लोड करने का समय",
-      "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय"
+      "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय",
+      "speed_unit": "टोकन/से"
     },
     "session_metrics": {
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
@@ -211,7 +215,14 @@
       "hide": "छिपाएं",
       "explore": "अन्वेषण करें",
       "loading_typing": "टाइपिंग",
-      "loading_queued": "कतार में"
+      "loading_queued": "कतार में",
+      "trace": {
+        "planning": "योजना",
+        "page": "पेज पढ़ रहा है",
+        "files": "RAG",
+        "web": "वेब खोज",
+        "answering": "उत्तर दे रहा है"
+      }
     },
     "feedback": {
       "helpful_tooltip": "यह मददगार था",
@@ -287,6 +298,11 @@
       "no_message": "कोई संदेश नहीं",
       "response_failed_title": "प्रतिक्रिया जनरेशन विफल",
       "unknown_error_description": "एक अज्ञात त्रुटि उत्पन्न हुई"
+    },
+    "composer": {
+      "rag": "फ़ाइलें",
+      "tabs": "पेज",
+      "web": "वेब"
     }
   },
   "file_upload": {

@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
 import { FileAttachmentDisplay } from "@/features/chat/components/file-attachment-display"
-import { ReasoningTrace } from "@/features/chat/components/reasoning-trace"
-import { RunDetails } from "@/features/chat/components/run-details"
+import {
+  ReasoningTrace,
+  shouldShowReasoningTrace
+} from "@/features/chat/components/reasoning-trace"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
@@ -21,22 +23,24 @@ export const ChatMessageContent = ({
 }) => {
   const { t } = useTranslation()
   const loadingLabel = isStreaming
-    ? t("chat.reasoning.loading_typing", "Typing")
-    : t("chat.reasoning.loading_queued", "Queued")
+    ? t("chat.reasoning.loading_typing")
+    : t("chat.reasoning.loading_queued")
+  const showReasoningTrace =
+    !isUser && shouldShowReasoningTrace(msg, isLoading, isStreaming)
 
   return (
     <div
       className={cn(
-        "w-full max-w-[90vw] text-sm sm:max-w-2xl",
+        "text-sm",
         isUser
-          ? "rounded-message border border-border/35 bg-app-primary-soft px-3 py-2.5 text-foreground sm:px-4"
-          : "py-1 text-foreground"
+          ? "ml-auto w-fit max-w-[90vw] rounded-message border border-border/25 bg-app-primary-soft/85 px-3 py-2.5 text-foreground shadow-xs sm:max-w-[min(46rem,78%)] sm:px-4"
+          : "w-full max-w-[90vw] py-1 text-foreground sm:max-w-2xl"
       )}>
       {/* File Attachments */}
       {msg.attachments && msg.attachments.length > 0 && (
         <FileAttachmentDisplay attachments={msg.attachments} />
       )}
-      {!isUser && (
+      {showReasoningTrace && (
         <ReasoningTrace
           message={msg}
           isLoading={isLoading}
@@ -45,13 +49,12 @@ export const ChatMessageContent = ({
       )}
       <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-ul:marker:text-muted-foreground prose-ol:marker:text-muted-foreground">
         <MarkdownRenderer content={msg.content} />
-        {isLoading && !isUser && (
+        {isLoading && !isUser && !showReasoningTrace && (
           <ChatMessageLoadingIndicator
             label={loadingLabel}
             showDots={isStreaming}
           />
         )}
-        {!isUser && msg.done && <RunDetails metrics={msg.metrics} />}
       </div>
     </div>
   )

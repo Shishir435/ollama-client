@@ -17,7 +17,6 @@ export const createChatSessionListActions = (
   | "createSession"
   | "deleteSession"
   | "renameSessionTitle"
-  | "updateMessages"
 > => ({
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
@@ -104,7 +103,5 @@ export const createChatSessionListActions = (
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
     }))
-  },
-
-  updateMessages: async (_id: string, _messages: ChatSession["messages"]) => {}
+  }
 })

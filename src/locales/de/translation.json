@@ -187,7 +187,10 @@
       "fork": "Verzweigen",
       "edit": "Bearbeiten",
       "more": "Mehr",
-      "delete": "Nachricht löschen"
+      "delete": "Nachricht löschen",
+      "export": "Exportieren",
+      "previous_branch": "Vorheriger Zweig",
+      "next_branch": "Nächster Zweig"
     },
     "metrics": {
       "total_time": "Gesamtzeit",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Prompt-Token",
       "generated_tokens": "Generierte Token",
       "load_time": "Ladezeit",
-      "prompt_eval_time": "Prompt-Evaluierungszeit"
+      "prompt_eval_time": "Prompt-Evaluierungszeit",
+      "speed_unit": "T/s"
     },
     "session_metrics": {
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
@@ -211,7 +215,14 @@
       "hide": "Ausblenden",
       "explore": "Erkunden",
       "loading_typing": "Tippt",
-      "loading_queued": "Warteschlange"
+      "loading_queued": "Warteschlange",
+      "trace": {
+        "planning": "Planung",
+        "page": "Seite lesen",
+        "files": "RAG",
+        "web": "Websuche",
+        "answering": "Antworten"
+      }
     },
     "feedback": {
       "helpful_tooltip": "Das war hilfreich",
@@ -287,6 +298,11 @@
       "no_message": "Keine Nachricht",
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
       "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten"
+    },
+    "composer": {
+      "rag": "Dateien",
+      "tabs": "Seite",
+      "web": "Web"
     }
   },
   "file_upload": {

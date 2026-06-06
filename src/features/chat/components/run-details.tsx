@@ -4,27 +4,21 @@ import {
   Gauge,
   LoaderCircle,
   MessageSquare,
-  Search,
-  Timer,
-  Wrench
+  Timer
 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { formatDuration, formatTokensPerSecond } from "@/lib/format-utils"
-import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
 interface RunDetailsProps {
   metrics: ChatMessage["metrics"]
 }
-
-const itemClass =
-  "inline-flex h-6 items-center gap-1.5 rounded-chip px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
 
 export const RunDetails = ({ metrics }: RunDetailsProps) => {
   const { t } = useTranslation()
@@ -36,7 +30,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             key: "time",
             icon: Clock,
             label: formatDuration(metrics.total_duration),
-            tooltip: t("chat.metrics.total_duration", "Total time")
+            tooltip: t("chat.metrics.total_time")
           }
         : null,
       metrics.load_duration
@@ -44,7 +38,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             key: "load",
             icon: LoaderCircle,
             label: formatDuration(metrics.load_duration),
-            tooltip: t("chat.metrics.load_duration", "Model load time")
+            tooltip: t("chat.metrics.load_time")
           }
         : null,
       metrics.prompt_eval_duration
@@ -52,7 +46,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             key: "prompt-time",
             icon: Timer,
             label: formatDuration(metrics.prompt_eval_duration),
-            tooltip: t("chat.metrics.prompt_eval_duration", "Prompt eval time")
+            tooltip: t("chat.metrics.prompt_eval_time")
           }
         : null,
       metrics.eval_count && metrics.eval_duration
@@ -63,7 +57,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
               metrics.eval_count,
               metrics.eval_duration
             ),
-            tooltip: t("chat.metrics.eval_speed", "Generation speed")
+            tooltip: t("chat.metrics.generation_speed")
           }
         : null,
       metrics.eval_count
@@ -71,13 +65,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             key: "output",
             icon: MessageSquare,
             label: metrics.eval_count.toLocaleString(),
-            tooltip: t(
-              "chat.metrics.output_tokens",
-              "{{count}} output tokens",
-              {
-                count: metrics.eval_count
-              }
-            )
+            tooltip: t("chat.metrics.generated_tokens")
           }
         : null,
       metrics.prompt_eval_count
@@ -85,31 +73,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             key: "input",
             icon: FileText,
             label: metrics.prompt_eval_count.toLocaleString(),
-            tooltip: t(
-              "chat.metrics.prompt_tokens",
-              "{{count}} prompt tokens",
-              {
-                count: metrics.prompt_eval_count
-              }
-            )
-          }
-        : null,
-      metrics.ragSources?.length || metrics.usedContextChunks?.length
-        ? {
-            key: "context",
-            icon: Search,
-            label: t("chat.run_details.context_short", "ctx"),
-            tooltip: t("chat.run_details.context", "Context used")
-          }
-        : null,
-      metrics.toolRuns?.length
-        ? {
-            key: "tools",
-            icon: Wrench,
-            label: metrics.toolRuns.length.toLocaleString(),
-            tooltip: t("chat.run_details.tools", "{{count}} tools", {
-              count: metrics.toolRuns.length
-            })
+            tooltip: t("chat.metrics.prompt_tokens")
           }
         : null
     ].filter(Boolean) as Array<{
@@ -121,26 +85,43 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
   }, [metrics, t])
 
   if (!metrics || items.length === 0) return null
+  const primaryValue =
+    items.find((item) => item.key === "speed")?.label ?? items[0]?.label
+  const metricsSummary = items
+    .map((item) => `${item.tooltip}: ${item.label}`)
+    .join(", ")
 
   return (
-    <fieldset className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px]">
-      <legend className="sr-only">
-        {t("chat.run_details.title", "Run details")}
-      </legend>
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <Tooltip key={item.key}>
-            <TooltipTrigger render={<span className={cn(itemClass)} />}>
-              <Icon className="size-3.5" />
-              <span className="tabular-nums">{item.label}</span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span>{item.tooltip}</span>
-            </TooltipContent>
-          </Tooltip>
-        )
-      })}
+    <fieldset className="contents">
+      <legend className="sr-only">{t("chat.metrics.generation_speed")}</legend>
+      <span className="sr-only">{metricsSummary}</span>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-control px-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+              aria-label={metricsSummary}
+            />
+          }>
+          <Gauge className="size-3" />
+          <span className="tabular-nums">{primaryValue}</span>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 gap-1.5 p-2" side="top" align="start">
+          <div className="grid gap-1 text-xs">
+            {items.map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.key} className="flex items-center gap-2">
+                  <Icon className="size-3 text-muted-foreground" />
+                  <span>{item.tooltip}</span>
+                  <span className="ml-auto font-mono">{item.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
     </fieldset>
   )
 }

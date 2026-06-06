@@ -2,6 +2,7 @@ import type React from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
+import { cn } from "@/lib/utils"
 
 import { SettingsField } from "./settings-field"
 
@@ -61,5 +62,5 @@ export const SettingsValueBadge = ({
   className,
   ...props
 }: React.ComponentProps<typeof Badge>) => (
-  <Badge variant="outline" className={className ?? "font-mono"} {...props} />
+  <Badge variant="outline" className={cn("font-mono", className)} {...props} />
 )

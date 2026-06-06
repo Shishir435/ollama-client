@@ -187,7 +187,10 @@
       "fork": "分叉",
       "edit": "编辑",
       "more": "更多",
-      "delete": "删除消息"
+      "delete": "删除消息",
+      "export": "导出",
+      "previous_branch": "上一个分支",
+      "next_branch": "下一个分支"
     },
     "metrics": {
       "total_time": "总时间",
@@ -195,7 +198,8 @@
       "prompt_tokens": "提示词 Token",
       "generated_tokens": "生成的 Token",
       "load_time": "加载时间",
-      "prompt_eval_time": "提示词评估时间"
+      "prompt_eval_time": "提示词评估时间",
+      "speed_unit": "词元/秒"
     },
     "session_metrics": {
       "tooltip_tokens": "本次会话使用的总 Token",
@@ -211,7 +215,14 @@
       "hide": "隐藏",
       "explore": "探索",
       "loading_typing": "正在输入",
-      "loading_queued": "排队中"
+      "loading_queued": "排队中",
+      "trace": {
+        "planning": "规划",
+        "page": "读取页面",
+        "files": "RAG",
+        "web": "搜索网页",
+        "answering": "回答中"
+      }
     },
     "feedback": {
       "helpful_tooltip": "很有帮助",
@@ -287,6 +298,11 @@
       "no_message": "无消息",
       "response_failed_title": "响应生成失败",
       "unknown_error_description": "发生未知错误"
+    },
+    "composer": {
+      "rag": "文件",
+      "tabs": "页面",
+      "web": "网页"
     }
   },
   "file_upload": {

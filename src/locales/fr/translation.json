@@ -187,7 +187,10 @@
       "fork": "Créer une branche",
       "edit": "Modifier",
       "more": "Plus",
-      "delete": "Supprimer le message"
+      "delete": "Supprimer le message",
+      "export": "Exporter",
+      "previous_branch": "Branche précédente",
+      "next_branch": "Branche suivante"
     },
     "metrics": {
       "total_time": "Temps total",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Tokens du prompt",
       "generated_tokens": "Tokens générés",
       "load_time": "Temps de chargement",
-      "prompt_eval_time": "Temps d'évaluation du prompt"
+      "prompt_eval_time": "Temps d'évaluation du prompt",
+      "speed_unit": "t/s"
     },
     "session_metrics": {
       "tooltip_tokens": "Total des tokens utilisés dans cette session",
@@ -211,7 +215,14 @@
       "hide": "Masquer",
       "explore": "Explorer",
       "loading_typing": "Écriture",
-      "loading_queued": "En attente"
+      "loading_queued": "En attente",
+      "trace": {
+        "planning": "Planification",
+        "page": "Lecture de la page",
+        "files": "RAG",
+        "web": "Recherche web",
+        "answering": "Réponse"
+      }
     },
     "feedback": {
       "helpful_tooltip": "C'était utile",
@@ -287,6 +298,11 @@
       "no_message": "Aucun message",
       "response_failed_title": "Échec de la génération de la réponse",
       "unknown_error_description": "Une erreur inconnue est survenue"
+    },
+    "composer": {
+      "rag": "Fichiers",
+      "tabs": "Page",
+      "web": "Web"
     }
   },
   "file_upload": {

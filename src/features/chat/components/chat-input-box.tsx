@@ -7,7 +7,6 @@ import { ChatContextPreview } from "@/features/chat/components/chat-context-prev
 import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
 import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
-import { ComposerContextChips } from "@/features/chat/components/chat-input/composer-context-chips"
 import { ComposerShell } from "@/features/chat/components/chat-input/composer-shell"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
@@ -400,13 +399,6 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
-        <ComposerContextChips
-          useRAG={Boolean(useRAG)}
-          tabAccess={Boolean(tabAccess)}
-          onToggleRAG={() => setUseRAG(!useRAG)}
-          onToggleTabs={() => setTabAccess(!tabAccess)}
-        />
-
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}

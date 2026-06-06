@@ -9,6 +9,11 @@ import {
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 
@@ -28,10 +33,40 @@ const statusClass = (status: TraceStatus) =>
     error: "text-status-danger"
   })[status]
 
+const getDisplayLabel = (label: string, status: TraceStatus) =>
+  status === "running" ? `${label}...` : label
+
 export interface ReasoningTraceProps {
   message: ChatMessage
   isLoading?: boolean
   isStreaming?: boolean
+}
+
+export const shouldShowReasoningTrace = (
+  message: ChatMessage,
+  isLoading = false,
+  isStreaming = false
+) => {
+  const hasThinking = Boolean(message.thinking?.trim())
+  const toolRuns = message.metrics?.toolRuns ?? []
+  const usedContextChunks = message.metrics?.usedContextChunks ?? []
+  const ragSources = message.metrics?.ragSources ?? []
+  const hasFileContext =
+    Boolean(message.metrics?.ragContextLength) ||
+    ragSources.some((source) => source.type !== "webpage") ||
+    Boolean(message.attachments?.length)
+  const hasPageContext =
+    Boolean(message.metrics?.tabContextLength) ||
+    usedContextChunks.some((chunk) => chunk.source === "tab")
+  const isBusy = isLoading || isStreaming
+
+  return (
+    hasThinking ||
+    isBusy ||
+    toolRuns.length > 0 ||
+    hasFileContext ||
+    hasPageContext
+  )
 }
 
 export const ReasoningTrace = ({
@@ -43,21 +78,18 @@ export const ReasoningTrace = ({
   const [showDetails, setShowDetails] = useState(false)
   const hasThinking = Boolean(message.thinking?.trim())
   const toolRuns = message.metrics?.toolRuns ?? []
+  const usedContextChunks = message.metrics?.usedContextChunks ?? []
+  const ragSources = message.metrics?.ragSources ?? []
   const hasFileContext =
-    Boolean(message.metrics?.ragSources?.length) ||
+    Boolean(message.metrics?.ragContextLength) ||
+    ragSources.some((source) => source.type !== "webpage") ||
     Boolean(message.attachments?.length)
   const hasPageContext =
-    Boolean(message.metrics?.usedContextChunks?.length) ||
-    Boolean(message.metrics?.tabContextLength)
+    Boolean(message.metrics?.tabContextLength) ||
+    usedContextChunks.some((chunk) => chunk.source === "tab")
   const isBusy = isLoading || isStreaming
 
-  if (
-    !hasThinking &&
-    !isBusy &&
-    toolRuns.length === 0 &&
-    !hasFileContext &&
-    !hasPageContext
-  ) {
+  if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) {
     return null
   }
 
@@ -65,7 +97,7 @@ export const ReasoningTrace = ({
     hasThinking || isBusy
       ? {
           key: "planning",
-          label: t("chat.reasoning.trace.planning", "Planning"),
+          label: t("chat.reasoning.trace.planning"),
           status: isBusy && !message.content ? "running" : "done",
           icon: Sparkles
         }
@@ -73,7 +105,7 @@ export const ReasoningTrace = ({
     hasPageContext
       ? {
           key: "page",
-          label: t("chat.reasoning.trace.page", "Reading page"),
+          label: t("chat.reasoning.trace.page"),
           status: "done",
           icon: PanelsTopLeft
         }
@@ -81,7 +113,7 @@ export const ReasoningTrace = ({
     hasFileContext
       ? {
           key: "files",
-          label: t("chat.reasoning.trace.files", "Using files"),
+          label: t("chat.reasoning.trace.files"),
           status: "done",
           icon: FileStack
         }
@@ -89,9 +121,7 @@ export const ReasoningTrace = ({
     ...toolRuns.map((run) => ({
       key: `tool-${run.toolId}-${run.startedAt}`,
       label:
-        run.toolId === "web-search"
-          ? t("chat.reasoning.trace.web", "Searching web")
-          : run.label,
+        run.toolId === "web-search" ? t("chat.reasoning.trace.web") : run.label,
       status:
         run.status === "running"
           ? "running"
@@ -103,57 +133,91 @@ export const ReasoningTrace = ({
     message.content || isBusy
       ? {
           key: "answering",
-          label: t("chat.reasoning.trace.answering", "Answering"),
+          label: t("chat.reasoning.trace.answering"),
           status: isBusy ? "running" : "done",
           icon: Circle
         }
       : null
   ].filter(Boolean) as TraceStep[]
+  const activeStep =
+    steps.find((step) => step.status === "running") ??
+    steps.find((step) => step.status === "error")
+  const activeLabel = activeStep
+    ? getDisplayLabel(activeStep.label, activeStep.status)
+    : undefined
 
   return (
-    <section className="mb-3 rounded-panel border border-border/35 bg-surface-message/70 text-xs">
-      <div className="flex flex-wrap gap-1.5 px-2.5 py-2">
+    <section className="relative mb-2 inline-flex max-w-full items-center gap-1 rounded-chip bg-background/35 px-1 py-0.5 text-xs">
+      <div className="flex min-w-0 items-center gap-0.5">
+        <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
         {steps.map((step) => {
           const Icon = step.icon ?? Circle
+          const label = getDisplayLabel(step.label, step.status)
           return (
-            <div
-              key={step.key}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-chip bg-background/50 px-2 py-1 font-medium",
-                statusClass(step.status)
-              )}>
-              <Icon
-                className={cn(
-                  "size-3",
-                  step.status === "running" && "animate-pulse"
-                )}
-              />
-              <span>{step.label}</span>
-            </div>
+            <Tooltip key={step.key}>
+              <TooltipTrigger
+                render={
+                  <span
+                    className={cn(
+                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
+                      statusClass(step.status)
+                    )}
+                  />
+                }>
+                <Icon
+                  className={cn(
+                    "size-3.5",
+                    step.status === "running" && "animate-pulse"
+                  )}
+                />
+                <span className="sr-only">{label}</span>
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
           )
         })}
       </div>
 
+      {activeLabel && (
+        <span
+          className={cn(
+            "max-w-28 truncate pr-1 text-[11px]",
+            activeStep?.status === "error"
+              ? "text-status-danger"
+              : "text-muted-foreground"
+          )}>
+          {activeLabel}
+        </span>
+      )}
+
       {hasThinking && (
-        <div className="border-t border-border/25">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground hover:text-foreground"
-            aria-expanded={showDetails}
-            onClick={() => setShowDetails((prev) => !prev)}>
-            <span>{t("chat.reasoning.details", "Reasoning details")}</span>
-            <ChevronDown
-              className={cn(
-                "size-3 transition-transform",
-                showDetails && "rotate-180"
-              )}
-            />
-          </button>
-          {showDetails && (
-            <div className="max-h-56 overflow-y-auto border-t border-border/20 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground/90">
-              <MarkdownRenderer content={message.thinking ?? ""} />
-            </div>
-          )}
+        <div className="min-w-0">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  className="inline-flex size-7 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+                  aria-expanded={showDetails}
+                  aria-label={t("chat.reasoning.title")}
+                  onClick={() => setShowDetails((prev) => !prev)}
+                />
+              }>
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform",
+                  showDetails && "rotate-180"
+                )}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{t("chat.reasoning.title")}</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
+      {hasThinking && showDetails && (
+        <div className="absolute left-0 top-full z-10 mt-1 max-h-56 w-[min(32rem,calc(100vw-4rem))] overflow-y-auto rounded-panel border border-border/35 bg-popover px-3 py-2 text-[12.5px] leading-relaxed text-popover-foreground shadow-md">
+          <MarkdownRenderer content={message.thinking ?? ""} />
         </div>
       )}
     </section>

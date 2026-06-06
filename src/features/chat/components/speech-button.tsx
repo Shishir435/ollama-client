@@ -25,7 +25,7 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
     <TooltipActionButton
       size="icon"
       variant="ghost"
-      className="size-7 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+      className="size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
       label={getLabel()}
       title={getLabel()}
       onClick={() => !isLoadingVoices && toggle(text)}
@@ -33,9 +33,9 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
       type="button"
       icon={
         speaking ? (
-          <MicOff className="size-4 text-destructive" />
+          <MicOff className="size-3 text-destructive" />
         ) : (
-          <Mic className="size-4" />
+          <Mic className="size-3" />
         )
       }
     />
