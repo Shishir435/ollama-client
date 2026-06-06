@@ -19,7 +19,7 @@ export const useChat = () => {
   const { toast } = useToast()
 
   const { input, setInput } = useChatInput()
-  const { selectedTabIds } = useSelectedTabs()
+  const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
   const { builtContent: contextText, documents: tabDocuments } = useTabContent()
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
@@ -37,6 +37,7 @@ export const useChat = () => {
   } = useChatSessions()
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const previousSessionIdRef = useRef<string | null>(null)
 
   const currentSession = sessions.find((s) => s.id === currentSessionId)
   const messages = currentSession?.messages ?? []
@@ -52,6 +53,18 @@ export const useChat = () => {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [])
+
+  useEffect(() => {
+    if (
+      previousSessionIdRef.current &&
+      currentSessionId &&
+      previousSessionIdRef.current !== currentSessionId &&
+      selectedTabIds.length > 0
+    ) {
+      setSelectedTabIds([])
+    }
+    previousSessionIdRef.current = currentSessionId
+  }, [currentSessionId, selectedTabIds.length, setSelectedTabIds])
 
   const { ensureSessionId, autoRenameSession } = useChatSessionLifecycle({
     currentSessionId,

@@ -32,7 +32,7 @@ export const SettingsSidebar = ({
   return (
     <aside
       className={cn(
-        "hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground lg:block",
+        "hidden w-56 shrink-0 bg-surface-sidebar text-sidebar-foreground lg:block",
         className
       )}>
       <nav aria-label="Settings navigation" className="h-full">
@@ -55,7 +55,7 @@ export const SettingsSidebar = ({
                         onClick={() => onTabChange(item.key)}
                         aria-current={isActive ? "page" : undefined}
                         className={cn(
-                          "group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/50",
+                          "group relative flex w-full items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-all duration-150 outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/50",
                           isActive
                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
                             : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"

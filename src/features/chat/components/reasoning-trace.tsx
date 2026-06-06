@@ -2,6 +2,7 @@ import {
   ChevronDown,
   Circle,
   FileStack,
+  ListTree,
   PanelsTopLeft,
   Search,
   Sparkles
@@ -9,6 +10,11 @@ import {
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import {
   Tooltip,
   TooltipContent,
@@ -147,7 +153,7 @@ export const ReasoningTrace = ({
     : undefined
 
   return (
-    <section className="relative mb-2 inline-flex max-w-full items-center gap-1 rounded-chip bg-background/35 px-1 py-0.5 text-xs">
+    <section className="mb-2 inline-flex max-w-full items-center gap-1 rounded-chip bg-background/35 px-1 py-0.5 text-xs">
       <div className="flex min-w-0 items-center gap-0.5">
         <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
         {steps.map((step) => {
@@ -191,34 +197,38 @@ export const ReasoningTrace = ({
       )}
 
       {hasThinking && (
-        <div className="min-w-0">
+        <Popover open={showDetails} onOpenChange={setShowDetails}>
           <Tooltip>
             <TooltipTrigger
               render={
-                <button
-                  type="button"
-                  className="inline-flex size-7 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
-                  aria-expanded={showDetails}
-                  aria-label={t("chat.reasoning.title")}
-                  onClick={() => setShowDetails((prev) => !prev)}
+                <PopoverTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-0.5 rounded-control px-1 text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+                      aria-expanded={showDetails}
+                      aria-label={t("chat.reasoning.title")}
+                    />
+                  }
                 />
               }>
+              <ListTree className="size-3.5" />
               <ChevronDown
                 className={cn(
-                  "size-3.5 transition-transform",
+                  "size-3 transition-transform",
                   showDetails && "rotate-180"
                 )}
               />
             </TooltipTrigger>
             <TooltipContent>{t("chat.reasoning.title")}</TooltipContent>
           </Tooltip>
-        </div>
-      )}
-
-      {hasThinking && showDetails && (
-        <div className="absolute left-0 top-full z-10 mt-1 max-h-56 w-[min(32rem,calc(100vw-4rem))] overflow-y-auto rounded-panel border border-border/35 bg-popover px-3 py-2 text-[12.5px] leading-relaxed text-popover-foreground shadow-md">
-          <MarkdownRenderer content={message.thinking ?? ""} />
-        </div>
+          <PopoverContent
+            align="start"
+            sideOffset={6}
+            className="max-h-64 w-[min(32rem,calc(100vw-4rem))] overflow-y-auto rounded-panel border border-border/35 bg-popover px-3 py-2 text-[12.5px] leading-relaxed text-popover-foreground shadow-md">
+            <MarkdownRenderer content={message.thinking ?? ""} />
+          </PopoverContent>
+        </Popover>
       )}
     </section>
   )

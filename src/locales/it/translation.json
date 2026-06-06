@@ -555,6 +555,7 @@
   "tabs": {
     "select": {
       "placeholder": "Seleziona schede aperte",
+      "search_placeholder": "Cerca schede...",
       "ready": "{{selected}}/{{total}} schede pronte",
       "updated": "Aggiornato",
       "view_content": "Visualizza contenuto estratto",

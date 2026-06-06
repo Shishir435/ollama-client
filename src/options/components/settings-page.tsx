@@ -247,7 +247,7 @@ export const SettingsPage = () => {
   return (
     <AppShell>
       <PageHeader className="z-50">
-        <Toolbar className="bg-background px-4 py-4 sm:px-6 lg:px-8">
+        <Toolbar className="bg-surface-chat px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
@@ -276,7 +276,7 @@ export const SettingsPage = () => {
       </PageHeader>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="hidden lg:block w-64 flex-none border-r border-sidebar-border bg-sidebar">
+        <div className="hidden w-64 flex-none border-r border-sidebar-border bg-surface-sidebar lg:block">
           <SettingsSidebar
             sections={navSections}
             activeTab={activeTab}
@@ -291,7 +291,7 @@ export const SettingsPage = () => {
             onTabChange={setActiveTab}
             className="flex-none px-4 pt-4 sm:px-6"
           />
-          <main className="flex-1 overflow-y-auto min-w-0">
+          <main className="min-w-0 flex-1 overflow-y-auto">
             <PageBody>
               <div key={activeTab}>{tabContent[activeTab]}</div>
             </PageBody>

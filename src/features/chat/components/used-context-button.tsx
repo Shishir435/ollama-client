@@ -72,7 +72,7 @@ export const UsedContextButton = ({
           }
         />
         <PopoverContent
-          className="w-96 max-h-115 overflow-y-auto p-3 scrollbar-none"
+          className="max-h-[min(28rem,calc(100vh-8rem))] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-panel p-3 scrollbar-none"
           align="start">
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">
@@ -93,10 +93,12 @@ export const UsedContextButton = ({
                   <button
                     key={`${chunk.id}-${chunk.chunkIndex ?? 0}`}
                     type="button"
-                    className="w-full rounded border bg-muted/30 p-2 text-left hover:bg-muted/60"
+                    className="w-full min-w-0 rounded-control border bg-muted/30 p-2 text-left hover:bg-muted/60"
                     onClick={() => setActiveChunk(chunk)}>
-                    <div className="text-xs font-medium">{chunk.title}</div>
-                    <div className="line-clamp-2 text-[11px] text-muted-foreground">
+                    <div className="truncate text-xs font-medium">
+                      {chunk.title}
+                    </div>
+                    <div className="line-clamp-2 break-words text-[11px] text-muted-foreground">
                       {chunk.excerpt}
                     </div>
                     <div className="mt-1 text-[10px] text-muted-foreground">
@@ -117,10 +119,12 @@ export const UsedContextButton = ({
                   <button
                     key={`${chunk.id}-${chunk.chunkIndex ?? 0}`}
                     type="button"
-                    className="w-full rounded border bg-muted/30 p-2 text-left hover:bg-muted/60"
+                    className="w-full min-w-0 rounded-control border bg-muted/30 p-2 text-left hover:bg-muted/60"
                     onClick={() => setActiveChunk(chunk)}>
-                    <div className="text-xs font-medium">{chunk.title}</div>
-                    <div className="line-clamp-2 text-[11px] text-muted-foreground">
+                    <div className="truncate text-xs font-medium">
+                      {chunk.title}
+                    </div>
+                    <div className="line-clamp-2 break-words text-[11px] text-muted-foreground">
                       {chunk.excerpt}
                     </div>
                     <div className="mt-1 text-[10px] text-muted-foreground">
@@ -137,11 +141,13 @@ export const UsedContextButton = ({
       <Dialog
         open={!!activeChunk}
         onOpenChange={(v) => !v && setActiveChunk(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{activeChunk?.title || "Context snippet"}</DialogTitle>
+        <DialogContent className="max-h-[min(80vh,40rem)] w-[min(42rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden rounded-panel p-0 sm:max-w-[min(42rem,calc(100vw-2rem))]">
+          <DialogHeader className="min-w-0 border-b border-border/35 px-4 py-3">
+            <DialogTitle className="truncate pr-8">
+              {activeChunk?.title || "Context snippet"}
+            </DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded border bg-muted/20 p-3 text-xs leading-relaxed">
+          <pre className="max-h-[min(64vh,32rem)] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
             {activeChunk?.excerpt}
           </pre>
         </DialogContent>

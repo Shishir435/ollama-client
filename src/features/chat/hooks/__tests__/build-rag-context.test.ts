@@ -98,7 +98,7 @@ const ragsetOn = () =>
   } as never)
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   // Default to "RAG enabled" so each test only flips what it cares about.
   mockedStorageGet.mockResolvedValue(true as never)
   mockedGetActiveKnowledgeSet.mockResolvedValue(undefined)
@@ -158,7 +158,7 @@ describe("classifier short-circuits", () => {
 })
 
 describe("file/global retrieval", () => {
-  it("appends retrieved context with the DEFAULT_RAG_PROMPT prefix", async () => {
+  it("appends retrieved context with the DEFAULT_RAG_PROMPT prefix for explicit files", async () => {
     ragsetOn()
     mockedRetrieve.mockResolvedValueOnce({
       documents: [{ id: 1, content: "About llamas", score: 0.9 }],
@@ -176,7 +176,21 @@ describe("file/global retrieval", () => {
     } as never)
 
     const result = await buildRagContext(
-      defaults({ rawInput: "Tell me about llamas" })
+      defaults({
+        rawInput: "Tell me about llamas",
+        files: [
+          {
+            metadata: {
+              fileId: "llama-file",
+              fileName: "llamas.txt",
+              fileType: "text/plain",
+              fileSize: 12,
+              processedAt: 0
+            },
+            text: "About llamas"
+          } as never
+        ]
+      })
     )
 
     expect(result.contentWithRAG).toContain("Tell me about llamas")
@@ -201,7 +215,22 @@ describe("file/global retrieval", () => {
     } as never)
 
     const result = await buildRagContext(
-      defaults({ rawInput: "Q", maxRagContextChars: 100 })
+      defaults({
+        rawInput: "Q",
+        maxRagContextChars: 100,
+        files: [
+          {
+            metadata: {
+              fileId: "doc-file",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
+        ]
+      })
     )
 
     expect(result.contentWithRAG).toContain("[Context truncated due to length]")
@@ -293,7 +322,23 @@ describe("knowledge set overrides", () => {
       sources: [{ id: 1, title: "src", content: "ctx", score: 0.9 }]
     } as never)
 
-    const result = await buildRagContext(defaults({ rawInput: "Q" }))
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "Q",
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
+        ]
+      })
+    )
 
     const retrieveCall = mockedRetrieve.mock.calls[0]
     expect(retrieveCall?.[2]).toMatchObject({
@@ -318,7 +363,23 @@ describe("knowledge set overrides", () => {
       { role: "assistant", content: "Earlier reply", done: true }
     ]
 
-    await buildRagContext(defaults({ messages: history }))
+    await buildRagContext(
+      defaults({
+        messages: history,
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
+        ]
+      })
+    )
 
     expect(mockedReformulate).toHaveBeenCalledTimes(1)
     // The reformulated query is what gets sent to retrieveContext.
@@ -339,7 +400,7 @@ describe("knowledge set overrides", () => {
     expect(mockedReformulate).not.toHaveBeenCalled()
   })
 
-  it("DEFAULT_KNOWLEDGE_SET_ID with empty file ids falls back to global scope", async () => {
+  it("DEFAULT_KNOWLEDGE_SET_ID with empty file ids skips global RAG scope", async () => {
     ragsetOn()
     mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
       id: "default",
@@ -349,9 +410,25 @@ describe("knowledge set overrides", () => {
 
     await buildRagContext(defaults())
 
-    // 2nd arg to retrieveContext is `fileIds`; should be undefined (global).
-    const fileIds = mockedRetrieve.mock.calls[0]?.[1]
-    expect(fileIds).toBeUndefined()
+    expect(mockedRetrieve).not.toHaveBeenCalled()
+  })
+
+  it("custom active knowledge set scopes the search to that set's files", async () => {
+    ragsetOn()
+    mockedGetActiveKnowledgeSet.mockImplementation(
+      async () =>
+        ({
+          id: "ks-1",
+          name: "Project"
+        }) as never
+    )
+    mockedGetKnowledgeSetFileIds.mockImplementation(
+      async () => ["ks-file"] as never
+    )
+
+    await buildRagContext(defaults())
+
+    expect(mockedRetrieve.mock.calls[0]?.[1]).toEqual(["ks-file"])
   })
 
   it("explicit files in the request scope the search to those file ids", async () => {
@@ -438,11 +515,27 @@ describe("fallbacks", () => {
 })
 
 describe("error path", () => {
-  it("retriever throwing produces a destructive toast and returns user content unaugmented", async () => {
+  it("retriever throwing produces a destructive toast and falls back to attached file text", async () => {
     ragsetOn()
     mockedRetrieve.mockRejectedValueOnce(new Error("vector store down"))
 
-    const result = await buildRagContext(defaults({ rawInput: "Q" }))
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "Q",
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
+        ]
+      })
+    )
 
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -450,7 +543,7 @@ describe("error path", () => {
         title: "RAG Warning"
       })
     )
-    expect(result.contentWithRAG).toBe("Q")
+    expect(result.contentWithRAG).toContain("[File: doc.txt]")
     expect(result.ragSources).toBeNull()
   })
 })
@@ -464,7 +557,23 @@ describe("prompt stats", () => {
       sources: [{ id: 1, title: "src", content: "ctx", score: 0.9 }]
     } as never)
 
-    const result = await buildRagContext(defaults({ rawInput: "Q" }))
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "Q",
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
+        ]
+      })
+    )
 
     expect(result.promptContextStats.promptInputLength).toBe(1)
     expect(result.promptContextStats.promptAugmentedLength).toBe(
@@ -500,6 +609,18 @@ describe("query reformulation provider call", () => {
         messages: [
           { role: "user", content: "x" },
           { role: "assistant", content: "y", done: true }
+        ],
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text/plain",
+              fileSize: 1,
+              processedAt: 0
+            },
+            text: "Doc"
+          } as never
         ]
       })
     )

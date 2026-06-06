@@ -33,7 +33,7 @@ export const ChatMessageContent = ({
       className={cn(
         "text-sm",
         isUser
-          ? "ml-auto w-fit max-w-[90vw] rounded-message border border-border/25 bg-app-primary-soft/85 px-3 py-2.5 text-foreground shadow-xs sm:max-w-[min(46rem,78%)] sm:px-4"
+          ? "ml-auto w-fit max-w-[88vw] rounded-message border border-border/20 bg-surface-message/85 px-3 py-2.5 text-foreground shadow-xs sm:max-w-[min(46rem,74%)] sm:px-4"
           : "w-full max-w-[90vw] py-1 text-foreground sm:max-w-2xl"
       )}>
       {/* File Attachments */}

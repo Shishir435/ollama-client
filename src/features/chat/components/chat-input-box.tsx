@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Textarea } from "@/components/ui/textarea"
-import { ChatContextPreview } from "@/features/chat/components/chat-context-preview"
 import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
 import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
@@ -16,7 +15,6 @@ import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 
 import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
-import { TabsSelect } from "@/features/tabs/components/tabs-select"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 
@@ -373,17 +371,6 @@ export const ChatInputBox = ({
     <div className="relative">
       {showSessionMetrics && <SessionMetricsBar messages={messages} />}
 
-      <div className="mb-1">
-        <TabsSelect />
-      </div>
-
-      <ChatContextPreview processingStates={processingStates} />
-
-      <ChatInputAttachmentList
-        processingStates={processingStates}
-        onRemove={(file) => clearProcessingState(file)}
-      />
-
       {showPromptOverlay && (
         <PromptSelectorDialog
           open={showPromptOverlay}
@@ -399,6 +386,10 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
+        <ChatInputAttachmentList
+          processingStates={processingStates}
+          onRemove={(file) => clearProcessingState(file)}
+        />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}

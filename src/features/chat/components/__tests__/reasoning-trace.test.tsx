@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { ReasoningTrace } from "@/features/chat/components/reasoning-trace"
 import type { ChatMessage } from "@/types"
@@ -56,6 +56,22 @@ describe("ReasoningTrace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
+  })
+
+  it("closes thinking details when clicking outside", async () => {
+    render(<ReasoningTrace message={message} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
+
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(document.body)
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("private reasoning detail")
+      ).not.toBeInTheDocument()
+    )
   })
 
   it("does not show web or file status when those actions did not happen", () => {
