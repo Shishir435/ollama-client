@@ -187,7 +187,10 @@
       "fork": "Ответвить",
       "edit": "Редактировать",
       "more": "Ещё",
-      "delete": "Удалить сообщение"
+      "delete": "Удалить сообщение",
+      "export": "Экспорт",
+      "previous_branch": "Предыдущая ветка",
+      "next_branch": "Следующая ветка"
     },
     "metrics": {
       "total_time": "Общее время",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Токены промпта",
       "generated_tokens": "Сгенерировано токенов",
       "load_time": "Время загрузки",
-      "prompt_eval_time": "Время обработки промпта"
+      "prompt_eval_time": "Время обработки промпта",
+      "speed_unit": "т/с"
     },
     "session_metrics": {
       "tooltip_tokens": "Всего токенов в текущей сессии",
@@ -211,7 +215,14 @@
       "hide": "Скрыть",
       "explore": "Подробнее",
       "loading_typing": "Печатаю",
-      "loading_queued": "В очереди"
+      "loading_queued": "В очереди",
+      "trace": {
+        "planning": "Планирование",
+        "page": "Чтение страницы",
+        "files": "RAG",
+        "web": "Поиск в вебе",
+        "answering": "Ответ"
+      }
     },
     "feedback": {
       "helpful_tooltip": "Это было полезно",
@@ -287,6 +298,11 @@
       "no_message": "Нет сообщения",
       "response_failed_title": "Ошибка генерации ответа",
       "unknown_error_description": "Произошла неизвестная ошибка"
+    },
+    "composer": {
+      "rag": "Файлы",
+      "tabs": "Страница",
+      "web": "Веб"
     }
   },
   "file_upload": {

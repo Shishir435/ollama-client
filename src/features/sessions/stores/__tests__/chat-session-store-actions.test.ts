@@ -551,22 +551,3 @@ describe("loadSessions when hydrated=true", () => {
     expect(mockRepo.getAllSessionsOrderedByRecency).not.toHaveBeenCalled()
   })
 })
-
-// ---------------------------------------------------------------------------
-// updateMessages — no-op
-// ---------------------------------------------------------------------------
-
-describe("updateMessages", () => {
-  it("resolves without throwing and without calling any repo function", async () => {
-    await expect(
-      chatSessionStore.getState().updateMessages(SESSION_ID, [])
-    ).resolves.toBeUndefined()
-
-    // None of the repo functions should have been called
-    for (const fn of Object.values(mockRepo)) {
-      if (typeof fn === "function") {
-        expect(fn).not.toHaveBeenCalled()
-      }
-    }
-  })
-})

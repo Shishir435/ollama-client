@@ -269,7 +269,7 @@ export const buildRagContext = async (
                 excerpt: source.content.slice(0, 220),
                 score: source.score,
                 sectionPath: source.source || source.type,
-                source: source.source,
+                source: "tab",
                 chunkIndex: source.chunkIndex
               })
             })
@@ -371,7 +371,8 @@ export const buildRagContext = async (
       title: "Selected tab context",
       excerpt: clampedFallback.text.slice(0, 220),
       score: 0.5,
-      sectionPath: "fallback-full-context"
+      sectionPath: "fallback-full-context",
+      source: "tab"
     })
   }
 

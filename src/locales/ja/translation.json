@@ -187,7 +187,10 @@
       "fork": "分岐",
       "edit": "編集",
       "more": "その他",
-      "delete": "メッセージを削除"
+      "delete": "メッセージを削除",
+      "export": "エクスポート",
+      "previous_branch": "前の分岐",
+      "next_branch": "次の分岐"
     },
     "metrics": {
       "total_time": "合計時間",
@@ -195,7 +198,8 @@
       "prompt_tokens": "プロンプトトークン",
       "generated_tokens": "生成トークン",
       "load_time": "読み込み時間",
-      "prompt_eval_time": "プロンプト評価時間"
+      "prompt_eval_time": "プロンプト評価時間",
+      "speed_unit": "t/s"
     },
     "session_metrics": {
       "tooltip_tokens": "このセッションで使用された合計トークン",
@@ -211,7 +215,14 @@
       "hide": "隠す",
       "explore": "詳細表示",
       "loading_typing": "入力中",
-      "loading_queued": "待機中"
+      "loading_queued": "待機中",
+      "trace": {
+        "planning": "計画中",
+        "page": "ページを読取中",
+        "files": "RAG",
+        "web": "Web検索中",
+        "answering": "回答中"
+      }
     },
     "feedback": {
       "helpful_tooltip": "役に立った",
@@ -287,6 +298,11 @@
       "no_message": "メッセージなし",
       "response_failed_title": "応答の生成に失敗しました",
       "unknown_error_description": "不明なエラーが発生しました"
+    },
+    "composer": {
+      "rag": "ファイル",
+      "tabs": "ページ",
+      "web": "Web"
     }
   },
   "file_upload": {

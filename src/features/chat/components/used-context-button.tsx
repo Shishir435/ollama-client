@@ -53,7 +53,7 @@ export const UsedContextButton = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-6 text-muted-foreground hover:text-foreground"
+                  className="size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
                   aria-label={`Used context (${chunks.length})`}
                 />
               }
@@ -64,8 +64,8 @@ export const UsedContextButton = ({
           tooltipSide="top"
           icon={
             <div className="relative">
-              <FileSearch className="size-3.5" />
-              <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-chip bg-primary text-[8px] font-bold text-primary-foreground">
+              <FileSearch className="size-3" />
+              <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
                 {chunks.length}
               </span>
             </div>

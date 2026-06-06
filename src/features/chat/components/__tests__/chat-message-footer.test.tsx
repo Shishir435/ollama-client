@@ -4,7 +4,13 @@ import { ChatMessageFooter } from "@/features/chat/components/chat-message-foote
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback ?? _key
+    t: (key: string) =>
+      ({
+        "chat.actions.delete": "Delete Message",
+        "chat.actions.export": "Export",
+        "chat.actions.more": "More",
+        "chat.actions.switch_model_tooltip": "Switch model"
+      })[key] ?? key
   })
 }))
 
@@ -45,10 +51,10 @@ describe("ChatMessageFooter", () => {
       />
     )
 
-    expect(screen.getByRole("button", { name: /Export/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /More/i })).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: /chat.actions.delete/i })
-    ).toBeInTheDocument()
+      screen.queryByRole("button", { name: /Delete Message/i })
+    ).not.toBeInTheDocument()
     expect(screen.getByText("deepseek-r1:8b")).toBeInTheDocument()
   })
 })

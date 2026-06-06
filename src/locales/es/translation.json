@@ -187,7 +187,10 @@
       "fork": "Bifurcar",
       "edit": "Editar",
       "more": "Más",
-      "delete": "Eliminar mensaje"
+      "delete": "Eliminar mensaje",
+      "export": "Exportar",
+      "previous_branch": "Rama anterior",
+      "next_branch": "Rama siguiente"
     },
     "metrics": {
       "total_time": "Tiempo total",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Tokens del prompt",
       "generated_tokens": "Tokens generados",
       "load_time": "Tiempo de carga",
-      "prompt_eval_time": "Tiempo de evaluación del prompt"
+      "prompt_eval_time": "Tiempo de evaluación del prompt",
+      "speed_unit": "t/s"
     },
     "session_metrics": {
       "tooltip_tokens": "Total de tokens usados en esta sesión",
@@ -211,7 +215,14 @@
       "hide": "Ocultar",
       "explore": "Explorar",
       "loading_typing": "Escribiendo",
-      "loading_queued": "En cola"
+      "loading_queued": "En cola",
+      "trace": {
+        "planning": "Planificando",
+        "page": "Leyendo página",
+        "files": "RAG",
+        "web": "Buscando en la web",
+        "answering": "Respondiendo"
+      }
     },
     "feedback": {
       "helpful_tooltip": "Esto fue útil",
@@ -287,6 +298,11 @@
       "no_message": "Sin mensaje",
       "response_failed_title": "Generación de respuesta fallida",
       "unknown_error_description": "Ocurrió un error desconocido"
+    },
+    "composer": {
+      "rag": "Archivos",
+      "tabs": "Página",
+      "web": "Web"
     }
   },
   "file_upload": {

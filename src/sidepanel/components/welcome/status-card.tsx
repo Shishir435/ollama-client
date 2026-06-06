@@ -82,7 +82,7 @@ export const StatusCard = () => {
         </div>
         <div className="flex-1 text-left space-y-1">
           <CardTitle className="font-semibold">{statusConfig.title}</CardTitle>
-          <CardDescription className={status === "error" ? "mb-3" : ""}>
+          <CardDescription className={cn(status === "error" && "mb-3")}>
             {statusConfig.message}
           </CardDescription>
           {status === "error" && (

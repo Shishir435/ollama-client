@@ -19,8 +19,8 @@ export const ChatInputToolbar = ({
   const { t } = useTranslation()
 
   return (
-    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between rounded-control border border-border/60 bg-background/80 px-3 py-2 backdrop-blur">
-      <div className="flex items-center gap-1.5">
+    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 px-2 py-2 backdrop-blur">
+      <div className="flex min-w-0 items-center gap-1">
         <ModelMenu
           showStatusPopup={false}
           tooltipTextContent={t("chat.input.switch_model")}
@@ -32,7 +32,7 @@ export const ChatInputToolbar = ({
           showText={false}
           variant="ghost"
           size="icon"
-          className="size-8 rounded-control"
+          className="size-8 shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
           iconClassName="size-4"
         />
 

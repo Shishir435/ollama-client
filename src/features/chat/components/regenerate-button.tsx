@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { ModelMenu } from "@/features/model/components/model-menu"
-import { ChevronDown, RefreshCcw } from "@/lib/lucide-icon"
+import { RefreshCcw } from "@/lib/lucide-icon"
 
 export interface RegenerateButtonProps {
   model: string
@@ -21,9 +21,8 @@ export const RegenerateButton = ({
         <Button
           size="icon"
           variant="ghost"
-          className="group relative flex size-7 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-muted/55 hover:text-foreground">
-          <RefreshCcw className="size-4" />
-          <ChevronDown className="absolute -bottom-0.5 right-0.5 size-2 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-0" />
+          className="group relative flex size-6 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-muted/55 hover:text-foreground">
+          <RefreshCcw className="size-3" />
         </Button>
       }
       onSelectModel={onSelectModel}

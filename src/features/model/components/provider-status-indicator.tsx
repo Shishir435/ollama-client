@@ -11,14 +11,17 @@ import {
   XCircle
 } from "@/lib/lucide-icon"
 import { STATUS_STYLES } from "@/lib/ui-status"
+import { cn } from "@/lib/utils"
 
 const iconMap = {
   loading: (
-    <Loader2 className={`size-4 animate-spin ${STATUS_STYLES.neutral.text}`} />
+    <Loader2
+      className={cn("size-4 animate-spin", STATUS_STYLES.neutral.text)}
+    />
   ),
-  error: <XCircle className={`size-4 ${STATUS_STYLES.danger.text}`} />,
-  empty: <AlertTriangle className={`size-4 ${STATUS_STYLES.warning.text}`} />,
-  ready: <CheckCircle className={`size-4 ${STATUS_STYLES.success.text}`} />
+  error: <XCircle className={cn("size-4", STATUS_STYLES.danger.text)} />,
+  empty: <AlertTriangle className={cn("size-4", STATUS_STYLES.warning.text)} />,
+  ready: <CheckCircle className={cn("size-4", STATUS_STYLES.success.text)} />
 }
 
 export const ProviderStatusIndicator = () => {
@@ -66,7 +69,10 @@ export const ProviderStatusIndicator = () => {
           </div>
           {status === "error" && error && (
             <div
-              className={`mt-1 max-w-xs text-xs ${STATUS_STYLES.danger.text}`}>
+              className={cn(
+                "mt-1 max-w-xs text-xs",
+                STATUS_STYLES.danger.text
+              )}>
               {error}
             </div>
           )}

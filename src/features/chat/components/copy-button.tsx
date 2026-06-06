@@ -25,13 +25,13 @@ export const CopyButton = ({ text }: { text: string }) => {
       tooltip={copied ? t("chat.actions.copied") : t("chat.actions.copy")}
       size="icon"
       variant="ghost"
-      className="size-7 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+      className="size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
       onClick={handleCopy}
       icon={
         copied ? (
-          <Check className="size-4 text-status-success" />
+          <Check className="size-3 text-status-success" />
         ) : (
-          <Copy className="size-4" />
+          <Copy className="size-3" />
         )
       }
     />

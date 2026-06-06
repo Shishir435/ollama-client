@@ -102,7 +102,6 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
         updatedAt: 0
       }
     ],
-    updateMessages: vi.fn().mockResolvedValue(undefined),
     renameSessionTitle: vi.fn().mockResolvedValue(undefined),
     createSession: vi.fn().mockResolvedValue("session-1"),
     setCurrentSessionId: vi.fn(),
@@ -179,8 +178,6 @@ describe("useChat", () => {
       "@/features/sessions/stores/chat-session-store"
     )
     const startStream = vi.fn()
-    const updateMessages = vi.fn().mockResolvedValue(undefined)
-
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
       stopStream: vi.fn()
@@ -196,7 +193,6 @@ describe("useChat", () => {
           updatedAt: 0
         }
       ],
-      updateMessages,
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
@@ -267,7 +263,6 @@ describe("useChat", () => {
           updatedAt: 0
         }
       ],
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
@@ -353,7 +348,6 @@ describe("useChat", () => {
           updatedAt: 0
         }
       ],
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
@@ -407,7 +401,6 @@ describe("useChat", () => {
       loadSessionMessages: vi.fn().mockResolvedValue(undefined),
       highlightedMessage: null,
       setHighlightedMessage: vi.fn(),
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession,
       setCurrentSessionId,
@@ -448,7 +441,6 @@ describe("useChat", () => {
           updatedAt: Date.now()
         }
       ],
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle,
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
@@ -498,7 +490,6 @@ describe("useChat", () => {
           updatedAt: Date.now()
         }
       ],
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle,
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
@@ -670,7 +661,6 @@ describe("useChat", () => {
           updatedAt: 0
         }
       ],
-      updateMessages: vi.fn().mockResolvedValue(undefined),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),

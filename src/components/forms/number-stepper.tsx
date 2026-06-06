@@ -1,6 +1,7 @@
 import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Minus, Plus } from "@/lib/lucide-icon"
+import { cn } from "@/lib/utils"
 import { ControlledNumberInput } from "./controlled-number-input"
 
 export interface NumberStepperProps
@@ -32,7 +33,7 @@ export const NumberStepper = ({
   }
 
   return (
-    <div className={className ?? "flex items-center gap-1"}>
+    <div className={cn("flex items-center gap-1", className)}>
       <Button
         type="button"
         variant="outline"

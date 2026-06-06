@@ -187,7 +187,10 @@
       "fork": "Biforca",
       "edit": "Modifica",
       "more": "Altro",
-      "delete": "Elimina messaggio"
+      "delete": "Elimina messaggio",
+      "export": "Esporta",
+      "previous_branch": "Ramo precedente",
+      "next_branch": "Ramo successivo"
     },
     "metrics": {
       "total_time": "Tempo totale",
@@ -195,7 +198,8 @@
       "prompt_tokens": "Token del prompt",
       "generated_tokens": "Token generati",
       "load_time": "Tempo di caricamento",
-      "prompt_eval_time": "Tempo val. prompt"
+      "prompt_eval_time": "Tempo val. prompt",
+      "speed_unit": "t/s"
     },
     "session_metrics": {
       "tooltip_tokens": "Token totali utilizzati in questa sessione",
@@ -211,7 +215,14 @@
       "hide": "Nascondi",
       "explore": "Esplora",
       "loading_typing": "Scrittura",
-      "loading_queued": "In coda"
+      "loading_queued": "In coda",
+      "trace": {
+        "planning": "Pianificazione",
+        "page": "Lettura pagina",
+        "files": "RAG",
+        "web": "Ricerca web",
+        "answering": "Risposta"
+      }
     },
     "feedback": {
       "helpful_tooltip": "È stato utile",
@@ -287,6 +298,11 @@
       "no_message": "Nessun messaggio",
       "response_failed_title": "Generazione della risposta fallita",
       "unknown_error_description": "Si è verificato un errore sconosciuto"
+    },
+    "composer": {
+      "rag": "File",
+      "tabs": "Pagina",
+      "web": "Web"
     }
   },
   "file_upload": {

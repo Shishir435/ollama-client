@@ -27,6 +27,7 @@ import {
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { STATUS_STYLES } from "@/lib/ui-status"
+import { cn } from "@/lib/utils"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
@@ -177,7 +178,7 @@ export const EmbeddingStatusIndicator = () => {
     loading: {
       icon: (
         <Loader2
-          className={`size-4 animate-spin ${STATUS_STYLES.neutral.text}`}
+          className={cn("size-4 animate-spin", STATUS_STYLES.neutral.text)}
         />
       ),
       color: STATUS_STYLES.neutral.text,
@@ -189,22 +190,24 @@ export const EmbeddingStatusIndicator = () => {
         : t("model.embedding_status.checking")
     },
     ready: {
-      icon: <Database className={`size-4 ${STATUS_STYLES.success.text}`} />,
+      icon: <Database className={cn("size-4", STATUS_STYLES.success.text)} />,
       color: STATUS_STYLES.success.text,
       text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
-      icon: <Database className={`size-4 ${STATUS_STYLES.warning.text}`} />,
+      icon: <Database className={cn("size-4", STATUS_STYLES.warning.text)} />,
       color: STATUS_STYLES.warning.text,
       text: t("model.embedding_status.missing", { model: modelName })
     },
     error: {
-      icon: <AlertTriangle className={`size-4 ${STATUS_STYLES.danger.text}`} />,
+      icon: (
+        <AlertTriangle className={cn("size-4", STATUS_STYLES.danger.text)} />
+      ),
       color: STATUS_STYLES.danger.text,
       text: t("model.embedding_status.error")
     },
     default: {
-      icon: <Database className={`size-4 ${STATUS_STYLES.neutral.text}`} />,
+      icon: <Database className={cn("size-4", STATUS_STYLES.neutral.text)} />,
       color: STATUS_STYLES.neutral.text,
       text: t("model.embedding_status.checking_model")
     }
@@ -269,7 +272,10 @@ export const EmbeddingStatusIndicator = () => {
 
           {error && (
             <div
-              className={`text-xs wrap-break-word ${STATUS_STYLES.danger.text}`}>
+              className={cn(
+                "text-xs wrap-break-word",
+                STATUS_STYLES.danger.text
+              )}>
               {error}
             </div>
           )}
