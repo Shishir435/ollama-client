@@ -218,6 +218,7 @@
       "loading_queued": "Warteschlange",
       "trace": {
         "planning": "Planung",
+        "thinking": "Denken",
         "page": "Seite lesen",
         "files": "RAG",
         "web": "Websuche",

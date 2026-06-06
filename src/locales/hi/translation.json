@@ -218,6 +218,7 @@
       "loading_queued": "कतार में",
       "trace": {
         "planning": "योजना",
+        "thinking": "सोच रहा है",
         "page": "पेज पढ़ रहा है",
         "files": "RAG",
         "web": "वेब खोज",

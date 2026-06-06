@@ -218,6 +218,7 @@
       "loading_queued": "待機中",
       "trace": {
         "planning": "計画中",
+        "thinking": "思考中",
         "page": "ページを読取中",
         "files": "RAG",
         "web": "Web検索中",

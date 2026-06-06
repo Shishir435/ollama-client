@@ -99,12 +99,13 @@ export const ReasoningTrace = ({
     return null
   }
 
+  const hasVisibleContent = Boolean(message.content?.trim())
   const steps: TraceStep[] = [
-    hasThinking || isBusy
+    isBusy && !hasVisibleContent
       ? {
-          key: "planning",
-          label: t("chat.reasoning.trace.planning"),
-          status: isBusy && !message.content ? "running" : "done",
+          key: "thinking",
+          label: t("chat.reasoning.trace.thinking"),
+          status: "running",
           icon: Sparkles
         }
       : null,
@@ -136,11 +137,11 @@ export const ReasoningTrace = ({
             : "done",
       icon: run.toolId === "web-search" ? Search : Circle
     })),
-    message.content || isBusy
+    isBusy && hasVisibleContent
       ? {
           key: "answering",
           label: t("chat.reasoning.trace.answering"),
-          status: isBusy ? "running" : "done",
+          status: "running",
           icon: Circle
         }
       : null

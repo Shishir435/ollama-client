@@ -10,6 +10,7 @@ vi.mock("react-i18next", () => ({
         "chat.reasoning.aria_label": "Model reasoning",
         "chat.reasoning.title": "Thought Process",
         "chat.reasoning.trace.planning": "Planning",
+        "chat.reasoning.trace.thinking": "Thinking",
         "chat.reasoning.trace.page": "Reading page",
         "chat.reasoning.trace.files": "RAG",
         "chat.reasoning.trace.web": "Searching web",
@@ -47,9 +48,13 @@ describe("ReasoningTrace", () => {
   it("shows product trace and keeps thinking details collapsed", () => {
     render(<ReasoningTrace message={message} />)
 
-    expect(screen.getByText("Planning")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /Thought Process/i })
+    ).toBeInTheDocument()
     expect(screen.getByText("RAG")).toBeInTheDocument()
     expect(screen.getByText("Searching web")).toBeInTheDocument()
+    expect(screen.queryByText("Planning")).not.toBeInTheDocument()
+    expect(screen.queryByText("Answering")).not.toBeInTheDocument()
     expect(
       screen.queryByText("private reasoning detail")
     ).not.toBeInTheDocument()
@@ -74,7 +79,7 @@ describe("ReasoningTrace", () => {
     )
   })
 
-  it("does not show web or file status when those actions did not happen", () => {
+  it("keeps thought details for done thinking messages without live answering state", () => {
     render(
       <ReasoningTrace
         message={{
@@ -85,7 +90,10 @@ describe("ReasoningTrace", () => {
       />
     )
 
-    expect(screen.getByText("Answering")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /Thought Process/i })
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Answering")).not.toBeInTheDocument()
     expect(screen.queryByText("Searching web")).not.toBeInTheDocument()
     expect(screen.queryByText("RAG")).not.toBeInTheDocument()
   })
@@ -116,12 +124,52 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("RAG")).toBeInTheDocument()
   })
 
-  it("uses running labels for active steps", () => {
+  it("keeps durable page and RAG icons after message is done", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            tabContextLength: 50,
+            ragContextLength: 100,
+            usedContextChunks: [
+              {
+                id: 1,
+                title: "Page",
+                excerpt: "page text",
+                score: 0.9,
+                source: "tab"
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    expect(screen.getByText("Reading page")).toBeInTheDocument()
+    expect(screen.getByText("RAG")).toBeInTheDocument()
+    expect(screen.queryByText("Answering")).not.toBeInTheDocument()
+  })
+
+  it("shows thinking while busy before visible answer text", () => {
     render(
       <ReasoningTrace message={{ role: "assistant", content: "" }} isLoading />
     )
 
-    expect(screen.getAllByText("Planning...").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Thinking...").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Answering...")).not.toBeInTheDocument()
+  })
+
+  it("shows answering while visible text is streaming", () => {
+    render(
+      <ReasoningTrace
+        message={{ role: "assistant", content: "partial answer" }}
+        isStreaming
+      />
+    )
+
     expect(screen.getAllByText("Answering...").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Thinking...")).not.toBeInTheDocument()
   })
 })
