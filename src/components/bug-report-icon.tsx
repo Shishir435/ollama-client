@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { buttonVariants } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -19,27 +14,24 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   const Icon: LucideIcon = bugLink.icon
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
-            <a
-              href={bugLink.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                "hover:text-status-danger",
-                buttonVariants({ variant: "link" })
-              )}
-              aria-label={t("common.bug_report.aria_label")}
-            />
-          }>
-          <Icon size="16" />
-          {showText && <span>{t("common.bug_report.label")}</span>}
-        </TooltipTrigger>
-        <TooltipContent>{t("common.bug_report.tooltip")}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <TooltipActionButton
+      trigger={
+        // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
+        <a
+          href={bugLink.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "hover:text-status-danger",
+            buttonVariants({ variant: "link" })
+          )}
+          aria-label={t("common.bug_report.aria_label")}
+        />
+      }
+      icon={<Icon size="16" />}
+      label={t("common.bug_report.label")}
+      tooltip={t("common.bug_report.tooltip")}
+      showLabel={showText}
+    />
   )
 }

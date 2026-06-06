@@ -1,7 +1,7 @@
-import { OpenAIProvider } from "./openai"
+import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type ProviderConfig, ProviderId } from "./types"
 
-export class KoboldCppProvider extends OpenAIProvider {
+export class KoboldCppProvider extends OpenAICompatibleProvider {
   id = ProviderId.KOBOLDCPP
 
   constructor(config: ProviderConfig) {

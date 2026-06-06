@@ -4,7 +4,7 @@ import { LlamaCppProvider } from "@/lib/providers/llama-cpp"
 import { LMStudioProvider } from "@/lib/providers/lm-studio"
 import { LocalAIProvider } from "@/lib/providers/localai"
 import { OllamaProvider } from "@/lib/providers/ollama"
-import { OpenAIProvider } from "@/lib/providers/openai"
+import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import { VllmProvider } from "@/lib/providers/vllm"
 import { ProviderId, ProviderType } from "../types"
 
@@ -116,7 +116,7 @@ describe("provider contracts", () => {
 
   it("OpenAI-compatible providers parse model lists and SSE chunks", async () => {
     const providers = [
-      new OpenAIProvider({
+      new OpenAICompatibleProvider({
         id: ProviderId.OPENAI,
         name: "OpenAI",
         type: ProviderType.OPENAI,
@@ -189,7 +189,7 @@ describe("provider contracts", () => {
   })
 
   it("OpenAI throws useful chat errors and returns empty models for bad responses", async () => {
-    const provider = new OpenAIProvider({
+    const provider = new OpenAICompatibleProvider({
       id: ProviderId.OPENAI,
       name: "OpenAI",
       type: ProviderType.OPENAI,

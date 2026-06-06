@@ -235,7 +235,7 @@ export const ProviderSettings = () => {
                           }
                         }}
                       />
-                      <Button
+                      <TooltipActionButton
                         variant="outline"
                         size="icon"
                         onClick={() => {
@@ -255,9 +255,11 @@ export const ProviderSettings = () => {
                             })
                             input.value = ""
                           }
-                        }}>
-                        <Plus className="size-4" />
-                      </Button>
+                        }}
+                        icon={Plus}
+                        iconClassName="size-4"
+                        label={t("settings.model.system.add_button")}
+                      />
                     </SettingsActionRow>
 
                     {activeConfig.customModels &&
@@ -268,8 +270,11 @@ export const ProviderSettings = () => {
                               key={m}
                               className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-sm">
                               <span>{m}</span>
-                              <button
+                              <TooltipActionButton
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-5 hover:text-destructive"
                                 onClick={() => {
                                   updateConfig({
                                     customModels:
@@ -278,9 +283,11 @@ export const ProviderSettings = () => {
                                       )
                                   })
                                 }}
-                                className="hover:text-destructive transition-colors">
-                                <Trash2 className="size-3.5" />
-                              </button>
+                                icon={Trash2}
+                                iconClassName="size-3.5"
+                                label={t("common.close")}
+                                ariaLabel={`${t("common.close")} ${m}`}
+                              />
                             </div>
                           ))}
                         </div>
