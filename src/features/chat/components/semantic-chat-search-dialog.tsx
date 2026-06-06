@@ -194,7 +194,7 @@ export const SemanticChatSearchDialog = ({
           />
 
           {error && (
-            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-md border border-destructive/20 animate-in fade-in slide-in-from-top-1">
+            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-control border border-destructive/20 animate-in fade-in slide-in-from-top-1">
               {error}
             </div>
           )}

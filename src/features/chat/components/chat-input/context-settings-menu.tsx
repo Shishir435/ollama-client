@@ -38,6 +38,31 @@ export const ContextSettingsMenu = () => {
     },
     false
   )
+  const contextActions = [
+    {
+      key: "page",
+      checked: tabAccess,
+      onCheckedChange: (value: boolean) => setTabAccess(value),
+      icon: AppWindow,
+      label: tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")
+    },
+    {
+      key: "files",
+      checked: useRAG,
+      onCheckedChange: (value: boolean) => setUseRAG(value),
+      icon: BrainCircuit,
+      label: useRAG
+        ? t("chat.input.rag_toggle_on")
+        : t("chat.input.rag_toggle_off")
+    },
+    {
+      key: "grounded",
+      checked: groundedOnlyMode,
+      onCheckedChange: (value: boolean) => setGroundedOnlyMode(value),
+      icon: ShieldCheck,
+      label: t("settings.grounding_mode.label")
+    }
+  ]
 
   return (
     <DropdownMenu>
@@ -48,7 +73,7 @@ export const ContextSettingsMenu = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-lg"
+                className="size-8 rounded-control"
                 aria-label={t("tabs.context")}
               />
             }
@@ -63,29 +88,21 @@ export const ContextSettingsMenu = () => {
             <Layers className="size-3" />
             {t("tabs.context")}
           </DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            checked={tabAccess}
-            onCheckedChange={(value) => setTabAccess(Boolean(value))}
-            className="gap-2 text-xs py-2">
-            <AppWindow className="size-3.5" />
-            {tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")}
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={useRAG}
-            onCheckedChange={(value) => setUseRAG(Boolean(value))}
-            className="gap-2 text-xs py-2">
-            <BrainCircuit className="size-3.5" />
-            {useRAG
-              ? t("chat.input.rag_toggle_on")
-              : t("chat.input.rag_toggle_off")}
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={groundedOnlyMode}
-            onCheckedChange={(value) => setGroundedOnlyMode(Boolean(value))}
-            className="gap-2 text-xs py-2">
-            <ShieldCheck className="size-3.5" />
-            {t("settings.grounding_mode.label")}
-          </DropdownMenuCheckboxItem>
+          {contextActions.map((action) => {
+            const Icon = action.icon
+            return (
+              <DropdownMenuCheckboxItem
+                key={action.key}
+                checked={action.checked}
+                onCheckedChange={(value) =>
+                  action.onCheckedChange(Boolean(value))
+                }
+                className="gap-2 text-xs py-2">
+                <Icon className="size-3.5" />
+                {action.label}
+              </DropdownMenuCheckboxItem>
+            )
+          })}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

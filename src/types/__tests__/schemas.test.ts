@@ -124,6 +124,23 @@ describe("ChatMessageMetricsSchema", () => {
     expect(result.success).toBe(true)
   })
 
+  it("accepts tool run metadata", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      toolRuns: [
+        {
+          toolId: "web-search",
+          label: "Web search",
+          status: "done",
+          startedAt: 1,
+          completedAt: 2,
+          sources: [{ title: "Example", url: "https://example.com" }]
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   it("strips unknown keys (default strip mode)", () => {
     const result = ChatMessageMetricsSchema.safeParse({
       total_duration: 100,

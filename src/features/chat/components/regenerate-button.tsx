@@ -21,12 +21,9 @@ export const RegenerateButton = ({
         <Button
           size="icon"
           variant="ghost"
-          className="group relative flex size-7 items-center justify-center bg-transparent hover:bg-muted/60">
-          <RefreshCcw size={14} />
-          <ChevronDown
-            size={8}
-            className="absolute -bottom-0.5 right-0.5 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-0"
-          />
+          className="group relative flex size-7 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-muted/55 hover:text-foreground">
+          <RefreshCcw className="size-4" />
+          <ChevronDown className="absolute -bottom-0.5 right-0.5 size-2 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-0" />
         </Button>
       }
       onSelectModel={onSelectModel}

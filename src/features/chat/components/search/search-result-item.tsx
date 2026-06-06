@@ -47,7 +47,7 @@ export const SearchResultItem = ({
     <button
       type="button"
       className={cn(
-        "group relative w-full rounded-lg border border-border bg-card p-3 text-left",
+        "group relative w-full rounded-panel border border-border bg-card p-3 text-left",
         "hover:bg-accent hover:border-accent-foreground/20 hover:shadow-md",
         "transition-all cursor-pointer shadow-xs active:scale-[0.99]"
       )}
@@ -62,7 +62,7 @@ export const SearchResultItem = ({
                 ? t("chat.search.role_you")
                 : t("chat.search.role_assistant")}
             </Badge>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0 bg-muted/50 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0 bg-muted/50 px-1.5 py-0.5 rounded-chip">
               <Clock className="size-3" />
               {formatTimestamp(result.timestamp)}
             </span>

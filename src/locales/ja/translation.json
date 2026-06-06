@@ -37,7 +37,8 @@
     "save": "保存",
     "continue": "インポートを続行",
     "reload": "拡張機能を再読み込み",
-    "close": "閉じる"
+    "close": "閉じる",
+    "remove": "削除"
   },
   "extension": {
     "name": "Ollama Client - ローカル LLM モデルとチャット",
@@ -1087,7 +1088,8 @@
       "export": {
         "label": "完全なバックアップをエクスポート",
         "description": "すべての拡張機能データの完全なバックアップをZIPファイルとしてダウンロードします。",
-        "button": "すべてエクスポート"
+        "button": "すべてエクスポート",
+        "error_title": "エクスポートに失敗しました"
       },
       "import": {
         "label": "バックアップをインポート",
@@ -1114,7 +1116,8 @@
           "aborted": "中止"
         }
       }
-    }
+    },
+    "saved": "保存済み"
   },
   "guides": {
     "title": "役立つガイドとドキュメント",
@@ -1198,5 +1201,8 @@
       "performance_default": "デフォルトプロバイダーの埋め込み生成：1チャンクあたり約500ms",
       "provider_hint": "現在、ローカルプロバイダーが実行されていることを確認してください（デフォルト：localhost:11434）"
     }
+  },
+  "errors": {
+    "failed_to_fetch_models": "モデルの取得に失敗しました"
   }
 }

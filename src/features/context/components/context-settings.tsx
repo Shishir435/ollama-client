@@ -275,9 +275,7 @@ export const ContextSettings = () => {
           title: t(
             "model.embedding_config.database_management.remove_duplicates_confirm"
           ),
-          confirmLabel: t(
-            "model.embedding_config.database_management.remove_duplicates_button"
-          ),
+          confirmLabel: t("model.embedding_config.remove_duplicates_button"),
           onConfirm: handleRemoveDuplicates
         }
       case "clearChat":
@@ -285,9 +283,7 @@ export const ContextSettings = () => {
           title: t(
             "model.embedding_config.database_management.clear_chat_confirm"
           ),
-          confirmLabel: t(
-            "model.embedding_config.database_management.clear_chat_button"
-          ),
+          confirmLabel: t("model.embedding_config.clear_chat_button"),
           onConfirm: handleClearChatVectors
         }
       case "clearAll":
@@ -295,9 +291,7 @@ export const ContextSettings = () => {
           title: t(
             "model.embedding_config.database_management.clear_all_confirm"
           ),
-          confirmLabel: t(
-            "model.embedding_config.database_management.clear_all_button"
-          ),
+          confirmLabel: t("model.embedding_config.clear_all_button"),
           onConfirm: handleClearAllVectors
         }
       case "rebuild":

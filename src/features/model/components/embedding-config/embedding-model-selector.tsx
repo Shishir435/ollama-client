@@ -123,7 +123,7 @@ export const EmbeddingModelSelector = ({
                       current: rebuildProgress.current,
                       total: rebuildProgress.total
                     })
-                  : t("settings.context.embedding_health.status_starting")
+                  : t("settings.embeddings.rebuild_index.status_starting")
               }
             />
             {rebuildProgress && rebuildProgress.total > 0 && (

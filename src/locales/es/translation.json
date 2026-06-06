@@ -37,7 +37,8 @@
     "save": "Guardar",
     "continue": "Continuar Importación",
     "reload": "Recargar Extensión",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "remove": "Eliminar"
   },
   "extension": {
     "name": "Ollama Client - Chat con modelos LLM locales",
@@ -1087,7 +1088,8 @@
       "export": {
         "label": "Exportar Copia de Seguridad Completa",
         "description": "Descargar una copia de seguridad completa de todos los datos de la extensión como un archivo ZIP.",
-        "button": "Exportar Todo"
+        "button": "Exportar Todo",
+        "error_title": "Error al exportar"
       },
       "import": {
         "label": "Importar Copia de Seguridad",
@@ -1114,7 +1116,8 @@
           "aborted": "Abortado"
         }
       }
-    }
+    },
+    "saved": "Guardado"
   },
   "guides": {
     "title": "Guías y Documentación Útiles",
@@ -1198,5 +1201,8 @@
       "performance_default": "Generación de incrustaciones del proveedor predeterminado: ~500ms por fragmento",
       "provider_hint": "Asegúrate de que tu proveedor local esté funcionando (predeterminado: localhost:11434)"
     }
+  },
+  "errors": {
+    "failed_to_fetch_models": "No se pudieron obtener los modelos"
   }
 }

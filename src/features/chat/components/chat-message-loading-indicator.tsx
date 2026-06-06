@@ -15,13 +15,13 @@ export const ChatMessageLoadingIndicator = ({
       <span>{displayLabel}</span>
       {showDots ? (
         <div className="flex gap-1">
-          <div className="size-1 animate-pulse rounded-full bg-current" />
+          <div className="size-1 animate-pulse rounded-chip bg-current" />
           <div
-            className="size-1 animate-pulse rounded-full bg-current"
+            className="size-1 animate-pulse rounded-chip bg-current"
             style={{ animationDelay: "150ms" }}
           />
           <div
-            className="size-1 animate-pulse rounded-full bg-current"
+            className="size-1 animate-pulse rounded-chip bg-current"
             style={{ animationDelay: "300ms" }}
           />
         </div>

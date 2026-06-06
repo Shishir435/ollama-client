@@ -27,7 +27,7 @@ export const SendOrStopButton = ({
       onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
       variant="ghost"
       size="icon"
-      className="rounded-full"
+      className="rounded-control"
       disabled={!isStreaming && !isLoading && disabledSend}
       label={label}
       icon={

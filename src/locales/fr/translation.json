@@ -37,7 +37,8 @@
     "save": "Enregistrer",
     "continue": "Continuer l'Importation",
     "reload": "Recharger l'Extension",
-    "close": "Fermer"
+    "close": "Fermer",
+    "remove": "Supprimer"
   },
   "extension": {
     "name": "Ollama Client - Chat avec des modèles LLM locaux",
@@ -1087,7 +1088,8 @@
       "export": {
         "label": "Exporter la Sauvegarde Complète",
         "description": "Télécharger une sauvegarde complète de toutes les données de l'extension sous forme de fichier ZIP.",
-        "button": "Tout Exporter"
+        "button": "Tout Exporter",
+        "error_title": "Échec de l’exportation"
       },
       "import": {
         "label": "Importer la Sauvegarde",
@@ -1114,7 +1116,8 @@
           "aborted": "Avorté"
         }
       }
-    }
+    },
+    "saved": "Enregistré"
   },
   "guides": {
     "title": "Guides et Documentation Utiles",
@@ -1198,5 +1201,8 @@
       "performance_default": "Génération d'embeddings du fournisseur par défaut : ~500 ms par morceau",
       "provider_hint": "Assurez-vous que votre fournisseur local est en cours d'exécution (par défaut : localhost:11434)"
     }
+  },
+  "errors": {
+    "failed_to_fetch_models": "Impossible de récupérer les modèles"
   }
 }
