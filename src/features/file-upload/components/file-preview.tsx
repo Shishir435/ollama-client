@@ -169,7 +169,7 @@ export const FilePreview = ({
           )}
           {status === "success" && (
             <div className="mt-3 max-h-64 overflow-y-auto rounded-control border border-border/35 bg-background/35">
-              <pre className="whitespace-pre-wrap wrap-break-words p-2 font-sans text-xs leading-relaxed text-muted-foreground">
+              <pre className="whitespace-pre-wrap wrap-break-word p-2 font-sans text-xs leading-relaxed text-muted-foreground">
                 {previewText || t("file_upload.area.files_ready", { count: 1 })}
               </pre>
             </div>

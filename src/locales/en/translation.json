@@ -233,6 +233,24 @@
       "helpful_tooltip": "This was helpful",
       "not_helpful_tooltip": "This was not helpful"
     },
+    "sources": {
+      "was_this_helpful": "Was this helpful?",
+      "helpful_aria": "Helpful",
+      "not_helpful_aria": "Not helpful",
+      "rag_source": "{{count}} RAG source",
+      "rag_source_plural": "{{count}} RAG sources",
+      "view_retrieved": "View {{count}} retrieved source",
+      "view_retrieved_plural": "View {{count}} retrieved sources",
+      "retrieved_title": "Retrieved Sources ({{count}})",
+      "source_default": "Source",
+      "used_context_tooltip": "Used context",
+      "used_context_aria": "Used context ({{count}})",
+      "used_context_title": "Used Context ({{count}})",
+      "tab_context_label": "Tab Context ({{count}})",
+      "rag_context_label": "RAG Context ({{count}})",
+      "char_counts": "tab chars: {{tab}} | rag chars: {{rag}}",
+      "trimmed": "trimmed"
+    },
     "search": {
       "button_title": "Search chat history (semantic search)",
       "button_label": "Search Chats",

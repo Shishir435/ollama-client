@@ -233,6 +233,24 @@
       "helpful_tooltip": "Das war hilfreich",
       "not_helpful_tooltip": "Das war nicht hilfreich"
     },
+    "sources": {
+      "was_this_helpful": "War das hilfreich?",
+      "helpful_aria": "Hilfreich",
+      "not_helpful_aria": "Nicht hilfreich",
+      "rag_source": "{{count}} RAG-Quelle",
+      "rag_source_plural": "{{count}} RAG-Quellen",
+      "view_retrieved": "{{count}} abgerufene Quelle anzeigen",
+      "view_retrieved_plural": "{{count}} abgerufene Quellen anzeigen",
+      "retrieved_title": "Abgerufene Quellen ({{count}})",
+      "source_default": "Quelle",
+      "used_context_tooltip": "Verwendeter Kontext",
+      "used_context_aria": "Verwendeter Kontext ({{count}})",
+      "used_context_title": "Verwendeter Kontext ({{count}})",
+      "tab_context_label": "Tab-Kontext ({{count}})",
+      "rag_context_label": "RAG-Kontext ({{count}})",
+      "char_counts": "Tab-Zeichen: {{tab}} | RAG-Zeichen: {{rag}}",
+      "trimmed": "gekürzt"
+    },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
       "button_label": "Chats suchen",

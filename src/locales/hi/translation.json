@@ -233,6 +233,24 @@
       "helpful_tooltip": "यह मददगार था",
       "not_helpful_tooltip": "यह मददगार नहीं था"
     },
+    "sources": {
+      "was_this_helpful": "क्या यह मददगार था?",
+      "helpful_aria": "मददगार",
+      "not_helpful_aria": "मददगार नहीं",
+      "rag_source": "{{count}} RAG स्रोत",
+      "rag_source_plural": "{{count}} RAG स्रोत",
+      "view_retrieved": "{{count}} प्राप्त स्रोत देखें",
+      "view_retrieved_plural": "{{count}} प्राप्त स्रोत देखें",
+      "retrieved_title": "प्राप्त स्रोत ({{count}})",
+      "source_default": "स्रोत",
+      "used_context_tooltip": "उपयोग किया गया संदर्भ",
+      "used_context_aria": "उपयोग किया गया संदर्भ ({{count}})",
+      "used_context_title": "उपयोग किया गया संदर्भ ({{count}})",
+      "tab_context_label": "टैब संदर्भ ({{count}})",
+      "rag_context_label": "RAG संदर्भ ({{count}})",
+      "char_counts": "टैब अक्षर: {{tab}} | RAG अक्षर: {{rag}}",
+      "trimmed": "छोटा किया गया"
+    },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",
       "button_label": "चैट खोजें",

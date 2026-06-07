@@ -233,6 +233,24 @@
       "helpful_tooltip": "C'était utile",
       "not_helpful_tooltip": "Ce n'était pas utile"
     },
+    "sources": {
+      "was_this_helpful": "C'était utile ?",
+      "helpful_aria": "Utile",
+      "not_helpful_aria": "Pas utile",
+      "rag_source": "{{count}} source RAG",
+      "rag_source_plural": "{{count}} sources RAG",
+      "view_retrieved": "Voir {{count}} source récupérée",
+      "view_retrieved_plural": "Voir {{count}} sources récupérées",
+      "retrieved_title": "Sources Récupérées ({{count}})",
+      "source_default": "Source",
+      "used_context_tooltip": "Contexte utilisé",
+      "used_context_aria": "Contexte utilisé ({{count}})",
+      "used_context_title": "Contexte Utilisé ({{count}})",
+      "tab_context_label": "Contexte d'onglet ({{count}})",
+      "rag_context_label": "Contexte RAG ({{count}})",
+      "char_counts": "car. onglet : {{tab}} | car. RAG : {{rag}}",
+      "trimmed": "tronqué"
+    },
     "search": {
       "button_title": "Rechercher l'historique de chat (recherche sémantique)",
       "button_label": "Rechercher des Chats",

@@ -233,6 +233,24 @@
       "helpful_tooltip": "很有帮助",
       "not_helpful_tooltip": "没有帮助"
     },
+    "sources": {
+      "was_this_helpful": "这有帮助吗？",
+      "helpful_aria": "有帮助",
+      "not_helpful_aria": "没有帮助",
+      "rag_source": "{{count}}个RAG来源",
+      "rag_source_plural": "{{count}}个RAG来源",
+      "view_retrieved": "查看{{count}}个检索来源",
+      "view_retrieved_plural": "查看{{count}}个检索来源",
+      "retrieved_title": "检索来源 ({{count}})",
+      "source_default": "来源",
+      "used_context_tooltip": "使用的上下文",
+      "used_context_aria": "使用的上下文 ({{count}})",
+      "used_context_title": "使用的上下文 ({{count}})",
+      "tab_context_label": "标签页上下文 ({{count}})",
+      "rag_context_label": "RAG上下文 ({{count}})",
+      "char_counts": "标签字符: {{tab}} | RAG字符: {{rag}}",
+      "trimmed": "已截断"
+    },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
       "button_label": "搜索聊天",

@@ -233,6 +233,24 @@
       "helpful_tooltip": "役に立った",
       "not_helpful_tooltip": "役に立たなかった"
     },
+    "sources": {
+      "was_this_helpful": "役に立ちましたか？",
+      "helpful_aria": "役に立った",
+      "not_helpful_aria": "役に立たなかった",
+      "rag_source": "{{count}}件のRAGソース",
+      "rag_source_plural": "{{count}}件のRAGソース",
+      "view_retrieved": "{{count}}件の取得ソースを表示",
+      "view_retrieved_plural": "{{count}}件の取得ソースを表示",
+      "retrieved_title": "取得ソース ({{count}})",
+      "source_default": "ソース",
+      "used_context_tooltip": "使用されたコンテキスト",
+      "used_context_aria": "使用されたコンテキスト ({{count}})",
+      "used_context_title": "使用されたコンテキスト ({{count}})",
+      "tab_context_label": "タブコンテキスト ({{count}})",
+      "rag_context_label": "RAGコンテキスト ({{count}})",
+      "char_counts": "タブ文字数: {{tab}} | RAG文字数: {{rag}}",
+      "trimmed": "切り詰め済み"
+    },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
       "button_label": "チャット検索",
