@@ -122,9 +122,8 @@ export const PromptTemplateManager = () => {
             <Button
               variant={showCreateForm ? "secondary" : "default"}
               size="sm"
-              onClick={handleToggleCreateForm}
-              className="gap-1.5">
-              <Plus className="size-4" />
+              onClick={handleToggleCreateForm}>
+              <Plus className="icon-xs" />
               {t("settings.prompts.new_template")}
             </Button>
             <PromptTemplateActions
@@ -147,7 +146,7 @@ export const PromptTemplateManager = () => {
                 }>
                 <ChevronDown
                   className={cn(
-                    "size-4 transition-transform",
+                    "icon-md transition-transform",
                     showCreateForm && "rotate-180"
                   )}
                 />
@@ -161,7 +160,7 @@ export const PromptTemplateManager = () => {
         {/* Toolbar */}
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 transform text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 transform text-muted-foreground" />
             <Input
               placeholder={t("settings.prompts.search_placeholder")}
               value={searchQuery}

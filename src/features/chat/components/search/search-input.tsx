@@ -24,7 +24,7 @@ export const SearchInput = ({
 
   return (
     <div className={cn("relative", className)}>
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 text-muted-foreground" />
       <Input
         placeholder={placeholder || t("chat.search.placeholder")}
         value={value}
@@ -34,7 +34,7 @@ export const SearchInput = ({
       />
       {isSearching && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <Loader2 className="size-4 animate-spin text-muted-foreground/60" />
+          <Loader2 className="icon-md animate-spin text-muted-foreground/60" />
         </div>
       )}
     </div>

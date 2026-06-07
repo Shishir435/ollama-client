@@ -22,7 +22,7 @@ export const MetadataChip = ({
       className
     )}
     {...props}>
-    {Icon && <Icon className="size-3 shrink-0" />}
+    {Icon && <Icon className="icon-xs shrink-0" />}
     {label && <span className="shrink-0">{label}</span>}
     <span className="truncate font-medium text-foreground">{value}</span>
   </span>

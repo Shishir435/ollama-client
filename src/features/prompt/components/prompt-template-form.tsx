@@ -137,7 +137,6 @@ export const PromptTemplateForm = ({
           />
         </div>
       </div>
-
       <div className="space-y-2">
         <Label htmlFor="description">
           {t("settings.prompts.form.description")}
@@ -156,7 +155,6 @@ export const PromptTemplateForm = ({
           }}
         />
       </div>
-
       <div className="space-y-2">
         <Label htmlFor="tags">{t("settings.prompts.form.tags")}</Label>
         <Input
@@ -196,7 +194,6 @@ export const PromptTemplateForm = ({
           }}
         />
       </div>
-
       <div className="space-y-2">
         <Label htmlFor="user-prompt">
           {t("settings.prompts.form.user_prompt")}
@@ -216,13 +213,12 @@ export const PromptTemplateForm = ({
           }}
         />
       </div>
-
       {!isEditing && (
         <Button
           onClick={handleSubmit}
           disabled={!template.title.trim() || !template.userPrompt.trim()}
           className="w-full">
-          <Plus className="mr-2 size-4" />
+          <Plus className="icon-xs" />
           {t("settings.prompts.form.create_button")}
         </Button>
       )}

@@ -71,7 +71,7 @@ export const ExcludedUrls = ({
       <SettingsField
         label={
           <div className="flex items-center gap-2">
-            <Globe className="size-4 text-muted-foreground" />
+            <Globe className="icon-md text-muted-foreground" />
             {t("model.exclude_urls.add_pattern_label")}
           </div>
         }
@@ -101,7 +101,7 @@ export const ExcludedUrls = ({
             />
             {error && (
               <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                <AlertCircle className="size-3" />
+                <AlertCircle className="icon-xs" />
                 {error}
               </div>
             )}
@@ -111,7 +111,7 @@ export const ExcludedUrls = ({
             size="sm"
             className="h-9 whitespace-nowrap px-3"
             disabled={!input.trim()}>
-            <Plus className="mr-1 size-3" />
+            <Plus className="mr-1 icon-xs" />
             {t("model.exclude_urls.add_button")}
           </Button>
         </SettingsActionRow>
@@ -156,7 +156,7 @@ export const ExcludedUrls = ({
                     variant="ghost"
                     className="size-8 p-0 opacity-60 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
                     onClick={() => handleRemove(pattern)}>
-                    <Trash2 className="size-3" />
+                    <Trash2 className="icon-xs" />
                   </Button>
                 )}
               </Card>

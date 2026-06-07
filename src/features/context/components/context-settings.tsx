@@ -349,12 +349,12 @@ export const ContextSettings = () => {
                 disabled={isRebuilding || isCleaning}>
                 {isRebuilding ? (
                   <>
-                    <RefreshCw className="size-4 mr-2 animate-spin" />
+                    <RefreshCw className="icon-md mr-2 animate-spin" />
                     {t("settings.context.embedding_health.action_rebuilding")}
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="size-4 mr-2" />
+                    <RefreshCw className="icon-md mr-2" />
                     {t("settings.context.embedding_health.action")}
                   </>
                 )}
@@ -382,7 +382,6 @@ export const ContextSettings = () => {
           description={rebuildError}
         />
       )}
-
       {rebuildComplete && (
         <StatusAlert
           variant="success"
@@ -390,22 +389,18 @@ export const ContextSettings = () => {
           title={t("settings.context.embedding_health.success")}
         />
       )}
-
       <TwoColumnGrid>
         <MemorySettings />
         <ChatBackfillPanel />
       </TwoColumnGrid>
-
       <PromptContextLimitsSettings />
       <GroundingModeSettings />
-
       <SettingsCard
         icon={BookOpen}
         title={t("model.embedding_config.rag_settings_title")}
         description={t("model.embedding_config.rag_settings_description")}>
         <RAGSettings />
       </SettingsCard>
-
       <TwoColumnGrid>
         <SettingsCard
           icon={Upload}
@@ -421,11 +416,9 @@ export const ContextSettings = () => {
           <TextSplittingSettings />
         </SettingsCard>
       </TwoColumnGrid>
-
       {storageStats && (
         <StorageStatsCard storageStats={storageStats} cacheStats={cacheStats} />
       )}
-
       <TwoColumnGrid>
         <DatabaseManagementCard
           onRemoveDuplicates={() => openConfirm("removeDuplicates")}
@@ -438,9 +431,7 @@ export const ContextSettings = () => {
 
         <EmbeddingLimitsConfig config={config} updateConfig={updateConfig} />
       </TwoColumnGrid>
-
       <EmbeddingIndexControls />
-
       <ConfirmActionDialog
         open={confirmOpen}
         onOpenChange={(next) => {

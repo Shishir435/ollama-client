@@ -33,9 +33,9 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
       type="button"
       icon={
         speaking ? (
-          <MicOff className="size-3 text-destructive" />
+          <MicOff className="icon-xs text-destructive" />
         ) : (
-          <Mic className="size-3" />
+          <Mic className="icon-xs" />
         )
       }
     />

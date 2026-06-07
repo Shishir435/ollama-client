@@ -179,7 +179,7 @@ const ModuleResetItem = ({
   return (
     <Card className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ModuleIcon className="size-4 shrink-0 text-muted-foreground" />
+        <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium">{getModuleName(module)}</h4>
@@ -203,7 +203,7 @@ const ModuleResetItem = ({
           setTimeout(() => setResetting(false), 1000)
         }}>
         {t("settings.reset.reset_button")}{" "}
-        {resetting ? <CircleCheck className="size-4" /> : ""}
+        {resetting ? <CircleCheck className="icon-md" /> : ""}
       </Button>
     </Card>
   )

@@ -127,12 +127,12 @@ export const LoadedModelsInfo = () => {
             <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
           }>
           <div className="flex items-center gap-2">
-            <Brain className="size-4 text-muted-foreground" />
+            <Brain className="icon-md text-muted-foreground" />
             <h3 className="text-lg font-semibold">
               {t("settings.loaded_models.title")}
             </h3>
             {loading && (
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              <Loader2 className="icon-md animate-spin text-muted-foreground" />
             )}
           </div>
 
@@ -166,14 +166,14 @@ export const LoadedModelsInfo = () => {
                 label={t("settings.loaded_models.refresh_tooltip")}
                 icon={
                   <RefreshCw
-                    className={cn("size-4", refreshing && "animate-spin")}
+                    className={cn("icon-md", refreshing && "animate-spin")}
                   />
                 }
               />
 
               <ChevronDown
                 className={cn(
-                  "size-4 transition-transform duration-200",
+                  "icon-md transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -237,9 +237,9 @@ export const LoadedModelsInfo = () => {
                       })}
                       icon={
                         unloading === model.name ? (
-                          <Loader2 className="size-4 animate-spin" />
+                          <Loader2 className="icon-md animate-spin" />
                         ) : (
-                          <Trash className="size-4" />
+                          <Trash className="icon-md" />
                         )
                       }
                     />

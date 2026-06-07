@@ -177,7 +177,7 @@ export const ShortcutsSettings = () => {
       description={t("settings.shortcuts.description")}>
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search shortcuts..."
           value={searchQuery}
@@ -248,7 +248,7 @@ export const ShortcutsSettings = () => {
                               e.stopPropagation()
                               resetShortcut(shortcut.id)
                             }}>
-                            <X className="size-3" />
+                            <X className="icon-xs" />
                           </Button>
                         )}
                       </div>
@@ -265,7 +265,7 @@ export const ShortcutsSettings = () => {
       {hasAnyModifications && (
         <div className="flex justify-end border-t pt-4">
           <Button variant="outline" size="sm" onClick={resetShortcuts}>
-            <RotateCcw className="mr-2 size-3" />
+            <RotateCcw className="mr-2 icon-xs" />
             {t("settings.shortcuts.reset_all")}
           </Button>
         </div>

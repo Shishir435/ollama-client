@@ -67,22 +67,22 @@ export const PromptTemplateActions = ({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-          <MoreHorizontal className="size-3" />
+          <MoreHorizontal className="icon-xs" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onExport}>
-            <Download className="size-3" />
+            <Download className="icon-xs" />
             {t("settings.prompts.export")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-            <Upload className="size-3" />
+            <Upload className="icon-xs" />
             {t("settings.prompts.import")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => resetDialog.openDialog()}
             className="text-destructive">
-            <RotateCcw className="size-3" />
+            <RotateCcw className="icon-xs" />
             {t("settings.prompts.reset")}
           </DropdownMenuItem>
         </DropdownMenuContent>

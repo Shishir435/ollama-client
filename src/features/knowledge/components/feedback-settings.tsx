@@ -178,10 +178,9 @@ export function FeedbackSettings() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-2 px-2 text-xs"
             onClick={loadStats}
             disabled={isLoadingStats}>
-            <RotateCcw className="size-3.5" />
+            <RotateCcw className="icon-xs" />
             {t("common.actions.refresh")}
           </Button>
         </div>
@@ -235,7 +234,7 @@ export function FeedbackSettings() {
             size="sm"
             onClick={handleExportFeedback}
             disabled={isExporting}>
-            <Download className="size-4 mr-2" />
+            <Download className="icon-xs" />
             {t("model.embedding_config.feedback_export_button")}
           </Button>
           <Button
@@ -243,7 +242,7 @@ export function FeedbackSettings() {
             size="sm"
             disabled={isClearing}
             onClick={clearDialog.openDialog}>
-            <Trash2 className="size-4 mr-2" />
+            <Trash2 className="icon-xs" />
             {t("model.embedding_config.feedback_clear_button")}
           </Button>
           <ConfirmActionDialog

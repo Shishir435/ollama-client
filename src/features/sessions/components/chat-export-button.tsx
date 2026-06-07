@@ -118,7 +118,7 @@ export const ChatExportButton = ({
             ? t("sessions.export.tooltip_all")
             : t("sessions.export.tooltip")
         }
-        icon={<Download className="size-4" />}
+        icon={<Download className="icon-md" />}
       />
 
       {options.length > 0 && (
@@ -136,7 +136,7 @@ export const ChatExportButton = ({
                   action()
                 }}
                 className="h-8 justify-start px-2 text-sm hover:bg-muted">
-                <Icon className="mr-2 size-4" />
+                <Icon className="mr-2 icon-md" />
                 {label}
               </Button>
             ))}

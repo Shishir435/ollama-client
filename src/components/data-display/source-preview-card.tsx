@@ -25,7 +25,7 @@ export const SourcePreviewCard = ({
   <Card className={cn("p-3", className)} {...props}>
     <div className="flex min-w-0 items-start gap-3">
       {Icon && (
-        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <Icon className="mt-0.5 icon-md shrink-0 text-muted-foreground" />
       )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{title}</div>

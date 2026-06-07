@@ -16,7 +16,7 @@ export const SetupGuideLink = ({ className }: { className?: string }) => {
         "group inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-all duration-300 hover:text-foreground hover:no-underline",
         className
       )}>
-      <ExternalLink className="size-4 transition-transform group-hover:rotate-12 group-hover:text-primary" />
+      <ExternalLink className="icon-md transition-transform group-hover:rotate-12 group-hover:text-primary" />
       <span className="group-hover:underline">
         {t("welcome.setup_guide.help_prefix")}{" "}
         {t("welcome.setup_guide.full_guide_link")}

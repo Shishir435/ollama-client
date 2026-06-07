@@ -97,7 +97,7 @@ export const ProviderBaseUrlSettings = () => {
             )}
             {!isLocalhost && urlIsValid && (
               <Badge variant="outline" className="ml-auto text-xs">
-                <ExternalLink className="mr-1 size-3" />
+                <ExternalLink className="mr-1 icon-xs" />
                 {t("settings.base_url.badges.remote")}
               </Badge>
             )}
@@ -148,7 +148,7 @@ export const ProviderBaseUrlSettings = () => {
                   }}
                 />
                 {saved && (
-                  <Check className="absolute right-2 top-1/2 size-4 -translate-y-1/2 text-status-success" />
+                  <Check className="absolute right-2 top-1/2 icon-md -translate-y-1/2 text-status-success" />
                 )}
               </div>
               <Button
@@ -161,12 +161,12 @@ export const ProviderBaseUrlSettings = () => {
                 )}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-1 size-4 animate-spin" />
+                    <Loader2 className="mr-1 icon-md animate-spin" />
                     {t("settings.base_url.button.saving")}
                   </>
                 ) : saved ? (
                   <>
-                    <Check className="mr-1 size-4" />
+                    <Check className="mr-1 icon-md" />
                     {t("settings.base_url.button.saved")}
                   </>
                 ) : (

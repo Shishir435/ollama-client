@@ -82,7 +82,7 @@ export const ChatMessageFooter = ({
           key: "markdown",
           label: "Markdown",
           onClick: () => onExport("markdown"),
-          icon: <BookOpen className="size-3" />
+          icon: <BookOpen className="icon-xs" />
         }
       : null,
     onExport
@@ -90,7 +90,7 @@ export const ChatMessageFooter = ({
           key: "pdf",
           label: "PDF",
           onClick: () => onExport("pdf"),
-          icon: <FileDown className="size-3" />
+          icon: <FileDown className="icon-xs" />
         }
       : null,
     onExport
@@ -98,7 +98,7 @@ export const ChatMessageFooter = ({
           key: "json",
           label: "JSON",
           onClick: () => onExport("json"),
-          icon: <Code className="size-3" />
+          icon: <Code className="icon-xs" />
         }
       : null,
     onExport
@@ -106,7 +106,7 @@ export const ChatMessageFooter = ({
           key: "text",
           label: "Text",
           onClick: () => onExport("text"),
-          icon: <FileText className="size-3" />
+          icon: <FileText className="icon-xs" />
         }
       : null,
     onDelete
@@ -114,13 +114,13 @@ export const ChatMessageFooter = ({
           key: "delete",
           label: t("chat.actions.delete"),
           onClick: () => onDelete(),
-          icon: <Trash2 className="size-3" />,
+          icon: <Trash2 className="icon-xs" />,
           destructive: true
         }
       : null
   ].filter(Boolean) as ActionMenuItemConfig[]
   const footerButtonClass =
-    "size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground [&_svg]:size-3"
+    "size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground [&_svg]:icon-xs"
 
   return (
     <div
@@ -142,7 +142,7 @@ export const ChatMessageFooter = ({
             onClick={() => {
               if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
             }}
-            icon={<ChevronLeft className="size-3" />}
+            icon={<ChevronLeft className="icon-xs" />}
           />
           <span className="min-w-5 whitespace-nowrap text-center text-[10px] font-medium text-muted-foreground">
             {siblingIndex + 1} / {siblingIds.length}
@@ -157,7 +157,7 @@ export const ChatMessageFooter = ({
               if (siblingIndex < siblingIds.length - 1)
                 navigateToSibling(siblingIndex + 1)
             }}
-            icon={<ChevronRight className="size-3" />}
+            icon={<ChevronRight className="icon-xs" />}
           />
         </div>
       )}
@@ -196,7 +196,7 @@ export const ChatMessageFooter = ({
             size="icon"
             className={footerButtonClass}
             onClick={onEdit}
-            icon={<GitFork className="size-3" />}
+            icon={<GitFork className="icon-xs" />}
           />
         )}
 
@@ -226,7 +226,7 @@ export const ChatMessageFooter = ({
                   title={t("chat.actions.more")}
                 />
               }>
-              <MoreHorizontal className="size-3" />
+              <MoreHorizontal className="icon-xs" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align={isUser ? "end" : "start"}
@@ -253,7 +253,7 @@ export const ChatMessageFooter = ({
             <TooltipTrigger
               render={<span className="ml-auto min-w-0 shrink" />}>
               <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-[10px] text-muted-foreground/70 hover:bg-muted/35 hover:text-foreground">
-                <Bot className="size-3 shrink-0" />
+                <Bot className="icon-xs shrink-0" />
                 <span className="truncate">{msg.model}</span>
               </span>
             </TooltipTrigger>

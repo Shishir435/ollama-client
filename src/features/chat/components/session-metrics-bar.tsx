@@ -94,7 +94,7 @@ export const SessionMetricsBar = ({
             aria-label={label}
           />
         }>
-        <Gauge className="size-3.5" />
+        <Gauge className="icon-sm" />
         <span className="font-mono tabular-nums">{summary}</span>
       </PopoverTrigger>
       <PopoverContent
@@ -107,7 +107,7 @@ export const SessionMetricsBar = ({
 
             return (
               <div key={item.tooltipKey} className="flex items-center gap-2">
-                <Icon className={cn("size-3.5", item.iconColor)} />
+                <Icon className={cn("icon-sm", item.iconColor)} />
                 <span className="min-w-0 truncate">{t(item.labelKey)}</span>
                 <span className="ml-auto shrink-0 font-mono tabular-nums">
                   {item.value}

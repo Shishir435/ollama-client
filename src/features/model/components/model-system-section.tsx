@@ -59,7 +59,7 @@ export const ModelSystemSection = ({
         />
         <SettingsActionRow>
           <Button type="button" variant="ghost" onClick={onResetSystemPrompt}>
-            <RotateCcw className="mr-0.5 size-3" />
+            <RotateCcw className="mr-0.5 icon-xs" />
             {t("settings.prompts.reset")}
           </Button>
         </SettingsActionRow>
@@ -69,7 +69,7 @@ export const ModelSystemSection = ({
         htmlFor="stop-sequences"
         label={
           <div className="flex items-center gap-2">
-            <StopCircle className="size-4" />
+            <StopCircle className="icon-md" />
             <span>{t("settings.model.system.stop_sequences_label")}</span>
           </div>
         }

@@ -101,26 +101,26 @@ const flattenObject = (
 }
 
 const getIconForKey = (key: string) => {
-  if (key.includes("parameter")) return <Database className="size-3" />
+  if (key.includes("parameter")) return <Database className="icon-xs" />
   if (key.includes("context") || key.includes("length"))
-    return <FileText className="size-3" />
-  if (key.includes("architecture")) return <Cpu className="size-3" />
-  if (key.includes("quantization")) return <Layers className="size-3" />
-  if (key.includes("file")) return <Settings className="size-3" />
-  return <Info className="size-3" />
+    return <FileText className="icon-xs" />
+  if (key.includes("architecture")) return <Cpu className="icon-xs" />
+  if (key.includes("quantization")) return <Layers className="icon-xs" />
+  if (key.includes("file")) return <Settings className="icon-xs" />
+  return <Info className="icon-xs" />
 }
 
 const getCapabilityIcon = (capability: string) => {
   const cap = capability.toLowerCase()
   if (cap.includes("chat") || cap.includes("conversation"))
-    return <Zap className="size-3" />
+    return <Zap className="icon-xs" />
   if (cap.includes("code") || cap.includes("programming"))
-    return <Cpu className="size-3" />
+    return <Cpu className="icon-xs" />
   if (cap.includes("file") || cap.includes("document"))
-    return <FileText className="size-3" />
+    return <FileText className="icon-xs" />
   if (cap.includes("data") || cap.includes("analysis"))
-    return <Database className="size-3" />
-  return <Settings className="size-3" />
+    return <Database className="icon-xs" />
+  return <Settings className="icon-xs" />
 }
 
 const DetailRow = ({
@@ -202,7 +202,7 @@ export const ModelInfo = ({
     return (
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2 text-xs text-destructive">
-          <Info className="size-3" />
+          <Info className="icon-xs" />
           {error}
         </div>
       </div>
@@ -221,12 +221,12 @@ export const ModelInfo = ({
             <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
           }>
           <div className="flex items-center gap-2">
-            <Cpu className="size-4 text-muted-foreground" />
+            <Cpu className="icon-md text-muted-foreground" />
             <h3 className="text-lg font-semibold">
               {t("settings.model_info.title")}
             </h3>
             {loading && (
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              <Loader2 className="icon-md animate-spin text-muted-foreground" />
             )}
           </div>
 
@@ -267,14 +267,14 @@ export const ModelInfo = ({
                 label={t("settings.model_info.refresh_tooltip")}
                 icon={
                   <RefreshCw
-                    className={cn("size-4", refreshing && "animate-spin")}
+                    className={cn("icon-md", refreshing && "animate-spin")}
                   />
                 }
               />
 
               <ChevronDown
                 className={cn(
-                  "size-4 transition-transform duration-200",
+                  "icon-md transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -301,7 +301,7 @@ export const ModelInfo = ({
                 {capabilities.length > 0 && (
                   <Card className="p-3">
                     <div className="mb-2 flex items-center gap-2">
-                      <Zap className="size-4 text-primary" />
+                      <Zap className="icon-md text-primary" />
                       <h4 className="font-semibold">
                         {t("settings.model_info.capabilities")}
                       </h4>
@@ -322,7 +322,7 @@ export const ModelInfo = ({
 
                 <div>
                   <div className="mb-2 flex items-center gap-2">
-                    <Settings className="size-4 text-muted-foreground" />
+                    <Settings className="icon-md text-muted-foreground" />
                     <h4 className="font-semibold">
                       {t("settings.model_info.technical_details")}
                     </h4>

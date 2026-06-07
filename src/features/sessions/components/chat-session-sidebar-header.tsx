@@ -17,7 +17,7 @@ export const ChatSessionSidebarHeader = ({
     <SheetHeader className="flex-row items-center justify-between border-b border-sidebar-border px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex size-7 items-center justify-center rounded-control bg-app-primary-soft text-app-agent">
-          <MessageSquare className="size-3.5" />
+          <MessageSquare className="icon-sm" />
         </div>
         <SheetTitle className="truncate text-[13px] font-semibold text-sidebar-foreground">
           {t("sessions.selector.title")}
@@ -32,7 +32,7 @@ export const ChatSessionSidebarHeader = ({
           className="size-7 rounded-control text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={onCreateSession}
           icon={SquarePen}
-          iconClassName="size-3.5"
+          iconClassName="icon-sm"
           label={t("sessions.selector.create_new")}
         />
         <SheetClose
@@ -43,7 +43,7 @@ export const ChatSessionSidebarHeader = ({
               className="size-7 rounded-control bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             />
           }>
-          <X className="size-3.5" />
+          <X className="icon-sm" />
         </SheetClose>
       </div>
     </SheetHeader>

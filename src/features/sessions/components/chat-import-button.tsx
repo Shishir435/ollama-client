@@ -42,7 +42,7 @@ export const ChatImportButton = () => {
         onClick={handleClick}
         ariaLabel={t("sessions.import.aria_label")}
         tooltip={t("sessions.import.tooltip")}
-        icon={<Upload className="size-4" />}
+        icon={<Upload className="icon-md" />}
       />
     </>
   )

@@ -102,7 +102,7 @@ export const TabsSelect = () => {
       className: "size-7",
       onClick: () => setShowInspector(true),
       label: t("tabs.select.view_content"),
-      icon: <Eye className="size-4" />
+      icon: <Eye className="icon-md" />
     },
     {
       key: "refresh",
@@ -111,7 +111,7 @@ export const TabsSelect = () => {
       className: "size-7",
       onClick: refreshSelectedTabContents,
       label: t("tabs.select.refresh_now"),
-      icon: <RefreshCw className="size-4" />
+      icon: <RefreshCw className="icon-md" />
     }
   ]
 

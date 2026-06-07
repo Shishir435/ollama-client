@@ -33,7 +33,7 @@ export const ChatInputToolbar = ({
           variant="ghost"
           size="icon"
           className="size-8 shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-          iconClassName="size-4"
+          iconClassName="icon-md"
         />
 
         <FileUploadButton

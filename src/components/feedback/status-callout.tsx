@@ -61,7 +61,7 @@ export const StatusCallout = ({
     )}>
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div className="flex items-start gap-3">
-        {Icon && <Icon className="mt-0.5 size-5 shrink-0" />}
+        {Icon && <Icon className="mt-0.5 icon-lg shrink-0" />}
         <div className="space-y-1">
           <p className="text-sm font-medium">{title}</p>
           {description && (

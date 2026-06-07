@@ -104,7 +104,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
               aria-label={metricsSummary}
             />
           }>
-          <Gauge className="size-3" />
+          <Gauge className="icon-xs" />
           <span className="tabular-nums">{primaryValue}</span>
         </PopoverTrigger>
         <PopoverContent className="w-56 gap-1.5 p-2" side="top" align="start">
@@ -113,7 +113,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
               const Icon = item.icon
               return (
                 <div key={item.key} className="flex items-center gap-2">
-                  <Icon className="size-3 text-muted-foreground" />
+                  <Icon className="icon-xs text-muted-foreground" />
                   <span>{item.tooltip}</span>
                   <span className="ml-auto font-mono">{item.label}</span>
                 </div>

@@ -34,7 +34,7 @@ export const ChatDeleteButton = ({
         e.stopPropagation()
         onDelete(sessionId)
       }}
-      icon={<Trash2 className="size-4" />}
+      icon={<Trash2 className="icon-md" />}
     />
   )
 }

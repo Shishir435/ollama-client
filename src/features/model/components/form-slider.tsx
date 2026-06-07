@@ -38,7 +38,7 @@ export const FormSlider = ({
       label={
         Icon ? (
           <div className="flex items-center gap-2">
-            <Icon className="size-4" />
+            <Icon className="icon-md" />
             <span>{label}</span>
           </div>
         ) : (

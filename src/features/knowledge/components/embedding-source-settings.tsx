@@ -26,7 +26,7 @@ export function EmbeddingSourceSettings() {
       <CardContent className="space-y-4">
         {/* Default provider info */}
         <div className="flex items-center space-x-3 rounded-md border p-4 bg-muted/50">
-          <ServerIcon className="size-5 text-primary" />
+          <ServerIcon className="icon-lg text-primary" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <div className="font-medium">
@@ -44,7 +44,7 @@ export function EmbeddingSourceSettings() {
 
         {/* CSP Information */}
         <Alert>
-          <InfoIcon className="size-4" />
+          <InfoIcon className="icon-md" />
           <AlertDescription className="text-xs">
             <strong>
               {t("knowledge.embedding_source.webgpu_warning_title")}

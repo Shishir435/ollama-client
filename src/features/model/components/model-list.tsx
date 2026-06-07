@@ -82,10 +82,10 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Skeleton className="size-4" />
+            <Skeleton className="icon-md" />
             <Skeleton className="h-5 w-24" />
           </div>
-          <Skeleton className="size-4" />
+          <Skeleton className="icon-md" />
         </div>
         <div className="space-y-2 p-3">
           {[...Array(3)].map((_, i) => (
@@ -110,7 +110,7 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="size-4 text-muted-foreground" />
+            <Database className="icon-md text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title")}
             </span>
@@ -123,7 +123,7 @@ export const ModelList = (): React.ReactElement => {
             size="sm"
             onClick={() => refresh()}
             className="h-8">
-            <RefreshCw className="mr-1 size-3" />
+            <RefreshCw className="mr-1 icon-xs" />
             {t("settings.model_list.retry")}
           </Button>
         </div>
@@ -136,7 +136,7 @@ export const ModelList = (): React.ReactElement => {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b p-3">
           <div className="flex items-center gap-2">
-            <Database className="size-4 text-muted-foreground" />
+            <Database className="icon-md text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title")}
             </span>
@@ -151,7 +151,7 @@ export const ModelList = (): React.ReactElement => {
             size="sm"
             onClick={() => refresh()}
             className="h-8">
-            <RefreshCw className="mr-1 size-3" />
+            <RefreshCw className="mr-1 icon-xs" />
             {t("settings.model_list.refresh")}
           </Button>
         </div>
@@ -167,7 +167,7 @@ export const ModelList = (): React.ReactElement => {
           className="flex w-full items-center justify-between p-2 text-left hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => setIsOpen(!isOpen)}>
           <div className="flex items-center gap-2">
-            <Database className="size-4 text-muted-foreground" />
+            <Database className="icon-md text-muted-foreground" />
             <span className="text-sm font-medium">
               {t("settings.model_list.title_count", { count: models.length })}
             </span>
@@ -185,14 +185,14 @@ export const ModelList = (): React.ReactElement => {
               label={t("settings.model_list.refresh_tooltip")}
               icon={
                 <RefreshCw
-                  className={cn("size-4", refreshing && "animate-spin")}
+                  className={cn("icon-md", refreshing && "animate-spin")}
                 />
               }
             />
             {isOpen ? (
-              <ChevronUp className="size-4" />
+              <ChevronUp className="icon-md" />
             ) : (
-              <ChevronDown className="size-4" />
+              <ChevronDown className="icon-md" />
             )}
           </div>
         </button>
@@ -210,7 +210,7 @@ export const ModelList = (): React.ReactElement => {
                       <CardContent className="p-3">
                         <div className="flex items-center gap-3">
                           <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-sm">
-                            <ModelIcon className="size-4 text-muted-foreground" />
+                            <ModelIcon className="icon-md text-muted-foreground" />
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -220,12 +220,12 @@ export const ModelList = (): React.ReactElement => {
 
                             <div className="mt-1 flex items-center gap-3">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <HardDrive className="size-3" />
+                                <HardDrive className="icon-xs" />
                                 <span>{formatFileSize(model.size, t)}</span>
                               </div>
 
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Calendar className="size-3" />
+                                <Calendar className="icon-xs" />
                                 <span>{formatDate(model.modified_at, t)}</span>
                               </div>
 
@@ -250,7 +250,7 @@ export const ModelList = (): React.ReactElement => {
                                   }
                                 />
                               }>
-                              <Trash2 className="size-4" />
+                              <Trash2 className="icon-md" />
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>

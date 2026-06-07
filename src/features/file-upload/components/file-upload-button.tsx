@@ -71,7 +71,7 @@ export const FileUploadButton = ({
         disabled={disabled}
         ariaLabel={t("file_upload.button.aria_label")}
         tooltip={t("file_upload.button.tooltip")}
-        icon={<Paperclip className="size-4" />}
+        icon={<Paperclip className="icon-md" />}
       />
     </>
   )

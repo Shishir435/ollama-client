@@ -33,7 +33,7 @@ export const RAGToggle = () => {
       }
       label={t("chat.input.rag_toggle_tooltip")}
       tooltipSide="top"
-      icon={<BrainCircuit className="size-4" />}
+      icon={<BrainCircuit className="icon-md" />}
     />
   )
 }

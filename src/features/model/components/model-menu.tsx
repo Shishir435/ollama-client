@@ -145,7 +145,7 @@ export const ModelMenu = ({
                   {(() => {
                     const SelectedModelIcon = getModelIcon(selectedModel)
                     return (
-                      <SelectedModelIcon className="size-4 text-muted-foreground" />
+                      <SelectedModelIcon className="icon-md text-muted-foreground" />
                     )
                   })()}
                   <span className="truncate font-medium">
@@ -162,7 +162,7 @@ export const ModelMenu = ({
                   {t("model.menu.select_placeholder")}
                 </span>
               )}
-              <ChevronDown className="size-4 opacity-50" />
+              <ChevronDown className="icon-md opacity-50" />
             </>
           )
         }
@@ -191,7 +191,7 @@ export const ModelMenu = ({
                 icon={
                   <RotateCcw
                     className={cn(
-                      "size-3.5 transition-transform",
+                      "icon-sm transition-transform",
                       isLoading && "animate-spin"
                     )}
                   />
@@ -221,7 +221,7 @@ export const ModelMenu = ({
                       onSelect={() => handleSelect(model.name, providerId)}
                       className="flex items-center gap-3 rounded-md px-2 py-2 mb-1 cursor-pointer aria-selected:bg-accent">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-xl">
-                        <ModelIcon className="size-4 text-muted-foreground" />
+                        <ModelIcon className="icon-md text-muted-foreground" />
                       </div>
 
                       <div className="flex flex-1 flex-col overflow-hidden">
@@ -240,7 +240,7 @@ export const ModelMenu = ({
                             ? selectedModelRef.modelId === model.name &&
                               selectedModelRef.providerId === providerId
                             : selectedModel === model.name) && (
-                            <Check className="size-3.5 text-primary" />
+                            <Check className="icon-sm text-primary" />
                           )}
                         </div>
 

@@ -178,7 +178,7 @@ export const EmbeddingStatusIndicator = () => {
     loading: {
       icon: (
         <Loader2
-          className={cn("size-4 animate-spin", STATUS_STYLES.neutral.text)}
+          className={cn("icon-md animate-spin", STATUS_STYLES.neutral.text)}
         />
       ),
       color: STATUS_STYLES.neutral.text,
@@ -190,24 +190,24 @@ export const EmbeddingStatusIndicator = () => {
         : t("model.embedding_status.checking")
     },
     ready: {
-      icon: <Database className={cn("size-4", STATUS_STYLES.success.text)} />,
+      icon: <Database className={cn("icon-md", STATUS_STYLES.success.text)} />,
       color: STATUS_STYLES.success.text,
       text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
-      icon: <Database className={cn("size-4", STATUS_STYLES.warning.text)} />,
+      icon: <Database className={cn("icon-md", STATUS_STYLES.warning.text)} />,
       color: STATUS_STYLES.warning.text,
       text: t("model.embedding_status.missing", { model: modelName })
     },
     error: {
       icon: (
-        <AlertTriangle className={cn("size-4", STATUS_STYLES.danger.text)} />
+        <AlertTriangle className={cn("icon-md", STATUS_STYLES.danger.text)} />
       ),
       color: STATUS_STYLES.danger.text,
       text: t("model.embedding_status.error")
     },
     default: {
-      icon: <Database className={cn("size-4", STATUS_STYLES.neutral.text)} />,
+      icon: <Database className={cn("icon-md", STATUS_STYLES.neutral.text)} />,
       color: STATUS_STYLES.neutral.text,
       text: t("model.embedding_status.checking_model")
     }
@@ -248,7 +248,7 @@ export const EmbeddingStatusIndicator = () => {
             <span className={statusColor}>{statusText}</span>
             {!isChecking && !isDownloading && (
               <RefreshCw
-                className="size-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                className="icon-md cursor-pointer text-muted-foreground hover:text-foreground"
                 onClick={handleRetry}
               />
             )}
@@ -264,7 +264,7 @@ export const EmbeddingStatusIndicator = () => {
                 variant="secondary"
                 className="h-7 text-xs w-full"
                 onClick={handleDownload}>
-                <Download className="mr-2 size-3" />
+                <Download className="mr-2 icon-xs" />
                 {t("model.embedding_status.download_button")}
               </Button>
             </div>

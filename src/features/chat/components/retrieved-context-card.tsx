@@ -105,7 +105,7 @@ export function RetrievedContextCard({
                 onClick={() => handleFeedback(true)}
                 disabled={isSubmitting}
                 title="This was helpful">
-                <ThumbsUp className="size-4" />
+                <ThumbsUp className="icon-md" />
               </Button>
               <Button
                 size="icon"
@@ -118,7 +118,7 @@ export function RetrievedContextCard({
                 onClick={() => handleFeedback(false)}
                 disabled={isSubmitting}
                 title="This was not helpful">
-                <ThumbsDown className="size-4" />
+                <ThumbsDown className="icon-md" />
               </Button>
             </div>
           )}

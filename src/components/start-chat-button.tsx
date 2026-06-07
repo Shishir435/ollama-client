@@ -30,7 +30,7 @@ export const StartChatButton = ({ className }: { className?: string }) => {
       onClick={handleStartChat}>
       <Zap
         className={cn(
-          "size-5 transition-transform",
+          "icon-lg transition-transform",
           !isBlocked && "group-hover:rotate-12 group-hover:scale-110"
         )}
       />
