@@ -50,7 +50,7 @@ export const StatusAlert = ({
       className={cn("border ring-0 px-4", variantStyles[variant], className)}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {Icon && <Icon className="size-5 mt-0.5 sm:mt-0 shrink-0" />}
+          {Icon && <Icon className="icon-lg mt-0.5 sm:mt-0 shrink-0" />}
           <div className="space-y-1">
             <p className="text-sm font-medium">{title}</p>
             {description && (

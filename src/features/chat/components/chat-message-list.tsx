@@ -208,7 +208,7 @@ export const ChatMessageList = ({
                 behavior: "smooth"
               })
             }}>
-            <ChevronDown className="size-3.5" />
+            <ChevronDown className="icon-sm" />
             Bottom
           </Button>
         </div>

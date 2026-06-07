@@ -103,7 +103,7 @@ export const ProviderGrid = ({
                         <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
                       }
                       icon={Info}
-                      iconClassName="size-3"
+                      iconClassName="icon-xs"
                       label={t("settings.providers.beta_notice")}
                       tooltipClassName="max-w-xs text-xs"
                     />

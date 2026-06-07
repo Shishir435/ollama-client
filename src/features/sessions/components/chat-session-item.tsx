@@ -52,7 +52,7 @@ export const ChatSessionItem = ({
             )}>
             <MessageSquare
               className={cn(
-                "size-3",
+                "icon-xs",
                 isActive
                   ? "text-sidebar-primary"
                   : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"

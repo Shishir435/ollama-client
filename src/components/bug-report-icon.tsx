@@ -28,7 +28,7 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
           aria-label={t("common.bug_report.aria_label")}
         />
       }
-      icon={<Icon size="16" />}
+      icon={<Icon className="icon-xs" />}
       label={t("common.bug_report.label")}
       tooltip={t("common.bug_report.tooltip")}
       showLabel={showText}

@@ -28,7 +28,7 @@ describe("SettingsCard", () => {
 
     const icon = container.querySelector("svg")
     expect(icon).toBeInTheDocument()
-    expect(icon).toHaveClass("size-5", "text-muted-foreground")
+    expect(icon).toHaveClass("icon-lg", "text-muted-foreground")
   })
 
   it("renders badge when provided", () => {

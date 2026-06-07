@@ -35,7 +35,7 @@ export const SettingsMobileNav = ({
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/50"
               )}>
-              <Icon className="size-3.5 shrink-0" />
+              <Icon className="icon-sm shrink-0" />
               {item.label}
               {item.badge && <MiniBadge text={item.badge} />}
             </button>

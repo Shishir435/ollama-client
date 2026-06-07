@@ -173,7 +173,7 @@ export const ReasoningTrace = ({
                 }>
                 <Icon
                   className={cn(
-                    "size-3.5",
+                    "icon-sm",
                     step.status === "running" && "animate-pulse"
                   )}
                 />
@@ -213,10 +213,10 @@ export const ReasoningTrace = ({
                   }
                 />
               }>
-              <ListTree className="size-3.5" />
+              <ListTree className="icon-sm" />
               <ChevronDown
                 className={cn(
-                  "size-3 transition-transform",
+                  "icon-xs transition-transform",
                   showDetails && "rotate-180"
                 )}
               />

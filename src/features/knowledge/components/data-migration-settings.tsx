@@ -152,9 +152,9 @@ export const DataMigrationSettings = () => {
             disabled={isExporting}
             className="w-full sm:w-auto">
             {isExporting ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="mr-2 icon-md animate-spin" />
             ) : (
-              <Download className="mr-2 size-4" />
+              <Download className="mr-2 icon-md" />
             )}
             {t("settings.migration.export.button")}
           </Button>
@@ -169,9 +169,9 @@ export const DataMigrationSettings = () => {
             variant="secondary"
             className="w-full sm:w-auto">
             {isImporting ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="mr-2 icon-md animate-spin" />
             ) : (
-              <Upload className="mr-2 size-4" />
+              <Upload className="mr-2 icon-md" />
             )}
             {t("settings.migration.import.button")}
           </Button>
@@ -245,9 +245,9 @@ export const DataMigrationSettings = () => {
                       variant={item.result.ok ? "default" : "destructive"}
                       className="gap-1">
                       {item.result.ok ? (
-                        <CheckCircle className="size-3" />
+                        <CheckCircle className="icon-xs" />
                       ) : (
-                        <XCircle className="size-3" />
+                        <XCircle className="icon-xs" />
                       )}
                       {item.result.ok
                         ? t("settings.migration.import_result.status.success")

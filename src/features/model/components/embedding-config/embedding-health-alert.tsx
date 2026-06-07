@@ -87,12 +87,12 @@ export const EmbeddingHealthAlert = ({
             disabled={isRebuilding}>
             {isRebuilding ? (
               <>
-                <RefreshCw className="size-4 mr-2 animate-spin" />
+                <RefreshCw className="icon-md mr-2 animate-spin" />
                 {t("settings.context.embedding_health.action_rebuilding")}
               </>
             ) : (
               <>
-                <RefreshCw className="size-4 mr-2" />
+                <RefreshCw className="icon-md mr-2" />
                 {t("settings.context.embedding_health.action")}
               </>
             )}

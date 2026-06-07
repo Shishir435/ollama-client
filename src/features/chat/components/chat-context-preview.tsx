@@ -52,7 +52,7 @@ export const ChatContextPreview = ({
             className="bg-muted/20"
             title={
               <span className="flex min-w-0 items-center gap-1.5">
-                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <Icon className="icon-sm shrink-0 text-muted-foreground" />
                 <span className="truncate">{item.title}</span>
               </span>
             }

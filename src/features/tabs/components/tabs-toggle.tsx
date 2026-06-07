@@ -35,7 +35,7 @@ export const TabsToggle = () => {
       }
       label={tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")}
       tooltipSide="top"
-      icon={<AppWindow className="size-4" />}
+      icon={<AppWindow className="icon-md" />}
     />
   )
 }

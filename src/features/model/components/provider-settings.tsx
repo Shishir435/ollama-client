@@ -81,7 +81,7 @@ export const ProviderSettings = () => {
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  "size-3 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background transition-colors",
+                  "icon-xs shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background transition-colors",
                   headerStatus.dot
                 )}
               />
@@ -96,7 +96,7 @@ export const ProviderSettings = () => {
                           <span className="inline-flex text-muted-foreground hover:text-foreground" />
                         }
                         icon={Info}
-                        iconClassName="size-3.5"
+                        iconClassName="icon-sm"
                         label={t("settings.providers.beta_notice")}
                         tooltipClassName="max-w-xs"
                       />
@@ -130,9 +130,9 @@ export const ProviderSettings = () => {
                 onClick={handleTestConnection}
                 disabled={testingConnection}>
                 {testingConnection ? (
-                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  <Loader2 className="icon-md mr-2 animate-spin" />
                 ) : (
-                  <Zap className="size-4 mr-2" />
+                  <Zap className="icon-md mr-2" />
                 )}
                 {t("settings.providers.test")}
               </Button>
@@ -177,7 +177,7 @@ export const ProviderSettings = () => {
                   <Button
                     onClick={() => handleSave(activeConfig)}
                     disabled={!hasUnsavedChanges}>
-                    <Save className="size-4 mr-2" />
+                    <Save className="icon-md mr-2" />
                     {t("settings.providers.save")}
                   </Button>
                 </SettingsActionRow>
@@ -257,7 +257,7 @@ export const ProviderSettings = () => {
                           }
                         }}
                         icon={Plus}
-                        iconClassName="size-4"
+                        iconClassName="icon-md"
                         label={t("settings.model.system.add_button")}
                       />
                     </SettingsActionRow>
@@ -284,7 +284,7 @@ export const ProviderSettings = () => {
                                   })
                                 }}
                                 icon={Trash2}
-                                iconClassName="size-3.5"
+                                iconClassName="icon-sm"
                                 label={t("common.close")}
                                 ariaLabel={`${t("common.close")} ${m}`}
                               />

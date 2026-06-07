@@ -70,7 +70,7 @@ export const SettingsSidebar = ({
                         />
                         <Icon
                           className={cn(
-                            "size-4 shrink-0 transition-colors duration-150",
+                            "icon-md shrink-0 transition-colors duration-150",
                             isActive
                               ? "text-sidebar-primary"
                               : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"

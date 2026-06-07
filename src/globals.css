@@ -101,6 +101,11 @@
   --spacing-control-sm: var(--control-height-sm);
   --spacing-control-md: var(--control-height-md);
   --spacing-control-lg: var(--control-height-lg);
+
+  --icon-xs: 0.75rem;
+  --icon-sm: 0.875rem;
+  --icon-md: 1rem;
+  --icon-lg: 1.25rem;
 }
 
 :root {
@@ -463,6 +468,27 @@
   .control-min-h-lg {
     min-height: var(--control-height-lg);
   }
+
+}
+
+@utility icon-xs {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+@utility icon-sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+@utility icon-md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+@utility icon-lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
 }
 
 @keyframes pulse {

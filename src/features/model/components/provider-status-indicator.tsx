@@ -16,12 +16,14 @@ import { cn } from "@/lib/utils"
 const iconMap = {
   loading: (
     <Loader2
-      className={cn("size-4 animate-spin", STATUS_STYLES.neutral.text)}
+      className={cn("icon-md animate-spin", STATUS_STYLES.neutral.text)}
     />
   ),
-  error: <XCircle className={cn("size-4", STATUS_STYLES.danger.text)} />,
-  empty: <AlertTriangle className={cn("size-4", STATUS_STYLES.warning.text)} />,
-  ready: <CheckCircle className={cn("size-4", STATUS_STYLES.success.text)} />
+  error: <XCircle className={cn("icon-md", STATUS_STYLES.danger.text)} />,
+  empty: (
+    <AlertTriangle className={cn("icon-md", STATUS_STYLES.warning.text)} />
+  ),
+  ready: <CheckCircle className={cn("icon-md", STATUS_STYLES.success.text)} />
 }
 
 export const ProviderStatusIndicator = () => {
@@ -59,7 +61,7 @@ export const ProviderStatusIndicator = () => {
             <span>{getLabelMap()[status]}</span>
             {status !== "loading" && (
               <RefreshCw
-                className="size-3.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                className="icon-sm cursor-pointer text-muted-foreground hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation()
                   refresh()

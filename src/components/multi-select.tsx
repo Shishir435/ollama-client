@@ -108,14 +108,14 @@ export const MultiSelect = ({
                     "flex items-center gap-1 rounded-md px-2 py-1",
                     "bg-muted text-muted-foreground"
                   )}>
-                  {Icon && <Icon className="size-4" />}
+                  {Icon && <Icon className="icon-md" />}
                   <span>{option?.label}</span>
 
                   {isLoading && (
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    <Loader2 className="icon-md animate-spin text-muted-foreground" />
                   )}
                   {isSuccess && (
-                    <CheckIcon className="size-4 text-status-success" />
+                    <CheckIcon className="icon-md text-status-success" />
                   )}
 
                   <button
@@ -129,7 +129,7 @@ export const MultiSelect = ({
                     aria-label={t("common.remove")}>
                     <XCircle
                       className={cn(
-                        "size-3.5 transition-colors duration-200",
+                        "icon-sm transition-colors duration-200",
                         isError
                           ? "text-status-danger"
                           : "text-muted-foreground group-hover/badge:text-foreground"
@@ -146,7 +146,7 @@ export const MultiSelect = ({
             )}
           </div>
         )}
-        <ChevronsUpDown className="ml-2 size-4 text-muted-foreground" />
+        <ChevronsUpDown className="ml-2 icon-md text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="w-75 p-0" align="center">
         <Command className="rounded-lg border-0">
@@ -156,7 +156,7 @@ export const MultiSelect = ({
               size="icon"
               onClick={onRefresh}
               className="z-2 absolute right-0 rounded-full bg-transparent text-xs hover:bg-transparent">
-              <RefreshCw className="size-4 opacity-50" />
+              <RefreshCw className="icon-md opacity-50" />
             </Button>
             <CommandInput
               placeholder={placeholder}
@@ -172,13 +172,15 @@ export const MultiSelect = ({
                   onSelect={() => toggleOption(option.value)}
                   className="mx-1 my-0.5 rounded-md py-2.5 transition-all aria-selected:bg-accent/50">
                   <div className="flex items-center gap-3">
-                    {option.icon && <option.icon className="size-4 shrink-0" />}
+                    {option.icon && (
+                      <option.icon className="icon-md shrink-0" />
+                    )}
                     <span className="truncate text-sm font-medium">
                       {option.label}
                     </span>
                   </div>
                   {selectedValues.includes(option.value) && (
-                    <Check className="ml-auto size-4 text-primary" />
+                    <Check className="ml-auto icon-md text-primary" />
                   )}
                 </CommandItem>
               ))}

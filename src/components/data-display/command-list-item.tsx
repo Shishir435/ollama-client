@@ -27,7 +27,7 @@ export const CommandListItem = ({
       className
     )}
     {...props}>
-    {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
+    {Icon && <Icon className="icon-md shrink-0 text-muted-foreground" />}
     <div className="min-w-0 flex-1">
       <div className="truncate text-sm font-medium">{title}</div>
       {description && (

@@ -43,7 +43,7 @@ export const ChatSessionSelector = ({
             className="m-1 cursor-pointer rounded-control border border-sidebar-border bg-surface-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
           />
         }>
-        <Menu className="size-4" />
+        <Menu className="icon-md" />
       </SheetTrigger>
 
       <SheetContent

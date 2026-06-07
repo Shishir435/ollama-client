@@ -79,7 +79,7 @@ export const PromptTemplateList = ({
                 <div className="flex items-center gap-2">
                   <ChevronRight
                     className={cn(
-                      "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      "icon-md shrink-0 text-muted-foreground transition-transform duration-200",
                       isExpanded && "rotate-90"
                     )}
                   />
@@ -119,9 +119,9 @@ export const PromptTemplateList = ({
                         copyToClipboard(template.userPrompt, template.id)
                       }}>
                       {copiedId === template.id ? (
-                        <CopyCheck className="size-4 text-status-success" />
+                        <CopyCheck className="icon-md text-status-success" />
                       ) : (
-                        <Copy className="size-4" />
+                        <Copy className="icon-md" />
                       )}
                     </Button>
 
@@ -135,7 +135,7 @@ export const PromptTemplateList = ({
                             onClick={(e) => e.stopPropagation()}
                           />
                         }>
-                        <Trash2 className="size-4" />
+                        <Trash2 className="icon-md" />
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
@@ -183,7 +183,7 @@ export const PromptTemplateList = ({
                     <div className="flex gap-4 px-4 py-3 text-sm text-muted-foreground">
                       {template.createdAt && (
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="size-3.5" />
+                          <Calendar className="icon-sm" />
                           {t("settings.prompts.created_at", {
                             date: new Date(
                               template.createdAt
@@ -193,7 +193,7 @@ export const PromptTemplateList = ({
                       )}
                       {(template.usageCount || 0) > 0 && (
                         <div className="flex items-center gap-1.5">
-                          <Star className="size-3.5" />
+                          <Star className="icon-sm" />
                           {t("settings.prompts.used_times", {
                             count: template.usageCount
                           })}

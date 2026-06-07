@@ -78,7 +78,9 @@ export const StatusCard = () => {
             statusConfig.bgClass,
             statusConfig.iconFgClass
           )}>
-          <statusConfig.icon className={cn("size-4", statusConfig.iconClass)} />
+          <statusConfig.icon
+            className={cn("icon-md", statusConfig.iconClass)}
+          />
         </div>
         <div className="flex-1 text-left space-y-1">
           <CardTitle className="font-semibold">{statusConfig.title}</CardTitle>
@@ -91,7 +93,7 @@ export const StatusCard = () => {
               variant="outline"
               onClick={() => refresh()}
               className="border-destructive/40 text-destructive hover:bg-destructive/10">
-              <RefreshCw className="mr-1 size-3" />
+              <RefreshCw className="mr-1 icon-xs" />
               {t("common.actions.retry")}
             </Button>
           )}

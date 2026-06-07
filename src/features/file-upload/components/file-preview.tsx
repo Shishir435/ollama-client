@@ -54,28 +54,28 @@ export const FilePreview = ({
     const extension = file.name.split(".").pop()?.toLowerCase()
     switch (extension) {
       case FILE_UPLOAD.EXTENSIONS.PDF:
-        return <FileText className="size-4 text-status-danger/80" />
+        return <FileText className="icon-md text-status-danger/80" />
       case FILE_UPLOAD.EXTENSIONS.DOCX:
-        return <FileText className="size-4 text-status-info/80" />
+        return <FileText className="icon-md text-status-info/80" />
       case FILE_UPLOAD.EXTENSIONS.CSV:
       case FILE_UPLOAD.EXTENSIONS.TSV:
-        return <FileText className="size-4 text-status-success/80" />
+        return <FileText className="icon-md text-status-success/80" />
       case FILE_UPLOAD.EXTENSIONS.HTML:
       case FILE_UPLOAD.EXTENSIONS.HTM:
-        return <FileText className="size-4 text-status-warning/80" />
+        return <FileText className="icon-md text-status-warning/80" />
       default:
-        return <FileText className="size-4 text-muted-foreground/50" />
+        return <FileText className="icon-md text-muted-foreground/50" />
     }
   }
 
   const getStatusIcon = () => {
     switch (status) {
       case "processing":
-        return <Loader2 className="size-4 animate-spin text-primary/80" />
+        return <Loader2 className="icon-md animate-spin text-primary/80" />
       case "success":
-        return <CircleCheck className="size-4 text-status-success" />
+        return <CircleCheck className="icon-md text-status-success" />
       case "error":
-        return <AlertCircle className="size-4 text-destructive/80" />
+        return <AlertCircle className="icon-md text-destructive/80" />
       default:
         return getFileTypeIcon()
     }
@@ -137,7 +137,7 @@ export const FilePreview = ({
             className="mr-0.5 size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
             onClick={onRemove}
             aria-label={t("file_upload.preview.remove_aria_label")}>
-            <X className="size-3" />
+            <X className="icon-xs" />
           </Button>
         </div>
         <PopoverContent

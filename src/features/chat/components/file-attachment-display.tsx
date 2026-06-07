@@ -20,9 +20,9 @@ export interface FileAttachmentDisplayProps {
 
 function getFileIcon(fileType: string) {
   if (fileType === "application/pdf" || fileType.includes("document")) {
-    return <FileText className="size-3" />
+    return <FileText className="icon-xs" />
   }
-  return <FileIcon className="size-3" />
+  return <FileIcon className="icon-xs" />
 }
 
 function formatFileSize(bytes: number): string {

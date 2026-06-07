@@ -27,7 +27,7 @@ export const Guides = () => {
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
-                      <Icon className="size-4" />
+                      <Icon className="icon-md" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
@@ -51,7 +51,7 @@ export const Guides = () => {
                       buttonVariants({ variant: "link" }),
                       "flex items-center justify-center"
                     )}>
-                    <ExternalLink className="size-3" />
+                    <ExternalLink className="icon-xs" />
                   </a>
                 </CardContent>
               </Card>

@@ -196,7 +196,7 @@ export const ContextSettingsMenu = () => {
             />
           }
           label={t("tabs.context")}
-          icon={<Layers className="size-4" />}
+          icon={<Layers className="icon-md" />}
         />
         <PopoverContent
           align="end"
@@ -204,7 +204,7 @@ export const ContextSettingsMenu = () => {
           className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(20rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] gap-3 overflow-y-auto rounded-panel p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <Layers className="size-3" />
+              <Layers className="icon-xs" />
               {t("tabs.context")}
             </div>
           </div>
@@ -224,12 +224,12 @@ export const ContextSettingsMenu = () => {
                       : "text-muted-foreground"
                   )}
                   onClick={action.onClick}>
-                  <Icon className="size-3.5 shrink-0" />
+                  <Icon className="icon-sm shrink-0" />
                   <span className="min-w-0 flex-1 truncate text-left">
                     {action.label}
                   </span>
                   {action.checked && (
-                    <CheckIcon className="size-3.5 shrink-0 text-app-primary" />
+                    <CheckIcon className="icon-sm shrink-0 text-app-primary" />
                   )}
                 </Button>
               )
@@ -247,11 +247,11 @@ export const ContextSettingsMenu = () => {
                   className="size-6 rounded-control"
                   onClick={refreshTabs}
                   aria-label={t("tabs.select.refresh_now")}>
-                  <RefreshCw className="size-3" />
+                  <RefreshCw className="icon-xs" />
                 </Button>
               </div>
               <div className="relative">
-                <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 size-3.5 text-muted-foreground" />
+                <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
                 <Input
                   value={tabSearch}
                   onChange={(event) => setTabSearch(event.target.value)}
@@ -279,7 +279,7 @@ export const ContextSettingsMenu = () => {
                             : "text-muted-foreground hover:bg-muted/35 hover:text-foreground"
                         )}>
                         <span className="flex min-w-0 items-center gap-1.5">
-                          <AppWindow className="size-3.5 shrink-0" />
+                          <AppWindow className="icon-sm shrink-0" />
                           <button
                             type="button"
                             className="min-w-0 flex-1 truncate text-left font-medium"
@@ -288,10 +288,10 @@ export const ContextSettingsMenu = () => {
                             {option.label}
                           </button>
                           {status.loading && (
-                            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                            <Loader2 className="icon-xs shrink-0 animate-spin" />
                           )}
                           {isSelected && !status.loading && (
-                            <CheckIcon className="size-3.5 shrink-0 text-app-primary" />
+                            <CheckIcon className="icon-xs shrink-0 text-app-primary" />
                           )}
                           <Button
                             type="button"
@@ -300,17 +300,18 @@ export const ContextSettingsMenu = () => {
                             className="size-5 rounded-control text-muted-foreground hover:text-foreground"
                             onClick={() => openPreview(option.value)}
                             aria-label={t("tabs.select.view_content")}>
-                            <Eye className="size-3" />
+                            <Eye className="icon-xs" />
                           </Button>
                         </span>
-                        <button
+                        <Button
                           type="button"
-                          className="line-clamp-2 text-left text-[11px] leading-snug text-muted-foreground hover:text-foreground"
+                          variant="secondary"
+                          className="overflow-hidden text-start"
                           onClick={() => openPreview(option.value)}>
                           {content
                             ? trimPreview(content)
                             : t("tabs.inspector.no_content")}
-                        </button>
+                        </Button>
                       </div>
                     )
                   })}

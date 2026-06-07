@@ -109,7 +109,7 @@ export const MemorySettings = () => {
             size="sm"
             disabled={isClearing}
             onClick={clearDialog.openDialog}>
-            <Trash2 className="size-4 mr-2" />
+            <Trash2 className="icon-xs" />
             {isClearing
               ? t("settings.memory.clear.button_clearing")
               : t("settings.memory.clear.button")}

@@ -107,7 +107,7 @@ export const VoiceSelector = ({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {isLoading ? (
             <>
-              <Loader2 className="size-4 animate-spin text-muted-foreground shrink-0" />
+              <Loader2 className="icon-md animate-spin text-muted-foreground shrink-0" />
               <span className="text-muted-foreground text-sm truncate">
                 {t("chat.speech.loading_voices")}
               </span>
@@ -129,7 +129,7 @@ export const VoiceSelector = ({
             </span>
           )}
         </div>
-        <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        <ChevronsUpDown className="icon-md shrink-0 opacity-50" />
       </PopoverTrigger>
       <PopoverContent
         className="w-[440px] p-0 shadow-md"
@@ -149,7 +149,7 @@ export const VoiceSelector = ({
             <CommandEmpty className="py-8">
               <div className="flex flex-col items-center gap-2 text-center">
                 <div className="rounded-chip bg-muted p-3">
-                  <Mic className="size-5 text-muted-foreground" />
+                  <Mic className="icon-lg text-muted-foreground" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">
@@ -222,7 +222,7 @@ export const VoiceSelector = ({
                               )}
                               {isSelected && (
                                 <div className="flex items-center justify-center">
-                                  <Check className="size-4 text-primary" />
+                                  <Check className="icon-md text-primary" />
                                 </div>
                               )}
                             </div>

@@ -22,7 +22,7 @@ export const RegenerateButton = ({
           size="icon"
           variant="ghost"
           className="group relative flex size-6 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-muted/55 hover:text-foreground">
-          <RefreshCcw className="size-3" />
+          <RefreshCcw className="icon-xs" />
         </Button>
       }
       onSelectModel={onSelectModel}

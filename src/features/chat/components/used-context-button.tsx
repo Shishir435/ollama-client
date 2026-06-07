@@ -64,7 +64,7 @@ export const UsedContextButton = ({
           tooltipSide="top"
           icon={
             <div className="relative">
-              <FileSearch className="size-3" />
+              <FileSearch className="icon-xs" />
               <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
                 {chunks.length}
               </span>

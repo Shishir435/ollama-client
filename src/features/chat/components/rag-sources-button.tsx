@@ -98,7 +98,7 @@ export function RAGSourcesButton({
           tooltipSideOffset={6}
           icon={
             <div className="relative">
-              <Info className="size-3" />
+              <Info className="icon-xs" />
               <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
                 {sources.length}
               </span>
@@ -145,7 +145,7 @@ export function RAGSourcesButton({
                           onClick={() => handleFeedback(source, true)}
                           disabled={submittingFeedback}
                           aria-label="Helpful">
-                          <ThumbsUp className="size-3.5" />
+                          <ThumbsUp className="icon-sm" />
                         </Button>
                         <Button
                           size="icon"
@@ -158,7 +158,7 @@ export function RAGSourcesButton({
                           onClick={() => handleFeedback(source, false)}
                           disabled={submittingFeedback}
                           aria-label="Not helpful">
-                          <ThumbsDown className="size-3.5" />
+                          <ThumbsDown className="icon-sm" />
                         </Button>
                       </div>
                     )}
@@ -217,7 +217,7 @@ export function RAGSourcesButton({
                   )}
                   onClick={() => handleFeedback(activeSource, true)}
                   disabled={submittingFeedback}>
-                  <ThumbsUp className="mr-1 size-4" />
+                  <ThumbsUp className="mr-1 icon-md" />
                   Helpful
                 </Button>
                 <Button
@@ -233,7 +233,7 @@ export function RAGSourcesButton({
                   )}
                   onClick={() => handleFeedback(activeSource, false)}
                   disabled={submittingFeedback}>
-                  <ThumbsDown className="mr-1 size-4" />
+                  <ThumbsDown className="mr-1 icon-md" />
                   Not helpful
                 </Button>
               </div>
