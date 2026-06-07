@@ -110,23 +110,23 @@ export const FilePreview = ({
   }
 
   return (
-    <div className="group relative">
+    <div className="group relative min-w-0 max-w-full">
       <Popover>
         <div
           className={cn(
-            "flex h-7 max-w-[min(24rem,100%)] items-center rounded-chip border text-xs transition-colors",
+            "flex h-7 max-w-full items-center rounded-chip border text-xs transition-colors",
             getStatusColor()
           )}>
           <PopoverTrigger
             render={
               <button
                 type="button"
-                className="flex min-w-0 flex-1 items-center gap-1.5 px-2"
+                className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2"
               />
             }>
             {getStatusIcon()}
             <span className="min-w-0 truncate font-medium">{file.name}</span>
-            <span className="shrink-0 text-muted-foreground">
+            <span className="hidden shrink-0 text-muted-foreground min-[30rem]:inline">
               {formatFileSize(file.size)}
             </span>
           </PopoverTrigger>

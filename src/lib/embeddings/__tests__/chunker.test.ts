@@ -237,8 +237,6 @@ describe("semanticChunking", () => {
 
   it("chunks contain paragraph content", () => {
     const para1 = "First paragraph content here."
-    const para2 =
-      "Second paragraph content here with more words to force split."
     const para3 = "Third paragraph content here."
     // Make para2 large enough to force a split
     const bigPara2 = "B".repeat(200) // ~50 tokens

@@ -202,6 +202,10 @@
       "speed_unit": "t/s"
     },
     "session_metrics": {
+      "label_tokens": "Tokens",
+      "label_time": "Time",
+      "label_speed": "Speed",
+      "label_responses": "Responses",
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
@@ -582,7 +586,7 @@
       "title": "Chat Display",
       "description": "Configure how chat information is displayed",
       "session_metrics_label": "Show Session Metrics",
-      "session_metrics_description": "Display token usage, duration, and speed above the chat input"
+      "session_metrics_description": "Display token usage, duration, and speed in the chat header"
     },
     "prompt_context_limits": {
       "title": "Prompt Context Limits",

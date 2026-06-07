@@ -24,7 +24,6 @@ import {
   knowledgeDb,
   listKnowledgeSets,
   markKnowledgeFileEmbedded,
-  setActiveKnowledgeSetId,
   updateKnowledgeSet
 } from "../knowledge-sets"
 
@@ -93,7 +92,7 @@ describe("getKnowledgeSet", () => {
     const found = await getKnowledgeSet(DEFAULT_KNOWLEDGE_SET_ID)
 
     expect(found).toBeDefined()
-    expect(found!.id).toBe(DEFAULT_KNOWLEDGE_SET_ID)
+    expect(found?.id).toBe(DEFAULT_KNOWLEDGE_SET_ID)
   })
 
   it("returns undefined for unknown id", async () => {
@@ -139,7 +138,7 @@ describe("updateKnowledgeSet", () => {
     await updateKnowledgeSet(created.id, { name: "Renamed" })
 
     const updated = await getKnowledgeSet(created.id)
-    expect(updated!.name).toBe("Renamed")
+    expect(updated?.name).toBe("Renamed")
   })
 
   it("does nothing for an unknown id", async () => {
@@ -208,7 +207,7 @@ describe("markKnowledgeFileEmbedded", () => {
     await markKnowledgeFileEmbedded("file-embed-1", embeddedAt)
 
     const stored = await knowledgeDb.knowledgeFiles.get("file-embed-1")
-    expect(stored!.lastEmbeddedAt).toBe(embeddedAt)
+    expect(stored?.lastEmbeddedAt).toBe(embeddedAt)
   })
 
   it("does nothing for an unknown file id", async () => {

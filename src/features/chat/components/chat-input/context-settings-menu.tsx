@@ -63,7 +63,7 @@ export const ContextSettingsMenu = () => {
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(Boolean(tabAccess))
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
-  const { tabContents, refreshSelectedTabContents } = useTabContents()
+  const { tabContents } = useTabContents()
   const getTabStatus = useTabStatusMap()
   const [open, setOpen] = useState(false)
   const [previewTabId, setPreviewTabId] = useState<string | null>(null)
@@ -207,17 +207,6 @@ export const ContextSettingsMenu = () => {
               <Layers className="size-3" />
               {t("tabs.context")}
             </div>
-            {tabAccess && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7 rounded-control text-muted-foreground"
-                onClick={refreshSelectedTabContents}
-                aria-label={t("tabs.select.refresh_now")}>
-                <RefreshCw className="size-3.5" />
-              </Button>
-            )}
           </div>
 
           <div className="grid gap-1">

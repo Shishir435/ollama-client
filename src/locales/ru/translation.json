@@ -202,6 +202,10 @@
       "speed_unit": "т/с"
     },
     "session_metrics": {
+      "label_tokens": "Токены",
+      "label_time": "Время",
+      "label_speed": "Скорость",
+      "label_responses": "Ответы",
       "tooltip_tokens": "Всего токенов в текущей сессии",
       "tooltip_time": "Общее время генерации",
       "tooltip_speed": "Средняя скорость генерации",
@@ -582,7 +586,7 @@
       "title": "Отображение чата",
       "description": "Настройте отображение информации о чате",
       "session_metrics_label": "Показать метрики сессии",
-      "session_metrics_description": "Показывать использование токенов, время и скорость над полем ввода"
+      "session_metrics_description": "Показывать использование токенов, время и скорость в заголовке чата"
     },
     "prompt_context_limits": {
       "title": "Ограничения контекста промпта",

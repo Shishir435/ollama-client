@@ -202,6 +202,10 @@
       "speed_unit": "T/s"
     },
     "session_metrics": {
+      "label_tokens": "Token",
+      "label_time": "Zeit",
+      "label_speed": "Tempo",
+      "label_responses": "Antworten",
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
@@ -582,7 +586,7 @@
       "title": "Chat-Anzeige",
       "description": "Konfigurieren Sie die Anzeige von Chat-Informationen",
       "session_metrics_label": "Sitzungsmetriken anzeigen",
-      "session_metrics_description": "Token-Nutzung, Dauer und Geschwindigkeit über dem Chat-Eingabefeld anzeigen"
+      "session_metrics_description": "Token-Nutzung, Dauer und Geschwindigkeit in der Chat-Kopfzeile anzeigen"
     },
     "prompt_context_limits": {
       "title": "Prompt-Kontextlimits",
