@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { browser } from "wxt/browser"
+import { DevThemePane } from "@/components/dev-theme-pane"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -85,6 +86,7 @@ export const OptionsIndex = () => {
       <ErrorBoundary>
         <TooltipProvider>
           <SettingsPage />
+          <DevThemePane />
           <Toaster position={"top-center"} closeButton={true} />
         </TooltipProvider>
       </ErrorBoundary>
