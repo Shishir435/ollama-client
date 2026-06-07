@@ -21,11 +21,13 @@ import { cn } from "@/lib/utils"
 export interface FilePreviewProps {
   processingState: FileProcessingState
   onRemove: () => void
+  compact?: boolean
 }
 
 export const FilePreview = ({
   processingState,
-  onRemove
+  onRemove,
+  compact = false
 }: FilePreviewProps) => {
   const { t } = useTranslation()
   const { file, status, error, progress } = processingState
@@ -110,31 +112,49 @@ export const FilePreview = ({
   }
 
   return (
-    <div className="group relative min-w-0 max-w-[min(16rem,calc(100vw-6rem))] shrink-0">
+    <div
+      className={cn(
+        "group relative min-w-0 shrink-0",
+        compact ? "max-w-max" : "max-w-[min(16rem,calc(100vw-6rem))]"
+      )}>
       <Popover>
         <div
           className={cn(
             "flex h-7 max-w-full items-center rounded-chip border text-xs transition-colors",
+            compact && "h-8",
             getStatusColor()
           )}>
           <PopoverTrigger
             render={
               <button
                 type="button"
-                className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2"
+                className={cn(
+                  "flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-2",
+                  compact && "size-8 px-0"
+                )}
+                aria-label={file.name}
               />
             }>
             {getStatusIcon()}
-            <span className="min-w-0 truncate font-medium">{file.name}</span>
-            <span className="hidden shrink-0 text-muted-foreground min-[36rem]:inline">
-              {formatFileSize(file.size)}
-            </span>
+            {!compact && (
+              <>
+                <span className="min-w-0 truncate font-medium">
+                  {file.name}
+                </span>
+                <span className="hidden shrink-0 text-muted-foreground min-[36rem]:inline">
+                  {formatFileSize(file.size)}
+                </span>
+              </>
+            )}
           </PopoverTrigger>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="mr-0.5 size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+            className={cn(
+              "mr-0.5 size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
+              compact && "mr-1 size-6"
+            )}
             onClick={onRemove}
             aria-label={t("file_upload.preview.remove_aria_label")}>
             <X className="icon-xs" />

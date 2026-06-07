@@ -19,6 +19,7 @@ export const ChatInputAttachmentList = ({
           key={state.file.name}
           processingState={state}
           onRemove={() => onRemove(state.file)}
+          compact
         />
       ))}
     </div>
