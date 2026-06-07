@@ -40,4 +40,33 @@ describe("FilePreview", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(`${longText.length} chars`)).toBeInTheDocument()
   })
+
+  it("can render as compact icon chip while keeping preview details", () => {
+    const state: FileProcessingState = {
+      file: new File(["content"], "prompt-templates.json", {
+        type: "application/json"
+      }),
+      status: "success",
+      result: {
+        text: "template preview",
+        metadata: {
+          fileName: "prompt-templates.json",
+          fileType: "application/json",
+          fileSize: 7,
+          processedAt: 1
+        }
+      }
+    }
+
+    render(<FilePreview processingState={state} onRemove={vi.fn()} compact />)
+
+    expect(screen.queryByText("prompt-templates.json")).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "prompt-templates.json" })
+    )
+
+    expect(screen.getByText("prompt-templates.json")).toBeInTheDocument()
+    expect(screen.getByText("template preview")).toBeInTheDocument()
+  })
 })
