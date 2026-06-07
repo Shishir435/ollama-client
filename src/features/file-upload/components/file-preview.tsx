@@ -110,7 +110,7 @@ export const FilePreview = ({
   }
 
   return (
-    <div className="group relative min-w-0 max-w-full">
+    <div className="group relative min-w-0 max-w-[min(16rem,calc(100vw-6rem))] shrink-0">
       <Popover>
         <div
           className={cn(
@@ -126,7 +126,7 @@ export const FilePreview = ({
             }>
             {getStatusIcon()}
             <span className="min-w-0 truncate font-medium">{file.name}</span>
-            <span className="hidden shrink-0 text-muted-foreground min-[30rem]:inline">
+            <span className="hidden shrink-0 text-muted-foreground min-[36rem]:inline">
               {formatFileSize(file.size)}
             </span>
           </PopoverTrigger>

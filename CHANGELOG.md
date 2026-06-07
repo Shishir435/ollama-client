@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- Dev-only Theme Lab for tuning sidebar, chat, composer, message, and control tokens live during local development.
+- Context preview sheets for selected tabs, RAG sources, and attached files with searchable tab context and scrollable extracted text previews.
+
+### Changed
+- Sidebar, chat transcript, composer, message footer, run details, and session metrics now use the token-driven compact UI system.
+- Chat action buttons now render from shared tooltip/action primitives with smaller icon sizing and compact overflow behavior.
+- Session metrics moved into the chat header as a compact metric trigger with a short popover summary.
+- File attachments in the composer now sit in a compact horizontal rail that keeps the send button clear and uses the preview popover for details.
+- Chat/session stores, content scripts, provider settings, and selection-action UI were split into smaller modules.
+
+### Fixed
+- Selection action toolbar visibility, shadow-DOM sizing, tooltip styling, and stale custom-prompt loading states.
+- Reasoning trace state now distinguishes thinking from answering and avoids duplicate streaming indicators.
+- Context injection now respects selected page/RAG state instead of leaking stale context across conversations.
+- Chat history now uses the SQLite facade only; the Dexie chat-history fallback has been removed.
+
 ## [0.8.0] - 2026-06-03
 ### Added
 - Selection Actions: selected page text now opens a local AI action toolbar with Summarize, Rewrite, Shorten, Fix Grammar, Explain, Extract Action Items, Translate to English, and Custom Prompt actions.
