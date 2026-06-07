@@ -233,6 +233,24 @@
       "helpful_tooltip": "Это было полезно",
       "not_helpful_tooltip": "Это не было полезно"
     },
+    "sources": {
+      "was_this_helpful": "Это было полезно?",
+      "helpful_aria": "Полезно",
+      "not_helpful_aria": "Не полезно",
+      "rag_source": "{{count}} источник RAG",
+      "rag_source_plural": "{{count}} источников RAG",
+      "view_retrieved": "Просмотреть {{count}} полученный источник",
+      "view_retrieved_plural": "Просмотреть {{count}} полученных источников",
+      "retrieved_title": "Полученные источники ({{count}})",
+      "source_default": "Источник",
+      "used_context_tooltip": "Использованный контекст",
+      "used_context_aria": "Использованный контекст ({{count}})",
+      "used_context_title": "Использованный контекст ({{count}})",
+      "tab_context_label": "Контекст вкладки ({{count}})",
+      "rag_context_label": "Контекст RAG ({{count}})",
+      "char_counts": "симв. вкладки: {{tab}} | симв. RAG: {{rag}}",
+      "trimmed": "обрезано"
+    },
     "search": {
       "button_title": "Поиск по истории чатов (семантический)",
       "button_label": "Поиск чатов",

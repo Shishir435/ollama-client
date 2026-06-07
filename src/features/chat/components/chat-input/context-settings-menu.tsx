@@ -341,7 +341,7 @@ export const ContextSettingsMenu = () => {
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[min(64vh,32rem)] overflow-x-hidden">
-            <pre className="whitespace-pre-wrap wrap-break-words p-4 font-sans text-xs leading-relaxed text-muted-foreground">
+            <pre className="whitespace-pre-wrap wrap-break-word p-4 font-sans text-xs leading-relaxed text-muted-foreground">
               {previewContent || t("tabs.inspector.no_content")}
             </pre>
           </ScrollArea>
