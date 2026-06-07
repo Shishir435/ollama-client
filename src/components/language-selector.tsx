@@ -4,7 +4,7 @@ import { Trans, useTranslation } from "react-i18next"
 import { SelectRow, SettingsCard } from "@/components/settings"
 import { SelectItem } from "@/components/ui/select"
 import { LANGUAGES } from "@/i18n/languages"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { Globe } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
@@ -60,7 +60,7 @@ export const LanguageSelector = () => {
           components={[
             <a
               key="github-link"
-              href="https://github.com/Shishir435/ollama-client/discussions/38"
+              href={EXTERNAL_URLS.I18N_DISCUSSION_GITHUB}
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-primary">
