@@ -292,9 +292,9 @@ describe("retrieveContextEnhanced — includeMemory: true", () => {
 
     const memResult = results.find((r) => r.isMemory === true)
     expect(memResult).toBeDefined()
-    expect(memResult!.isMemory).toBe(true)
+    expect(memResult?.isMemory).toBe(true)
     // Score should be the original similarity * 0.9
-    expect(memResult!.score).toBeCloseTo(memorySimilarity * 0.9, 5)
+    expect(memResult?.score).toBeCloseTo(memorySimilarity * 0.9, 5)
   })
 })
 

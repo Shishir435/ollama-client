@@ -202,6 +202,10 @@
       "speed_unit": "टोकन/से"
     },
     "session_metrics": {
+      "label_tokens": "टोकन",
+      "label_time": "समय",
+      "label_speed": "गति",
+      "label_responses": "जवाब",
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
       "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
       "tooltip_speed": "औसत उत्पन्न करने की गति",
@@ -582,7 +586,7 @@
       "title": "चैट डिस्प्ले",
       "description": "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",
       "session_metrics_label": "सत्र मेट्रिक्स दिखाएं",
-      "session_metrics_description": "चैट इनपुट के ऊपर टोकन उपयोग, अवधि और गति प्रदर्शित करें"
+      "session_metrics_description": "चैट हेडर में टोकन उपयोग, अवधि और गति प्रदर्शित करें"
     },
     "prompt_context_limits": {
       "title": "प्रॉम्प्ट संदर्भ सीमाएं",

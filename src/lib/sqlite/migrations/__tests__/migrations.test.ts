@@ -37,7 +37,7 @@ describe("ensureMessagesThinkingColumn", () => {
 
   it("frees the prepared statement regardless", () => {
     const db = makeDb(["id", "thinking"])
-    const stmt = db.prepare()
+    db.prepare()
     // reset to get fresh spy
     const freshDb = makeDb(["id"])
     ensureMessagesThinkingColumn(freshDb as any)

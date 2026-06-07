@@ -8,7 +8,6 @@ import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
 import { ComposerShell } from "@/features/chat/components/chat-input/composer-shell"
 import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
-import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -30,18 +29,16 @@ import {
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import type { ChatMessage, ChromeMessage } from "@/types"
+import type { ChromeMessage } from "@/types"
 
 const pendingSelectionStorage = getPlasmoStorageForKey(
   STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
 )
 
 export const ChatInputBox = ({
-  messages,
   onSend,
   stopGeneration
 }: {
-  messages: ChatMessage[]
   onSend: (
     customInput?: string,
     customModel?: string,
@@ -369,8 +366,6 @@ export const ChatInputBox = ({
 
   return (
     <div className="relative">
-      {showSessionMetrics && <SessionMetricsBar messages={messages} />}
-
       {showPromptOverlay && (
         <PromptSelectorDialog
           open={showPromptOverlay}

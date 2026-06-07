@@ -202,6 +202,10 @@
       "speed_unit": "t/s"
     },
     "session_metrics": {
+      "label_tokens": "トークン",
+      "label_time": "時間",
+      "label_speed": "速度",
+      "label_responses": "応答",
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
@@ -582,7 +586,7 @@
       "title": "チャット表示",
       "description": "チャット情報の表示方法を設定",
       "session_metrics_label": "セッションメトリクスを表示",
-      "session_metrics_description": "チャット入力上にトークン使用量、時間、速度を表示"
+      "session_metrics_description": "チャットヘッダーにトークン使用量、時間、速度を表示"
     },
     "prompt_context_limits": {
       "title": "プロンプトコンテキスト制限",

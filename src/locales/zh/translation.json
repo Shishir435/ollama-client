@@ -202,6 +202,10 @@
       "speed_unit": "词元/秒"
     },
     "session_metrics": {
+      "label_tokens": "令牌",
+      "label_time": "时间",
+      "label_speed": "速度",
+      "label_responses": "回复",
       "tooltip_tokens": "本次会话使用的总 Token",
       "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
@@ -582,7 +586,7 @@
       "title": "聊天显示",
       "description": "配置聊天信息的显示方式",
       "session_metrics_label": "显示会话指标",
-      "session_metrics_description": "在聊天输入框上方显示令牌使用量、时长和速度"
+      "session_metrics_description": "在聊天标题栏显示令牌使用量、时长和速度"
     },
     "prompt_context_limits": {
       "title": "提示词上下文限制",

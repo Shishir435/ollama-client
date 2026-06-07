@@ -153,7 +153,7 @@ export const Chat = () => {
 
   return (
     <div className="flex h-screen flex-col bg-surface-chat">
-      <ChatHeader />
+      <ChatHeader messages={messages} />
 
       {hasSession ? (
         <>
@@ -173,7 +173,6 @@ export const Chat = () => {
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
-                messages={messages}
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}
               />
