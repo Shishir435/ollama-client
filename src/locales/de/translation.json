@@ -978,9 +978,9 @@
     "prompts": {
       "title": "Prompt-Vorlagen",
       "description": "Verwalten Sie Ihre Sammlung von {{count}} Prompt-Vorlagen.",
-      "export": "Vorlagen exportieren",
-      "import": "Vorlagen importieren",
-      "reset": "Auf Standard zurücksetzen",
+      "export": "Exportieren",
+      "import": "Importieren",
+      "reset": "Zurücksetzen",
       "reset_dialog": {
         "title": "Vorlagen auf Standard zurücksetzen?",
         "description": "Dadurch werden alle Ihre aktuellen Vorlagen durch die Standardvorlagen ersetzt. Diese Aktion kann nicht rückgängig gemacht werden.",

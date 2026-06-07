@@ -978,9 +978,9 @@
     "prompts": {
       "title": "Plantillas de Prompt",
       "description": "Gestiona tu colección de {{count}} plantillas de prompt.",
-      "export": "Exportar Plantillas",
-      "import": "Importar Plantillas",
-      "reset": "Restablecer a Valores Predeterminados",
+      "export": "Exportar",
+      "import": "Importar",
+      "reset": "Restablecer",
       "reset_dialog": {
         "title": "¿Restablecer plantillas a valores predeterminados?",
         "description": "Esto reemplazará todas tus plantillas actuales con las predeterminadas. Esta acción no se puede deshacer.",
