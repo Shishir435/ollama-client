@@ -67,25 +67,22 @@ export const PromptTemplateActions = ({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal className="size-3" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onExport}>
-            <Download className="mr-2 size-4" />
+            <Download className="size-3" />
             {t("settings.prompts.export")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-            <Upload className="mr-2 size-4" />
+            <Upload className="size-3" />
             {t("settings.prompts.import")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              resetDialog.openDialog()
-            }}
-            className="text-destructive focus:text-destructive">
-            <RotateCcw className="mr-2 size-4" />
+            onClick={() => resetDialog.openDialog()}
+            className="text-destructive">
+            <RotateCcw className="size-3" />
             {t("settings.prompts.reset")}
           </DropdownMenuItem>
         </DropdownMenuContent>

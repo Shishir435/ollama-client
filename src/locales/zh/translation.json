@@ -978,9 +978,9 @@
     "prompts": {
       "title": "提示词模板",
       "description": "管理您收集的 {{count}} 个提示词模板。",
-      "export": "导出模板",
-      "import": "导入模板",
-      "reset": "重置为默认值",
+      "export": "导出",
+      "import": "导入",
+      "reset": "重置",
       "reset_dialog": {
         "title": "重置模板为默认值？",
         "description": "这会将您当前所有的模板替换为默认模板。此操作无法撤销。",

@@ -978,9 +978,9 @@
     "prompts": {
       "title": "Modèles de Prompt",
       "description": "Gérez votre collection de {{count}} modèles de prompt.",
-      "export": "Exporter les Modèles",
-      "import": "Importer les Modèles",
-      "reset": "Réinitialiser aux Valeurs par Défaut",
+      "export": "Exporter",
+      "import": "Importer",
+      "reset": "Réinitialiser",
       "reset_dialog": {
         "title": "Réinitialiser les modèles aux valeurs par défaut ?",
         "description": "Ceci remplacera tous vos modèles actuels par ceux par défaut. Cette action est irréversible.",

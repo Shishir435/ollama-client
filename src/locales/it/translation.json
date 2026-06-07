@@ -978,9 +978,9 @@
     "prompts": {
       "title": "Modelli di Prompt",
       "description": "Gestisci la tua collezione di {{count}} modelli di prompt.",
-      "export": "Esporta Modelli",
-      "import": "Importa Modelli",
-      "reset": "Ripristina ai Valori Predefiniti",
+      "export": "Esporta",
+      "import": "Importa",
+      "reset": "Ripristina",
       "reset_dialog": {
         "title": "Ripristinare i modelli ai valori predefiniti?",
         "description": "Questo sostituirà tutti i tuoi modelli attuali con quelli predefiniti. Questa azione non può essere annullata.",

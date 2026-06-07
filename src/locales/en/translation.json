@@ -978,9 +978,9 @@
     "prompts": {
       "title": "Prompt Templates",
       "description": "Manage your collection of {{count}} prompt templates.",
-      "export": "Export Templates",
-      "import": "Import Templates",
-      "reset": "Reset to Defaults",
+      "export": "Export",
+      "import": "Import",
+      "reset": "Reset",
       "reset_dialog": {
         "title": "Reset templates to defaults?",
         "description": "This will replace all of your current templates with the default ones. This action cannot be undone.",
