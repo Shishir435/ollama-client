@@ -98,7 +98,7 @@ export const SessionMetricsBar = ({
         <span className="font-mono tabular-nums">{summary}</span>
       </PopoverTrigger>
       <PopoverContent
-        align="end"
+        align="center"
         sideOffset={8}
         className="w-[min(14rem,calc(100vw-1rem))] rounded-panel p-2">
         <div className="grid gap-1 text-xs">
