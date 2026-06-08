@@ -170,7 +170,8 @@
       "rag_toggle_on": "智能上下文已开启",
       "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
-      "drop_files_here": "将文件拖到此处"
+      "drop_files_here": "将文件拖到此处",
+      "attachments": "{{count}} 个附件"
     },
     "context_preview": {
       "files": "已附加文件",

@@ -170,7 +170,8 @@
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
-      "drop_files_here": "Drop files here"
+      "drop_files_here": "Drop files here",
+      "attachments": "{{count}} attachments"
     },
     "context_preview": {
       "files": "Attached files",

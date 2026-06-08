@@ -170,7 +170,8 @@
       "rag_toggle_on": "スマートコンテキストがオン",
       "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
-      "drop_files_here": "ここにファイルをドロップ"
+      "drop_files_here": "ここにファイルをドロップ",
+      "attachments": "添付 {{count}} 件"
     },
     "context_preview": {
       "files": "添付ファイル",

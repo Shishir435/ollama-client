@@ -170,7 +170,8 @@
       "rag_toggle_on": "स्मार्ट संदर्भ चालू है",
       "rag_toggle_off": "स्मार्ट संदर्भ बंद है",
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
-      "drop_files_here": "फ़ाइलें यहाँ छोड़ें"
+      "drop_files_here": "फ़ाइलें यहाँ छोड़ें",
+      "attachments": "{{count}} अनुलग्नक"
     },
     "context_preview": {
       "files": "संलग्न फ़ाइलें",

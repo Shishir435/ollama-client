@@ -1,9 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Textarea } from "@/components/ui/textarea"
-import { ChatInputAttachmentList } from "@/features/chat/components/chat-input/chat-input-attachment-list"
+import { ChatInputAttachmentSheet } from "@/features/chat/components/chat-input/chat-input-attachment-sheet"
 import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
 import { ComposerShell } from "@/features/chat/components/chat-input/composer-shell"
@@ -12,17 +11,14 @@ import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-m
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
-
-import { PromptSelectorDialog } from "@/features/prompt/components/prompt-selector-dialog"
+import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
-
 import { logger } from "@/lib/logger"
 import {
   getPlasmoStorageForKey,
@@ -63,6 +59,7 @@ export const ChatInputBox = ({
   const [isDragging, setIsDragging] = useState(false)
   const [showSessionMetrics, setShowSessionMetrics] =
     useSessionMetricsPreference()
+  const [showAttachmentSheet, setShowAttachmentSheet] = useState(false)
 
   const {
     processFiles,
@@ -145,6 +142,13 @@ export const ChatInputBox = ({
     }
   }
 
+  const successfulFiles = processingStates
+    .filter(
+      (s): s is typeof s & { status: "success"; result: ProcessedFile } =>
+        s.status === "success" && s.result !== undefined
+    )
+    .map((s) => s.result)
+
   const handleSend = () => {
     const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
     const pendingTabCount = selectedTabNums.filter(
@@ -157,13 +161,6 @@ export const ChatInputBox = ({
       })
       return
     }
-
-    const successfulFiles = processingStates
-      .filter(
-        (s): s is typeof s & { status: "success"; result: ProcessedFile } =>
-          s.status === "success" && s.result !== undefined
-      )
-      .map((s) => s.result)
 
     onSend(
       undefined,
@@ -367,7 +364,7 @@ export const ChatInputBox = ({
   return (
     <div className="relative">
       {showPromptOverlay && (
-        <PromptSelectorDialog
+        <PromptSelectorSheet
           open={showPromptOverlay}
           onSelect={handleSelectPrompt}
           onClose={() => setShowPromptOverlay(false)}
@@ -381,10 +378,6 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
-        <ChatInputAttachmentList
-          processingStates={processingStates}
-          onRemove={(file) => clearProcessingState(file)}
-        />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
@@ -415,6 +408,8 @@ export const ChatInputBox = ({
           inputLength={input.length}
           isLoading={isLoading}
           onFilesSelected={handleFilesSelected}
+          processingStates={processingStates}
+          onAttachmentClick={() => setShowAttachmentSheet(true)}
         />
 
         <div className="absolute right-3 top-3">
@@ -428,6 +423,12 @@ export const ChatInputBox = ({
           />
         </div>
       </ComposerShell>
+      <ChatInputAttachmentSheet
+        open={showAttachmentSheet}
+        onOpenChange={setShowAttachmentSheet}
+        processingStates={processingStates}
+        onRemove={clearProcessingState}
+      />
     </div>
   )
 }

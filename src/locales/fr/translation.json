@@ -170,7 +170,8 @@
       "rag_toggle_on": "Contexte intelligent activé",
       "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
-      "drop_files_here": "Déposer des fichiers ici"
+      "drop_files_here": "Déposer des fichiers ici",
+      "attachments": "{{count}} pièces jointes"
     },
     "context_preview": {
       "files": "Fichiers joints",

@@ -170,7 +170,8 @@
       "rag_toggle_on": "Intelligenter Kontext aktiviert",
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
-      "drop_files_here": "Dateien hier ablegen"
+      "drop_files_here": "Dateien hier ablegen",
+      "attachments": "{{count}} Anhänge"
     },
     "context_preview": {
       "files": "Angehängte Dateien",

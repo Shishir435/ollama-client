@@ -170,7 +170,8 @@
       "rag_toggle_on": "Contexto inteligente activado",
       "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
-      "drop_files_here": "Soltar archivos aquí"
+      "drop_files_here": "Soltar archivos aquí",
+      "attachments": "{{count}} adjuntos"
     },
     "context_preview": {
       "files": "Archivos adjuntos",

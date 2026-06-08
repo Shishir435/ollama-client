@@ -170,7 +170,8 @@
       "rag_toggle_on": "Умный контекст включен",
       "rag_toggle_off": "Умный контекст выключен",
       "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата",
-      "drop_files_here": "Перетащите файлы сюда"
+      "drop_files_here": "Перетащите файлы сюда",
+      "attachments": "{{count}} вложений"
     },
     "context_preview": {
       "files": "Прикрепленные файлы",
