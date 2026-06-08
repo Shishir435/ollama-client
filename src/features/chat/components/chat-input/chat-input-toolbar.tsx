@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { SettingsButton } from "@/components/settings-button"
-import { Button } from "@/components/ui/button"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import type { FileProcessingState } from "@/lib/file-processors/types"
@@ -52,22 +52,24 @@ export const ChatInputToolbar = ({
           disabled={isLoading}
         />
         {attachmentCount > 0 && onAttachmentClick && (
-          <Button
+          <TooltipActionButton
             type="button"
             variant="ghost"
             size="icon"
             className="relative size-8 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
             onClick={onAttachmentClick}
-            aria-label={t("chat.input.attachments", {
+            label={t("chat.input.attachments", {
               count: attachmentCount
-            })}>
-            <div className="relative">
-              <FileText className="icon-md" />
-              <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
-                {attachmentCount}
-              </span>
-            </div>
-          </Button>
+            })}
+            icon={
+              <div className="relative">
+                <FileText className="icon-md" aria-hidden="true" />
+                <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
+                  {attachmentCount}
+                </span>
+              </div>
+            }
+          />
         )}
       </div>
 
