@@ -184,12 +184,16 @@
     "actions": {
       "copy": "Копировать",
       "copied": "Скопировано",
-      "switch_model_tooltip": "Переключить модель",
-      "fork": "Ответвить",
+      "switch_model_tooltip": "Сменить модель",
+      "fork": "Ветвление",
       "edit": "Редактировать",
       "more": "Ещё",
       "delete": "Удалить сообщение",
       "export": "Экспорт",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "Текст",
       "previous_branch": "Предыдущая ветка",
       "next_branch": "Следующая ветка"
     },
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "Импорт сессий чата",
       "aria_label": "Импорт сессий чата"
+    },
+    "actions": {
+      "more": "Ещё действия для {{title}}",
+      "more_default": "Действия сессии чата",
+      "tooltip": "Ещё действия"
     }
   },
   "tabs": {

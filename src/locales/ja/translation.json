@@ -183,15 +183,19 @@
     },
     "actions": {
       "copy": "コピー",
-      "copied": "コピーしました",
-      "switch_model_tooltip": "モデルを切り替え",
+      "copied": "コピー済み",
+      "switch_model_tooltip": "モデル切り替え",
       "fork": "分岐",
       "edit": "編集",
-      "more": "その他",
+      "more": "もっと見る",
       "delete": "メッセージを削除",
       "export": "エクスポート",
-      "previous_branch": "前の分岐",
-      "next_branch": "次の分岐"
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "テキスト",
+      "previous_branch": "前のブランチ",
+      "next_branch": "次のブランチ"
     },
     "metrics": {
       "total_time": "合計時間",
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "チャットセッションをインポート",
       "aria_label": "チャットセッションをインポート"
+    },
+    "actions": {
+      "more": "{{title}} のその他のアクション",
+      "more_default": "チャットセッションのアクション",
+      "tooltip": "その他のアクション"
     }
   },
   "tabs": {

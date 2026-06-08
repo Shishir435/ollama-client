@@ -21,16 +21,45 @@ vi.mock("react-virtuoso", () => ({
   }) => <div>{data.map((item, index) => itemContent(index, item))}</div>
 }))
 
-vi.mock("@/features/sessions/components/chat-export-button", () => ({
-  ChatExportButton: () => <button type="button">export</button>
+vi.mock("@/features/sessions/components/chat-session-actions", () => ({
+  ChatSessionActions: ({
+    actions
+  }: {
+    actions: { key: string; onClick: () => void }[]
+  }) => {
+    const deleteAction = actions.find((a) => a.key === "delete")
+    return (
+      <div>
+        {deleteAction && (
+          <button type="button" onClick={deleteAction.onClick}>
+            delete
+          </button>
+        )}
+      </div>
+    )
+  }
 }))
 
-vi.mock("@/features/sessions/components/chat-delete-button", () => ({
-  ChatDeleteButton: ({ onDelete }: { onDelete: () => void }) => (
-    <button type="button" onClick={onDelete}>
-      delete
-    </button>
-  )
+vi.mock("@/features/sessions/stores/chat-session-store", () => {
+  const mockNow = new Date("2026-06-06T12:00:00").getTime()
+  const mockDay = 24 * 60 * 60 * 1000
+  return {
+    useChatSessions: () => ({
+      sessions: [
+        { id: "today", title: "today", updatedAt: mockNow },
+        { id: "older", title: "older", updatedAt: mockNow - 8 * mockDay }
+      ]
+    })
+  }
+})
+
+vi.mock("@/features/sessions/hooks/use-export-chat", () => ({
+  useChatExport: () => ({
+    exportSessionAsPdf: vi.fn(),
+    exportSessionAsJson: vi.fn(),
+    exportSessionAsMarkdown: vi.fn(),
+    exportSessionAsText: vi.fn()
+  })
 }))
 
 const now = new Date("2026-06-06T12:00:00").getTime()

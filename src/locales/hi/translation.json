@@ -185,11 +185,15 @@
       "copy": "कॉपी करें",
       "copied": "कॉपी किया गया",
       "switch_model_tooltip": "मॉडल बदलें",
-      "fork": "फोर्क करें",
+      "fork": "वार्तालाप शाखा",
       "edit": "संपादित करें",
       "more": "और",
-      "delete": "संदेश हटाएँ",
-      "export": "निर्यात",
+      "delete": "संदेश हटाएं",
+      "export": "निर्यात करें",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "पाठ",
       "previous_branch": "पिछली शाखा",
       "next_branch": "अगली शाखा"
     },
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "चैट सेशन आयात करें",
       "aria_label": "चैट सेशन आयात करें"
+    },
+    "actions": {
+      "more": "{{title}} के लिए अधिक क्रियाएं",
+      "more_default": "चैट सेशन की क्रियाएं",
+      "tooltip": "अधिक क्रियाएं"
     }
   },
   "tabs": {

@@ -185,11 +185,15 @@
       "copy": "Copier",
       "copied": "Copié",
       "switch_model_tooltip": "Changer de modèle",
-      "fork": "Créer une branche",
+      "fork": "Fork Conversation",
       "edit": "Modifier",
       "more": "Plus",
       "delete": "Supprimer le message",
       "export": "Exporter",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "Texte",
       "previous_branch": "Branche précédente",
       "next_branch": "Branche suivante"
     },
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "Importer des sessions de chat",
       "aria_label": "Importer des sessions de chat"
+    },
+    "actions": {
+      "more": "Plus d'actions pour {{title}}",
+      "more_default": "Actions de la session de chat",
+      "tooltip": "Plus d'actions"
     }
   },
   "tabs": {

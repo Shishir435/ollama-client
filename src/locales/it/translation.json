@@ -185,13 +185,17 @@
       "copy": "Copia",
       "copied": "Copiato",
       "switch_model_tooltip": "Cambia modello",
-      "fork": "Biforca",
+      "fork": "Fork Conversazione",
       "edit": "Modifica",
       "more": "Altro",
-      "delete": "Elimina messaggio",
+      "delete": "Elimina Messaggio",
       "export": "Esporta",
-      "previous_branch": "Ramo precedente",
-      "next_branch": "Ramo successivo"
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "Testo",
+      "previous_branch": "Branch Precedente",
+      "next_branch": "Branch Successivo"
     },
     "metrics": {
       "total_time": "Tempo totale",
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "Importa sessioni di chat",
       "aria_label": "Importa sessioni di chat"
+    },
+    "actions": {
+      "more": "Altre azioni per {{title}}",
+      "more_default": "Azioni della sessione di chat",
+      "tooltip": "Altre azioni"
     }
   },
   "tabs": {

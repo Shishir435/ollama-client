@@ -190,6 +190,10 @@
       "more": "More",
       "delete": "Delete Message",
       "export": "Export",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "Text",
       "previous_branch": "Previous branch",
       "next_branch": "Next branch"
     },
@@ -574,6 +578,11 @@
     "import": {
       "tooltip": "Import chat sessions",
       "aria_label": "Import chat sessions"
+    },
+    "actions": {
+      "more": "More actions for {{title}}",
+      "more_default": "Chat session actions",
+      "tooltip": "More actions"
     }
   },
   "tabs": {
