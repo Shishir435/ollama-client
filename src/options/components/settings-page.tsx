@@ -25,9 +25,9 @@ import { ContextSettings } from "@/features/context/components/context-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
-
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
+import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
   BookOpen,
@@ -230,7 +230,7 @@ export const SettingsPage = () => {
           "ring-offset-2",
           "ring-offset-background"
         )
-      }, 3000)
+      }, HIGHLIGHT_FOCUS_DELAY_MS)
 
       if (focusTarget instanceof HTMLElement) {
         focusTarget.focus({ preventScroll: true })

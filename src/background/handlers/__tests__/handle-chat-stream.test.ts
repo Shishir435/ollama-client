@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "@/lib/constants"
 import { handleChatStream } from "../handle-chat-stream"
 import {
   clearHandlerMocks,
@@ -131,7 +132,9 @@ describe("handleChatStream", () => {
   })
 
   describe("timeout handling", () => {
-    it("should timeout if no data received within 60 seconds", {
+    it("should timeout if no data received within " +
+      STREAM_FIRST_CHUNK_TIMEOUT_MS / 1000 +
+      " seconds", {
       timeout: 10000
     }, async () => {
       const { safePostMessage } = await import("@/background/lib/utils")
@@ -163,7 +166,7 @@ describe("handleChatStream", () => {
       )
 
       // Advance time to trigger timeout
-      await vi.advanceTimersByTimeAsync(60000)
+      await vi.advanceTimersByTimeAsync(STREAM_FIRST_CHUNK_TIMEOUT_MS)
 
       await streamPromise
 
@@ -176,52 +179,59 @@ describe("handleChatStream", () => {
       })
     })
 
-    it("should not timeout if data is received before 60 seconds", async () => {
-      const { processStreamChunk } = await import(
-        "@/background/lib/process-stream-chunk"
-      )
+    it(
+      "should not timeout if data is received before " +
+        STREAM_FIRST_CHUNK_TIMEOUT_MS / 1000 +
+        " seconds",
+      async () => {
+        const { processStreamChunk } = await import(
+          "@/background/lib/process-stream-chunk"
+        )
 
-      const chunk = new TextEncoder().encode('{"message": {"content": "data"}}')
+        const chunk = new TextEncoder().encode(
+          '{"message": {"content": "data"}}'
+        )
 
-      let readCount = 0
-      const mockReader = {
-        read: vi.fn().mockImplementation(async () => {
-          readCount++
-          if (readCount === 1) {
-            // First read returns data after 30 seconds
-            await new Promise((resolve) => setTimeout(resolve, 100))
-            return { value: chunk, done: false }
-          }
-          return { value: undefined, done: true }
-        }),
-        cancel: vi.fn().mockResolvedValue(undefined)
-      }
-
-      const mockResponse = {
-        body: {
-          getReader: () => mockReader
+        let readCount = 0
+        const mockReader = {
+          read: vi.fn().mockImplementation(async () => {
+            readCount++
+            if (readCount === 1) {
+              // First read returns data after 30 seconds
+              await new Promise((resolve) => setTimeout(resolve, 100))
+              return { value: chunk, done: false }
+            }
+            return { value: undefined, done: true }
+          }),
+          cancel: vi.fn().mockResolvedValue(undefined)
         }
-      } as unknown as Response
 
-      vi.mocked(processStreamChunk).mockReturnValue({
-        buffer: "",
-        fullText: "data",
-        isDone: false
-      })
+        const mockResponse = {
+          body: {
+            getReader: () => mockReader
+          }
+        } as unknown as Response
 
-      const streamPromise = handleChatStream(
-        mockResponse,
-        mockPort,
-        mockIsPortClosed
-      )
+        vi.mocked(processStreamChunk).mockReturnValue({
+          buffer: "",
+          fullText: "data",
+          isDone: false
+        })
 
-      // Advance to 30 seconds (less than timeout)
-      await vi.advanceTimersByTimeAsync(30000)
+        const streamPromise = handleChatStream(
+          mockResponse,
+          mockPort,
+          mockIsPortClosed
+        )
 
-      await streamPromise
+        // Advance to 30 seconds (less than timeout)
+        await vi.advanceTimersByTimeAsync(30000)
 
-      expect(mockReader.cancel).not.toHaveBeenCalled()
-    })
+        await streamPromise
+
+        expect(mockReader.cancel).not.toHaveBeenCalled()
+      }
+    )
   })
 
   describe("port closed handling", () => {
