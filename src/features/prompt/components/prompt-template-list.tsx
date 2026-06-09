@@ -74,7 +74,7 @@ export const PromptTemplateList = ({
             <Card>
               {/* Card Header - Always Visible */}
               <CollapsibleTrigger
-                render={<div className="group cursor-pointer p-4" />}>
+                render={<div className="group cursor-pointer px-4" />}>
                 {/* Row 1: Chevron + Title + Category Badge */}
                 <div className="flex items-center gap-2">
                   <ChevronRight
