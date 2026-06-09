@@ -285,7 +285,11 @@ export const ChatInputBox = ({
 
       lastSelectionAppendRef.current = { text: pendingText, at: now }
 
-      const selectionText = `> ${pendingText.split("\n").join("\n> ")}\n`
+      const firstLineBreak = pendingText.indexOf("\n\n")
+      const selectionText =
+        firstLineBreak === -1
+          ? `> ${pendingText.split("\n").join("\n> ")}\n`
+          : `> ${pendingText.slice(0, firstLineBreak).split("\n").join("\n> ")}\n\n${pendingText.slice(firstLineBreak + 2).trim()}`
       appendInput(selectionText)
       textareaRef.current?.focus()
 
