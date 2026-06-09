@@ -2,6 +2,7 @@ import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { IconBadge } from "@/components/icon-badge"
 import { Accordion } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import {
@@ -99,14 +100,7 @@ export function MessageSourcesSheet({
         ariaLabel={ariaLabel ?? tooltip}
         tooltip={tooltip}
         tooltipSide="top"
-        icon={
-          <div className="relative">
-            {icon}
-            <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
-              {badgeCount}
-            </span>
-          </div>
-        }
+        icon={<IconBadge icon={icon} count={badgeCount} />}
       />
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent

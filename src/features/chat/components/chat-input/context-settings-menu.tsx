@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { IconBadge } from "@/components/icon-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -194,14 +195,10 @@ export const ContextSettingsMenu = () => {
           }
           label={t("tabs.context")}
           icon={
-            <div className="relative">
-              <Layers className="icon-md" aria-hidden="true" />
-              {selectedTabIds.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
-                  {selectedTabIds.length}
-                </span>
-              )}
-            </div>
+            <IconBadge
+              icon={<Layers className="icon-md" aria-hidden="true" />}
+              count={selectedTabIds.length}
+            />
           }
         />
         <PopoverContent

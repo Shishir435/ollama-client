@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { IconBadge } from "@/components/icon-badge"
 import { SettingsButton } from "@/components/settings-button"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
@@ -62,12 +63,10 @@ export const ChatInputToolbar = ({
               count: attachmentCount
             })}
             icon={
-              <div className="relative">
-                <FileText className="icon-md" aria-hidden="true" />
-                <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-[7px] font-bold text-primary-foreground">
-                  {attachmentCount}
-                </span>
-              </div>
+              <IconBadge
+                icon={<FileText className="icon-md" aria-hidden="true" />}
+                count={attachmentCount}
+              />
             }
           />
         )}
