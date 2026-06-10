@@ -18,8 +18,8 @@ export async function openSelectionResultInChat(
   const parts: string[] = []
   if (capture?.text.trim()) {
     parts.push(capture.text.trim())
+    parts.push("---")
   }
-  parts.push("---")
   parts.push(result)
 
   await sendRuntimeMessage(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT, {

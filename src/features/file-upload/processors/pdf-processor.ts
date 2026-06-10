@@ -34,8 +34,11 @@ export class PdfProcessor implements FileProcessor {
 
       try {
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-        // Race the loading task against a timeout to avoid hanging indefinitely
-        pdf = await promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS)
+        // Give the worker-backed load 2/3 of the full budget; the fallback gets the full timeout
+        pdf = await promiseTimeout(
+          loadingTask.promise,
+          Math.floor(PDF_LOAD_TIMEOUT_MS * (2 / 3))
+        )
       } catch (_firstErr) {
         // First attempt failed or timed out; retry without worker
         logger.warn(
