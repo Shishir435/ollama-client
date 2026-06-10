@@ -88,6 +88,7 @@ export function ChatInputAttachmentSheet({
                         })}
                       </span>
                     </CollapsibleTrigger>
+                    {previewText && <CopyButton text={previewText} />}
                     <Button
                       type="button"
                       variant="ghost"
@@ -109,11 +110,6 @@ export function ChatInputAttachmentSheet({
                           className="p-3"
                         />
                       </div>
-                      {previewText && (
-                        <div className="flex justify-end border-t border-border/35 px-2 py-1">
-                          <CopyButton text={previewText} />
-                        </div>
-                      )}
                     </div>
                   </CollapsibleContent>
                 </div>

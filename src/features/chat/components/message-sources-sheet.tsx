@@ -102,34 +102,36 @@ export function MessageSourcesSheet({
                         key={value}
                         value={value}
                         className="rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
-                        <AccordionTrigger className="px-2 py-1.5 text-xs font-medium hover:no-underline">
-                          <div className="flex min-w-0 flex-col gap-0.5">
-                            <span className="truncate text-xs font-medium">
-                              {item.title}
-                            </span>
-                            {meta && (
-                              <span className="text-[10px] text-muted-foreground">
-                                {meta}
+                        <div className="flex items-center gap-1 pr-1">
+                          <AccordionTrigger className="flex-1 px-2 py-1.5 text-xs font-medium hover:no-underline">
+                            <div className="flex min-w-0 flex-col gap-0.5">
+                              <span className="truncate text-xs font-medium">
+                                {item.title}
                               </span>
-                            )}
-                          </div>
-                        </AccordionTrigger>
+                              {meta && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {meta}
+                                </span>
+                              )}
+                            </div>
+                          </AccordionTrigger>
+                          <CopyButton text={item.content} />
+                        </div>
                         <AccordionContent>
                           <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
                             <div className="whitespace-pre-wrap text-[11px] text-muted-foreground wrap-anywhere">
                               {item.content}
                             </div>
                           </div>
-                          <div className="mt-2 flex items-center gap-1">
-                            {feedback && (
+                          {feedback && (
+                            <div className="mt-2 flex items-center gap-1">
                               <ChunkFeedbackButton
                                 chunkId={value}
                                 query={feedback.query}
                                 sessionId={feedback.sessionId}
                               />
-                            )}
-                            <CopyButton text={item.content} />
-                          </div>
+                            </div>
+                          )}
                         </AccordionContent>
                       </AccordionItem>
                     )
