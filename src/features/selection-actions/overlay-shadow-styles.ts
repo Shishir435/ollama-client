@@ -465,5 +465,20 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
   .sa-thinking-body .sa-markdown {
     font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .sa-thinking-body .sa-markdown p {
+    margin-bottom: 2px;
+  }
+  .sa-thinking-body .sa-markdown p:last-child {
+    margin-bottom: 0;
+  }
+  .sa-thinking-body .sa-markdown li {
+    margin-bottom: 0;
+  }
+  .sa-thinking-body .sa-markdown ul,
+  .sa-thinking-body .sa-markdown ol {
+    margin-bottom: 4px;
   }
 `

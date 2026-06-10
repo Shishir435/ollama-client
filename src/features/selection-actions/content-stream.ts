@@ -47,21 +47,6 @@ export function startSelectionActionStream({
     ...(panelProviderId && { providerId: panelProviderId })
   }
 
-  let renderPending: number | null = null
-  const cancelPendingRender = () => {
-    if (renderPending !== null) {
-      cancelAnimationFrame(renderPending)
-      renderPending = null
-    }
-  }
-  const scheduleRender = () => {
-    if (renderPending !== null) return
-    renderPending = requestAnimationFrame(() => {
-      renderPending = null
-      render(false)
-    })
-  }
-
   let port: chrome.runtime.Port | null = connectSelectionStream(request, {
     onChunk: ({ visibleDelta, thinkingDelta, isThinking }) => {
       dispatch({
@@ -70,10 +55,8 @@ export function startSelectionActionStream({
         thinkingDelta,
         isThinking
       })
-      scheduleRender()
     },
     onDone: () => {
-      cancelPendingRender()
       dispatch({ type: "stream.done" })
       port?.disconnect()
       port = null
@@ -81,7 +64,6 @@ export function startSelectionActionStream({
       render(false)
     },
     onError: (message) => {
-      cancelPendingRender()
       dispatch({ type: "stream.error", message })
       port?.disconnect()
       port = null
