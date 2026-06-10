@@ -1,11 +1,15 @@
 import { useState } from "react"
 import { TooltipActionButton } from "@/components/actions"
 import { IconBadge } from "@/components/icon-badge"
-import { Accordion } from "@/components/ui/accordion"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
-import { AccordionCard } from "./accordion-card"
 import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"
 import { PreviewSheet } from "./preview-sheet"
@@ -87,14 +91,30 @@ export function MessageSourcesSheet({
                 <Accordion className="border-0 rounded-none divide-y-0 space-y-1">
                   {section.items.map((item) => {
                     const value = getItemValue(item)
+                    const meta = renderMetadata(item)
                     return (
-                      <AccordionCard
+                      <AccordionItem
                         key={value}
                         value={value}
-                        title={item.title}
-                        metadata={renderMetadata(item)}
-                        content={item.content}
-                        footer={
+                        className="rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
+                        <AccordionTrigger className="px-2 py-1.5 text-xs font-medium hover:no-underline">
+                          <div className="flex min-w-0 flex-col gap-0.5">
+                            <span className="truncate text-xs font-medium">
+                              {item.title}
+                            </span>
+                            {meta && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {meta}
+                              </span>
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
+                            <div className="whitespace-pre-wrap text-[11px] text-muted-foreground wrap-anywhere">
+                              {item.content}
+                            </div>
+                          </div>
                           <div className="mt-2 flex items-center gap-1">
                             {feedback && (
                               <ChunkFeedbackButton
@@ -105,8 +125,8 @@ export function MessageSourcesSheet({
                             )}
                             <CopyButton text={item.content} />
                           </div>
-                        }
-                      />
+                        </AccordionContent>
+                      </AccordionItem>
                     )
                   })}
                 </Accordion>

@@ -40,20 +40,151 @@ const trimPreview = (text: string, max = 140) => {
   return compact.length > max ? `${compact.slice(0, max)}...` : compact
 }
 
+interface TabOptionRowProps {
+  option: { value: string; label: string }
+  content: string | undefined
+  isSelected: boolean
+  isLoading: boolean
+  onToggle: () => void
+  onPreview: () => void
+}
+
+const TabOptionRow = ({
+  option,
+  content,
+  isSelected,
+  isLoading,
+  onToggle,
+  onPreview
+}: TabOptionRowProps) => {
+  const { t } = useTranslation()
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 gap-1 rounded-control px-2 py-1.5 text-left text-xs transition-colors",
+        isSelected
+          ? "bg-muted/55 text-foreground"
+          : "text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+      )}>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <AppWindow className="icon-sm shrink-0" />
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate text-left font-medium"
+          onClick={onToggle}
+          title={option.label}>
+          {option.label}
+        </button>
+        {isLoading && <Loader2 className="icon-xs shrink-0 animate-spin" />}
+        {isSelected && !isLoading && (
+          <CheckIcon className="icon-xs shrink-0 text-app-primary" />
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-5 rounded-control text-muted-foreground hover:text-foreground"
+          onClick={onPreview}
+          aria-label={t("tabs.select.view_content")}>
+          <Eye className="icon-xs" />
+        </Button>
+      </span>
+      <Button
+        type="button"
+        variant="secondary"
+        className="overflow-hidden text-start"
+        onClick={onPreview}>
+        {content ? trimPreview(content) : t("tabs.inspector.no_content")}
+      </Button>
+    </div>
+  )
+}
+
+interface TabContextPanelProps {
+  filteredTabOptions: { value: string; label: string }[]
+  tabContents: Record<number, { html?: string; title?: string } | undefined>
+  getTabStatus: (id: string) => { loading: boolean }
+  selectedTabIds: string[]
+  tabSearch: string
+  setTabSearch: (v: string) => void
+  refreshTabs: () => void
+  toggleTab: (id: string) => void
+  openPreview: (id: string) => void
+}
+
+const TabContextPanel = ({
+  filteredTabOptions,
+  tabContents,
+  getTabStatus,
+  selectedTabIds,
+  tabSearch,
+  setTabSearch,
+  refreshTabs,
+  toggleTab,
+  openPreview
+}: TabContextPanelProps) => {
+  const { t } = useTranslation()
+  return (
+    <div className="grid gap-2 border-t border-border/40 pt-2">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
+        <span>{t("tabs.select.placeholder")}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6 rounded-control"
+          onClick={refreshTabs}
+          aria-label={t("tabs.select.refresh_now")}>
+          <RefreshCw className="icon-xs" />
+        </Button>
+      </div>
+      <div className="relative">
+        <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
+        <Input
+          value={tabSearch}
+          onChange={(e) => setTabSearch(e.target.value)}
+          placeholder={t("tabs.select.search_placeholder")}
+          className="h-7 rounded-control pl-7 text-xs"
+          aria-label={t("tabs.select.search_placeholder")}
+        />
+      </div>
+      <ScrollArea className="max-h-36 rounded-control border border-border/35 bg-background/35">
+        <div className="grid gap-1 p-1">
+          {filteredTabOptions.map((option) => {
+            const tabId = parseInt(option.value, 10)
+            const content = tabContents[tabId]?.html?.trim()
+            const status = getTabStatus(option.value)
+            return (
+              <TabOptionRow
+                key={option.value}
+                option={option}
+                content={content}
+                isSelected={selectedTabIds.includes(option.value)}
+                isLoading={status.loading}
+                onToggle={() => toggleTab(option.value)}
+                onPreview={() => openPreview(option.value)}
+              />
+            )
+          })}
+          {filteredTabOptions.length === 0 && (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">
+              {t("tabs.inspector.no_content")}
+            </p>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
+
 export const ContextSettingsMenu = () => {
   const { t } = useTranslation()
   const [useRAG, setUseRAG] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
-      instance: plasmoGlobalStorage
-    },
+    { key: STORAGE_KEYS.EMBEDDINGS.USE_RAG, instance: plasmoGlobalStorage },
     true
   )
   const [tabAccess, setTabAccess] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
-      instance: plasmoGlobalStorage
-    },
+    { key: STORAGE_KEYS.BROWSER.TABS_ACCESS, instance: plasmoGlobalStorage },
     false
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(Boolean(tabAccess))
@@ -89,19 +220,18 @@ export const ContextSettingsMenu = () => {
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS
 
   const tabOptions = useMemo(() => {
-    const isAccessibleTab = (url: string | undefined) => {
+    const isAccessible = (url: string | undefined) => {
       if (!url) return false
-      return !excludedPatterns.some((pattern) => {
+      return !excludedPatterns.some((p) => {
         try {
-          return new RegExp(pattern).test(url)
+          return new RegExp(p).test(url)
         } catch {
-          return url.includes(pattern)
+          return url.includes(p)
         }
       })
     }
-
     return openTabs
-      .filter((tab) => tab.id !== undefined && isAccessibleTab(tab.url))
+      .filter((tab) => tab.id !== undefined && isAccessible(tab.url))
       .map((tab) => ({
         label: trimTitle(tab.title || tab.url || t("tabs.inspector.untitled")),
         value: String(tab.id),
@@ -112,7 +242,6 @@ export const ContextSettingsMenu = () => {
   const filteredTabOptions = useMemo(() => {
     const query = tabSearch.trim().toLowerCase()
     if (!query) return tabOptions
-
     return tabOptions.filter((option) => {
       const tabId = parseInt(option.value, 10)
       const content = tabContents[tabId]?.html || ""
@@ -121,15 +250,23 @@ export const ContextSettingsMenu = () => {
   }, [tabContents, tabOptions, tabSearch])
 
   useEffect(() => {
-    const allowedIds = new Set(tabOptions.map((option) => option.value))
-    const nextSelected = selectedTabIds.filter((id) => allowedIds.has(id))
-    if (nextSelected.length !== selectedTabIds.length) {
-      setSelectedTabIds(nextSelected)
-    }
-    if (previewTabId && !allowedIds.has(previewTabId)) {
-      setPreviewTabId(null)
-    }
+    const allowedIds = new Set(tabOptions.map((o) => o.value))
+    const next = selectedTabIds.filter((id) => allowedIds.has(id))
+    if (next.length !== selectedTabIds.length) setSelectedTabIds(next)
+    if (previewTabId && !allowedIds.has(previewTabId)) setPreviewTabId(null)
   }, [previewTabId, selectedTabIds, setSelectedTabIds, tabOptions])
+
+  const toggleTab = (value: string) =>
+    setSelectedTabIds(
+      selectedTabIds.includes(value)
+        ? selectedTabIds.filter((id) => id !== value)
+        : [...selectedTabIds, value]
+    )
+
+  const openPreview = (value: string) => {
+    setPreviewTabId(value)
+    setOpen(false)
+  }
 
   const toggleActions = [
     {
@@ -157,22 +294,11 @@ export const ContextSettingsMenu = () => {
     }
   ]
 
-  const toggleTab = (value: string) => {
-    setSelectedTabIds(
-      selectedTabIds.includes(value)
-        ? selectedTabIds.filter((id) => id !== value)
-        : [...selectedTabIds, value]
-    )
-  }
   const previewTab = previewTabId
     ? tabContents[parseInt(previewTabId, 10)]
     : null
   const previewContent = previewTab?.html?.trim()
   const previewCharCount = previewContent?.length ?? 0
-  const openPreview = (value: string) => {
-    setPreviewTabId(value)
-    setOpen(false)
-  }
 
   return (
     <>
@@ -208,7 +334,6 @@ export const ContextSettingsMenu = () => {
               {t("tabs.context")}
             </div>
           </div>
-
           <div className="grid gap-1">
             {toggleActions.map((action) => {
               const Icon = action.icon
@@ -235,101 +360,25 @@ export const ContextSettingsMenu = () => {
               )
             })}
           </div>
-
           {tabAccess && (
-            <div className="grid gap-2 border-t border-border/40 pt-2">
-              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
-                <span>{t("tabs.select.placeholder")}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 rounded-control"
-                  onClick={refreshTabs}
-                  aria-label={t("tabs.select.refresh_now")}>
-                  <RefreshCw className="icon-xs" />
-                </Button>
-              </div>
-              <div className="relative">
-                <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
-                <Input
-                  value={tabSearch}
-                  onChange={(event) => setTabSearch(event.target.value)}
-                  placeholder={t("tabs.select.search_placeholder")}
-                  className="h-7 rounded-control pl-7 text-xs"
-                  aria-label={t("tabs.select.search_placeholder")}
-                />
-              </div>
-              <ScrollArea className="max-h-36 rounded-control border border-border/35 bg-background/35">
-                <div className="grid gap-1 p-1">
-                  {filteredTabOptions.map((option) => {
-                    const tabId = parseInt(option.value, 10)
-                    const item = tabContents[tabId]
-                    const content = item?.html?.trim()
-                    const status = getTabStatus(option.value)
-                    const isSelected = selectedTabIds.includes(option.value)
-
-                    return (
-                      <div
-                        key={option.value}
-                        className={cn(
-                          "grid min-w-0 gap-1 rounded-control px-2 py-1.5 text-left text-xs transition-colors",
-                          isSelected
-                            ? "bg-muted/55 text-foreground"
-                            : "text-muted-foreground hover:bg-muted/35 hover:text-foreground"
-                        )}>
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <AppWindow className="icon-sm shrink-0" />
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 truncate text-left font-medium"
-                            onClick={() => toggleTab(option.value)}
-                            title={option.label}>
-                            {option.label}
-                          </button>
-                          {status.loading && (
-                            <Loader2 className="icon-xs shrink-0 animate-spin" />
-                          )}
-                          {isSelected && !status.loading && (
-                            <CheckIcon className="icon-xs shrink-0 text-app-primary" />
-                          )}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-5 rounded-control text-muted-foreground hover:text-foreground"
-                            onClick={() => openPreview(option.value)}
-                            aria-label={t("tabs.select.view_content")}>
-                            <Eye className="icon-xs" />
-                          </Button>
-                        </span>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="overflow-hidden text-start"
-                          onClick={() => openPreview(option.value)}>
-                          {content
-                            ? trimPreview(content)
-                            : t("tabs.inspector.no_content")}
-                        </Button>
-                      </div>
-                    )
-                  })}
-                  {filteredTabOptions.length === 0 && (
-                    <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                      {t("tabs.inspector.no_content")}
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
+            <TabContextPanel
+              filteredTabOptions={filteredTabOptions}
+              tabContents={tabContents}
+              getTabStatus={getTabStatus}
+              selectedTabIds={selectedTabIds}
+              tabSearch={tabSearch}
+              setTabSearch={setTabSearch}
+              refreshTabs={refreshTabs}
+              toggleTab={toggleTab}
+              openPreview={openPreview}
+            />
           )}
         </PopoverContent>
       </Popover>
       <PreviewSheet
         open={Boolean(previewTabId)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setPreviewTabId(null)
+        onOpenChange={(next) => {
+          if (!next) setPreviewTabId(null)
         }}
         title={previewTab?.title || t("tabs.inspector.untitled")}
         meta={t("tabs.inspector.chars", { count: previewCharCount })}>

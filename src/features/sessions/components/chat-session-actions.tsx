@@ -18,7 +18,7 @@ export interface ChatSessionActionsProps {
   trigger?: {
     ariaLabel?: string
     tooltip?: string
-    icon?: React.ReactNode
+    icon?: React.ReactElement
     className?: string
     variant?: "ghost" | "outline" | "default"
     size?:

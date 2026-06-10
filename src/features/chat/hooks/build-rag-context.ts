@@ -18,16 +18,12 @@ import { ProviderFactory } from "@/lib/providers/factory"
 import type {
   ChatMessage,
   RagSource,
+  RagSources,
   SelectedModelRef,
   UsedContextChunk
 } from "@/types"
 
-export type { RagSource, UsedContextChunk }
-
-export interface RagSources {
-  sources: RagSource[]
-  query: string
-}
+export type { RagSource, RagSources, UsedContextChunk }
 
 export interface PromptContextStats {
   promptInputLength: number

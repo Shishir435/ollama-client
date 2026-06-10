@@ -34,6 +34,11 @@ export interface UsedContextChunk {
   chunkIndex?: number
 }
 
+export interface RagSources {
+  sources: RagSource[]
+  query: string
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
