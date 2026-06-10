@@ -9,7 +9,7 @@ import {
   StatusAlert
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
+import { ChatBackfillPanel } from "@/features/chat/components"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"

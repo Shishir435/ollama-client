@@ -15,28 +15,14 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
-import type { ChatMessage, SelectedModelRef } from "@/types"
+import type {
+  ChatMessage,
+  RagSource,
+  SelectedModelRef,
+  UsedContextChunk
+} from "@/types"
 
-export interface UsedContextChunk {
-  id: string | number
-  title: string
-  excerpt: string
-  score: number
-  sectionPath?: string
-  source?: string
-  chunkIndex?: number
-}
-
-export interface RagSource {
-  id: string | number
-  title: string
-  content: string
-  score: number
-  source?: string
-  chunkIndex?: number
-  fileId?: string
-  type?: string
-}
+export type { RagSource, UsedContextChunk }
 
 export interface RagSources {
   sources: RagSource[]

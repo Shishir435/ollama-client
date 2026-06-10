@@ -10,7 +10,7 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
-import { CopyButton } from "@/features/chat/components/copy-button"
+import { CopyButton } from "@/features/chat/components"
 import { Calendar, ChevronRight, Star, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"

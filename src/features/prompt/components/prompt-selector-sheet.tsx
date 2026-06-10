@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { PreviewSheet } from "@/features/chat/components/preview-sheet"
+import { PreviewSheet } from "@/features/chat/components"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import { logger } from "@/lib/logger"
 import {

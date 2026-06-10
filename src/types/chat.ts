@@ -24,6 +24,16 @@ export interface RagSource {
   type?: string
 }
 
+export interface UsedContextChunk {
+  id: string | number
+  title: string
+  excerpt: string
+  score: number
+  sectionPath?: string
+  source?: string
+  chunkIndex?: number
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
@@ -42,15 +52,7 @@ export interface ChatMessage {
     eval_duration?: number
     ragQuery?: string
     ragSources?: RagSource[]
-    usedContextChunks?: Array<{
-      id: string | number
-      title: string
-      excerpt: string
-      score: number
-      sectionPath?: string
-      source?: string
-      chunkIndex?: number
-    }>
+    usedContextChunks?: UsedContextChunk[]
     toolRuns?: ToolRun[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
