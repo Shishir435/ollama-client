@@ -4,6 +4,13 @@ import { logger } from "@/lib/logger"
 
 export type RerankerBackend = "none" | "cosine"
 
+/**
+ * Cosine similarity re-scorer used as a precision pass after hybrid search.
+ * This is NOT a cross-encoder reranker — it scores documents using embedding
+ * cosine similarity against the query embedding, providing semantic-only
+ * ordering independent of the keyword weight used in stage 1 retrieval.
+ * Score range: [0, 1] via (cosine + 1) / 2.
+ */
 class RerankerService {
   private enabled: boolean = false
   private backend: RerankerBackend = "none"

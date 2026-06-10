@@ -289,7 +289,6 @@ export const buildRagContext = async (
               mode: queryClassification.suggestedMode,
               topK:
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-              useReranking: true,
               minSimilarity: retrievalOverrides?.minSimilarity,
               minRerankScore: retrievalOverrides?.minRerankScore,
               includeMemory: memoryEnabled,

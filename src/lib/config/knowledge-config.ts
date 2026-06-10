@@ -26,7 +26,7 @@ export const KNOWLEDGE_DEFAULTS = {
   splittingStrategy: "recursive" as "recursive" | "character",
   characterSeparator: "\\n\\n",
   retrievalTopK: 4,
-  maxContextSize: 10000,
+  maxContextSize: 20000,
   systemPrompt: `You are a helpful AI assistant. Answer the question using ONLY the context in <doc> blocks. If the answer is not in the context, say you don't know. Do not make up an answer.
 
 Each <doc> has attributes: id, source, page (if available), chunk (if available), score.

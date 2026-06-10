@@ -202,8 +202,12 @@ export async function retrieveContextEnhanced(
       originalSimilarity: candidate.similarity
     }))
   } else {
-    // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
-    logger.verbose(`Stage 2: Re-ranking with ${rerankerBackend}`, "RAGPipeline")
+    // ===== STAGE 2: Cosine Re-Scoring (Precision Pass) =====
+    // NOTE: current reranker backend is cosine similarity, not a cross-encoder.
+    // It provides a precision pass using semantic signal only (no keyword weight),
+    // which is useful when keywordWeight was high in stage 1. A real cross-encoder
+    // (e.g. transformers.js) would give stronger signal but requires a local model.
+    logger.verbose(`Stage 2: Re-scoring with ${rerankerBackend}`, "RAGPipeline")
     rerankerService.setBackend(rerankerBackend)
     rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
 
@@ -245,11 +249,13 @@ export async function retrieveContextEnhanced(
       "RAGPipeline"
     )
 
-    // Convert to EnhancedSearchResult format
-    rerankedResults = confidentResults.map((r, _idx) => {
-      const originalCandidate = candidates.find(
-        (c) => c.document.content === r.content
-      )
+    // Build lookup map before reranking to avoid O(n×m) content-string scan
+    const candidateByContent = new Map(
+      candidates.map((c) => [c.document.content, c])
+    )
+
+    rerankedResults = confidentResults.map((r) => {
+      const originalCandidate = candidateByContent.get(r.content)
       return {
         document: {
           id: originalCandidate?.document.id,
@@ -510,19 +516,19 @@ export function formatEnhancedResults(
           ? `${chunkIndex + 1}${totalChunks ? `/${totalChunks}` : ""}`
           : undefined
 
+      const clampedScore = Math.min(1, r.score)
       const attrs = [
         `id="${i + 1}"`,
         `source="${escapeAttribute(source)}"`,
         page ? `page="${page}"` : undefined,
         chunkLabel ? `chunk="${chunkLabel}"` : undefined,
-        r.score ? `score="${r.score.toFixed(3)}"` : undefined
+        r.score ? `score="${clampedScore.toFixed(3)}"` : undefined
       ]
         .filter(Boolean)
         .join(" ")
 
-      // For memory results, wrap with special tags for separation
       if (isMemory) {
-        return `<doc ${attrs}>\n${r.document.content}\n</doc>`
+        return `<memory ${attrs}>\n${r.document.content}\n</memory>`
       }
 
       return `<doc ${attrs}>\n${r.document.content}\n</doc>`
@@ -535,7 +541,7 @@ export function formatEnhancedResults(
       ? "Previous Conversation"
       : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
-    score: r.score,
+    score: Math.min(1, r.score),
     source: r.document.metadata.source,
     chunkIndex: r.document.metadata.chunkIndex,
     page: r.document.metadata.page,
