@@ -30,6 +30,7 @@ import { Layers } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
+import { CopyButton } from "../copy-button"
 import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
 
 const trimTitle = (title: string, max = 38) =>
@@ -381,7 +382,10 @@ export const ContextSettingsMenu = () => {
           if (!next) setPreviewTabId(null)
         }}
         title={previewTab?.title || t("tabs.inspector.untitled")}
-        meta={t("tabs.inspector.chars", { count: previewCharCount })}>
+        meta={t("tabs.inspector.chars", { count: previewCharCount })}
+        actions={
+          previewContent ? <CopyButton text={previewContent} /> : undefined
+        }>
         <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
           <PreviewTextBlock
             text={previewContent || ""}

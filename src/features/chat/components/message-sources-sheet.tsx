@@ -84,8 +84,13 @@ export function MessageSourcesSheet({
             {sections.map((section, i) => (
               <div key={section.label ?? i} className="space-y-1">
                 {section.label && (
-                  <div className="text-[11px] font-medium text-muted-foreground">
-                    {section.label}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {section.label}
+                    </span>
+                    <CopyButton
+                      text={section.items.map((i) => i.content).join("\n\n")}
+                    />
                   </div>
                 )}
                 <Accordion className="border-0 rounded-none divide-y-0 space-y-1">
