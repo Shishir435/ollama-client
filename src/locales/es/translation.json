@@ -170,8 +170,7 @@
       "rag_toggle_on": "Contexto inteligente activado",
       "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
-      "drop_files_here": "Soltar archivos aquí",
-      "attachments": "{{count}} adjuntos"
+      "drop_files_here": "Soltar archivos aquí"
     },
     "context_preview": {
       "files": "Archivos adjuntos",
@@ -185,17 +184,13 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "switch_model_tooltip": "Cambiar modelo",
-      "fork": "Bifurcar Conversación",
+      "fork": "Bifurcar",
       "edit": "Editar",
       "more": "Más",
-      "delete": "Eliminar Mensaje",
+      "delete": "Eliminar mensaje",
       "export": "Exportar",
-      "export_format_json": "JSON",
-      "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "Texto",
-      "previous_branch": "Rama Anterior",
-      "next_branch": "Rama Siguiente"
+      "previous_branch": "Rama anterior",
+      "next_branch": "Rama siguiente"
     },
     "metrics": {
       "total_time": "Tiempo total",
@@ -578,11 +573,6 @@
     "import": {
       "tooltip": "Importar sesiones de chat",
       "aria_label": "Importar sesiones de chat"
-    },
-    "actions": {
-      "more": "Más acciones para {{title}}",
-      "more_default": "Acciones de la sesión de chat",
-      "tooltip": "Más acciones"
     }
   },
   "tabs": {

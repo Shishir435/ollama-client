@@ -1,16 +1,13 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
+import { Button } from "@/components/ui/button"
 import {
-  ActionMenuGrid,
-  type ActionMenuItemConfig,
-  TooltipActionButton
-} from "@/components/actions"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { Download, FileDown, FileText } from "@/lib/lucide-icon"
@@ -24,6 +21,7 @@ export const ChatExportButton = ({
   sessionId?: string
 }) => {
   const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
   const { sessions, currentSessionId } = useChatSessions()
   const {
     exportSessionAsPdf,
@@ -38,100 +36,113 @@ export const ChatExportButton = ({
 
   const targetId = sessionId ?? currentSessionId
   const current = sessions.find((s) => s.id === targetId)
-
-  const actionItems: ActionMenuItemConfig[] = showAllSessions
+  const options = showAllSessions
     ? [
         {
-          key: "json",
           label: t("sessions.export.format_json"),
-          icon: <FileDown className="icon-md" />,
-          onClick: () => exportAllSessionsAsJson(sessions)
+          icon: FileDown,
+          action: () => exportAllSessionsAsJson(sessions)
         },
         {
-          key: "pdf",
           label: t("sessions.export.format_pdf"),
-          icon: <FileText className="icon-md" />,
-          onClick: () => exportAllSessionsAsPdf(sessions)
+          icon: FileText,
+          action: () => exportAllSessionsAsPdf(sessions)
         },
         {
-          key: "markdown",
           label: t("sessions.export.format_markdown"),
-          icon: <FileText className="icon-md" />,
-          onClick: () => exportAllSessionsAsMarkdown(sessions)
+          icon: FileText,
+          action: () => exportAllSessionsAsMarkdown(sessions)
         },
         {
-          key: "text",
           label: t("sessions.export.format_text"),
-          icon: <FileText className="icon-md" />,
-          onClick: () => exportAllSessionsAsText(sessions)
+          icon: FileText,
+          action: () => exportAllSessionsAsText(sessions)
         }
       ]
     : current
       ? [
           {
-            key: "json",
             label: t("sessions.export.format_json"),
-            icon: <FileDown className="icon-md" />,
-            onClick: () => exportSessionAsJson(current)
+            icon: FileDown,
+            action: () => exportSessionAsJson(current)
           },
           {
-            key: "pdf",
             label: t("sessions.export.format_pdf"),
-            icon: <FileText className="icon-md" />,
-            onClick: () => exportSessionAsPdf(current)
+            icon: FileText,
+            action: () => exportSessionAsPdf(current)
           },
           {
-            key: "markdown",
             label: t("sessions.export.format_markdown"),
-            icon: <FileText className="icon-md" />,
-            onClick: () => exportSessionAsMarkdown(current)
+            icon: FileText,
+            action: () => exportSessionAsMarkdown(current)
           },
           {
-            key: "text",
             label: t("sessions.export.format_text"),
-            icon: <FileText className="icon-md" />,
-            onClick: () => exportSessionAsText(current)
+            icon: FileText,
+            action: () => exportSessionAsText(current)
           }
         ]
       : []
 
-  if (actionItems.length === 0) return null
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <TooltipActionButton
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "size-7 shrink-0 rounded-control transition-all duration-200",
-              !showAllSessions && "opacity-0 group-hover:opacity-100",
-              "hover:bg-muted hover:text-foreground",
-              "focus:bg-muted focus:text-foreground focus:opacity-100"
-            )}
-            ariaLabel={
-              showAllSessions
-                ? t("sessions.export.aria_label_all")
-                : t("sessions.export.aria_label")
+    <Popover open={open} onOpenChange={setOpen}>
+      <TooltipActionButton
+        trigger={
+          <PopoverTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "size-7 shrink-0 rounded-control transition-all duration-200",
+                  !showAllSessions && "opacity-0 group-hover:opacity-100",
+                  "hover:bg-muted hover:text-foreground",
+                  "focus:bg-muted focus:text-foreground focus:opacity-100"
+                )}
+                aria-label={
+                  showAllSessions
+                    ? t("sessions.export.aria_label_all")
+                    : t("sessions.export.aria_label")
+                }
+              />
             }
-            tooltip={
-              showAllSessions
-                ? t("sessions.export.tooltip_all")
-                : t("sessions.export.tooltip")
-            }
-            icon={<Download className="icon-md" />}
           />
-        }>
-        <DropdownMenuContent
-          align={showAllSessions ? "center" : "end"}
-          sideOffset={6}
-          className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md data-open:animate-none data-closed:animate-none">
-          <DropdownMenuGroup>
-            <ActionMenuGrid actions={actionItems} />
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenuTrigger>
-    </DropdownMenu>
+        }
+        ariaLabel={
+          showAllSessions
+            ? t("sessions.export.aria_label_all")
+            : t("sessions.export.aria_label")
+        }
+        tooltip={
+          showAllSessions
+            ? t("sessions.export.tooltip_all")
+            : t("sessions.export.tooltip")
+        }
+        icon={<Download className="icon-md" />}
+      />
+
+      {options.length > 0 && (
+        <PopoverContent
+          className="w-min p-2"
+          align={showAllSessions ? "center" : "end"}>
+          <div className="flex flex-col gap-1">
+            {options.map(({ label, icon: Icon, action }) => (
+              <Button
+                key={label}
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpen(false)
+                  action()
+                }}
+                className="h-8 justify-start px-2 text-sm hover:bg-muted">
+                <Icon className="mr-2 icon-md" />
+                {label}
+              </Button>
+            ))}
+          </div>
+        </PopoverContent>
+      )}
+    </Popover>
   )
 }

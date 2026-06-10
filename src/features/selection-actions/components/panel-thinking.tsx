@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { PanelMarkdown } from "./panel-markdown"
 
 interface PanelThinkingProps {
   isThinking: boolean
@@ -46,11 +45,7 @@ export function PanelThinking({
           </span>
         )}
       </button>
-      {expanded && (
-        <div className="sa-thinking-body">
-          <PanelMarkdown content={thinkingText} />
-        </div>
-      )}
+      {expanded && <div className="sa-thinking-body">{thinkingText}</div>}
     </div>
   )
 }

@@ -186,13 +186,3 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
 export const CHAT_PAGINATION_LIMIT = 50
 export const DEFAULT_MAX_TAB_CONTEXT_CHARS = 12000
 export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000
-
-// ── Timeouts / Intervals ─────────────────────────────────────────
-/** How long (ms) to wait for first stream chunk before aborting */
-export const STREAM_FIRST_CHUNK_TIMEOUT_MS = 120000
-/** Max time (ms) for PDF.js to load a document */
-export const PDF_LOAD_TIMEOUT_MS = 15000
-/** Interval (ms) between tab-content auto-refreshes */
-export const TAB_CONTENT_REFRESH_INTERVAL_MS = 15000
-/** Delay (ms) before focusing the highlighted settings section */
-export const HIGHLIGHT_FOCUS_DELAY_MS = 3000

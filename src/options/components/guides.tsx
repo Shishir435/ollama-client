@@ -24,7 +24,7 @@ export const Guides = () => {
               <Card
                 key={href}
                 className="group transition-all hover:border-primary/20 hover:shadow-xs">
-                <CardContent className="flex items-center justify-between">
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">
                       <Icon className="icon-md" />

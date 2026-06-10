@@ -1,4 +1,3 @@
-import { PDF_LOAD_TIMEOUT_MS } from "@/lib/constants"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
@@ -35,7 +34,7 @@ export class PdfProcessor implements FileProcessor {
       try {
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
         // Race the loading task against a timeout to avoid hanging indefinitely
-        pdf = await promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS)
+        pdf = await promiseTimeout(loadingTask.promise, 10000)
       } catch (_firstErr) {
         // First attempt failed or timed out; retry without worker
         logger.warn(
@@ -43,7 +42,7 @@ export class PdfProcessor implements FileProcessor {
           "PdfProcessor"
         )
         const loadingTask2 = pdfjsLib.getDocument({ data: arrayBuffer })
-        pdf = await promiseTimeout(loadingTask2.promise, PDF_LOAD_TIMEOUT_MS)
+        pdf = await promiseTimeout(loadingTask2.promise, 15000)
       }
 
       const numPages = pdf.numPages

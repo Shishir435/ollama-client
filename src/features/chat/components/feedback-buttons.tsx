@@ -59,7 +59,7 @@ export const FeedbackButtons = ({
       onClick: () => handleFeedback(true),
       disabled: feedback !== null,
       label: t("chat.feedback.helpful_tooltip"),
-      icon: <ThumbsUp className="icon-xs" />
+      icon: <ThumbsUp className="icon-sm" />
     },
     {
       key: "not-helpful",
@@ -72,7 +72,7 @@ export const FeedbackButtons = ({
       onClick: () => handleFeedback(false),
       disabled: feedback !== null,
       label: t("chat.feedback.not_helpful_tooltip"),
-      icon: <ThumbsDown className="icon-xs" />
+      icon: <ThumbsDown className="icon-sm" />
     }
   ]
 

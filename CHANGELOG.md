@@ -6,8 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Dev-only Theme Lab for tuning sidebar, chat, composer, message, and control tokens live during local development.
+- Context preview sheets for selected tabs, RAG sources, and attached files with searchable tab context and scrollable extracted text previews.
 
-## [0.8.0] - 2026-06-10
+### Changed
+- Sidebar, chat transcript, composer, message footer, run details, and session metrics now use the token-driven compact UI system.
+- Chat action buttons now render from shared tooltip/action primitives with smaller icon sizing and compact overflow behavior.
+- Session metrics moved into the chat header as a compact metric trigger with a short popover summary.
+- File attachments in the composer now sit in a compact horizontal rail that keeps the send button clear and uses the preview popover for details.
+- Chat/session stores, content scripts, provider settings, and selection-action UI were split into smaller modules.
+
+### Fixed
+- Selection action toolbar visibility, shadow-DOM sizing, tooltip styling, and stale custom-prompt loading states.
+- Reasoning trace state now distinguishes thinking from answering and avoids duplicate streaming indicators.
+- Context injection now respects selected page/RAG state instead of leaking stale context across conversations.
+- Chat history now uses the SQLite facade only; the Dexie chat-history fallback has been removed.
+
+## [0.8.0] - 2026-06-03
 ### Added
 - Selection Actions: selected page text now opens a local AI action toolbar with Summarize, Rewrite, Shorten, Fix Grammar, Explain, Extract Action Items, Translate to English, and Custom Prompt actions.
 - Floating result panel with streaming output, retry/cancel, copy, Open in Chat, and preview-first Replace/Insert controls.
@@ -15,46 +31,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Selection Actions settings for enablement, minimum selected characters, and enabled action list.
 - Thinking/reasoning model support in the selection overlay: live "Reasoning…" section with animated pulse indicator auto-expands during streaming and collapses when done.
 - Inline model selector in the panel header (same row as title); filters out embedding models; syncs with sidebar model selection.
-- Dev-only Theme Lab for tuning sidebar, chat, composer, message, and control tokens live during local development.
-- Context preview sheets for selected tabs, RAG sources, and attached files with searchable tab context and scrollable extracted text previews.
-- Tab count badge on the context menu icon shows how many tabs are active in the current context.
-- Copy button on each RAG source and tab context chunk (inside the sources sheet) for quick content copying.
-- Copy button on expanded file attachment previews in the composer attachment sheet.
-- Markdown rendering in the selection overlay thinking/reasoning panel during streaming.
 
 ### Changed
-- Selection overlay fully rewritten as a React component (`SelectionOverlayApp`) mounted inside the shadow DOM, replacing the prior imperative content-script logic. State is managed by a `useReducer` state machine; stream lifecycle is handled imperatively to avoid declarative/imperative conflicts.
+- Bumped package version to `0.8.0`.
 - Selection overlay panel split into focused sub-components: `PanelHeader`, `PanelThinking`, `PanelFooter`, `SelectionPanel`, `SelectionToolbar`.
 - Panel uses shadcn `Card` and `buttonVariants` for design-system consistency with the rest of the extension.
 - Shadow DOM CSS extracted to `overlay-shadow-styles.ts`; stream chunk/done/error logic extracted to `overlay-stream.ts`; content script reduced from 966 to ~530 lines.
-- `SourceAccordionItem` renamed to generic `AccordionCard` with an optional `metadata` prop — reusable outside the RAG/source context.
-- `MessageSourcesSheet` now uses `PreviewSheet` as its structural shell, eliminating the duplicated sheet/header layout.
-- `PreviewSheet` body wrapped in a bounded flex scroll container so content always scrolls within the sheet height rather than overflowing it.
-- Accordion item content areas (RAG chunks, tab context) capped at `min(16rem, 40vh)` with vertical scroll, matching the attachment preview behaviour.
-- Sidebar, chat transcript, composer, message footer, run details, and session metrics now use the token-driven compact UI system.
-- Chat action buttons now render from shared tooltip/action primitives with smaller icon sizing and compact overflow behaviour.
-- Session metrics moved into the chat header as a compact metric trigger with a short popover summary.
-- File attachments in the composer now sit in a compact horizontal rail; attachment list and prompt selector dialogs replaced with right-side sheets.
-- `IconBadge` component extracted to deduplicate the icon + count badge pattern used across context buttons.
-- Icon sizes standardised to `icon-xs` for thumbs up/down feedback and source-chunk action buttons.
-- Chat/session stores, content scripts, provider settings, and selection-action UI split into smaller focused modules.
-- Magic-number timeouts extracted into named constants.
-
-### Fixed
-- Selection toolbar not reappearing after closing the overlay and re-highlighting text on the same page.
-- Shorten, Cancel, and more-menu actions broken in the selection overlay due to a stream lifecycle conflict between a declarative `useEffect` controller and imperative `setTimeout(startStream)` calls. Resolved by removing the `useEffect` controller entirely.
-- Selected text now included in the message when opening a selection result in chat, with a separator between the quoted text and the action output.
-- Streaming renders in the selection overlay throttled to prevent layout thrash on fast-arriving chunks.
-- Shadow DOM CSS variables now isolated from host-page design tokens by pinning all tokens with concrete OKLCH values on the container element.
-- Tailwind rem-based sizing fixed on pages with non-standard root font-size (e.g. YouTube) by overriding spacing, text, and radius with absolute `px` values.
-- Toolbar/panel placement corrected for pages that apply CSS `transform` to ancestor elements.
-- Reasoning trace state now distinguishes thinking from answering and avoids duplicate streaming indicators.
-- Context injection now respects selected page/RAG state instead of leaking stale context across conversations.
-- Chat history now uses the SQLite facade only; the Dexie chat-history fallback has been removed.
-- Left border removed from PDF message export cards.
-- Extra padding on guides page and prompt list.
-- Session metric now centred in the chat header.
-- File chip sizing and composer attachment rail layout.
 - Embedding models filtered from the panel model selector using the same `isEmbeddingModel` check as the sidebar.
 
 ### Fixed

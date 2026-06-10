@@ -12,18 +12,11 @@ export async function openSelectionResultInChat(
   resultText: string,
   capture: SelectionCapture | null
 ) {
-  const result = resultText.trim()
-  if (!result) return false
-
-  const parts: string[] = []
-  if (capture?.text.trim()) {
-    parts.push(capture.text.trim())
-  }
-  parts.push("---")
-  parts.push(result)
+  const text = resultText.trim() || capture?.text.trim()
+  if (!text) return false
 
   await sendRuntimeMessage(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT, {
-    payload: parts.join("\n\n")
+    payload: text
   })
   window.getSelection()?.removeAllRanges()
   return true

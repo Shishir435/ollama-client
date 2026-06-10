@@ -55,6 +55,7 @@ export function startSelectionActionStream({
         thinkingDelta,
         isThinking
       })
+      render(false)
     },
     onDone: () => {
       dispatch({ type: "stream.done" })

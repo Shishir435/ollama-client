@@ -4,11 +4,7 @@ import { create } from "zustand"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
-import {
-  MESSAGE_KEYS,
-  STORAGE_KEYS,
-  TAB_CONTENT_REFRESH_INTERVAL_MS
-} from "@/lib/constants"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ChromeResponse } from "@/types"
@@ -216,7 +212,7 @@ export const useTabContents = () => {
         .forEach((tabId) => {
           fetchTabContent(tabId, getTabTitle(tabId), setErrors, true)
         })
-    }, TAB_CONTENT_REFRESH_INTERVAL_MS)
+    }, 15000)
 
     return () => clearInterval(interval)
   }, [

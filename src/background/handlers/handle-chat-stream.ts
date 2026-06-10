@@ -3,7 +3,6 @@ import {
   processStreamChunk
 } from "@/background/lib/process-stream-chunk"
 import { safePostMessage } from "@/background/lib/utils"
-import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChromePort, PortStatusFunction } from "@/types"
 
@@ -35,9 +34,7 @@ export const handleChatStream = async (
     timeoutId = setTimeout(() => {
       if (!hasReceivedData) {
         logger.warn(
-          "No data received within " +
-            STREAM_FIRST_CHUNK_TIMEOUT_MS / 1000 +
-            " seconds, aborting",
+          "No data received within 60 seconds, aborting",
           "handleChatStream"
         )
         reader.cancel().catch((err) =>
@@ -52,7 +49,7 @@ export const handleChatStream = async (
           }
         })
       }
-    }, STREAM_FIRST_CHUNK_TIMEOUT_MS)
+    }, 60000)
 
     while (true) {
       const { value, done } = await reader.read()

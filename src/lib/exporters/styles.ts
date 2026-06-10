@@ -54,16 +54,19 @@ export const getPdfStyles = () => `
     padding: 15px;
     border-radius: 8px;
     background: #f9fafb;
+    border-left: 4px solid #e5e7eb;
     font-size: 13px;
     line-height: 1.7;
   }
   
   .user-message .message-content {
     background: #ecfdf5;
+    border-left-color: #059669;
   }
   
   .ai-message .message-content {
     background: #f5f3ff;
+    border-left-color: #7c3aed;
   }
   
   /* Markdown content styles */

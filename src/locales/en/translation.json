@@ -170,8 +170,7 @@
       "rag_toggle_on": "RAG+",
       "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
-      "drop_files_here": "Drop files here",
-      "attachments": "{{count}} attachments"
+      "drop_files_here": "Drop files here"
     },
     "context_preview": {
       "files": "Attached files",
@@ -190,10 +189,6 @@
       "more": "More",
       "delete": "Delete Message",
       "export": "Export",
-      "export_format_json": "JSON",
-      "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "Text",
       "previous_branch": "Previous branch",
       "next_branch": "Next branch"
     },
@@ -578,11 +573,6 @@
     "import": {
       "tooltip": "Import chat sessions",
       "aria_label": "Import chat sessions"
-    },
-    "actions": {
-      "more": "More actions for {{title}}",
-      "more_default": "Chat session actions",
-      "tooltip": "More actions"
     }
   },
   "tabs": {
