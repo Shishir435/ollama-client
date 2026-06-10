@@ -101,23 +101,21 @@ export function MessageSourcesSheet({
                       <AccordionItem
                         key={value}
                         value={value}
-                        className="rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
-                        <div className="flex items-start gap-1 pr-1">
-                          <AccordionTrigger className="flex-1 px-2 py-1.5 text-xs font-medium hover:no-underline">
-                            <div className="flex min-w-0 flex-col gap-0.5">
-                              <span className="truncate text-xs font-medium">
-                                {item.title}
+                        className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
+                        <AccordionTrigger className="px-2 py-1.5 pr-14 text-xs font-medium hover:no-underline">
+                          <div className="flex min-w-0 flex-col gap-0.5">
+                            <span className="truncate text-xs font-medium">
+                              {item.title}
+                            </span>
+                            {meta && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {meta}
                               </span>
-                              {meta && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  {meta}
-                                </span>
-                              )}
-                            </div>
-                          </AccordionTrigger>
-                          <div className="mt-1.5 shrink-0">
-                            <CopyButton text={item.content} />
+                            )}
                           </div>
+                        </AccordionTrigger>
+                        <div className="absolute right-7 top-1">
+                          <CopyButton text={item.content} />
                         </div>
                         <AccordionContent>
                           <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
