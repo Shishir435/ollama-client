@@ -1,17 +1,9 @@
 import { useTranslation } from "react-i18next"
 
 import {
-  ActionMenuGrid,
   type ActionMenuItemConfig,
   TooltipActionButton
 } from "@/components/actions"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +15,7 @@ import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { RunDetails } from "@/features/chat/components/run-details"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import { UsedContextButton } from "@/features/chat/components/used-context-button"
+import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import {
   BookOpen,
   Bot,
@@ -32,7 +25,6 @@ import {
   FileDown,
   FileText,
   GitFork,
-  MoreHorizontal,
   Trash2
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -214,30 +206,7 @@ export const ChatMessageFooter = ({
           </Tooltip>
         )}
 
-        {actionItems.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={footerButtonClass}
-                  aria-label={t("chat.actions.more")}
-                  title={t("chat.actions.more")}
-                />
-              }>
-              <MoreHorizontal className="icon-xs" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align={isUser ? "end" : "start"}
-              sideOffset={6}
-              className="w-auto rounded-panel border-muted/60 p-1.5 shadow-md data-open:animate-none data-closed:animate-none">
-              <DropdownMenuGroup>
-                <ActionMenuGrid actions={actionItems} />
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        {actionItems.length > 0 && <ChatSessionActions actions={actionItems} />}
       </div>
 
       {isUser ? (

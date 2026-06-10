@@ -170,7 +170,8 @@
       "rag_toggle_on": "智能上下文已开启",
       "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
-      "drop_files_here": "将文件拖到此处"
+      "drop_files_here": "将文件拖到此处",
+      "attachments": "{{count}} 个附件"
     },
     "context_preview": {
       "files": "已附加文件",
@@ -189,6 +190,10 @@
       "more": "更多",
       "delete": "删除消息",
       "export": "导出",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "文本",
       "previous_branch": "上一个分支",
       "next_branch": "下一个分支"
     },
@@ -573,6 +578,11 @@
     "import": {
       "tooltip": "导入聊天会话",
       "aria_label": "导入聊天会话"
+    },
+    "actions": {
+      "more": "{{title}} 的更多操作",
+      "more_default": "聊天会话操作",
+      "tooltip": "更多操作"
     }
   },
   "tabs": {

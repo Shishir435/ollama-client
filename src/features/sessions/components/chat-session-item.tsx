@@ -1,9 +1,18 @@
 import { MessageSquare } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import {
+  BookOpen,
+  Code,
+  FileDown,
+  FileText,
+  MoreHorizontal,
+  Trash2
+} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChatSession } from "@/types"
-import { ChatDeleteButton } from "./chat-delete-button"
-import { ChatExportButton } from "./chat-export-button"
+import { ChatSessionActions } from "./chat-session-actions"
 
 export interface ChatSessionItemProps {
   session: ChatSession
@@ -19,10 +28,57 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
+  const { sessions } = useChatSessions()
+  const {
+    exportSessionAsPdf,
+    exportSessionAsJson,
+    exportSessionAsMarkdown,
+    exportSessionAsText
+  } = useChatExport()
+
+  const current = sessions.find((s) => s.id === session.id)
   const updatedTime = new Date(session.updatedAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
   })
+
+  const actionItems = current
+    ? [
+        {
+          key: "json",
+          label: t("sessions.export.format_json"),
+          icon: <BookOpen className="icon-md" />,
+          onClick: () => exportSessionAsJson(current)
+        },
+        {
+          key: "pdf",
+          label: t("sessions.export.format_pdf"),
+          icon: <FileDown className="icon-md" />,
+          onClick: () => exportSessionAsPdf(current)
+        },
+        {
+          key: "markdown",
+          label: t("sessions.export.format_markdown"),
+          icon: <Code className="icon-md" />,
+          onClick: () => exportSessionAsMarkdown(current)
+        },
+        {
+          key: "text",
+          label: t("sessions.export.format_text"),
+          icon: <FileText className="icon-md" />,
+          onClick: () => exportSessionAsText(current)
+        },
+        {
+          key: "delete",
+          label: t("sessions.delete.tooltip"),
+          tooltip: t("sessions.delete.tooltip"),
+          ariaLabel: t("sessions.delete.aria_label", { title: session.title }),
+          icon: <Trash2 className="icon-md" />,
+          destructive: true,
+          onClick: () => onDelete(session.id)
+        }
+      ]
+    : []
 
   return (
     <div
@@ -70,11 +126,13 @@ export const ChatSessionItem = ({
         </div>
       </button>
       <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <ChatExportButton sessionId={session.id} />
-        <ChatDeleteButton
-          sessionId={session.id}
-          sessionTitle={session.title}
-          onDelete={() => onDelete(session.id)}
+        <ChatSessionActions
+          actions={actionItems}
+          trigger={{
+            ariaLabel: t("sessions.actions.more", { title: session.title }),
+            tooltip: t("sessions.actions.tooltip"),
+            icon: <MoreHorizontal className="icon-md" />
+          }}
         />
       </div>
     </div>

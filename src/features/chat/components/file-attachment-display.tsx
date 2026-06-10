@@ -1,15 +1,13 @@
-import { FileIcon, FileText, Loader2 } from "lucide-react"
+import { Copy, FileIcon, FileText, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog"
+  PreviewSheet,
+  PreviewTextBlock
+} from "@/features/chat/components/preview-sheet"
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import type { FileAttachment } from "@/types"
@@ -31,18 +29,22 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export interface FileViewerDialogProps {
+export interface FileViewerSheetProps {
   file: FileAttachment
 }
 
-function FileViewerDialog({ file }: FileViewerDialogProps) {
+function FileViewerSheet({ file }: FileViewerSheetProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [fullText, setFullText] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
+  const [expanded, setExpanded] = useState(true)
 
-  // Fetch full text from vector store when dialog opens
   useEffect(() => {
-    if (!open || !file.fileId) return
+    if (!open) return
+
+    setFullText(file.textPreview || "")
+    if (!file.fileId) return
 
     async function fetchFullText() {
       setIsLoading(true)
@@ -75,68 +77,96 @@ function FileViewerDialog({ file }: FileViewerDialogProps) {
       }
     }
 
-    // Use preview initially, then fetch full content
-    setFullText(file.textPreview || "")
     fetchFullText()
   }, [open, file.fileId, file.textPreview])
 
+  const meta = (
+    <>
+      {file.fileType} • {formatFileSize(file.fileSize)}
+      {file.processedAt && (
+        <> • Processed {new Date(file.processedAt).toLocaleString()}</>
+      )}
+    </>
+  )
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Badge
-            variant="secondary"
-            className="cursor-pointer hover:bg-secondary/80 transition-colors gap-1.5 pr-1"
-          />
-        }>
-        {getFileIcon(file.fileType)}
-        <span className="max-w-30 truncate">{file.fileName}</span>
-        <span className="text-[10px] text-muted-foreground">
-          {formatFileSize(file.fileSize)}
-        </span>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        <Badge
+          variant="secondary"
+          className="cursor-pointer gap-1.5 pr-1 transition-colors hover:bg-secondary/80">
+          {getFileIcon(file.fileType)}
+          <span className="max-w-30 truncate">{file.fileName}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {formatFileSize(file.fileSize)}
+          </span>
+        </Badge>
+      </button>
+      <PreviewSheet
+        open={open}
+        onOpenChange={setOpen}
+        title={
+          <span className="inline-flex min-w-0 items-center gap-2">
             {getFileIcon(file.fileType)}
-            {file.fileName}
-          </DialogTitle>
-          <DialogDescription>
-            {file.fileType} • {formatFileSize(file.fileSize)}
-            {file.processedAt && (
-              <> • Processed {new Date(file.processedAt).toLocaleString()}</>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-4 max-h-[60vh] overflow-y-auto">
-          <div className="relative">
-            {isLoading ? (
-              <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <Loader2 className="size-6 animate-spin mr-2" />
-                <span className="text-sm">Loading full content...</span>
-              </div>
-            ) : (
-              <>
-                <pre className="text-xs bg-muted rounded-panel p-4 whitespace-pre-wrap wrap-break-word font-mono">
-                  {fullText || "No text content available"}
-                </pre>
+            <span className="truncate">{file.fileName}</span>
+          </span>
+        }
+        meta={meta}>
+        <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+          <div className="p-3">
+            <div className="overflow-hidden rounded-panel border border-border/35 bg-background/35">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => setExpanded(!expanded)}>
+                  {getFileIcon(file.fileType)}
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {file.fileName}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatFileSize(file.fileSize)}
+                  </span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground min-[24rem]:inline">
+                    {t("tabs.inspector.chars", { count: fullText.length })}
+                  </span>
+                </button>
                 {fullText && (
                   <Button
-                    size="sm"
-                    variant="outline"
-                    className="absolute top-2 right-2"
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="size-7 shrink-0 rounded-control text-muted-foreground hover:text-foreground"
                     onClick={() => {
-                      navigator.clipboard.writeText(fullText)
-                    }}>
-                    Copy Text
+                      void navigator.clipboard.writeText(fullText)
+                    }}
+                    aria-label={t("prompts.selector.copy")}>
+                    <Copy className="icon-xs" />
                   </Button>
                 )}
-              </>
-            )}
+              </div>
+              {expanded && (
+                <div className="border-t border-border/35">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center p-8 text-muted-foreground">
+                      <Loader2 className="mr-2 size-6 animate-spin" />
+                      <span className="text-sm">{t("common.loading")}</span>
+                    </div>
+                  ) : (
+                    <div className="max-h-[min(32rem,65vh)] overflow-y-auto overflow-x-hidden">
+                      <PreviewTextBlock
+                        text={fullText}
+                        emptyText="No text content available"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </ScrollArea>
+      </PreviewSheet>
+    </>
   )
 }
 
@@ -150,7 +180,7 @@ export function FileAttachmentDisplay({
   return (
     <div className="flex flex-wrap gap-2 mb-2">
       {attachments.map((file, index) => (
-        <FileViewerDialog key={file.fileId || index} file={file} />
+        <FileViewerSheet key={file.fileId || index} file={file} />
       ))}
     </div>
   )

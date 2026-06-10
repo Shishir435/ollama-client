@@ -18,7 +18,7 @@ interface ChatResponseOptions {
     sessionId: string
     generatedMessage: ChatMessage
   }) => void
-  currentStreamingMessageIdRef: React.MutableRefObject<number | null>
+  currentStreamingMessageIdRef: { current: number | null }
 }
 
 export const useChatResponse = ({

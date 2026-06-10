@@ -170,7 +170,8 @@
       "rag_toggle_on": "Intelligenter Kontext aktiviert",
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
-      "drop_files_here": "Dateien hier ablegen"
+      "drop_files_here": "Dateien hier ablegen",
+      "attachments": "{{count}} Anhänge"
     },
     "context_preview": {
       "files": "Angehängte Dateien",
@@ -189,6 +190,10 @@
       "more": "Mehr",
       "delete": "Nachricht löschen",
       "export": "Exportieren",
+      "export_format_json": "JSON",
+      "export_format_pdf": "PDF",
+      "export_format_markdown": "Markdown",
+      "export_format_text": "Text",
       "previous_branch": "Vorheriger Zweig",
       "next_branch": "Nächster Zweig"
     },
@@ -573,6 +578,11 @@
     "import": {
       "tooltip": "Chat-Sitzungen importieren",
       "aria_label": "Chat-Sitzungen importieren"
+    },
+    "actions": {
+      "more": "Weitere Aktionen für {{title}}",
+      "more_default": "Chat-Sitzungsaktionen",
+      "tooltip": "Weitere Aktionen"
     }
   },
   "tabs": {

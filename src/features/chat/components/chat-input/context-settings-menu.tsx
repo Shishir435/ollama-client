@@ -12,14 +12,8 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { IconBadge } from "@/components/icon-badge"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -27,6 +21,10 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  PreviewSheet,
+  PreviewTextBlock
+} from "@/features/chat/components/preview-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -196,7 +194,12 @@ export const ContextSettingsMenu = () => {
             />
           }
           label={t("tabs.context")}
-          icon={<Layers className="icon-md" />}
+          icon={
+            <IconBadge
+              icon={<Layers className="icon-md" aria-hidden="true" />}
+              count={selectedTabIds.length}
+            />
+          }
         />
         <PopoverContent
           align="end"
@@ -326,27 +329,20 @@ export const ContextSettingsMenu = () => {
           )}
         </PopoverContent>
       </Popover>
-      <Dialog
+      <PreviewSheet
         open={Boolean(previewTabId)}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setPreviewTabId(null)
-        }}>
-        <DialogContent className="max-h-[min(80vh,40rem)] w-[min(42rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden rounded-panel p-0 sm:max-w-[min(42rem,calc(100vw-2rem))]">
-          <DialogHeader className="min-w-0 border-b border-border/35 px-4 py-3">
-            <DialogTitle className="truncate pr-8">
-              {previewTab?.title || t("tabs.inspector.untitled")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("tabs.inspector.chars", { count: previewCharCount })}
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[min(64vh,32rem)] overflow-x-hidden">
-            <pre className="whitespace-pre-wrap wrap-break-word p-4 font-sans text-xs leading-relaxed text-muted-foreground">
-              {previewContent || t("tabs.inspector.no_content")}
-            </pre>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+        }}
+        title={previewTab?.title || t("tabs.inspector.untitled")}
+        meta={t("tabs.inspector.chars", { count: previewCharCount })}>
+        <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+          <PreviewTextBlock
+            text={previewContent || ""}
+            emptyText={t("tabs.inspector.no_content")}
+          />
+        </ScrollArea>
+      </PreviewSheet>
     </>
   )
 }

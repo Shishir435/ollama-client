@@ -463,4 +463,22 @@ export const buildShadowStyles = (appStyles: string): string => `
     background: color-mix(in oklch, var(--sa-hover) 50%, transparent);
     border-top: 1px solid var(--sa-border);
   }
+  .sa-thinking-body .sa-markdown {
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .sa-thinking-body .sa-markdown p {
+    margin-bottom: 2px;
+  }
+  .sa-thinking-body .sa-markdown p:last-child {
+    margin-bottom: 0;
+  }
+  .sa-thinking-body .sa-markdown li {
+    margin-bottom: 0;
+  }
+  .sa-thinking-body .sa-markdown ul,
+  .sa-thinking-body .sa-markdown ol {
+    margin-bottom: 4px;
+  }
 `
