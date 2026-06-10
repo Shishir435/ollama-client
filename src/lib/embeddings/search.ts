@@ -415,48 +415,68 @@ export const searchHybrid = async (
     limit: limit * 3
   })
 
-  // 3. Fuse results with weighted scoring
+  // 3. Weighted Reciprocal Rank Fusion (RRF)
+  // Rank-based fusion is immune to score-scale mismatches between BM25 and cosine.
+  // keywordWeight / semanticWeight control relative list importance; k=60 is standard.
+  const RRF_K = 60
   const scoreMap = new Map<number, number>()
   const docMap = new Map<number, VectorDocument>()
 
-  // Normalize keyword scores (BM25 scores vary widely)
-  const maxKeywordScore = Math.max(
-    ...filteredKeywordResults.map((r) => r.score),
-    1
-  )
-
-  // Add keyword scores
-  for (const result of filteredKeywordResults) {
-    const normalizedScore = result.score / maxKeywordScore
-    scoreMap.set(result.id, keywordWeight * normalizedScore)
+  for (let rank = 0; rank < filteredKeywordResults.length; rank++) {
+    const result = filteredKeywordResults[rank]
+    scoreMap.set(
+      result.id,
+      (scoreMap.get(result.id) ?? 0) + keywordWeight / (RRF_K + rank + 1)
+    )
     docMap.set(result.id, result.document)
   }
 
-  // Add semantic scores (already normalized 0-1)
-  for (const result of semanticResults) {
+  for (let rank = 0; rank < semanticResults.length; rank++) {
+    const result = semanticResults[rank]
     const id = result.document.id
     if (id === undefined) continue
-
-    const existing = scoreMap.get(id) ?? 0
-    scoreMap.set(id, existing + semanticWeight * result.similarity)
-    if (!docMap.has(id)) {
-      docMap.set(id, result.document)
-    }
+    scoreMap.set(
+      id,
+      (scoreMap.get(id) ?? 0) + semanticWeight / (RRF_K + rank + 1)
+    )
+    if (!docMap.has(id)) docMap.set(id, result.document)
   }
 
-  // Sort by combined score and limit
+  // Normalize to [0, 1] relative to batch best so downstream thresholds still apply
+  const maxRrfScore = Math.max(...scoreMap.values(), Number.EPSILON)
+
   const fusedResults = Array.from(scoreMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([id, similarity]) => {
+    .map(([id, rrfScore]) => {
       const document = docMap.get(id)
       if (!document) return null
-      return {
-        document,
-        similarity
-      }
+      return { document, similarity: rrfScore / maxRrfScore }
     })
     .filter((r): r is SearchResult => r !== null)
+
+  // 4. Title boost: documents whose title contains query terms rank up to 15% higher
+  const queryTerms = queryText
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 2)
+  if (queryTerms.length > 0) {
+    for (const result of fusedResults) {
+      const title = (
+        result.document.metadata.title ||
+        result.document.metadata.source ||
+        ""
+      ).toLowerCase()
+      const matches = queryTerms.filter((t) => title.includes(t)).length
+      if (matches > 0) {
+        result.similarity = Math.min(
+          1,
+          result.similarity * (1 + Math.min(matches * 0.05, 0.15))
+        )
+      }
+    }
+    fusedResults.sort((a, b) => b.similarity - a.similarity)
+  }
 
   const duration = performance.now() - startTime
   logger.info("Hybrid search completed", "searchHybrid", {

@@ -194,13 +194,40 @@ export async function retrieveContextEnhanced(
   let rerankedResults: EnhancedSearchResult[] = []
 
   if (!useReranking) {
-    logger.info("Re-ranking disabled, using hybrid scores", "RAGPipeline")
+    // Adaptive threshold: keep results that are at least 50% as good as the top hit.
+    // Prevents weak tail candidates from polluting the context when a strong top result exists.
+    const topScore = candidates[0]?.similarity ?? 0
+    const adaptiveThreshold = Math.max(minSimilarity, topScore * 0.5)
 
-    rerankedResults = candidates.slice(0, topK).map((candidate) => ({
-      document: candidate.document,
-      score: candidate.similarity,
-      originalSimilarity: candidate.similarity
-    }))
+    logger.info(
+      "Re-ranking disabled, applying adaptive threshold",
+      "RAGPipeline",
+      {
+        topScore: topScore.toFixed(3),
+        adaptiveThreshold: adaptiveThreshold.toFixed(3)
+      }
+    )
+
+    rerankedResults = candidates
+      .filter((c) => c.similarity >= adaptiveThreshold)
+      .slice(0, topK)
+      .map((candidate) => ({
+        document: candidate.document,
+        score: candidate.similarity,
+        originalSimilarity: candidate.similarity
+      }))
+
+    // Always surface at least one result to prevent silent empty context
+    if (rerankedResults.length === 0 && candidates.length > 0) {
+      const top = candidates[0]
+      rerankedResults = [
+        {
+          document: top.document,
+          score: top.similarity,
+          originalSimilarity: top.similarity
+        }
+      ]
+    }
   } else {
     // ===== STAGE 2: Cosine Re-Scoring (Precision Pass) =====
     // NOTE: current reranker backend is cosine similarity, not a cross-encoder.
