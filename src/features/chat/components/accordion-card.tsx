@@ -5,21 +5,21 @@ import {
   AccordionTrigger
 } from "@/components/ui/accordion"
 
-interface SourceAccordionItemProps {
+export interface AccordionCardProps {
   value: string
   title: string
-  metadata: ReactNode
+  metadata?: ReactNode
   content: string
   footer?: ReactNode
 }
 
-export function SourceAccordionItem({
+export function AccordionCard({
   value,
   title,
   metadata,
   content,
   footer
-}: SourceAccordionItemProps) {
+}: AccordionCardProps) {
   return (
     <AccordionItem
       value={value}
@@ -27,12 +27,18 @@ export function SourceAccordionItem({
       <AccordionTrigger className="px-2 py-1.5 text-xs font-medium hover:no-underline">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-xs font-medium">{title}</span>
-          <span className="text-[10px] text-muted-foreground">{metadata}</span>
+          {metadata && (
+            <span className="text-[10px] text-muted-foreground">
+              {metadata}
+            </span>
+          )}
         </div>
       </AccordionTrigger>
       <AccordionContent>
-        <div className="whitespace-pre-wrap wrap-break-word text-[11px] text-muted-foreground wrap-anywhere">
-          {content}
+        <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
+          <div className="whitespace-pre-wrap wrap-break-word text-[11px] text-muted-foreground wrap-anywhere">
+            {content}
+          </div>
         </div>
         {footer}
       </AccordionContent>

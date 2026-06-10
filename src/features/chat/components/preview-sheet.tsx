@@ -32,11 +32,13 @@ export function PreviewSheet({
           "w-[min(42rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0",
           className
         )}>
-        <SheetHeader className="min-w-0 border-b border-border/35 px-4 py-3">
+        <SheetHeader className="min-w-0 shrink-0 border-b border-border/35 px-4 py-3">
           <SheetTitle className="truncate pr-8">{title}</SheetTitle>
           {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
         </SheetHeader>
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar-none">
+          {children}
+        </div>
       </SheetContent>
     </Sheet>
   )

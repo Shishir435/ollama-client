@@ -5,16 +5,13 @@ import { TooltipActionButton } from "@/components/actions"
 import { IconBadge } from "@/components/icon-badge"
 import { Accordion } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle
-} from "@/components/ui/sheet"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
-import { SourceAccordionItem } from "./source-accordion-item"
+import { AccordionCard } from "./accordion-card"
+import { CopyButton } from "./copy-button"
+import { PreviewSheet } from "./preview-sheet"
 
 export interface SourceItem {
   id: string | number
@@ -102,38 +99,37 @@ export function MessageSourcesSheet({
         tooltipSide="top"
         icon={<IconBadge icon={icon} count={badgeCount} />}
       />
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-[min(28rem,calc(100vw-1rem))] p-0">
-          <SheetHeader className="min-w-0 border-b border-border/35 px-3 py-5">
-            <SheetTitle className="text-xs font-semibold">{title}</SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none p-3">
-            <div className="space-y-3">
-              {preContent}
-              {sections.map((section, i) => (
-                <div key={section.label ?? i} className="space-y-1">
-                  {section.label && (
-                    <div className="text-[11px] font-medium text-muted-foreground">
-                      {section.label}
-                    </div>
-                  )}
-                  <Accordion className="border-0 rounded-none divide-y-0 space-y-1">
-                    {section.items.map((item) => {
-                      const value = getItemValue(item)
-                      const fb = feedback ? feedbackById[value] : undefined
-                      return (
-                        <SourceAccordionItem
-                          key={value}
-                          value={value}
-                          title={item.title}
-                          metadata={renderMetadata(item)}
-                          content={item.content}
-                          footer={
-                            feedback ? (
-                              <div className="mt-2 flex items-center gap-1.5">
-                                <span className="text-[10px] text-muted-foreground">
+      <PreviewSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        title={title}
+        className="w-[min(28rem,calc(100vw-1rem))]">
+        <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+          <div className="space-y-3 p-3">
+            {preContent}
+            {sections.map((section, i) => (
+              <div key={section.label ?? i} className="space-y-1">
+                {section.label && (
+                  <div className="text-[11px] font-medium text-muted-foreground">
+                    {section.label}
+                  </div>
+                )}
+                <Accordion className="border-0 rounded-none divide-y-0 space-y-1">
+                  {section.items.map((item) => {
+                    const value = getItemValue(item)
+                    const fb = feedback ? feedbackById[value] : undefined
+                    return (
+                      <AccordionCard
+                        key={value}
+                        value={value}
+                        title={item.title}
+                        metadata={renderMetadata(item)}
+                        content={item.content}
+                        footer={
+                          <div className="mt-2 flex items-center gap-1">
+                            {feedback && (
+                              <>
+                                <span className="flex-1 text-[10px] text-muted-foreground">
                                   {t("chat.sources.was_this_helpful")}
                                 </span>
                                 <Button
@@ -147,7 +143,7 @@ export function MessageSourcesSheet({
                                   onClick={() => handleFeedback(value, true)}
                                   disabled={submittingFeedback}
                                   aria-label={t("chat.sources.helpful_aria")}>
-                                  <ThumbsUp className="icon-sm" />
+                                  <ThumbsUp className="icon-xs" />
                                 </Button>
                                 <Button
                                   size="icon"
@@ -162,21 +158,22 @@ export function MessageSourcesSheet({
                                   aria-label={t(
                                     "chat.sources.not_helpful_aria"
                                   )}>
-                                  <ThumbsDown className="icon-sm" />
+                                  <ThumbsDown className="icon-xs" />
                                 </Button>
-                              </div>
-                            ) : undefined
-                          }
-                        />
-                      )
-                    })}
-                  </Accordion>
-                </div>
-              ))}
-            </div>
+                              </>
+                            )}
+                            <CopyButton text={item.content} />
+                          </div>
+                        }
+                      />
+                    )
+                  })}
+                </Accordion>
+              </div>
+            ))}
           </div>
-        </SheetContent>
-      </Sheet>
+        </ScrollArea>
+      </PreviewSheet>
     </>
   )
 }
