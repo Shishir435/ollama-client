@@ -2,7 +2,7 @@ import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -34,7 +34,7 @@ export const EmbeddingSearchConfig = ({
       title={t("model.embedding_config.search_settings_title")}
       description={t("model.embedding_config.search_settings_description")}>
       <div className="space-y-4">
-        <SettingsField
+        <SettingsFormField
           htmlFor="defaultSearchLimit"
           label={t("model.embedding_config.search_limit_label")}
           description={t("model.embedding_config.search_limit_description")}>
@@ -53,7 +53,7 @@ export const EmbeddingSearchConfig = ({
             min={1}
             max={100}
           />
-        </SettingsField>
+        </SettingsFormField>
 
         <SettingsSliderField
           label={t("model.embedding_config.min_similarity_label")}
@@ -70,7 +70,7 @@ export const EmbeddingSearchConfig = ({
           }
         />
 
-        <SettingsField
+        <SettingsFormField
           htmlFor="searchCacheTTL"
           label={t("model.embedding_config.cache_ttl_label")}
           description={t("model.embedding_config.cache_ttl_description")}
@@ -90,9 +90,9 @@ export const EmbeddingSearchConfig = ({
             min={1}
             max={60}
           />
-        </SettingsField>
+        </SettingsFormField>
 
-        <SettingsField
+        <SettingsFormField
           htmlFor="searchCacheMaxSize"
           label={t("model.embedding_config.cache_max_size_label")}
           description={t("model.embedding_config.cache_max_size_description")}>
@@ -111,9 +111,9 @@ export const EmbeddingSearchConfig = ({
             min={10}
             max={200}
           />
-        </SettingsField>
+        </SettingsFormField>
 
-        <SettingsField
+        <SettingsFormField
           label={t("model.embedding_config.ann_backend_label")}
           description={t("model.embedding_config.ann_backend_description")}
           className="pt-2 border-t">
@@ -145,9 +145,9 @@ export const EmbeddingSearchConfig = ({
               </SelectGroup>
             </SelectContent>
           </Select>
-        </SettingsField>
+        </SettingsFormField>
 
-        <SettingsField
+        <SettingsFormField
           htmlFor="annMinVectors"
           label={t("model.embedding_config.ann_min_vectors_label")}
           description={t("model.embedding_config.ann_min_vectors_description")}>
@@ -165,7 +165,7 @@ export const EmbeddingSearchConfig = ({
             }}
             min={0}
           />
-        </SettingsField>
+        </SettingsFormField>
       </div>
     </SettingsCard>
   )

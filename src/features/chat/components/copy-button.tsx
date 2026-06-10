@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
+import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { logger } from "@/lib/logger"
 import { Check, Copy } from "@/lib/lucide-icon"
 
@@ -25,7 +26,7 @@ export const CopyButton = ({ text }: { text: string }) => {
       tooltip={copied ? t("chat.actions.copied") : t("chat.actions.copy")}
       size="icon"
       variant="ghost"
-      className="size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+      className={chatIconBtnCls}
       onClick={handleCopy}
       icon={
         copied ? (

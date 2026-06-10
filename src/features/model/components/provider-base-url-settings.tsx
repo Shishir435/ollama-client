@@ -5,7 +5,7 @@ import { FieldStack } from "@/components/layout"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsField
+  SettingsFormField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,7 @@ export const ProviderBaseUrlSettings = () => {
           </>
         }>
         <FieldStack className="space-y-2">
-          <SettingsField
+          <SettingsFormField
             htmlFor="provider-url"
             label={
               <div className="flex items-center justify-between w-full">
@@ -174,7 +174,7 @@ export const ProviderBaseUrlSettings = () => {
                 )}
               </Button>
             </SettingsActionRow>
-          </SettingsField>
+          </SettingsFormField>
         </FieldStack>
       </SettingsCard>
     </FieldStack>

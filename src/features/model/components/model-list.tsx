@@ -2,17 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
+import { ConfirmActionDialog } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
@@ -70,6 +60,7 @@ export const ModelList = (): React.ReactElement => {
   const { models, isLoading, error, deleteModel, refresh } = useProviderModels()
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<ProviderModel | null>(null)
 
   const handleRefresh = () => {
     setRefreshing(true)
@@ -237,58 +228,17 @@ export const ModelList = (): React.ReactElement => {
                               </div>
                             </div>
                           </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-6 text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => e.stopPropagation()}
-                                  disabled={
-                                    model.providerId !== DEFAULT_PROVIDER_ID
-                                  }
-                                />
-                              }>
-                              <Trash2 className="icon-md" />
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  {t(
-                                    "settings.model_list.delete_dialog.title",
-                                    {
-                                      name: model.name
-                                    }
-                                  )}
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t(
-                                    "settings.model_list.delete_dialog.description"
-                                  )}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>
-                                  {t(
-                                    "settings.model_list.delete_dialog.cancel"
-                                  )}
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    deleteModel({
-                                      modelName: model.name,
-                                      providerId: model.providerId
-                                    })
-                                  }
-                                  className="bg-destructive hover:bg-destructive/90">
-                                  {t(
-                                    "settings.model_list.delete_dialog.confirm"
-                                  )}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 text-destructive hover:bg-destructive/10"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteTarget(model)
+                            }}
+                            disabled={model.providerId !== DEFAULT_PROVIDER_ID}>
+                            <Trash2 className="icon-md" />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -299,6 +249,28 @@ export const ModelList = (): React.ReactElement => {
           </div>
         </CollapsibleContent>
       </Collapsible>
+      <ConfirmActionDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+        title={t("settings.model_list.delete_dialog.title", {
+          name: deleteTarget?.name ?? ""
+        })}
+        description={t("settings.model_list.delete_dialog.description")}
+        confirmLabel={t("settings.model_list.delete_dialog.confirm")}
+        cancelLabel={t("settings.model_list.delete_dialog.cancel")}
+        destructive
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteModel({
+              modelName: deleteTarget.name,
+              providerId: deleteTarget.providerId
+            })
+          }
+          setDeleteTarget(null)
+        }}
+      />
     </Card>
   )
 }

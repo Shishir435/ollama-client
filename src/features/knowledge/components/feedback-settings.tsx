@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   ConfirmActionDialog,
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
@@ -224,7 +224,7 @@ export function FeedbackSettings() {
       </Card>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <SettingsField
+        <SettingsFormField
           label={t("model.embedding_config.feedback_privacy_title")}
           description={t("model.embedding_config.feedback_privacy_note")}
         />

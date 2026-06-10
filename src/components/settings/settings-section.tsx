@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { SectionHeader } from "@/components/settings/section-header"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -15,7 +15,7 @@ interface SettingsSectionProps
 export const SettingsSection = ({
   title,
   description,
-  icon,
+  icon: Icon,
   badge,
   className,
   children,
@@ -23,12 +23,16 @@ export const SettingsSection = ({
 }: SettingsSectionProps) => (
   <section className={cn("space-y-4", className)} {...props}>
     {title && (
-      <SectionHeader
-        title={title}
-        description={description}
-        icon={icon}
-        badge={badge}
-      />
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="icon-md text-muted-foreground" />}
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {badge && <MiniBadge text={badge} />}
+        </div>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
     )}
     {children}
   </section>

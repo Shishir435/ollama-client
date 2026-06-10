@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { FormGrid, SectionStack } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
@@ -155,7 +155,7 @@ const ContentExtractionSettingsForm = ({
     onChange: (value: number) => void,
     className?: string
   ) => (
-    <SettingsField
+    <SettingsFormField
       key={field.id}
       htmlFor={field.id}
       label={
@@ -180,7 +180,7 @@ const ContentExtractionSettingsForm = ({
         }}
         className={className || "text-center"}
       />
-    </SettingsField>
+    </SettingsFormField>
   )
 
   // Get icon for scraper type
@@ -201,7 +201,7 @@ const ContentExtractionSettingsForm = ({
     onValueChange: (value: ContentScraper) => void
   ) => (
     <div className="space-y-3">
-      <SettingsField
+      <SettingsFormField
         label={
           <>
             <FileText className="icon-md" />
@@ -270,7 +270,7 @@ const ContentExtractionSettingsForm = ({
             )
           })}
         </div>
-      </SettingsField>
+      </SettingsFormField>
     </div>
   )
 
@@ -281,7 +281,7 @@ const ContentExtractionSettingsForm = ({
     id?: string,
     className?: string
   ) => (
-    <SettingsField
+    <SettingsFormField
       htmlFor={id || "scroll-strategy"}
       label={
         <>
@@ -304,7 +304,7 @@ const ContentExtractionSettingsForm = ({
           ))}
         </SelectContent>
       </Select>
-    </SettingsField>
+    </SettingsFormField>
   )
 
   // Render scroll depth slider
@@ -363,7 +363,7 @@ const ContentExtractionSettingsForm = ({
         }
       />
 
-      <SettingsField
+      <SettingsFormField
         label="Minimum selected characters"
         description="Selections shorter than this stay hidden.">
         <Input
@@ -383,9 +383,9 @@ const ContentExtractionSettingsForm = ({
             })
           }
         />
-      </SettingsField>
+      </SettingsFormField>
 
-      <SettingsField
+      <SettingsFormField
         label="Selection action list"
         description="Choose which local text actions appear in the page toolbar.">
         <div className="grid gap-2 sm:grid-cols-2">
@@ -416,7 +416,7 @@ const ContentExtractionSettingsForm = ({
             )
           })}
         </div>
-      </SettingsField>
+      </SettingsFormField>
 
       <Separator />
 

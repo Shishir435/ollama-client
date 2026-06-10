@@ -64,6 +64,18 @@ vi.mock("@/components/settings", () => ({
       {children}
     </div>
   ),
+  SettingsFormField: ({
+    label,
+    children
+  }: {
+    label: React.ReactNode
+    children?: React.ReactNode
+  }) => (
+    <div>
+      <span>{label}</span>
+      {children}
+    </div>
+  ),
   SettingsSliderField: ({
     label,
     value,

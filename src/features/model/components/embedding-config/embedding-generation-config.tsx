@@ -2,7 +2,7 @@ import { Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,7 @@ export const EmbeddingGenerationConfig = ({
       title={t("model.embedding_config.embedding_gen_title")}
       description={t("model.embedding_config.embedding_gen_description")}>
       <div className="space-y-4">
-        <SettingsField
+        <SettingsFormField
           htmlFor="batchSize"
           label={t("model.embedding_config.batch_size_label")}
           description={t("model.embedding_config.batch_size_description")}>
@@ -42,7 +42,7 @@ export const EmbeddingGenerationConfig = ({
             min={1}
             max={20}
           />
-        </SettingsField>
+        </SettingsFormField>
 
         <SettingsSwitch
           id="enableCaching"

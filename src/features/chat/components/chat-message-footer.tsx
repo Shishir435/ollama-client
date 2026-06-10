@@ -4,17 +4,14 @@ import {
   type ActionMenuItemConfig,
   TooltipActionButton
 } from "@/components/actions"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { SimpleTooltip } from "@/components/ui/simple-tooltip"
 import { CopyButton } from "@/features/chat/components/copy-button"
 import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
 import { RegenerateButton } from "@/features/chat/components/regenerate-button"
 import { RunDetails } from "@/features/chat/components/run-details"
 import { SpeechButton } from "@/features/chat/components/speech-button"
 import { UsedContextButton } from "@/features/chat/components/used-context-button"
+import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import {
   BookOpen,
@@ -111,8 +108,7 @@ export const ChatMessageFooter = ({
         }
       : null
   ].filter(Boolean) as ActionMenuItemConfig[]
-  const footerButtonClass =
-    "size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground [&_svg]:icon-xs"
+  const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")
 
   return (
     <div
@@ -193,17 +189,12 @@ export const ChatMessageFooter = ({
         )}
 
         {!isUser && msg.model && !isLoading && (
-          <Tooltip>
-            <TooltipTrigger render={<span />}>
-              <RegenerateButton
-                model={msg.model}
-                onSelectModel={(model) => onRegenerate?.(model)}
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              {t("chat.actions.switch_model_tooltip")}
-            </TooltipContent>
-          </Tooltip>
+          <SimpleTooltip content={t("chat.actions.switch_model_tooltip")}>
+            <RegenerateButton
+              model={msg.model}
+              onSelectModel={(model) => onRegenerate?.(model)}
+            />
+          </SimpleTooltip>
         )}
 
         {actionItems.length > 0 && <ChatSessionActions actions={actionItems} />}
@@ -218,16 +209,14 @@ export const ChatMessageFooter = ({
         </div>
       ) : (
         msg.model && (
-          <Tooltip>
-            <TooltipTrigger
-              render={<span className="ml-auto min-w-0 shrink" />}>
-              <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-[10px] text-muted-foreground/70 hover:bg-muted/35 hover:text-foreground">
-                <Bot className="icon-xs shrink-0" />
-                <span className="truncate">{msg.model}</span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{msg.model}</TooltipContent>
-          </Tooltip>
+          <SimpleTooltip
+            content={msg.model}
+            triggerRender={<span className="ml-auto min-w-0 shrink" />}>
+            <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-[10px] text-muted-foreground/70 hover:bg-muted/35 hover:text-foreground">
+              <Bot className="icon-xs shrink-0" />
+              <span className="truncate">{msg.model}</span>
+            </span>
+          </SimpleTooltip>
         )
       )}
     </div>

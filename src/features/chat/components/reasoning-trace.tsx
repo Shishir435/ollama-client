@@ -15,6 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { SimpleTooltip } from "@/components/ui/simple-tooltip"
 import {
   Tooltip,
   TooltipContent,
@@ -161,26 +162,25 @@ export const ReasoningTrace = ({
           const Icon = step.icon ?? Circle
           const label = getDisplayLabel(step.label, step.status)
           return (
-            <Tooltip key={step.key}>
-              <TooltipTrigger
-                render={
-                  <span
-                    className={cn(
-                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
-                      statusClass(step.status)
-                    )}
-                  />
-                }>
-                <Icon
+            <SimpleTooltip
+              key={step.key}
+              content={label}
+              triggerRender={
+                <span
                   className={cn(
-                    "icon-sm",
-                    step.status === "running" && "animate-pulse"
+                    "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
+                    statusClass(step.status)
                   )}
                 />
-                <span className="sr-only">{label}</span>
-              </TooltipTrigger>
-              <TooltipContent>{label}</TooltipContent>
-            </Tooltip>
+              }>
+              <Icon
+                className={cn(
+                  "icon-sm",
+                  step.status === "running" && "animate-pulse"
+                )}
+              />
+              <span className="sr-only">{label}</span>
+            </SimpleTooltip>
           )
         })}
       </div>

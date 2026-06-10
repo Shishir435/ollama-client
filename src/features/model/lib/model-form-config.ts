@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next"
-import type { NumberInputValidation } from "@/features/model/components/form-number-input"
+import type { NumberInputValidation } from "@/components/forms"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { Eye, Hash, Layers, Thermometer } from "@/lib/lucide-icon"
 

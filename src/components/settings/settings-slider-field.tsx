@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 
-import { SettingsField } from "./settings-field"
+import { SettingsFormField } from "./settings-form-field"
 
 interface SettingsSliderFieldProps {
   label: React.ReactNode
@@ -31,7 +31,7 @@ export const SettingsSliderField = ({
   rightLabel,
   valueLabel
 }: SettingsSliderFieldProps) => (
-  <SettingsField
+  <SettingsFormField
     label={
       <span className="inline-flex items-center gap-2">
         <span>{label}</span>
@@ -55,7 +55,7 @@ export const SettingsSliderField = ({
         <span>{rightLabel}</span>
       </div>
     )}
-  </SettingsField>
+  </SettingsFormField>
 )
 
 export const SettingsValueBadge = ({

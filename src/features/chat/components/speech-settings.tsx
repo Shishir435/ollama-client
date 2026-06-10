@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { FieldStack } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -143,7 +143,7 @@ export const SpeechSettings = () => {
             </div>
           </div>
           <FieldStack className="space-y-3">
-            <SettingsField
+            <SettingsFormField
               htmlFor="test-text"
               label={t("settings.speech.test_text_label")}>
               <Textarea
@@ -154,7 +154,7 @@ export const SpeechSettings = () => {
                 rows={3}
                 className="resize-none"
               />
-            </SettingsField>
+            </SettingsFormField>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {testText.trim()

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
+import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { Mic, MicOff } from "@/lib/lucide-icon"
 
 export interface SpeakButtonProps {
@@ -25,7 +26,7 @@ export const SpeechButton = ({ text }: SpeakButtonProps) => {
     <TooltipActionButton
       size="icon"
       variant="ghost"
-      className="size-6 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+      className={chatIconBtnCls}
       label={getLabel()}
       title={getLabel()}
       onClick={() => !isLoadingVoices && toggle(text)}

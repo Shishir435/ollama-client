@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -51,7 +51,7 @@ export const PromptContextLimitsSettings = () => {
       title={t("settings.prompt_context_limits.title")}
       description={t("settings.prompt_context_limits.description")}>
       <FormGrid>
-        <SettingsField
+        <SettingsFormField
           htmlFor="max-tab-context-chars"
           label={t("settings.prompt_context_limits.max_tab_context_chars")}>
           <Input
@@ -68,9 +68,9 @@ export const PromptContextLimitsSettings = () => {
               )
             }}
           />
-        </SettingsField>
+        </SettingsFormField>
 
-        <SettingsField
+        <SettingsFormField
           htmlFor="max-rag-context-chars"
           label={t("settings.prompt_context_limits.max_rag_context_chars")}>
           <Input
@@ -87,7 +87,7 @@ export const PromptContextLimitsSettings = () => {
               )
             }}
           />
-        </SettingsField>
+        </SettingsFormField>
       </FormGrid>
 
       <SettingsSwitch

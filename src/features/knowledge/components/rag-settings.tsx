@@ -2,8 +2,9 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  ConfirmActionDialog,
   SettingsActionRow,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
@@ -24,6 +25,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -82,6 +84,7 @@ export const RAGSettings = () => {
   const [minRerankScore, setMinRerankScore] = useState(
     config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore
   )
+  const deleteSetDialog = useConfirmAction()
 
   // Load initial values
   useEffect(() => {
@@ -193,10 +196,6 @@ export const RAGSettings = () => {
 
   const handleDeleteKnowledgeSet = async () => {
     if (!activeSet || activeSet.id === DEFAULT_KNOWLEDGE_SET_ID) return
-    const confirmed = window.confirm(
-      t("knowledge_sets.delete_confirm", { name: activeSet.name })
-    )
-    if (!confirmed) return
     await deleteKnowledgeSet(activeSet.id)
     const activeId = await getActiveKnowledgeSetId()
     setActiveKnowledgeSetIdState(activeId)
@@ -271,7 +270,7 @@ export const RAGSettings = () => {
         <AccordionItem value="knowledge-sets">
           <AccordionTrigger>{t("knowledge_sets.title")}</AccordionTrigger>
           <AccordionContent className="space-y-6 pt-4">
-            <SettingsField
+            <SettingsFormField
               label={t("knowledge_sets.active_label")}
               description={t("knowledge_sets.active_description")}>
               <Select
@@ -292,9 +291,9 @@ export const RAGSettings = () => {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </SettingsField>
+            </SettingsFormField>
 
-            <SettingsField
+            <SettingsFormField
               label={t("knowledge_sets.create_label")}
               description={t("knowledge_sets.create_description")}>
               <SettingsActionRow>
@@ -307,11 +306,11 @@ export const RAGSettings = () => {
                   {t("knowledge_sets.create_button")}
                 </Button>
               </SettingsActionRow>
-            </SettingsField>
+            </SettingsFormField>
 
             {activeSet && (
               <>
-                <SettingsField
+                <SettingsFormField
                   label={t("knowledge_sets.rename_label")}
                   description={t("knowledge_sets.rename_description")}>
                   <SettingsActionRow>
@@ -331,21 +330,21 @@ export const RAGSettings = () => {
                       {t("knowledge_sets.rename_button")}
                     </Button>
                   </SettingsActionRow>
-                </SettingsField>
+                </SettingsFormField>
 
-                <SettingsField
+                <SettingsFormField
                   label={t("knowledge_sets.delete_label")}
                   description={t("knowledge_sets.delete_description")}>
                   <Button
                     type="button"
                     variant="destructive"
-                    onClick={handleDeleteKnowledgeSet}
+                    onClick={deleteSetDialog.openDialog}
                     disabled={activeSet.id === DEFAULT_KNOWLEDGE_SET_ID}>
                     {t("knowledge_sets.delete_button")}
                   </Button>
-                </SettingsField>
+                </SettingsFormField>
 
-                <SettingsField
+                <SettingsFormField
                   label={t("knowledge_sets.prompt_label")}
                   description={t("knowledge_sets.prompt_description")}>
                   <Textarea
@@ -353,9 +352,9 @@ export const RAGSettings = () => {
                     onChange={handleKnowledgePromptChange}
                     className="min-h-[160px]"
                   />
-                </SettingsField>
+                </SettingsFormField>
 
-                <SettingsField
+                <SettingsFormField
                   label={t("knowledge_sets.question_prompt_label")}
                   description={t("knowledge_sets.question_prompt_description")}>
                   <Textarea
@@ -363,7 +362,7 @@ export const RAGSettings = () => {
                     onChange={handleKnowledgeQuestionPromptChange}
                     className="min-h-[140px]"
                   />
-                </SettingsField>
+                </SettingsFormField>
 
                 <SettingsSliderField
                   label={t("knowledge_sets.topk_label")}
@@ -397,6 +396,14 @@ export const RAGSettings = () => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      <ConfirmActionDialog
+        {...deleteSetDialog}
+        title={t("knowledge_sets.delete_confirm", {
+          name: activeSet?.name ?? ""
+        })}
+        destructive
+        onConfirm={handleDeleteKnowledgeSet}
+      />
     </div>
   )
 }
