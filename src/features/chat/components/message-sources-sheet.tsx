@@ -115,7 +115,9 @@ export function MessageSourcesSheet({
                               )}
                             </div>
                           </AccordionTrigger>
-                          <CopyButton text={item.content} />
+                          <div className="mt-1.5 shrink-0">
+                            <CopyButton text={item.content} />
+                          </div>
                         </div>
                         <AccordionContent>
                           <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
