@@ -25,13 +25,6 @@ export const PageHeader = ({
   />
 )
 
-export const PageStack = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
-  <div className={cn("space-y-8", className)} {...props} />
-)
-
 export const SectionStack = ({
   className,
   ...props
@@ -44,13 +37,6 @@ export const FieldStack = ({
   ...props
 }: React.ComponentProps<"div">) => (
   <div className={cn("space-y-4", className)} {...props} />
-)
-
-export const ControlStack = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
-  <div className={cn("space-y-2", className)} {...props} />
 )
 
 export const PageBody = ({
@@ -71,13 +57,6 @@ export const TwoColumnGrid = ({
   ...props
 }: React.ComponentProps<"div">) => (
   <div className={cn("grid gap-6 lg:grid-cols-2", className)} {...props} />
-)
-
-export const ResponsiveGrid = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
-  <div className={cn("grid gap-6", className)} {...props} />
 )
 
 export const FormGrid = ({
