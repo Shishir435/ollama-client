@@ -189,7 +189,7 @@ export async function retrieveContextEnhanced(
   )
 
   const embeddingConfig = await getEmbeddingConfig()
-  const useReranking = embeddingConfig.useReranking ?? false
+  const useReranking = embeddingConfig.useReranking ?? true
   const rerankerBackend = embeddingConfig.rerankerBackend ?? "none"
   let rerankedResults: EnhancedSearchResult[] = []
 

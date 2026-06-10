@@ -46,7 +46,7 @@ export const knowledgeDb = new KnowledgeDatabase()
 export const DEFAULT_KNOWLEDGE_SET_ID = "default"
 export const DEFAULT_KNOWLEDGE_SET_NAME = "Default"
 export const DEFAULT_RAG_PROMPT =
-  "Use ONLY the following context in <doc> blocks. If the answer is not in the context, say you don't know."
+  "Use ONLY the following context in <doc> and <memory> blocks. If the answer is not in the context, say you don't know."
 export const DEFAULT_QUESTION_PROMPT = KNOWLEDGE_DEFAULTS.questionPrompt
 
 const createId = () => {

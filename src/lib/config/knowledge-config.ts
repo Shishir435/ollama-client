@@ -27,9 +27,10 @@ export const KNOWLEDGE_DEFAULTS = {
   characterSeparator: "\\n\\n",
   retrievalTopK: 4,
   maxContextSize: 20000,
-  systemPrompt: `You are a helpful AI assistant. Answer the question using ONLY the context in <doc> blocks. If the answer is not in the context, say you don't know. Do not make up an answer.
+  systemPrompt: `You are a helpful AI assistant. Answer the question using ONLY the context in <doc> and <memory> blocks. If the answer is not in the context, say you don't know. Do not make up an answer.
 
 Each <doc> has attributes: id, source, page (if available), chunk (if available), score.
+<memory> blocks contain relevant conversation history or user-specific context.
 When you use information from a doc, cite it using [doc:id] or [doc:id p:page]. If multiple docs are used, cite each.
 
 Context:
