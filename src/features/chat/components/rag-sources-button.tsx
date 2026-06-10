@@ -1,10 +1,10 @@
 import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import type { RetrievedChunk } from "@/features/chat/components/retrieved-context-card"
+import type { RagSource } from "@/types"
 import { MessageSourcesSheet, type SourceItem } from "./message-sources-sheet"
 
 export interface RAGSourcesButtonProps {
-  sources: RetrievedChunk[]
+  sources: RagSource[]
   query?: string
   sessionId?: string
   enableFeedback?: boolean

@@ -189,21 +189,52 @@ export async function retrieveContextEnhanced(
   )
 
   const embeddingConfig = await getEmbeddingConfig()
-  const useReranking = embeddingConfig.useReranking ?? false
+  const useReranking = embeddingConfig.useReranking ?? true
   const rerankerBackend = embeddingConfig.rerankerBackend ?? "none"
   let rerankedResults: EnhancedSearchResult[] = []
 
   if (!useReranking) {
-    logger.info("Re-ranking disabled, using hybrid scores", "RAGPipeline")
+    // Adaptive threshold: keep results that are at least 50% as good as the top hit.
+    // Prevents weak tail candidates from polluting the context when a strong top result exists.
+    const topScore = candidates[0]?.similarity ?? 0
+    const adaptiveThreshold = Math.max(minSimilarity, topScore * 0.5)
 
-    rerankedResults = candidates.slice(0, topK).map((candidate) => ({
-      document: candidate.document,
-      score: candidate.similarity,
-      originalSimilarity: candidate.similarity
-    }))
+    logger.info(
+      "Re-ranking disabled, applying adaptive threshold",
+      "RAGPipeline",
+      {
+        topScore: topScore.toFixed(3),
+        adaptiveThreshold: adaptiveThreshold.toFixed(3)
+      }
+    )
+
+    rerankedResults = candidates
+      .filter((c) => c.similarity >= adaptiveThreshold)
+      .slice(0, topK)
+      .map((candidate) => ({
+        document: candidate.document,
+        score: candidate.similarity,
+        originalSimilarity: candidate.similarity
+      }))
+
+    // Always surface at least one result to prevent silent empty context
+    if (rerankedResults.length === 0 && candidates.length > 0) {
+      const top = candidates[0]
+      rerankedResults = [
+        {
+          document: top.document,
+          score: top.similarity,
+          originalSimilarity: top.similarity
+        }
+      ]
+    }
   } else {
-    // ===== STAGE 2: Cross-Encoder Re-Ranking (Precision-Optimized) =====
-    logger.verbose(`Stage 2: Re-ranking with ${rerankerBackend}`, "RAGPipeline")
+    // ===== STAGE 2: Cosine Re-Scoring (Precision Pass) =====
+    // NOTE: current reranker backend is cosine similarity, not a cross-encoder.
+    // It provides a precision pass using semantic signal only (no keyword weight),
+    // which is useful when keywordWeight was high in stage 1. A real cross-encoder
+    // (e.g. transformers.js) would give stronger signal but requires a local model.
+    logger.verbose(`Stage 2: Re-scoring with ${rerankerBackend}`, "RAGPipeline")
     rerankerService.setBackend(rerankerBackend)
     rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
 
@@ -245,11 +276,13 @@ export async function retrieveContextEnhanced(
       "RAGPipeline"
     )
 
-    // Convert to EnhancedSearchResult format
-    rerankedResults = confidentResults.map((r, _idx) => {
-      const originalCandidate = candidates.find(
-        (c) => c.document.content === r.content
-      )
+    // Build lookup map before reranking to avoid O(n×m) content-string scan
+    const candidateByContent = new Map(
+      candidates.map((c) => [c.document.content, c])
+    )
+
+    rerankedResults = confidentResults.map((r) => {
+      const originalCandidate = candidateByContent.get(r.content)
       return {
         document: {
           id: originalCandidate?.document.id,
@@ -510,19 +543,19 @@ export function formatEnhancedResults(
           ? `${chunkIndex + 1}${totalChunks ? `/${totalChunks}` : ""}`
           : undefined
 
+      const clampedScore = Math.min(1, r.score)
       const attrs = [
         `id="${i + 1}"`,
         `source="${escapeAttribute(source)}"`,
         page ? `page="${page}"` : undefined,
         chunkLabel ? `chunk="${chunkLabel}"` : undefined,
-        r.score ? `score="${r.score.toFixed(3)}"` : undefined
+        r.score ? `score="${clampedScore.toFixed(3)}"` : undefined
       ]
         .filter(Boolean)
         .join(" ")
 
-      // For memory results, wrap with special tags for separation
       if (isMemory) {
-        return `<doc ${attrs}>\n${r.document.content}\n</doc>`
+        return `<memory ${attrs}>\n${r.document.content}\n</memory>`
       }
 
       return `<doc ${attrs}>\n${r.document.content}\n</doc>`
@@ -535,7 +568,7 @@ export function formatEnhancedResults(
       ? "Previous Conversation"
       : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
-    score: r.score,
+    score: Math.min(1, r.score),
     source: r.document.metadata.source,
     chunkIndex: r.document.metadata.chunkIndex,
     page: r.document.metadata.page,

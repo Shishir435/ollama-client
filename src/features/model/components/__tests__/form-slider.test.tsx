@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import type React from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { describe, expect, it } from "vitest"
-import { FormSlider } from "../form-slider"
+import { ControlledSlider as FormSlider } from "@/components/forms"
 
 describe("FormSlider", () => {
   it("renders label and badge", () => {

@@ -4,7 +4,7 @@ import { browser } from "wxt/browser"
 import {
   ConfirmActionDialog,
   SettingsCard,
-  SettingsField
+  SettingsFormField
 } from "@/components/settings"
 import {
   AlertDialog,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
@@ -38,11 +39,10 @@ export const DataMigrationSettings = () => {
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
 
-  const [importConfirmOpen, setImportConfirmOpen] = useState(false)
+  const importConfirmDialog = useConfirmAction()
+  const resultDialog = useConfirmAction()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const [resultDialogOpen, setResultDialogOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -75,7 +75,7 @@ export const DataMigrationSettings = () => {
     const file = e.target.files?.[0]
     if (file) {
       setSelectedFile(file)
-      setImportConfirmOpen(true)
+      importConfirmDialog.openDialog()
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -85,13 +85,13 @@ export const DataMigrationSettings = () => {
   const confirmImport = async () => {
     if (!selectedFile) return
 
-    setImportConfirmOpen(false)
+    importConfirmDialog.closeDialog()
     setIsImporting(true)
 
     try {
       const result = await backupService.importAll(selectedFile)
       setImportResult(result)
-      setResultDialogOpen(true)
+      resultDialog.openDialog()
     } catch (error: unknown) {
       logger.error("Import failed", "DataMigrationSettings", { error })
       setImportResult({
@@ -118,7 +118,7 @@ export const DataMigrationSettings = () => {
           }
         }
       })
-      setResultDialogOpen(true)
+      resultDialog.openDialog()
     } finally {
       setIsImporting(false)
       setSelectedFile(null)
@@ -126,7 +126,7 @@ export const DataMigrationSettings = () => {
   }
 
   const closeResultDialogAndReload = () => {
-    setResultDialogOpen(false)
+    resultDialog.closeDialog()
     // Auto-reload when the SQLite chat-history database was restored.
     // Vector/knowledge DB failures are non-fatal for the reload decision.
     const restoredChatHistory = importResult?.database.ok
@@ -144,7 +144,7 @@ export const DataMigrationSettings = () => {
       title={t("settings.migration.title")}
       description={t("settings.migration.description")}>
       <div className="space-y-4">
-        <SettingsField
+        <SettingsFormField
           label={t("settings.migration.export.label")}
           description={t("settings.migration.export.description")}>
           <Button
@@ -158,9 +158,9 @@ export const DataMigrationSettings = () => {
             )}
             {t("settings.migration.export.button")}
           </Button>
-        </SettingsField>
+        </SettingsFormField>
 
-        <SettingsField
+        <SettingsFormField
           label={t("settings.migration.import.label")}
           description={t("settings.migration.import.description")}>
           <Button
@@ -182,12 +182,12 @@ export const DataMigrationSettings = () => {
             accept=".zip"
             onChange={onFileChange}
           />
-        </SettingsField>
+        </SettingsFormField>
       </div>
 
       <ConfirmActionDialog
-        open={importConfirmOpen}
-        onOpenChange={setImportConfirmOpen}
+        open={importConfirmDialog.open}
+        onOpenChange={importConfirmDialog.onOpenChange}
         title={t("settings.migration.import_confirm.title")}
         description={t("settings.migration.import_confirm.description")}
         destructive
@@ -196,7 +196,7 @@ export const DataMigrationSettings = () => {
       />
 
       <AlertDialog
-        open={resultDialogOpen}
+        open={resultDialog.open}
         onOpenChange={(open) => {
           if (!open) closeResultDialogAndReload()
         }}>

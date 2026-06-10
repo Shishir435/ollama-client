@@ -1,7 +1,3 @@
-import { ChatHeader } from "@/features/chat/components/chat-header"
-import { ChatInputBox } from "@/features/chat/components/chat-input-box"
-import { ChatMessageList } from "@/features/chat/components/chat-message-list"
-import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
@@ -10,6 +6,10 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import type { ChatMessage } from "@/types"
+import { ChatHeader } from "./chat-header"
+import { ChatInputBox } from "./chat-input-box"
+import { ChatMessageList } from "./chat-message-list"
+import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
 export const Chat = () => {
   const {

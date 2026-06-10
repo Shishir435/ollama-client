@@ -1,11 +1,14 @@
-import { type ComponentProps, useState } from "react"
+import { type ComponentProps, useId, useState } from "react"
 import {
   type RegisterOptions,
   useController,
-  useFormContext
+  useFormContext,
+  useFormState
 } from "react-hook-form"
 
+import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
+import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export type ControlledNumberInputValidation = Omit<
@@ -16,6 +19,8 @@ export type ControlledNumberInputValidation = Omit<
   max?: { value: number; message: string }
 }
 
+export type NumberInputValidation = ControlledNumberInputValidation
+
 export interface ControlledNumberInputProps
   extends Omit<
     ComponentProps<typeof Input>,
@@ -24,6 +29,8 @@ export interface ControlledNumberInputProps
   name: string
   validation?: ControlledNumberInputValidation
   commitMode?: "change" | "blur"
+  label?: string
+  icon?: LucideIcon
 }
 
 /**
@@ -31,6 +38,8 @@ export interface ControlledNumberInputProps
  *
  * Keep this app-owned wrapper between feature forms and the shadcn/Base UI
  * primitive so preset refreshes cannot silently break numeric persistence.
+ *
+ * Optionally renders a SettingsFormField label wrapper when `label` is provided.
  */
 export const ControlledNumberInput = ({
   name,
@@ -38,14 +47,20 @@ export const ControlledNumberInput = ({
   commitMode = "change",
   onBlur,
   className,
+  label,
+  icon: Icon,
   ...props
 }: ControlledNumberInputProps) => {
-  const { control } = useFormContext()
+  const { control, getFieldState } = useFormContext()
+  const reactId = useId()
+  const inputId = label ? `${name}-${reactId}` : props.id
+  const formState = useFormState({ control, name })
   const { field, fieldState } = useController({
     control,
     name,
     rules: validation as RegisterOptions
   })
+  const { error } = getFieldState(name, formState)
   const [draftValue, setDraftValue] = useState<string | null>(null)
   const renderedValue =
     draftValue ??
@@ -62,15 +77,16 @@ export const ControlledNumberInput = ({
     field.onChange(Number.isNaN(parsed) ? raw : parsed)
   }
 
-  return (
+  const input = (
     <Input
       {...props}
+      id={inputId}
       name={field.name}
       ref={field.ref}
       type="number"
       value={renderedValue}
       aria-invalid={fieldState.invalid || props["aria-invalid"]}
-      className={cn("control-h-sm", className)}
+      className={cn("control-h-sm", className ?? "text-center")}
       onChange={(event) => {
         const raw = event.currentTarget.value
         if (commitMode === "blur") {
@@ -88,5 +104,25 @@ export const ControlledNumberInput = ({
         onBlur?.(event)
       }}
     />
+  )
+
+  if (!label) return input
+
+  return (
+    <SettingsFormField
+      htmlFor={inputId}
+      label={
+        Icon ? (
+          <div className="flex items-center gap-2">
+            <Icon className="icon-xs" />
+            <span>{label}</span>
+          </div>
+        ) : (
+          label
+        )
+      }
+      error={error?.message}>
+      {input}
+    </SettingsFormField>
   )
 }

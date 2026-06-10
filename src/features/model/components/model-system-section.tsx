@@ -4,7 +4,7 @@ import { ControlledTextarea } from "@/components/forms"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsField
+  SettingsFormField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,7 +46,7 @@ export const ModelSystemSection = ({
       title={t("settings.model.system.title")}
       description={t("settings.model.system.description")}
       contentClassName="space-y-6">
-      <SettingsField
+      <SettingsFormField
         htmlFor="system"
         label={t("settings.model.system.prompt_label")}
         className="space-y-3">
@@ -63,9 +63,9 @@ export const ModelSystemSection = ({
             {t("settings.prompts.reset")}
           </Button>
         </SettingsActionRow>
-      </SettingsField>
+      </SettingsFormField>
       <Separator />
-      <SettingsField
+      <SettingsFormField
         htmlFor="stop-sequences"
         label={
           <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export const ModelSystemSection = ({
             ))}
           </div>
         )}
-      </SettingsField>
+      </SettingsFormField>
     </SettingsCard>
   )
 }

@@ -4,17 +4,17 @@ import { useTranslation } from "react-i18next"
 import { FieldStack } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { VoiceSelector } from "@/features/chat/components/voice-selector"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
+import { VoiceSelector } from "./voice-selector"
 
 const getRateDescription = (rate: number, t: (key: string) => string) => {
   if (rate < 0.8) return t("settings.speech.rate.very_slow")
@@ -143,7 +143,7 @@ export const SpeechSettings = () => {
             </div>
           </div>
           <FieldStack className="space-y-3">
-            <SettingsField
+            <SettingsFormField
               htmlFor="test-text"
               label={t("settings.speech.test_text_label")}>
               <Textarea
@@ -154,7 +154,7 @@ export const SpeechSettings = () => {
                 rows={3}
                 className="resize-none"
               />
-            </SettingsField>
+            </SettingsFormField>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {testText.trim()

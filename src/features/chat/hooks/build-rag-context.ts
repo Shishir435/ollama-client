@@ -15,33 +15,15 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
-import type { ChatMessage, SelectedModelRef } from "@/types"
+import type {
+  ChatMessage,
+  RagSource,
+  RagSources,
+  SelectedModelRef,
+  UsedContextChunk
+} from "@/types"
 
-export interface UsedContextChunk {
-  id: string | number
-  title: string
-  excerpt: string
-  score: number
-  sectionPath?: string
-  source?: string
-  chunkIndex?: number
-}
-
-export interface RagSource {
-  id: string | number
-  title: string
-  content: string
-  score: number
-  source?: string
-  chunkIndex?: number
-  fileId?: string
-  type?: string
-}
-
-export interface RagSources {
-  sources: RagSource[]
-  query: string
-}
+export type { RagSource, RagSources, UsedContextChunk }
 
 export interface PromptContextStats {
   promptInputLength: number
@@ -307,7 +289,6 @@ export const buildRagContext = async (
               mode: queryClassification.suggestedMode,
               topK:
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-              useReranking: true,
               minSimilarity: retrievalOverrides?.minSimilarity,
               minRerankScore: retrievalOverrides?.minRerankScore,
               includeMemory: memoryEnabled,

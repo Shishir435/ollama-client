@@ -2,7 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
@@ -119,7 +119,7 @@ export const TextSplittingSettings = () => {
       />
 
       {!config.useEnhancedChunking && (
-        <SettingsField
+        <SettingsFormField
           label={t("model.embedding_config.chunking_strategy_label")}>
           <Select
             value={config.chunkingStrategy}
@@ -139,7 +139,7 @@ export const TextSplittingSettings = () => {
               </SelectItem>
             </SelectContent>
           </Select>
-        </SettingsField>
+        </SettingsFormField>
       )}
     </div>
   )

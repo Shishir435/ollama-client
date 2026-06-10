@@ -5,7 +5,7 @@ import { FieldStack, FormGrid } from "@/components/layout"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSliderField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -114,7 +114,7 @@ export const SiteSpecificOverrides = ({
     onChange: (value: number) => void,
     className?: string
   ) => (
-    <SettingsField
+    <SettingsFormField
       key={field.id}
       label={
         <div className="flex items-center gap-1.5">
@@ -135,7 +135,7 @@ export const SiteSpecificOverrides = ({
         }}
         className={className || "text-center"}
       />
-    </SettingsField>
+    </SettingsFormField>
   )
 
   // Render scroll strategy select
@@ -145,7 +145,7 @@ export const SiteSpecificOverrides = ({
     _id?: string,
     className?: string
   ) => (
-    <SettingsField
+    <SettingsFormField
       label={t("model.site_overrides.scroll_strategy_label")}
       labelClassName="text-xs">
       <Select value={value} onValueChange={onValueChange}>
@@ -162,7 +162,7 @@ export const SiteSpecificOverrides = ({
           ))}
         </SelectContent>
       </Select>
-    </SettingsField>
+    </SettingsFormField>
   )
 
   // Render scroll depth slider
@@ -194,7 +194,7 @@ export const SiteSpecificOverrides = ({
       description={t("model.site_overrides.description")}
       contentClassName="space-y-5"
       headerClassName="pb-4">
-      <SettingsField
+      <SettingsFormField
         label={
           <div className="flex items-center gap-2">
             <Globe className="icon-md text-muted-foreground" />
@@ -244,7 +244,7 @@ export const SiteSpecificOverrides = ({
             {t("model.site_overrides.add_button")}
           </Button>
         </SettingsActionRow>
-      </SettingsField>
+      </SettingsFormField>
 
       {Object.keys(config.siteOverrides).length > 0 ? (
         <FieldStack>
@@ -264,7 +264,8 @@ export const SiteSpecificOverrides = ({
           </div>
 
           {/* Site Selector Dropdown */}
-          <SettingsField label={t("model.site_overrides.select_site_label")}>
+          <SettingsFormField
+            label={t("model.site_overrides.select_site_label")}>
             <Popover open={siteOverrideOpen} onOpenChange={setSiteOverrideOpen}>
               <PopoverTrigger
                 render={
@@ -317,7 +318,7 @@ export const SiteSpecificOverrides = ({
                 </Command>
               </PopoverContent>
             </Popover>
-          </SettingsField>
+          </SettingsFormField>
 
           {/* Selected Site Configuration */}
           {selectedSiteOverride &&

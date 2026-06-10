@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import {
   Popover,
@@ -161,26 +162,29 @@ export const ReasoningTrace = ({
           const Icon = step.icon ?? Circle
           const label = getDisplayLabel(step.label, step.status)
           return (
-            <Tooltip key={step.key}>
-              <TooltipTrigger
-                render={
-                  <span
-                    className={cn(
-                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
-                      statusClass(step.status)
-                    )}
-                  />
-                }>
-                <Icon
+            <TooltipActionButton
+              key={step.key}
+              trigger={
+                <span
                   className={cn(
-                    "icon-sm",
-                    step.status === "running" && "animate-pulse"
+                    "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
+                    statusClass(step.status)
                   )}
                 />
-                <span className="sr-only">{label}</span>
-              </TooltipTrigger>
-              <TooltipContent>{label}</TooltipContent>
-            </Tooltip>
+              }
+              tooltip={label}
+              icon={
+                <>
+                  <Icon
+                    className={cn(
+                      "icon-sm",
+                      step.status === "running" && "animate-pulse"
+                    )}
+                  />
+                  <span className="sr-only">{label}</span>
+                </>
+              }
+            />
           )
         })}
       </div>

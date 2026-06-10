@@ -1,10 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { TooltipActionButton } from "@/components/actions"
 
 export const CharCount = ({ count }: { count: number }) => {
   const { t } = useTranslation()
@@ -12,18 +8,18 @@ export const CharCount = ({ count }: { count: number }) => {
   if (count === 0) return null
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <div className="cursor-default font-mono text-xs text-muted-foreground" />
-        }>
-        {count}
-      </TooltipTrigger>
-      <TooltipContent side="top">
+    <TooltipActionButton
+      trigger={
+        <div className="cursor-default font-mono text-xs text-muted-foreground" />
+      }
+      tooltip={
         <p>
           {count} {t("chat.input.chars")}
         </p>
-      </TooltipContent>
-    </Tooltip>
+      }
+      tooltipSide="top"
+      showLabel
+      label={count}
+    />
   )
 }

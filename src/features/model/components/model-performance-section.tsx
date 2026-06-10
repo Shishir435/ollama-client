@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
   SettingsCard,
-  SettingsField,
+  SettingsFormField,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -71,7 +71,7 @@ export const ModelPerformanceSection = ({
       title={t("settings.model.runtime.title")}
       description={t("settings.model.runtime.description")}
       contentClassName="space-y-5">
-      <SettingsField
+      <SettingsFormField
         htmlFor="keep-alive"
         label={t("settings.model.runtime.keep_alive_label")}
         description={t("settings.model.runtime.keep_alive_description")}>
@@ -82,7 +82,7 @@ export const ModelPerformanceSection = ({
           onBlur={() => saveKeepAlive(keepAliveInput)}
           placeholder={t("settings.model.runtime.keep_alive_placeholder")}
         />
-      </SettingsField>
+      </SettingsFormField>
 
       <FormGrid>
         <SettingsSwitch

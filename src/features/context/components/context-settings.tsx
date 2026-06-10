@@ -9,7 +9,7 @@ import {
   StatusAlert
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { ChatBackfillPanel } from "@/features/chat/components/chat-backfill-panel"
+import { ChatBackfillPanel } from "@/features/chat/components"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
@@ -25,6 +25,7 @@ import { DatabaseManagementCard } from "@/features/model/components/embedding-co
 import { EmbeddingLimitsConfig } from "@/features/model/components/embedding-config/embedding-limits-config"
 import { StorageStatsCard } from "@/features/model/components/embedding-config/storage-stats-card"
 import { EmbeddingIndexControls } from "@/features/model/components/embedding-index-controls"
+import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -115,7 +116,7 @@ export const ContextSettings = () => {
   const [confirmAction, setConfirmAction] = useState<
     "removeDuplicates" | "clearChat" | "clearAll" | "rebuild" | null
   >(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const confirmDialog = useConfirmAction()
 
   const loadStats = useCallback(async () => {
     if (isLoadingRef.current) return
@@ -258,15 +259,15 @@ export const ContextSettings = () => {
   const openConfirm = useCallback(
     (action: "removeDuplicates" | "clearChat" | "clearAll" | "rebuild") => {
       setConfirmAction(action)
-      setConfirmOpen(true)
+      confirmDialog.openDialog()
     },
-    []
+    [confirmDialog]
   )
 
   const closeConfirm = useCallback(() => {
-    setConfirmOpen(false)
+    confirmDialog.closeDialog()
     setConfirmAction(null)
-  }, [])
+  }, [confirmDialog])
 
   const confirmConfig = (() => {
     switch (confirmAction) {
@@ -433,10 +434,9 @@ export const ContextSettings = () => {
       </TwoColumnGrid>
       <EmbeddingIndexControls />
       <ConfirmActionDialog
-        open={confirmOpen}
+        open={confirmDialog.open}
         onOpenChange={(next) => {
           if (!next) closeConfirm()
-          else setConfirmOpen(next)
         }}
         title={confirmConfig?.title || ""}
         confirmLabel={confirmConfig?.confirmLabel || t("common.save")}

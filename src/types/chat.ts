@@ -13,6 +13,32 @@ export interface FileAttachment {
   data?: Uint8Array
 }
 
+export interface RagSource {
+  id: number | string
+  title: string
+  content: string
+  score: number
+  source?: string
+  chunkIndex?: number
+  fileId?: string
+  type?: string
+}
+
+export interface UsedContextChunk {
+  id: string | number
+  title: string
+  excerpt: string
+  score: number
+  sectionPath?: string
+  source?: string
+  chunkIndex?: number
+}
+
+export interface RagSources {
+  sources: RagSource[]
+  query: string
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
@@ -30,25 +56,8 @@ export interface ChatMessage {
     eval_count?: number
     eval_duration?: number
     ragQuery?: string
-    ragSources?: Array<{
-      id: number | string
-      title: string
-      content: string
-      score: number
-      source?: string
-      chunkIndex?: number
-      fileId?: string
-      type?: string
-    }>
-    usedContextChunks?: Array<{
-      id: string | number
-      title: string
-      excerpt: string
-      score: number
-      sectionPath?: string
-      source?: string
-      chunkIndex?: number
-    }>
+    ragSources?: RagSource[]
+    usedContextChunks?: UsedContextChunk[]
     toolRuns?: ToolRun[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean

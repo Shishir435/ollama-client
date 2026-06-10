@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next"
+import { ControlledNumberInput, ControlledSlider } from "@/components/forms"
 import { DenseFormGrid, SectionStack, TwoColumnGrid } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
-import { FormNumberInput } from "@/features/model/components/form-number-input"
-import { FormSlider } from "@/features/model/components/form-slider"
 import {
   getNumberInputConfigs,
   getSliderConfigs
@@ -36,11 +35,11 @@ export const ModelParametersSection = () => {
         icon={Target}>
         <SectionStack>
           {sliderConfigs.map((slider) => (
-            <FormSlider key={slider.name} {...slider} />
+            <ControlledSlider key={slider.name} {...slider} />
           ))}
           <DenseFormGrid>
             {samplingNumberInputs.map((input) => (
-              <FormNumberInput key={input.name} {...input} />
+              <ControlledNumberInput key={input.name} {...input} />
             ))}
           </DenseFormGrid>
         </SectionStack>
@@ -53,16 +52,16 @@ export const ModelParametersSection = () => {
         <SectionStack className="space-y-4">
           <DenseFormGrid>
             {contextNumberInputsRow1.map((input) => (
-              <FormNumberInput key={input.name} {...input} />
+              <ControlledNumberInput key={input.name} {...input} />
             ))}
           </DenseFormGrid>
           <DenseFormGrid>
             {contextNumberInputsRow2.map((input) => (
-              <FormNumberInput key={input.name} {...input} />
+              <ControlledNumberInput key={input.name} {...input} />
             ))}
           </DenseFormGrid>
           {contextNumberInputsRow3.map((input) => (
-            <FormNumberInput key={input.name} {...input} />
+            <ControlledNumberInput key={input.name} {...input} />
           ))}
         </SectionStack>
       </SettingsCard>

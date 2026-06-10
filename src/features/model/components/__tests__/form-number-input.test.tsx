@@ -3,7 +3,7 @@ import type React from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { describe, expect, it } from "vitest"
 
-import { FormNumberInput } from "../form-number-input"
+import { ControlledNumberInput as FormNumberInput } from "@/components/forms"
 
 /**
  * Regression coverage for the "number inputs never save" bug.

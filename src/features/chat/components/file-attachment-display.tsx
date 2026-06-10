@@ -1,16 +1,13 @@
-import { Copy, FileIcon, FileText, Loader2 } from "lucide-react"
+import { FileIcon, FileText, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  PreviewSheet,
-  PreviewTextBlock
-} from "@/features/chat/components/preview-sheet"
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import type { FileAttachment } from "@/types"
+import { CopyButton } from "./copy-button"
+import { PreviewSheet, PreviewTextBlock } from "./preview-sheet"
 
 export interface FileAttachmentDisplayProps {
   attachments: FileAttachment[]
@@ -131,19 +128,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
                     {t("tabs.inspector.chars", { count: fullText.length })}
                   </span>
                 </button>
-                {fullText && (
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-7 shrink-0 rounded-control text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(fullText)
-                    }}
-                    aria-label={t("prompts.selector.copy")}>
-                    <Copy className="icon-xs" />
-                  </Button>
-                )}
+                {fullText && <CopyButton text={fullText} />}
               </div>
               {expanded && (
                 <div className="border-t border-border/35">

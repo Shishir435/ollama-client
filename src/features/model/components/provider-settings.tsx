@@ -12,11 +12,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
-import {
-  SettingsActionRow,
-  SettingsField,
-  SettingsInlineControl
-} from "@/components/settings"
+import { SettingsActionRow, SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,6 +22,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
@@ -110,19 +107,18 @@ export const ProviderSettings = () => {
             </div>
 
             <InlineActions className="gap-4">
-              <SettingsInlineControl
-                htmlFor="enabled-switch"
-                label={
-                  activeConfig.enabled
+              <div className="flex items-center gap-2">
+                <Label htmlFor="enabled-switch" className="text-sm font-medium">
+                  {activeConfig.enabled
                     ? t("settings.providers.enabled")
-                    : t("settings.providers.disabled")
-                }>
+                    : t("settings.providers.disabled")}
+                </Label>
                 <Switch
                   id="enabled-switch"
                   checked={activeConfig.enabled}
                   onCheckedChange={setProviderEnabled}
                 />
-              </SettingsInlineControl>
+              </div>
 
               <Button
                 variant="outline"
@@ -156,7 +152,7 @@ export const ProviderSettings = () => {
 
           <CardContent>
             <FieldStack>
-              <SettingsField
+              <SettingsFormField
                 label={t("settings.providers.base_url")}
                 description={
                   <>
@@ -192,21 +188,21 @@ export const ProviderSettings = () => {
                     {cspCompatibilityHint}
                   </p>
                 )}
-              </SettingsField>
+              </SettingsFormField>
 
               {!isLocalProvider && (
-                <SettingsField label={t("settings.providers.api_key")}>
+                <SettingsFormField label={t("settings.providers.api_key")}>
                   <Input
                     type="password"
                     value={activeConfig.apiKey || ""}
                     onChange={(e) => updateConfig({ apiKey: e.target.value })}
                     placeholder="sk-..."
                   />
-                </SettingsField>
+                </SettingsFormField>
               )}
 
               {!isLocalProvider && (
-                <SettingsField
+                <SettingsFormField
                   label={t("settings.providers.custom_models")}
                   description={t(
                     "settings.providers.custom_models_description"
@@ -293,7 +289,7 @@ export const ProviderSettings = () => {
                         </div>
                       )}
                   </FieldStack>
-                </SettingsField>
+                </SettingsFormField>
               )}
             </FieldStack>
           </CardContent>

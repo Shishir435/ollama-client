@@ -12,6 +12,7 @@ interface PreviewSheetProps {
   onOpenChange: (open: boolean) => void
   title: ReactNode
   meta?: ReactNode
+  actions?: ReactNode
   children: ReactNode
   className?: string
 }
@@ -21,6 +22,7 @@ export function PreviewSheet({
   onOpenChange,
   title,
   meta,
+  actions,
   children,
   className
 }: PreviewSheetProps) {
@@ -34,7 +36,14 @@ export function PreviewSheet({
         )}>
         <SheetHeader className="min-w-0 shrink-0 border-b border-border/35 px-4 py-3">
           <SheetTitle className="truncate pr-8">{title}</SheetTitle>
-          {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
+          {(meta || actions) && (
+            <div className="flex items-center justify-between gap-2">
+              {meta && (
+                <div className="text-xs text-muted-foreground">{meta}</div>
+              )}
+              {actions}
+            </div>
+          )}
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar-none">
           {children}

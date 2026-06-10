@@ -793,8 +793,7 @@ describe("useChat", () => {
         ["file-1"],
         expect.objectContaining({
           mode: "similarity",
-          topK: 5,
-          useReranking: true
+          topK: 5
         })
       )
     })

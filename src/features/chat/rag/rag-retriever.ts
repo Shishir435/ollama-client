@@ -69,6 +69,34 @@ const scoreKeywordMatch = (text: string, terms: string[]): number => {
   return uniqueMatches * 2 + totalMatches
 }
 
+// Extract sentences relevant to the query; keep ±1 neighbor for context flow.
+// Skips compression when content is too short, no terms match, or the content
+// contains structured markup (code fences, tables, lists) that sentence-splitting would corrupt.
+const STRUCTURED_CONTENT_RE = /```|~~~|^\s*\|.+\|/m
+const LIST_ITEM_RE = /^\s*[-*+]\s|^\s*\d+\.\s/m
+
+const compressToRelevant = (content: string, queryTerms: string[]): string => {
+  if (queryTerms.length === 0) return content
+  if (STRUCTURED_CONTENT_RE.test(content) || LIST_ITEM_RE.test(content))
+    return content
+  const sentences = content.split(/(?<=[.!?])\s+/)
+  if (sentences.length <= 3) return content
+  const relevant = sentences
+    .map((s, i) => ({ i, score: scoreKeywordMatch(s, queryTerms) }))
+    .filter(({ score }) => score > 0)
+  if (relevant.length === 0) return content
+  const keep = new Set<number>()
+  for (const { i } of relevant) {
+    if (i > 0) keep.add(i - 1)
+    keep.add(i)
+    if (i < sentences.length - 1) keep.add(i + 1)
+  }
+  return Array.from(keep)
+    .sort((a, b) => a - b)
+    .map((i) => sentences[i])
+    .join("\n\n")
+}
+
 /**
  * Retrieves relevant context for a query from a knowledge base
  * Supports three modes:
@@ -287,8 +315,17 @@ export async function retrieveContextFromSources(
   const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
   const trimmed = results.sort((a, b) => b.score - a.score).slice(0, topK)
 
+  const queryTerms = tokenizeQuery(query)
+  const compressed = trimmed.map((result) => ({
+    ...result,
+    document: {
+      ...result.document,
+      content: compressToRelevant(result.document.content, queryTerms)
+    }
+  }))
+
   return formatEnhancedResults(
-    trimmed,
+    compressed,
     options.maxTokens || (await knowledgeConfig.getMaxContextSize())
   )
 }

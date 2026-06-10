@@ -18,7 +18,7 @@ export interface TooltipActionButtonProps
   tooltip?: React.ReactNode
   tooltipKey?: string
   ariaLabel?: string
-  icon?: LucideIcon | React.ReactNode
+  icon?: LucideIcon | React.ReactElement
   iconClassName?: string
   showLabel?: boolean
   labelClassName?: string
