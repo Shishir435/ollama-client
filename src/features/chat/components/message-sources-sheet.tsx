@@ -102,19 +102,19 @@ export function MessageSourcesSheet({
                         key={value}
                         value={value}
                         className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
-                        <AccordionTrigger className="px-2 py-1.5 pr-14 text-xs font-medium hover:no-underline">
-                          <div className="flex min-w-0 flex-col gap-0.5">
+                        <AccordionTrigger className="pr-14 px-2 py-1.5 text-xs font-medium hover:no-underline">
+                          <div className="flex min-w-0 overflow-hidden flex-col gap-0.5">
                             <span className="truncate text-xs font-medium">
                               {item.title}
                             </span>
                             {meta && (
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="truncate text-[10px] text-muted-foreground">
                                 {meta}
                               </span>
                             )}
                           </div>
                         </AccordionTrigger>
-                        <div className="absolute right-7 top-1">
+                        <div className="absolute right-7 top-1.5">
                           <CopyButton text={item.content} />
                         </div>
                         <AccordionContent>
