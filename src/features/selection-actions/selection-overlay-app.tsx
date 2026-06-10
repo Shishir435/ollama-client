@@ -182,7 +182,7 @@ export function SelectionOverlayApp({
     const result = stateRef.current.resultText.trim()
     const capture = captureRef.current
 
-    if (result && capture?.text.trim()) {
+    if (result) {
       void openSelectionResultInChat(result, capture).then((didOpen) => {
         if (didOpen) onClose()
       })

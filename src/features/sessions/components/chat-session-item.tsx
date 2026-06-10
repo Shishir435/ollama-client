@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import {
-  BookOpen,
   Code,
   FileDown,
   FileText,
@@ -47,7 +46,7 @@ export const ChatSessionItem = ({
         {
           key: "json",
           label: t("sessions.export.format_json"),
-          icon: <BookOpen className="icon-md" />,
+          icon: <FileDown className="icon-md" />,
           onClick: () => exportSessionAsJson(current)
         },
         {
