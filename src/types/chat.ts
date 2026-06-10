@@ -13,6 +13,17 @@ export interface FileAttachment {
   data?: Uint8Array
 }
 
+export interface RagSource {
+  id: number | string
+  title: string
+  content: string
+  score: number
+  source?: string
+  chunkIndex?: number
+  fileId?: string
+  type?: string
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
@@ -30,16 +41,7 @@ export interface ChatMessage {
     eval_count?: number
     eval_duration?: number
     ragQuery?: string
-    ragSources?: Array<{
-      id: number | string
-      title: string
-      content: string
-      score: number
-      source?: string
-      chunkIndex?: number
-      fileId?: string
-      type?: string
-    }>
+    ragSources?: RagSource[]
     usedContextChunks?: Array<{
       id: string | number
       title: string

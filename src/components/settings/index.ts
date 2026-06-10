@@ -11,5 +11,5 @@ export * from "./settings-section"
 export * from "./settings-sidebar"
 export * from "./settings-slider-field"
 export * from "./settings-switch"
-export * from "./settings-tab-panel"
+
 export * from "./status-alert"

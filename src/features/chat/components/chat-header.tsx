@@ -1,5 +1,3 @@
-import { SemanticChatSearchButton } from "@/features/chat/components/semantic-chat-search-button"
-import { SessionMetricsBar } from "@/features/chat/components/session-metrics-bar"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
@@ -7,6 +5,8 @@ import { ChatExportButton } from "@/features/sessions/components/chat-export-but
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
+import { SemanticChatSearchButton } from "./semantic-chat-search-button"
+import { SessionMetricsBar } from "./session-metrics-bar"
 
 /**
  * ChatHeader - Top bar with session selector and status indicators

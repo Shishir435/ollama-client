@@ -1,9 +1,10 @@
 import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import type { RagSource } from "@/types"
 import { MessageSourcesSheet, type SourceItem } from "./message-sources-sheet"
 
 export interface RAGSourcesButtonProps {
-  sources: SourceItem[]
+  sources: RagSource[]
   query?: string
   sessionId?: string
   enableFeedback?: boolean

@@ -1,10 +1,10 @@
 import { memo, useState } from "react"
-import { ChatMessageContainer } from "@/features/chat/components/chat-message-container"
-import { ChatMessageContent } from "@/features/chat/components/chat-message-content"
-import { ChatMessageEditor } from "@/features/chat/components/chat-message-editor"
-import { ChatMessageFooter } from "@/features/chat/components/chat-message-footer"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
 import type { ChatMessage } from "@/types"
+import { ChatMessageContainer } from "./chat-message-container"
+import { ChatMessageContent } from "./chat-message-content"
+import { ChatMessageEditor } from "./chat-message-editor"
+import { ChatMessageFooter } from "./chat-message-footer"
 
 export const ChatMessageBubble = memo(
   ({

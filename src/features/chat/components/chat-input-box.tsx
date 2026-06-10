@@ -2,11 +2,6 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
-import { ChatInputAttachmentSheet } from "@/features/chat/components/chat-input/chat-input-attachment-sheet"
-import { ChatInputDragOverlay } from "@/features/chat/components/chat-input/chat-input-drag-overlay"
-import { ChatInputToolbar } from "@/features/chat/components/chat-input/chat-input-toolbar"
-import { ComposerShell } from "@/features/chat/components/chat-input/composer-shell"
-import { SendOrStopButton } from "@/features/chat/components/send-or-stop-button"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -26,6 +21,11 @@ import {
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChromeMessage } from "@/types"
+import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-sheet"
+import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
+import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
+import { ComposerShell } from "./chat-input/composer-shell"
+import { SendOrStopButton } from "./send-or-stop-button"
 
 const pendingSelectionStorage = getPlasmoStorageForKey(
   STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT

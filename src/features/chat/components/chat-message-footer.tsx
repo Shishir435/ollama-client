@@ -5,12 +5,6 @@ import {
   TooltipActionButton
 } from "@/components/actions"
 import { SimpleTooltip } from "@/components/ui/simple-tooltip"
-import { CopyButton } from "@/features/chat/components/copy-button"
-import { RAGSourcesButton } from "@/features/chat/components/rag-sources-button"
-import { RegenerateButton } from "@/features/chat/components/regenerate-button"
-import { RunDetails } from "@/features/chat/components/run-details"
-import { SpeechButton } from "@/features/chat/components/speech-button"
-import { UsedContextButton } from "@/features/chat/components/used-context-button"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import {
@@ -26,6 +20,12 @@ import {
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
+import { CopyButton } from "./copy-button"
+import { RAGSourcesButton } from "./rag-sources-button"
+import { RegenerateButton } from "./regenerate-button"
+import { RunDetails } from "./run-details"
+import { SpeechButton } from "./speech-button"
+import { UsedContextButton } from "./used-context-button"
 
 export const ChatMessageFooter = ({
   msg,

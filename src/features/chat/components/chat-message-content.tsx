@@ -1,14 +1,11 @@
 import { useTranslation } from "react-i18next"
 
 import { MarkdownRenderer } from "@/components/markdown-renderer"
-import { ChatMessageLoadingIndicator } from "@/features/chat/components/chat-message-loading-indicator"
-import { FileAttachmentDisplay } from "@/features/chat/components/file-attachment-display"
-import {
-  ReasoningTrace,
-  shouldShowReasoningTrace
-} from "@/features/chat/components/reasoning-trace"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
+import { ChatMessageLoadingIndicator } from "./chat-message-loading-indicator"
+import { FileAttachmentDisplay } from "./file-attachment-display"
+import { ReasoningTrace, shouldShowReasoningTrace } from "./reasoning-trace"
 
 export const ChatMessageContent = ({
   msg,

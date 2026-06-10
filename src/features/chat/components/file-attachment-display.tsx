@@ -3,14 +3,11 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { CopyButton } from "@/features/chat/components/copy-button"
-import {
-  PreviewSheet,
-  PreviewTextBlock
-} from "@/features/chat/components/preview-sheet"
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import type { FileAttachment } from "@/types"
+import { CopyButton } from "./copy-button"
+import { PreviewSheet, PreviewTextBlock } from "./preview-sheet"
 
 export interface FileAttachmentDisplayProps {
   attachments: FileAttachment[]

@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { SemanticChatSearchDialog } from "@/features/chat/components/semantic-chat-search-dialog"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { Search } from "@/lib/lucide-icon"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
+import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
 export const SemanticChatSearchButton = () => {
   const { t } = useTranslation()

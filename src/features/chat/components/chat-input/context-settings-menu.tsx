@@ -21,10 +21,6 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  PreviewSheet,
-  PreviewTextBlock
-} from "@/features/chat/components/preview-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -34,6 +30,7 @@ import { Layers } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
+import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
 
 const trimTitle = (title: string, max = 38) =>
   title ? (title.length > max ? `${title.slice(0, max)}...` : title) : ""

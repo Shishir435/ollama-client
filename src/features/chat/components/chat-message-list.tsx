@@ -2,7 +2,6 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { Button } from "@/components/ui/button"
-import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
@@ -12,6 +11,7 @@ import { ChevronDown } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
+import { ChatMessageBubble } from "./chat-message-bubble"
 
 export interface ChatMessageListProps {
   messages: ChatMessage[]

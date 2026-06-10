@@ -7,14 +7,11 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { CopyButton } from "@/features/chat/components/copy-button"
-import {
-  PreviewSheet,
-  PreviewTextBlock
-} from "@/features/chat/components/preview-sheet"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import { CircleCheck, FileText, Loader2, X } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
+import { CopyButton } from "../copy-button"
+import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
 
 interface ChatInputAttachmentSheetProps {
   open: boolean

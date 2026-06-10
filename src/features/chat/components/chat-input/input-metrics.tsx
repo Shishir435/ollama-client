@@ -1,4 +1,4 @@
-import { CharCount } from "@/features/chat/components/char-count"
+import { CharCount } from "../char-count"
 
 export interface InputMetricsProps {
   inputLength: number

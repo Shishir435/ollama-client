@@ -6,6 +6,7 @@ import {
   AppShell,
   PageBody,
   PageHeader,
+  SectionStack,
   Toolbar,
   TwoColumnGrid
 } from "@/components/layout"
@@ -13,8 +14,7 @@ import { PerformanceWarning } from "@/components/performance-warning"
 import {
   type NavSection,
   SettingsMobileNav,
-  SettingsSidebar,
-  SettingsTabPanel
+  SettingsSidebar
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
 import { SocialLinkButton } from "@/components/social-link-button"
@@ -111,64 +111,64 @@ export const SettingsPage = () => {
 
   const tabContent: Record<string, ReactNode> = {
     general: (
-      <SettingsTabPanel>
+      <SectionStack>
         <PerformanceWarning />
         <TwoColumnGrid>
           <LanguageSelector />
           <ChatDisplaySettings />
         </TwoColumnGrid>
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     models: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ModelSettingsForm />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     providers: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ProviderSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     shortcuts: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ShortcutsSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     prompts: (
-      <SettingsTabPanel>
+      <SectionStack>
         <PromptTemplateManager />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     contentExtraction: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ContentExtractionSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     context: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ContextSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     embeddings: (
-      <SettingsTabPanel>
+      <SectionStack>
         <EmbeddingSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     voices: (
-      <SettingsTabPanel>
+      <SectionStack>
         <SpeechSettings />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     reset: (
-      <SettingsTabPanel>
+      <SectionStack>
         <ResetStorage />
-      </SettingsTabPanel>
+      </SectionStack>
     ),
     guides: (
-      <SettingsTabPanel>
+      <SectionStack>
         <Guides />
         <SocialHandles />
-      </SettingsTabPanel>
+      </SectionStack>
     )
   }
 

@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { VoiceSelector } from "@/features/chat/components/voice-selector"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
 import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
+import { VoiceSelector } from "./voice-selector"
 
 const getRateDescription = (rate: number, t: (key: string) => string) => {
   if (rate < 0.8) return t("settings.speech.rate.very_slow")
