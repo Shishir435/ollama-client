@@ -257,6 +257,40 @@ describe("handleChatWithModel", () => {
         expect.any(AbortSignal)
       )
     })
+
+    it("should upgrade legacy default context before streaming", async () => {
+      const { plasmoGlobalStorage } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            "llama3:latest": {
+              num_ctx: 6144
+            }
+          }
+        }
+        return undefined
+      })
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          num_ctx: 65536
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
   })
 
   describe("message limiting for small models", () => {

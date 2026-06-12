@@ -474,6 +474,32 @@ const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
 const normalizeTranscriptLine = (text: string): string =>
   text.replace(/\s+/g, " ").trim()
 
+const formatTranscriptTimestamp = (milliseconds: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
+}
+
+const normalizeTranscriptTimestamp = (text?: string | null): string => {
+  const normalized = normalizeTranscriptLine(text || "")
+  const match = normalized.match(/\b\d{1,2}:\d{2}(?::\d{2})?\b/)
+  return match?.[0] ?? ""
+}
+
+const withTranscriptTimestamp = (timestamp: string, text: string): string => {
+  const normalizedText = normalizeTranscriptLine(text)
+  if (!normalizedText) return ""
+  if (!timestamp || normalizedText.startsWith(timestamp)) return normalizedText
+  return `${timestamp} ${normalizedText}`
+}
+
 const getCaptionTrackLabel = (track: YouTubeCaptionTrack): string => {
   return (
     track.name?.simpleText ||
@@ -508,11 +534,17 @@ const parseJson3Transcript = (payload: unknown): string | null => {
   const transcript = events
     .map((event) => {
       const segs = (event as { segs?: unknown }).segs
+      const timestampMs = (event as { tStartMs?: unknown }).tStartMs
       if (!Array.isArray(segs)) return ""
-      return segs
+      const line = segs
         .map((seg) => (seg as { utf8?: unknown }).utf8)
         .filter((text): text is string => typeof text === "string")
         .join("")
+      const timestamp =
+        typeof timestampMs === "number"
+          ? formatTranscriptTimestamp(timestampMs)
+          : ""
+      return withTranscriptTimestamp(timestamp, line)
     })
     .map(normalizeTranscriptLine)
     .filter(Boolean)
@@ -524,7 +556,13 @@ const parseJson3Transcript = (payload: unknown): string | null => {
 const parseXmlTranscript = (payload: string): string | null => {
   const doc = new DOMParser().parseFromString(payload, "text/xml")
   const transcript = Array.from(doc.querySelectorAll("text"))
-    .map((node) => normalizeTranscriptLine(node.textContent || ""))
+    .map((node) => {
+      const seconds = Number(node.getAttribute("start"))
+      const timestamp = Number.isFinite(seconds)
+        ? formatTranscriptTimestamp(seconds * 1000)
+        : ""
+      return withTranscriptTimestamp(timestamp, node.textContent || "")
+    })
     .filter(Boolean)
     .join("\n")
 
@@ -588,17 +626,24 @@ const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
 }
 
 const extractTextFromYouTubeSegment = (segment: Element): string => {
+  const timestamp =
+    normalizeTranscriptTimestamp(
+      segment.querySelector<HTMLElement>(
+        ".ytwTranscriptSegmentViewModelTimestamp, .timestamp, [aria-hidden='true']"
+      )?.textContent
+    ) || normalizeTranscriptTimestamp(segment.textContent)
+
   const modernText = segment.querySelector<HTMLElement>(
     '.ytAttributedStringHost[role="text"], span[role="text"]'
   )
   if (modernText?.textContent)
-    return normalizeTranscriptLine(modernText.textContent)
+    return withTranscriptTimestamp(timestamp, modernText.textContent)
 
   const legacyText = segment.querySelector<HTMLElement>(
     ".cue, .segment-text, yt-formatted-string"
   )
   if (legacyText?.textContent)
-    return normalizeTranscriptLine(legacyText.textContent)
+    return withTranscriptTimestamp(timestamp, legacyText.textContent)
 
   const clone = segment.cloneNode(true) as Element
   clone
@@ -609,7 +654,7 @@ const extractTextFromYouTubeSegment = (segment: Element): string => {
       node.remove()
     })
 
-  return normalizeTranscriptLine(clone.textContent || "")
+  return withTranscriptTimestamp(timestamp, clone.textContent || "")
 }
 
 const extractYouTubePanelTranscript = (): string | null => {

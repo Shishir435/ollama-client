@@ -40,7 +40,8 @@ describe("SessionMetricsBar", () => {
   it("renders compact header trigger and shows all session stats in popover", () => {
     render(<SessionMetricsBar messages={messages} />)
 
-    const trigger = screen.getByRole("button", { name: "Session Metrics" })
+    const trigger = screen.getByRole("button", { name: /Session Metrics/ })
+    expect(trigger).toHaveAccessibleName(/Speed/)
     expect(trigger).toHaveTextContent("40.0 t/s")
 
     fireEvent.click(trigger)
@@ -52,5 +53,30 @@ describe("SessionMetricsBar", () => {
     expect(screen.getByText("60")).toBeInTheDocument()
     expect(screen.getByText("2.0s")).toBeInTheDocument()
     expect(screen.getByText("1")).toBeInTheDocument()
+  })
+
+  it("does not show bogus million-token speeds", () => {
+    render(
+      <SessionMetricsBar
+        messages={[
+          {
+            role: "assistant",
+            content: "hi",
+            done: true,
+            metrics: {
+              total_duration: 2_000_000_000,
+              eval_count: 100,
+              eval_duration: 100_000,
+              prompt_eval_count: 20
+            }
+          }
+        ]}
+      />
+    )
+
+    const trigger = screen.getByRole("button", { name: /Session Metrics/ })
+    expect(trigger).toHaveAccessibleName(/Tokens/)
+    expect(trigger).not.toHaveTextContent("1000000")
+    expect(trigger).toHaveTextContent("120")
   })
 })

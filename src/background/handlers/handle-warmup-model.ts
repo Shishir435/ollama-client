@@ -1,7 +1,8 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
 import { safeSendResponse } from "@/background/lib/utils"
-import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
@@ -42,10 +43,7 @@ const getModelConfig = async (model: string) => {
     (await plasmoGlobalStorage.get<ModelConfigMap>(
       STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
     )) ?? {}
-  return {
-    ...DEFAULT_MODEL_CONFIG,
-    ...(configs[model] ?? {})
-  }
+  return resolveModelConfig(configs[model])
 }
 
 const DEFAULT_WARMUP_COOLDOWN_MS = 5 * 60 * 1000

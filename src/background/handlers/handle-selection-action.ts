@@ -2,13 +2,10 @@ import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { safePostMessage } from "@/background/lib/utils"
 import { buildSelectionActionPrompt } from "@/features/selection-actions/prompt-builder"
 import type { SelectionActionMessage } from "@/features/selection-actions/types"
-import {
-  DEFAULT_MODEL_CONFIG,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
@@ -52,7 +49,7 @@ export const handleSelectionAction = async (
       (await plasmoGlobalStorage.get<ModelConfigMap>(
         STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
       )) ?? {}
-    const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
+    const modelParams = resolveModelConfig(modelConfigMap[model])
     const provider = await ProviderFactory.getProviderForModel(
       model,
       providerId

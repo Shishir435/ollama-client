@@ -99,8 +99,11 @@ describe("Transcript Extractor", () => {
             text: vi.fn().mockResolvedValue(
               JSON.stringify({
                 events: [
-                  { segs: [{ utf8: "Hello " }, { utf8: "world" }] },
-                  { segs: [{ utf8: "Next line" }] }
+                  {
+                    tStartMs: 0,
+                    segs: [{ utf8: "Hello " }, { utf8: "world" }]
+                  },
+                  { tStartMs: 7000, segs: [{ utf8: "Next line" }] }
                 ]
               })
             )
@@ -108,7 +111,40 @@ describe("Transcript Extractor", () => {
         )
 
         const result = await getTranscript()
-        expect(result).toBe("Hello world\nNext line")
+        expect(result).toBe("0:00 Hello world\n0:07 Next line")
+      })
+
+      it("should keep timestamps from XML caption tracks", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi
+              .fn()
+              .mockResolvedValue(
+                `<transcript><text start="65">Late line</text></transcript>`
+              )
+          })
+        )
+
+        const result = await getTranscript()
+        expect(result).toBe("1:05 Late line")
       })
 
       it("should extract transcript from modern YouTube transcript panel", async () => {
@@ -131,7 +167,9 @@ describe("Transcript Extractor", () => {
         document.body.appendChild(panel)
 
         const result = await getTranscript()
-        expect(result).toBe("First transcript line.\nSecond transcript line.")
+        expect(result).toBe(
+          "0:00 First transcript line.\n0:07 Second transcript line."
+        )
       })
 
       it("should handle empty transcript", async () => {

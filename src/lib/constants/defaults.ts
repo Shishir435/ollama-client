@@ -27,6 +27,8 @@ export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
 
 export const LEGACY_CONTEXT_MENU_ID = "add-to-ollama-client"
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-local-llm-client"
+export const LEGACY_DEFAULT_MODEL_CONTEXT_SIZE = 6144
+export const DEFAULT_MODEL_CONTEXT_SIZE = 65536
 
 export const DEFAULT_EXCLUDE_URLS = [
   "^chrome://",
@@ -52,7 +54,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
 - If unsure about something, say so rather than making up facts.
 - Avoid repeating yourself unless it helps clarity.
 - Format responses with markdown for readability when appropriate.`,
-  num_ctx: 6144,
+  num_ctx: DEFAULT_MODEL_CONTEXT_SIZE,
   repeat_last_n: 64,
   seed: 0,
   num_predict: -1,
