@@ -43,10 +43,6 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
   },
   [ProviderId.LLAMA_CPP]: {
     ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,
-    modelPull: false,
-    modelUnload: false,
-    modelDelete: false,
-    providerVersion: false,
     toolCalling: true
   },
   [ProviderId.VLLM]: {
@@ -61,7 +57,7 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
     ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,
     toolCalling: true
   },
-  [ProviderId.OPENAI]: OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES
+  [ProviderId.OPENAI]: { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES }
 }
 
 export const getProviderCapabilities = (
