@@ -172,4 +172,34 @@ describe("ReasoningTrace", () => {
     expect(screen.getAllByText("Answering...").length).toBeGreaterThan(0)
     expect(screen.queryByText("Thinking...")).not.toBeInTheDocument()
   })
+
+  it("shows provider-agnostic tool labels and error detail", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "rag-search",
+                label: "RAG search",
+                status: "error",
+                startedAt: 10,
+                error: "No indexed files"
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    fireEvent.mouseOver(screen.getAllByText("RAG search")[0])
+
+    return waitFor(() => {
+      expect(
+        screen.getByText("RAG search: No indexed files")
+      ).toBeInTheDocument()
+    })
+  })
 })

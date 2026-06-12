@@ -7,6 +7,7 @@ import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import {
@@ -355,76 +356,7 @@ export const useProviderModels = () => {
         : "ready"
 
   const selectedProviderCapabilities: ProviderCapabilities | null = (() => {
-    const capByProviderId: Record<string, ProviderCapabilities> = {
-      [ProviderId.OLLAMA]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: true,
-        modelPull: true,
-        modelUnload: true,
-        modelDelete: true,
-        providerVersion: true,
-        toolCalling: false
-      },
-      [ProviderId.LM_STUDIO]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: false,
-        modelPull: true,
-        modelUnload: true,
-        modelDelete: false,
-        providerVersion: false,
-        toolCalling: true
-      },
-      [ProviderId.LLAMA_CPP]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: false,
-        modelPull: false,
-        modelUnload: false,
-        modelDelete: false,
-        providerVersion: false,
-        toolCalling: true
-      },
-      [ProviderId.VLLM]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: false,
-        modelPull: false,
-        modelUnload: false,
-        modelDelete: false,
-        providerVersion: false,
-        toolCalling: true
-      },
-      [ProviderId.LOCALAI]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: false,
-        modelPull: false,
-        modelUnload: false,
-        modelDelete: false,
-        providerVersion: false,
-        toolCalling: true
-      },
-      [ProviderId.KOBOLDCPP]: {
-        chat: true,
-        embeddings: true,
-        modelDiscovery: true,
-        modelDetails: false,
-        modelPull: false,
-        modelUnload: false,
-        modelDelete: false,
-        providerVersion: false,
-        toolCalling: true
-      }
-    }
-
-    return capByProviderId[selectedProviderId] || null
+    return getProviderCapabilities(selectedProviderId)
   })()
   const isOllama = selectedProviderId === DEFAULT_PROVIDER_ID
 

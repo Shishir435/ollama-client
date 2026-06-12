@@ -74,7 +74,7 @@ const docB = {
 const docC = {
   id: 3,
   content: "JavaScript async await patterns",
-  embedding: [0.707, 0.707],
+  embedding: [Math.SQRT1_2, Math.SQRT1_2],
   metadata: {
     source: "js-docs",
     title: "JavaScript Guide",

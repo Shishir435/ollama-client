@@ -25,6 +25,11 @@ import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-she
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import { ComposerShell } from "./chat-input/composer-shell"
+import {
+  fileListFromFiles,
+  hasDraggedImage,
+  splitDropFiles
+} from "./chat-input/drop-file-policy"
 import { SendOrStopButton } from "./send-or-stop-button"
 
 const pendingSelectionStorage = getPlasmoStorageForKey(
@@ -220,12 +225,7 @@ export const ChatInputBox = ({
     e.preventDefault()
     e.stopPropagation()
 
-    // Check if any dragged item is an image
-    const hasImage = Array.from(e.dataTransfer.items).some((item) =>
-      item.type.startsWith("image/")
-    )
-
-    if (!hasImage) {
+    if (!hasDraggedImage(e.dataTransfer.items)) {
       setIsDragging(true)
     }
   }, [])
@@ -244,24 +244,17 @@ export const ChatInputBox = ({
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const files = Array.from(e.dataTransfer.files)
-        const validFiles = files.filter(
-          (file) => !file.type.startsWith("image/")
-        )
+        const { acceptedFiles, rejectedImages } = splitDropFiles(files)
 
-        if (validFiles.length < files.length) {
+        if (rejectedImages.length > 0) {
           toast({
             variant: "destructive",
             description: "Images are currently not supported"
           })
         }
 
-        if (validFiles.length > 0) {
-          // Create a new DataTransfer to convert array back to FileList
-          const dt = new DataTransfer()
-          validFiles.forEach((file) => {
-            dt.items.add(file)
-          })
-          processFiles(dt.files)
+        if (acceptedFiles.length > 0) {
+          processFiles(fileListFromFiles(acceptedFiles))
         }
       }
     },

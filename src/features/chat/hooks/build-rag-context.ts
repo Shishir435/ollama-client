@@ -10,7 +10,8 @@ import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
   getActiveKnowledgeSet,
-  getKnowledgeSetFileIds
+  getKnowledgeSetFileIds,
+  type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -80,6 +81,78 @@ const clampContext = (value: string, maxChars: number) => {
     truncated: true
   }
 }
+
+const mergeRagSources = (
+  current: RagSources | null,
+  sources: RagSource[],
+  query: string
+): RagSources => ({
+  sources: [...(current?.sources || []), ...sources],
+  query
+})
+
+const addUsedContextChunks = (
+  usedContextChunks: UsedContextChunk[],
+  sources: RagSource[],
+  sourceFor: (source: RagSource) => UsedContextChunk["source"]
+) => {
+  sources.forEach((source) => {
+    usedContextChunks.push({
+      id: source.id,
+      title: source.title,
+      excerpt: source.content.slice(0, 220),
+      score: source.score,
+      sectionPath: source.source || source.type,
+      source: sourceFor(source),
+      chunkIndex: source.chunkIndex
+    })
+  })
+}
+
+const resolveFileRagScope = async (
+  files: ProcessedFile[] | undefined,
+  activeKnowledgeSet: KnowledgeSetRecord | undefined
+) => {
+  const explicitFileIds =
+    files && files.length > 0
+      ? (files.map((file) => file.metadata.fileId).filter(Boolean) as string[])
+      : undefined
+
+  if (explicitFileIds) return explicitFileIds
+
+  const hasExplicitKnowledgeSet =
+    !!activeKnowledgeSet?.id &&
+    activeKnowledgeSet.id !== DEFAULT_KNOWLEDGE_SET_ID
+
+  if (!hasExplicitKnowledgeSet) return undefined
+
+  const setFileIds = await getKnowledgeSetFileIds(activeKnowledgeSet.id)
+  return setFileIds.length > 0 ? setFileIds : undefined
+}
+
+const buildTabFallbackContext = (contextText: string, maxChars: number) => {
+  const clampedFallback = clampContext(contextText, maxChars)
+  const chunk: UsedContextChunk = {
+    id: "tab-fallback",
+    title: "Selected tab context",
+    excerpt: clampedFallback.text.slice(0, 220),
+    score: 0.5,
+    sectionPath: "fallback-full-context",
+    source: "tab"
+  }
+
+  return { clampedFallback, chunk }
+}
+
+const buildFileFullTextFallback = (files: ProcessedFile[]) =>
+  files
+    .map(
+      (file) =>
+        `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
+          file.text.length > 10000 ? "\n... (truncated)" : ""
+        }`
+    )
+    .join("\n\n---\n\n")
 
 /**
  * Build a RAG-augmented user message body plus telemetry.
@@ -240,43 +313,22 @@ export const buildRagContext = async (
             contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
             tabContextLength += clamped.text.length
             tabContextTruncated = tabContextTruncated || clamped.truncated
-            ragSources = {
-              sources: [...(ragSources?.sources || []), ...pageContext.sources],
-              query: rawInput || "summary"
-            }
-            pageContext.sources.forEach((source) => {
-              usedContextChunks.push({
-                id: source.id,
-                title: source.title,
-                excerpt: source.content.slice(0, 220),
-                score: source.score,
-                sectionPath: source.source || source.type,
-                source: "tab",
-                chunkIndex: source.chunkIndex
-              })
-            })
+            ragSources = mergeRagSources(
+              ragSources,
+              pageContext.sources,
+              rawInput || "summary"
+            )
+            addUsedContextChunks(
+              usedContextChunks,
+              pageContext.sources,
+              () => "tab"
+            )
             pageContextAdded = true
           }
         }
 
         if (!groundedOnlyMode) {
-          let fileIds =
-            files && files.length > 0
-              ? (files
-                  .map((f) => f.metadata.fileId)
-                  .filter(Boolean) as string[])
-              : undefined
-
-          const hasExplicitKnowledgeSet =
-            !!activeKnowledgeSet?.id &&
-            activeKnowledgeSet.id !== DEFAULT_KNOWLEDGE_SET_ID
-
-          if (!fileIds && hasExplicitKnowledgeSet) {
-            const setFileIds = await getKnowledgeSetFileIds(
-              activeKnowledgeSet.id
-            )
-            if (setFileIds.length > 0) fileIds = setFileIds
-          }
+          const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {
             logger.verbose("RAG searching for context", "useChat", {
@@ -303,21 +355,16 @@ export const buildRagContext = async (
                 context.formattedContext,
                 maxRagContextChars
               )
-              ragSources = {
-                sources: [...(ragSources?.sources || []), ...context.sources],
-                query: queryForRag
-              }
-              context.sources.forEach((source) => {
-                usedContextChunks.push({
-                  id: source.id,
-                  title: source.title,
-                  excerpt: source.content.slice(0, 220),
-                  score: source.score,
-                  sectionPath: source.source || source.type,
-                  source: source.source,
-                  chunkIndex: source.chunkIndex
-                })
-              })
+              ragSources = mergeRagSources(
+                ragSources,
+                context.sources,
+                queryForRag
+              )
+              addUsedContextChunks(
+                usedContextChunks,
+                context.sources,
+                (source) => source.source
+              )
               contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
               ragContextLength += clamped.text.length
             }
@@ -342,7 +389,7 @@ export const buildRagContext = async (
 
   // Tab fallback: full extracted page text when RAG didn't add page context.
   if (!pageContextAdded && hasTabContext) {
-    const clampedFallback = clampContext(
+    const { clampedFallback, chunk } = buildTabFallbackContext(
       options.contextText,
       maxTabContextChars
     )
@@ -351,26 +398,12 @@ export const buildRagContext = async (
       : clampedFallback.text
     tabContextLength += clampedFallback.text.length
     tabContextTruncated = tabContextTruncated || clampedFallback.truncated
-    usedContextChunks.push({
-      id: "tab-fallback",
-      title: "Selected tab context",
-      excerpt: clampedFallback.text.slice(0, 220),
-      score: 0.5,
-      sectionPath: "fallback-full-context",
-      source: "tab"
-    })
+    usedContextChunks.push(chunk)
   }
 
   // File full-text fallback: only when specific files attached and RAG added nothing.
   if (contentWithRAG === userContent && files && files.length > 0) {
-    const fullTextContext = files
-      .map(
-        (file) =>
-          `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
-            file.text.length > 10000 ? "\n... (truncated)" : ""
-          }`
-      )
-      .join("\n\n---\n\n")
+    const fullTextContext = buildFileFullTextFallback(files)
     contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
   }
 
