@@ -147,6 +147,39 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("1:05 Late line")
       })
 
+      it("should not add 0:00 for XML caption nodes without start", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi
+              .fn()
+              .mockResolvedValue(
+                `<transcript><text>Untimed line</text></transcript>`
+              )
+          })
+        )
+
+        const result = await getTranscript()
+        expect(result).toBe("Untimed line")
+      })
+
       it("should extract transcript from modern YouTube transcript panel", async () => {
         const panel = document.createElement("yt-section-list-renderer")
         panel.setAttribute("data-target-id", "PAmodern_transcript_view")
@@ -170,6 +203,22 @@ describe("Transcript Extractor", () => {
         expect(result).toBe(
           "0:00 First transcript line.\n0:07 Second transcript line."
         )
+      })
+
+      it("should not infer timestamp from transcript text content", async () => {
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <span class="ytAttributedStringHost" role="text">
+              Finished in 1:30 after launch.
+            </span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        const result = await getTranscript()
+        expect(result).toBe("Finished in 1:30 after launch.")
       })
 
       it("should handle empty transcript", async () => {

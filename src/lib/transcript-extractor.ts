@@ -546,7 +546,6 @@ const parseJson3Transcript = (payload: unknown): string | null => {
           : ""
       return withTranscriptTimestamp(timestamp, line)
     })
-    .map(normalizeTranscriptLine)
     .filter(Boolean)
     .join("\n")
 
@@ -557,10 +556,12 @@ const parseXmlTranscript = (payload: string): string | null => {
   const doc = new DOMParser().parseFromString(payload, "text/xml")
   const transcript = Array.from(doc.querySelectorAll("text"))
     .map((node) => {
-      const seconds = Number(node.getAttribute("start"))
-      const timestamp = Number.isFinite(seconds)
-        ? formatTranscriptTimestamp(seconds * 1000)
-        : ""
+      const startAttr = node.getAttribute("start")
+      const seconds = startAttr !== null ? Number(startAttr) : null
+      const timestamp =
+        seconds !== null && Number.isFinite(seconds)
+          ? formatTranscriptTimestamp(seconds * 1000)
+          : ""
       return withTranscriptTimestamp(timestamp, node.textContent || "")
     })
     .filter(Boolean)
@@ -626,12 +627,11 @@ const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
 }
 
 const extractTextFromYouTubeSegment = (segment: Element): string => {
-  const timestamp =
-    normalizeTranscriptTimestamp(
-      segment.querySelector<HTMLElement>(
-        ".ytwTranscriptSegmentViewModelTimestamp, .timestamp, [aria-hidden='true']"
-      )?.textContent
-    ) || normalizeTranscriptTimestamp(segment.textContent)
+  const timestamp = normalizeTranscriptTimestamp(
+    segment.querySelector<HTMLElement>(
+      ".ytwTranscriptSegmentViewModelTimestamp, .timestamp, [aria-hidden='true']"
+    )?.textContent
+  )
 
   const modernText = segment.querySelector<HTMLElement>(
     '.ytAttributedStringHost[role="text"], span[role="text"]'
