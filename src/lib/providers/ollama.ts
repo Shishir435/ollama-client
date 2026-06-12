@@ -7,28 +7,18 @@ import type {
   OllamaShowResponse,
   ProviderModel
 } from "@/types"
+import { PROVIDER_CAPABILITIES } from "./capabilities"
 import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
-  type ProviderCapabilities,
   type ProviderConfig,
   ProviderId
 } from "./types"
 
 export class OllamaProvider implements LLMProvider {
   id = ProviderId.OLLAMA
-  capabilities: ProviderCapabilities = {
-    chat: true,
-    embeddings: true,
-    modelDiscovery: true,
-    modelDetails: true,
-    modelPull: true,
-    modelUnload: true,
-    modelDelete: true,
-    providerVersion: true,
-    toolCalling: false
-  }
+  capabilities = { ...PROVIDER_CAPABILITIES[ProviderId.OLLAMA] }
 
   constructor(public config: ProviderConfig) {}
 

@@ -3,8 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import { useProviderModels } from "../use-provider-models"
 
 const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
@@ -181,6 +183,9 @@ describe("useProviderModels", () => {
       expect(result.current.models).toHaveLength(2)
       expect(result.current.models?.[0].name).toBe("llama3:latest")
       expect(result.current.status).toBe("ready")
+      expect(result.current.selectedProviderCapabilities).toEqual(
+        getProviderCapabilities(ProviderId.OLLAMA)
+      )
     })
 
     it("should handle empty models list", async () => {

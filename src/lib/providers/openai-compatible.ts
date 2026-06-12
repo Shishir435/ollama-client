@@ -1,28 +1,18 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
+import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
 import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
-  type ProviderCapabilities,
   type ProviderConfig,
   ProviderId
 } from "./types"
 
 export class OpenAICompatibleProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
-  capabilities: ProviderCapabilities = {
-    chat: true,
-    embeddings: true,
-    modelDiscovery: true,
-    modelDetails: false,
-    modelPull: false,
-    modelUnload: false,
-    modelDelete: false,
-    providerVersion: false,
-    toolCalling: false
-  }
+  capabilities = { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES }
 
   constructor(public config: ProviderConfig) {}
 

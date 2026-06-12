@@ -22,7 +22,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import type { ChatMessage } from "@/types"
+import type { ChatMessage, ToolRun } from "@/types"
 
 type TraceStatus = "running" | "done" | "error"
 
@@ -31,6 +31,7 @@ interface TraceStep {
   label: string
   status: TraceStatus
   icon?: React.ComponentType<{ className?: string }>
+  detail?: string
 }
 
 const statusClass = (status: TraceStatus) =>
@@ -42,6 +43,35 @@ const statusClass = (status: TraceStatus) =>
 
 const getDisplayLabel = (label: string, status: TraceStatus) =>
   status === "running" ? `${label}...` : label
+
+const getToolRunStatus = (run: ToolRun): TraceStatus =>
+  run.status === "running"
+    ? "running"
+    : run.status === "error"
+      ? "error"
+      : "done"
+
+const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string =>
+  run.toolId === "web-search" ? t("chat.reasoning.trace.web") : run.label
+
+const getToolRunDetail = (run: ToolRun) => {
+  if (run.error) return run.error
+  if (run.sources?.length) {
+    return run.sources.map((source) => source.title).join(", ")
+  }
+  return undefined
+}
+
+const buildToolTraceStep = (
+  run: ToolRun,
+  t: (key: string) => string
+): TraceStep => ({
+  key: `tool-${run.toolId}-${run.startedAt}`,
+  label: getToolRunLabel(run, t),
+  status: getToolRunStatus(run),
+  icon: run.toolId === "web-search" ? Search : Circle,
+  detail: getToolRunDetail(run)
+})
 
 export interface ReasoningTraceProps {
   message: ChatMessage
@@ -126,18 +156,7 @@ export const ReasoningTrace = ({
           icon: FileStack
         }
       : null,
-    ...toolRuns.map((run) => ({
-      key: `tool-${run.toolId}-${run.startedAt}`,
-      label:
-        run.toolId === "web-search" ? t("chat.reasoning.trace.web") : run.label,
-      status:
-        run.status === "running"
-          ? "running"
-          : run.status === "error"
-            ? "error"
-            : "done",
-      icon: run.toolId === "web-search" ? Search : Circle
-    })),
+    ...toolRuns.map((run) => buildToolTraceStep(run, t)),
     isBusy && hasVisibleContent
       ? {
           key: "answering",
@@ -151,7 +170,9 @@ export const ReasoningTrace = ({
     steps.find((step) => step.status === "running") ??
     steps.find((step) => step.status === "error")
   const activeLabel = activeStep
-    ? getDisplayLabel(activeStep.label, activeStep.status)
+    ? activeStep.status === "error" && activeStep.detail
+      ? `${activeStep.label}: ${activeStep.detail}`
+      : getDisplayLabel(activeStep.label, activeStep.status)
     : undefined
 
   return (
@@ -161,6 +182,7 @@ export const ReasoningTrace = ({
         {steps.map((step) => {
           const Icon = step.icon ?? Circle
           const label = getDisplayLabel(step.label, step.status)
+          const tooltip = step.detail ? `${label}: ${step.detail}` : label
           return (
             <TooltipActionButton
               key={step.key}
@@ -172,7 +194,7 @@ export const ReasoningTrace = ({
                   )}
                 />
               }
-              tooltip={label}
+              tooltip={tooltip}
               icon={
                 <>
                   <Icon
