@@ -27,8 +27,12 @@ describe("format-utils", () => {
     })
 
     it("should handle undefined/zero", () => {
-      expect(formatTokensPerSecond(undefined, 100)).toBe("0 t/s")
-      expect(formatTokensPerSecond(100, undefined)).toBe("0 t/s")
+      expect(formatTokensPerSecond(undefined, 100)).toBe("—")
+      expect(formatTokensPerSecond(100, undefined)).toBe("—")
+    })
+
+    it("should hide bogus tiny-duration speeds", () => {
+      expect(formatTokensPerSecond(100, 100_000)).toBe("—")
     })
   })
 })

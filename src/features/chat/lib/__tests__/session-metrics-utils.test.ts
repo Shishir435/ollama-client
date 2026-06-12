@@ -99,6 +99,18 @@ describe("calculateSessionMetrics", () => {
     const result = calculateSessionMetrics([msg])
     expect(result.averageSpeed).toBe(0)
   })
+
+  it("returns averageSpeed=0 for tiny bogus eval_duration", () => {
+    const msg = makeAssistantMsg({
+      metrics: {
+        ...(makeAssistantMsg().metrics ?? {}),
+        eval_count: 100,
+        eval_duration: 100_000
+      }
+    })
+    const result = calculateSessionMetrics([msg])
+    expect(result.averageSpeed).toBe(0)
+  })
 })
 
 describe("formatSessionDuration", () => {

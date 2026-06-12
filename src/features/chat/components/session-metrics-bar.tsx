@@ -1,7 +1,6 @@
 import {
   Clock,
   FileText,
-  Gauge,
   type LucideIcon,
   MessageSquare,
   Zap
@@ -25,6 +24,7 @@ interface MetricItem {
   icon: LucideIcon
   iconColor: string
   value: string
+  isAvailable?: boolean
   labelKey: string
   tooltipKey: string
 }
@@ -64,7 +64,11 @@ export const SessionMetricsBar = ({
     {
       icon: Zap,
       iconColor: "text-muted-foreground",
-      value: `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit")}`,
+      value:
+        metrics.averageSpeed > 0
+          ? `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit")}`
+          : "—",
+      isAvailable: metrics.averageSpeed > 0,
       labelKey: "chat.session_metrics.label_speed",
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
@@ -76,9 +80,11 @@ export const SessionMetricsBar = ({
       tooltipKey: "chat.session_metrics.tooltip_messages"
     }
   ]
-  const summary =
-    metricItems.find((item) => item.tooltipKey.includes("speed"))?.value ??
-    metricItems[0]?.value
+  const summaryItem =
+    metricItems.find(
+      (item) => item.tooltipKey.includes("speed") && item.isAvailable
+    ) ?? metricItems[0]
+  const SummaryIcon = summaryItem.icon
   const label = t("settings.chat_display.session_metrics_label")
 
   return (
@@ -91,11 +97,11 @@ export const SessionMetricsBar = ({
               "inline-flex h-8 items-center gap-1.5 rounded-control px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground",
               className
             )}
-            aria-label={label}
+            aria-label={`${label}: ${t(summaryItem.labelKey)} ${summaryItem.value}`}
           />
         }>
-        <Gauge className="icon-sm" />
-        <span className="font-mono tabular-nums">{summary}</span>
+        <SummaryIcon className="icon-sm" />
+        <span className="font-mono tabular-nums">{summaryItem.value}</span>
       </PopoverTrigger>
       <PopoverContent
         align="center"

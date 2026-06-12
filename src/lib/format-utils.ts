@@ -1,3 +1,8 @@
+import {
+  MAX_REASONABLE_TOKENS_PER_SECOND,
+  MIN_EVAL_DURATION_FOR_SPEED_NS
+} from "@/lib/constants"
+
 export const formatDuration = (nanoseconds?: number): string => {
   if (!nanoseconds) return "0ms"
 
@@ -19,10 +24,13 @@ export const formatTokensPerSecond = (
   tokens?: number,
   duration?: number
 ): string => {
-  if (!tokens || !duration) return "0 t/s"
+  if (!tokens || !duration || duration < MIN_EVAL_DURATION_FOR_SPEED_NS) {
+    return "—"
+  }
 
   const seconds = duration / 1_000_000_000
   const tokensPerSecond = tokens / seconds
+  if (tokensPerSecond > MAX_REASONABLE_TOKENS_PER_SECOND) return "—"
 
   return `${Math.round(tokensPerSecond)} t/s`
 }

@@ -1,3 +1,7 @@
+import {
+  MAX_REASONABLE_TOKENS_PER_SECOND,
+  MIN_EVAL_DURATION_FOR_SPEED_NS
+} from "@/lib/constants"
 import type { ChatMessage } from "@/types"
 
 export interface SessionMetrics {
@@ -48,7 +52,7 @@ export function calculateSessionMetrics(
       generatedTokens += m.eval_count
     }
 
-    if (m.eval_duration) {
+    if (m.eval_duration && m.eval_duration >= MIN_EVAL_DURATION_FOR_SPEED_NS) {
       totalEvalDuration += m.eval_duration
     }
   }
@@ -58,7 +62,11 @@ export function calculateSessionMetrics(
   // Calculate average speed: tokens / seconds
   // eval_duration is in nanoseconds, convert to seconds
   const evalSeconds = totalEvalDuration / 1_000_000_000
-  const averageSpeed = evalSeconds > 0 ? generatedTokens / evalSeconds : 0
+  const rawAverageSpeed = evalSeconds > 0 ? generatedTokens / evalSeconds : 0
+  const averageSpeed =
+    rawAverageSpeed > 0 && rawAverageSpeed <= MAX_REASONABLE_TOKENS_PER_SECOND
+      ? rawAverageSpeed
+      : 0
 
   return {
     totalTokens,

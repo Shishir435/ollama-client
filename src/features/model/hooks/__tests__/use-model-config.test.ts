@@ -52,6 +52,42 @@ describe("useModelConfig", () => {
     expect(config.num_ctx).toBe(DEFAULT_MODEL_CONFIG.num_ctx)
   })
 
+  it("should upgrade legacy default context size", async () => {
+    const storedConfigs = {
+      "llama3:latest": {
+        num_ctx: 6144
+      }
+    }
+
+    const { useStorage } = await import("@plasmohq/storage/hook")
+    vi.mocked(useStorage).mockReturnValue([
+      storedConfigs,
+      mockSetModelConfigs
+    ] as any)
+
+    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+
+    expect(result.current[0].num_ctx).toBe(DEFAULT_MODEL_CONFIG.num_ctx)
+  })
+
+  it("should preserve custom context size", async () => {
+    const storedConfigs = {
+      "llama3:latest": {
+        num_ctx: 32768
+      }
+    }
+
+    const { useStorage } = await import("@plasmohq/storage/hook")
+    vi.mocked(useStorage).mockReturnValue([
+      storedConfigs,
+      mockSetModelConfigs
+    ] as any)
+
+    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+
+    expect(result.current[0].num_ctx).toBe(32768)
+  })
+
   it("should update config correctly", async () => {
     const { useStorage } = await import("@plasmohq/storage/hook")
     vi.mocked(useStorage).mockReturnValue([{}, mockSetModelConfigs] as any)

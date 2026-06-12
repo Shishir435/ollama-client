@@ -1,8 +1,9 @@
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { safePostMessage } from "@/background/lib/utils"
-import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage, ChatWithModelMessage, ModelConfigMap } from "@/types"
@@ -49,7 +50,7 @@ export const handleChatWithModel = withErrorContext(
       (await plasmoGlobalStorage.get<ModelConfigMap>(
         STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
       )) ?? {}
-    const modelParams = modelConfigMap[model] ?? DEFAULT_MODEL_CONFIG
+    const modelParams = resolveModelConfig(modelConfigMap[model])
 
     const limitedMessages = limitMessagesForModel(model, messages)
     const preparedMessages = [...limitedMessages]
