@@ -14,12 +14,21 @@ import {
 export const currentTabDefinition: ToolDefinition = {
   name: "current_tab",
   description:
-    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). Use when the user refers to 'this page', 'the current tab', or 'this video'.",
-  parameters: { type: "object", properties: {} }
+    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
+  parameters: {
+    type: "object",
+    properties: {
+      force: {
+        type: "boolean",
+        description:
+          "Bypass cached tab content and scrape the active tab again. Use when the user asks to refresh, refetch, rescrape, reload, or get latest content."
+      }
+    }
+  }
 }
 
 export const runCurrentTab = async (
-  _args: Record<string, unknown>,
+  args: Record<string, unknown>,
   _ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
@@ -46,7 +55,9 @@ export const runCurrentTab = async (
       }
     }
 
-    const response = await readTabContent(tab.id)
+    const response = await readTabContent(tab.id, {
+      force: args.force === true
+    })
     const text = response?.html?.trim()
     if (!text) {
       return {

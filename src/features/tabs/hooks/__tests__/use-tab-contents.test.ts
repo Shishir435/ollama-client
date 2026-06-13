@@ -144,4 +144,33 @@ describe("useTabContents", () => {
       expect(result.current.tabContents[789]?.title).toBe("Open Tab Title")
     })
   })
+
+  it("blocks Chrome Web Store tabs before manual content fetch", async () => {
+    const setErrors = vi.fn()
+
+    vi.mocked(useOpenTabs).mockReturnValue({
+      tabs: [
+        {
+          id: 321,
+          title: "Chrome Web Store",
+          url: "https://chromewebstore.google.com/detail/example"
+        } as any
+      ],
+      refreshTabs: vi.fn()
+    })
+
+    vi.mocked(useSelectedTabs).mockReturnValue({
+      selectedTabIds: ["321"],
+      setSelectedTabIds: vi.fn(),
+      errors: {},
+      setErrors
+    })
+
+    renderHook(() => useTabContents())
+
+    await waitFor(() => {
+      expect(setErrors).toHaveBeenCalledWith(expect.any(Function))
+    })
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
+  })
 })

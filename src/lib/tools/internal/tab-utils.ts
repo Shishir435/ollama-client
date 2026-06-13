@@ -3,6 +3,10 @@ import {
   urlMatchesAny
 } from "@/contents/url-filter"
 import { browser } from "@/lib/browser-api"
+import {
+  blockedTabAccessMessage,
+  isContentScriptReadableUrl
+} from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChromeResponse } from "@/types"
@@ -15,28 +19,13 @@ export type PageContentResponse = ChromeResponse & {
   title?: string
 }
 
-/** URL schemes where a content script can run at all. */
-const isReadableScheme = (url?: string): boolean =>
-  !!url && /^(https?|file|ftp):/i.test(url)
-
-/** Browser-owned extension galleries block content scripts despite HTTPS. */
-const isExtensionGalleryUrl = (url?: string): boolean => {
-  if (!url) return false
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return false
-  }
-  return (
-    parsed.hostname === "chromewebstore.google.com" ||
-    (parsed.hostname === "chrome.google.com" &&
-      parsed.pathname.startsWith("/webstore"))
-  )
+interface TabContentCacheEntry {
+  response: PageContentResponse
+  url?: string
+  title?: string
 }
 
-const isContentScriptReadableUrl = (url?: string): boolean =>
-  isReadableScheme(url) && !isExtensionGalleryUrl(url)
+const tabContentCache = new Map<number, TabContentCacheEntry>()
 
 const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
   browser.tabs.sendMessage(tabId, {
@@ -54,11 +43,53 @@ const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
  * retrying once — no page refresh needed. Throws on restricted pages where
  * injection is blocked (callers should pre-check with {@link classifyTabAccess}).
  */
-export const readTabContent = async (
-  tabId: number
-): Promise<PageContentResponse> => {
+const getCurrentTabSignature = async (tabId: number) => {
   try {
-    return await requestPageContent(tabId)
+    const tab = await browser.tabs.get(tabId)
+    return { url: tab.url, title: tab.title }
+  } catch {
+    return {}
+  }
+}
+
+const cacheMatches = (
+  cached: TabContentCacheEntry | undefined,
+  signature: { url?: string; title?: string }
+) => {
+  if (!cached) return false
+  if (cached.url && signature.url && cached.url !== signature.url) return false
+  if (cached.title && signature.title && cached.title !== signature.title) {
+    return false
+  }
+  return true
+}
+
+export const clearTabContentCache = (tabId?: number) => {
+  if (tabId === undefined) tabContentCache.clear()
+  else tabContentCache.delete(tabId)
+}
+
+export const readTabContent = async (
+  tabId: number,
+  { force = false }: { force?: boolean } = {}
+): Promise<PageContentResponse> => {
+  const signature = await getCurrentTabSignature(tabId)
+  const cached = tabContentCache.get(tabId)
+  if (!force && cacheMatches(cached, signature)) {
+    return cached.response
+  }
+
+  const cacheAndReturn = (response: PageContentResponse) => {
+    tabContentCache.set(tabId, {
+      response,
+      url: signature.url,
+      title: response.title || signature.title
+    })
+    return response
+  }
+
+  try {
+    return cacheAndReturn(await requestPageContent(tabId))
   } catch (firstError) {
     logger.debug("readTabContent: no receiver, injecting", "tabUtils", {
       error: firstError
@@ -68,7 +99,7 @@ export const readTabContent = async (
       files: [CONTENT_SCRIPT_FILE]
     })
     try {
-      return await requestPageContent(tabId)
+      return cacheAndReturn(await requestPageContent(tabId))
     } catch (retryError) {
       logger.debug("readTabContent: retry failed", "tabUtils", {
         error: retryError
@@ -106,7 +137,7 @@ export const accessDeniedMessage = (
   label: string
 ): string =>
   access === "restricted"
-    ? `Can't read ${label} — the browser blocks extensions on internal pages and extension galleries (chrome://, Chrome Web Store, etc.). Do not retry this same tab; answer from visible tab metadata or ask the user to switch/share details.`
+    ? blockedTabAccessMessage(label)
     : `Can't read ${label} — this site is excluded in your content-extraction settings.`
 
 const toOpenTab = (tab: {

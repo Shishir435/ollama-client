@@ -5,10 +5,11 @@ import { runFileSearch } from "../file-search-tool"
 import { runListTabs } from "../list-tabs-tool"
 import { runReadTab } from "../read-tab-tool"
 import { runSelectedText } from "../selected-text-tool"
+import { clearTabContentCache } from "../tab-utils"
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
-    tabs: { query: vi.fn(), sendMessage: vi.fn() },
+    tabs: { get: vi.fn(), query: vi.fn(), sendMessage: vi.fn() },
     scripting: { executeScript: vi.fn() }
   }
 }))
@@ -38,7 +39,10 @@ import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 const ctx = {}
 
 describe("current_tab tool", () => {
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    clearTabContentCache()
+    vi.clearAllMocks()
+  })
 
   it("returns the extracted page text with the tab as a source", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
@@ -76,6 +80,49 @@ describe("current_tab tool", () => {
     const result = await runCurrentTab({}, ctx)
     expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
     expect(result.content).toBe("transcript")
+  })
+
+  it("reuses cached tab content when the tab URL and title are unchanged", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Docs", url: "https://docs.test" }
+    ] as never)
+    vi.mocked(browser.tabs.get).mockResolvedValue({
+      id: 7,
+      title: "Docs",
+      url: "https://docs.test"
+    } as never)
+    vi.mocked(browser.tabs.sendMessage).mockResolvedValue({
+      html: "cached body",
+      title: "Docs"
+    } as never)
+
+    const first = await runCurrentTab({}, ctx)
+    const second = await runCurrentTab({}, ctx)
+
+    expect(first.content).toBe("cached body")
+    expect(second.content).toBe("cached body")
+    expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("bypasses cached tab content when force is true", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Docs", url: "https://docs.test" }
+    ] as never)
+    vi.mocked(browser.tabs.get).mockResolvedValue({
+      id: 7,
+      title: "Docs",
+      url: "https://docs.test"
+    } as never)
+    vi.mocked(browser.tabs.sendMessage)
+      .mockResolvedValueOnce({ html: "old body", title: "Docs" } as never)
+      .mockResolvedValueOnce({ html: "fresh body", title: "Docs" } as never)
+
+    const first = await runCurrentTab({}, ctx)
+    const second = await runCurrentTab({ force: true }, ctx)
+
+    expect(first.content).toBe("old body")
+    expect(second.content).toBe("fresh body")
+    expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(2)
   })
 
   it("returns a clean error when the injected content script retry fails", async () => {
@@ -124,7 +171,10 @@ describe("current_tab tool", () => {
 })
 
 describe("list_tabs tool", () => {
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    clearTabContentCache()
+    vi.clearAllMocks()
+  })
 
   it("lists readable tabs and skips browser-internal/store pages", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
@@ -148,7 +198,10 @@ describe("list_tabs tool", () => {
 })
 
 describe("read_tab tool", () => {
-  afterEach(() => vi.clearAllMocks())
+  afterEach(() => {
+    clearTabContentCache()
+    vi.clearAllMocks()
+  })
 
   const openTabs = [
     { id: 1, title: "Wiki", url: "https://wiki.test", active: true },
@@ -193,6 +246,31 @@ describe("read_tab tool", () => {
     const result = await runReadTab({ tabId: "2" }, ctx)
     expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
     expect(result.content).toContain("video transcript")
+  })
+
+  it("bypasses cached read_tab content when force is true", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
+    vi.mocked(browser.tabs.get).mockResolvedValue({
+      id: 2,
+      title: "Theo video",
+      url: "https://youtube.test/watch"
+    } as never)
+    vi.mocked(browser.tabs.sendMessage)
+      .mockResolvedValueOnce({
+        html: "old transcript",
+        title: "Theo video"
+      } as never)
+      .mockResolvedValueOnce({
+        html: "fresh transcript",
+        title: "Theo video"
+      } as never)
+
+    const first = await runReadTab({ tabId: 2 }, ctx)
+    const second = await runReadTab({ tabId: 2, force: true }, ctx)
+
+    expect(first.content).toContain("old transcript")
+    expect(second.content).toContain("fresh transcript")
+    expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(2)
   })
 
   it("errors instead of reading the active tab when a model uses a stale tab id", async () => {

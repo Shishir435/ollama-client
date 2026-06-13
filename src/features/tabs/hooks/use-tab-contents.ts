@@ -5,6 +5,10 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
 import {
+  blockedTabAccessMessage,
+  isContentScriptReadableUrl
+} from "@/lib/browser-tab-access"
+import {
   DEFAULT_TABS_ACCESS,
   MESSAGE_KEYS,
   STORAGE_KEYS,
@@ -29,6 +33,7 @@ interface TabFetchingState {
   fetchTabContent: (
     tabId: number,
     fallbackTitle: string,
+    tabUrl: string | undefined,
     setErrors: (
       updater: (prev: Record<number, string>) => Record<number, string>
     ) => void,
@@ -49,13 +54,27 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
   fetchedIds: [],
   updatedIds: {},
 
-  fetchTabContent: async (tabId, fallbackTitle, setErrors, force = false) => {
+  fetchTabContent: async (
+    tabId,
+    fallbackTitle,
+    tabUrl,
+    setErrors,
+    force = false
+  ) => {
     const state = get()
     // Deduplicate: if already fetched or in-flight across ANY hook instance, abort.
     if (
       !force &&
       (state.fetchedIds.includes(tabId) || state.loadingIds[tabId])
     ) {
+      return
+    }
+
+    if (tabUrl && !isContentScriptReadableUrl(tabUrl)) {
+      setErrors((prev) => ({
+        ...prev,
+        [tabId]: blockedTabAccessMessage(`"${fallbackTitle || "this tab"}"`)
+      }))
       return
     }
 
@@ -187,6 +206,13 @@ export const useTabContents = () => {
     [openTabs]
   )
 
+  const getTabUrl = useCallback(
+    (tabId: number) => {
+      return openTabs.find((tab) => tab.id === tabId)?.url
+    },
+    [openTabs]
+  )
+
   useEffect(() => {
     const currentTabIds = selectedTabIds.map((id) => parseInt(id, 10))
     cleanupRemovedTabs(currentTabIds, setErrors)
@@ -197,9 +223,9 @@ export const useTabContents = () => {
     currentTabIds.forEach((tabId) => {
       // fetchTabContent internally checks get() to avoid duplicates
       // even if multiple useTabContents hooks mount simultaneously.
-      fetchTabContent(tabId, getTabTitle(tabId), setErrors)
+      fetchTabContent(tabId, getTabTitle(tabId), getTabUrl(tabId), setErrors)
     })
-  }, [selectedTabIds, getTabTitle, fetchTabContent, setErrors])
+  }, [selectedTabIds, getTabTitle, getTabUrl, fetchTabContent, setErrors])
 
   const [autoRefreshTabContext] = useStorage<boolean>(
     {
@@ -215,7 +241,13 @@ export const useTabContents = () => {
       selectedTabIds
         .map((id) => parseInt(id, 10))
         .forEach((tabId) => {
-          fetchTabContent(tabId, getTabTitle(tabId), setErrors, true)
+          fetchTabContent(
+            tabId,
+            getTabTitle(tabId),
+            getTabUrl(tabId),
+            setErrors,
+            true
+          )
         })
     }, TAB_CONTENT_REFRESH_INTERVAL_MS)
 
@@ -225,6 +257,7 @@ export const useTabContents = () => {
     selectedTabIds,
     fetchTabContent,
     getTabTitle,
+    getTabUrl,
     setErrors
   ])
 
@@ -233,7 +266,13 @@ export const useTabContents = () => {
       selectedTabIds.map(async (id) => {
         const tabId = parseInt(id, 10)
         clearUpdatedFlag(tabId)
-        await fetchTabContent(tabId, getTabTitle(tabId), setErrors, true)
+        await fetchTabContent(
+          tabId,
+          getTabTitle(tabId),
+          getTabUrl(tabId),
+          setErrors,
+          true
+        )
       })
     )
   }

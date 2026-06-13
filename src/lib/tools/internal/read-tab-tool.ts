@@ -22,7 +22,7 @@ import {
 export const readTabDefinition: ToolDefinition = {
   name: "read_tab",
   description:
-    "Read the readable text of a specific open browser tab, identified by its id (from list_tabs) or by a substring of its title or URL. Use to answer about a tab other than the active one.",
+    "Read the readable text of a specific open browser tab, identified by its id (from list_tabs) or by a substring of its title or URL. Use to answer about a tab other than the active one. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
   parameters: {
     type: "object",
     properties: {
@@ -34,6 +34,11 @@ export const readTabDefinition: ToolDefinition = {
         type: "string",
         description:
           "A substring of the target tab's title or URL, when the id is unknown."
+      },
+      force: {
+        type: "boolean",
+        description:
+          "Bypass cached tab content and scrape this tab again. Use when the user asks to refresh, refetch, rescrape, reload, or get latest content."
       }
     }
   }
@@ -109,7 +114,9 @@ export const runReadTab = async (
   }
 
   try {
-    const response = await readTabContent(target.id)
+    const response = await readTabContent(target.id, {
+      force: args.force === true
+    })
     const text = response?.html?.trim()
     if (!text) {
       return {

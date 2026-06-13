@@ -105,6 +105,7 @@ export const streamChatWithTools = async ({
 }: StreamChatWithToolsOptions): Promise<void> => {
   const workingMessages: ChatMessage[] = [...request.messages]
   const toolRuns: ToolRun[] = []
+  let lastFinalMetrics: ChatStreamMessage["metrics"] | undefined
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     if (signal?.aborted) {
@@ -145,6 +146,7 @@ export const streamChatWithTools = async ({
     )
 
     if (stopped) return
+    if (finalMetrics) lastFinalMetrics = finalMetrics
 
     if (pendingToolCalls.length === 0) {
       onChunk({ done: true, metrics: finalMetrics, toolRuns })
@@ -206,5 +208,5 @@ export const streamChatWithTools = async ({
   logger.warn("Tool loop hit max iterations", "streamChatWithTools", {
     maxIterations
   })
-  onChunk({ done: true, toolRuns })
+  onChunk({ done: true, metrics: lastFinalMetrics, toolRuns })
 }

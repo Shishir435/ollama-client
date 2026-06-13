@@ -242,6 +242,29 @@ describe("streamChatWithTools", () => {
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
   })
 
+  it("keeps final metrics when the iteration cap stops the loop", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c", name: "echo", arguments: {} }] },
+        { done: true, metrics: { eval_count: 7 } }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "r" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(chunks.at(-1)).toMatchObject({
+      done: true,
+      metrics: { eval_count: 7 }
+    })
+  })
+
   it("forwards an error chunk and stops", async () => {
     const provider = scriptedProvider([
       [{ error: { status: 500, message: "boom" } }]
