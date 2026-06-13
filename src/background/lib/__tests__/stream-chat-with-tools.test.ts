@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import type { LLMProvider } from "@/lib/providers/types"
+import type { ToolDefinition } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
 import { streamChatWithTools } from "../stream-chat-with-tools"
@@ -24,21 +25,40 @@ const registryWith = (
   run: (
     name: string,
     args: Record<string, unknown>
+  ) => Promise<{ content: string; isError?: boolean }>,
+  definition: ToolDefinition = {
+    name: "echo",
+    description: "",
+    parameters: { type: "object", properties: {} }
+  }
+) => {
+  const reg = new ToolRegistry()
+  reg.register({
+    id: "test",
+    listTools: () => [definition],
+    callTool: (name, args) => run(name, args)
+  })
+  return reg
+}
+
+const registryWithTools = (
+  definitions: ToolDefinition[],
+  run: (
+    name: string,
+    args: Record<string, unknown>
   ) => Promise<{ content: string; isError?: boolean }>
 ) => {
   const reg = new ToolRegistry()
   reg.register({
     id: "test",
-    listTools: () => [
-      {
-        name: "echo",
-        description: "",
-        parameters: { type: "object", properties: {} }
-      }
-    ],
+    listTools: () => definitions,
     callTool: (name, args) => run(name, args)
   })
   return reg
+}
+
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve()
 }
 
 describe("streamChatWithTools", () => {
@@ -121,6 +141,71 @@ describe("streamChatWithTools", () => {
     expect(trace?.[0]?.truncated).toBe(true)
   })
 
+  it("uses per-tool result caps and carries display metadata into the trace", async () => {
+    const big = "x".repeat(5000)
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: big }), {
+        name: "echo",
+        description: "",
+        parameters: { type: "object", properties: {} },
+        displayNameKey: "tool.echo",
+        iconKey: "search",
+        category: "knowledge",
+        risk: "low",
+        runtime: { maxResultChars: 100 }
+      }),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]).toMatchObject({
+      truncated: true,
+      displayNameKey: "tool.echo",
+      iconKey: "search",
+      category: "knowledge",
+      risk: "low"
+    })
+  })
+
+  it("lets the caller result cap override a per-tool cap", async () => {
+    const big = "x".repeat(500)
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: big }), {
+        name: "echo",
+        description: "",
+        parameters: { type: "object", properties: {} },
+        runtime: { maxResultChars: 100 }
+      }),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      toolResultMaxChars: 1000
+    })
+
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]?.truncated).toBeUndefined()
+  })
+
   it("does not flag a result that fits within the cap", async () => {
     const provider = scriptedProvider([
       [
@@ -186,6 +271,130 @@ describe("streamChatWithTools", () => {
     const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
     expect(trace?.[0]).toMatchObject({ status: "error", error: "tool blew up" })
     expect(chunks.find((c) => c.delta)?.delta).toBe("recovered")
+  })
+
+  it("runs parallelizable tool calls concurrently and keeps message order", async () => {
+    const provider = scriptedProvider([
+      [
+        {
+          toolCalls: [
+            { id: "one-call", name: "one", arguments: {} },
+            { id: "two-call", name: "two", arguments: {} }
+          ]
+        },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const started: string[] = []
+    const resolvers = new Map<string, (value: { content: string }) => void>()
+    const registry = registryWithTools(
+      [
+        {
+          name: "one",
+          description: "",
+          parameters: { type: "object", properties: {} }
+        },
+        {
+          name: "two",
+          description: "",
+          parameters: { type: "object", properties: {} }
+        }
+      ],
+      (name) =>
+        new Promise((resolve) => {
+          started.push(name)
+          resolvers.set(name, resolve)
+        })
+    )
+
+    const chunks: ChatStreamMessage[] = []
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry,
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    await flushMicrotasks()
+    expect(started).toEqual(["one", "two"])
+
+    resolvers.get("two")?.({ content: "two result" })
+    resolvers.get("one")?.({ content: "one result" })
+    await promise
+
+    const secondRequest = vi.mocked(provider.streamChat).mock.calls[1][0]
+    expect(secondRequest.messages.slice(-2)).toEqual([
+      {
+        role: "tool",
+        content: "one result",
+        toolName: "one",
+        toolCallId: "one-call"
+      },
+      {
+        role: "tool",
+        content: "two result",
+        toolName: "two",
+        toolCallId: "two-call"
+      }
+    ])
+  })
+
+  it("runs non-parallelizable tool calls before starting later calls", async () => {
+    const provider = scriptedProvider([
+      [
+        {
+          toolCalls: [
+            { id: "serial-call", name: "serial", arguments: {} },
+            { id: "fast-call", name: "fast", arguments: {} }
+          ]
+        },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const started: string[] = []
+    let resolveSerial: ((value: { content: string }) => void) | undefined
+    const registry = registryWithTools(
+      [
+        {
+          name: "serial",
+          description: "",
+          parameters: { type: "object", properties: {} },
+          runtime: { parallelizable: false }
+        },
+        {
+          name: "fast",
+          description: "",
+          parameters: { type: "object", properties: {} }
+        }
+      ],
+      (name) => {
+        started.push(name)
+        if (name === "serial") {
+          return new Promise((resolve) => {
+            resolveSerial = resolve
+          })
+        }
+        return Promise.resolve({ content: "fast result" })
+      }
+    )
+
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry,
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    await flushMicrotasks()
+    expect(started).toEqual(["serial"])
+
+    resolveSerial?.({ content: "serial result" })
+    await promise
+    expect(started).toEqual(["serial", "fast"])
   })
 
   it("stops promptly when aborted during a tool call", async () => {

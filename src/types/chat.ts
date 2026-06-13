@@ -110,6 +110,10 @@ export interface ChatMessage {
 export interface ToolRun {
   toolId: string
   label: string
+  displayNameKey?: string
+  iconKey?: string
+  category?: import("@/lib/tools/types").ToolCategory
+  risk?: import("@/lib/tools/types").ToolRiskLevel
   status: "pending" | "running" | "done" | "error"
   startedAt: number
   completedAt?: number

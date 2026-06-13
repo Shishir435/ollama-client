@@ -26,6 +26,20 @@ const UsedContextChunkSchema = z.object({
 const ToolRunSchema = z.object({
   toolId: z.string(),
   label: z.string(),
+  displayNameKey: z.string().optional(),
+  iconKey: z.string().optional(),
+  category: z
+    .enum([
+      "browser",
+      "knowledge",
+      "files",
+      "selection",
+      "web",
+      "system",
+      "external"
+    ])
+    .optional(),
+  risk: z.enum(["low", "medium", "high"]).optional(),
   status: z.enum(["pending", "running", "done", "error"]),
   startedAt: z.number(),
   completedAt: z.number().optional(),
@@ -42,6 +56,12 @@ const ToolRunSchema = z.object({
   truncated: z.boolean().optional(),
   args: z.record(z.string(), z.unknown()).optional(),
   resultPreview: z.string().optional()
+})
+
+const ToolCallSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  arguments: z.record(z.string(), z.unknown())
 })
 
 export const ChatMessageMetricsSchema = z.object({
@@ -82,6 +102,19 @@ const FileAttachmentSchema = z.object({
 
 export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
 
+const ImageAttachmentSchema = z.object({
+  id: z.number().optional(),
+  imageId: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  base64: z.string(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  sessionId: z.string().optional(),
+  messageId: z.number().optional()
+})
+
 // ---- ChatMessage ----
 
 export const ChatMessageSchema = z.object({
@@ -92,6 +125,10 @@ export const ChatMessageSchema = z.object({
   done: z.boolean().optional(),
   model: z.string().optional(),
   attachments: z.array(FileAttachmentSchema).optional(),
+  images: z.array(ImageAttachmentSchema).optional(),
+  toolCalls: z.array(ToolCallSchema).optional(),
+  toolName: z.string().optional(),
+  toolCallId: z.string().optional(),
   timestamp: z.number().optional(),
   metrics: ChatMessageMetricsSchema.optional(),
   parentId: z.union([z.number(), z.string()]).optional(),

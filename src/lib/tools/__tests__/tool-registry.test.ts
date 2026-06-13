@@ -82,4 +82,19 @@ describe("ToolRegistry", () => {
 
     expect((await reg.listDefinitions()).map((d) => d.name)).toEqual(["ok"])
   })
+
+  it("returns a registered tool definition for metadata lookup", async () => {
+    const reg = new ToolRegistry()
+    reg.register(
+      source("a", [
+        { ...def("one"), displayNameKey: "tool.one", iconKey: "search" }
+      ])
+    )
+
+    await reg.listDefinitions()
+    expect(await reg.getDefinition("one")).toMatchObject({
+      displayNameKey: "tool.one",
+      iconKey: "search"
+    })
+  })
 })

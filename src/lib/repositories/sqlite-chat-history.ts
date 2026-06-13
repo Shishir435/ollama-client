@@ -1,3 +1,4 @@
+import { imageToStoredFile } from "@/lib/image-utils"
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
@@ -66,6 +67,39 @@ const fileFromRow = (row: Row): StoredFile => ({
 // Build a `?, ?, ?` placeholder list for an IN clause.
 const placeholders = (n: number) => Array(n).fill("?").join(", ")
 
+const normalizeFileData = (data: unknown): Uint8Array | undefined => {
+  if (data instanceof Uint8Array) return data
+  if (Array.isArray(data)) return new Uint8Array(data)
+  return undefined
+}
+
+const putImportedMessage = async (
+  sessionId: string,
+  message: ChatMessage
+): Promise<number> => {
+  const explicitId = typeof message.id === "number" ? message.id : null
+  await run(
+    `INSERT OR REPLACE INTO messages
+     (id, sessionId, role, content, model, timestamp, parentId, done, metrics, thinking)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      explicitId,
+      sessionId,
+      message.role,
+      message.content,
+      message.model ?? null,
+      message.timestamp ?? Date.now(),
+      typeof message.parentId === "number" ? message.parentId : null,
+      message.done === false ? 0 : 1,
+      message.metrics ? JSON.stringify(message.metrics) : null,
+      message.thinking ?? null
+    ]
+  )
+  if (explicitId !== null) return explicitId
+  const rows = await query("SELECT last_insert_rowid() AS id")
+  return rows[0].id as number
+}
+
 // ----- Sessions ------------------------------------------------------------
 
 export const getAllSessionsOrderedByRecency = async (): Promise<
@@ -128,6 +162,26 @@ export const bulkPutSessions = async (
         session.updatedAt
       ]
     )
+    if (!session.messages || session.messages.length === 0) continue
+
+    await run("DELETE FROM files WHERE sessionId = ?", [session.id])
+    await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
+
+    for (const message of session.messages) {
+      const messageId = await putImportedMessage(session.id, message)
+      const fileRows = [
+        ...(message.attachments?.map((file) => ({
+          ...file,
+          data: normalizeFileData(file.data),
+          sessionId: session.id,
+          messageId
+        })) ?? []),
+        ...(message.images?.map((image) =>
+          imageToStoredFile(image, messageId, session.id)
+        ) ?? [])
+      ]
+      if (fileRows.length > 0) await bulkAddFiles(fileRows)
+    }
   }
 }
 

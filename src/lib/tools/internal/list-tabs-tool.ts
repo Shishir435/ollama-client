@@ -11,6 +11,13 @@ export const listTabsDefinition: ToolDefinition = {
   name: "list_tabs",
   description:
     "List the user's currently open browser tabs (id, title, URL). Use this to find which tab the user means before calling read_tab to read a specific one.",
+  displayNameKey: "chat.reasoning.trace.tabs",
+  category: "browser",
+  iconKey: "list",
+  risk: "low",
+  cacheable: false,
+  requires: ["tabs"],
+  runtime: { timeoutMs: 10_000, maxResultChars: 6000 },
   parameters: { type: "object", properties: {} }
 }
 

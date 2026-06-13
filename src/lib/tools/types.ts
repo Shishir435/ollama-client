@@ -16,6 +16,29 @@ export interface ToolParameterSchema {
   required?: string[]
 }
 
+export type ToolCategory =
+  | "browser"
+  | "knowledge"
+  | "files"
+  | "selection"
+  | "web"
+  | "system"
+  | "external"
+
+export type ToolRiskLevel = "low" | "medium" | "high"
+
+export type ToolRequirement = "tabs" | "storage" | "selection" | "network"
+
+export interface ToolRuntimePolicy {
+  timeoutMs: number
+  maxResultChars: number
+  cacheable: boolean
+  parallelizable: boolean
+  enabled: boolean
+}
+
+export type ToolRuntimePolicyOverrides = Partial<ToolRuntimePolicy>
+
 /** A tool the model may call, in normalized form. */
 export interface ToolDefinition {
   /**
@@ -26,6 +49,14 @@ export interface ToolDefinition {
   name: string
   description: string
   parameters: ToolParameterSchema
+  displayNameKey?: string
+  descriptionKey?: string
+  category?: ToolCategory
+  iconKey?: string
+  risk?: ToolRiskLevel
+  cacheable?: boolean
+  requires?: ToolRequirement[]
+  runtime?: ToolRuntimePolicyOverrides
 }
 
 /** A model's request to invoke a tool, normalized across providers. */

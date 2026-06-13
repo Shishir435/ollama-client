@@ -23,6 +23,13 @@ export const readTabDefinition: ToolDefinition = {
   name: "read_tab",
   description:
     "Read the readable text of a specific open browser tab, identified by its id (from list_tabs) or by a substring of its title or URL. Use to answer about a tab other than the active one. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
+  displayNameKey: "chat.reasoning.trace.tab",
+  category: "browser",
+  iconKey: "file-text",
+  risk: "low",
+  cacheable: true,
+  requires: ["tabs"],
+  runtime: { parallelizable: false },
   parameters: {
     type: "object",
     properties: {

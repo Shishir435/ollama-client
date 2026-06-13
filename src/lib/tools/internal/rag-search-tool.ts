@@ -10,6 +10,12 @@ export const ragSearchDefinition: ToolDefinition = {
   name: "rag_search",
   description:
     "Search the user's saved documents and past conversation memory for passages relevant to a query. Use this when answering may depend on previously stored knowledge that is not already in the conversation.",
+  displayNameKey: "chat.reasoning.trace.knowledge",
+  category: "knowledge",
+  iconKey: "search",
+  risk: "low",
+  cacheable: false,
+  requires: ["storage"],
   parameters: {
     type: "object",
     properties: {

@@ -1,12 +1,13 @@
-import { DEFAULT_MAX_TOOL_RESULT_CHARS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type {
   ToolCall,
   ToolContext,
   ToolRegistry,
-  ToolResult
+  ToolResult,
+  ToolRuntimePolicy
 } from "@/lib/tools"
+import { resolveToolRuntimePolicy } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
 
 interface StreamChatWithToolsOptions {
@@ -24,11 +25,6 @@ interface StreamChatWithToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-// Generous per-tool ceiling — laptop-local embedding/extraction can be slow, but
-// a tool must never hang the whole chat. On timeout the loop continues with an
-// error result instead of blocking forever.
-const TOOL_TIMEOUT_MS = 60_000
-
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
 // the raw name is the fallback label for any tool it doesn't special-case.
 const labelForTool = (name: string): string => name
@@ -37,6 +33,7 @@ const labelForTool = (name: string): string => name
 const callWithTimeout = (
   run: Promise<ToolResult>,
   name: string,
+  timeoutMs: number,
   signal?: AbortSignal
 ): Promise<ToolResult> => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -46,10 +43,10 @@ const callWithTimeout = (
     timeoutId = setTimeout(
       () =>
         resolve({
-          content: `Tool "${name}" timed out after ${TOOL_TIMEOUT_MS / 1000}s.`,
+          content: `Tool "${name}" timed out after ${timeoutMs / 1000}s.`,
           isError: true
         }),
-      TOOL_TIMEOUT_MS
+      timeoutMs
     )
   })
 
@@ -82,6 +79,12 @@ const trimToolResult = (
 const TOOL_LIMIT_FALLBACK_MESSAGE =
   "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 
+interface PreparedToolCall {
+  call: ToolCall
+  run: ToolRun
+  policy: ToolRuntimePolicy
+}
+
 /**
  * Runs a chat turn that may call tools, provider-agnostically.
  *
@@ -104,7 +107,7 @@ export const streamChatWithTools = async ({
   signal,
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
-  toolResultMaxChars = DEFAULT_MAX_TOOL_RESULT_CHARS
+  toolResultMaxChars
 }: StreamChatWithToolsOptions): Promise<void> => {
   const workingMessages: ChatMessage[] = [...request.messages]
   const toolRuns: ToolRun[] = []
@@ -163,31 +166,62 @@ export const streamChatWithTools = async ({
       toolCalls: pendingToolCalls
     })
 
-    for (const call of pendingToolCalls) {
-      const run: ToolRun = {
-        toolId: call.name,
-        label: labelForTool(call.name),
-        status: "running",
-        startedAt: Date.now(),
-        args:
-          call.arguments && Object.keys(call.arguments).length > 0
-            ? call.arguments
-            : undefined
-      }
-      toolRuns.push(run)
-      onChunk({ toolRuns: [...toolRuns] })
-
-      const result = await callWithTimeout(
-        registry.call(call.name, call.arguments, ctx),
-        call.name,
-        signal
+    const prepareToolCall = async (
+      call: ToolCall
+    ): Promise<PreparedToolCall> => {
+      const definition = await registry.getDefinition(call.name)
+      const policy = resolveToolRuntimePolicy(
+        definition,
+        toolResultMaxChars !== undefined
+          ? { maxResultChars: toolResultMaxChars }
+          : undefined
       )
+      return {
+        call,
+        policy,
+        run: {
+          toolId: call.name,
+          label: labelForTool(call.name),
+          displayNameKey: definition?.displayNameKey,
+          iconKey: definition?.iconKey,
+          category: definition?.category,
+          risk: definition?.risk,
+          status: "running",
+          startedAt: Date.now(),
+          args:
+            call.arguments && Object.keys(call.arguments).length > 0
+              ? call.arguments
+              : undefined
+        }
+      }
+    }
+
+    const startToolRun = (prepared: PreparedToolCall) => {
+      toolRuns.push(prepared.run)
+      onChunk({ toolRuns: [...toolRuns] })
+    }
+
+    const executeToolCall = async (
+      prepared: PreparedToolCall
+    ): Promise<ChatMessage> => {
+      const { call, policy, run } = prepared
+      const result = policy.enabled
+        ? await callWithTimeout(
+            registry.call(call.name, call.arguments, ctx),
+            call.name,
+            policy.timeoutMs,
+            signal
+          )
+        : {
+            content: `Tool "${call.name}" is disabled.`,
+            isError: true
+          }
 
       // Budget the result so a large page/transcript/RAG dump doesn't balloon
       // the next prompt; the trim is surfaced to the user via the trace.
       const { content: trimmedContent, truncated } = trimToolResult(
         result.content,
-        toolResultMaxChars
+        policy.maxResultChars
       )
 
       run.status = result.isError ? "error" : "done"
@@ -198,13 +232,50 @@ export const streamChatWithTools = async ({
       if (truncated) run.truncated = true
       onChunk({ toolRuns: [...toolRuns] })
 
-      workingMessages.push({
+      return {
         role: "tool",
         content: trimmedContent,
         toolName: call.name,
         toolCallId: call.id
-      })
+      }
     }
+
+    const preparedCalls = await Promise.all(
+      pendingToolCalls.map(prepareToolCall)
+    )
+    const toolResultMessages: ChatMessage[] = []
+
+    for (let index = 0; index < preparedCalls.length; ) {
+      const prepared = preparedCalls[index]
+      if (prepared.policy.parallelizable) {
+        // Run consecutive safe tools together, but keep group boundaries so a
+        // non-parallel tool (for example a live browser tab read) still gates
+        // the calls after it.
+        const parallelGroup: PreparedToolCall[] = []
+        while (
+          index < preparedCalls.length &&
+          preparedCalls[index].policy.parallelizable
+        ) {
+          parallelGroup.push(preparedCalls[index])
+          index++
+        }
+
+        for (const item of parallelGroup) startToolRun(item)
+        const groupResults = await Promise.all(
+          parallelGroup.map(executeToolCall)
+        )
+        // `Promise.all` preserves input order, so tool result messages are
+        // appended in the same order the model requested them.
+        toolResultMessages.push(...groupResults)
+        continue
+      }
+
+      startToolRun(prepared)
+      toolResultMessages.push(await executeToolCall(prepared))
+      index++
+    }
+
+    workingMessages.push(...toolResultMessages)
   }
 
   // Iteration cap hit: make one final, tool-disabled synthesis pass over the

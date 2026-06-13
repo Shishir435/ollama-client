@@ -23,6 +23,26 @@ describe("ChatMessageSchema", () => {
       thinking: "hmm",
       done: true,
       model: "llama3",
+      toolName: "read_tab",
+      toolCallId: "call-1",
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "read_tab",
+          arguments: { query: "docs" }
+        }
+      ],
+      images: [
+        {
+          imageId: "img-1",
+          fileName: "photo.png",
+          mimeType: "image/png",
+          size: 123,
+          base64: "abc",
+          width: 10,
+          height: 10
+        }
+      ],
       timestamp: 1700000000
     })
     expect(result.success).toBe(true)
@@ -130,6 +150,10 @@ describe("ChatMessageMetricsSchema", () => {
         {
           toolId: "web_search",
           label: "Web search",
+          displayNameKey: "chat.reasoning.trace.web",
+          iconKey: "search",
+          category: "web",
+          risk: "low",
           status: "done",
           startedAt: 1,
           completedAt: 2,

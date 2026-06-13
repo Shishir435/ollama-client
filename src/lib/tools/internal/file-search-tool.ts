@@ -9,6 +9,12 @@ export const fileSearchDefinition: ToolDefinition = {
   name: "file_search",
   description:
     "Search the user's uploaded and indexed documents for passages relevant to a query. Use for questions about the user's files or documents, rather than past conversations.",
+  displayNameKey: "chat.reasoning.trace.documents",
+  category: "files",
+  iconKey: "file-stack",
+  risk: "low",
+  cacheable: false,
+  requires: ["storage"],
   parameters: {
     type: "object",
     properties: {

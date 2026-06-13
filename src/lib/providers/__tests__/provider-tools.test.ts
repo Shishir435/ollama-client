@@ -37,6 +37,11 @@ const collect = (chunks: ChatStreamMessage[]) => (c: ChatStreamMessage) =>
 const weatherTool: ToolDefinition = {
   name: "get_weather",
   description: "Get weather",
+  displayNameKey: "tool.weather",
+  iconKey: "search",
+  category: "external",
+  risk: "low",
+  runtime: { timeoutMs: 5000 },
   parameters: {
     type: "object",
     properties: { city: { type: "string" } },
@@ -77,8 +82,16 @@ describe("provider tool calling — request mapping", () => {
     await new OllamaProvider(ollamaConfig).streamChat(baseRequest, () => {})
 
     expect(bodyOf(fetchMock).tools).toEqual([
-      { type: "function", function: weatherTool }
+      {
+        type: "function",
+        function: {
+          name: "get_weather",
+          description: "Get weather",
+          parameters: weatherTool.parameters
+        }
+      }
     ])
+    expect(bodyOf(fetchMock).tools[0].function.displayNameKey).toBeUndefined()
   })
 
   it("omits tools entirely when none are offered (unchanged wire shape)", async () => {
@@ -162,7 +175,17 @@ describe("provider tool calling — request mapping", () => {
     )
 
     const body = bodyOf(fetchMock)
-    expect(body.tools).toEqual([{ type: "function", function: weatherTool }])
+    expect(body.tools).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "get_weather",
+          description: "Get weather",
+          parameters: weatherTool.parameters
+        }
+      }
+    ])
+    expect(body.tools[0].function.displayNameKey).toBeUndefined()
     expect(body.messages[0].tool_calls[0]).toEqual({
       id: "c1",
       type: "function",
@@ -235,5 +258,15 @@ describe("provider tool calling — stream parsing", () => {
     expect(toolChunk?.toolCalls).toEqual([
       { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
     ])
+  })
+
+  it("Ollama surfaces provider stream errors instead of swallowing them as parse warnings", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([`${JSON.stringify({ error: "model crashed" })}\n`])
+    )
+
+    await expect(
+      new OllamaProvider(ollamaConfig).streamChat(baseRequest, () => {})
+    ).rejects.toThrow("model crashed")
   })
 })

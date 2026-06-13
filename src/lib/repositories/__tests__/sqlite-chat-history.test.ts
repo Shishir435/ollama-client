@@ -106,6 +106,59 @@ describe("sessions", () => {
     }
   })
 
+  it("bulkPutSessions persists imported messages and image files", async () => {
+    mockedRun.mockResolvedValue(undefined)
+    await repo.bulkPutSessions([
+      {
+        id: "s-img",
+        title: "Images",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [
+          {
+            id: 10,
+            role: "user",
+            content: "see image",
+            timestamp: 100,
+            images: [
+              {
+                imageId: "img-1",
+                fileName: "photo.png",
+                mimeType: "image/png",
+                size: 3,
+                base64: "AQID"
+              }
+            ]
+          }
+        ]
+      }
+    ])
+
+    expect(mockedRun).toHaveBeenCalledTimes(5)
+    expect(mockedRun.mock.calls[1][0]).toBe(
+      "DELETE FROM files WHERE sessionId = ?"
+    )
+    expect(mockedRun.mock.calls[2][0]).toBe(
+      "DELETE FROM messages WHERE sessionId = ?"
+    )
+    expect(mockedRun.mock.calls[3][0]).toContain(
+      "INSERT OR REPLACE INTO messages"
+    )
+    expect(mockedRun.mock.calls[3][1]?.slice(0, 4)).toEqual([
+      10,
+      "s-img",
+      "user",
+      "see image"
+    ])
+    expect(mockedRun.mock.calls[4][0]).toContain("INSERT INTO files")
+    expect(mockedRun.mock.calls[4][1]?.slice(0, 4)).toEqual([
+      "img-1",
+      "s-img",
+      10,
+      "image/png"
+    ])
+  })
+
   it("updateSession builds a partial UPDATE only for present fields", async () => {
     mockedRun.mockResolvedValueOnce(undefined)
     await repo.updateSession("s1", { title: "renamed", updatedAt: 123 })

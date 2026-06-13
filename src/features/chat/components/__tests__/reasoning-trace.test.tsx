@@ -14,10 +14,15 @@ vi.mock("react-i18next", () => ({
         "chat.reasoning.trace.page": "Reading page",
         "chat.reasoning.trace.files": "RAG",
         "chat.reasoning.trace.web": "Searching web",
+        "chat.reasoning.trace.knowledge": "RAG search",
+        "chat.reasoning.trace.documents": "Reading files",
         "chat.reasoning.trace.tab": "Reading tab",
+        "chat.reasoning.trace.tabs": "Listing tabs",
+        "chat.reasoning.trace.selection": "Reading selection",
         "chat.reasoning.trace.trimmed": "result trimmed",
         "chat.reasoning.trace.change_limit": "Change limit",
-        "chat.reasoning.trace.answering": "Answering"
+        "chat.reasoning.trace.answering": "Answering",
+        "tool.custom": "Custom tool"
       })[key] ?? key
   })
 }))
@@ -272,6 +277,32 @@ describe("ReasoningTrace", () => {
         screen.getByText("RAG search: No indexed files")
       ).toBeInTheDocument()
     })
+  })
+
+  it("uses tool run display metadata when present", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "external_tool",
+                label: "external_tool",
+                displayNameKey: "tool.custom",
+                iconKey: "search",
+                status: "done",
+                startedAt: 1,
+                completedAt: 2
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    expect(screen.getByText("Custom tool")).toBeInTheDocument()
   })
 
   it("does not pin a recovered tool error as the active label after answer text exists", () => {

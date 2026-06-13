@@ -15,6 +15,13 @@ export const currentTabDefinition: ToolDefinition = {
   name: "current_tab",
   description:
     "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
+  displayNameKey: "chat.reasoning.trace.tab",
+  category: "browser",
+  iconKey: "panels-top-left",
+  risk: "low",
+  cacheable: true,
+  requires: ["tabs"],
+  runtime: { parallelizable: false },
   parameters: {
     type: "object",
     properties: {

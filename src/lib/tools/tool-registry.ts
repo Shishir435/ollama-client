@@ -94,6 +94,11 @@ export class ToolRegistry {
       return { content: `Tool "${name}" failed: ${message}`, isError: true }
     }
   }
+
+  async getDefinition(name: string): Promise<ToolDefinition | undefined> {
+    if (!this.route) await this.listDefinitions()
+    return this.route?.get(name)?.definition
+  }
 }
 
 export type { ToolCall, ToolContext, ToolDefinition, ToolResult, ToolSource }

@@ -11,6 +11,13 @@ export const selectedTextDefinition: ToolDefinition = {
   name: "selected_text",
   description:
     "Get the text the user most recently selected or highlighted on a web page. Use when the user refers to 'the selected text', 'this selection', or 'what I highlighted'.",
+  displayNameKey: "chat.reasoning.trace.selection",
+  category: "selection",
+  iconKey: "text-select",
+  risk: "low",
+  cacheable: false,
+  requires: ["selection"],
+  runtime: { timeoutMs: 10_000, maxResultChars: 6000 },
   parameters: { type: "object", properties: {} }
 }
 

@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { getToolDisplayMeta } from "@/lib/tools/tool-display"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ToolRun } from "@/types"
 
@@ -45,27 +46,16 @@ const getToolRunStatus = (run: ToolRun): TraceStatus =>
       ? "error"
       : "done"
 
-const TOOL_LABEL_KEYS: Record<string, string> = {
-  web_search: "chat.reasoning.trace.web",
-  rag_search: "chat.reasoning.trace.knowledge",
-  file_search: "chat.reasoning.trace.documents",
-  current_tab: "chat.reasoning.trace.tab",
-  list_tabs: "chat.reasoning.trace.tabs",
-  read_tab: "chat.reasoning.trace.tab",
-  selected_text: "chat.reasoning.trace.selection"
-}
-
 const TOOL_ICONS: Record<
   string,
   React.ComponentType<{ className?: string }>
 > = {
-  web_search: Search,
-  rag_search: Search,
-  file_search: FileStack,
-  current_tab: PanelsTopLeft,
-  list_tabs: List,
-  read_tab: FileText,
-  selected_text: TextSelect
+  search: Search,
+  "file-stack": FileStack,
+  "panels-top-left": PanelsTopLeft,
+  list: List,
+  "file-text": FileText,
+  "text-select": TextSelect
 }
 
 const TOOL_RESULT_LIMIT_SETTINGS_PATH =
@@ -76,22 +66,27 @@ const openToolResultLimitSettings = () => {
 }
 
 const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
-  const key = TOOL_LABEL_KEYS[run.toolId]
+  const meta = getToolDisplayMeta(run.toolId)
+  const key = run.displayNameKey ?? meta.displayNameKey
   return key ? t(key) : run.label
 }
 
 const buildToolTraceStep = (
   run: ToolRun,
   t: (key: string) => string
-): TraceStep => ({
-  key: `tool-${run.toolId}-${run.startedAt}`,
-  label: getToolRunLabel(run, t),
-  status: getToolRunStatus(run),
-  icon: TOOL_ICONS[run.toolId] ?? Circle,
-  // Only the error goes in the compact chip tooltip; full input/output/sources
-  // live in the expandable details panel below to keep tooltips short.
-  detail: run.error
-})
+): TraceStep => {
+  const meta = getToolDisplayMeta(run.toolId)
+  const iconKey = run.iconKey ?? meta.iconKey
+  return {
+    key: `tool-${run.toolId}-${run.startedAt}`,
+    label: getToolRunLabel(run, t),
+    status: getToolRunStatus(run),
+    icon: iconKey ? (TOOL_ICONS[iconKey] ?? Circle) : Circle,
+    // Only the error goes in the compact chip tooltip; full input/output/sources
+    // live in the expandable details panel below to keep tooltips short.
+    detail: run.error
+  }
+}
 
 export interface ReasoningTraceProps {
   message: ChatMessage
