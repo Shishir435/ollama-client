@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Toggle } from "@/components/ui/toggle"
 
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 export const TabsToggle = () => {
@@ -15,7 +15,7 @@ export const TabsToggle = () => {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_TABS_ACCESS
   )
 
   return (

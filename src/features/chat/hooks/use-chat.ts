@@ -107,6 +107,11 @@ export const useChat = () => {
     const hasImages = !!images && images.length > 0
     if (!rawInput && (!files || files.length === 0) && !hasImages) return
 
+    // Show the thinking state immediately — context building (RAG embedding,
+    // vector search) runs before the stream starts, and without this the user
+    // gets no feedback for that whole window and assumes nothing happened.
+    setIsLoading(true)
+
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
     const hasTabContext = includeContext && tabDocuments.length > 0

@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import { extractContentWithLoading } from "@/lib/content-extractor"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -17,9 +17,10 @@ import { isExcludedUrl } from "./url-filter"
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
-  const tabAccessEnabled = await plasmoGlobalStorage.get<boolean>(
+  const storedTabAccess = await plasmoGlobalStorage.get<boolean>(
     STORAGE_KEYS.BROWSER.TABS_ACCESS
   )
+  const tabAccessEnabled = storedTabAccess ?? DEFAULT_TABS_ACCESS
 
   if (!tabAccessEnabled) {
     contentDebugLog("[Content Script] Tab access is disabled")

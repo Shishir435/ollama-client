@@ -19,6 +19,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_MAX_IMAGE_SIZE_MB,
+  DEFAULT_TABS_ACCESS,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -164,7 +165,7 @@ export const ChatInputBox = ({
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_TABS_ACCESS
   )
 
   useKeyboardShortcuts({

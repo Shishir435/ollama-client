@@ -5,6 +5,7 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { browser } from "@/lib/browser-api"
 import {
+  DEFAULT_TABS_ACCESS,
   MESSAGE_KEYS,
   STORAGE_KEYS,
   TAB_CONTENT_REFRESH_INTERVAL_MS
@@ -173,7 +174,7 @@ export const useTabContents = () => {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_TABS_ACCESS
   )
 
   const { tabs: openTabs } = useOpenTabs(tabAccess)

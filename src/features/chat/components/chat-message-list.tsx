@@ -60,7 +60,25 @@ export const ChatMessageList = ({
     () => messages.filter((msg) => msg.role !== "system"),
     [messages]
   )
-  const lastVirtualIndex = firstItemIndex + filteredMessages.length - 1
+  // While context is being built (loading, before the stream shell exists),
+  // append a transient assistant bubble so the "Thinking…" trace shows
+  // immediately instead of after the pre-stream work finishes.
+  const displayMessages = useMemo(() => {
+    const last = filteredMessages[filteredMessages.length - 1]
+    if (isLoading && !isStreaming && last?.role === "user") {
+      return [
+        ...filteredMessages,
+        {
+          role: "assistant" as const,
+          content: "",
+          id: "__pending_assistant__",
+          timestamp: last.timestamp
+        }
+      ]
+    }
+    return filteredMessages
+  }, [filteredMessages, isLoading, isStreaming])
+  const lastVirtualIndex = firstItemIndex + displayMessages.length - 1
   const internalMessagesRef = useRef(filteredMessages)
   const showRetrievedChunks =
     embeddingConfig?.showRetrievedChunks ??
@@ -120,7 +138,7 @@ export const ChatMessageList = ({
       <Virtuoso
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
-        data={filteredMessages}
+        data={displayMessages}
         initialTopMostItemIndex={lastVirtualIndex}
         startReached={() => {
           if (hasMore) {
@@ -143,13 +161,13 @@ export const ChatMessageList = ({
           const relativeIndex = index - firstItemIndex
           const isLastAssistantMessage =
             msg.role === "assistant" &&
-            relativeIndex === filteredMessages.length - 1
+            relativeIndex === displayMessages.length - 1
 
           let paddingTop = "pt-2"
           if (relativeIndex === 0) paddingTop = "pt-3"
           else if (
             relativeIndex > 0 &&
-            filteredMessages[relativeIndex - 1]?.role !== msg.role
+            displayMessages[relativeIndex - 1]?.role !== msg.role
           )
             paddingTop = "pt-6"
 

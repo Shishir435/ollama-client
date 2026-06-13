@@ -14,6 +14,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Internal tools, all running locally: `rag_search` (past-conversation memory), `file_search` (uploaded/indexed documents), `current_tab` (active tab's readable text, incl. YouTube transcript), `list_tabs` + `read_tab` (enumerate and read any open tab by id or title/URL — answer about any tab without adding it through the tab-context UI), and `selected_text` (most recent page selection). Tab tools inject the content script on demand, so tabs opened before the extension load are read without a refresh. They honor the user's excluded-URL settings and explain gracefully when a tab is a browser-internal page (chrome://, web store) rather than failing.
 - Transparency: the chain-of-thought reasoning trace now shows each tool run live (name, running/done/error status, and the sources it looked at), so it is always visible what the extension is doing on the user's behalf.
 
+### Changed
+- Browser tab access now defaults to **on** so tab context and the tab tools work out of the box (still toggleable from context settings / options).
+- Sending a message now shows the "Thinking…" state immediately. Previously the indicator only appeared after pre-stream work (RAG embedding, vector search) finished, so a slow context build looked like nothing was happening.
+
 ### Notes
 - The tool exchange is ephemeral, mirroring RAG context injection: only the final answer and the tool-run trace persist — no schema migration and no new message rows.
 - Architecture is MCP-ready: a future MCP server registers as another tool source with no change to the adapters, loop, or UI. See `TOOL_CALLING_PLAN.md`.
