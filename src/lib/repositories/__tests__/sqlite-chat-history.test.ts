@@ -134,28 +134,70 @@ describe("sessions", () => {
       }
     ])
 
-    expect(mockedRun).toHaveBeenCalledTimes(5)
-    expect(mockedRun.mock.calls[1][0]).toBe(
-      "DELETE FROM files WHERE sessionId = ?"
+    expect(mockedRun).toHaveBeenCalledTimes(7)
+    expect(mockedRun.mock.calls[0][0]).toBe("BEGIN IMMEDIATE")
+    expect(mockedRun.mock.calls[1][0]).toContain(
+      "INSERT OR REPLACE INTO sessions"
     )
     expect(mockedRun.mock.calls[2][0]).toBe(
+      "DELETE FROM files WHERE sessionId = ?"
+    )
+    expect(mockedRun.mock.calls[3][0]).toBe(
       "DELETE FROM messages WHERE sessionId = ?"
     )
-    expect(mockedRun.mock.calls[3][0]).toContain(
+    expect(mockedRun.mock.calls[4][0]).toContain(
       "INSERT OR REPLACE INTO messages"
     )
-    expect(mockedRun.mock.calls[3][1]?.slice(0, 4)).toEqual([
+    expect(mockedRun.mock.calls[4][1]?.slice(0, 4)).toEqual([
       10,
       "s-img",
       "user",
       "see image"
     ])
-    expect(mockedRun.mock.calls[4][0]).toContain("INSERT INTO files")
-    expect(mockedRun.mock.calls[4][1]?.slice(0, 4)).toEqual([
+    expect(mockedRun.mock.calls[5][0]).toContain("INSERT INTO files")
+    expect(mockedRun.mock.calls[5][1]?.slice(0, 4)).toEqual([
       "img-1",
       "s-img",
       10,
       "image/png"
+    ])
+    expect(mockedRun.mock.calls[6][0]).toBe("COMMIT")
+  })
+
+  it("bulkPutSessions rolls back imported message replacement on failure", async () => {
+    const importError = new Error("quota exceeded")
+    mockedRun.mockImplementation(async (sql) => {
+      if (String(sql).includes("INSERT OR REPLACE INTO messages")) {
+        throw importError
+      }
+    })
+
+    await expect(
+      repo.bulkPutSessions([
+        {
+          id: "s-fail",
+          title: "Fail",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [
+            {
+              id: 11,
+              role: "user",
+              content: "boom",
+              timestamp: 100
+            }
+          ]
+        }
+      ])
+    ).rejects.toThrow("quota exceeded")
+
+    expect(mockedRun.mock.calls.map(([sql]) => sql)).toEqual([
+      "BEGIN IMMEDIATE",
+      expect.stringContaining("INSERT OR REPLACE INTO sessions"),
+      "DELETE FROM files WHERE sessionId = ?",
+      "DELETE FROM messages WHERE sessionId = ?",
+      expect.stringContaining("INSERT OR REPLACE INTO messages"),
+      "ROLLBACK"
     ])
   })
 

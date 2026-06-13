@@ -100,6 +100,32 @@ const putImportedMessage = async (
   return rows[0].id as number
 }
 
+const withTransaction = async (work: () => Promise<void>): Promise<void> => {
+  await run("BEGIN IMMEDIATE")
+  try {
+    await work()
+    await run("COMMIT")
+  } catch (error) {
+    await run("ROLLBACK")
+    throw error
+  }
+}
+
+const putSessionRow = async (session: ChatSession): Promise<void> => {
+  await run(
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      session.id,
+      session.title ?? null,
+      session.modelId ?? null,
+      typeof session.currentLeafId === "number" ? session.currentLeafId : null,
+      session.createdAt,
+      session.updatedAt
+    ]
+  )
+}
+
 // ----- Sessions ------------------------------------------------------------
 
 export const getAllSessionsOrderedByRecency = async (): Promise<
@@ -148,40 +174,32 @@ export const bulkPutSessions = async (
   sessions: ChatSession[]
 ): Promise<void> => {
   for (const session of sessions) {
-    await run(
-      `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        session.id,
-        session.title ?? null,
-        session.modelId ?? null,
-        typeof session.currentLeafId === "number"
-          ? session.currentLeafId
-          : null,
-        session.createdAt,
-        session.updatedAt
-      ]
-    )
-    if (!session.messages || session.messages.length === 0) continue
-
-    await run("DELETE FROM files WHERE sessionId = ?", [session.id])
-    await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
-
-    for (const message of session.messages) {
-      const messageId = await putImportedMessage(session.id, message)
-      const fileRows = [
-        ...(message.attachments?.map((file) => ({
-          ...file,
-          data: normalizeFileData(file.data),
-          sessionId: session.id,
-          messageId
-        })) ?? []),
-        ...(message.images?.map((image) =>
-          imageToStoredFile(image, messageId, session.id)
-        ) ?? [])
-      ]
-      if (fileRows.length > 0) await bulkAddFiles(fileRows)
+    if (!session.messages || session.messages.length === 0) {
+      await putSessionRow(session)
+      continue
     }
+
+    await withTransaction(async () => {
+      await putSessionRow(session)
+      await run("DELETE FROM files WHERE sessionId = ?", [session.id])
+      await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
+
+      for (const message of session.messages) {
+        const messageId = await putImportedMessage(session.id, message)
+        const fileRows = [
+          ...(message.attachments?.map((file) => ({
+            ...file,
+            data: normalizeFileData(file.data),
+            sessionId: session.id,
+            messageId
+          })) ?? []),
+          ...(message.images?.map((image) =>
+            imageToStoredFile(image, messageId, session.id)
+          ) ?? [])
+        ]
+        if (fileRows.length > 0) await bulkAddFiles(fileRows)
+      }
+    })
   }
 }
 
