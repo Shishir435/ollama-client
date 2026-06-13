@@ -548,7 +548,8 @@
         "note_manual": "{{provider}} kann die Fähigkeiten dieses Modells nicht melden, daher können wir sie nicht erkennen. Aktiviere, was dieses Modell unterstützt – Funktionen wie Bildeingabe und Tools verwenden diese Einstellungen.",
         "note_self_report": "{{provider}} meldet die Fähigkeiten dieses Modells automatisch. Änderungen hier überschreiben die erkannten Werte.",
         "reset": "Auf erkannt zurücksetzen",
-        "save": "Speichern"
+        "save": "Speichern",
+        "save_error": "Fähigkeiten konnten nicht gespeichert werden. Bitte versuche es erneut."
       },
       "flags": {
         "text": {

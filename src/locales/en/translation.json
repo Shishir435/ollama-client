@@ -398,7 +398,8 @@
         "note_manual": "{{provider}} can't report this model's capabilities, so we can't detect them. Turn on what this model supports — features like image input and tools use these settings.",
         "note_self_report": "{{provider}} reports this model's capabilities automatically. Changes here override what was detected.",
         "reset": "Reset to detected",
-        "save": "Save"
+        "save": "Save",
+        "save_error": "Couldn't save capabilities. Please try again."
       },
       "flags": {
         "text": {

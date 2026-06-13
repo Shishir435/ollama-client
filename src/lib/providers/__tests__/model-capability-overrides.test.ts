@@ -79,4 +79,20 @@ describe("model capability overrides", () => {
       [modelCapabilityOverrideKey("localai", "b")]: { toolCalling: true }
     })
   })
+
+  it("does not drop a write when two overrides are saved concurrently", async () => {
+    // Without serialization both reads see the same empty map and the second
+    // write clobbers the first. The write queue must preserve both.
+    await Promise.all([
+      setModelCapabilityOverride("vllm", "a", { vision: true }),
+      setModelCapabilityOverride("localai", "b", { toolCalling: true })
+    ])
+
+    expect(await getModelCapabilityOverride("vllm", "a")).toEqual({
+      vision: true
+    })
+    expect(await getModelCapabilityOverride("localai", "b")).toEqual({
+      toolCalling: true
+    })
+  })
 })

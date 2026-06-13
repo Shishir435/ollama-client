@@ -11,6 +11,8 @@ import {
   SheetTitle
 } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
+import { useToast } from "@/hooks/use-toast"
+import { logger } from "@/lib/logger"
 import { Info } from "@/lib/lucide-icon"
 import type {
   ModelCapabilities,
@@ -69,29 +71,45 @@ export const ModelCapabilitySheet = ({
   onReset
 }: ModelCapabilitySheetProps) => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [draft, setDraft] = useState<Draft>(() => toDraft(current))
 
-  // Reseed whenever the sheet opens for a (possibly different) model. Seeds from
-  // the effective capabilities so a saved override is reflected in the toggles.
-  useEffect(() => {
-    if (open) setDraft(toDraft(current))
-  }, [open, current])
-
-  const providerName = getProviderDisplayName(providerId)
-
-  // The draft differs from what detection produced — the user has changed
+  // The draft differs from what detection produced — the user has edited
   // something this session.
   const isDirty = (Object.keys(draft) as CapabilityFlag[]).some(
     (flag) => draft[flag] !== detected[flag]
   )
+
+  // Reseed when the sheet opens for a (possibly different) model, OR when an
+  // external source updates `current` (e.g. a Chrome-sync write from another
+  // device) — but only while the user hasn't edited the draft, so an external
+  // write never silently discards unsaved changes.
+  useEffect(() => {
+    if (open && !isDirty) setDraft(toDraft(current))
+  }, [open, current, isDirty])
+
+  const providerName = getProviderDisplayName(providerId)
 
   // Reset is meaningful when there is a saved override to clear, or when the
   // user has edited the toggles in this open session.
   const canReset = hasOverride || isDirty
 
   const handleSave = async () => {
-    await onSave({ ...draft })
-    onOpenChange(false)
+    try {
+      await onSave({ ...draft })
+      onOpenChange(false)
+    } catch (error) {
+      // Keep the sheet open so the user can retry; surface the failure.
+      logger.error(
+        "Failed to save capability override",
+        "ModelCapabilitySheet",
+        { error }
+      )
+      toast({
+        variant: "destructive",
+        description: t("model.capabilities.sheet.save_error")
+      })
+    }
   }
 
   const handleReset = async () => {

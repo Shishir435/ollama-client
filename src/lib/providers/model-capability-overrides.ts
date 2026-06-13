@@ -13,6 +13,30 @@ export type ModelCapabilityOverrideMap = Record<string, ModelCapabilityOverride>
 
 const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
 
+/**
+ * Serializes read-modify-write operations on the override map. Each write reads
+ * the whole map, patches one key, and writes it back; without serialization two
+ * rapid writes (e.g. configuring model A then model B in quick succession) would
+ * both read the same stale map and the second write would drop the first key's
+ * change. Chaining writes here guarantees each one observes the previous result.
+ *
+ * Note: this guards writes within a single extension context only. A concurrent
+ * write from another context (a second extension page, or Chrome-sync from
+ * another device) can still race; that is an accepted limitation for this
+ * low-frequency, user-driven setting.
+ */
+let writeQueue: Promise<unknown> = Promise.resolve()
+
+const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> => {
+  const result = writeQueue.then(operation, operation)
+  // Keep the chain alive regardless of whether an individual op rejects.
+  writeQueue = result.then(
+    () => undefined,
+    () => undefined
+  )
+  return result
+}
+
 export const modelCapabilityOverrideKey = (
   providerId: string,
   modelName: string
@@ -35,37 +59,40 @@ export const getModelCapabilityOverride = async (
 
 /**
  * Persist (or merge into) the override for a single model. Empty overrides are
- * removed so the map does not accumulate no-op entries.
+ * removed so the map does not accumulate no-op entries. Serialized via
+ * {@link enqueueWrite} so concurrent saves don't clobber each other.
  */
-export const setModelCapabilityOverride = async (
+export const setModelCapabilityOverride = (
   providerId: string,
   modelName: string,
   override: ModelCapabilityOverride
-): Promise<void> => {
-  const all = await getAllModelCapabilityOverrides()
-  const key = modelCapabilityOverrideKey(providerId, modelName)
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllModelCapabilityOverrides()
+    const key = modelCapabilityOverrideKey(providerId, modelName)
 
-  const cleaned = pruneEmptyOverride(override)
-  if (cleaned) {
-    all[key] = cleaned
-  } else {
-    delete all[key]
-  }
+    const cleaned = pruneEmptyOverride(override)
+    if (cleaned) {
+      all[key] = cleaned
+    } else {
+      delete all[key]
+    }
 
-  await plasmoGlobalStorage.set(STORAGE_KEY, all)
-}
+    await plasmoGlobalStorage.set(STORAGE_KEY, all)
+  })
 
-export const clearModelCapabilityOverride = async (
+export const clearModelCapabilityOverride = (
   providerId: string,
   modelName: string
-): Promise<void> => {
-  const all = await getAllModelCapabilityOverrides()
-  const key = modelCapabilityOverrideKey(providerId, modelName)
-  if (key in all) {
-    delete all[key]
-    await plasmoGlobalStorage.set(STORAGE_KEY, all)
-  }
-}
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllModelCapabilityOverrides()
+    const key = modelCapabilityOverrideKey(providerId, modelName)
+    if (key in all) {
+      delete all[key]
+      await plasmoGlobalStorage.set(STORAGE_KEY, all)
+    }
+  })
 
 /** Drop undefined fields; return null if nothing meaningful remains. */
 const pruneEmptyOverride = (
