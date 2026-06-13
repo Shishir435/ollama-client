@@ -8,8 +8,10 @@ import {
 } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { FileProcessingState } from "@/lib/file-processors/types"
+import { toDataUrl } from "@/lib/image-utils"
 import { CircleCheck, FileText, Loader2, X } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
+import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
 
@@ -18,6 +20,8 @@ interface ChatInputAttachmentSheetProps {
   onOpenChange: (open: boolean) => void
   processingStates: FileProcessingState[]
   onRemove: (file: File) => void
+  images?: ImageAttachment[]
+  onRemoveImage?: (imageId: string) => void
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -30,7 +34,9 @@ export function ChatInputAttachmentSheet({
   open,
   onOpenChange,
   processingStates,
-  onRemove
+  onRemove,
+  images = [],
+  onRemoveImage
 }: ChatInputAttachmentSheetProps) {
   const { t } = useTranslation()
   const [expandedFile, setExpandedFile] = useState<string | null>(null)
@@ -42,11 +48,41 @@ export function ChatInputAttachmentSheet({
     <PreviewSheet
       open={open}
       onOpenChange={onOpenChange}
-      title={t("chat.input.attachments", { count: successfulStates.length })}
+      title={t("chat.input.attachments", {
+        count: successfulStates.length + images.length
+      })}
       className="w-[min(32rem,calc(100vw-1rem))]">
       <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
         <div className="space-y-2 p-3">
-          {successfulStates.length === 0 && (
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-1">
+              {images.map((image) => (
+                <div
+                  key={image.imageId}
+                  className="group relative size-16 overflow-hidden rounded-panel border border-border/35 bg-background/35">
+                  <img
+                    src={toDataUrl(image.mimeType, image.base64)}
+                    alt={image.fileName}
+                    className="size-full object-cover"
+                  />
+                  {onRemoveImage && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="absolute right-0.5 top-0.5 size-5 rounded-full bg-background/80 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                      onClick={() => onRemoveImage(image.imageId)}
+                      aria-label={t("chat.input.images.remove", {
+                        name: image.fileName
+                      })}>
+                      <X className="icon-xs" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {successfulStates.length === 0 && images.length === 0 && (
             <p className="rounded-control border border-border/35 bg-background/35 p-3 text-xs text-muted-foreground">
               {t("file_upload.area.files_ready", { count: 0 })}
             </p>

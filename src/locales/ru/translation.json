@@ -175,8 +175,9 @@
       "images": {
         "remove": "Удалить {{name}}",
         "too_large": "{{name}} превышает лимит изображения {{max}} МБ.",
-        "unsupported_type": "{{name}} — неподдерживаемый тип изображения.",
-        "model_unsupported": "Выбранная модель не поддерживает зрение. Включите его в меню моделей или выберите модель со зрением."
+        "unsupported_type": "{{name}} — неподдерживаемый тип изображения. Используйте PNG, JPEG или WebP.",
+        "model_unsupported": "Выбранная модель не поддерживает зрение. Включите его в меню моделей или выберите модель со зрением.",
+        "heic_unsupported": "HEIC не поддерживается. Вставьте изображение или экспортируйте {{name}} в JPEG или PNG."
       }
     },
     "context_preview": {
@@ -345,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "Загрузить файл",
-      "tooltip": "Загрузить файл (PDF, DOCX, CSV, HTML, Текст)"
+      "tooltip": "Загрузить файл (PDF, DOCX, CSV, HTML, Текст)",
+      "aria_label_with_images": "Загрузить файл или изображение",
+      "tooltip_with_images": "Загрузить файл или изображение (PDF, DOCX, CSV, HTML, текст, изображения)"
     },
     "preview": {
       "remove_aria_label": "Удалить файл",

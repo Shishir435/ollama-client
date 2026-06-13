@@ -1,10 +1,14 @@
 import { useCallback, useState } from "react"
 
-import { SUPPORTED_IMAGE_MIME_TYPES } from "@/lib/constants"
+import {
+  HEIC_EXTENSION_PATTERN,
+  HEIC_MIME_TYPES,
+  SUPPORTED_IMAGE_MIME_TYPES
+} from "@/lib/constants"
 import { stripDataUrlPrefix } from "@/lib/image-utils"
 import type { ImageAttachment } from "@/types"
 
-export type ImageRejectReason = "type" | "size"
+export type ImageRejectReason = "type" | "size" | "heic"
 
 interface UseImageAttachmentsOptions {
   maxSizeBytes: number
@@ -13,6 +17,10 @@ interface UseImageAttachmentsOptions {
 
 const isSupportedImage = (type: string): boolean =>
   (SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(type)
+
+const isHeic = (file: File): boolean =>
+  (HEIC_MIME_TYPES as readonly string[]).includes(file.type) ||
+  HEIC_EXTENSION_PATTERN.test(file.name)
 
 const readFileAsBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -36,6 +44,10 @@ export const useImageAttachments = ({
     async (files: File[]) => {
       const accepted: ImageAttachment[] = []
       for (const file of files) {
+        if (isHeic(file)) {
+          onReject?.("heic", file)
+          continue
+        }
         if (!isSupportedImage(file.type)) {
           onReject?.("type", file)
           continue

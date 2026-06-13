@@ -175,8 +175,9 @@
       "images": {
         "remove": "{{name}} entfernen",
         "too_large": "{{name}} überschreitet das Bildlimit von {{max}} MB.",
-        "unsupported_type": "{{name}} ist kein unterstützter Bildtyp.",
-        "model_unsupported": "Das ausgewählte Modell unterstützt keine Bilder. Aktiviere die Unterstützung im Modellmenü oder wähle ein Vision-Modell."
+        "unsupported_type": "{{name}} ist kein unterstützter Bildtyp. Verwende PNG, JPEG oder WebP.",
+        "model_unsupported": "Das ausgewählte Modell unterstützt keine Bilder. Aktiviere die Unterstützung im Modellmenü oder wähle ein Vision-Modell.",
+        "heic_unsupported": "HEIC wird nicht unterstützt. Füge das Bild ein oder exportiere {{name}} als JPEG oder PNG."
       }
     },
     "context_preview": {
@@ -345,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "Datei hochladen",
-      "tooltip": "Datei hochladen (PDF, DOCX, CSV, HTML, Text)"
+      "tooltip": "Datei hochladen (PDF, DOCX, CSV, HTML, Text)",
+      "aria_label_with_images": "Datei oder Bild hochladen",
+      "tooltip_with_images": "Datei oder Bild hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)"
     },
     "preview": {
       "remove_aria_label": "Datei entfernen",

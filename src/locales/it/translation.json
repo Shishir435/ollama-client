@@ -175,8 +175,9 @@
       "images": {
         "remove": "Rimuovi {{name}}",
         "too_large": "{{name}} supera il limite immagine di {{max}} MB.",
-        "unsupported_type": "{{name}} non è un tipo di immagine supportato.",
-        "model_unsupported": "Il modello selezionato non supporta la visione. Abilitala nel menu dei modelli o scegli un modello con visione."
+        "unsupported_type": "{{name}} non è un tipo di immagine supportato. Usa PNG, JPEG o WebP.",
+        "model_unsupported": "Il modello selezionato non supporta la visione. Abilitala nel menu dei modelli o scegli un modello con visione.",
+        "heic_unsupported": "HEIC non è supportato. Incolla l'immagine o esporta {{name}} come JPEG o PNG."
       }
     },
     "context_preview": {
@@ -345,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "Carica file",
-      "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo)"
+      "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo)",
+      "aria_label_with_images": "Carica file o immagine",
+      "tooltip_with_images": "Carica file o immagine (PDF, DOCX, CSV, HTML, Testo, Immagini)"
     },
     "preview": {
       "remove_aria_label": "Rimuovi file",

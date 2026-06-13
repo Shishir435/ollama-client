@@ -15,6 +15,9 @@ export interface ChatInputToolbarProps {
   onFilesSelected: (files: FileList) => void
   processingStates?: FileProcessingState[]
   onAttachmentClick?: () => void
+  acceptImages?: boolean
+  /** Staged image count, shown in the same attachment badge as files. */
+  imageCount?: number
 }
 
 export const ChatInputToolbar = ({
@@ -22,13 +25,15 @@ export const ChatInputToolbar = ({
   isLoading,
   onFilesSelected,
   processingStates = [],
-  onAttachmentClick
+  onAttachmentClick,
+  acceptImages = false,
+  imageCount = 0
 }: ChatInputToolbarProps) => {
   const { t } = useTranslation()
   const successfulStates = processingStates.filter(
     (s) => s.status === "success"
   )
-  const attachmentCount = successfulStates.length
+  const attachmentCount = successfulStates.length + imageCount
 
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 px-2 py-2 backdrop-blur">
@@ -51,6 +56,7 @@ export const ChatInputToolbar = ({
         <FileUploadButton
           onFilesSelected={onFilesSelected}
           disabled={isLoading}
+          acceptImages={acceptImages}
         />
         {attachmentCount > 0 && onAttachmentClick && (
           <TooltipActionButton

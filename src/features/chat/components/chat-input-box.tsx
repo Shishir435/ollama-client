@@ -35,7 +35,6 @@ import {
   fileListFromFiles,
   splitDropFiles
 } from "./chat-input/drop-file-policy"
-import { ImageAttachmentRail } from "./chat-input/image-attachment-rail"
 import { SendOrStopButton } from "./send-or-stop-button"
 
 const pendingSelectionStorage = getPlasmoStorageForKey(
@@ -108,16 +107,16 @@ export const ChatInputBox = ({
   } = useImageAttachments({
     maxSizeBytes: (maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB) * 1024 * 1024,
     onReject: (reason, file) => {
-      toast({
-        variant: "destructive",
-        description:
-          reason === "size"
-            ? t("chat.input.images.too_large", {
-                name: file.name,
-                max: maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB
-              })
+      const description =
+        reason === "size"
+          ? t("chat.input.images.too_large", {
+              name: file.name,
+              max: maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB
+            })
+          : reason === "heic"
+            ? t("chat.input.images.heic_unsupported", { name: file.name })
             : t("chat.input.images.unsupported_type", { name: file.name })
-      })
+      toast({ variant: "destructive", description })
     }
   })
 
@@ -444,7 +443,6 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
-        <ImageAttachmentRail images={images} onRemove={removeImage} />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
@@ -478,6 +476,8 @@ export const ChatInputBox = ({
           onFilesSelected={handleFilesSelected}
           processingStates={processingStates}
           onAttachmentClick={() => setShowAttachmentSheet(true)}
+          acceptImages={visionSupported}
+          imageCount={images.length}
         />
 
         <div className="absolute right-3 top-3">
@@ -496,6 +496,8 @@ export const ChatInputBox = ({
         onOpenChange={setShowAttachmentSheet}
         processingStates={processingStates}
         onRemove={clearProcessingState}
+        images={images}
+        onRemoveImage={removeImage}
       />
     </div>
   )

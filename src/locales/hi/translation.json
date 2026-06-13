@@ -175,8 +175,9 @@
       "images": {
         "remove": "{{name}} हटाएँ",
         "too_large": "{{name}} {{max}}MB की छवि सीमा से बड़ी है।",
-        "unsupported_type": "{{name}} एक समर्थित छवि प्रकार नहीं है।",
-        "model_unsupported": "चयनित मॉडल में विज़न समर्थन नहीं है। इसे मॉडल मेनू में सक्षम करें, या कोई विज़न मॉडल चुनें।"
+        "unsupported_type": "{{name}} एक समर्थित छवि प्रकार नहीं है। PNG, JPEG या WebP का उपयोग करें।",
+        "model_unsupported": "चयनित मॉडल में विज़न समर्थन नहीं है। इसे मॉडल मेनू में सक्षम करें, या कोई विज़न मॉडल चुनें।",
+        "heic_unsupported": "HEIC समर्थित नहीं है। छवि पेस्ट करें, या {{name}} को JPEG या PNG के रूप में निर्यात करें।"
       }
     },
     "context_preview": {
@@ -345,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "फ़ाइल अपलोड करें",
-      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)"
+      "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)",
+      "aria_label_with_images": "फ़ाइल या छवि अपलोड करें",
+      "tooltip_with_images": "फ़ाइल या छवि अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट, छवियाँ)"
     },
     "preview": {
       "remove_aria_label": "फ़ाइल हटाएँ",

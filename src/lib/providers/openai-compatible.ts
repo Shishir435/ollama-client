@@ -2,6 +2,7 @@ import { DEFAULT_OPENAI_COMPATIBLE_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
 import {
@@ -113,6 +114,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         status: response.status,
         providerId: this.id,
         retryable: response.status >= 500,
+        userMessage: providerErrorUserMessage(response.status),
         debug: errorText
       })
     }

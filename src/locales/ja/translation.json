@@ -175,8 +175,9 @@
       "images": {
         "remove": "{{name}} を削除",
         "too_large": "{{name}} は画像の上限 {{max}}MB を超えています。",
-        "unsupported_type": "{{name}} はサポートされていない画像形式です。",
-        "model_unsupported": "選択中のモデルはビジョンに対応していません。モデルメニューで有効にするか、ビジョン対応モデルを選択してください。"
+        "unsupported_type": "{{name}} はサポートされていない画像形式です。PNG、JPEG、または WebP を使用してください。",
+        "model_unsupported": "選択中のモデルはビジョンに対応していません。モデルメニューで有効にするか、ビジョン対応モデルを選択してください。",
+        "heic_unsupported": "HEIC はサポートされていません。画像を貼り付けるか、{{name}} を JPEG または PNG として書き出してください。"
       }
     },
     "context_preview": {
@@ -345,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "ファイルをアップロード",
-      "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)"
+      "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)",
+      "aria_label_with_images": "ファイルまたは画像をアップロード",
+      "tooltip_with_images": "ファイルまたは画像をアップロード (PDF, DOCX, CSV, HTML, テキスト, 画像)"
     },
     "preview": {
       "remove_aria_label": "ファイルを削除",

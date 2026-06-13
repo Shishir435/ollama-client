@@ -1,5 +1,6 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import type {
   ChatStreamMessage,
   OllamaChatRequest,
@@ -123,6 +124,7 @@ export class OllamaProvider implements LLMProvider {
         status: response.status,
         providerId: ProviderId.OLLAMA,
         retryable: response.status >= 500,
+        userMessage: providerErrorUserMessage(response.status),
         debug: errorText
       })
     }
@@ -154,7 +156,10 @@ export class OllamaProvider implements LLMProvider {
             if (data.error) {
               throw createAppError(data.error, {
                 kind: "provider",
-                providerId: ProviderId.OLLAMA
+                providerId: ProviderId.OLLAMA,
+                userMessage:
+                  "The provider reported an error while generating the response.",
+                debug: typeof data.error === "string" ? data.error : undefined
               })
             }
 
