@@ -124,8 +124,9 @@ export const ReasoningTrace = ({
   isStreaming = false
 }: ReasoningTraceProps) => {
   const { t } = useTranslation()
-  // null = follow auto behavior; true/false = user explicitly toggled.
-  const [userToggled, setUserToggled] = useState<boolean | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  // Once the user clicks the toggle we stop auto-managing the open state.
+  const userControlledRef = useRef(false)
   const reasoningBodyRef = useRef<HTMLDivElement>(null)
   const hasThinking = Boolean(message.thinking?.trim())
   const toolRuns = message.metrics?.toolRuns ?? []
@@ -141,15 +142,22 @@ export const ReasoningTrace = ({
   const isBusy = isLoading || isStreaming
 
   const hasVisibleContent = Boolean(message.content?.trim())
-  const toolRunning = toolRuns.some((run) => run.status === "running")
   const hasDetails = hasThinking || toolRuns.length > 0
-  // Auto-expand the details (reasoning + tool steps) while the model is still
-  // working and hasn't produced an answer yet, so live reasoning and running
-  // tools are visible; collapse once the answer starts streaming. The user can
-  // override either way; once they do we respect their choice.
-  const autoOpenDetails =
-    isBusy && hasDetails && (!hasVisibleContent || toolRunning)
-  const detailsOpen = userToggled ?? autoOpenDetails
+
+  // Latch the open state instead of deriving it every render. Deriving from
+  // volatile streaming flags (content present yet, a tool currently running)
+  // made the panel toggle open/closed between chunks and flicker. Auto-open
+  // while thinking (no answer yet), auto-collapse once the answer starts, and
+  // stop auto-managing once the user clicks the toggle.
+  useEffect(() => {
+    if (userControlledRef.current) return
+    setDetailsOpen(isBusy && hasDetails && !hasVisibleContent)
+  }, [isBusy, hasDetails, hasVisibleContent])
+
+  const toggleDetails = () => {
+    userControlledRef.current = true
+    setDetailsOpen((open) => !open)
+  }
 
   // Keep the live reasoning scrolled to the latest line while it streams.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thinking growth
@@ -157,7 +165,7 @@ export const ReasoningTrace = ({
     if (detailsOpen && isBusy && reasoningBodyRef.current) {
       reasoningBodyRef.current.scrollTop = reasoningBodyRef.current.scrollHeight
     }
-  }, [message.thinking, toolRuns.length, detailsOpen, isBusy])
+  }, [message.thinking, detailsOpen, isBusy])
 
   if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) {
     return null
@@ -264,7 +272,7 @@ export const ReasoningTrace = ({
         {hasDetails && (
           <button
             type="button"
-            onClick={() => setUserToggled(!detailsOpen)}
+            onClick={toggleDetails}
             aria-expanded={detailsOpen}
             className="inline-flex h-7 items-center gap-0.5 rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
             <ListTree className="icon-sm" />
