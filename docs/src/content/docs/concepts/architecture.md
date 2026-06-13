@@ -81,6 +81,50 @@ flowchart TD
     L --> M["Vector store"]
 ```
 
+## Model capabilities
+
+Feature availability is resolved per selected model. The capability layer covers text chat, image input, tool calling, reasoning output, embeddings, and context length. The resolver prefers explicit user overrides, then provider/model metadata, then provider defaults.
+
+This keeps capability-sensitive UI from guessing. For example:
+
+- Image attach is enabled only for models that resolve `vision: true`.
+- Internal tools are offered only to models that resolve `toolCalling: true`.
+- Embedding models are kept out of normal chat-model selectors.
+
+Users can override capabilities from the model menu when a provider cannot report them reliably.
+
+## Tool calling architecture
+
+Tool calling is handled in the background worker, between provider streaming and UI persistence.
+
+1. The handler resolves the selected model and checks whether tool calling is enabled for that model.
+2. Tool definitions are loaded from the `ToolRegistry`.
+3. The provider receives the chat request with native tool definitions.
+4. If the model requests a tool, the stream loop executes it locally and appends a tool result to the working provider history.
+5. The loop continues until the model returns a normal answer or hits the iteration cap.
+
+Current internal tools:
+
+| Tool | Purpose |
+|---|---|
+| `current_tab` | Read the active tab's extracted text, including supported video transcripts. |
+| `list_tabs` | List readable open tabs with current ids, titles, and URLs. |
+| `read_tab` | Read a specific open tab by id or title/URL query. Stale ids are refreshed and can fall back to the active readable tab. |
+| `selected_text` | Use the most recent page selection captured by the extension. |
+| `file_search` | Search uploaded/indexed files. |
+| `rag_search` | Search local chat memory / indexed conversation context. |
+
+Tool results are trimmed before they are fed back to the model. The UI persists the final assistant answer and trace metadata, not the intermediate tool messages.
+
+## Image input
+
+Images are stored as chat attachments and routed only when the selected model supports vision. Provider adapters translate the same chat message into each provider's expected wire format:
+
+- Ollama receives base64 image payloads through its native `images` field.
+- OpenAI-compatible providers receive `image_url` content parts.
+
+Images reuse the existing file metadata path for local persistence and preview display, so no separate image-history store is needed.
+
 ## Model selection and provider routing
 
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
