@@ -87,9 +87,22 @@ export class OllamaProvider implements LLMProvider {
       Object.entries(options).filter(([, value]) => value !== undefined)
     )
 
-    const body: OllamaChatRequest = {
+    // Map to Ollama's wire shape. Vision models take image input as raw base64
+    // strings (no data: prefix) on the `images` field of a message.
+    const ollamaMessages = messages.map((m) => {
+      const mapped: { role: string; content: string; images?: string[] } = {
+        role: m.role,
+        content: m.content
+      }
+      if (m.images && m.images.length > 0) {
+        mapped.images = m.images.map((img) => img.base64)
+      }
+      return mapped
+    })
+
+    const body = {
       model,
-      messages,
+      messages: ollamaMessages,
       stream: true,
       keep_alive,
       options:

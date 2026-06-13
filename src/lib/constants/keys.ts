@@ -96,6 +96,10 @@ export const STORAGE_KEYS = {
     VOICE_URI: "tts-voice-uri",
     AUTO_PLAY: "tts-auto-play"
   },
+  IMAGES: {
+    // Per-image size cap (MB) for vision input; configurable on options page.
+    MAX_SIZE_MB: "image-max-size-mb"
+  },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",

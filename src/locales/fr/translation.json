@@ -171,7 +171,13 @@
       "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "drop_files_here": "Déposer des fichiers ici",
-      "attachments": "{{count}} pièces jointes"
+      "attachments": "{{count}} pièces jointes",
+      "images": {
+        "remove": "Supprimer {{name}}",
+        "too_large": "{{name}} dépasse la limite d'image de {{max}} Mo.",
+        "unsupported_type": "{{name}} n'est pas un type d'image pris en charge.",
+        "model_unsupported": "Le modèle sélectionné ne prend pas en charge la vision. Activez-la dans le menu des modèles ou choisissez un modèle avec vision."
+      }
     },
     "context_preview": {
       "files": "Fichiers joints",
@@ -319,7 +325,10 @@
       "unknown_language": "Inconnu"
     },
     "message": {
-      "loading": "Chargement..."
+      "loading": "Chargement...",
+      "images": {
+        "view": "Afficher {{name}}"
+      }
     },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "Taille Maximale de Fichier (Mo)",
-      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités."
+      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
+      "max_image_size_label": "Taille maximale d'image (Mo)",
+      "max_image_size_description": "Taille maximale autorisée pour chaque image jointe à un message pour les modèles de vision."
     }
   },
   "model": {

@@ -75,6 +75,17 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   unload_on_switch: false
 }
 
+// Image input (vision models). Max size is the default; users can override it
+// on the options page via STORAGE_KEYS.IMAGES.MAX_SIZE_MB.
+export const DEFAULT_MAX_IMAGE_SIZE_MB = 10
+export const SUPPORTED_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "image/bmp"
+] as const
+
 export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   EXTENSIONS: {

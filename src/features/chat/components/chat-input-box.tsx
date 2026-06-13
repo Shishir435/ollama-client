@@ -2,17 +2,23 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
+import { useImageAttachments } from "@/features/chat/hooks/use-image-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
+import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_MAX_IMAGE_SIZE_MB,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 import {
@@ -20,16 +26,16 @@ import {
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import type { ChromeMessage } from "@/types"
+import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-sheet"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import { ComposerShell } from "./chat-input/composer-shell"
 import {
   fileListFromFiles,
-  hasDraggedImage,
   splitDropFiles
 } from "./chat-input/drop-file-policy"
+import { ImageAttachmentRail } from "./chat-input/image-attachment-rail"
 import { SendOrStopButton } from "./send-or-stop-button"
 
 const pendingSelectionStorage = getPlasmoStorageForKey(
@@ -43,7 +49,8 @@ export const ChatInputBox = ({
   onSend: (
     customInput?: string,
     customModel?: string,
-    files?: ProcessedFile[]
+    files?: ProcessedFile[],
+    images?: ImageAttachment[]
   ) => void
   stopGeneration: () => void
 }) => {
@@ -81,6 +88,55 @@ export const ChatInputBox = ({
       })
     }
   })
+
+  const capabilities = useSelectedModelCapabilities()
+  const visionSupported = capabilities?.vision ?? false
+
+  const [maxImageSizeMb] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_MAX_IMAGE_SIZE_MB
+  )
+
+  const {
+    images,
+    addFiles: addImageFiles,
+    remove: removeImage,
+    clear: clearImages
+  } = useImageAttachments({
+    maxSizeBytes: (maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB) * 1024 * 1024,
+    onReject: (reason, file) => {
+      toast({
+        variant: "destructive",
+        description:
+          reason === "size"
+            ? t("chat.input.images.too_large", {
+                name: file.name,
+                max: maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB
+              })
+            : t("chat.input.images.unsupported_type", { name: file.name })
+      })
+    }
+  })
+
+  // Route image files to the image pipeline when the model supports vision,
+  // otherwise reject with a clear, capability-aware message.
+  const handleImageFiles = useCallback(
+    (imageFiles: File[]) => {
+      if (imageFiles.length === 0) return
+      if (!visionSupported) {
+        toast({
+          variant: "destructive",
+          description: t("chat.input.images.model_unsupported")
+        })
+        return
+      }
+      void addImageFiles(imageFiles)
+    },
+    [visionSupported, addImageFiles, toast, t]
+  )
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
     {
@@ -170,9 +226,11 @@ export const ChatInputBox = ({
     onSend(
       undefined,
       undefined,
-      successfulFiles.length > 0 ? successfulFiles : undefined
+      successfulFiles.length > 0 ? successfulFiles : undefined,
+      images.length > 0 ? images : undefined
     )
     clearAllProcessingStates()
+    clearImages()
   }
 
   const handleSelectPrompt = (prompt: string) => {
@@ -216,18 +274,34 @@ export const ChatInputBox = ({
 
   const handleFilesSelected = useCallback(
     (files: FileList) => {
-      processFiles(files)
+      const { acceptedFiles, rejectedImages } = splitDropFiles(
+        Array.from(files)
+      )
+      handleImageFiles(rejectedImages)
+      if (acceptedFiles.length > 0) {
+        processFiles(fileListFromFiles(acceptedFiles))
+      }
     },
-    [processFiles]
+    [processFiles, handleImageFiles]
+  )
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const pastedImages = Array.from(e.clipboardData.files).filter((f) =>
+        f.type.startsWith("image/")
+      )
+      if (pastedImages.length > 0) {
+        e.preventDefault()
+        handleImageFiles(pastedImages)
+      }
+    },
+    [handleImageFiles]
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-
-    if (!hasDraggedImage(e.dataTransfer.items)) {
-      setIsDragging(true)
-    }
+    setIsDragging(true)
   }, [])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -246,19 +320,14 @@ export const ChatInputBox = ({
         const files = Array.from(e.dataTransfer.files)
         const { acceptedFiles, rejectedImages } = splitDropFiles(files)
 
-        if (rejectedImages.length > 0) {
-          toast({
-            variant: "destructive",
-            description: "Images are currently not supported"
-          })
-        }
+        handleImageFiles(rejectedImages)
 
         if (acceptedFiles.length > 0) {
           processFiles(fileListFromFiles(acceptedFiles))
         }
       }
     },
-    [processFiles, toast]
+    [processFiles, handleImageFiles]
   )
 
   const appendSelectionToInput = useCallback(
@@ -375,6 +444,7 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
+        <ImageAttachmentRail images={images} onRemove={removeImage} />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
@@ -384,6 +454,7 @@ export const ChatInputBox = ({
             setInput(e.target.value)
             updateSelection()
           }}
+          onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           onSelect={updateSelection}
           onKeyUp={updateSelection}

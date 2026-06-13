@@ -171,7 +171,13 @@
       "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "drop_files_here": "ここにファイルをドロップ",
-      "attachments": "添付 {{count}} 件"
+      "attachments": "添付 {{count}} 件",
+      "images": {
+        "remove": "{{name}} を削除",
+        "too_large": "{{name}} は画像の上限 {{max}}MB を超えています。",
+        "unsupported_type": "{{name}} はサポートされていない画像形式です。",
+        "model_unsupported": "選択中のモデルはビジョンに対応していません。モデルメニューで有効にするか、ビジョン対応モデルを選択してください。"
+      }
     },
     "context_preview": {
       "files": "添付ファイル",
@@ -319,7 +325,10 @@
       "unknown_language": "不明"
     },
     "message": {
-      "loading": "読み込み中..."
+      "loading": "読み込み中...",
+      "images": {
+        "view": "{{name}} を表示"
+      }
     },
     "errors": {
       "unknown_error": "❌ 不明なエラー: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "最大ファイルサイズ (MB)",
-      "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。"
+      "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。",
+      "max_image_size_label": "最大画像サイズ (MB)",
+      "max_image_size_description": "ビジョンモデル向けにメッセージへ添付する各画像の最大サイズ。"
     }
   },
   "model": {

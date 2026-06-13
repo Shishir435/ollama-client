@@ -171,7 +171,13 @@
       "rag_toggle_off": "स्मार्ट संदर्भ बंद है",
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
       "drop_files_here": "फ़ाइलें यहाँ छोड़ें",
-      "attachments": "{{count}} अनुलग्नक"
+      "attachments": "{{count}} अनुलग्नक",
+      "images": {
+        "remove": "{{name}} हटाएँ",
+        "too_large": "{{name}} {{max}}MB की छवि सीमा से बड़ी है।",
+        "unsupported_type": "{{name}} एक समर्थित छवि प्रकार नहीं है।",
+        "model_unsupported": "चयनित मॉडल में विज़न समर्थन नहीं है। इसे मॉडल मेनू में सक्षम करें, या कोई विज़न मॉडल चुनें।"
+      }
     },
     "context_preview": {
       "files": "संलग्न फ़ाइलें",
@@ -319,7 +325,10 @@
       "unknown_language": "अज्ञात"
     },
     "message": {
-      "loading": "लोड हो रहा है..."
+      "loading": "लोड हो रहा है...",
+      "images": {
+        "view": "{{name}} देखें"
+      }
     },
     "errors": {
       "unknown_error": "❌ अज्ञात त्रुटि: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "अधिकतम फ़ाइल साइज़ (MB)",
-      "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।"
+      "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।",
+      "max_image_size_label": "अधिकतम छवि आकार (MB)",
+      "max_image_size_description": "विज़न मॉडल के लिए संदेश के साथ संलग्न प्रत्येक छवि का अधिकतम अनुमत आकार।"
     }
   },
   "model": {

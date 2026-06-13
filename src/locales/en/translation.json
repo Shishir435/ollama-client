@@ -163,6 +163,12 @@
   "chat": {
     "input": {
       "placeholder": "Type a message or ctrl + /",
+      "images": {
+        "remove": "Remove {{name}}",
+        "too_large": "{{name}} is larger than the {{max}}MB image limit.",
+        "unsupported_type": "{{name}} is not a supported image type.",
+        "model_unsupported": "The selected model has no vision support. Enable it in the model menu, or pick a vision model."
+      },
       "switch_model": "Change model",
       "chars": "Characters",
       "enter_to_send": "Send",
@@ -319,7 +325,10 @@
       "unknown_language": "Unknown"
     },
     "message": {
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "images": {
+        "view": "View {{name}}"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unknown error: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "Maximum File Size (MB)",
-      "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process."
+      "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process.",
+      "max_image_size_label": "Maximum Image Size (MB)",
+      "max_image_size_description": "Maximum allowed size for each image attached to a message for vision models."
     }
   },
   "model": {

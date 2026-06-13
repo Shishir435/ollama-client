@@ -13,6 +13,25 @@ export interface FileAttachment {
   data?: Uint8Array
 }
 
+/**
+ * An image attached to a chat message for vision-capable models. Kept distinct
+ * from {@link FileAttachment} (RAG files): images are message-scoped, carry
+ * raw base64 (no `data:` prefix) for transport, and are never indexed/embedded.
+ */
+export interface ImageAttachment {
+  id?: number
+  imageId: string
+  fileName: string
+  mimeType: string
+  size: number
+  /** Raw base64 (no `data:` prefix). */
+  base64: string
+  width?: number
+  height?: number
+  sessionId?: string
+  messageId?: number
+}
+
 export interface RagSource {
   id: number | string
   title: string
@@ -47,6 +66,8 @@ export interface ChatMessage {
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
+  /** Images attached for vision models. Distinct from RAG `attachments`. */
+  images?: ImageAttachment[]
   timestamp?: number
   metrics?: {
     total_duration?: number

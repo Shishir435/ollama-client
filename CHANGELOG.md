@@ -7,6 +7,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-13
+### Added
+- Image / vision input: attach images to a chat message for vision-capable models. Drag-and-drop, file picker, and clipboard paste are supported; images show as a preview rail in the composer and as thumbnails (click to enlarge) in sent messages.
+- Image attach is gated on the selected model's resolved `vision` capability — non-vision models show a clear blocked state pointing at the model-menu capability override.
+- Provider adapters send images in each provider's native format: Ollama `images` (base64), OpenAI-compatible `image_url` content parts.
+- Images persist with the chat (reused `files` table, no schema migration) and reopen with previews.
+- Configurable per-image size cap on the options page (default 10MB). Translated into all supported locales.
+
 ## [0.9.0] - 2026-06-13
 ### Added
 - Model capability detection foundation: a normalized `ModelCapabilities` layer (`text`, `vision`, `tool calling`, `reasoning`, `context length`) resolved per model with a `source` and `confidence`, layered as **user override → model metadata → provider default**.

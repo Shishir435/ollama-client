@@ -171,7 +171,13 @@
       "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "drop_files_here": "Soltar archivos aquí",
-      "attachments": "{{count}} adjuntos"
+      "attachments": "{{count}} adjuntos",
+      "images": {
+        "remove": "Quitar {{name}}",
+        "too_large": "{{name}} supera el límite de imagen de {{max}} MB.",
+        "unsupported_type": "{{name}} no es un tipo de imagen compatible.",
+        "model_unsupported": "El modelo seleccionado no admite visión. Actívalo en el menú de modelos o elige un modelo con visión."
+      }
     },
     "context_preview": {
       "files": "Archivos adjuntos",
@@ -319,7 +325,10 @@
       "unknown_language": "Desconocido"
     },
     "message": {
-      "loading": "Cargando..."
+      "loading": "Cargando...",
+      "images": {
+        "view": "Ver {{name}}"
+      }
     },
     "errors": {
       "unknown_error": "❌ Error desconocido: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "Tamaño Máximo de Archivo (MB)",
-      "max_file_size_description": "Tamaño máximo permitido para archivos individuales. Los archivos más grandes pueden tardar más en procesarse."
+      "max_file_size_description": "Tamaño máximo permitido para archivos individuales. Los archivos más grandes pueden tardar más en procesarse.",
+      "max_image_size_label": "Tamaño máximo de imagen (MB)",
+      "max_image_size_description": "Tamaño máximo permitido para cada imagen adjunta a un mensaje para modelos de visión."
     }
   },
   "model": {

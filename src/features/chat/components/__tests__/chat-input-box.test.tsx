@@ -54,6 +54,19 @@ vi.mock("@/features/file-upload/hooks/use-file-upload", () => ({
   })
 }))
 
+vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
+  useSelectedModelCapabilities: () => null
+}))
+
+vi.mock("@/features/chat/hooks/use-image-attachments", () => ({
+  useImageAttachments: () => ({
+    images: [],
+    addFiles: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn()
+  })
+}))
+
 vi.mock("@/features/prompt/components/prompt-selector-sheet", () => ({
   PromptSelectorSheet: () => <div role="dialog">Prompt sheet open</div>
 }))

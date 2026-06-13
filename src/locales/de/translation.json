@@ -171,7 +171,13 @@
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "drop_files_here": "Dateien hier ablegen",
-      "attachments": "{{count}} Anhänge"
+      "attachments": "{{count}} Anhänge",
+      "images": {
+        "remove": "{{name}} entfernen",
+        "too_large": "{{name}} überschreitet das Bildlimit von {{max}} MB.",
+        "unsupported_type": "{{name}} ist kein unterstützter Bildtyp.",
+        "model_unsupported": "Das ausgewählte Modell unterstützt keine Bilder. Aktiviere die Unterstützung im Modellmenü oder wähle ein Vision-Modell."
+      }
     },
     "context_preview": {
       "files": "Angehängte Dateien",
@@ -319,7 +325,10 @@
       "unknown_language": "Unbekannt"
     },
     "message": {
-      "loading": "Lädt..."
+      "loading": "Lädt...",
+      "images": {
+        "view": "{{name}} anzeigen"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "Maximale Dateigröße (MB)",
-      "max_file_size_description": "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung."
+      "max_file_size_description": "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung.",
+      "max_image_size_label": "Maximale Bildgröße (MB)",
+      "max_image_size_description": "Maximal zulässige Größe für jedes an eine Nachricht angehängte Bild für Vision-Modelle."
     }
   },
   "model": {

@@ -171,7 +171,13 @@
       "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "drop_files_here": "将文件拖到此处",
-      "attachments": "{{count}} 个附件"
+      "attachments": "{{count}} 个附件",
+      "images": {
+        "remove": "移除 {{name}}",
+        "too_large": "{{name}} 超过了 {{max}}MB 的图片大小限制。",
+        "unsupported_type": "{{name}} 不是受支持的图片类型。",
+        "model_unsupported": "所选模型不支持视觉。请在模型菜单中启用，或选择一个视觉模型。"
+      }
     },
     "context_preview": {
       "files": "已附加文件",
@@ -319,7 +325,10 @@
       "unknown_language": "未知"
     },
     "message": {
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "images": {
+        "view": "查看 {{name}}"
+      }
     },
     "errors": {
       "unknown_error": "❌ 未知错误: {{message}}",
@@ -353,7 +362,9 @@
     },
     "settings": {
       "max_file_size_label": "最大文件大小 (MB)",
-      "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。"
+      "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
+      "max_image_size_label": "最大图片大小 (MB)",
+      "max_image_size_description": "为视觉模型附加到消息的每张图片的最大允许大小。"
     }
   },
   "model": {

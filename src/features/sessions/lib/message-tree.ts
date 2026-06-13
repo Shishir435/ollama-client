@@ -1,4 +1,5 @@
-import type { ChatMessage, FileAttachment } from "@/types"
+import { isImageFile, storedFileToImage } from "@/lib/image-utils"
+import type { ChatMessage, FileAttachment, ImageAttachment } from "@/types"
 
 /**
  * In-memory traversal helpers over the chat-message tree.
@@ -152,13 +153,36 @@ export const enrichPathWithSiblingsAndAttachments = (
     const siblingIds = siblings
       .map((s) => s.id)
       .filter((id): id is number | string => id !== undefined)
+    const files =
+      typeof msg.id === "number" ? filesByMessageId.get(msg.id) || [] : []
+    const { attachments, images } = splitStoredFiles(files)
     return {
       ...msg,
-      attachments:
-        typeof msg.id === "number" ? filesByMessageId.get(msg.id) || [] : [],
+      attachments,
+      images: images.length > 0 ? images : undefined,
       siblingIds: siblingIds.length > 1 ? siblingIds : undefined
     }
   })
+
+/**
+ * Split stored `files` rows back into RAG attachments and image attachments.
+ * Images are identified by an `image/*` mime type and reconstructed with their
+ * base64 payload so they can be previewed and re-sent.
+ */
+export const splitStoredFiles = (
+  files: FileAttachment[]
+): { attachments: FileAttachment[]; images: ImageAttachment[] } => {
+  const attachments: FileAttachment[] = []
+  const images: ImageAttachment[] = []
+  for (const file of files) {
+    if (isImageFile(file)) {
+      images.push(storedFileToImage(file))
+    } else {
+      attachments.push(file)
+    }
+  }
+  return { attachments, images }
+}
 
 /**
  * Find the latest leaf descending from `nodeId`, picking the
