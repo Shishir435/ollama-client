@@ -5,7 +5,8 @@ import {
   ListTree,
   PanelsTopLeft,
   Search,
-  Sparkles
+  Sparkles,
+  TextSelect
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -51,10 +52,28 @@ const getToolRunStatus = (run: ToolRun): TraceStatus =>
       ? "error"
       : "done"
 
+const TOOL_LABEL_KEYS: Record<string, string> = {
+  "web-search": "chat.reasoning.trace.web",
+  rag_search: "chat.reasoning.trace.knowledge",
+  file_search: "chat.reasoning.trace.documents",
+  current_tab: "chat.reasoning.trace.tab",
+  selected_text: "chat.reasoning.trace.selection"
+}
+
+const TOOL_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  "web-search": Search,
+  rag_search: Search,
+  file_search: FileStack,
+  current_tab: PanelsTopLeft,
+  selected_text: TextSelect
+}
+
 const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
-  if (run.toolId === "web-search") return t("chat.reasoning.trace.web")
-  if (run.toolId === "rag_search") return t("chat.reasoning.trace.knowledge")
-  return run.label
+  const key = TOOL_LABEL_KEYS[run.toolId]
+  return key ? t(key) : run.label
 }
 
 const getToolRunDetail = (run: ToolRun) => {
@@ -72,10 +91,7 @@ const buildToolTraceStep = (
   key: `tool-${run.toolId}-${run.startedAt}`,
   label: getToolRunLabel(run, t),
   status: getToolRunStatus(run),
-  icon:
-    run.toolId === "web-search" || run.toolId === "rag_search"
-      ? Search
-      : Circle,
+  icon: TOOL_ICONS[run.toolId] ?? Circle,
   detail: getToolRunDetail(run)
 })
 

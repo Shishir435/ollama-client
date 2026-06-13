@@ -1,19 +1,28 @@
-import type { ToolContext, ToolResult, ToolSource } from "../types"
+import type {
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+  ToolSource
+} from "../types"
+import { currentTabDefinition, runCurrentTab } from "./current-tab-tool"
+import { fileSearchDefinition, runFileSearch } from "./file-search-tool"
 import { ragSearchDefinition, runRagSearch } from "./rag-search-tool"
+import { runSelectedText, selectedTextDefinition } from "./selected-text-tool"
 
-type InternalTool = {
-  definition: typeof ragSearchDefinition
+interface InternalTool {
+  definition: ToolDefinition
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>
 }
 
 /**
  * Built-in tools that run inside the extension. Add a tool by appending to this
- * list — the registry, adapters, loop, and trace UI need no change. The roadmap
- * tools `current_tab`, `selected_text`, and `file_search` slot in here once
- * their browser-context plumbing lands.
+ * list — the registry, adapters, loop, and trace UI need no change.
  */
 const INTERNAL_TOOLS: InternalTool[] = [
-  { definition: ragSearchDefinition, run: runRagSearch }
+  { definition: ragSearchDefinition, run: runRagSearch },
+  { definition: fileSearchDefinition, run: runFileSearch },
+  { definition: currentTabDefinition, run: runCurrentTab },
+  { definition: selectedTextDefinition, run: runSelectedText }
 ]
 
 /**

@@ -239,6 +239,9 @@
         "files": "RAG",
         "web": "Searching web",
         "knowledge": "Searching knowledge",
+        "tab": "Reading tab",
+        "selection": "Reading selection",
+        "documents": "Searching files",
         "answering": "Answering"
       }
     },
