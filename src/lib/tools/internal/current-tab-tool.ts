@@ -23,10 +23,17 @@ export const runCurrentTab = async (
   _ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
-    const [tab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true
-    })
+    // From a background service worker / side panel there is no "current
+    // window", so `currentWindow` can come back empty. `lastFocusedWindow`
+    // resolves to the user's focused browser window (where the active tab the
+    // user is looking at lives); fall back through currentWindow then any
+    // active tab.
+    const tab =
+      (
+        await browser.tabs.query({ active: true, lastFocusedWindow: true })
+      )[0] ??
+      (await browser.tabs.query({ active: true, currentWindow: true }))[0] ??
+      (await browser.tabs.query({ active: true }))[0]
     if (!tab?.id) {
       return { content: "No active tab is available.", isError: true }
     }

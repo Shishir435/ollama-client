@@ -128,7 +128,7 @@ describe("ChatMessageMetricsSchema", () => {
     const result = ChatMessageMetricsSchema.safeParse({
       toolRuns: [
         {
-          toolId: "web-search",
+          toolId: "web_search",
           label: "Web search",
           status: "done",
           startedAt: 1,

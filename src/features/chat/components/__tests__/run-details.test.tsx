@@ -28,7 +28,7 @@ describe("RunDetails", () => {
           eval_duration: 1_000_000_000,
           prompt_eval_count: 20,
           toolRuns: [
-            { toolId: "web-search", label: "Web", status: "done", startedAt: 1 }
+            { toolId: "web_search", label: "Web", status: "done", startedAt: 1 }
           ]
         }}
       />

@@ -2,6 +2,8 @@ import {
   ChevronDown,
   Circle,
   FileStack,
+  FileText,
+  List,
   ListTree,
   PanelsTopLeft,
   Search,
@@ -43,7 +45,7 @@ const getToolRunStatus = (run: ToolRun): TraceStatus =>
       : "done"
 
 const TOOL_LABEL_KEYS: Record<string, string> = {
-  "web-search": "chat.reasoning.trace.web",
+  web_search: "chat.reasoning.trace.web",
   rag_search: "chat.reasoning.trace.knowledge",
   file_search: "chat.reasoning.trace.documents",
   current_tab: "chat.reasoning.trace.tab",
@@ -56,28 +58,18 @@ const TOOL_ICONS: Record<
   string,
   React.ComponentType<{ className?: string }>
 > = {
-  "web-search": Search,
+  web_search: Search,
   rag_search: Search,
   file_search: FileStack,
   current_tab: PanelsTopLeft,
-  list_tabs: PanelsTopLeft,
-  read_tab: PanelsTopLeft,
+  list_tabs: List,
+  read_tab: FileText,
   selected_text: TextSelect
 }
 
 const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
   const key = TOOL_LABEL_KEYS[run.toolId]
   return key ? t(key) : run.label
-}
-
-const getToolRunDetail = (run: ToolRun, t: (key: string) => string) => {
-  const parts: string[] = []
-  if (run.error) parts.push(run.error)
-  else if (run.sources?.length) {
-    parts.push(run.sources.map((source) => source.title).join(", "))
-  }
-  if (run.truncated) parts.push(t("chat.reasoning.trace.trimmed"))
-  return parts.length > 0 ? parts.join(" · ") : undefined
 }
 
 const buildToolTraceStep = (
@@ -88,7 +80,9 @@ const buildToolTraceStep = (
   label: getToolRunLabel(run, t),
   status: getToolRunStatus(run),
   icon: TOOL_ICONS[run.toolId] ?? Circle,
-  detail: getToolRunDetail(run, t)
+  // Only the error goes in the compact chip tooltip; full input/output/sources
+  // live in the expandable details panel below to keep tooltips short.
+  detail: run.error
 })
 
 export interface ReasoningTraceProps {
@@ -331,7 +325,7 @@ const ToolStepRow = ({
         )}
       </div>
       {argEntries.length > 0 && (
-        <div className="mt-0.5 break-words font-mono text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 wrap-break-word font-mono text-[11px] text-muted-foreground/80">
           {argEntries
             .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
             .join(", ")}
@@ -345,7 +339,7 @@ const ToolStepRow = ({
         </div>
       ) : (
         run.resultPreview && (
-          <div className="mt-0.5 break-words text-[11px] text-muted-foreground/70">
+          <div className="mt-0.5 wrap-break-word text-[11px] text-muted-foreground/70">
             {run.resultPreview}
             {run.resultPreview.length >= 240 ? "…" : ""}
           </div>
