@@ -93,26 +93,49 @@ describe("current_tab tool", () => {
     expect(result.content).toContain("Tab is navigating")
   })
 
-  it("explains gracefully (not an error) on a restricted internal page", async () => {
+  it("errors clearly on a restricted internal page", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
       { id: 7, title: "Settings", url: "chrome://settings", active: true }
     ] as never)
     const result = await runCurrentTab({}, ctx)
-    expect(result.isError).toBeUndefined()
+    expect(result.isError).toBe(true)
     expect(result.content).toContain("internal pages")
     // Never attempts to read a page it can't access.
     expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
+  })
+
+  it("errors clearly on Chrome Web Store pages without injecting", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      {
+        id: 7,
+        title: "Ollama Client - Chrome Web Store",
+        url: "https://chromewebstore.google.com/detail/example",
+        active: true
+      }
+    ] as never)
+
+    const result = await runCurrentTab({}, ctx)
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Chrome Web Store")
+    expect(result.content).toContain("Do not retry")
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
+    expect(browser.scripting.executeScript).not.toHaveBeenCalled()
   })
 })
 
 describe("list_tabs tool", () => {
   afterEach(() => vi.clearAllMocks())
 
-  it("lists readable tabs and skips browser-internal pages", async () => {
+  it("lists readable tabs and skips browser-internal/store pages", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
       { id: 1, title: "Wiki", url: "https://wiki.test", active: true },
       { id: 2, title: "Vid", url: "https://youtube.test" },
-      { id: 3, title: "Settings", url: "chrome://settings" }
+      { id: 3, title: "Settings", url: "chrome://settings" },
+      {
+        id: 4,
+        title: "Chrome Web Store",
+        url: "https://chromewebstore.google.com/detail/example"
+      }
     ] as never)
 
     const result = await runListTabs({}, ctx)
@@ -120,6 +143,7 @@ describe("list_tabs tool", () => {
     expect(result.content).toContain("(active)")
     expect(result.content).toContain("id=2")
     expect(result.content).not.toContain("chrome://settings")
+    expect(result.content).not.toContain("Chrome Web Store")
   })
 })
 
@@ -218,6 +242,7 @@ describe("read_tab tool", () => {
       { id: 9, title: "Extensions", url: "chrome://extensions", active: false }
     ] as never)
     const result = await runReadTab({ tabId: 9 }, ctx)
+    expect(result.isError).toBe(true)
     expect(result.content).toContain("internal pages")
     expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
   })

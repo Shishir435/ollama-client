@@ -137,7 +137,7 @@ export const handleChatWithModel = withErrorContext(
     // hallucinate "I can't access your tabs" instead of calling current_tab.
     if (tools && tools.length > 0) {
       const toolNames = tools.map((tool) => tool.name).join(", ")
-      const guidance = `\n\nYou have tools available: ${toolNames}. When the user refers to the current page or tab, a video they are watching, their open tabs, selected text, their uploaded files, or earlier conversations, CALL the matching tool to fetch the real content — do not reply that you cannot access it.`
+      const guidance = `\n\nYou have tools available: ${toolNames}. When the user refers to the current page or tab, a video they are watching, their open tabs, selected text, their uploaded files, or earlier conversations, CALL the matching tool to fetch the real content — do not reply that you cannot access it. If a tab tool says a page is blocked or unreadable, DO NOT retry the same tab or another Chrome Web Store/internal page. Answer from visible tab metadata/tool output, or ask the user to switch/share details.`
       const sysIdx = preparedMessages.findIndex((m) => m.role === "system")
       if (sysIdx !== -1) {
         preparedMessages[sysIdx] = {

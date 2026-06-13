@@ -40,7 +40,10 @@ export const runCurrentTab = async (
 
     const access = await classifyTabAccess(tab.url)
     if (access !== "ok") {
-      return { content: accessDeniedMessage(access, "the active tab") }
+      return {
+        content: accessDeniedMessage(access, "the active tab"),
+        isError: true
+      }
     }
 
     const response = await readTabContent(tab.id)
@@ -57,7 +60,7 @@ export const runCurrentTab = async (
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return {
-      content: `Could not read the active tab (${message}). Browsers block extensions on internal pages like chrome:// and the web store.`,
+      content: `Could not read the active tab (${message}). Browsers block extensions on internal pages and extension galleries (chrome://, Chrome Web Store, etc.).`,
       isError: true
     }
   }

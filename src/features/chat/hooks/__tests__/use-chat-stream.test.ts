@@ -158,6 +158,37 @@ describe("useChatStream", () => {
     expect(mockPort.disconnect).toHaveBeenCalled()
   })
 
+  it("surfaces a thinking-only final response as visible content", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "what is this?" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({ thinkingDelta: "This is the answer." })
+      listener({ done: true })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "This is the answer.",
+      thinking: undefined,
+      done: true
+    })
+  })
+
   it("should handle stream errors", () => {
     const { result } = renderHook(() =>
       useChatStream({

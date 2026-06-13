@@ -223,12 +223,25 @@ export const useChatStream = ({
             description: displayError.message
           })
         } else {
+          // Some local providers/models send the final answer in a reasoning
+          // field instead of content. If there is no visible answer, surface it
+          // as the answer rather than leaving it hidden in Thought Process.
+          const finalAssistantMessage =
+            !assistantMessage.content.trim() &&
+            assistantMessage.thinking?.trim()
+              ? {
+                  ...assistantMessage,
+                  content: assistantMessage.thinking,
+                  thinking: undefined
+                }
+              : assistantMessage
+
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
             {
-              ...assistantMessage,
+              ...finalAssistantMessage,
               metrics: {
-                ...assistantMessage.metrics,
+                ...finalAssistantMessage.metrics,
                 ...msg.metrics
               },
               done: true

@@ -19,6 +19,25 @@ export type PageContentResponse = ChromeResponse & {
 const isReadableScheme = (url?: string): boolean =>
   !!url && /^(https?|file|ftp):/i.test(url)
 
+/** Browser-owned extension galleries block content scripts despite HTTPS. */
+const isExtensionGalleryUrl = (url?: string): boolean => {
+  if (!url) return false
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+  return (
+    parsed.hostname === "chromewebstore.google.com" ||
+    (parsed.hostname === "chrome.google.com" &&
+      parsed.pathname.startsWith("/webstore"))
+  )
+}
+
+const isContentScriptReadableUrl = (url?: string): boolean =>
+  isReadableScheme(url) && !isExtensionGalleryUrl(url)
+
 const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
   browser.tabs.sendMessage(tabId, {
     type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
@@ -76,7 +95,7 @@ export type TabAccess =
 
 /** Classify whether a tab's URL can be read, honoring the user's exclude list. */
 export const classifyTabAccess = async (url?: string): Promise<TabAccess> => {
-  if (!isReadableScheme(url)) return "restricted"
+  if (!isContentScriptReadableUrl(url)) return "restricted"
   const patterns = await resolveExcludedUrlPatterns()
   return urlMatchesAny(url as string, patterns) ? "excluded" : "ok"
 }
@@ -87,7 +106,7 @@ export const accessDeniedMessage = (
   label: string
 ): string =>
   access === "restricted"
-    ? `Can't read ${label} — the browser blocks extensions on internal pages (chrome://, the browser's web store, etc.).`
+    ? `Can't read ${label} — the browser blocks extensions on internal pages and extension galleries (chrome://, Chrome Web Store, etc.). Do not retry this same tab; answer from visible tab metadata or ask the user to switch/share details.`
     : `Can't read ${label} — this site is excluded in your content-extraction settings.`
 
 const toOpenTab = (tab: {
@@ -113,6 +132,7 @@ export const listReadableTabs = async (): Promise<OpenTab[]> => {
   const tabs = await getAllTabs()
   const patterns = await resolveExcludedUrlPatterns()
   return tabs.filter(
-    (tab) => isReadableScheme(tab.url) && !urlMatchesAny(tab.url, patterns)
+    (tab) =>
+      isContentScriptReadableUrl(tab.url) && !urlMatchesAny(tab.url, patterns)
   )
 }

@@ -102,7 +102,10 @@ export const runReadTab = async (
 
   const access = await classifyTabAccess(target.url)
   if (access !== "ok") {
-    return { content: accessDeniedMessage(access, `"${target.title}"`) }
+    return {
+      content: accessDeniedMessage(access, `"${target.title}"`),
+      isError: true
+    }
   }
 
   try {
