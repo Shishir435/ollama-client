@@ -292,8 +292,12 @@ export const streamChatWithTools = async ({
   let synthesisStopped = false
   let emittedSynthesisText = false
 
+  // Keep the `tools` array but forbid new calls via `tool_choice: "none"`.
+  // Dropping `tools` entirely would 400 on strict OpenAI-compatible endpoints
+  // that reject tool-call history without a `tools` field, erroring the
+  // synthesis pass and leaving the user an empty bubble.
   await provider.streamChat(
-    { ...request, messages: workingMessages, tools: undefined },
+    { ...request, messages: workingMessages, tool_choice: "none" },
     (chunk) => {
       if (chunk.toolCalls && chunk.toolCalls.length > 0) return
       if (chunk.done && !chunk.error && !chunk.aborted) {

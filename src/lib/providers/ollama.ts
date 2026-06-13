@@ -95,7 +95,8 @@ export class OllamaProvider implements LLMProvider {
       num_gpu,
       num_batch,
       keep_alive,
-      tools
+      tools,
+      tool_choice
     } = request
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
 
@@ -154,7 +155,13 @@ export class OllamaProvider implements LLMProvider {
       messages: ollamaMessages,
       stream: true,
       keep_alive,
-      tools: tools && tools.length > 0 ? tools.map(toOllamaTool) : undefined,
+      // Ollama has no `tool_choice` param; express "none" by omitting tools.
+      // It accepts tool-call history without a tools array, so this is safe and
+      // still prevents further tool calls in the synthesis pass.
+      tools:
+        tool_choice === "none" || !tools || tools.length === 0
+          ? undefined
+          : tools.map(toOllamaTool),
       options:
         Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }

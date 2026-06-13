@@ -166,7 +166,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const { model, messages, temperature, max_tokens, top_p, tools } = request
+    const {
+      model,
+      messages,
+      temperature,
+      max_tokens,
+      top_p,
+      tools,
+      tool_choice
+    } = request
+    const hasTools = !!tools && tools.length > 0
     const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 
     const headers: Record<string, string> = {
@@ -189,7 +198,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
       temperature,
       max_tokens,
       top_p,
-      tools: tools && tools.length > 0 ? tools.map(toOpenAITool) : undefined
+      tools: hasTools ? tools.map(toOpenAITool) : undefined,
+      // tool_choice is only valid alongside a tools array; omit it otherwise.
+      tool_choice: hasTools ? tool_choice : undefined
     }
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
