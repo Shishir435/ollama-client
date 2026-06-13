@@ -57,6 +57,10 @@ const cacheMatches = (
   signature: { url?: string; title?: string }
 ) => {
   if (!cached) return false
+  // No live signature means `tabs.get` failed (tab closed, navigating, or
+  // restricted). We can't confirm the cached content still matches the tab, so
+  // treat it as a miss and force a refetch rather than serve stale content.
+  if (!signature.url) return false
   if (cached.url && signature.url && cached.url !== signature.url) return false
   if (cached.title && signature.title && cached.title !== signature.title) {
     return false
@@ -79,7 +83,14 @@ export const readTabContent = async (
     return cached.response
   }
 
+  // A forced refetch must not leave a stale entry behind if the new read fails.
+  if (force) tabContentCache.delete(tabId)
+
   const cacheAndReturn = (response: PageContentResponse) => {
+    // Don't cache disabled/excluded/parse-failure placeholders — they carry an
+    // explanatory string in `html` with `success: false`, and caching them
+    // would pin that non-content message for the tab's lifetime.
+    if (response.success === false) return response
     tabContentCache.set(tabId, {
       response,
       url: signature.url,

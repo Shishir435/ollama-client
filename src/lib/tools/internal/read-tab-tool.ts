@@ -124,6 +124,12 @@ export const runReadTab = async (
     const response = await readTabContent(target.id, {
       force: args.force === true
     })
+    if (response?.success === false) {
+      return {
+        content: response.html || `Tab "${target.title}" could not be read.`,
+        isError: true
+      }
+    }
     const text = response?.html?.trim()
     if (!text) {
       return {

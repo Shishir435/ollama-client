@@ -65,6 +65,15 @@ export const runCurrentTab = async (
     const response = await readTabContent(tab.id, {
       force: args.force === true
     })
+    // The content script flags disabled/excluded/parse-failure with
+    // success:false and an explanatory `html`; surface it as an error rather
+    // than handing the placeholder sentence to the model as page content.
+    if (response?.success === false) {
+      return {
+        content: response.html || "The active tab could not be read.",
+        isError: true
+      }
+    }
     const text = response?.html?.trim()
     if (!text) {
       return {

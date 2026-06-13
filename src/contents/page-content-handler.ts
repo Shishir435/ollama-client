@@ -101,6 +101,7 @@ export const handleGetPageContent = async (
   if (!tabAccessEnabled) {
     contentDebugLog("[Content Script] Tab access is disabled")
     safeSendResponse(sendResponse, {
+      success: false,
       html: "Tab access is disabled by the user.",
       title: document.title || "Untitled"
     })
@@ -115,6 +116,7 @@ export const handleGetPageContent = async (
   if (await isExcludedUrl(currentUrl)) {
     contentDebugLog("[Content Script] URL is excluded")
     safeSendResponse(sendResponse, {
+      success: false,
       html: "This page is excluded by your settings.",
       title: document.title || "Untitled"
     })
@@ -258,6 +260,7 @@ export const handleGetPageContent = async (
   ).__lastProviderExtractionResult = extractionDebug
 
   safeSendResponse(sendResponse, {
+    success: true,
     html: finalContent,
     title: pageTitle,
     extractionDebug
