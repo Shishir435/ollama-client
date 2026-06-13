@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  getModelCapabilities,
   getProviderCapabilities,
   PROVIDER_CAPABILITIES
 } from "@/lib/providers/capabilities"
@@ -40,5 +41,129 @@ describe("provider capabilities", () => {
 
   it("returns null for unknown providers", () => {
     expect(getProviderCapabilities("missing-provider")).toBeNull()
+  })
+})
+
+describe("getModelCapabilities", () => {
+  it("reads Ollama /api/show capability tags with high confidence", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.OLLAMA,
+      ollamaCapabilities: ["completion", "vision", "tools", "thinking"],
+      contextLength: 131072
+    })
+
+    expect(caps).toMatchObject({
+      text: true,
+      vision: true,
+      toolCalling: true,
+      reasoning: true,
+      embeddings: false,
+      contextLength: 131072,
+      source: "model-metadata",
+      confidence: "high"
+    })
+  })
+
+  it("treats an embedding-only Ollama model as non-chat", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.OLLAMA,
+      ollamaCapabilities: ["embedding"]
+    })
+
+    expect(caps.embeddings).toBe(true)
+    expect(caps.text).toBe(false)
+    expect(caps.vision).toBe(false)
+  })
+
+  it("never enables an unknown capability on a guess", () => {
+    // No model metadata: vision/tools/reasoning must resolve to false, not true.
+    const caps = getModelCapabilities({ providerId: ProviderId.OLLAMA })
+
+    expect(caps.vision).toBe(false)
+    expect(caps.reasoning).toBe(false)
+    expect(caps.source).toBe("provider-default")
+    expect(caps.confidence).toBe("low")
+  })
+
+  it("falls back to provider-level defaults for non-Ollama providers", () => {
+    const caps = getModelCapabilities({ providerId: ProviderId.LM_STUDIO })
+
+    // LM Studio's provider default advertises tool calling.
+    expect(caps.toolCalling).toBe(true)
+    expect(caps.text).toBe(true)
+    expect(caps.vision).toBe(false)
+    expect(caps.source).toBe("provider-default")
+  })
+
+  it("resolves safely for an unknown provider id", () => {
+    const caps = getModelCapabilities({ providerId: "mystery" })
+
+    expect(caps.text).toBe(true)
+    expect(caps.vision).toBe(false)
+    expect(caps.embeddings).toBe(false)
+    expect(caps.toolCalling).toBe(false)
+    expect(caps.confidence).toBe("low")
+  })
+
+  it("detects vision from an LM Studio vlm model type (medium confidence)", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.LM_STUDIO,
+      lmStudioModelType: "vlm",
+      contextLength: 8192
+    })
+
+    expect(caps.vision).toBe(true)
+    expect(caps.text).toBe(true)
+    expect(caps.embeddings).toBe(false)
+    expect(caps.contextLength).toBe(8192)
+    expect(caps.source).toBe("model-metadata")
+    expect(caps.confidence).toBe("medium")
+  })
+
+  it("detects an LM Studio embeddings model type as non-chat", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.LM_STUDIO,
+      lmStudioModelType: "embeddings"
+    })
+
+    expect(caps.embeddings).toBe(true)
+    expect(caps.text).toBe(false)
+    expect(caps.vision).toBe(false)
+  })
+
+  it("lets a user override turn on a capability the provider cannot report", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.VLLM,
+      override: { vision: true }
+    })
+
+    expect(caps.vision).toBe(true)
+    expect(caps.source).toBe("user-override")
+    expect(caps.confidence).toBe("high")
+  })
+
+  it("applies an override per-field, keeping detection for unset fields", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.OLLAMA,
+      ollamaCapabilities: ["completion", "tools"],
+      override: { vision: true }
+    })
+
+    // Overridden field wins, detected fields are preserved.
+    expect(caps.vision).toBe(true)
+    expect(caps.toolCalling).toBe(true)
+    expect(caps.text).toBe(true)
+    expect(caps.source).toBe("user-override")
+  })
+
+  it("ignores an empty override and keeps the detected source", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.OLLAMA,
+      ollamaCapabilities: ["completion"],
+      override: {}
+    })
+
+    expect(caps.source).toBe("model-metadata")
+    expect(caps.confidence).toBe("high")
   })
 })

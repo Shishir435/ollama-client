@@ -1,3 +1,4 @@
+import { DEFAULT_OPENAI_COMPATIBLE_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
@@ -17,7 +18,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   constructor(public config: ProviderConfig) {}
 
   async getModels(): Promise<ProviderModel[]> {
-    const baseUrl = this.config.baseUrl || "https://api.openai.com/v1"
+    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
     }
@@ -61,7 +62,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     signal?: AbortSignal
   ): Promise<void> {
     const { model, messages, temperature, max_tokens, top_p } = request
-    const baseUrl = this.config.baseUrl || "https://api.openai.com/v1"
+    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
@@ -217,7 +218,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async embed(text: string, model?: string): Promise<number[]> {
-    const baseUrl = this.config.baseUrl || "https://api.openai.com/v1"
+    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
@@ -252,7 +253,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {
-    const baseUrl = this.config.baseUrl || "https://api.openai.com/v1"
+    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const headers: Record<string, string> = {
       "Content-Type": "application/json"

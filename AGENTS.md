@@ -109,7 +109,7 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 - Embedding plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`) with configurable weights.
-- Cross-encoder reranker is on by default using transformers.js with bundled ONNX Runtime WASM.
+- Reranking is a **cosine-similarity re-scorer** (`src/lib/embeddings/reranker.ts`), on by default. It is **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was attempted but blocked by MV3 CSP, so it never shipped; neither library is a dependency. `config.ts` still accepts the legacy `transformers-js`/`onnxruntime-web` backend strings purely as a migration shim that collapses them to `cosine`.
 
 > There is no longer a parallel `src/lib/rag/core/` tree. If you see references to it in any doc, that doc is stale — please update it.
 
@@ -201,9 +201,9 @@ If you change anything under `src/locales/`, run `pnpm generate:resources` manua
 
 If you're touching one of these, expect to refactor as you go:
 
-- `src/features/chat/hooks/use-chat.ts` (god-hook, ~305 LOC; split along stream / abort / thinking / attachments seams)
-- `src/features/sessions/stores/chat-session-store.ts` (Zustand store reads via `src/lib/repositories/chat-history.ts` now — persistence is extracted — but the store itself is still ~485 LOC and could be split along sessions / messages / tree-traversal seams)
-- `src/features/model/components/provider-settings.tsx` (~586 LOC, no direct tests; split per provider section) and `embedding-settings.tsx` (~244 LOC, refactored)
-- `src/contents/index.ts` (content script, no tests; split into selection-capture / dom-observer / messaging)
+- `src/features/chat/hooks/use-chat.ts` (~271 LOC; still the busiest hook — split further along stream / abort / thinking / attachments seams if you touch it)
+- `src/features/sessions/stores/chat-session-store.ts` is now a thin barrel (~19 LOC) over extracted store slices/actions; persistence reads via `src/lib/repositories/chat-history.ts`. The earlier ~485-LOC god-store has been split — don't go looking for it.
+- `src/features/model/components/provider-settings.tsx` (large, no direct tests; split per provider section)
+- `src/contents/index.ts` is now a thin entry (~38 LOC); selection-capture / dom-observer / messaging have been pulled into siblings.
 - `src/types/index.ts` is now a 14-line re-export barrel over six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`). New code should prefer importing from the per-domain path (`@/types/chat`) over the barrel.
 - Dexie chat-history paths are retired. Vector storage and knowledge sets still use Dexie; chat history stays SQLite-only through the facade.

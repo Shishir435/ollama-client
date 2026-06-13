@@ -62,11 +62,12 @@ class RerankerService {
         return documents.map((d) => ({ ...d, score: 0.5 }))
       }
 
-      const docsWithEmbedding = documents.filter(
-        (d) => d.embedding && Array.isArray(d.embedding)
+      const hasAnyEmbedding = documents.some(
+        (d) =>
+          d.embedding && Array.isArray(d.embedding) && d.embedding.length > 0
       )
 
-      if (docsWithEmbedding.length === 0) {
+      if (!hasAnyEmbedding) {
         logger.verbose(
           "No embeddings in documents, using uniform scores",
           "RerankerService"
@@ -74,7 +75,10 @@ class RerankerService {
         return documents.map((d) => ({ ...d, score: 0.5 }))
       }
 
-      const scored = docsWithEmbedding.map((doc) => {
+      // Score every document. Documents missing an embedding keep a neutral
+      // score instead of being dropped from the result set — dropping them
+      // silently lost retrieved context that stage-1 search had selected.
+      const scored = documents.map((doc) => {
         if (!doc.embedding || doc.embedding.length === 0) {
           return {
             ...doc,

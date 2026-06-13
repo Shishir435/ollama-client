@@ -17,6 +17,15 @@ export type ProviderModel = {
     parameter_size: string
     quantization_level: string
   }
+  // Best-effort capability signals a provider can surface at list time, fed
+  // into capability detection. Only populated by providers whose list endpoint
+  // reports them (e.g. LM Studio model `type`); absent means "unknown".
+  capabilityHints?: {
+    /** LM Studio model type: "llm" | "vlm" | "embeddings". */
+    modelType?: string
+    /** Context window in tokens, when the list endpoint reports it. */
+    contextLength?: number
+  }
 }
 
 export interface SelectedModelRef {
@@ -146,6 +155,10 @@ export interface OllamaShowResponse {
   model_info?: {
     [key: string]: unknown
   }
+  // Ollama /api/show capability tags, e.g. "completion", "vision", "tools",
+  // "embedding", "thinking". Present on recent Ollama versions; absent on older
+  // ones (treat missing as "unknown", never as "false").
+  capabilities?: string[]
 }
 
 export type DefaultProviderShowResponse = OllamaShowResponse

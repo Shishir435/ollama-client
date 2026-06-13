@@ -375,6 +375,41 @@
       "search_placeholder": "Search model...",
       "no_model_found": "No model found."
     },
+    "capabilities": {
+      "edit_tooltip": "Set capabilities",
+      "edit_aria_label": "Set capabilities for {{model}}",
+      "sheet": {
+        "title": "Model capabilities",
+        "subtitle": "{{model}} · {{provider}}",
+        "note_manual": "{{provider}} can't report this model's capabilities, so we can't detect them. Turn on what this model supports — features like image input and tools use these settings.",
+        "note_self_report": "{{provider}} reports this model's capabilities automatically. Changes here override what was detected.",
+        "reset": "Reset to detected",
+        "save": "Save",
+        "save_error": "Couldn't save capabilities. Please try again."
+      },
+      "flags": {
+        "text": {
+          "label": "Text chat",
+          "desc": "Generates text responses in chat."
+        },
+        "vision": {
+          "label": "Vision",
+          "desc": "Accepts image input alongside text."
+        },
+        "toolCalling": {
+          "label": "Tool calling",
+          "desc": "Can call tools/functions during a response."
+        },
+        "reasoning": {
+          "label": "Reasoning",
+          "desc": "Emits a separate thinking/reasoning stream."
+        },
+        "embeddings": {
+          "label": "Embeddings",
+          "desc": "Produces embedding vectors for RAG and search."
+        }
+      }
+    },
     "version": {
       "tooltip": "Provider version: {{version}}"
     },
