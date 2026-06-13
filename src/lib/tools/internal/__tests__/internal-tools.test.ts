@@ -22,6 +22,12 @@ vi.mock("@/features/chat/rag/rag-pipeline", () => ({
   formatEnhancedResults: vi.fn()
 }))
 
+// Isolate the tab tools from storage-backed exclusion resolution.
+vi.mock("@/contents/url-filter", () => ({
+  resolveExcludedUrlPatterns: vi.fn(async () => []),
+  urlMatchesAny: vi.fn(() => false)
+}))
+
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
@@ -72,17 +78,15 @@ describe("current_tab tool", () => {
     expect(result.content).toBe("transcript")
   })
 
-  it("errors cleanly when injection is blocked (restricted page)", async () => {
-    vi.mocked(browser.tabs.query).mockResolvedValue([{ id: 7 }] as never)
-    vi.mocked(browser.tabs.sendMessage).mockRejectedValue(
-      new Error("Receiving end does not exist")
-    )
-    vi.mocked(browser.scripting.executeScript).mockRejectedValue(
-      new Error("Cannot access chrome:// URL")
-    )
+  it("explains gracefully (not an error) on a restricted internal page", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Settings", url: "chrome://settings", active: true }
+    ] as never)
     const result = await runCurrentTab({}, ctx)
-    expect(result.isError).toBe(true)
-    expect(result.content).toContain("chrome://")
+    expect(result.isError).toBeUndefined()
+    expect(result.content).toContain("internal pages")
+    // Never attempts to read a page it can't access.
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
   })
 })
 
@@ -152,6 +156,15 @@ describe("read_tab tool", () => {
     const result = await runReadTab({}, ctx)
     expect(result.isError).toBe(true)
     expect(result.content).toContain("current_tab")
+  })
+
+  it("explains rather than reads when the target is an internal page", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 9, title: "Extensions", url: "chrome://extensions", active: false }
+    ] as never)
+    const result = await runReadTab({ tabId: 9 }, ctx)
+    expect(result.content).toContain("internal pages")
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
   })
 })
 

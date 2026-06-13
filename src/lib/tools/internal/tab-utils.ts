@@ -1,3 +1,7 @@
+import {
+  resolveExcludedUrlPatterns,
+  urlMatchesAny
+} from "@/contents/url-filter"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -11,8 +15,8 @@ export type PageContentResponse = ChromeResponse & {
   title?: string
 }
 
-/** URL schemes where extensions cannot run content scripts. */
-const isReadableUrl = (url?: string): boolean =>
+/** URL schemes where a content script can run at all. */
+const isReadableScheme = (url?: string): boolean =>
   !!url && /^(https?|file|ftp):/i.test(url)
 
 const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
@@ -28,8 +32,8 @@ const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
  * loaded *after* the extension did, so a stale tab (common just after an
  * extension reload) has no receiver and `sendMessage` rejects with "Receiving
  * end does not exist." We recover by injecting the content script on demand and
- * retrying once. Throws on restricted pages (chrome://, web store) where
- * injection is blocked.
+ * retrying once — no page refresh needed. Throws on restricted pages where
+ * injection is blocked (callers should pre-check with {@link classifyTabAccess}).
  */
 export const readTabContent = async (
   tabId: number
@@ -55,15 +59,53 @@ export interface OpenTab {
   active: boolean
 }
 
-/** All readable (http/file) tabs across normal windows, active tab last-known. */
-export const listReadableTabs = async (): Promise<OpenTab[]> => {
+export type TabAccess =
+  /** Readable by the extension. */
+  | "ok"
+  /** Browser-internal/unsupported scheme (chrome://, web store, etc.). */
+  | "restricted"
+  /** Readable scheme, but the user excluded it via settings. */
+  | "excluded"
+
+/** Classify whether a tab's URL can be read, honoring the user's exclude list. */
+export const classifyTabAccess = async (url?: string): Promise<TabAccess> => {
+  if (!isReadableScheme(url)) return "restricted"
+  const patterns = await resolveExcludedUrlPatterns()
+  return urlMatchesAny(url as string, patterns) ? "excluded" : "ok"
+}
+
+/** Human-facing explanation the model can relay when a tab can't be read. */
+export const accessDeniedMessage = (
+  access: "restricted" | "excluded",
+  label: string
+): string =>
+  access === "restricted"
+    ? `Can't read ${label} — the browser blocks extensions on internal pages (chrome://, the browser's web store, etc.).`
+    : `Can't read ${label} — this site is excluded in your content-extraction settings.`
+
+const toOpenTab = (tab: {
+  id?: number
+  title?: string
+  url?: string
+  active?: boolean
+}): OpenTab => ({
+  id: tab.id as number,
+  title: tab.title || "Untitled",
+  url: tab.url || "",
+  active: Boolean(tab.active)
+})
+
+/** Every tab that has an id, across all normal windows (any scheme). */
+export const getAllTabs = async (): Promise<OpenTab[]> => {
   const tabs = await browser.tabs.query({})
-  return tabs
-    .filter((tab) => tab.id !== undefined && isReadableUrl(tab.url))
-    .map((tab) => ({
-      id: tab.id as number,
-      title: tab.title || "Untitled",
-      url: tab.url as string,
-      active: Boolean(tab.active)
-    }))
+  return tabs.filter((tab) => tab.id !== undefined).map(toOpenTab)
+}
+
+/** Tabs the extension can actually read: readable scheme and not excluded. */
+export const listReadableTabs = async (): Promise<OpenTab[]> => {
+  const tabs = await getAllTabs()
+  const patterns = await resolveExcludedUrlPatterns()
+  return tabs.filter(
+    (tab) => isReadableScheme(tab.url) && !urlMatchesAny(tab.url, patterns)
+  )
 }

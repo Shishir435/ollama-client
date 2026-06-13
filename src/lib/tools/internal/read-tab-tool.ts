@@ -1,5 +1,11 @@
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
-import { listReadableTabs, type OpenTab, readTabContent } from "./tab-utils"
+import {
+  accessDeniedMessage,
+  classifyTabAccess,
+  getAllTabs,
+  type OpenTab,
+  readTabContent
+} from "./tab-utils"
 
 /**
  * `read_tab` — read the content of a SPECIFIC open tab the user is not
@@ -7,6 +13,10 @@ import { listReadableTabs, type OpenTab, readTabContent } from "./tab-utils"
  * This is what lets the model answer about any open tab without the user
  * adding it through the tab-context UI. For the active tab, `current_tab` is
  * simpler.
+ *
+ * Matches against *all* tabs (not just readable ones) so it can explain why an
+ * internal page (chrome://) or an excluded site can't be read, rather than
+ * pretending the tab doesn't exist.
  */
 export const readTabDefinition: ToolDefinition = {
   name: "read_tab",
@@ -40,9 +50,9 @@ export const runReadTab = async (
   args: Record<string, unknown>,
   _ctx: ToolContext
 ): Promise<ToolResult> => {
-  const tabs = await listReadableTabs()
+  const tabs = await getAllTabs()
   if (tabs.length === 0) {
-    return { content: "No readable tabs are open." }
+    return { content: "No tabs are open." }
   }
 
   let target: OpenTab | undefined
@@ -52,7 +62,7 @@ export const runReadTab = async (
     target = tabs.find((tab) => tab.id === args.tabId)
     if (!target) {
       return {
-        content: `No open readable tab has id ${args.tabId}. Call list_tabs for current ids.`,
+        content: `No open tab has id ${args.tabId}. Call list_tabs for current ids.`,
         isError: true
       }
     }
@@ -75,12 +85,17 @@ export const runReadTab = async (
     }
   }
 
+  const access = await classifyTabAccess(target.url)
+  if (access !== "ok") {
+    return { content: accessDeniedMessage(access, `"${target.title}"`) }
+  }
+
   try {
     const response = await readTabContent(target.id)
     const text = response?.html?.trim()
     if (!text) {
       return {
-        content: `Tab "${target.title}" returned no readable content (it may be excluded or tab access is disabled).`
+        content: `Tab "${target.title}" returned no readable content (tab access may be disabled).`
       }
     }
     const note =

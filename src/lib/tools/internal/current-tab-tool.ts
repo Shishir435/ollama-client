@@ -1,6 +1,10 @@
 import { browser } from "@/lib/browser-api"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
-import { readTabContent } from "./tab-utils"
+import {
+  accessDeniedMessage,
+  classifyTabAccess,
+  readTabContent
+} from "./tab-utils"
 
 /**
  * `current_tab` — read the readable text of the user's *active* tab (including
@@ -25,6 +29,11 @@ export const runCurrentTab = async (
     })
     if (!tab?.id) {
       return { content: "No active tab is available.", isError: true }
+    }
+
+    const access = await classifyTabAccess(tab.url)
+    if (access !== "ok") {
+      return { content: accessDeniedMessage(access, "the active tab") }
     }
 
     const response = await readTabContent(tab.id)
