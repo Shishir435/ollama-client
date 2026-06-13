@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatStreamMessage,
   OllamaChatRequest,
@@ -16,6 +17,36 @@ import {
   type ProviderConfig,
   ProviderId
 } from "./types"
+
+/** Normalized tool → Ollama `/api/chat` `tools` entry (OpenAI-style). */
+const toOllamaTool = (tool: ToolDefinition) => ({
+  type: "function",
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters
+  }
+})
+
+interface OllamaToolCall {
+  id?: string
+  function?: { name?: string; arguments?: unknown }
+}
+
+/** Ollama tool call → normalized {@link ToolCall}. Arguments arrive as an object. */
+const normalizeOllamaToolCall = (
+  raw: OllamaToolCall,
+  index: number
+): ToolCall => {
+  const name = raw.function?.name ?? ""
+  const args = raw.function?.arguments
+  return {
+    id: raw.id || `${name || "tool"}_${index}`,
+    name,
+    arguments:
+      args && typeof args === "object" ? (args as Record<string, unknown>) : {}
+  }
+}
 
 export class OllamaProvider implements LLMProvider {
   id = ProviderId.OLLAMA
@@ -63,7 +94,8 @@ export class OllamaProvider implements LLMProvider {
       num_thread,
       num_gpu,
       num_batch,
-      keep_alive
+      keep_alive,
+      tools
     } = request
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
 
@@ -89,14 +121,30 @@ export class OllamaProvider implements LLMProvider {
     )
 
     // Map to Ollama's wire shape. Vision models take image input as raw base64
-    // strings (no data: prefix) on the `images` field of a message.
+    // strings (no data: prefix) on the `images` field of a message. Tool turns
+    // round-trip through `assistant.tool_calls` and `tool` result messages
+    // (`{ role: "tool", tool_name, content }`).
     const ollamaMessages = messages.map((m) => {
-      const mapped: { role: string; content: string; images?: string[] } = {
+      const mapped: {
+        role: string
+        content: string
+        images?: string[]
+        tool_name?: string
+        tool_calls?: Array<{ function: { name: string; arguments: unknown } }>
+      } = {
         role: m.role,
         content: m.content
       }
       if (m.images && m.images.length > 0) {
         mapped.images = m.images.map((img) => img.base64)
+      }
+      if (m.role === "tool" && m.toolName) {
+        mapped.tool_name = m.toolName
+      }
+      if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+        mapped.tool_calls = m.toolCalls.map((call) => ({
+          function: { name: call.name, arguments: call.arguments }
+        }))
       }
       return mapped
     })
@@ -106,6 +154,7 @@ export class OllamaProvider implements LLMProvider {
       messages: ollamaMessages,
       stream: true,
       keep_alive,
+      tools: tools && tools.length > 0 ? tools.map(toOllamaTool) : undefined,
       options:
         Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }
@@ -171,6 +220,16 @@ export class OllamaProvider implements LLMProvider {
             if (thinkingDelta) {
               onChunk({
                 thinkingDelta,
+                done: false
+              })
+            }
+
+            // Ollama emits the whole tool_calls array in one message (arguments
+            // already parsed to an object), unlike OpenAI's streamed fragments.
+            const rawToolCalls = data.message?.tool_calls
+            if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
+              onChunk({
+                toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
                 done: false
               })
             }

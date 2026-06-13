@@ -3,7 +3,8 @@ import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
-import type { ChatStreamMessage, ProviderModel } from "@/types"
+import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
+import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
 import {
   type ChatRequest,
@@ -12,6 +13,108 @@ import {
   type ProviderConfig,
   ProviderId
 } from "./types"
+
+/** Normalized tool → OpenAI `tools` entry. */
+const toOpenAITool = (tool: ToolDefinition) => ({
+  type: "function",
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters
+  }
+})
+
+/** ChatMessage → OpenAI chat-completions message (images + tool turns). */
+const mapToOpenAIMessage = (m: ChatMessage): Record<string, unknown> => {
+  if (m.role === "tool") {
+    return { role: "tool", tool_call_id: m.toolCallId, content: m.content }
+  }
+  if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+    return {
+      role: "assistant",
+      content: m.content || "",
+      tool_calls: m.toolCalls.map((call) => ({
+        id: call.id,
+        type: "function",
+        function: {
+          name: call.name,
+          arguments: JSON.stringify(call.arguments ?? {})
+        }
+      }))
+    }
+  }
+  if (m.role === "user" && m.images && m.images.length > 0) {
+    return {
+      role: m.role,
+      content: [
+        ...(m.content ? [{ type: "text", text: m.content }] : []),
+        ...m.images.map((img) => ({
+          type: "image_url",
+          image_url: { url: toDataUrl(img.mimeType, img.base64) }
+        }))
+      ]
+    }
+  }
+  return { role: m.role, content: m.content }
+}
+
+/** Streamed OpenAI tool-call fragment, accumulated by `index` across chunks. */
+interface ToolCallFragment {
+  index: number
+  id?: string
+  type?: string
+  function?: { name?: string; arguments?: string }
+}
+
+/**
+ * Accumulates OpenAI streamed tool-call fragments. `id`/`name` arrive in the
+ * first fragment for an index; `arguments` is a string concatenated across
+ * later fragments. Call {@link finalize} once the stream signals tool calls are
+ * complete to parse arguments into normalized {@link ToolCall}s.
+ */
+class ToolCallAccumulator {
+  private readonly byIndex = new Map<
+    number,
+    { id?: string; name?: string; args: string }
+  >()
+
+  add(fragments: ToolCallFragment[]): void {
+    for (const fragment of fragments) {
+      const entry = this.byIndex.get(fragment.index) ?? { args: "" }
+      if (fragment.id) entry.id = fragment.id
+      if (fragment.function?.name) entry.name = fragment.function.name
+      if (fragment.function?.arguments)
+        entry.args += fragment.function.arguments
+      this.byIndex.set(fragment.index, entry)
+    }
+  }
+
+  get size(): number {
+    return this.byIndex.size
+  }
+
+  finalize(): ToolCall[] {
+    return [...this.byIndex.entries()].map(([index, entry]) => {
+      let args: Record<string, unknown> = {}
+      if (entry.args) {
+        try {
+          const parsed = JSON.parse(entry.args)
+          if (parsed && typeof parsed === "object") {
+            args = parsed as Record<string, unknown>
+          }
+        } catch {
+          // Leave args empty; a malformed argument string from the model
+          // surfaces as an empty-args call rather than crashing the stream.
+        }
+      }
+      return {
+        id: entry.id || `${entry.name || "tool"}_${index}`,
+        name: entry.name || "",
+        arguments: args
+      }
+    })
+  }
+}
 
 export class OpenAICompatibleProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
@@ -63,7 +166,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const { model, messages, temperature, max_tokens, top_p } = request
+    const { model, messages, temperature, max_tokens, top_p, tools } = request
     const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 
     const headers: Record<string, string> = {
@@ -76,28 +179,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     // Map to OpenAI chat-completions shape. Vision models take images as
     // content parts: a text part plus one image_url part per image (data URL).
+    // Tool turns round-trip through `assistant.tool_calls` (arguments as a JSON
+    // string) and `tool` result messages keyed by `tool_call_id`.
     const body = {
       model,
-      messages: messages.map((m) => {
-        if (m.role === "user" && m.images && m.images.length > 0) {
-          return {
-            role: m.role,
-            content: [
-              ...(m.content ? [{ type: "text", text: m.content }] : []),
-              ...m.images.map((img) => ({
-                type: "image_url",
-                image_url: { url: toDataUrl(img.mimeType, img.base64) }
-              }))
-            ]
-          }
-        }
-        return { role: m.role, content: m.content }
-      }),
+      messages: messages.map((m) => mapToOpenAIMessage(m)),
       stream: true,
       stream_options: { include_usage: true },
       temperature,
       max_tokens,
-      top_p
+      top_p,
+      tools: tools && tools.length > 0 ? tools.map(toOpenAITool) : undefined
     }
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -140,11 +232,20 @@ export class OpenAICompatibleProvider implements LLMProvider {
     let buffer = ""
     let firstTokenTime: number | null = null
     let latestMetrics: ChatStreamMessage["metrics"] | undefined
+    const toolCalls = new ToolCallAccumulator()
+    let toolCallsEmitted = false
+
+    const emitToolCalls = () => {
+      if (toolCallsEmitted || toolCalls.size === 0) return
+      toolCallsEmitted = true
+      onChunk({ toolCalls: toolCalls.finalize(), done: false })
+    }
 
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
+          emitToolCalls()
           const totalDurationNs = (Date.now() - startTime) * 1_000_000
           onChunk({
             done: true,
@@ -184,6 +285,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
                   firstTokenTime = Date.now()
                 }
                 onChunk({ delta: delta.content, done: false })
+              }
+
+              if (Array.isArray(delta?.tool_calls)) {
+                toolCalls.add(delta.tool_calls as ToolCallFragment[])
+              }
+
+              // Most providers set finish_reason "tool_calls" before usage; some
+              // omit it, so the stream-done path above also flushes.
+              if (data.choices?.[0]?.finish_reason === "tool_calls") {
+                emitToolCalls()
               }
 
               if (data.usage) {

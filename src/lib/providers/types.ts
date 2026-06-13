@@ -1,3 +1,4 @@
+import type { ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -59,6 +60,12 @@ export interface ChatRequest {
   keep_alive?: string | number
   max_tokens?: number
   stream?: boolean
+  /**
+   * Tool definitions offered to the model. Only set for tool-capable models
+   * (gated on resolved `toolCalling`); when absent the request is identical to
+   * the pre-tool-calling wire shape, so non-tool models are unaffected.
+   */
+  tools?: ToolDefinition[]
 }
 
 export interface EmbeddingSupport {

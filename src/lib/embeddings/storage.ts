@@ -490,7 +490,7 @@ export const fromDocuments = async (
 export const storeChatMessage = async (
   content: string,
   metadata: {
-    role: "user" | "assistant" | "system"
+    role: "user" | "assistant" | "system" | "tool"
     sessionId: string
     chatId?: string
     title?: string

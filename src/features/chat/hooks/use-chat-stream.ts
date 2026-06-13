@@ -14,7 +14,7 @@ import {
   splitThinkingDelta,
   type ThinkingParserState
 } from "@/lib/thinking-parser"
-import type { ChatMessage } from "@/types"
+import type { ChatMessage, ToolRun } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -41,6 +41,7 @@ interface StreamMessage {
   }
   delta?: string
   thinkingDelta?: string
+  toolRuns?: ToolRun[]
   done?: boolean
   error?: {
     status: number
@@ -138,6 +139,16 @@ export const useChatStream = ({
       }
 
       let didUpdate = false
+
+      // Live tool-run trace snapshot — replace with the latest so the
+      // chain-of-thought trace reflects what tools are running / have run.
+      if (msg.toolRuns) {
+        assistantMessage.metrics = {
+          ...assistantMessage.metrics,
+          toolRuns: msg.toolRuns
+        }
+        didUpdate = true
+      }
 
       if (msg.thinkingDelta) {
         if (DEBUG_THINKING_STREAM) {

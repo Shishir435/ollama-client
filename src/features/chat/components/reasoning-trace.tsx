@@ -51,8 +51,11 @@ const getToolRunStatus = (run: ToolRun): TraceStatus =>
       ? "error"
       : "done"
 
-const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string =>
-  run.toolId === "web-search" ? t("chat.reasoning.trace.web") : run.label
+const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
+  if (run.toolId === "web-search") return t("chat.reasoning.trace.web")
+  if (run.toolId === "rag_search") return t("chat.reasoning.trace.knowledge")
+  return run.label
+}
 
 const getToolRunDetail = (run: ToolRun) => {
   if (run.error) return run.error
@@ -69,7 +72,10 @@ const buildToolTraceStep = (
   key: `tool-${run.toolId}-${run.startedAt}`,
   label: getToolRunLabel(run, t),
   status: getToolRunStatus(run),
-  icon: run.toolId === "web-search" ? Search : Circle,
+  icon:
+    run.toolId === "web-search" || run.toolId === "rag_search"
+      ? Search
+      : Circle,
   detail: getToolRunDetail(run)
 })
 

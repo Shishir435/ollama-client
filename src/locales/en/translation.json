@@ -238,6 +238,7 @@
         "page": "Reading page",
         "files": "RAG",
         "web": "Searching web",
+        "knowledge": "Searching knowledge",
         "answering": "Answering"
       }
     },

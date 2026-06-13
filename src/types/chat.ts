@@ -1,4 +1,6 @@
-export type Role = "user" | "assistant" | "system"
+import type { ToolCall } from "@/lib/tools/types"
+
+export type Role = "user" | "assistant" | "system" | "tool"
 
 export interface FileAttachment {
   id?: number
@@ -68,6 +70,17 @@ export interface ChatMessage {
   attachments?: FileAttachment[]
   /** Images attached for vision models. Distinct from RAG `attachments`. */
   images?: ImageAttachment[]
+  /**
+   * Tool calls requested by the model on an assistant turn. Used transiently
+   * inside the background tool loop to echo the assistant turn back to the
+   * provider; the visible/persisted assistant message is the final answer, with
+   * the tool run summary in `metrics.toolRuns`.
+   */
+  toolCalls?: ToolCall[]
+  /** For `role: "tool"` result messages — the tool whose output this carries. */
+  toolName?: string
+  /** For `role: "tool"` result messages — the originating tool call id. */
+  toolCallId?: string
   timestamp?: number
   metrics?: {
     total_duration?: number
@@ -124,6 +137,17 @@ export interface ChatStreamMessage {
   done?: boolean
   content?: string
   aborted?: boolean
+  /**
+   * Tool calls the model emitted this turn, normalized across providers. The
+   * background tool loop consumes these; they are not forwarded to the UI.
+   */
+  toolCalls?: ToolCall[]
+  /**
+   * A snapshot of the current tool-run trace. Forwarded to the UI, which
+   * replaces `metrics.toolRuns` with the latest snapshot so the chain-of-thought
+   * trace updates live as tools run.
+   */
+  toolRuns?: ToolRun[]
   error?: {
     status: number
     message: string

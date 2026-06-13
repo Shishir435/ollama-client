@@ -83,7 +83,7 @@ export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
 
 export const ChatMessageSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
-  role: z.enum(["user", "assistant", "system"]),
+  role: z.enum(["user", "assistant", "system", "tool"]),
   content: z.string(),
   thinking: z.string().optional(),
   done: z.boolean().optional(),
