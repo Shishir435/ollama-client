@@ -75,6 +75,24 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   unload_on_switch: false
 }
 
+// Image input (vision models). Max size is the default; users can override it
+// on the options page via STORAGE_KEYS.IMAGES.MAX_SIZE_MB.
+export const DEFAULT_MAX_IMAGE_SIZE_MB = 10
+// Formats that local vision backends decode reliably. GIF/BMP were dropped
+// because many backends can't decode them; HEIC/HEIF can't be decoded in the
+// browser at all (see SUPPORTED_IMAGE_EXTENSIONS / the HEIC warning path).
+export const SUPPORTED_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp"
+] as const
+
+// Apple HEIC/HEIF: detected so we can show a specific "export as JPEG/PNG"
+// message instead of a generic rejection. These files often report an empty
+// MIME type, so detection also checks the extension.
+export const HEIC_MIME_TYPES = ["image/heic", "image/heif"] as const
+export const HEIC_EXTENSION_PATTERN = /\.(heic|heif)$/i
+
 export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   EXTENSIONS: {

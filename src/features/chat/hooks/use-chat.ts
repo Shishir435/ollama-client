@@ -12,7 +12,7 @@ import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import type { ChatMessage, FileAttachment } from "@/types"
+import type { ChatMessage, FileAttachment, ImageAttachment } from "@/types"
 
 export const useChat = () => {
   const config = useChatConfig()
@@ -87,7 +87,8 @@ export const useChat = () => {
   const sendMessage = async (
     customInput?: string,
     customModel?: string,
-    files?: ProcessedFile[]
+    files?: ProcessedFile[],
+    images?: ImageAttachment[]
   ) => {
     const sessionId = await ensureSessionId()
     if (!sessionId) return
@@ -103,7 +104,8 @@ export const useChat = () => {
       return
     }
 
-    if (!rawInput && (!files || files.length === 0)) return
+    const hasImages = !!images && images.length > 0
+    if (!rawInput && (!files || files.length === 0) && !hasImages) return
 
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
@@ -126,7 +128,8 @@ export const useChat = () => {
     const userMessage: ChatMessage = {
       role: "user",
       content: userContent,
-      attachments
+      attachments,
+      images: hasImages ? images : undefined
     }
     await addMessage(sessionId, userMessage)
 

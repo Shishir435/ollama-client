@@ -1,6 +1,8 @@
 import { DEFAULT_OPENAI_COMPATIBLE_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
+import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import type { ChatStreamMessage, ProviderModel } from "@/types"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
 import {
@@ -72,9 +74,25 @@ export class OpenAICompatibleProvider implements LLMProvider {
       headers.Authorization = `Bearer ${this.config.apiKey}`
     }
 
+    // Map to OpenAI chat-completions shape. Vision models take images as
+    // content parts: a text part plus one image_url part per image (data URL).
     const body = {
       model,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: messages.map((m) => {
+        if (m.role === "user" && m.images && m.images.length > 0) {
+          return {
+            role: m.role,
+            content: [
+              ...(m.content ? [{ type: "text", text: m.content }] : []),
+              ...m.images.map((img) => ({
+                type: "image_url",
+                image_url: { url: toDataUrl(img.mimeType, img.base64) }
+              }))
+            ]
+          }
+        }
+        return { role: m.role, content: m.content }
+      }),
       stream: true,
       stream_options: { include_usage: true },
       temperature,
@@ -96,6 +114,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         status: response.status,
         providerId: this.id,
         retryable: response.status >= 500,
+        userMessage: providerErrorUserMessage(response.status),
         debug: errorText
       })
     }

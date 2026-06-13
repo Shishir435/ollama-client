@@ -1,5 +1,6 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import type {
   ChatStreamMessage,
   OllamaChatRequest,
@@ -87,9 +88,22 @@ export class OllamaProvider implements LLMProvider {
       Object.entries(options).filter(([, value]) => value !== undefined)
     )
 
-    const body: OllamaChatRequest = {
+    // Map to Ollama's wire shape. Vision models take image input as raw base64
+    // strings (no data: prefix) on the `images` field of a message.
+    const ollamaMessages = messages.map((m) => {
+      const mapped: { role: string; content: string; images?: string[] } = {
+        role: m.role,
+        content: m.content
+      }
+      if (m.images && m.images.length > 0) {
+        mapped.images = m.images.map((img) => img.base64)
+      }
+      return mapped
+    })
+
+    const body = {
       model,
-      messages,
+      messages: ollamaMessages,
       stream: true,
       keep_alive,
       options:
@@ -110,6 +124,7 @@ export class OllamaProvider implements LLMProvider {
         status: response.status,
         providerId: ProviderId.OLLAMA,
         retryable: response.status >= 500,
+        userMessage: providerErrorUserMessage(response.status),
         debug: errorText
       })
     }
@@ -141,7 +156,10 @@ export class OllamaProvider implements LLMProvider {
             if (data.error) {
               throw createAppError(data.error, {
                 kind: "provider",
-                providerId: ProviderId.OLLAMA
+                providerId: ProviderId.OLLAMA,
+                userMessage:
+                  "The provider reported an error while generating the response.",
+                debug: typeof data.error === "string" ? data.error : undefined
               })
             }
 

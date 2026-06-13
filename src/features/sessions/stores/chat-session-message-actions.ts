@@ -9,6 +9,7 @@ import {
 } from "@/features/sessions/lib/message-tree"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
+import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import type { ChatMessage, ChatSessionState } from "@/types"
@@ -195,10 +196,17 @@ export const createChatSessionMessageActions = (
       parentId
     })
 
-    if (message.attachments && message.attachments.length > 0) {
-      await repo.bulkAddFiles(
-        message.attachments.map((f) => ({ ...f, messageId: id, sessionId }))
-      )
+    const fileRows = [
+      ...(message.attachments?.map((f) => ({
+        ...f,
+        messageId: id,
+        sessionId
+      })) ?? []),
+      ...(message.images?.map((img) => imageToStoredFile(img, id, sessionId)) ??
+        [])
+    ]
+    if (fileRows.length > 0) {
+      await repo.bulkAddFiles(fileRows)
     }
 
     await repo.updateSession(sessionId, {

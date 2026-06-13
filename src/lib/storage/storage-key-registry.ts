@@ -45,6 +45,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "User-declared model capabilities should follow the user."
   },
+  [STORAGE_KEYS.IMAGES.MAX_SIZE_MB]: {
+    key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
+    scope: "sync-safe",
+    reason: "Per-image size cap is a user preference."
+  },
   [STORAGE_KEYS.THEME.PREFERENCE]: {
     key: STORAGE_KEYS.THEME.PREFERENCE,
     scope: "sync-safe",

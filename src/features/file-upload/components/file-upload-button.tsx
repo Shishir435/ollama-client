@@ -3,6 +3,7 @@ import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
+import { SUPPORTED_IMAGE_MIME_TYPES } from "@/lib/constants"
 import { Paperclip } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -10,12 +11,15 @@ export interface FileUploadButtonProps {
   onFilesSelected: (files: FileList) => void
   disabled?: boolean
   className?: string
+  /** Also allow image files in the picker (vision-capable model selected). */
+  acceptImages?: boolean
 }
 
 export const FileUploadButton = ({
   onFilesSelected,
   disabled = false,
-  className
+  className,
+  acceptImages = false
 }: FileUploadButtonProps) => {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -42,7 +46,9 @@ export const FileUploadButton = ({
     "text/csv,.csv", // CSV
     "text/tab-separated-values,.tsv", // TSV
     "text/html,.html,.htm", // HTML
-    "application/javascript,application/json,application/xml,application/yaml"
+    "application/javascript,application/json,application/xml,application/yaml",
+    // Images for vision models (routed to the image pipeline by the composer).
+    ...(acceptImages ? [SUPPORTED_IMAGE_MIME_TYPES.join(",")] : [])
   ].join(",")
 
   return (
@@ -69,8 +75,16 @@ export const FileUploadButton = ({
         )}
         onClick={handleClick}
         disabled={disabled}
-        ariaLabel={t("file_upload.button.aria_label")}
-        tooltip={t("file_upload.button.tooltip")}
+        ariaLabel={t(
+          acceptImages
+            ? "file_upload.button.aria_label_with_images"
+            : "file_upload.button.aria_label"
+        )}
+        tooltip={t(
+          acceptImages
+            ? "file_upload.button.tooltip_with_images"
+            : "file_upload.button.tooltip"
+        )}
         icon={<Paperclip className="icon-md" />}
       />
     </>

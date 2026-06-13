@@ -171,7 +171,14 @@
       "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "drop_files_here": "Déposer des fichiers ici",
-      "attachments": "{{count}} pièces jointes"
+      "attachments": "{{count}} pièces jointes",
+      "images": {
+        "remove": "Supprimer {{name}}",
+        "too_large": "{{name}} dépasse la limite d'image de {{max}} Mo.",
+        "unsupported_type": "{{name}} n'est pas un type d'image pris en charge. Utilisez PNG, JPEG ou WebP.",
+        "model_unsupported": "Le modèle sélectionné ne prend pas en charge la vision. Activez-la dans le menu des modèles ou choisissez un modèle avec vision.",
+        "heic_unsupported": "HEIC n'est pas pris en charge. Collez l'image ou exportez {{name}} au format JPEG ou PNG."
+      }
     },
     "context_preview": {
       "files": "Fichiers joints",
@@ -319,7 +326,10 @@
       "unknown_language": "Inconnu"
     },
     "message": {
-      "loading": "Chargement..."
+      "loading": "Chargement...",
+      "images": {
+        "view": "Afficher {{name}}"
+      }
     },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
@@ -336,7 +346,9 @@
   "file_upload": {
     "button": {
       "aria_label": "Téléverser un fichier",
-      "tooltip": "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte)"
+      "tooltip": "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte)",
+      "aria_label_with_images": "Téléverser un fichier ou une image",
+      "tooltip_with_images": "Téléverser un fichier ou une image (PDF, DOCX, CSV, HTML, Texte, Images)"
     },
     "preview": {
       "remove_aria_label": "Retirer le fichier",
@@ -353,7 +365,9 @@
     },
     "settings": {
       "max_file_size_label": "Taille Maximale de Fichier (Mo)",
-      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités."
+      "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
+      "max_image_size_label": "Taille maximale d'image (Mo)",
+      "max_image_size_description": "Taille maximale autorisée pour chaque image jointe à un message pour les modèles de vision."
     }
   },
   "model": {
