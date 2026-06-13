@@ -252,10 +252,123 @@ export class OpenAICompatibleProvider implements LLMProvider {
       onChunk({ toolCalls: toolCalls.finalize(), done: false })
     }
 
+    const processLine = (line: string) => {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed === "data: [DONE]") return
+      if (!trimmed.startsWith("data: ")) return
+
+      let data: {
+        error?: unknown
+        choices?: Array<{
+          delta?: {
+            content?: string
+            reasoning?: string
+            reasoning_content?: string
+            thinking?: string
+            thoughts?: string
+            tool_calls?: ToolCallFragment[]
+          }
+          finish_reason?: string
+        }>
+        usage?: { prompt_tokens?: number; completion_tokens?: number }
+      }
+      try {
+        data = JSON.parse(trimmed.slice(6))
+      } catch (e) {
+        logger.warn(
+          "Failed to parse SSE data line",
+          "OpenAICompatibleProvider",
+          { error: e }
+        )
+        return
+      }
+
+      // Mid-stream provider error (HTTP 200 already sent — vLLM/LiteLLM/etc.).
+      // Throw so it surfaces as an error instead of a silently truncated
+      // answer. This is outside the parse try/catch so it propagates rather
+      // than being downgraded to a parse warning.
+      if (data.error) {
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : (data.error as { message?: string })?.message
+        throw createAppError(
+          message ||
+            "The provider reported an error while generating the response.",
+          {
+            kind: "provider",
+            providerId: this.id,
+            userMessage:
+              "The provider reported an error while generating the response.",
+            debug:
+              typeof data.error === "string"
+                ? data.error
+                : JSON.stringify(data.error)
+          }
+        )
+      }
+
+      const delta = data.choices?.[0]?.delta
+
+      const thinkingDelta =
+        delta?.reasoning ||
+        delta?.reasoning_content ||
+        delta?.thinking ||
+        delta?.thoughts
+
+      if (thinkingDelta) {
+        onChunk({ thinkingDelta, done: false })
+      }
+
+      if (delta?.content) {
+        if (!firstTokenTime) {
+          firstTokenTime = Date.now()
+        }
+        onChunk({ delta: delta.content, done: false })
+      }
+
+      if (Array.isArray(delta?.tool_calls)) {
+        toolCalls.add(delta.tool_calls as ToolCallFragment[])
+      }
+
+      // Most providers set finish_reason "tool_calls" before usage; some
+      // omit it, so the stream-done path also flushes.
+      if (data.choices?.[0]?.finish_reason === "tool_calls") {
+        emitToolCalls()
+      }
+
+      if (data.usage) {
+        const totalDurationNs = (Date.now() - startTime) * 1_000_000
+        const evalDurationNs = firstTokenTime
+          ? (Date.now() - firstTokenTime) * 1_000_000
+          : 1
+
+        const promptEvalDurationNs = firstTokenTime
+          ? (firstTokenTime - startTime) * 1_000_000
+          : totalDurationNs
+
+        latestMetrics = {
+          total_duration: totalDurationNs,
+          prompt_eval_count: data.usage.prompt_tokens,
+          prompt_eval_duration: promptEvalDurationNs,
+          eval_count: data.usage.completion_tokens,
+          eval_duration: evalDurationNs
+        }
+
+        onChunk({
+          done: false,
+          metrics: latestMetrics
+        })
+      }
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
+          // Flush a final data line left without a trailing newline at EOF.
+          if (buffer.trim()) processLine(buffer)
+          buffer = ""
           emitToolCalls()
           const totalDurationNs = (Date.now() - startTime) * 1_000_000
           onChunk({
@@ -272,74 +385,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const lines = buffer.split("\n")
         buffer = lines.pop() || ""
 
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || trimmed === "data: [DONE]") continue
-
-          if (trimmed.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(trimmed.slice(6))
-              const delta = data.choices?.[0]?.delta
-
-              const thinkingDelta =
-                delta?.reasoning ||
-                delta?.reasoning_content ||
-                delta?.thinking ||
-                delta?.thoughts
-
-              if (thinkingDelta) {
-                onChunk({ thinkingDelta, done: false })
-              }
-
-              if (delta?.content) {
-                if (!firstTokenTime) {
-                  firstTokenTime = Date.now()
-                }
-                onChunk({ delta: delta.content, done: false })
-              }
-
-              if (Array.isArray(delta?.tool_calls)) {
-                toolCalls.add(delta.tool_calls as ToolCallFragment[])
-              }
-
-              // Most providers set finish_reason "tool_calls" before usage; some
-              // omit it, so the stream-done path above also flushes.
-              if (data.choices?.[0]?.finish_reason === "tool_calls") {
-                emitToolCalls()
-              }
-
-              if (data.usage) {
-                const totalDurationNs = (Date.now() - startTime) * 1_000_000
-                const evalDurationNs = firstTokenTime
-                  ? (Date.now() - firstTokenTime) * 1_000_000
-                  : 1
-
-                const promptEvalDurationNs = firstTokenTime
-                  ? (firstTokenTime - startTime) * 1_000_000
-                  : totalDurationNs
-
-                latestMetrics = {
-                  total_duration: totalDurationNs,
-                  prompt_eval_count: data.usage.prompt_tokens,
-                  prompt_eval_duration: promptEvalDurationNs,
-                  eval_count: data.usage.completion_tokens,
-                  eval_duration: evalDurationNs
-                }
-
-                onChunk({
-                  done: false,
-                  metrics: latestMetrics
-                })
-              }
-            } catch (e) {
-              logger.warn(
-                "Failed to parse SSE data line",
-                "OpenAICompatibleProvider",
-                { error: e }
-              )
-            }
-          }
-        }
+        for (const line of lines) processLine(line)
       }
     } finally {
       reader.releaseLock()

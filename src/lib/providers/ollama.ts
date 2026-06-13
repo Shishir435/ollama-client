@@ -194,98 +194,109 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const decoder = new TextDecoder()
+    // A single NDJSON object can straddle a read boundary, so accumulate and
+    // only parse complete (newline-terminated) lines; the remainder carries to
+    // the next read. Without this, a split object fails to parse and the whole
+    // message (which may carry tool_calls or the final done+metrics) is lost.
+    let buffer = ""
+
+    const processLine = (line: string) => {
+      if (!line.trim()) return
+      let data: {
+        error?: unknown
+        message?: {
+          content?: string
+          thinking?: string
+          reasoning?: string
+          reasoning_content?: string
+          tool_calls?: OllamaToolCall[]
+        }
+        done?: boolean
+        total_duration?: number
+        load_duration?: number
+        sample_count?: number
+        sample_duration?: number
+        prompt_eval_count?: number
+        prompt_eval_duration?: number
+        eval_count?: number
+        eval_duration?: number
+      }
+      try {
+        data = JSON.parse(line)
+      } catch (error) {
+        logger.warn("Failed to parse chunk", "OllamaProvider", { error })
+        return
+      }
+
+      if (data.error) {
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : "The provider reported an error while generating the response."
+        throw createAppError(message, {
+          kind: "provider",
+          providerId: ProviderId.OLLAMA,
+          userMessage:
+            "The provider reported an error while generating the response.",
+          debug: typeof data.error === "string" ? data.error : undefined
+        })
+      }
+
+      const thinkingDelta =
+        data.message?.thinking ||
+        data.message?.reasoning ||
+        data.message?.reasoning_content
+
+      if (thinkingDelta) {
+        onChunk({
+          thinkingDelta,
+          done: false
+        })
+      }
+
+      // Ollama emits the whole tool_calls array in one message (arguments
+      // already parsed to an object), unlike OpenAI's streamed fragments.
+      const rawToolCalls = data.message?.tool_calls
+      if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
+        onChunk({
+          toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
+          done: false
+        })
+      }
+
+      onChunk({
+        delta: data.message?.content || "",
+        done: data.done,
+        metrics: data.done
+          ? {
+              total_duration: data.total_duration,
+              load_duration: data.load_duration,
+              sample_count: data.sample_count,
+              sample_duration: data.sample_duration,
+              prompt_eval_count: data.prompt_eval_count,
+              prompt_eval_duration: data.prompt_eval_duration,
+              eval_count: data.eval_count,
+              eval_duration: data.eval_duration
+            }
+          : undefined
+      })
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
+          // Flush a final line left without a trailing newline at EOF.
+          if (buffer.trim()) processLine(buffer)
+          buffer = ""
           onChunk({ done: true })
           break
         }
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          let data: {
-            error?: unknown
-            message?: {
-              content?: string
-              thinking?: string
-              reasoning?: string
-              reasoning_content?: string
-              tool_calls?: OllamaToolCall[]
-            }
-            done?: boolean
-            total_duration?: number
-            load_duration?: number
-            sample_count?: number
-            sample_duration?: number
-            prompt_eval_count?: number
-            prompt_eval_duration?: number
-            eval_count?: number
-            eval_duration?: number
-          }
-          try {
-            data = JSON.parse(line)
-          } catch (error) {
-            logger.warn("Failed to parse chunk", "OllamaProvider", { error })
-            continue
-          }
-
-          if (data.error) {
-            const message =
-              typeof data.error === "string"
-                ? data.error
-                : "The provider reported an error while generating the response."
-            throw createAppError(message, {
-              kind: "provider",
-              providerId: ProviderId.OLLAMA,
-              userMessage:
-                "The provider reported an error while generating the response.",
-              debug: typeof data.error === "string" ? data.error : undefined
-            })
-          }
-
-          const thinkingDelta =
-            data.message?.thinking ||
-            data.message?.reasoning ||
-            data.message?.reasoning_content
-
-          if (thinkingDelta) {
-            onChunk({
-              thinkingDelta,
-              done: false
-            })
-          }
-
-          // Ollama emits the whole tool_calls array in one message (arguments
-          // already parsed to an object), unlike OpenAI's streamed fragments.
-          const rawToolCalls = data.message?.tool_calls
-          if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
-            onChunk({
-              toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
-              done: false
-            })
-          }
-
-          onChunk({
-            delta: data.message?.content || "",
-            done: data.done,
-            metrics: data.done
-              ? {
-                  total_duration: data.total_duration,
-                  load_duration: data.load_duration,
-                  sample_count: data.sample_count,
-                  sample_duration: data.sample_duration,
-                  prompt_eval_count: data.prompt_eval_count,
-                  prompt_eval_duration: data.prompt_eval_duration,
-                  eval_count: data.eval_count,
-                  eval_duration: data.eval_duration
-                }
-              : undefined
-          })
-        }
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+        for (const line of lines) processLine(line)
       }
     } finally {
       reader.releaseLock()
