@@ -7,12 +7,22 @@ import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
 
 /**
- * Caches a model's `/api/show` capability tags for the session, keyed by
- * `providerId::model`. The tags don't change while the extension runs, so this
- * avoids a network round-trip on every message; the user override is still read
- * fresh each call (it's a cheap local read and can change at any time).
+ * Caches a model's `/api/show` capability tags briefly, keyed by the provider
+ * endpoint and model. Ollama model files can be replaced while the service
+ * worker stays alive, so this must not be a lifetime cache.
  */
-const capabilityTagsCache = new Map<string, string[] | undefined>()
+const CAPABILITY_TAGS_CACHE_TTL_MS = 60_000
+
+interface CapabilityTagsCacheEntry {
+  tags: string[] | undefined
+  expiresAt: number
+}
+
+const capabilityTagsCache = new Map<string, CapabilityTagsCacheEntry>()
+
+export const clearModelToolCapabilityCache = () => {
+  capabilityTagsCache.clear()
+}
 
 /**
  * Resolve the tools to offer a model for one chat turn, gated on the model's
@@ -27,17 +37,22 @@ export const resolveModelTools = async (
   provider: LLMProvider
 ): Promise<ToolDefinition[] | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
-  const cacheKey = `${resolvedProviderId}::${model}`
+  const providerUrl = provider.config.baseUrl || ""
+  const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
 
   let ollamaCapabilities: string[] | undefined
-  if (capabilityTagsCache.has(cacheKey)) {
-    ollamaCapabilities = capabilityTagsCache.get(cacheKey)
+  const cached = capabilityTagsCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    ollamaCapabilities = cached.tags
   } else if (provider.getModelDetails) {
     try {
       const details = await provider.getModelDetails(model)
       ollamaCapabilities = (details as { capabilities?: string[] } | null)
         ?.capabilities
-      capabilityTagsCache.set(cacheKey, ollamaCapabilities)
+      capabilityTagsCache.set(cacheKey, {
+        tags: ollamaCapabilities,
+        expiresAt: Date.now() + CAPABILITY_TAGS_CACHE_TTL_MS
+      })
     } catch (error) {
       logger.debug(
         "Failed to read model details for tool gating",

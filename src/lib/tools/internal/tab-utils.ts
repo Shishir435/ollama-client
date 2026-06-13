@@ -48,7 +48,14 @@ export const readTabContent = async (
       target: { tabId },
       files: [CONTENT_SCRIPT_FILE]
     })
-    return requestPageContent(tabId)
+    try {
+      return await requestPageContent(tabId)
+    } catch (retryError) {
+      logger.debug("readTabContent: retry failed", "tabUtils", {
+        error: retryError
+      })
+      throw retryError
+    }
   }
 }
 

@@ -65,26 +65,21 @@ export const runReadTab = async (
 
   let target: OpenTab | undefined
   let ambiguous: OpenTab[] = []
-  let fallbackNote = ""
   const tabId = parseTabId(args.tabId)
 
   if (tabId !== undefined) {
     target = tabs.find((tab) => tab.id === tabId)
     if (!target) {
       const readableTabs = await listReadableTabs()
-      const activeReadableTab = readableTabs.find((tab) => tab.active)
-      if (!activeReadableTab) {
-        const available = readableTabs
-          .map((tab) => `id=${tab.id}: ${tab.title}`)
-          .join("; ")
-        return {
-          content: available
-            ? `Tab id ${tabId} is no longer open. Current readable tabs: ${available}`
-            : `Tab id ${tabId} is no longer open, and no readable tabs are currently available.`
-        }
+      const available = readableTabs
+        .map((tab) => `id=${tab.id}: ${tab.title}`)
+        .join("; ")
+      return {
+        content: available
+          ? `Tab id ${tabId} is no longer open. Call list_tabs and choose one of the current readable tabs: ${available}`
+          : `Tab id ${tabId} is no longer open, and no readable tabs are currently available. Call list_tabs before trying again.`,
+        isError: true
       }
-      target = activeReadableTab
-      fallbackNote = `\n\n(Note: requested tab id ${tabId} was no longer open, so read the currently active tab "${target.title}" instead.)`
     }
   } else if (typeof args.query === "string" && args.query.trim()) {
     const matches = matchTabs(tabs, args.query.trim())
@@ -123,7 +118,7 @@ export const runReadTab = async (
         ? `\n\n(Note: ${ambiguous.length} other open tab(s) also matched; read the one titled "${target.title}".)`
         : ""
     return {
-      content: `${text}${note}${fallbackNote}`,
+      content: `${text}${note}`,
       sources: [{ title: response.title || target.title, url: target.url }]
     }
   } catch (error) {

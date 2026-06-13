@@ -78,6 +78,21 @@ describe("current_tab tool", () => {
     expect(result.content).toBe("transcript")
   })
 
+  it("returns a clean error when the injected content script retry fails", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Loading", url: "https://example.test" }
+    ] as never)
+    vi.mocked(browser.tabs.sendMessage)
+      .mockRejectedValueOnce(new Error("Receiving end does not exist"))
+      .mockRejectedValueOnce(new Error("Tab is navigating"))
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue([] as never)
+
+    const result = await runCurrentTab({}, ctx)
+    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Tab is navigating")
+  })
+
   it("explains gracefully (not an error) on a restricted internal page", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
       { id: 7, title: "Settings", url: "chrome://settings", active: true }
@@ -156,21 +171,18 @@ describe("read_tab tool", () => {
     expect(result.content).toContain("video transcript")
   })
 
-  it("falls back to the active readable tab when a model uses a stale tab id", async () => {
+  it("errors instead of reading the active tab when a model uses a stale tab id", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
-    vi.mocked(browser.tabs.sendMessage).mockResolvedValue({
-      html: "active tab body",
-      title: "Wiki"
-    } as never)
 
     const result = await runReadTab({ tabId: 999 }, ctx)
-    expect(result.isError).toBeUndefined()
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(1, expect.anything())
-    expect(result.content).toContain("active tab body")
-    expect(result.content).toContain("requested tab id 999 was no longer open")
+    expect(result.isError).toBe(true)
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
+    expect(result.content).toContain("Tab id 999 is no longer open")
+    expect(result.content).toContain("Call list_tabs")
+    expect(result.content).toContain("id=1: Wiki")
   })
 
-  it("returns current readable tabs without error when a stale id has no active readable fallback", async () => {
+  it("errors cleanly when a stale id has no current readable tabs", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
       {
         id: 7,
@@ -181,8 +193,8 @@ describe("read_tab tool", () => {
     ] as never)
 
     const result = await runReadTab({ tabId: 999 }, ctx)
-    expect(result.isError).toBeUndefined()
-    expect(result.content).toContain("Current readable tabs")
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("current readable tabs")
     expect(result.content).toContain("id=7: Docs")
     expect(browser.tabs.sendMessage).not.toHaveBeenCalled()
   })
