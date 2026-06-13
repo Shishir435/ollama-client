@@ -88,8 +88,13 @@ export const ChatInputBox = ({
     }
   })
 
-  const capabilities = useSelectedModelCapabilities()
+  const { capabilities, isResolving: capabilitiesResolving } =
+    useSelectedModelCapabilities()
   const visionSupported = capabilities?.vision ?? false
+  // Confirmed-unsupported only once detection has finished. While it's still
+  // resolving we don't block — otherwise the first attach (before /api/show
+  // returns) would be wrongly rejected on a vision model.
+  const visionUnsupported = !visionSupported && !capabilitiesResolving
 
   const [maxImageSizeMb] = useStorage<number>(
     {
@@ -125,7 +130,7 @@ export const ChatInputBox = ({
   const handleImageFiles = useCallback(
     (imageFiles: File[]) => {
       if (imageFiles.length === 0) return
-      if (!visionSupported) {
+      if (visionUnsupported) {
         toast({
           variant: "destructive",
           description: t("chat.input.images.model_unsupported")
@@ -134,7 +139,7 @@ export const ChatInputBox = ({
       }
       void addImageFiles(imageFiles)
     },
-    [visionSupported, addImageFiles, toast, t]
+    [visionUnsupported, addImageFiles, toast, t]
   )
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
@@ -476,7 +481,7 @@ export const ChatInputBox = ({
           onFilesSelected={handleFilesSelected}
           processingStates={processingStates}
           onAttachmentClick={() => setShowAttachmentSheet(true)}
-          acceptImages={visionSupported}
+          acceptImages={!visionUnsupported}
           imageCount={images.length}
         />
 

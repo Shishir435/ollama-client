@@ -55,7 +55,10 @@ vi.mock("@/features/file-upload/hooks/use-file-upload", () => ({
 }))
 
 vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
-  useSelectedModelCapabilities: () => null
+  useSelectedModelCapabilities: () => ({
+    capabilities: null,
+    isResolving: false
+  })
 }))
 
 vi.mock("@/features/chat/hooks/use-image-attachments", () => ({
