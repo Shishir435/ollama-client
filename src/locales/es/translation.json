@@ -534,7 +534,8 @@
         "note_manual": "{{provider}} no puede informar las capacidades de este modelo, por lo que no podemos detectarlas. Activa lo que admite este modelo: funciones como la entrada de imágenes y las herramientas usan estos ajustes.",
         "note_self_report": "{{provider}} informa automáticamente las capacidades de este modelo. Los cambios aquí anulan lo detectado.",
         "reset": "Restablecer a lo detectado",
-        "save": "Guardar"
+        "save": "Guardar",
+        "save_error": "No se pudieron guardar las capacidades. Inténtalo de nuevo."
       },
       "flags": {
         "text": {

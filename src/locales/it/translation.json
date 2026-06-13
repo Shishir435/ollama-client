@@ -534,7 +534,8 @@
         "note_manual": "{{provider}} non può segnalare le capacità di questo modello, quindi non possiamo rilevarle. Attiva ciò che questo modello supporta: funzioni come l'input di immagini e gli strumenti usano queste impostazioni.",
         "note_self_report": "{{provider}} segnala automaticamente le capacità di questo modello. Le modifiche qui sovrascrivono ciò che è stato rilevato.",
         "reset": "Ripristina ai valori rilevati",
-        "save": "Salva"
+        "save": "Salva",
+        "save_error": "Impossibile salvare le capacità. Riprova."
       },
       "flags": {
         "text": {
