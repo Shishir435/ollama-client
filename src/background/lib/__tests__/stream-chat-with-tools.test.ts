@@ -238,7 +238,54 @@ describe("streamChatWithTools", () => {
       maxIterations: 3
     })
 
-    expect(provider.streamChat).toHaveBeenCalledTimes(3)
+    expect(provider.streamChat).toHaveBeenCalledTimes(4)
+    expect(chunks.filter((c) => c.done)).toHaveLength(1)
+  })
+
+  it("synthesizes a final answer when the iteration cap is hit", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "answer from final synthesis" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(2)
+    expect(chunks.find((c) => c.delta)?.delta).toBe(
+      "answer from final synthesis"
+    )
+    expect(chunks.filter((c) => c.done)).toHaveLength(1)
+  })
+
+  it("emits an explicit fallback if cap synthesis returns no text", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(chunks.find((c) => c.delta)?.delta).toContain("tool-call limit")
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
   })
 

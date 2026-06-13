@@ -79,6 +79,9 @@ const trimToolResult = (
   return { content: content.slice(0, maxChars) + note, truncated: true }
 }
 
+const TOOL_LIMIT_FALLBACK_MESSAGE =
+  "I reached the tool-call limit while gathering context. Please try again with a narrower request."
+
 /**
  * Runs a chat turn that may call tools, provider-agnostically.
  *
@@ -204,9 +207,44 @@ export const streamChatWithTools = async ({
     }
   }
 
-  // Iteration cap hit: stop the loop and finalize with whatever we have.
+  // Iteration cap hit: make one final, tool-disabled synthesis pass over the
+  // accumulated tool results so the user gets an answer, not an empty bubble.
   logger.warn("Tool loop hit max iterations", "streamChatWithTools", {
     maxIterations
   })
-  onChunk({ done: true, metrics: lastFinalMetrics, toolRuns })
+  if (signal?.aborted) {
+    onChunk({ done: true, aborted: true })
+    return
+  }
+
+  let synthesisMetrics = lastFinalMetrics
+  let synthesisStopped = false
+  let emittedSynthesisText = false
+
+  await provider.streamChat(
+    { ...request, messages: workingMessages, tools: undefined },
+    (chunk) => {
+      if (chunk.toolCalls && chunk.toolCalls.length > 0) return
+      if (chunk.done && !chunk.error && !chunk.aborted) {
+        if (chunk.metrics) synthesisMetrics = chunk.metrics
+        return
+      }
+      if (chunk.error || chunk.aborted) {
+        synthesisStopped = true
+        onChunk(chunk)
+        return
+      }
+      if (chunk.delta?.trim() || chunk.thinkingDelta?.trim()) {
+        emittedSynthesisText = true
+      }
+      onChunk(chunk)
+    },
+    signal
+  )
+
+  if (synthesisStopped) return
+  if (!emittedSynthesisText) {
+    onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
+  }
+  onChunk({ done: true, metrics: synthesisMetrics, toolRuns })
 }
