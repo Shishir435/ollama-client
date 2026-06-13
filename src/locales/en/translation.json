@@ -242,6 +242,7 @@
         "tab": "Reading tab",
         "tabs": "Listing tabs",
         "selection": "Reading selection",
+        "trimmed": "result trimmed (change limit in Settings → Context)",
         "documents": "Searching files",
         "answering": "Answering"
       }
@@ -675,6 +676,8 @@
       "description": "Control how much tab and RAG context is injected into each request.",
       "max_tab_context_chars": "Max tab context chars",
       "max_rag_context_chars": "Max RAG context chars",
+      "max_tool_result_chars": "Max tool result chars",
+      "max_tool_result_chars_hint": "Each tool result (page text, transcripts, document search) is trimmed to this many characters before the model reads it. Lower is faster on a laptop; raise it if answers miss detail.",
       "auto_refresh_label": "Auto-refresh selected tab context",
       "auto_refresh_description": "When enabled, selected tabs are re-checked periodically for changes."
     },

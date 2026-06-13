@@ -176,13 +176,18 @@ export const handleChatWithModel = withErrorContext(
 
     if (tools && tools.length > 0) {
       const { getToolRegistry } = await import("@/lib/tools")
+      const toolResultMaxChars =
+        (await plasmoGlobalStorage.get<number>(
+          STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS
+        )) ?? undefined
       await streamChatWithTools({
         provider,
         request,
         registry: getToolRegistry(),
         onChunk,
         signal: ac.signal,
-        ctx: { signal: ac.signal, sessionId: msg.payload.sessionId, model }
+        ctx: { signal: ac.signal, sessionId: msg.payload.sessionId, model },
+        toolResultMaxChars
       })
     } else {
       await provider.streamChat(request, onChunk, ac.signal)

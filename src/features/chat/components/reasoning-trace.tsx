@@ -80,12 +80,14 @@ const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
   return key ? t(key) : run.label
 }
 
-const getToolRunDetail = (run: ToolRun) => {
-  if (run.error) return run.error
-  if (run.sources?.length) {
-    return run.sources.map((source) => source.title).join(", ")
+const getToolRunDetail = (run: ToolRun, t: (key: string) => string) => {
+  const parts: string[] = []
+  if (run.error) parts.push(run.error)
+  else if (run.sources?.length) {
+    parts.push(run.sources.map((source) => source.title).join(", "))
   }
-  return undefined
+  if (run.truncated) parts.push(t("chat.reasoning.trace.trimmed"))
+  return parts.length > 0 ? parts.join(" · ") : undefined
 }
 
 const buildToolTraceStep = (
@@ -96,7 +98,7 @@ const buildToolTraceStep = (
   label: getToolRunLabel(run, t),
   status: getToolRunStatus(run),
   icon: TOOL_ICONS[run.toolId] ?? Circle,
-  detail: getToolRunDetail(run)
+  detail: getToolRunDetail(run, t)
 })
 
 export interface ReasoningTraceProps {

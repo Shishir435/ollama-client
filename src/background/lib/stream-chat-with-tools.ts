@@ -1,6 +1,12 @@
+import { DEFAULT_MAX_TOOL_RESULT_CHARS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
-import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
+import type {
+  ToolCall,
+  ToolContext,
+  ToolRegistry,
+  ToolResult
+} from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
 
 interface StreamChatWithToolsOptions {
@@ -12,13 +18,49 @@ interface StreamChatWithToolsOptions {
   ctx: ToolContext
   /** Hard cap on tool round-trips before forcing a final answer. */
   maxIterations?: number
+  /** Per-result character cap; results above this are trimmed (transparency). */
+  toolResultMaxChars?: number
 }
 
 const DEFAULT_MAX_ITERATIONS = 5
 
+// Generous per-tool ceiling — laptop-local embedding/extraction can be slow, but
+// a tool must never hang the whole chat. On timeout the loop continues with an
+// error result instead of blocking forever.
+const TOOL_TIMEOUT_MS = 60_000
+
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
 // the raw name is the fallback label for any tool it doesn't special-case.
 const labelForTool = (name: string): string => name
+
+/** Race a tool call against a timeout so a hung tool can't stall the stream. */
+const callWithTimeout = (
+  run: Promise<ToolResult>,
+  name: string
+): Promise<ToolResult> =>
+  Promise.race([
+    run,
+    new Promise<ToolResult>((resolve) =>
+      setTimeout(
+        () =>
+          resolve({
+            content: `Tool "${name}" timed out after ${TOOL_TIMEOUT_MS / 1000}s.`,
+            isError: true
+          }),
+        TOOL_TIMEOUT_MS
+      )
+    )
+  ])
+
+/** Trim a tool result to the char cap, appending a model-visible note. */
+const trimToolResult = (
+  content: string,
+  maxChars: number
+): { content: string; truncated: boolean } => {
+  if (content.length <= maxChars) return { content, truncated: false }
+  const note = `\n\n[Tool result trimmed to ${maxChars} characters to keep responses fast. The user can change this limit in Settings → Context.]`
+  return { content: content.slice(0, maxChars) + note, truncated: true }
+}
 
 /**
  * Runs a chat turn that may call tools, provider-agnostically.
@@ -41,7 +83,8 @@ export const streamChatWithTools = async ({
   onChunk,
   signal,
   ctx,
-  maxIterations = DEFAULT_MAX_ITERATIONS
+  maxIterations = DEFAULT_MAX_ITERATIONS,
+  toolResultMaxChars = DEFAULT_MAX_TOOL_RESULT_CHARS
 }: StreamChatWithToolsOptions): Promise<void> => {
   const workingMessages: ChatMessage[] = [...request.messages]
   const toolRuns: ToolRun[] = []
@@ -108,17 +151,28 @@ export const streamChatWithTools = async ({
       toolRuns.push(run)
       onChunk({ toolRuns: [...toolRuns] })
 
-      const result = await registry.call(call.name, call.arguments, ctx)
+      const result = await callWithTimeout(
+        registry.call(call.name, call.arguments, ctx),
+        call.name
+      )
+
+      // Budget the result so a large page/transcript/RAG dump doesn't balloon
+      // the next prompt; the trim is surfaced to the user via the trace.
+      const { content: trimmedContent, truncated } = trimToolResult(
+        result.content,
+        toolResultMaxChars
+      )
 
       run.status = result.isError ? "error" : "done"
       run.completedAt = Date.now()
       if (result.isError) run.error = result.content
       if (result.sources?.length) run.sources = result.sources
+      if (truncated) run.truncated = true
       onChunk({ toolRuns: [...toolRuns] })
 
       workingMessages.push({
         role: "tool",
-        content: result.content,
+        content: trimmedContent,
         toolName: call.name,
         toolCallId: call.id
       })

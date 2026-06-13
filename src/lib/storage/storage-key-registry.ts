@@ -161,6 +161,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Prompt-budget preference."
   },
+  [STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS]: {
+    key: STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS,
+    scope: "sync-safe",
+    reason: "Per tool-result size cap; a user prompt-budget preference."
+  },
   [STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE]: {
     key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
     scope: "sync-safe",

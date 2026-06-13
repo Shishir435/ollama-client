@@ -7,6 +7,14 @@ import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
 
 /**
+ * Caches a model's `/api/show` capability tags for the session, keyed by
+ * `providerId::model`. The tags don't change while the extension runs, so this
+ * avoids a network round-trip on every message; the user override is still read
+ * fresh each call (it's a cheap local read and can change at any time).
+ */
+const capabilityTagsCache = new Map<string, string[] | undefined>()
+
+/**
  * Resolve the tools to offer a model for one chat turn, gated on the model's
  * resolved `toolCalling` capability (override → metadata → provider default —
  * the same chain the UI uses). Returns `undefined` when the model can't call
@@ -19,13 +27,17 @@ export const resolveModelTools = async (
   provider: LLMProvider
 ): Promise<ToolDefinition[] | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
+  const cacheKey = `${resolvedProviderId}::${model}`
 
   let ollamaCapabilities: string[] | undefined
-  if (provider.getModelDetails) {
+  if (capabilityTagsCache.has(cacheKey)) {
+    ollamaCapabilities = capabilityTagsCache.get(cacheKey)
+  } else if (provider.getModelDetails) {
     try {
       const details = await provider.getModelDetails(model)
       ollamaCapabilities = (details as { capabilities?: string[] } | null)
         ?.capabilities
+      capabilityTagsCache.set(cacheKey, ollamaCapabilities)
     } catch (error) {
       logger.debug(
         "Failed to read model details for tool gating",

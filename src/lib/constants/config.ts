@@ -186,6 +186,10 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
 export const CHAT_PAGINATION_LIMIT = 50
 export const DEFAULT_MAX_TAB_CONTEXT_CHARS = 12000
 export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000
+// Per tool-call result cap. Tool output (page text, transcripts, RAG dumps) is
+// fed back to the model as a new turn, so an unbounded result balloons the
+// prompt and slows generation. Kept modest for laptop use; user-configurable.
+export const DEFAULT_MAX_TOOL_RESULT_CHARS = 10000
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000
 

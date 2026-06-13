@@ -15,6 +15,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Transparency: the chain-of-thought reasoning trace now shows each tool run live (name, running/done/error status, and the sources it looked at), so it is always visible what the extension is doing on the user's behalf.
 
 ### Changed
+- Tool results are now trimmed to a configurable per-result character cap (default 10,000) before the model reads them, so a long page, transcript, or document dump no longer balloons the prompt and stalls generation on a laptop. When a result is trimmed it is shown in the reasoning trace ("result trimmed — change limit in Settings → Context") and the limit is adjustable on the options page.
+- Model tool-capability is cached per session instead of re-fetched (`/api/show`) on every message, cutting pre-stream latency and request churn.
+- Each tool call has a 60s timeout; a hung tool degrades to an error result instead of blocking the chat.
 - Browser tab access now defaults to **on** so tab context and the tab tools work out of the box (still toggleable from context settings / options).
 - Sending a message now shows the "Thinking…" state immediately. Previously the indicator only appeared after pre-stream work (RAG embedding, vector search) finished, so a slow context build looked like nothing was happening.
 

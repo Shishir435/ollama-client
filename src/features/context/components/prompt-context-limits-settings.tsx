@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import {
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
+  DEFAULT_MAX_TOOL_RESULT_CHARS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -37,6 +38,13 @@ export const PromptContextLimitsSettings = () => {
       instance: plasmoGlobalStorage
     },
     DEFAULT_MAX_RAG_CONTEXT_CHARS
+  )
+  const [maxToolResultChars, setMaxToolResultChars] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_MAX_TOOL_RESULT_CHARS
   )
   const [autoRefreshTabContext, setAutoRefreshTabContext] = useStorage<boolean>(
     {
@@ -84,6 +92,28 @@ export const PromptContextLimitsSettings = () => {
               const next = parseInt(e.target.value, 10)
               setMaxRagContextChars(
                 normalizeLimit(next, DEFAULT_MAX_RAG_CONTEXT_CHARS)
+              )
+            }}
+          />
+        </SettingsFormField>
+
+        <SettingsFormField
+          htmlFor="max-tool-result-chars"
+          label={t("settings.prompt_context_limits.max_tool_result_chars")}
+          description={t(
+            "settings.prompt_context_limits.max_tool_result_chars_hint"
+          )}>
+          <Input
+            id="max-tool-result-chars"
+            type="number"
+            min={MIN_LIMIT}
+            max={MAX_LIMIT}
+            step={500}
+            value={maxToolResultChars}
+            onChange={(e) => {
+              const next = parseInt(e.target.value, 10)
+              setMaxToolResultChars(
+                normalizeLimit(next, DEFAULT_MAX_TOOL_RESULT_CHARS)
               )
             }}
           />

@@ -99,6 +99,49 @@ describe("streamChatWithTools", () => {
     expect(done?.metrics?.eval_count).toBe(10)
   })
 
+  it("trims an oversized tool result and flags it in the trace", async () => {
+    const big = "x".repeat(5000)
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: big })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      toolResultMaxChars: 1000
+    })
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]?.truncated).toBe(true)
+  })
+
+  it("does not flag a result that fits within the cap", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "short" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      toolResultMaxChars: 1000
+    })
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]?.truncated).toBeUndefined()
+  })
+
   it("suppresses intermediate done chunks (only one reaches the UI)", async () => {
     const provider = scriptedProvider([
       [

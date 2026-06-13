@@ -119,6 +119,8 @@ export interface ToolRun {
     excerpt?: string
   }>
   error?: string
+  /** The tool's result was trimmed to the configured per-result char cap. */
+  truncated?: boolean
 }
 
 export interface ChatSession {

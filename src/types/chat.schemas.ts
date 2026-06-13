@@ -38,7 +38,8 @@ const ToolRunSchema = z.object({
       })
     )
     .optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  truncated: z.boolean().optional()
 })
 
 export const ChatMessageMetricsSchema = z.object({
