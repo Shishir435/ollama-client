@@ -6,7 +6,9 @@ import type {
 } from "../types"
 import { currentTabDefinition, runCurrentTab } from "./current-tab-tool"
 import { fileSearchDefinition, runFileSearch } from "./file-search-tool"
+import { listTabsDefinition, runListTabs } from "./list-tabs-tool"
 import { ragSearchDefinition, runRagSearch } from "./rag-search-tool"
+import { readTabDefinition, runReadTab } from "./read-tab-tool"
 import { runSelectedText, selectedTextDefinition } from "./selected-text-tool"
 
 interface InternalTool {
@@ -22,6 +24,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: ragSearchDefinition, run: runRagSearch },
   { definition: fileSearchDefinition, run: runFileSearch },
   { definition: currentTabDefinition, run: runCurrentTab },
+  { definition: listTabsDefinition, run: runListTabs },
+  { definition: readTabDefinition, run: runReadTab },
   { definition: selectedTextDefinition, run: runSelectedText }
 ]
 

@@ -57,6 +57,8 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   rag_search: "chat.reasoning.trace.knowledge",
   file_search: "chat.reasoning.trace.documents",
   current_tab: "chat.reasoning.trace.tab",
+  list_tabs: "chat.reasoning.trace.tabs",
+  read_tab: "chat.reasoning.trace.tab",
   selected_text: "chat.reasoning.trace.selection"
 }
 
@@ -68,6 +70,8 @@ const TOOL_ICONS: Record<
   rag_search: Search,
   file_search: FileStack,
   current_tab: PanelsTopLeft,
+  list_tabs: PanelsTopLeft,
+  read_tab: PanelsTopLeft,
   selected_text: TextSelect
 }
 

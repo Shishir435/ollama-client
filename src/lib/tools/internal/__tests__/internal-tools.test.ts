@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { runCurrentTab } from "../current-tab-tool"
 import { runFileSearch } from "../file-search-tool"
+import { runListTabs } from "../list-tabs-tool"
+import { runReadTab } from "../read-tab-tool"
 import { runSelectedText } from "../selected-text-tool"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -81,6 +83,75 @@ describe("current_tab tool", () => {
     const result = await runCurrentTab({}, ctx)
     expect(result.isError).toBe(true)
     expect(result.content).toContain("chrome://")
+  })
+})
+
+describe("list_tabs tool", () => {
+  afterEach(() => vi.clearAllMocks())
+
+  it("lists readable tabs and skips browser-internal pages", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 1, title: "Wiki", url: "https://wiki.test", active: true },
+      { id: 2, title: "Vid", url: "https://youtube.test" },
+      { id: 3, title: "Settings", url: "chrome://settings" }
+    ] as never)
+
+    const result = await runListTabs({}, ctx)
+    expect(result.content).toContain("id=1")
+    expect(result.content).toContain("(active)")
+    expect(result.content).toContain("id=2")
+    expect(result.content).not.toContain("chrome://settings")
+  })
+})
+
+describe("read_tab tool", () => {
+  afterEach(() => vi.clearAllMocks())
+
+  const openTabs = [
+    { id: 1, title: "Wiki", url: "https://wiki.test", active: true },
+    {
+      id: 2,
+      title: "Theo video",
+      url: "https://youtube.test/watch",
+      active: false
+    }
+  ]
+
+  it("reads a tab matched by a title/url query", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
+    vi.mocked(browser.tabs.sendMessage).mockResolvedValue({
+      html: "video transcript",
+      title: "Theo video"
+    } as never)
+
+    const result = await runReadTab({ query: "youtube" }, ctx)
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
+    expect(result.content).toContain("video transcript")
+  })
+
+  it("reads a tab by explicit id", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
+    vi.mocked(browser.tabs.sendMessage).mockResolvedValue({
+      html: "wiki body",
+      title: "Wiki"
+    } as never)
+
+    const result = await runReadTab({ tabId: 1 }, ctx)
+    expect(result.content).toContain("wiki body")
+  })
+
+  it("errors with the open-tab list when nothing matches", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
+    const result = await runReadTab({ query: "nonexistent" }, ctx)
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Wiki")
+  })
+
+  it("requires a tabId or query", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue(openTabs as never)
+    const result = await runReadTab({}, ctx)
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("current_tab")
   })
 })
 

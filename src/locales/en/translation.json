@@ -240,6 +240,7 @@
         "web": "Searching web",
         "knowledge": "Searching knowledge",
         "tab": "Reading tab",
+        "tabs": "Listing tabs",
         "selection": "Reading selection",
         "documents": "Searching files",
         "answering": "Answering"
