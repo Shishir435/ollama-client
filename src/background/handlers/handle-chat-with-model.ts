@@ -105,24 +105,6 @@ export const handleChatWithModel = withErrorContext(
       }
     }
 
-    const systemMsgIndex = preparedMessages.findIndex(
-      (m) => m.role === "system"
-    )
-    if (systemMsgIndex !== -1) {
-      if (contextHeader) {
-        preparedMessages[systemMsgIndex] = {
-          ...preparedMessages[systemMsgIndex],
-          content: preparedMessages[systemMsgIndex].content + contextHeader
-        }
-      }
-    } else {
-      preparedMessages.unshift({
-        role: "system",
-        content: systemPrompt + contextHeader
-      })
-    }
-    // -----------------------------------
-
     // Get Provider
     const provider = await ProviderFactory.getProviderForModel(
       model,
@@ -136,24 +118,29 @@ export const handleChatWithModel = withErrorContext(
     // Tell the model the tools exist and when to use them. Without this, weaker
     // and reasoning-tuned models (e.g. deepseek-r1) ignore the offered tools and
     // hallucinate "I can't access your tabs" instead of calling current_tab.
+    // Empty when no tools are offered.
     const guidance = buildToolSystemGuidance(tools)
-    if (guidance) {
-      const sysIdx = preparedMessages.findIndex((m) => m.role === "system")
-      if (sysIdx !== -1) {
-        preparedMessages[sysIdx] = {
-          ...preparedMessages[sysIdx],
-          content: preparedMessages[sysIdx].content + guidance
-        }
-      } else {
-        // No system message to attach to (e.g. user cleared the system prompt).
-        // Without the guidance, tool-capable models get the tool defs but never
-        // the behavioral hint and refuse to call them. Prepend a minimal one.
-        preparedMessages.unshift({
-          role: "system",
-          content: systemPrompt + guidance
-        })
+
+    // Build the system message in one place: append the RAG context header and
+    // tool guidance to an existing system message, or prepend one from the
+    // default/system prompt. Single construction means guidance can never be
+    // silently dropped, regardless of whether the user kept a system prompt.
+    const systemMsgIndex = preparedMessages.findIndex(
+      (m) => m.role === "system"
+    )
+    if (systemMsgIndex !== -1) {
+      preparedMessages[systemMsgIndex] = {
+        ...preparedMessages[systemMsgIndex],
+        content:
+          preparedMessages[systemMsgIndex].content + contextHeader + guidance
       }
+    } else {
+      preparedMessages.unshift({
+        role: "system",
+        content: systemPrompt + contextHeader + guidance
+      })
     }
+    // -----------------------------------
 
     const request = {
       model,
