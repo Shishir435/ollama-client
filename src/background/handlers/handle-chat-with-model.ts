@@ -132,6 +132,21 @@ export const handleChatWithModel = withErrorContext(
     // request is unchanged and the old context-injection path is used as-is.
     const tools = await resolveModelTools(model, providerId, provider)
 
+    // Tell the model the tools exist and when to use them. Without this, weaker
+    // and reasoning-tuned models (e.g. deepseek-r1) ignore the offered tools and
+    // hallucinate "I can't access your tabs" instead of calling current_tab.
+    if (tools && tools.length > 0) {
+      const toolNames = tools.map((tool) => tool.name).join(", ")
+      const guidance = `\n\nYou have tools available: ${toolNames}. When the user refers to the current page or tab, a video they are watching, their open tabs, selected text, their uploaded files, or earlier conversations, CALL the matching tool to fetch the real content — do not reply that you cannot access it.`
+      const sysIdx = preparedMessages.findIndex((m) => m.role === "system")
+      if (sysIdx !== -1) {
+        preparedMessages[sysIdx] = {
+          ...preparedMessages[sysIdx],
+          content: preparedMessages[sysIdx].content + guidance
+        }
+      }
+    }
+
     const request = {
       model,
       messages: preparedMessages,
