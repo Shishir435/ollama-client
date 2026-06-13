@@ -90,8 +90,9 @@ export const useChat = () => {
     files?: ProcessedFile[],
     images?: ImageAttachment[]
   ) => {
-    const sessionId = await ensureSessionId()
-    if (!sessionId) return
+    // Block re-entrancy: ignore a send while a generation is already in flight
+    // so a slow turn can't have a second query queued behind it.
+    if (isLoading || isStreaming) return
 
     const rawInput = customInput?.trim() ?? input.trim()
 
@@ -107,10 +108,17 @@ export const useChat = () => {
     const hasImages = !!images && images.length > 0
     if (!rawInput && (!files || files.length === 0) && !hasImages) return
 
-    // Show the thinking state immediately — context building (RAG embedding,
-    // vector search) runs before the stream starts, and without this the user
-    // gets no feedback for that whole window and assumes nothing happened.
+    // Show the thinking state immediately, before any await — session
+    // creation, context building (RAG embedding, vector search) all run before
+    // the stream starts, and without this the user gets no feedback for that
+    // whole window, assumes nothing happened, and re-sends.
     setIsLoading(true)
+
+    const sessionId = await ensureSessionId()
+    if (!sessionId) {
+      setIsLoading(false)
+      return
+    }
 
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
@@ -211,6 +219,8 @@ export const useChat = () => {
     }
 
     if (config.groundedOnlyMode && !hasRelevantPageContext) {
+      // Early exit without streaming — clear the thinking state we set above.
+      setIsLoading(false)
       const settingsDeepLink =
         "/options.html?tab=context&focus=grounded-only-mode"
 

@@ -225,6 +225,10 @@ export const ChatInputBox = ({
     .map((s) => s.result)
 
   const handleSend = () => {
+    // Don't start a new turn while one is in flight (the action button is a
+    // Stop button then; this guards programmatic/edge callers too).
+    if (isLoading) return
+
     const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
     const pendingTabCount = selectedTabNums.filter(
       (tabId) => loadingIds?.[tabId]
