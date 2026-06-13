@@ -87,7 +87,11 @@ vi.mock("@/features/chat/stores/load-stream-store", () => ({
     setIsLoading: vi.fn(),
     isStreaming: false,
     setIsStreaming: vi.fn()
-  }))
+  })),
+  // sendMessage reads the live store for its re-entrancy guard.
+  loadStreamStore: {
+    getState: vi.fn(() => ({ isLoading: false, isStreaming: false }))
+  }
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({

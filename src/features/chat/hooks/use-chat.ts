@@ -5,7 +5,10 @@ import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
 import { useChatSessionLifecycle } from "@/features/chat/hooks/use-chat-session-lifecycle"
 import { useChatStreaming } from "@/features/chat/hooks/use-chat-streaming"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
-import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import {
+  loadStreamStore,
+  useLoadStream
+} from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
@@ -91,8 +94,12 @@ export const useChat = () => {
     images?: ImageAttachment[]
   ) => {
     // Block re-entrancy: ignore a send while a generation is already in flight
-    // so a slow turn can't have a second query queued behind it.
-    if (isLoading || isStreaming) return
+    // so a slow turn can't have a second query queued behind it. Read live
+    // store state, not the render-time closure — setIsLoading(true) below
+    // updates the store synchronously but the closed-over value lags a render,
+    // so two sends in the same frame would both slip past a closure check.
+    const live = loadStreamStore.getState()
+    if (live.isLoading || live.isStreaming) return
 
     const rawInput = customInput?.trim() ?? input.trim()
 
