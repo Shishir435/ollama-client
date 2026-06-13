@@ -144,12 +144,27 @@ export const useChat = () => {
       attachments,
       images: hasImages ? images : undefined
     }
-    await addMessage(sessionId, userMessage)
 
-    if (!customInput) setInput("")
+    // addMessage/autoRenameSession are async SQLite writes running inside the
+    // loading window. A failure here must clear isLoading, or the session is
+    // wedged — every later send hits the re-entrancy guard and silently bails.
+    try {
+      await addMessage(sessionId, userMessage)
 
-    const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
-    await autoRenameSession(sessionId, titleContent)
+      if (!customInput) setInput("")
+
+      const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
+      await autoRenameSession(sessionId, titleContent)
+    } catch (error) {
+      logger.error("Failed to persist user message", "useChat", { error })
+      setIsLoading(false)
+      toast({
+        variant: "destructive",
+        title: "Couldn't send message",
+        description: "Saving the message failed. Please try again."
+      })
+      return
+    }
 
     let ragResult: Awaited<ReturnType<typeof buildRagContext>>
     try {
