@@ -144,6 +144,14 @@ export const handleChatWithModel = withErrorContext(
           ...preparedMessages[sysIdx],
           content: preparedMessages[sysIdx].content + guidance
         }
+      } else {
+        // No system message to attach to (e.g. user cleared the system prompt).
+        // Without the guidance, tool-capable models get the tool defs but never
+        // the behavioral hint and refuse to call them. Prepend a minimal one.
+        preparedMessages.unshift({
+          role: "system",
+          content: systemPrompt + guidance
+        })
       }
     }
 
