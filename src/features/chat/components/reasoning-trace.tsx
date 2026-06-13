@@ -8,20 +8,10 @@ import {
   Sparkles,
   TextSelect
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ToolRun } from "@/types"
 
@@ -140,7 +130,9 @@ export const ReasoningTrace = ({
   isStreaming = false
 }: ReasoningTraceProps) => {
   const { t } = useTranslation()
-  const [showDetails, setShowDetails] = useState(false)
+  // null = follow auto behavior; true/false = user explicitly toggled.
+  const [userToggled, setUserToggled] = useState<boolean | null>(null)
+  const reasoningBodyRef = useRef<HTMLDivElement>(null)
   const hasThinking = Boolean(message.thinking?.trim())
   const toolRuns = message.metrics?.toolRuns ?? []
   const usedContextChunks = message.metrics?.usedContextChunks ?? []
@@ -154,11 +146,25 @@ export const ReasoningTrace = ({
     usedContextChunks.some((chunk) => chunk.source === "tab")
   const isBusy = isLoading || isStreaming
 
+  const hasVisibleContent = Boolean(message.content?.trim())
+  // Auto-expand reasoning while the model is still thinking (no answer yet) so
+  // the live reasoning is visible; collapse once the answer starts streaming.
+  // The user can override either way; once they do we respect their choice.
+  const autoOpenReasoning = isBusy && hasThinking && !hasVisibleContent
+  const reasoningOpen = userToggled ?? autoOpenReasoning
+
+  // Keep the live reasoning scrolled to the latest line while it streams.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thinking growth
+  useEffect(() => {
+    if (reasoningOpen && isBusy && reasoningBodyRef.current) {
+      reasoningBodyRef.current.scrollTop = reasoningBodyRef.current.scrollHeight
+    }
+  }, [message.thinking, reasoningOpen, isBusy])
+
   if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) {
     return null
   }
 
-  const hasVisibleContent = Boolean(message.content?.trim())
   const steps: TraceStep[] = [
     isBusy && !hasVisibleContent
       ? {
@@ -203,87 +209,84 @@ export const ReasoningTrace = ({
       : getDisplayLabel(activeStep.label, activeStep.status)
     : undefined
 
+  const reasoningLabel =
+    isBusy && !hasVisibleContent
+      ? t("chat.reasoning.trace.thinking")
+      : t("chat.reasoning.title")
+
   return (
-    <section className="mb-2 inline-flex max-w-full items-center gap-1 rounded-chip bg-background/35 px-1 py-0.5 text-xs">
-      <div className="flex min-w-0 items-center gap-0.5">
-        <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
-        {steps.map((step) => {
-          const Icon = step.icon ?? Circle
-          const label = getDisplayLabel(step.label, step.status)
-          const tooltip = step.detail ? `${label}: ${step.detail}` : label
-          return (
-            <TooltipActionButton
-              key={step.key}
-              trigger={
-                <span
-                  className={cn(
-                    "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
-                    statusClass(step.status)
-                  )}
-                />
-              }
-              tooltip={tooltip}
-              icon={
-                <>
-                  <Icon
+    <section className="mb-2 flex max-w-full flex-col gap-1 text-xs">
+      <div className="inline-flex max-w-full items-center gap-1 self-start rounded-chip bg-background/35 px-1 py-0.5">
+        <div className="flex min-w-0 items-center gap-0.5">
+          <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
+          {steps.map((step) => {
+            const Icon = step.icon ?? Circle
+            const label = getDisplayLabel(step.label, step.status)
+            const tooltip = step.detail ? `${label}: ${step.detail}` : label
+            return (
+              <TooltipActionButton
+                key={step.key}
+                trigger={
+                  <span
                     className={cn(
-                      "icon-sm",
-                      step.status === "running" && "animate-pulse"
+                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
+                      statusClass(step.status)
                     )}
                   />
-                  <span className="sr-only">{label}</span>
-                </>
-              }
+                }
+                tooltip={tooltip}
+                icon={
+                  <>
+                    <Icon
+                      className={cn(
+                        "icon-sm",
+                        step.status === "running" && "animate-pulse"
+                      )}
+                    />
+                    <span className="sr-only">{label}</span>
+                  </>
+                }
+              />
+            )
+          })}
+        </div>
+
+        {activeLabel && (
+          <span
+            className={cn(
+              "max-w-28 truncate pr-1 text-[11px]",
+              activeStep?.status === "error"
+                ? "text-status-danger"
+                : "text-muted-foreground"
+            )}>
+            {activeLabel}
+          </span>
+        )}
+
+        {hasThinking && (
+          <button
+            type="button"
+            onClick={() => setUserToggled(!reasoningOpen)}
+            aria-expanded={reasoningOpen}
+            className="inline-flex h-7 items-center gap-0.5 rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
+            <ListTree className="icon-sm" />
+            {reasoningLabel}
+            <ChevronDown
+              className={cn(
+                "icon-xs transition-transform",
+                reasoningOpen && "rotate-180"
+              )}
             />
-          )
-        })}
+          </button>
+        )}
       </div>
 
-      {activeLabel && (
-        <span
-          className={cn(
-            "max-w-28 truncate pr-1 text-[11px]",
-            activeStep?.status === "error"
-              ? "text-status-danger"
-              : "text-muted-foreground"
-          )}>
-          {activeLabel}
-        </span>
-      )}
-
-      {hasThinking && (
-        <Popover open={showDetails} onOpenChange={setShowDetails}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <PopoverTrigger
-                  render={
-                    <button
-                      type="button"
-                      className="inline-flex h-7 items-center gap-0.5 rounded-control px-1 text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
-                      aria-expanded={showDetails}
-                      aria-label={t("chat.reasoning.title")}
-                    />
-                  }
-                />
-              }>
-              <ListTree className="icon-sm" />
-              <ChevronDown
-                className={cn(
-                  "icon-xs transition-transform",
-                  showDetails && "rotate-180"
-                )}
-              />
-            </TooltipTrigger>
-            <TooltipContent>{t("chat.reasoning.title")}</TooltipContent>
-          </Tooltip>
-          <PopoverContent
-            align="start"
-            sideOffset={6}
-            className="max-h-64 w-[min(32rem,calc(100vw-4rem))] overflow-y-auto rounded-panel border border-border/35 bg-popover px-3 py-2 text-[12.5px] leading-relaxed text-popover-foreground shadow-md">
-            <MarkdownRenderer content={message.thinking ?? ""} />
-          </PopoverContent>
-        </Popover>
+      {hasThinking && reasoningOpen && (
+        <div
+          ref={reasoningBodyRef}
+          className="max-h-56 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          <MarkdownRenderer content={message.thinking ?? ""} />
+        </div>
       )}
     </section>
   )

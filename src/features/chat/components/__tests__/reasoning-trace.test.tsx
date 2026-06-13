@@ -63,20 +63,30 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
   })
 
-  it("closes thinking details when clicking outside", async () => {
+  it("toggles thinking details open and closed via the button", async () => {
     render(<ReasoningTrace message={message} />)
 
-    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    const toggle = screen.getByRole("button", { name: /Thought Process/i })
+    fireEvent.click(toggle)
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
 
-    fireEvent.pointerDown(document.body)
-    fireEvent.click(document.body)
-
+    fireEvent.click(toggle)
     await waitFor(() =>
       expect(
         screen.queryByText("private reasoning detail")
       ).not.toBeInTheDocument()
     )
+  })
+
+  it("auto-expands live reasoning while thinking (no answer yet)", () => {
+    render(
+      <ReasoningTrace
+        message={{ role: "assistant", content: "", thinking: "live thoughts" }}
+        isStreaming
+      />
+    )
+    // Visible inline, without any click, while the model is still thinking.
+    expect(screen.getByText("live thoughts")).toBeInTheDocument()
   })
 
   it("keeps thought details for done thinking messages without live answering state", () => {
