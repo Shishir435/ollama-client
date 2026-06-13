@@ -56,7 +56,15 @@ export const useImageAttachments = ({
           onReject?.("size", file)
           continue
         }
-        const base64 = await readFileAsBase64(file)
+        let base64: string
+        try {
+          base64 = await readFileAsBase64(file)
+        } catch {
+          // Reading failed (e.g. FileReader.onerror) — surface it and keep the
+          // rest of the batch moving instead of rejecting the whole call.
+          onReject?.("type", file)
+          continue
+        }
         accepted.push({
           imageId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           fileName: file.name,

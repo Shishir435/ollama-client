@@ -2,7 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
-import { useImageAttachments } from "@/features/chat/hooks/use-image-attachments"
+import {
+  type ImageRejectReason,
+  useImageAttachments
+} from "@/features/chat/hooks/use-image-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
@@ -104,14 +107,9 @@ export const ChatInputBox = ({
     DEFAULT_MAX_IMAGE_SIZE_MB
   )
 
-  const {
-    images,
-    addFiles: addImageFiles,
-    remove: removeImage,
-    clear: clearImages
-  } = useImageAttachments({
-    maxSizeBytes: (maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB) * 1024 * 1024,
-    onReject: (reason, file) => {
+  // Stable reference so useImageAttachments' addFiles isn't recreated each render.
+  const handleImageReject = useCallback(
+    (reason: ImageRejectReason, file: File) => {
       const description =
         reason === "size"
           ? t("chat.input.images.too_large", {
@@ -122,7 +120,18 @@ export const ChatInputBox = ({
             ? t("chat.input.images.heic_unsupported", { name: file.name })
             : t("chat.input.images.unsupported_type", { name: file.name })
       toast({ variant: "destructive", description })
-    }
+    },
+    [t, toast, maxImageSizeMb]
+  )
+
+  const {
+    images,
+    addFiles: addImageFiles,
+    remove: removeImage,
+    clear: clearImages
+  } = useImageAttachments({
+    maxSizeBytes: (maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB) * 1024 * 1024,
+    onReject: handleImageReject
   })
 
   // Route image files to the image pipeline when the model supports vision,
