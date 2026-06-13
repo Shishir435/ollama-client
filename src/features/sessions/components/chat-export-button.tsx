@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { Download, FileDown, FileText } from "@/lib/lucide-icon"
+import { BookOpen, Code, Download, FileDown, FileText } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const ChatExportButton = ({
@@ -44,19 +44,19 @@ export const ChatExportButton = ({
         {
           key: "json",
           label: t("sessions.export.format_json"),
-          icon: <FileDown className="icon-md" />,
+          icon: <Code className="icon-md" />,
           onClick: () => exportAllSessionsAsJson(sessions)
         },
         {
           key: "pdf",
           label: t("sessions.export.format_pdf"),
-          icon: <FileText className="icon-md" />,
+          icon: <FileDown className="icon-md" />,
           onClick: () => exportAllSessionsAsPdf(sessions)
         },
         {
           key: "markdown",
           label: t("sessions.export.format_markdown"),
-          icon: <FileText className="icon-md" />,
+          icon: <BookOpen className="icon-md" />,
           onClick: () => exportAllSessionsAsMarkdown(sessions)
         },
         {
@@ -71,19 +71,19 @@ export const ChatExportButton = ({
           {
             key: "json",
             label: t("sessions.export.format_json"),
-            icon: <FileDown className="icon-md" />,
+            icon: <Code className="icon-md" />,
             onClick: () => exportSessionAsJson(current)
           },
           {
             key: "pdf",
             label: t("sessions.export.format_pdf"),
-            icon: <FileText className="icon-md" />,
+            icon: <FileDown className="icon-md" />,
             onClick: () => exportSessionAsPdf(current)
           },
           {
             key: "markdown",
             label: t("sessions.export.format_markdown"),
-            icon: <FileText className="icon-md" />,
+            icon: <BookOpen className="icon-md" />,
             onClick: () => exportSessionAsMarkdown(current)
           },
           {

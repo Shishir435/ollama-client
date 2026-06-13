@@ -374,9 +374,9 @@
     "embedding_status": {
       "checking": "正在检查状态...",
       "downloading": "正在下载 {{model}}... {{progress}}",
-      "ready": "嵌入模型就绪: {{model}}",
-      "missing": "模型缺失: {{model}}",
-      "checking_model": "正在检查嵌入模型...",
+      "ready": "RAG/搜索嵌入模型就绪: {{model}}",
+      "missing": "缺少 RAG/搜索嵌入模型: {{model}}",
+      "checking_model": "正在检查 RAG/搜索嵌入模型...",
       "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
       "download_button": "下载模型"
@@ -534,10 +534,10 @@
       "feedback_clear_error": "无法清除反馈数据"
     },
     "provider_status": {
-      "checking": "正在检查 Provider 状态...",
-      "error": "Provider 无法连接",
-      "empty": "未找到模型",
-      "ready": "Provider 已准备就绪"
+      "checking": "正在检查本地 Provider...",
+      "error": "本地 Provider 无法连接",
+      "empty": "已连接本地 Provider，但未找到聊天模型",
+      "ready": "本地 Provider 已就绪"
     },
     "capabilities": {
       "edit_tooltip": "设置能力",

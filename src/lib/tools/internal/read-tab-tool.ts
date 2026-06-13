@@ -3,6 +3,7 @@ import {
   accessDeniedMessage,
   classifyTabAccess,
   getAllTabs,
+  listReadableTabs,
   type OpenTab,
   readTabContent
 } from "./tab-utils"
@@ -46,6 +47,13 @@ const matchTabs = (tabs: OpenTab[], query: string): OpenTab[] => {
   )
 }
 
+const parseTabId = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isInteger(value)) return value
+  if (typeof value !== "string" || !value.trim()) return undefined
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : undefined
+}
+
 export const runReadTab = async (
   args: Record<string, unknown>,
   _ctx: ToolContext
@@ -57,14 +65,26 @@ export const runReadTab = async (
 
   let target: OpenTab | undefined
   let ambiguous: OpenTab[] = []
+  let fallbackNote = ""
+  const tabId = parseTabId(args.tabId)
 
-  if (typeof args.tabId === "number") {
-    target = tabs.find((tab) => tab.id === args.tabId)
+  if (tabId !== undefined) {
+    target = tabs.find((tab) => tab.id === tabId)
     if (!target) {
-      return {
-        content: `No open tab has id ${args.tabId}. Call list_tabs for current ids.`,
-        isError: true
+      const readableTabs = await listReadableTabs()
+      const activeReadableTab = readableTabs.find((tab) => tab.active)
+      if (!activeReadableTab) {
+        const available = readableTabs
+          .map((tab) => `id=${tab.id}: ${tab.title}`)
+          .join("; ")
+        return {
+          content: available
+            ? `Tab id ${tabId} is no longer open. Current readable tabs: ${available}`
+            : `Tab id ${tabId} is no longer open, and no readable tabs are currently available.`
+        }
       }
+      target = activeReadableTab
+      fallbackNote = `\n\n(Note: requested tab id ${tabId} was no longer open, so read the currently active tab "${target.title}" instead.)`
     }
   } else if (typeof args.query === "string" && args.query.trim()) {
     const matches = matchTabs(tabs, args.query.trim())
@@ -103,7 +123,7 @@ export const runReadTab = async (
         ? `\n\n(Note: ${ambiguous.length} other open tab(s) also matched; read the one titled "${target.title}".)`
         : ""
     return {
-      content: `${text}${note}`,
+      content: `${text}${note}${fallbackNote}`,
       sources: [{ title: response.title || target.title, url: target.url }]
     }
   } catch (error) {

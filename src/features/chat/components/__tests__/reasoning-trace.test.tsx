@@ -142,7 +142,7 @@ describe("ReasoningTrace", () => {
       <ReasoningTrace
         message={{
           role: "assistant",
-          content: "answer",
+          content: "",
           metrics: {
             usedContextChunks: [
               {
@@ -217,7 +217,7 @@ describe("ReasoningTrace", () => {
       <ReasoningTrace
         message={{
           role: "assistant",
-          content: "answer",
+          content: "",
           metrics: {
             toolRuns: [
               {
@@ -240,5 +240,43 @@ describe("ReasoningTrace", () => {
         screen.getByText("RAG search: No indexed files")
       ).toBeInTheDocument()
     })
+  })
+
+  it("does not pin a recovered tool error as the active label after answer text exists", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "read_tab",
+                label: "Reading tab",
+                status: "error",
+                startedAt: 1,
+                completedAt: 2,
+                error: "No open tab has id 2."
+              },
+              {
+                toolId: "list_tabs",
+                label: "Listing tabs",
+                status: "done",
+                startedAt: 3,
+                completedAt: 4,
+                resultPreview: "id=7: Docs"
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    expect(
+      screen.queryByText(/Reading tab: No open tab/)
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    expect(screen.getByText("No open tab has id 2.")).toBeInTheDocument()
   })
 })

@@ -36,21 +36,38 @@ const labelForTool = (name: string): string => name
 /** Race a tool call against a timeout so a hung tool can't stall the stream. */
 const callWithTimeout = (
   run: Promise<ToolResult>,
-  name: string
-): Promise<ToolResult> =>
-  Promise.race([
-    run,
-    new Promise<ToolResult>((resolve) =>
-      setTimeout(
-        () =>
-          resolve({
-            content: `Tool "${name}" timed out after ${TOOL_TIMEOUT_MS / 1000}s.`,
-            isError: true
-          }),
-        TOOL_TIMEOUT_MS
-      )
+  name: string,
+  signal?: AbortSignal
+): Promise<ToolResult> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let abortHandler: (() => void) | undefined
+
+  const timeoutPromise = new Promise<ToolResult>((resolve) => {
+    timeoutId = setTimeout(
+      () =>
+        resolve({
+          content: `Tool "${name}" timed out after ${TOOL_TIMEOUT_MS / 1000}s.`,
+          isError: true
+        }),
+      TOOL_TIMEOUT_MS
     )
-  ])
+  })
+
+  const abortPromise = new Promise<ToolResult>((resolve) => {
+    abortHandler = () =>
+      resolve({
+        content: `Tool "${name}" was stopped by the user.`,
+        isError: true
+      })
+    if (signal?.aborted) abortHandler()
+    else signal?.addEventListener("abort", abortHandler, { once: true })
+  })
+
+  return Promise.race([run, timeoutPromise, abortPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId)
+    if (abortHandler) signal?.removeEventListener("abort", abortHandler)
+  })
+}
 
 /** Trim a tool result to the char cap, appending a model-visible note. */
 const trimToolResult = (
@@ -157,7 +174,8 @@ export const streamChatWithTools = async ({
 
       const result = await callWithTimeout(
         registry.call(call.name, call.arguments, ctx),
-        call.name
+        call.name,
+        signal
       )
 
       // Budget the result so a large page/transcript/RAG dump doesn't balloon

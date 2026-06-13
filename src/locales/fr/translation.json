@@ -374,9 +374,9 @@
     "embedding_status": {
       "checking": "Vérification du statut...",
       "downloading": "Téléchargement de {{model}}... {{progress}}",
-      "ready": "Modèle d'incrustation prêt : {{model}}",
-      "missing": "Modèle manquant : {{model}}",
-      "checking_model": "Vérification du modèle d'incrustation...",
+      "ready": "Modèle d'incrustation RAG/recherche prêt : {{model}}",
+      "missing": "Modèle d'incrustation RAG/recherche manquant : {{model}}",
+      "checking_model": "Vérification du modèle d'incrustation RAG/recherche...",
       "error": "Impossible de vérifier l'état. Cliquez pour réessayer.",
       "required_for_rag": "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
       "download_button": "Télécharger le Modèle"
@@ -534,10 +534,10 @@
       "feedback_clear_error": "Impossible d’effacer les données de retour"
     },
     "provider_status": {
-      "checking": "Vérification du statut d'Provider...",
-      "error": "Provider n'est pas accessible",
-      "empty": "Aucun modèle trouvé",
-      "ready": "Provider est prêt"
+      "checking": "Vérification du fournisseur local...",
+      "error": "Fournisseur local inaccessible",
+      "empty": "Fournisseur local joignable, mais aucun modèle de chat trouvé",
+      "ready": "Fournisseur local prêt"
     },
     "capabilities": {
       "edit_tooltip": "Définir les capacités",

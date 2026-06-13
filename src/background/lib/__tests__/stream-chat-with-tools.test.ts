@@ -188,6 +188,38 @@ describe("streamChatWithTools", () => {
     expect(chunks.find((c) => c.delta)?.delta).toBe("recovered")
   })
 
+  it("stops promptly when aborted during a tool call", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "should not stream" }, { done: true }]
+    ])
+    const ac = new AbortController()
+    const registry = registryWith(() => new Promise(() => {}))
+
+    const chunks: ChatStreamMessage[] = []
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry,
+      onChunk: (c) => chunks.push(c),
+      ctx: { signal: ac.signal },
+      signal: ac.signal
+    })
+    ac.abort()
+    await promise
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]).toMatchObject({
+      status: "error",
+      error: 'Tool "echo" was stopped by the user.'
+    })
+    expect(chunks.at(-1)).toMatchObject({ done: true, aborted: true })
+  })
+
   it("stops at the iteration cap if the model keeps calling tools", async () => {
     // Every turn requests a tool; the cap must end the loop.
     const provider = scriptedProvider(

@@ -1,8 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import {
   AppWindow,
+  BrainCircuit,
   CheckIcon,
-  Database,
   Eye,
   Loader2,
   RefreshCw,
@@ -285,7 +285,7 @@ export const ContextSettingsMenu = () => {
       key: "rag",
       checked: useRAG,
       onClick: () => setUseRAG(!useRAG),
-      icon: Database,
+      icon: BrainCircuit,
       label: useRAG
         ? t("chat.input.rag_toggle_on")
         : t("chat.input.rag_toggle_off")

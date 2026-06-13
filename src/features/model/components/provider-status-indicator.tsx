@@ -5,9 +5,9 @@ import { TooltipActionButton } from "@/components/actions"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   AlertTriangle,
-  CheckCircle,
   Loader2,
   RefreshCw,
+  Server,
   XCircle
 } from "@/lib/lucide-icon"
 import { STATUS_STYLES } from "@/lib/ui-status"
@@ -23,7 +23,7 @@ const iconMap = {
   empty: (
     <AlertTriangle className={cn("icon-md", STATUS_STYLES.warning.text)} />
   ),
-  ready: <CheckCircle className={cn("icon-md", STATUS_STYLES.success.text)} />
+  ready: <Server className={cn("icon-md", STATUS_STYLES.success.text)} />
 }
 
 export const ProviderStatusIndicator = () => {

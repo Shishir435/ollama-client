@@ -208,7 +208,9 @@ export const ReasoningTrace = ({
   ].filter(Boolean) as TraceStep[]
   const activeStep =
     steps.find((step) => step.status === "running") ??
-    steps.find((step) => step.status === "error")
+    (!hasVisibleContent
+      ? steps.find((step) => step.status === "error")
+      : undefined)
   const activeLabel = activeStep
     ? activeStep.status === "error" && activeStep.detail
       ? `${activeStep.label}: ${activeStep.detail}`
@@ -274,7 +276,7 @@ export const ReasoningTrace = ({
             type="button"
             onClick={toggleDetails}
             aria-expanded={detailsOpen}
-            className="inline-flex h-7 items-center gap-0.5 rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
+            className="inline-flex h-7 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
             <ListTree className="icon-sm" />
             {reasoningLabel}
             <ChevronDown

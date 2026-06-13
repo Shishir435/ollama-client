@@ -19,7 +19,7 @@ import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
-  Database,
+  Brain,
   Download,
   Loader2,
   RefreshCw
@@ -190,12 +190,12 @@ export const EmbeddingStatusIndicator = () => {
         : t("model.embedding_status.checking")
     },
     ready: {
-      icon: <Database className={cn("icon-md", STATUS_STYLES.success.text)} />,
+      icon: <Brain className={cn("icon-md", STATUS_STYLES.success.text)} />,
       color: STATUS_STYLES.success.text,
       text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
-      icon: <Database className={cn("icon-md", STATUS_STYLES.warning.text)} />,
+      icon: <Brain className={cn("icon-md", STATUS_STYLES.warning.text)} />,
       color: STATUS_STYLES.warning.text,
       text: t("model.embedding_status.missing", { model: modelName })
     },
@@ -207,7 +207,7 @@ export const EmbeddingStatusIndicator = () => {
       text: t("model.embedding_status.error")
     },
     default: {
-      icon: <Database className={cn("icon-md", STATUS_STYLES.neutral.text)} />,
+      icon: <Brain className={cn("icon-md", STATUS_STYLES.neutral.text)} />,
       color: STATUS_STYLES.neutral.text,
       text: t("model.embedding_status.checking_model")
     }
