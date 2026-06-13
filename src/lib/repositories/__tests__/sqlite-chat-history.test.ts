@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/sqlite/db", () => ({
   query: vi.fn(),
   run: vi.fn(),
+  flushSave: vi.fn().mockResolvedValue(undefined),
   resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
 }))
 
@@ -106,8 +107,10 @@ describe("sessions", () => {
     }
   })
 
-  it("bulkPutSessions persists imported messages and image files", async () => {
+  it("bulkPutSessions persists imported messages and image files with fresh ids", async () => {
     mockedRun.mockResolvedValue(undefined)
+    // Every insertImportedMessage reads last_insert_rowid for the new id.
+    mockedQuery.mockResolvedValue([{ id: 10 }])
     await repo.bulkPutSessions([
       {
         id: "s-img",
@@ -116,7 +119,7 @@ describe("sessions", () => {
         updatedAt: 1,
         messages: [
           {
-            id: 10,
+            id: 99,
             role: "user",
             content: "see image",
             timestamp: 100,
@@ -134,40 +137,79 @@ describe("sessions", () => {
       }
     ])
 
-    expect(mockedRun).toHaveBeenCalledTimes(7)
-    expect(mockedRun.mock.calls[0][0]).toBe("BEGIN IMMEDIATE")
-    expect(mockedRun.mock.calls[1][0]).toContain(
-      "INSERT OR REPLACE INTO sessions"
-    )
-    expect(mockedRun.mock.calls[2][0]).toBe(
-      "DELETE FROM files WHERE sessionId = ?"
-    )
-    expect(mockedRun.mock.calls[3][0]).toBe(
-      "DELETE FROM messages WHERE sessionId = ?"
-    )
-    expect(mockedRun.mock.calls[4][0]).toContain(
-      "INSERT OR REPLACE INTO messages"
-    )
-    expect(mockedRun.mock.calls[4][1]?.slice(0, 4)).toEqual([
-      10,
+    expect(mockedRun.mock.calls.map(([sql]) => sql)).toEqual([
+      "BEGIN IMMEDIATE",
+      expect.stringContaining("INSERT OR REPLACE INTO sessions"),
+      "DELETE FROM files WHERE sessionId = ?",
+      "DELETE FROM messages WHERE sessionId = ?",
+      expect.stringContaining("INSERT INTO messages"),
+      expect.stringContaining("INSERT INTO files"),
+      "UPDATE sessions SET currentLeafId = ? WHERE id = ?",
+      "COMMIT"
+    ])
+
+    // The exported id (99) must NOT be reused: no OR REPLACE, and the id is not
+    // in the message insert params — it gets a fresh autoincrement id instead.
+    const msgInsert = mockedRun.mock.calls[4]
+    expect(msgInsert[0]).not.toContain("OR REPLACE")
+    expect(msgInsert[1]).not.toContain(99)
+    expect(msgInsert[1]?.slice(0, 4)).toEqual([
       "s-img",
       "user",
-      "see image"
+      "see image",
+      null
     ])
-    expect(mockedRun.mock.calls[5][0]).toContain("INSERT INTO files")
-    expect(mockedRun.mock.calls[5][1]?.slice(0, 4)).toEqual([
+    // Files are keyed to the new message id (10) from last_insert_rowid.
+    const fileInsert = mockedRun.mock.calls[5]
+    expect(fileInsert[1]?.slice(0, 4)).toEqual([
       "img-1",
       "s-img",
       10,
       "image/png"
     ])
-    expect(mockedRun.mock.calls[6][0]).toBe("COMMIT")
   })
 
-  it("bulkPutSessions rolls back imported message replacement on failure", async () => {
+  it("bulkPutSessions remaps parentId links to the freshly-allocated ids", async () => {
+    mockedRun.mockResolvedValue(undefined)
+    // Two messages get new ids 100 then 101 (parent inserted before child).
+    mockedQuery
+      .mockResolvedValueOnce([{ id: 100 }])
+      .mockResolvedValueOnce([{ id: 101 }])
+
+    await repo.bulkPutSessions([
+      {
+        id: "s-tree",
+        title: "Tree",
+        createdAt: 1,
+        updatedAt: 1,
+        currentLeafId: 2,
+        messages: [
+          { id: 1, role: "user", content: "q", timestamp: 1 },
+          { id: 2, role: "assistant", content: "a", timestamp: 2, parentId: 1 }
+        ]
+      }
+    ])
+
+    const updates = mockedRun.mock.calls.filter(([sql]) =>
+      String(sql).startsWith("UPDATE messages SET parentId")
+    )
+    // Child's old parentId (1) is remapped to the parent's new id (100), and
+    // the update targets the child's new id (101).
+    expect(updates).toHaveLength(1)
+    expect(updates[0][1]).toEqual([100, 101])
+
+    // Session's currentLeafId (old 2) is remapped to the new id (101).
+    const leafUpdate = mockedRun.mock.calls.find(
+      ([sql]) => sql === "UPDATE sessions SET currentLeafId = ? WHERE id = ?"
+    )
+    expect(leafUpdate?.[1]).toEqual([101, "s-tree"])
+  })
+
+  it("bulkPutSessions rolls back imported message insert on failure", async () => {
     const importError = new Error("quota exceeded")
+    mockedQuery.mockResolvedValue([{ id: 10 }])
     mockedRun.mockImplementation(async (sql) => {
-      if (String(sql).includes("INSERT OR REPLACE INTO messages")) {
+      if (String(sql).includes("INSERT INTO messages")) {
         throw importError
       }
     })
@@ -196,7 +238,7 @@ describe("sessions", () => {
       expect.stringContaining("INSERT OR REPLACE INTO sessions"),
       "DELETE FROM files WHERE sessionId = ?",
       "DELETE FROM messages WHERE sessionId = ?",
-      expect.stringContaining("INSERT OR REPLACE INTO messages"),
+      expect.stringContaining("INSERT INTO messages"),
       "ROLLBACK"
     ])
   })

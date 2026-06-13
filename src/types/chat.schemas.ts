@@ -97,7 +97,13 @@ const FileAttachmentSchema = z.object({
   processedAt: z.number(),
   sessionId: z.string().optional(),
   messageId: z.number().optional(),
-  data: z.array(z.number()).optional()
+  // Bytes export as a JSON array, but a Uint8Array that slips through
+  // JSON.stringify serializes to an index-keyed object ({"0":..,"1":..}).
+  // Accept both so one stray byte field can't fail validation and silently
+  // skip the whole session on import.
+  data: z
+    .union([z.array(z.number()), z.record(z.string(), z.number())])
+    .optional()
 })
 
 export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
