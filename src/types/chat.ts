@@ -121,6 +121,10 @@ export interface ToolRun {
   error?: string
   /** The tool's result was trimmed to the configured per-result char cap. */
   truncated?: boolean
+  /** Arguments the model passed to the tool (shown as the step's input). */
+  args?: Record<string, unknown>
+  /** Short preview of the tool's output (shown as the step's result). */
+  resultPreview?: string
 }
 
 export interface ChatSession {

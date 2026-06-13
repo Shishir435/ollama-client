@@ -78,6 +78,35 @@ describe("ReasoningTrace", () => {
     )
   })
 
+  it("shows a tool step's input args and output preview when expanded", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "read_tab",
+                label: "read_tab",
+                status: "done",
+                startedAt: 1,
+                completedAt: 2,
+                args: { query: "youtube" },
+                resultPreview: "video transcript preview"
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    // Collapsed by default for a done message; open the details.
+    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    expect(screen.getByText(/query: "youtube"/)).toBeInTheDocument()
+    expect(screen.getByText(/video transcript preview/)).toBeInTheDocument()
+  })
+
   it("auto-expands live reasoning while thinking (no answer yet)", () => {
     render(
       <ReasoningTrace

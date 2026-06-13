@@ -147,19 +147,23 @@ export const ReasoningTrace = ({
   const isBusy = isLoading || isStreaming
 
   const hasVisibleContent = Boolean(message.content?.trim())
-  // Auto-expand reasoning while the model is still thinking (no answer yet) so
-  // the live reasoning is visible; collapse once the answer starts streaming.
-  // The user can override either way; once they do we respect their choice.
-  const autoOpenReasoning = isBusy && hasThinking && !hasVisibleContent
-  const reasoningOpen = userToggled ?? autoOpenReasoning
+  const toolRunning = toolRuns.some((run) => run.status === "running")
+  const hasDetails = hasThinking || toolRuns.length > 0
+  // Auto-expand the details (reasoning + tool steps) while the model is still
+  // working and hasn't produced an answer yet, so live reasoning and running
+  // tools are visible; collapse once the answer starts streaming. The user can
+  // override either way; once they do we respect their choice.
+  const autoOpenDetails =
+    isBusy && hasDetails && (!hasVisibleContent || toolRunning)
+  const detailsOpen = userToggled ?? autoOpenDetails
 
   // Keep the live reasoning scrolled to the latest line while it streams.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thinking growth
   useEffect(() => {
-    if (reasoningOpen && isBusy && reasoningBodyRef.current) {
+    if (detailsOpen && isBusy && reasoningBodyRef.current) {
       reasoningBodyRef.current.scrollTop = reasoningBodyRef.current.scrollHeight
     }
-  }, [message.thinking, reasoningOpen, isBusy])
+  }, [message.thinking, toolRuns.length, detailsOpen, isBusy])
 
   if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) {
     return null
@@ -263,31 +267,90 @@ export const ReasoningTrace = ({
           </span>
         )}
 
-        {hasThinking && (
+        {hasDetails && (
           <button
             type="button"
-            onClick={() => setUserToggled(!reasoningOpen)}
-            aria-expanded={reasoningOpen}
+            onClick={() => setUserToggled(!detailsOpen)}
+            aria-expanded={detailsOpen}
             className="inline-flex h-7 items-center gap-0.5 rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
             <ListTree className="icon-sm" />
             {reasoningLabel}
             <ChevronDown
               className={cn(
                 "icon-xs transition-transform",
-                reasoningOpen && "rotate-180"
+                detailsOpen && "rotate-180"
               )}
             />
           </button>
         )}
       </div>
 
-      {hasThinking && reasoningOpen && (
+      {hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
-          className="max-h-56 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
-          <MarkdownRenderer content={message.thinking ?? ""} />
+          className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          {hasThinking && <MarkdownRenderer content={message.thinking ?? ""} />}
+          {toolRuns.length > 0 && (
+            <ol className="flex flex-col gap-1.5">
+              {toolRuns.map((run) => (
+                <ToolStepRow
+                  key={`${run.toolId}-${run.startedAt}`}
+                  run={run}
+                  t={t}
+                />
+              ))}
+            </ol>
+          )}
         </div>
       )}
     </section>
+  )
+}
+
+/** One inspectable tool step: name + status, with its input args and output. */
+const ToolStepRow = ({
+  run,
+  t
+}: {
+  run: ToolRun
+  t: (key: string) => string
+}) => {
+  const status = getToolRunStatus(run)
+  const argEntries = run.args ? Object.entries(run.args) : []
+  return (
+    <li className="rounded-control bg-muted/20 px-2 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <span className={cn("font-medium", statusClass(status))}>
+          {getToolRunLabel(run, t)}
+          {status === "running" ? "…" : ""}
+        </span>
+        {run.truncated && (
+          <span className="text-[10.5px] text-muted-foreground/70">
+            · {t("chat.reasoning.trace.trimmed")}
+          </span>
+        )}
+      </div>
+      {argEntries.length > 0 && (
+        <div className="mt-0.5 break-words font-mono text-[11px] text-muted-foreground/80">
+          {argEntries
+            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+            .join(", ")}
+        </div>
+      )}
+      {run.error ? (
+        <div className="mt-0.5 text-[11px] text-status-danger">{run.error}</div>
+      ) : run.sources?.length ? (
+        <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+          {run.sources.map((source) => source.title).join(", ")}
+        </div>
+      ) : (
+        run.resultPreview && (
+          <div className="mt-0.5 break-words text-[11px] text-muted-foreground/70">
+            {run.resultPreview}
+            {run.resultPreview.length >= 240 ? "…" : ""}
+          </div>
+        )
+      )}
+    </li>
   )
 }

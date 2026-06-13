@@ -146,7 +146,11 @@ export const streamChatWithTools = async ({
         toolId: call.name,
         label: labelForTool(call.name),
         status: "running",
-        startedAt: Date.now()
+        startedAt: Date.now(),
+        args:
+          call.arguments && Object.keys(call.arguments).length > 0
+            ? call.arguments
+            : undefined
       }
       toolRuns.push(run)
       onChunk({ toolRuns: [...toolRuns] })
@@ -166,6 +170,7 @@ export const streamChatWithTools = async ({
       run.status = result.isError ? "error" : "done"
       run.completedAt = Date.now()
       if (result.isError) run.error = result.content
+      else run.resultPreview = result.content.slice(0, 240)
       if (result.sources?.length) run.sources = result.sources
       if (truncated) run.truncated = true
       onChunk({ toolRuns: [...toolRuns] })
