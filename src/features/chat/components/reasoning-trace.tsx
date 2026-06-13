@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, ToolRun } from "@/types"
 
@@ -65,6 +66,13 @@ const TOOL_ICONS: Record<
   list_tabs: List,
   read_tab: FileText,
   selected_text: TextSelect
+}
+
+const TOOL_RESULT_LIMIT_SETTINGS_PATH =
+  "options.html?tab=context&focus=max-tool-result-chars"
+
+const openToolResultLimitSettings = () => {
+  void openOptionsInTab(runtime.getURL(TOOL_RESULT_LIMIT_SETTINGS_PATH))
 }
 
 const getToolRunLabel = (run: ToolRun, t: (key: string) => string): string => {
@@ -322,15 +330,25 @@ const ToolStepRow = ({
   const status = getToolRunStatus(run)
   const argEntries = run.args ? Object.entries(run.args) : []
   return (
-    <li className="rounded-control bg-muted/20 px-2 py-1.5">
-      <div className="flex items-center gap-1.5">
-        <span className={cn("font-medium", statusClass(status))}>
+    <li className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <span
+          className={cn(
+            "shrink-0 whitespace-nowrap font-medium",
+            statusClass(status)
+          )}>
           {getToolRunLabel(run, t)}
           {status === "running" ? "…" : ""}
         </span>
         {run.truncated && (
-          <span className="text-[10.5px] text-muted-foreground/70">
-            · {t("chat.reasoning.trace.trimmed")}
+          <span className="min-w-0 text-[10.5px] text-muted-foreground/70">
+            · {t("chat.reasoning.trace.trimmed")}{" "}
+            <button
+              type="button"
+              onClick={openToolResultLimitSettings}
+              className="rounded-sm text-app-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              {t("chat.reasoning.trace.change_limit")}
+            </button>
           </span>
         )}
       </div>

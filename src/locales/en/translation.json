@@ -242,7 +242,8 @@
         "tab": "Reading tab",
         "tabs": "Listing tabs",
         "selection": "Reading selection",
-        "trimmed": "result trimmed (change limit in Settings → Context)",
+        "trimmed": "result trimmed",
+        "change_limit": "Change limit",
         "documents": "Searching files",
         "answering": "Answering"
       }

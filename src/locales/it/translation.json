@@ -238,6 +238,13 @@
         "page": "Lettura pagina",
         "files": "RAG",
         "web": "Ricerca web",
+        "knowledge": "Ricerca conoscenza",
+        "tab": "Lettura scheda",
+        "tabs": "Elenco schede",
+        "selection": "Lettura selezione",
+        "trimmed": "risultato troncato",
+        "change_limit": "Modifica limite",
+        "documents": "Ricerca file",
         "answering": "Risposta"
       }
     },

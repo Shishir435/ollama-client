@@ -238,6 +238,13 @@
         "page": "读取页面",
         "files": "RAG",
         "web": "搜索网页",
+        "knowledge": "搜索知识库",
+        "tab": "读取标签页",
+        "tabs": "列出标签页",
+        "selection": "读取选中文本",
+        "trimmed": "结果已截断",
+        "change_limit": "更改限制",
+        "documents": "搜索文件",
         "answering": "回答中"
       }
     },

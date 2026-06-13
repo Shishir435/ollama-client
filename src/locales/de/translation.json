@@ -238,6 +238,13 @@
         "page": "Seite lesen",
         "files": "RAG",
         "web": "Websuche",
+        "knowledge": "Wissen durchsuchen",
+        "tab": "Tab lesen",
+        "tabs": "Tabs auflisten",
+        "selection": "Auswahl lesen",
+        "trimmed": "Ergebnis gekürzt",
+        "change_limit": "Limit ändern",
+        "documents": "Dateien durchsuchen",
         "answering": "Antworten"
       }
     },

@@ -238,6 +238,13 @@
         "page": "Leyendo página",
         "files": "RAG",
         "web": "Buscando en la web",
+        "knowledge": "Buscando conocimiento",
+        "tab": "Leyendo pestaña",
+        "tabs": "Listando pestañas",
+        "selection": "Leyendo selección",
+        "trimmed": "resultado recortado",
+        "change_limit": "Cambiar límite",
+        "documents": "Buscando archivos",
         "answering": "Respondiendo"
       }
     },

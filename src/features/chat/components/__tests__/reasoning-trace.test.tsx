@@ -14,6 +14,9 @@ vi.mock("react-i18next", () => ({
         "chat.reasoning.trace.page": "Reading page",
         "chat.reasoning.trace.files": "RAG",
         "chat.reasoning.trace.web": "Searching web",
+        "chat.reasoning.trace.tab": "Reading tab",
+        "chat.reasoning.trace.trimmed": "result trimmed",
+        "chat.reasoning.trace.change_limit": "Change limit",
         "chat.reasoning.trace.answering": "Answering"
       })[key] ?? key
   })
@@ -105,6 +108,35 @@ describe("ReasoningTrace", () => {
     fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
     expect(screen.getByText(/query: "youtube"/)).toBeInTheDocument()
     expect(screen.getByText(/video transcript preview/)).toBeInTheDocument()
+  })
+
+  it("links trimmed tool results to the exact context limit setting", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "read_tab",
+                label: "read_tab",
+                status: "done",
+                startedAt: 1,
+                completedAt: 2,
+                truncated: true
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    expect(screen.getByText(/result trimmed/)).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Change limit" })
+    ).toBeInTheDocument()
   })
 
   it("auto-expands live reasoning while thinking (no answer yet)", () => {
