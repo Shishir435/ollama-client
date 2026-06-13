@@ -74,6 +74,31 @@ describe("streamChatWithTools", () => {
     expect(lastTrace?.[0]).toMatchObject({ toolId: "echo", status: "done" })
   })
 
+  it("preserves metrics when a bare done trails the metrics-bearing done", async () => {
+    // Providers emit a metrics done then a trailing bare { done: true } at
+    // stream end; the bare one must not wipe the captured metrics.
+    const provider = scriptedProvider([
+      [
+        { delta: "answer" },
+        {
+          done: true,
+          metrics: { eval_count: 10, eval_duration: 1_000_000_000 }
+        },
+        { done: true }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "r" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+    const done = chunks.find((c) => c.done)
+    expect(done?.metrics?.eval_count).toBe(10)
+  })
+
   it("suppresses intermediate done chunks (only one reaches the UI)", async () => {
     const provider = scriptedProvider([
       [

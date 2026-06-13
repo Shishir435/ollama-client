@@ -65,8 +65,10 @@ export const streamChatWithTools = async ({
           return
         }
         // Hold the terminal `done` — only the final iteration finalizes the UI.
+        // Keep the metrics-bearing done; providers also emit a trailing bare
+        // `{ done: true }` (no metrics) at stream end, which must not clobber it.
         if (chunk.done && !chunk.error && !chunk.aborted) {
-          finalMetrics = chunk.metrics
+          if (chunk.metrics) finalMetrics = chunk.metrics
           return
         }
         if (chunk.error || chunk.aborted) {

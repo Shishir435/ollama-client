@@ -6,7 +6,8 @@ import { runSelectedText } from "../selected-text-tool"
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
-    tabs: { query: vi.fn(), sendMessage: vi.fn() }
+    tabs: { query: vi.fn(), sendMessage: vi.fn() },
+    scripting: { executeScript: vi.fn() }
   }
 }))
 
@@ -54,14 +55,32 @@ describe("current_tab tool", () => {
     expect(result.isError).toBe(true)
   })
 
-  it("errors cleanly when the content script is unreachable", async () => {
+  it("injects the content script and retries when there is no receiver", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Vid", url: "https://youtube.test" }
+    ] as never)
+    // First send fails (stale tab); after injection the retry succeeds.
+    vi.mocked(browser.tabs.sendMessage)
+      .mockRejectedValueOnce(new Error("Receiving end does not exist"))
+      .mockResolvedValueOnce({ html: "transcript", title: "Vid" } as never)
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue([] as never)
+
+    const result = await runCurrentTab({}, ctx)
+    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
+    expect(result.content).toBe("transcript")
+  })
+
+  it("errors cleanly when injection is blocked (restricted page)", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([{ id: 7 }] as never)
     vi.mocked(browser.tabs.sendMessage).mockRejectedValue(
-      new Error("no receiver")
+      new Error("Receiving end does not exist")
+    )
+    vi.mocked(browser.scripting.executeScript).mockRejectedValue(
+      new Error("Cannot access chrome:// URL")
     )
     const result = await runCurrentTab({}, ctx)
     expect(result.isError).toBe(true)
-    expect(result.content).toContain("no receiver")
+    expect(result.content).toContain("chrome://")
   })
 })
 
