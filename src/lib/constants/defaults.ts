@@ -20,6 +20,14 @@ export const normalizeEmbeddingModelName = (modelName?: string): string => {
 }
 export const DEFAULT_PROVIDER_ID = "ollama"
 export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = DEFAULT_PROVIDER_ID
+
+// OpenAI-compatible providers fall back to a LOCAL endpoint, never a cloud API.
+// A privacy-first, local-first extension must not silently egress to a frontier
+// provider when a base URL is left blank. Users pointing at their own remote
+// open-weight server (e.g. a remote Ollama/llama.cpp host) set the base URL
+// explicitly in provider settings. This matches Ollama's OpenAI-compatible
+// endpoint, which is the default provider.
+export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
 // Default provider model catalog (Ollama public library).
 export const DEFAULT_MODEL_LIBRARY_BASE_URL = "https://ollama.com"
 

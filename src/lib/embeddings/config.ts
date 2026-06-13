@@ -21,6 +21,11 @@ export const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
   const annBackend: EmbeddingConfig["annBackend"] =
     rawAnnBackend === "bruteforce" ? "bruteforce" : "ts-hnsw"
 
+  // Migration shim: earlier builds experimented with a transformers.js /
+  // onnxruntime-web cross-encoder reranker, but MV3 CSP blocked it, so the only
+  // shipped backend is cosine re-scoring (see lib/embeddings/reranker.ts).
+  // Old stored configs may still hold those backend strings — collapse them to
+  // "cosine" rather than silently disabling reranking for those users.
   const rawRerankerBackend = merged.rerankerBackend as string | undefined
   const rerankerBackend: EmbeddingConfig["rerankerBackend"] =
     rawRerankerBackend === "cosine" ||

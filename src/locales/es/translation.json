@@ -524,6 +524,40 @@
       "error": "Provider no está accesible",
       "empty": "No se encontraron modelos",
       "ready": "Provider está listo"
+    },
+    "capabilities": {
+      "edit_tooltip": "Definir capacidades",
+      "edit_aria_label": "Definir capacidades de {{model}}",
+      "sheet": {
+        "title": "Capacidades del modelo",
+        "subtitle": "{{model}} · {{provider}}",
+        "note_manual": "{{provider}} no puede informar las capacidades de este modelo, por lo que no podemos detectarlas. Activa lo que admite este modelo: funciones como la entrada de imágenes y las herramientas usan estos ajustes.",
+        "note_self_report": "{{provider}} informa automáticamente las capacidades de este modelo. Los cambios aquí anulan lo detectado.",
+        "reset": "Restablecer a lo detectado",
+        "save": "Guardar"
+      },
+      "flags": {
+        "text": {
+          "label": "Chat de texto",
+          "desc": "Genera respuestas de texto en el chat."
+        },
+        "vision": {
+          "label": "Visión",
+          "desc": "Acepta imágenes además de texto."
+        },
+        "toolCalling": {
+          "label": "Llamada a herramientas",
+          "desc": "Puede llamar a herramientas/funciones durante una respuesta."
+        },
+        "reasoning": {
+          "label": "Razonamiento",
+          "desc": "Emite un flujo de pensamiento/razonamiento separado."
+        },
+        "embeddings": {
+          "label": "Embeddings",
+          "desc": "Genera vectores de embedding para RAG y búsqueda."
+        }
+      }
     }
   },
   "prompts": {

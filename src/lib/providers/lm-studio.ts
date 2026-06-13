@@ -63,6 +63,12 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
             ? `${Math.round(m.max_context_length / 1024)}k`
             : "",
           quantization_level: m.quantization || ""
+        },
+        // Surface LM Studio's model type ("llm"/"vlm"/"embeddings") so vision
+        // and embedding capability can be detected without a manual override.
+        capabilityHints: {
+          modelType: m.type,
+          contextLength: m.max_context_length
         }
       }))
     } catch (_e) {

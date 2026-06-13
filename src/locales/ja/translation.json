@@ -524,6 +524,40 @@
       "error": "Providerに接続できません",
       "empty": "モデルが見つかりません",
       "ready": "Providerは準備完了です"
+    },
+    "capabilities": {
+      "edit_tooltip": "機能を設定",
+      "edit_aria_label": "{{model}} の機能を設定",
+      "sheet": {
+        "title": "モデルの機能",
+        "subtitle": "{{model}} · {{provider}}",
+        "note_manual": "{{provider}} はこのモデルの機能を報告できないため、自動検出できません。このモデルが対応している機能をオンにしてください。画像入力やツールなどの機能はこの設定を使用します。",
+        "note_self_report": "{{provider}} はこのモデルの機能を自動的に報告します。ここでの変更は検出結果を上書きします。",
+        "reset": "検出値にリセット",
+        "save": "保存"
+      },
+      "flags": {
+        "text": {
+          "label": "テキストチャット",
+          "desc": "チャットでテキスト応答を生成します。"
+        },
+        "vision": {
+          "label": "ビジョン",
+          "desc": "テキストに加えて画像入力を受け付けます。"
+        },
+        "toolCalling": {
+          "label": "ツール呼び出し",
+          "desc": "応答中にツール／関数を呼び出せます。"
+        },
+        "reasoning": {
+          "label": "推論",
+          "desc": "思考／推論のストリームを別に出力します。"
+        },
+        "embeddings": {
+          "label": "埋め込み",
+          "desc": "RAG と検索用の埋め込みベクトルを生成します。"
+        }
+      }
     }
   },
   "prompts": {

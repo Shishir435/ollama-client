@@ -40,6 +40,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Model parameter presets are user preferences."
   },
+  [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES]: {
+    key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
+    scope: "sync-safe",
+    reason: "User-declared model capabilities should follow the user."
+  },
   [STORAGE_KEYS.THEME.PREFERENCE]: {
     key: STORAGE_KEYS.THEME.PREFERENCE,
     scope: "sync-safe",

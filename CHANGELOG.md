@@ -7,6 +7,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-13
+### Added
+- Model capability detection foundation: a normalized `ModelCapabilities` layer (`text`, `vision`, `tool calling`, `reasoning`, `context length`) resolved per model with a `source` and `confidence`, layered as **user override → model metadata → provider default**.
+- Capability detection across all providers: Ollama `/api/show` capability tags (high confidence), LM Studio model `type` (`vlm`/`embeddings`, medium confidence), and provider defaults elsewhere. Unknown capabilities resolve to off — never enabled on a guess.
+- Per-model capability badges in the model menu (completion, vision, tools, thinking, embeddings) with tooltips, fetched only while the menu is open and cached.
+- Manual capability overrides: a Model Capabilities sheet for models whose provider can't self-report, to declare vision/tools/etc. by hand. Overrides persist per model and are sync-safe. Translated into all supported locales.
+
+### Changed
+- OpenAI-compatible providers no longer default to `https://api.openai.com/v1`; a blank base URL falls back to a local endpoint so a misconfigured provider never silently sends data to a cloud API.
+
+### Fixed
+- Reranking no longer silently drops documents that lack an embedding; they keep a neutral score instead of being removed from results.
+
 ## [0.8.0] - 2026-06-10
 ### Added
 - Selection Actions: selected page text now opens a local AI action toolbar with Summarize, Rewrite, Shorten, Fix Grammar, Explain, Extract Action Items, Translate to English, and Custom Prompt actions.

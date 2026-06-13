@@ -74,7 +74,11 @@ export const STORAGE_KEYS = {
     SELECTED_MODEL_REF: "provider-selected-model-ref",
     SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",
     PROMPT_TEMPLATES: "provider-prompt-templates",
-    MODEL_CONFIGS: "provider-model-config"
+    MODEL_CONFIGS: "provider-model-config",
+    // User-set per-model capability overrides, used when a provider cannot
+    // report a model's capabilities (anything other than Ollama). Resolution
+    // order is: user override → model metadata → provider default.
+    MODEL_CAPABILITY_OVERRIDES: "provider-model-capability-overrides"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
