@@ -7,13 +7,19 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { MiniBadge } from "@/components/ui/mini-badge"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import type { LucideIcon } from "@/lib/lucide-icon"
 
 export interface SettingsCardProps {
   icon?: LucideIcon
   title: string
   description: string
-  badge?: string
+  badge?: React.ReactNode
+  badgeTooltip?: React.ReactNode
   children: React.ReactNode
   className?: string
   headerClassName?: string
@@ -45,6 +51,7 @@ export const SettingsCard = ({
   title,
   description,
   badge,
+  badgeTooltip,
   children,
   className,
   headerClassName,
@@ -58,7 +65,15 @@ export const SettingsCard = ({
           <div className="flex items-center gap-2">
             {Icon && <Icon className="icon-lg text-muted-foreground" />}
             <CardTitle className="text-lg">{title}</CardTitle>
-            {badge && <MiniBadge text={badge} />}
+            {badge &&
+              (badgeTooltip ? (
+                <Tooltip>
+                  <TooltipTrigger render={<MiniBadge text={badge} />} />
+                  <TooltipContent side="top">{badgeTooltip}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <MiniBadge text={badge} />
+              ))}
           </div>
           {headerActions && (
             <div className="flex items-center gap-3">{headerActions}</div>

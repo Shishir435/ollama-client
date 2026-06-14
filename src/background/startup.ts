@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
+import { getToolRegistry } from "@/lib/tools/build-tool-registry"
 import type { ChromeSidePanel } from "@/types"
 
 const openClientWindow = () => {
@@ -120,10 +121,21 @@ const registerInstallHandlers = () => {
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
+const registerToolRegistryInvalidation = () => {
+  if (!browser.storage?.onChanged) return
+
+  browser.storage.onChanged.addListener((changes) => {
+    if (STORAGE_KEYS.WEB_SEARCH.CONFIG in changes) {
+      getToolRegistry().invalidate()
+    }
+  })
+}
+
 export const initializeBackgroundStartup = () => {
   void migrateLegacyProviderStorage()
   void runEmbeddingDimensionMigration()
   initializeContextMenu()
   registerActionHandler()
   registerInstallHandlers()
+  registerToolRegistryInvalidation()
 }

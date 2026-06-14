@@ -176,6 +176,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Tab-context refresh preference."
   },
+  [STORAGE_KEYS.WEB_SEARCH.CONFIG]: {
+    key: STORAGE_KEYS.WEB_SEARCH.CONFIG,
+    scope: "device-local",
+    reason:
+      "Web-search API keys and self-hosted endpoints are device-local secrets."
+  },
   [STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET]: {
     key: STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET,
     scope: "sync-safe",

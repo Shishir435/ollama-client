@@ -25,4 +25,16 @@ describe("buildToolSystemGuidance", () => {
     expect(guidance).toContain("force=true")
     expect(guidance).toContain("Chrome Web Store/internal page")
   })
+
+  it("adds web-search rules when web_search is present", () => {
+    const guidance = buildToolSystemGuidance(
+      [tool("web_search")],
+      new Date(2026, 5, 14)
+    )
+    expect(guidance).toContain("current or real-time facts")
+    expect(guidance).toContain("cite returned URLs")
+    expect(guidance).toContain("Current date is 2026-06-14")
+    expect(guidance).toContain("current year (2026)")
+    expect(guidance).toContain("Do not add old years such as 2024 or 2025")
+  })
 })

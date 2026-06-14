@@ -228,6 +228,56 @@ describe("useChatStream", () => {
     })
   })
 
+  it("uses thinking as visible content when a tool-backed turn returns only thinking", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "who is current PM?" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        toolRuns: [
+          {
+            toolId: "web_search",
+            label: "web_search",
+            status: "done",
+            startedAt: 1
+          }
+        ]
+      })
+      listener({ thinkingDelta: "The current answer is from web results." })
+      listener({ done: true })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "The current answer is from web results.",
+      thinking: "The current answer is from web results.",
+      metrics: {
+        thinkingOnlyResponse: true,
+        toolRuns: [
+          expect.objectContaining({
+            toolId: "web_search",
+            status: "done"
+          })
+        ]
+      },
+      done: true
+    })
+  })
+
   it("should handle stream errors", () => {
     const { result } = renderHook(() =>
       useChatStream({

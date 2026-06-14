@@ -27,6 +27,10 @@ export class ToolRegistry {
 
   register(source: ToolSource): void {
     this.sources.push(source)
+    this.invalidate()
+  }
+
+  invalidate(): void {
     this.route = null
   }
 

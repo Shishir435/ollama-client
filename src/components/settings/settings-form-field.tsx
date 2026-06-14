@@ -2,7 +2,7 @@ import type React from "react"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface SettingsFormFieldProps {
+interface SettingsFormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   label: React.ReactNode
   description?: React.ReactNode
   error?: string
@@ -19,10 +19,11 @@ export const SettingsFormField = ({
   children,
   className,
   labelClassName,
-  htmlFor
+  htmlFor,
+  ...props
 }: SettingsFormFieldProps) => {
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-2", className)} {...props}>
       <Label
         htmlFor={htmlFor}
         className={cn("flex items-center gap-2 text-sm", labelClassName)}>

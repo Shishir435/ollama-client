@@ -25,6 +25,7 @@ import { DatabaseManagementCard } from "@/features/model/components/embedding-co
 import { EmbeddingLimitsConfig } from "@/features/model/components/embedding-config/embedding-limits-config"
 import { StorageStatsCard } from "@/features/model/components/embedding-config/storage-stats-card"
 import { EmbeddingIndexControls } from "@/features/model/components/embedding-index-controls"
+import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -47,6 +48,7 @@ import { logger } from "@/lib/logger"
 import {
   AlertTriangle,
   BookOpen,
+  Globe,
   RefreshCw,
   Scissors,
   Upload
@@ -396,6 +398,14 @@ export const ContextSettings = () => {
       </TwoColumnGrid>
       <PromptContextLimitsSettings />
       <GroundingModeSettings />
+      <SettingsCard
+        icon={Globe}
+        title={t("settings.web_search.title")}
+        description={t("settings.web_search.description")}
+        badge={t("settings.web_search.beta_badge")}
+        badgeTooltip={t("settings.web_search.beta_tooltip")}>
+        <WebSearchSettings />
+      </SettingsCard>
       <SettingsCard
         icon={BookOpen}
         title={t("model.embedding_config.rag_settings_title")}

@@ -170,6 +170,7 @@
       "rag_toggle_on": "Intelligenter Kontext aktiviert",
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
+      "web_search_toggle_tooltip": "Web search",
       "drop_files_here": "Dateien hier ablegen",
       "attachments": "{{count}} Anhänge",
       "images": {
@@ -953,6 +954,65 @@
         "progress": "Chat-Embeddings werden neu aufgebaut ({{current}}/{{total}})",
         "success": "Embeddings erfolgreich neu aufgebaut.",
         "error": "Embeddings konnten nicht neu aufgebaut werden."
+      }
+    },
+    "web_search": {
+      "title": "Web Search",
+      "description": "Let tool-capable models search the live web through a configured search provider.",
+      "enable": {
+        "label": "Enable web search",
+        "description": "Expose a web_search tool to supported models when the provider config is valid."
+      },
+      "provider": {
+        "label": "Provider",
+        "description": "Choose the backend used behind the single web_search tool."
+      },
+      "providers": {
+        "searxng": "SearXNG",
+        "brave": "Brave Search",
+        "tavily": "Tavily"
+      },
+      "endpoint": {
+        "label": "SearXNG endpoint",
+        "description": "Base URL for your self-hosted SearXNG instance."
+      },
+      "api_key": {
+        "label": "API key",
+        "description": "Stored locally on this device and masked in the UI."
+      },
+      "safe_search": {
+        "label": "Safe search",
+        "description": "Provider safety filter for search results.",
+        "off": "Off",
+        "moderate": "Moderate",
+        "strict": "Strict"
+      },
+      "result_count": {
+        "label": "Result count",
+        "description": "Maximum results returned to the model.",
+        "value": "{{count}} results"
+      },
+      "test": {
+        "button": "Test search",
+        "success": "Search test completed ({{count}} result)",
+        "success_title": "Web search test succeeded.",
+        "error": "Web search test failed.",
+        "error_title": "Web search test failed."
+      },
+      "errors": {
+        "endpoint_required": "Enter a valid SearXNG endpoint.",
+        "api_key_required": "Enter an API key."
+      },
+      "beta_badge": "Beta",
+      "beta_tooltip": "Beta. If you run into issues, please report them.",
+      "base_url": {
+        "label": "API base URL",
+        "description": "Shown for transparency. This endpoint is fixed by the selected provider."
+      },
+      "searxng_pages": {
+        "label": "SearXNG pages",
+        "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
+        "value": "{{count}} page"
       }
     },
     "memory": {
