@@ -351,6 +351,7 @@ describe("knowledge set overrides", () => {
 
   it("reformulates the query when questionPrompt is set and history is non-trivial", async () => {
     ragsetOn()
+    const activitySnapshots: unknown[] = []
     mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
       id: "ks-1",
       name: "Custom",
@@ -366,6 +367,7 @@ describe("knowledge set overrides", () => {
     await buildRagContext(
       defaults({
         messages: history,
+        onActivityEvent: (events) => activitySnapshots.push(events),
         files: [
           {
             metadata: {
@@ -385,6 +387,24 @@ describe("knowledge set overrides", () => {
     // The reformulated query is what gets sent to retrieveContext.
     expect(mockedRetrieve).toHaveBeenCalled()
     expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("REFORMULATED")
+    expect(activitySnapshots).toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "query_rewrite",
+            label: "Rewriting query",
+            status: "running"
+          })
+        ]),
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "query_rewrite",
+            status: "done",
+            outputPreview: "REFORMULATED"
+          })
+        ])
+      ])
+    )
   })
 
   it("does NOT reformulate when history is too short even with a questionPrompt", async () => {
@@ -626,7 +646,17 @@ describe("query reformulation provider call", () => {
     )
 
     expect(mockedGetProvider).toHaveBeenCalledWith("llama3", "ollama")
-    expect(fakeProvider.streamChat).toHaveBeenCalled()
+    expect(fakeProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "llama3",
+        temperature: 0.2,
+        num_predict: 64,
+        stop: ["\n"],
+        think: false
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
     // The reformulated value ("pong") should be the query sent to retrieve.
     expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("pong")
   })

@@ -7,9 +7,11 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) =>
       ({
-        "chat.reasoning.aria_label": "Model reasoning",
-        "chat.reasoning.title": "Thought Process",
+        "chat.reasoning.aria_label": "Activity log",
+        "chat.reasoning.title": "Activity",
+        "chat.reasoning.debug": "Debug reasoning",
         "chat.reasoning.trace.planning": "Planning",
+        "chat.reasoning.trace.preparing": "Preparing context",
         "chat.reasoning.trace.thinking": "Thinking",
         "chat.reasoning.trace.page": "Reading page",
         "chat.reasoning.trace.files": "RAG",
@@ -57,7 +59,7 @@ describe("ReasoningTrace", () => {
     render(<ReasoningTrace message={message} />)
 
     expect(
-      screen.getByRole("button", { name: /Thought Process/i })
+      screen.getByRole("button", { name: /Activity/i })
     ).toBeInTheDocument()
     expect(screen.getByText("RAG")).toBeInTheDocument()
     expect(screen.getByText("Searching web")).toBeInTheDocument()
@@ -67,15 +69,19 @@ describe("ReasoningTrace", () => {
       screen.queryByText("private reasoning detail")
     ).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
+    expect(screen.getByText("Debug reasoning")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("Debug reasoning"))
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
   })
 
-  it("toggles thinking details open and closed via the button", async () => {
+  it("toggles activity details open and closed via the button", async () => {
     render(<ReasoningTrace message={message} />)
 
-    const toggle = screen.getByRole("button", { name: /Thought Process/i })
+    const toggle = screen.getByRole("button", { name: /Activity/i })
     fireEvent.click(toggle)
+    expect(screen.getByText("Debug reasoning")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("Debug reasoning"))
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
 
     fireEvent.click(toggle)
@@ -110,9 +116,52 @@ describe("ReasoningTrace", () => {
     )
 
     // Collapsed by default for a done message; open the details.
-    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
     expect(screen.getByText(/query: "youtube"/)).toBeInTheDocument()
     expect(screen.getByText(/video transcript preview/)).toBeInTheDocument()
+  })
+
+  it("shows activity event details with preview and source titles", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "",
+          metrics: {
+            activityEvents: [
+              {
+                id: "rewrite",
+                kind: "query_rewrite",
+                label: "Rewriting query",
+                status: "done",
+                startedAt: 1,
+                finishedAt: 2,
+                inputPreview: "What about it?",
+                outputPreview: "What about tool calling?"
+              },
+              {
+                id: "search",
+                kind: "searching_memory",
+                label: "Searching memory",
+                status: "running",
+                startedAt: 3,
+                inputPreview: "tool calling",
+                resultCount: 2,
+                sourceTitles: ["PR notes", "Tool docs"]
+              }
+            ]
+          }
+        }}
+        isLoading
+      />
+    )
+
+    expect(
+      screen.getByText(/Searching memory...: 2 results/)
+    ).toBeInTheDocument()
+    expect(screen.getByText("What about it?")).toBeInTheDocument()
+    expect(screen.getByText("What about tool calling?")).toBeInTheDocument()
+    expect(screen.getByText("PR notes, Tool docs")).toBeInTheDocument()
   })
 
   it("links trimmed tool results to the exact context limit setting", () => {
@@ -137,22 +186,76 @@ describe("ReasoningTrace", () => {
       />
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
     expect(screen.getByText(/result trimmed/)).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Change limit" })
     ).toBeInTheDocument()
   })
 
-  it("auto-expands live reasoning while thinking (no answer yet)", () => {
+  it("keeps live raw provider reasoning behind debug details", () => {
     render(
       <ReasoningTrace
         message={{ role: "assistant", content: "", thinking: "live thoughts" }}
         isStreaming
       />
     )
-    // Visible inline, without any click, while the model is still thinking.
+    expect(screen.queryByText("live thoughts")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
+    fireEvent.click(screen.getByText("Debug reasoning"))
     expect(screen.getByText("live thoughts")).toBeInTheDocument()
+  })
+
+  it("keeps streamed provider reasoning hidden until debug is opened", async () => {
+    const { rerender } = render(
+      <ReasoningTrace message={{ role: "assistant", content: "" }} isLoading />
+    )
+
+    expect(screen.queryByText("streamed thought")).not.toBeInTheDocument()
+
+    rerender(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "",
+          thinking: "streamed thought"
+        }}
+        isStreaming
+      />
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByText("streamed thought")).not.toBeInTheDocument()
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
+    fireEvent.click(screen.getByText("Debug reasoning"))
+    expect(screen.getByText("streamed thought")).toBeInTheDocument()
+  })
+
+  it("keeps thinking-only fallback raw reasoning behind debug details", async () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content:
+            "I did not receive a final answer from the model. Please try again.",
+          thinking: "reasoning that should stay in the trace",
+          metrics: {
+            thinkingOnlyResponse: true
+          }
+        }}
+      />
+    )
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("reasoning that should stay in the trace")
+      ).not.toBeVisible()
+    )
+    fireEvent.click(screen.getByText("Debug reasoning"))
+    expect(
+      screen.getByText("reasoning that should stay in the trace")
+    ).toBeInTheDocument()
   })
 
   it("keeps thought details for done thinking messages without live answering state", () => {
@@ -167,7 +270,7 @@ describe("ReasoningTrace", () => {
     )
 
     expect(
-      screen.getByRole("button", { name: /Thought Process/i })
+      screen.getByRole("button", { name: /Activity/i })
     ).toBeInTheDocument()
     expect(screen.queryByText("Answering")).not.toBeInTheDocument()
     expect(screen.queryByText("Searching web")).not.toBeInTheDocument()
@@ -233,7 +336,9 @@ describe("ReasoningTrace", () => {
       <ReasoningTrace message={{ role: "assistant", content: "" }} isLoading />
     )
 
-    expect(screen.getAllByText("Thinking...").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Preparing context...").length).toBeGreaterThan(
+      0
+    )
     expect(screen.queryByText("Answering...")).not.toBeInTheDocument()
   })
 
@@ -246,7 +351,7 @@ describe("ReasoningTrace", () => {
     )
 
     expect(screen.getAllByText("Answering...").length).toBeGreaterThan(0)
-    expect(screen.queryByText("Thinking...")).not.toBeInTheDocument()
+    expect(screen.queryByText("Preparing context...")).not.toBeInTheDocument()
   })
 
   it("shows provider-agnostic tool labels and error detail", () => {
@@ -339,7 +444,7 @@ describe("ReasoningTrace", () => {
       screen.queryByText(/Reading tab: No open tab/)
     ).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: /Thought Process/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
     expect(screen.getByText("No open tab has id 2.")).toBeInTheDocument()
   })
 })

@@ -107,6 +107,27 @@ describe("provider tool calling — request mapping", () => {
     expect(bodyOf(fetchMock).tools).toBeUndefined()
   })
 
+  it("passes Ollama think=false for no-reasoning utility calls", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OllamaProvider(ollamaConfig).streamChat(
+      {
+        model: "m",
+        messages: [{ role: "user", content: "rewrite query" }],
+        think: false,
+        num_predict: 64
+      },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock)).toMatchObject({
+      think: false,
+      options: { num_predict: 64 }
+    })
+  })
+
   it("Ollama maps assistant tool calls and tool results back to the wire", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

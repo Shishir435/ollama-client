@@ -224,8 +224,9 @@
       "tooltip_messages": "Number of AI responses"
     },
     "reasoning": {
-      "aria_label": "Model reasoning",
-      "title": "Thought Process",
+      "aria_label": "Activity log",
+      "title": "Activity",
+      "debug": "Debug reasoning",
       "thinking": "Thinking…",
       "done": "Done",
       "hide": "Hide",
@@ -234,6 +235,7 @@
       "loading_queued": "Queued",
       "trace": {
         "planning": "Planning",
+        "preparing": "Preparing context",
         "thinking": "Thinking",
         "page": "Reading page",
         "files": "RAG",

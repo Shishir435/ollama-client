@@ -95,6 +95,7 @@ export class OllamaProvider implements LLMProvider {
       num_gpu,
       num_batch,
       keep_alive,
+      think,
       tools,
       tool_choice
     } = request
@@ -154,6 +155,7 @@ export class OllamaProvider implements LLMProvider {
       model,
       messages: ollamaMessages,
       stream: true,
+      think,
       keep_alive,
       // Ollama has no `tool_choice` param; express "none" by omitting tools.
       // It accepts tool-call history without a tools array, so this is safe and

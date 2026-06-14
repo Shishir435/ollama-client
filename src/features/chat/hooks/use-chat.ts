@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { buildRagContext } from "@/features/chat/hooks/build-rag-context"
 import { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
@@ -15,7 +15,12 @@ import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import type { ChatMessage, FileAttachment, ImageAttachment } from "@/types"
+import type {
+  ActivityEvent,
+  ChatMessage,
+  FileAttachment,
+  ImageAttachment
+} from "@/types"
 
 export const useChat = () => {
   const config = useChatConfig()
@@ -41,6 +46,9 @@ export const useChat = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const previousSessionIdRef = useRef<string | null>(null)
+  const [pendingActivityEvents, setPendingActivityEvents] = useState<
+    ActivityEvent[]
+  >([])
 
   const currentSession = sessions.find((s) => s.id === currentSessionId)
   const messages = currentSession?.messages ?? []
@@ -120,9 +128,19 @@ export const useChat = () => {
     // the stream starts, and without this the user gets no feedback for that
     // whole window, assumes nothing happened, and re-sends.
     setIsLoading(true)
+    const preparingEvent: ActivityEvent = {
+      id: "preparing-context",
+      kind: "preparing_context",
+      label: "Preparing context",
+      status: "running",
+      startedAt: Date.now(),
+      inputPreview: rawInput || files?.[0]?.metadata.fileName
+    }
+    setPendingActivityEvents([preparingEvent])
 
     const sessionId = await ensureSessionId()
     if (!sessionId) {
+      setPendingActivityEvents([])
       setIsLoading(false)
       return
     }
@@ -164,6 +182,7 @@ export const useChat = () => {
       await autoRenameSession(sessionId, titleContent)
     } catch (error) {
       logger.error("Failed to persist user message", "useChat", { error })
+      setPendingActivityEvents([])
       setIsLoading(false)
       toast({
         variant: "destructive",
@@ -190,11 +209,22 @@ export const useChat = () => {
         selectedModel: config.selectedModel,
         selectedModelRef: config.selectedModelRef,
         customModel,
+        onActivityEvent: (events) => {
+          setPendingActivityEvents([
+            {
+              ...preparingEvent,
+              status: "done",
+              finishedAt: Date.now()
+            },
+            ...events
+          ])
+        },
         toast
       })
     } catch (error) {
       logger.error("Failed to build chat context", "useChat", { error })
       clearNextResponseMetrics()
+      setPendingActivityEvents([])
       setIsLoading(false)
       setIsStreaming(false)
 
@@ -243,6 +273,7 @@ export const useChat = () => {
     if (config.groundedOnlyMode && !hasRelevantPageContext) {
       // Early exit without streaming — clear the thinking state we set above.
       setIsLoading(false)
+      setPendingActivityEvents([])
       const settingsDeepLink =
         "/options.html?tab=context&focus=grounded-only-mode"
 
@@ -274,6 +305,21 @@ export const useChat = () => {
     ]
 
     setNextResponseMetrics(ragSources, promptContextStats)
+    setPendingActivityEvents([
+      {
+        ...preparingEvent,
+        status: "done",
+        finishedAt: Date.now()
+      },
+      ...promptContextStats.activityEvents,
+      {
+        id: "generating-answer",
+        kind: "generating_answer",
+        label: "Generating answer",
+        status: "running",
+        startedAt: Date.now()
+      }
+    ])
 
     logger.info("Prompt context stats", "useChat", {
       sessionId,
@@ -295,10 +341,12 @@ export const useChat = () => {
     }
 
     await generateResponse(customModel, sessionId, messagesForLLM)
+    setPendingActivityEvents([])
   }
 
   return {
     messages,
+    pendingActivityEvents,
     isLoading,
     isStreaming,
     sendMessage,

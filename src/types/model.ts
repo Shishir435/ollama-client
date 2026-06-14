@@ -62,6 +62,7 @@ export interface OllamaChatRequest {
   model: string
   messages: ChatMessage[]
   stream?: boolean
+  think?: boolean
   format?: string
   keep_alive?: string | number
   options?: {

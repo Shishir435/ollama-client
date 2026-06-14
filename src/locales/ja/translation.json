@@ -224,8 +224,8 @@
       "tooltip_messages": "AI応答数"
     },
     "reasoning": {
-      "aria_label": "モデルの思考プロセス",
-      "title": "思考プロセス",
+      "aria_label": "アクティビティログ",
+      "title": "アクティビティ",
       "thinking": "思考中…",
       "done": "完了",
       "hide": "隠す",
@@ -245,8 +245,10 @@
         "trimmed": "結果を短縮済み",
         "change_limit": "上限を変更",
         "documents": "ファイルを検索中",
-        "answering": "回答中"
-      }
+        "answering": "回答中",
+        "preparing": "コンテキストを準備中"
+      },
+      "debug": "デバッグ推論"
     },
     "feedback": {
       "helpful_tooltip": "役に立った",

@@ -60,6 +60,27 @@ export interface RagSources {
   query: string
 }
 
+export interface ActivityEvent {
+  id: string
+  kind:
+    | "preparing_context"
+    | "query_rewrite"
+    | "searching_memory"
+    | "searching_files"
+    | "reading_page"
+    | "calling_tool"
+    | "generating_answer"
+  label: string
+  status: "running" | "done" | "error"
+  startedAt: number
+  finishedAt?: number
+  inputPreview?: string
+  outputPreview?: string
+  resultCount?: number
+  sourceTitles?: string[]
+  error?: string
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
@@ -92,6 +113,7 @@ export interface ChatMessage {
     ragQuery?: string
     ragSources?: RagSource[]
     usedContextChunks?: UsedContextChunk[]
+    activityEvents?: ActivityEvent[]
     toolRuns?: ToolRun[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
@@ -101,6 +123,7 @@ export interface ChatMessage {
     ragContextLength?: number
     tabContextTruncated?: boolean
     contextBuildFailed?: boolean
+    thinkingOnlyResponse?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>

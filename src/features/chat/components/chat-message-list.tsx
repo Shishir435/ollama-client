@@ -10,11 +10,12 @@ import {
 import { ChevronDown } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import type { ChatMessage } from "@/types"
+import type { ActivityEvent, ChatMessage } from "@/types"
 import { ChatMessageBubble } from "./chat-message-bubble"
 
 export interface ChatMessageListProps {
   messages: ChatMessage[]
+  pendingActivityEvents?: ActivityEvent[]
   isLoading: boolean
   isStreaming: boolean
   highlightedMessage: ChatMessage | null
@@ -34,6 +35,7 @@ const virtuosoComponents = {
 
 export const ChatMessageList = ({
   messages,
+  pendingActivityEvents,
   isLoading,
   isStreaming,
   highlightedMessage,
@@ -72,12 +74,16 @@ export const ChatMessageList = ({
           role: "assistant" as const,
           content: "",
           id: "__pending_assistant__",
-          timestamp: last.timestamp
+          timestamp: last.timestamp,
+          metrics:
+            pendingActivityEvents && pendingActivityEvents.length > 0
+              ? { activityEvents: pendingActivityEvents }
+              : undefined
         }
       ]
     }
     return filteredMessages
-  }, [filteredMessages, isLoading, isStreaming])
+  }, [filteredMessages, isLoading, isStreaming, pendingActivityEvents])
   const lastVirtualIndex = firstItemIndex + displayMessages.length - 1
   const internalMessagesRef = useRef(filteredMessages)
   const showRetrievedChunks =

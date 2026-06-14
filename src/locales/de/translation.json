@@ -224,8 +224,8 @@
       "tooltip_messages": "Anzahl der KI-Antworten"
     },
     "reasoning": {
-      "aria_label": "Modell-Überlegungen",
-      "title": "Denkprozess",
+      "aria_label": "Aktivitätsprotokoll",
+      "title": "Aktivität",
       "thinking": "Überlegt…",
       "done": "Fertig",
       "hide": "Ausblenden",
@@ -245,8 +245,10 @@
         "trimmed": "Ergebnis gekürzt",
         "change_limit": "Limit ändern",
         "documents": "Dateien durchsuchen",
-        "answering": "Antworten"
-      }
+        "answering": "Antworten",
+        "preparing": "Kontext vorbereiten"
+      },
+      "debug": "Debug-Reasoning"
     },
     "feedback": {
       "helpful_tooltip": "Das war hilfreich",

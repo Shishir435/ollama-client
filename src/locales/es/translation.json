@@ -224,8 +224,8 @@
       "tooltip_messages": "Número de respuestas de IA"
     },
     "reasoning": {
-      "aria_label": "Razonamiento del modelo",
-      "title": "Proceso de Pensamiento",
+      "aria_label": "Registro de actividad",
+      "title": "Actividad",
       "thinking": "Pensando…",
       "done": "Listo",
       "hide": "Ocultar",
@@ -245,8 +245,10 @@
         "trimmed": "resultado recortado",
         "change_limit": "Cambiar límite",
         "documents": "Buscando archivos",
-        "answering": "Respondiendo"
-      }
+        "answering": "Respondiendo",
+        "preparing": "Preparando contexto"
+      },
+      "debug": "Razonamiento de depuración"
     },
     "feedback": {
       "helpful_tooltip": "Esto fue útil",

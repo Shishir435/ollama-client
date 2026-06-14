@@ -224,8 +224,8 @@
       "tooltip_messages": "AI 回复数量"
     },
     "reasoning": {
-      "aria_label": "模型思维过程",
-      "title": "思维过程",
+      "aria_label": "活动日志",
+      "title": "活动",
       "thinking": "思考中…",
       "done": "完成",
       "hide": "隐藏",
@@ -245,8 +245,10 @@
         "trimmed": "结果已截断",
         "change_limit": "更改限制",
         "documents": "搜索文件",
-        "answering": "回答中"
-      }
+        "answering": "回答中",
+        "preparing": "正在准备上下文"
+      },
+      "debug": "调试推理"
     },
     "feedback": {
       "helpful_tooltip": "很有帮助",

@@ -224,8 +224,8 @@
       "tooltip_messages": "Numero di risposte AI"
     },
     "reasoning": {
-      "aria_label": "Ragionamento del modello",
-      "title": "Processo di Pensiero",
+      "aria_label": "Registro attività",
+      "title": "Attività",
       "thinking": "Pensando…",
       "done": "Fatto",
       "hide": "Nascondi",
@@ -245,8 +245,10 @@
         "trimmed": "risultato troncato",
         "change_limit": "Modifica limite",
         "documents": "Ricerca file",
-        "answering": "Risposta"
-      }
+        "answering": "Risposta",
+        "preparing": "Preparazione del contesto"
+      },
+      "debug": "Ragionamento di debug"
     },
     "feedback": {
       "helpful_tooltip": "È stato utile",

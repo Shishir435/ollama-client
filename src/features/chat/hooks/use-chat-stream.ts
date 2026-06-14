@@ -26,6 +26,12 @@ interface StreamOptions {
 
 interface StreamMessage {
   type?: string
+  message?: {
+    content?: string
+    thinking?: string
+    reasoning?: string
+    reasoning_content?: string
+  }
   payload?: {
     sources?: Array<{
       id: string | number
@@ -139,6 +145,11 @@ export const useChatStream = ({
       }
 
       let didUpdate = false
+      const rawThinkingDelta =
+        msg.message?.thinking ||
+        msg.message?.reasoning ||
+        msg.message?.reasoning_content
+      const normalizedThinkingDelta = msg.thinkingDelta ?? rawThinkingDelta
 
       // Live tool-run trace snapshot — replace with the latest so the
       // chain-of-thought trace reflects what tools are running / have run.
@@ -150,19 +161,20 @@ export const useChatStream = ({
         didUpdate = true
       }
 
-      if (msg.thinkingDelta) {
+      if (normalizedThinkingDelta) {
         if (DEBUG_THINKING_STREAM) {
           logger.debug("ThinkingStream delta", "useChatStream", {
-            delta: msg.thinkingDelta
+            delta: normalizedThinkingDelta
           })
         }
-        assistantMessage.thinking = `${assistantMessage.thinking || ""}${msg.thinkingDelta}`
+        assistantMessage.thinking = `${assistantMessage.thinking || ""}${normalizedThinkingDelta}`
         didUpdate = true
       }
 
-      if (msg.delta !== undefined) {
+      const normalizedDelta = msg.delta ?? msg.message?.content
+      if (normalizedDelta !== undefined) {
         const { visible, thinking } = splitThinkingDelta(
-          msg.delta,
+          normalizedDelta,
           thinkingState
         )
 
@@ -223,18 +235,20 @@ export const useChatStream = ({
             description: displayError.message
           })
         } else {
-          // Some local providers/models send the final answer in a reasoning
-          // field instead of content. If there is no visible answer, surface it
-          // as the answer rather than leaving it hidden in Thought Process.
-          const finalAssistantMessage =
+          const thinkingOnlyResponse =
             !assistantMessage.content.trim() &&
-            assistantMessage.thinking?.trim()
-              ? {
-                  ...assistantMessage,
-                  content: assistantMessage.thinking,
-                  thinking: undefined
+            Boolean(assistantMessage.thinking?.trim())
+          const finalAssistantMessage = thinkingOnlyResponse
+            ? {
+                ...assistantMessage,
+                content:
+                  "I did not receive a final answer from the model. Please try again.",
+                metrics: {
+                  ...assistantMessage.metrics,
+                  thinkingOnlyResponse: true
                 }
-              : assistantMessage
+              }
+            : assistantMessage
 
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),

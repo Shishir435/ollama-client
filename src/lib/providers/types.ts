@@ -61,6 +61,11 @@ export interface ChatRequest {
   max_tokens?: number
   stream?: boolean
   /**
+   * Ollama thinking toggle. Used for short internal utility calls where hidden
+   * reasoning would waste time and never be shown to the user.
+   */
+  think?: boolean
+  /**
    * Tool definitions offered to the model. Only set for tool-capable models
    * (gated on resolved `toolCalling`); when absent the request is identical to
    * the pre-tool-calling wire shape, so non-tool models are unaffected.

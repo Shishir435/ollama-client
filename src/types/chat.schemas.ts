@@ -58,6 +58,28 @@ const ToolRunSchema = z.object({
   resultPreview: z.string().optional()
 })
 
+const ActivityEventSchema = z.object({
+  id: z.string(),
+  kind: z.enum([
+    "preparing_context",
+    "query_rewrite",
+    "searching_memory",
+    "searching_files",
+    "reading_page",
+    "calling_tool",
+    "generating_answer"
+  ]),
+  label: z.string(),
+  status: z.enum(["running", "done", "error"]),
+  startedAt: z.number(),
+  finishedAt: z.number().optional(),
+  inputPreview: z.string().optional(),
+  outputPreview: z.string().optional(),
+  resultCount: z.number().optional(),
+  sourceTitles: z.array(z.string()).optional(),
+  error: z.string().optional()
+})
+
 const ToolCallSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -74,6 +96,7 @@ export const ChatMessageMetricsSchema = z.object({
   ragQuery: z.string().optional(),
   ragSources: z.array(RagSourceSchema).optional(),
   usedContextChunks: z.array(UsedContextChunkSchema).optional(),
+  activityEvents: z.array(ActivityEventSchema).optional(),
   toolRuns: z.array(ToolRunSchema).optional(),
   groundedOnlyMode: z.boolean().optional(),
   insufficientContext: z.boolean().optional(),
@@ -82,7 +105,8 @@ export const ChatMessageMetricsSchema = z.object({
   tabContextLength: z.number().optional(),
   ragContextLength: z.number().optional(),
   tabContextTruncated: z.boolean().optional(),
-  contextBuildFailed: z.boolean().optional()
+  contextBuildFailed: z.boolean().optional(),
+  thinkingOnlyResponse: z.boolean().optional()
 })
 
 // ---- FileAttachment ----

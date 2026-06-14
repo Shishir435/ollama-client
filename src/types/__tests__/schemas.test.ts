@@ -165,6 +165,27 @@ describe("ChatMessageMetricsSchema", () => {
     expect(result.success).toBe(true)
   })
 
+  it("accepts activity event metadata", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      activityEvents: [
+        {
+          id: "rewrite-1",
+          kind: "query_rewrite",
+          label: "Rewriting query",
+          status: "done",
+          startedAt: 1,
+          finishedAt: 2,
+          inputPreview: "What about it?",
+          outputPreview: "What about the deployment?",
+          resultCount: 1,
+          sourceTitles: ["Deploy notes"]
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   it("strips unknown keys (default strip mode)", () => {
     const result = ChatMessageMetricsSchema.safeParse({
       total_duration: 100,
