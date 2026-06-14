@@ -1,0 +1,20 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "Ollama Client Local Search"
+
+search:
+  formats:
+    - html
+    - json
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  base_url: "http://localhost:8080/"
+  secret_key: "ollama-client-local-searxng-change-before-public"
+  public_instance: false
+
+valkey:
+  url: redis://valkey:6379/0
