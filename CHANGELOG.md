@@ -7,8 +7,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Provider-agnostic web search tool (`web_search`) for tool-capable models, gated behind device-local settings and exposed as one model-visible tool regardless of backend. Initial backends are SearXNG, Brave Search, and Tavily.
+- Local SearXNG Docker Compose setup under `searxng/` for private development/testing with JSON search enabled.
+- Web search settings in the Context tab: enable toggle, provider selector, API key/endpoint fields, safe-search, result count, SearXNG page count, beta badge, provider base URL transparency, and test search.
+- Chat composer globe toggle for enabling/disabling web search without leaving the chat.
+
 ### Changed
 - Documentation updated for image input, browser-context tools, and model capability gating.
+- Tool guidance now tells models to use `web_search` for current/time-sensitive facts, include the current date in search planning, and cite returned URLs.
+- Web-search results are normalized, capped, and treated as untrusted snippets before being returned to the model.
+
+### Fixed
+- Thinking-only tool responses now surface as the visible assistant answer instead of falling through to the generic "no final answer" fallback.
 
 ## [0.10.0] - 2026-06-13
 ### Added

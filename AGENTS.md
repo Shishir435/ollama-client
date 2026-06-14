@@ -4,7 +4,7 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 ## Project Overview
 
-Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
+Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
 
 Supported user-facing providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, LocalAI**. `openai-compatible.ts` is the shared OpenAI-compatible base implementation, not a separate configured provider.
 
@@ -113,6 +113,15 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 
 > There is no longer a parallel `src/lib/rag/core/` tree. If you see references to it in any doc, that doc is stale — please update it.
 
+### Web Search Tooling
+
+- Runtime code lives under `src/lib/tools/web-search/`.
+- `WebSearchBackend` adapters keep provider-specific wire formats behind one `web_search` tool.
+- Supported backends: SearXNG (`GET /search?q=...&format=json`), Brave Search (`GET https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`), and Tavily (`POST https://api.tavily.com/search` with bearer auth).
+- Settings UI lives under `src/features/web-search/` and mounts in the Context tab. Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`; never log API keys.
+- SearXNG has `pageno` but no API result-count parameter. Fetch configured pages, de-dupe, then cap output before returning results to the model. Brave uses `count`; Tavily uses `max_results`.
+- Keep snippets/titles untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
+
 ## Key Conventions
 
 ### Messaging keys: provider-* vs ollama-*
@@ -196,6 +205,9 @@ If you change anything under `src/locales/`, run `pnpm generate:resources` manua
 - **vLLM** (OpenAI-compatible server): <https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html>
 - **KoboldCPP** (OpenAI-compatible endpoints): <https://github.com/LostRuins/koboldcpp/wiki>
 - **LocalAI** (OpenAI-compatible): <https://localai.io/features/openai-functions/>
+- **SearXNG Search API**: <https://docs.searxng.org/dev/search_api.html>
+- **Brave Search API**: <https://api-dashboard.search.brave.com/app/documentation/web-search/responses>
+- **Tavily Search API**: <https://docs.tavily.com/documentation/api-reference/endpoint/search>
 
 ## Known Tech-Debt Hotspots
 

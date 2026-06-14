@@ -20,6 +20,11 @@ In Ollama Client settings, use:
 http://localhost:8080
 ```
 
+## API docs
+
+- [SearXNG Search API](https://docs.searxng.org/dev/search_api.html)
+- [SearXNG settings.yml](https://docs.searxng.org/admin/settings/settings.html)
+
 ## Stop
 
 ```bash
@@ -34,4 +39,3 @@ cd searxng
 docker compose pull
 docker compose up -d
 ```
-
