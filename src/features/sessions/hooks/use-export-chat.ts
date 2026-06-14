@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { splitStoredFiles } from "@/features/sessions/lib/message-tree"
 import { jsonExporter } from "@/lib/exporters/json-exporter"
 import { markdownExporter } from "@/lib/exporters/markdown-exporter"
 import { pdfExporter } from "@/lib/exporters/pdf-exporter"
@@ -25,10 +26,16 @@ export const useChatExport = () => {
     const messageKeys = messages.map((m) => m.id as number)
     const files = await getFilesByMessageIds(messageKeys)
 
-    const messagesWithFiles = messages.map((msg) => ({
-      ...msg,
-      attachments: files.filter((f) => f.messageId === msg.id)
-    }))
+    const messagesWithFiles = messages.map((msg) => {
+      const { attachments, images } = splitStoredFiles(
+        files.filter((f) => f.messageId === msg.id)
+      )
+      return {
+        ...msg,
+        attachments,
+        images: images.length > 0 ? images : undefined
+      }
+    })
 
     return { ...session, messages: messagesWithFiles }
   }

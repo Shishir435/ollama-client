@@ -1,6 +1,6 @@
 # Ollama Client
 
-Local-first browser sidepanel for chatting with local and remote LLM providers, with private chat history and local RAG over your files.
+Local-first browser sidepanel for chatting with local and remote LLM providers, with private chat history, local RAG, image input, and browser-context tools.
 
 <p>
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
@@ -20,6 +20,8 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 - Chat from the browser sidepanel with streaming responses and cancellation.
 - Route models across Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
 - Upload files and use local retrieval-augmented generation over your own content.
+- Attach images for vision-capable models.
+- Let tool-capable models read the current tab, selected text, open tabs, uploaded files, and local memory when the prompt calls for it.
 - Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
 - Export, restore, print, and manage local conversation history.
@@ -47,6 +49,17 @@ The RAG pipeline is browser-first and local-first:
 4. Retrieved snippets are injected into the prompt context before generation.
 
 Chat/session/message/file history is SQLite-only through `sql.js`, persisted into IndexedDB. Vector embeddings still live in IndexedDB through the embeddings storage layer.
+
+## Browser Context, Images, and Tools
+
+Ollama Client supports two context paths:
+
+- **Manual context**: select tabs, selected text, files, or images before sending.
+- **Model-requested context**: tool-capable models can call local tools during a response to inspect the current page, list/read open tabs, search indexed files, search local chat memory, or use the most recent selected text.
+
+Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
+
+Image input is available only when the selected model resolves to vision-capable. Images are sent in the provider's native request format and stored locally with the conversation so previews reopen later.
 
 ## Install
 
@@ -125,6 +138,7 @@ Runtime flow:
 ## Documentation
 
 - [Provider setup](https://ollama-client.shishirchaurasiya.in/guides/provider-setup/)
+- [Context, images, and tools](https://ollama-client.shishirchaurasiya.in/guides/context-and-tools/)
 - [Provider capability matrix](https://ollama-client.shishirchaurasiya.in/concepts/provider-matrix/)
 - [Architecture](https://ollama-client.shishirchaurasiya.in/concepts/architecture/)
 - [Keyboard shortcuts](https://ollama-client.shishirchaurasiya.in/about/keyboard-shortcuts/)

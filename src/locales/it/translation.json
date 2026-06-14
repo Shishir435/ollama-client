@@ -224,8 +224,8 @@
       "tooltip_messages": "Numero di risposte AI"
     },
     "reasoning": {
-      "aria_label": "Ragionamento del modello",
-      "title": "Processo di Pensiero",
+      "aria_label": "Registro attività",
+      "title": "Attività",
       "thinking": "Pensando…",
       "done": "Fatto",
       "hide": "Nascondi",
@@ -238,8 +238,17 @@
         "page": "Lettura pagina",
         "files": "RAG",
         "web": "Ricerca web",
-        "answering": "Risposta"
-      }
+        "knowledge": "Ricerca conoscenza",
+        "tab": "Lettura scheda",
+        "tabs": "Elenco schede",
+        "selection": "Lettura selezione",
+        "trimmed": "risultato troncato",
+        "change_limit": "Modifica limite",
+        "documents": "Ricerca file",
+        "answering": "Risposta",
+        "preparing": "Preparazione del contesto"
+      },
+      "debug": "Ragionamento di debug"
     },
     "feedback": {
       "helpful_tooltip": "È stato utile",
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "Verifica stato in corso...",
       "downloading": "Scaricamento {{model}}... {{progress}}",
-      "ready": "Modello di embedding pronto: {{model}}",
-      "missing": "Modello mancante: {{model}}",
-      "checking_model": "Verifica modello di embedding in corso...",
+      "ready": "Modello di embedding per RAG/ricerca pronto: {{model}}",
+      "missing": "Modello di embedding per RAG/ricerca mancante: {{model}}",
+      "checking_model": "Verifica modello di embedding per RAG/ricerca in corso...",
       "error": "Impossibile verificare lo stato. Fai clic per riprovare.",
       "required_for_rag": "Il modello di embedding è richiesto per le funzionalità RAG.",
       "download_button": "Scarica Modello"
@@ -534,10 +543,10 @@
       "feedback_clear_error": "Impossibile cancellare i dati feedback"
     },
     "provider_status": {
-      "checking": "Verifica stato Provider in corso...",
-      "error": "Provider non raggiungibile",
-      "empty": "Nessun modello trovato",
-      "ready": "Provider è pronto"
+      "checking": "Verifica provider locale in corso...",
+      "error": "Provider locale non raggiungibile",
+      "empty": "Provider locale raggiunto, ma nessun modello chat trovato",
+      "ready": "Provider locale pronto"
     },
     "capabilities": {
       "edit_tooltip": "Imposta capacità",

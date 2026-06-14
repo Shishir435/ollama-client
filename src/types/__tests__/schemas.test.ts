@@ -23,6 +23,26 @@ describe("ChatMessageSchema", () => {
       thinking: "hmm",
       done: true,
       model: "llama3",
+      toolName: "read_tab",
+      toolCallId: "call-1",
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "read_tab",
+          arguments: { query: "docs" }
+        }
+      ],
+      images: [
+        {
+          imageId: "img-1",
+          fileName: "photo.png",
+          mimeType: "image/png",
+          size: 123,
+          base64: "abc",
+          width: 10,
+          height: 10
+        }
+      ],
       timestamp: 1700000000
     })
     expect(result.success).toBe(true)
@@ -128,12 +148,37 @@ describe("ChatMessageMetricsSchema", () => {
     const result = ChatMessageMetricsSchema.safeParse({
       toolRuns: [
         {
-          toolId: "web-search",
+          toolId: "web_search",
           label: "Web search",
+          displayNameKey: "chat.reasoning.trace.web",
+          iconKey: "search",
+          category: "web",
+          risk: "low",
           status: "done",
           startedAt: 1,
           completedAt: 2,
           sources: [{ title: "Example", url: "https://example.com" }]
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it("accepts activity event metadata", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      activityEvents: [
+        {
+          id: "rewrite-1",
+          kind: "query_rewrite",
+          label: "Rewriting query",
+          status: "done",
+          startedAt: 1,
+          finishedAt: 2,
+          inputPreview: "What about it?",
+          outputPreview: "What about the deployment?",
+          resultCount: 1,
+          sourceTitles: ["Deploy notes"]
         }
       ]
     })

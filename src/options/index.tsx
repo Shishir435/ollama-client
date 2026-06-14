@@ -6,7 +6,11 @@ import { DevThemePane } from "@/components/dev-theme-pane"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_TABS_ACCESS,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "@/options/components/settings-page"
 import "../globals.css"
@@ -51,7 +55,7 @@ export const OptionsIndex = () => {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_TABS_ACCESS
   )
 
   useKeyboardShortcuts({

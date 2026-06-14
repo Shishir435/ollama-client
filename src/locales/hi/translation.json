@@ -224,8 +224,8 @@
       "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
     },
     "reasoning": {
-      "aria_label": "मॉडल विचार प्रक्रिया",
-      "title": "सोचने की प्रक्रिया",
+      "aria_label": "गतिविधि लॉग",
+      "title": "गतिविधि",
       "thinking": "सोच रहा हूँ…",
       "done": "पूर्ण",
       "hide": "छिपाएं",
@@ -238,8 +238,17 @@
         "page": "पेज पढ़ रहा है",
         "files": "RAG",
         "web": "वेब खोज",
-        "answering": "उत्तर दे रहा है"
-      }
+        "knowledge": "ज्ञान खोज रहा है",
+        "tab": "टैब पढ़ रहा है",
+        "tabs": "टैब सूचीबद्ध कर रहा है",
+        "selection": "चयन पढ़ रहा है",
+        "trimmed": "नतीजा छोटा किया गया",
+        "change_limit": "सीमा बदलें",
+        "documents": "फ़ाइलें खोज रहा है",
+        "answering": "उत्तर दे रहा है",
+        "preparing": "संदर्भ तैयार कर रहा है"
+      },
+      "debug": "डीबग तर्क"
     },
     "feedback": {
       "helpful_tooltip": "यह मददगार था",
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "स्थिति जाँच रहा है...",
       "downloading": "{{model}} डाउनलोड हो रहा है... {{progress}}",
-      "ready": "एम्बेडिंग मॉडल तैयार: {{model}}",
-      "missing": "मॉडल गुम है: {{model}}",
-      "checking_model": "एम्बेडिंग मॉडल जाँच रहा है...",
+      "ready": "RAG/खोज एम्बेडिंग मॉडल तैयार: {{model}}",
+      "missing": "RAG/खोज एम्बेडिंग मॉडल गुम है: {{model}}",
+      "checking_model": "RAG/खोज एम्बेडिंग मॉडल जाँच रहा है...",
       "error": "स्थिति जाँची नहीं जा सकी। पुनः प्रयास के लिए क्लिक करें।",
       "required_for_rag": "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
       "download_button": "मॉडल डाउनलोड करें"
@@ -534,10 +543,10 @@
       "feedback_clear_error": "फ़ीडबैक डेटा हटाया नहीं जा सका"
     },
     "provider_status": {
-      "checking": "Provider स्थिति जाँच रहा है...",
-      "error": "Provider पहुंच योग्य नहीं है",
-      "empty": "कोई मॉडल नहीं मिला",
-      "ready": "Provider तैयार है"
+      "checking": "स्थानीय Provider जाँच रहा है...",
+      "error": "स्थानीय Provider पहुंच योग्य नहीं है",
+      "empty": "स्थानीय Provider मिला, लेकिन कोई चैट मॉडल नहीं मिला",
+      "ready": "स्थानीय Provider तैयार है"
     },
     "capabilities": {
       "edit_tooltip": "क्षमताएँ सेट करें",

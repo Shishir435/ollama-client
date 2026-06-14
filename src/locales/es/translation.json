@@ -224,8 +224,8 @@
       "tooltip_messages": "Número de respuestas de IA"
     },
     "reasoning": {
-      "aria_label": "Razonamiento del modelo",
-      "title": "Proceso de Pensamiento",
+      "aria_label": "Registro de actividad",
+      "title": "Actividad",
       "thinking": "Pensando…",
       "done": "Listo",
       "hide": "Ocultar",
@@ -238,8 +238,17 @@
         "page": "Leyendo página",
         "files": "RAG",
         "web": "Buscando en la web",
-        "answering": "Respondiendo"
-      }
+        "knowledge": "Buscando conocimiento",
+        "tab": "Leyendo pestaña",
+        "tabs": "Listando pestañas",
+        "selection": "Leyendo selección",
+        "trimmed": "resultado recortado",
+        "change_limit": "Cambiar límite",
+        "documents": "Buscando archivos",
+        "answering": "Respondiendo",
+        "preparing": "Preparando contexto"
+      },
+      "debug": "Razonamiento de depuración"
     },
     "feedback": {
       "helpful_tooltip": "Esto fue útil",
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "Comprobando estado...",
       "downloading": "Descargando {{model}}... {{progress}}",
-      "ready": "Modelo de incrustación listo: {{model}}",
-      "missing": "Modelo faltante: {{model}}",
-      "checking_model": "Comprobando modelo de incrustación...",
+      "ready": "Modelo de incrustación para RAG/búsqueda listo: {{model}}",
+      "missing": "Falta el modelo de incrustación para RAG/búsqueda: {{model}}",
+      "checking_model": "Comprobando modelo de incrustación para RAG/búsqueda...",
       "error": "No se pudo comprobar el estado. Haz clic para reintentar.",
       "required_for_rag": "El modelo de incrustación es necesario para las funciones RAG.",
       "download_button": "Descargar Modelo"
@@ -534,10 +543,10 @@
       "feedback_clear_error": "No se pudieron borrar los datos de comentarios"
     },
     "provider_status": {
-      "checking": "Comprobando estado de Provider...",
-      "error": "Provider no está accesible",
-      "empty": "No se encontraron modelos",
-      "ready": "Provider está listo"
+      "checking": "Comprobando proveedor local...",
+      "error": "Proveedor local no accesible",
+      "empty": "Proveedor local accesible, pero no se encontraron modelos de chat",
+      "ready": "Proveedor local listo"
     },
     "capabilities": {
       "edit_tooltip": "Definir capacidades",

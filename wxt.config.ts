@@ -52,6 +52,7 @@ export default defineConfig({
       "storage",
       "sidePanel",
       "tabs",
+      "scripting",
       "declarativeNetRequest",
       "contextMenus"
     ],

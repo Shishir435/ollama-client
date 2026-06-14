@@ -1,18 +1,26 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { buildRagContext } from "@/features/chat/hooks/build-rag-context"
 import { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
 import { useChatSessionLifecycle } from "@/features/chat/hooks/use-chat-session-lifecycle"
 import { useChatStreaming } from "@/features/chat/hooks/use-chat-streaming"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
-import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import {
+  loadStreamStore,
+  useLoadStream
+} from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import type { ChatMessage, FileAttachment, ImageAttachment } from "@/types"
+import type {
+  ActivityEvent,
+  ChatMessage,
+  FileAttachment,
+  ImageAttachment
+} from "@/types"
 
 export const useChat = () => {
   const config = useChatConfig()
@@ -38,6 +46,9 @@ export const useChat = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const previousSessionIdRef = useRef<string | null>(null)
+  const [pendingActivityEvents, setPendingActivityEvents] = useState<
+    ActivityEvent[]
+  >([])
 
   const currentSession = sessions.find((s) => s.id === currentSessionId)
   const messages = currentSession?.messages ?? []
@@ -90,8 +101,13 @@ export const useChat = () => {
     files?: ProcessedFile[],
     images?: ImageAttachment[]
   ) => {
-    const sessionId = await ensureSessionId()
-    if (!sessionId) return
+    // Block re-entrancy: ignore a send while a generation is already in flight
+    // so a slow turn can't have a second query queued behind it. Read live
+    // store state, not the render-time closure — setIsLoading(true) below
+    // updates the store synchronously but the closed-over value lags a render,
+    // so two sends in the same frame would both slip past a closure check.
+    const live = loadStreamStore.getState()
+    if (live.isLoading || live.isStreaming) return
 
     const rawInput = customInput?.trim() ?? input.trim()
 
@@ -106,6 +122,28 @@ export const useChat = () => {
 
     const hasImages = !!images && images.length > 0
     if (!rawInput && (!files || files.length === 0) && !hasImages) return
+
+    // Show the thinking state immediately, before any await — session
+    // creation, context building (RAG embedding, vector search) all run before
+    // the stream starts, and without this the user gets no feedback for that
+    // whole window, assumes nothing happened, and re-sends.
+    setIsLoading(true)
+    const preparingEvent: ActivityEvent = {
+      id: "preparing-context",
+      kind: "preparing_context",
+      label: "Preparing context",
+      status: "running",
+      startedAt: Date.now(),
+      inputPreview: rawInput || files?.[0]?.metadata.fileName
+    }
+    setPendingActivityEvents([preparingEvent])
+
+    const sessionId = await ensureSessionId()
+    if (!sessionId) {
+      setPendingActivityEvents([])
+      setIsLoading(false)
+      return
+    }
 
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
@@ -131,12 +169,28 @@ export const useChat = () => {
       attachments,
       images: hasImages ? images : undefined
     }
-    await addMessage(sessionId, userMessage)
 
-    if (!customInput) setInput("")
+    // addMessage/autoRenameSession are async SQLite writes running inside the
+    // loading window. A failure here must clear isLoading, or the session is
+    // wedged — every later send hits the re-entrancy guard and silently bails.
+    try {
+      await addMessage(sessionId, userMessage)
 
-    const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
-    await autoRenameSession(sessionId, titleContent)
+      if (!customInput) setInput("")
+
+      const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
+      await autoRenameSession(sessionId, titleContent)
+    } catch (error) {
+      logger.error("Failed to persist user message", "useChat", { error })
+      setPendingActivityEvents([])
+      setIsLoading(false)
+      toast({
+        variant: "destructive",
+        title: "Couldn't send message",
+        description: "Saving the message failed. Please try again."
+      })
+      return
+    }
 
     let ragResult: Awaited<ReturnType<typeof buildRagContext>>
     try {
@@ -155,11 +209,22 @@ export const useChat = () => {
         selectedModel: config.selectedModel,
         selectedModelRef: config.selectedModelRef,
         customModel,
+        onActivityEvent: (events) => {
+          setPendingActivityEvents([
+            {
+              ...preparingEvent,
+              status: "done",
+              finishedAt: Date.now()
+            },
+            ...events
+          ])
+        },
         toast
       })
     } catch (error) {
       logger.error("Failed to build chat context", "useChat", { error })
       clearNextResponseMetrics()
+      setPendingActivityEvents([])
       setIsLoading(false)
       setIsStreaming(false)
 
@@ -206,6 +271,9 @@ export const useChat = () => {
     }
 
     if (config.groundedOnlyMode && !hasRelevantPageContext) {
+      // Early exit without streaming — clear the thinking state we set above.
+      setIsLoading(false)
+      setPendingActivityEvents([])
       const settingsDeepLink =
         "/options.html?tab=context&focus=grounded-only-mode"
 
@@ -237,6 +305,21 @@ export const useChat = () => {
     ]
 
     setNextResponseMetrics(ragSources, promptContextStats)
+    setPendingActivityEvents([
+      {
+        ...preparingEvent,
+        status: "done",
+        finishedAt: Date.now()
+      },
+      ...promptContextStats.activityEvents,
+      {
+        id: "generating-answer",
+        kind: "generating_answer",
+        label: "Generating answer",
+        status: "running",
+        startedAt: Date.now()
+      }
+    ])
 
     logger.info("Prompt context stats", "useChat", {
       sessionId,
@@ -258,10 +341,12 @@ export const useChat = () => {
     }
 
     await generateResponse(customModel, sessionId, messagesForLLM)
+    setPendingActivityEvents([])
   }
 
   return {
     messages,
+    pendingActivityEvents,
     isLoading,
     isStreaming,
     sendMessage,

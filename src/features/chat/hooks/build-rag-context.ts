@@ -17,6 +17,7 @@ import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type {
+  ActivityEvent,
   ChatMessage,
   RagSource,
   RagSources,
@@ -35,6 +36,7 @@ export interface PromptContextStats {
   groundedOnlyMode: boolean
   insufficientContext: boolean
   usedContextChunks: UsedContextChunk[]
+  activityEvents: ActivityEvent[]
 }
 
 export interface BuildRagContextOptions {
@@ -55,6 +57,7 @@ export interface BuildRagContextOptions {
   selectedModel: string
   selectedModelRef: SelectedModelRef | null
   customModel?: string
+  onActivityEvent?: (events: ActivityEvent[]) => void
   /** Side-channel toast for user-facing warnings (e.g. RAG failure). */
   toast: (input: {
     variant?: "default" | "destructive"
@@ -154,13 +157,32 @@ const buildFileFullTextFallback = (files: ProcessedFile[]) =>
     )
     .join("\n\n---\n\n")
 
+const REFORMULATION_TIMEOUT_MS = 8000
+const PREVIEW_LIMIT = 180
+
+const preview = (value: string, limit = PREVIEW_LIMIT) =>
+  value.length > limit ? `${value.slice(0, limit)}...` : value
+
+const withTimeoutSignal = async <T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number
+): Promise<T> => {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fn(controller.signal)
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 /**
  * Build a RAG-augmented user message body plus telemetry.
  *
  * This is the heaviest piece of `useChat.sendMessage`, factored out as a
  * pure async function so it can be reasoned about (and eventually tested)
- * in isolation. It performs zero React state mutation — callers thread
- * the result through their own stores.
+ * in isolation. It performs no direct React state mutation — callers may
+ * observe activity events through `onActivityEvent` and thread them into UI.
  *
  * The augmentation pipeline:
  *   1. Classify the query intent.
@@ -186,6 +208,7 @@ export const buildRagContext = async (
     selectedModel,
     selectedModelRef,
     customModel,
+    onActivityEvent,
     toast
   } = options
 
@@ -195,8 +218,46 @@ export const buildRagContext = async (
   let ragContextLength = 0
   let tabContextTruncated = false
   const usedContextChunks: UsedContextChunk[] = []
+  const activityEvents: ActivityEvent[] = []
   let ragSources: RagSources | null = null
   let pageContextAdded = false
+
+  const upsertActivityEvent = (event: ActivityEvent) => {
+    const index = activityEvents.findIndex((item) => item.id === event.id)
+    if (index >= 0) activityEvents[index] = event
+    else activityEvents.push(event)
+    onActivityEvent?.([...activityEvents])
+  }
+
+  const startActivityEvent = (
+    id: string,
+    kind: ActivityEvent["kind"],
+    label: string,
+    inputPreview?: string
+  ): ActivityEvent => {
+    const event: ActivityEvent = {
+      id,
+      kind,
+      label,
+      status: "running",
+      startedAt: Date.now(),
+      inputPreview
+    }
+    upsertActivityEvent(event)
+    return event
+  }
+
+  const finishActivityEvent = (
+    event: ActivityEvent,
+    updates: Partial<ActivityEvent> = {}
+  ) => {
+    upsertActivityEvent({
+      ...event,
+      ...updates,
+      status: updates.status ?? "done",
+      finishedAt: Date.now()
+    })
+  }
 
   const useRag =
     (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.EMBEDDINGS.USE_RAG)) ??
@@ -215,15 +276,23 @@ export const buildRagContext = async (
         selectedModelRef?.providerId
       )
       let response = ""
-      await provider.streamChat(
-        {
-          model: modelId,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2
-        },
-        (chunk) => {
-          if (chunk.delta) response += chunk.delta
-        }
+      await withTimeoutSignal(
+        (signal) =>
+          provider.streamChat(
+            {
+              model: modelId,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.2,
+              num_predict: 64,
+              stop: ["\n"],
+              think: false
+            },
+            (chunk) => {
+              if (chunk.delta) response += chunk.delta
+            },
+            signal
+          ),
+        REFORMULATION_TIMEOUT_MS
       )
       return response.trim()
     } catch (err) {
@@ -275,12 +344,21 @@ export const buildRagContext = async (
           activeKnowledgeSet?.questionPrompt?.trim() &&
           recentHistory.length >= 2
         ) {
+          const rewriteEvent = startActivityEvent(
+            "query-rewrite",
+            "query_rewrite",
+            "Rewriting query",
+            preview(rawInput || "summary")
+          )
           const reformulated = await reformulateQuestion(
             rawInput || "summary",
             recentHistory,
             invokeModelOnce,
             activeKnowledgeSet.questionPrompt
           )
+          finishActivityEvent(rewriteEvent, {
+            outputPreview: preview(reformulated || rawInput || "summary")
+          })
           if (reformulated) {
             queryForRag = reformulated
             logger.info("Reformulated query for RAG", "useChat", {
@@ -291,6 +369,12 @@ export const buildRagContext = async (
 
         // Page-only context (ephemeral, not persisted).
         if (hasTabContext) {
+          const pageEvent = startActivityEvent(
+            "page-context",
+            "reading_page",
+            "Reading selected page context",
+            preview(queryForRag)
+          )
           const pageContext = await retrieveContextFromSources(
             queryForRag,
             tabDocuments,
@@ -325,12 +409,28 @@ export const buildRagContext = async (
             )
             pageContextAdded = true
           }
+          finishActivityEvent(pageEvent, {
+            resultCount: pageContext.documents.length,
+            sourceTitles: pageContext.sources
+              .slice(0, 3)
+              .map((source) => source.title),
+            outputPreview:
+              pageContext.documents.length > 0
+                ? preview(pageContext.formattedContext)
+                : "No matching page chunks"
+          })
         }
 
         if (!groundedOnlyMode) {
           const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {
+            const searchEvent = startActivityEvent(
+              "file-memory-search",
+              memoryEnabled ? "searching_memory" : "searching_files",
+              memoryEnabled ? "Searching memory and files" : "Searching files",
+              preview(queryForRag)
+            )
             logger.verbose("RAG searching for context", "useChat", {
               scope: "Specific Files",
               suggestedTopK: queryClassification.suggestedTopK,
@@ -368,6 +468,16 @@ export const buildRagContext = async (
               contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
               ragContextLength += clamped.text.length
             }
+            finishActivityEvent(searchEvent, {
+              resultCount: context.documents.length,
+              sourceTitles: context.sources
+                .slice(0, 3)
+                .map((source) => source.title),
+              outputPreview:
+                context.documents.length > 0
+                  ? preview(context.formattedContext)
+                  : "No matching file or memory chunks"
+            })
           } else {
             logger.info(
               "Skipping file RAG: no scoped files selected",
@@ -378,6 +488,15 @@ export const buildRagContext = async (
       }
     } catch (e) {
       logger.error("RAG error", "useChat", { error: e })
+      upsertActivityEvent({
+        id: "rag-error",
+        kind: "searching_memory",
+        label: "Searching context",
+        status: "error",
+        startedAt: Date.now(),
+        finishedAt: Date.now(),
+        error: e instanceof Error ? e.message : "Context search failed"
+      })
       toast({
         variant: "destructive",
         title: "RAG Warning",
@@ -415,7 +534,8 @@ export const buildRagContext = async (
     tabContextTruncated,
     groundedOnlyMode,
     insufficientContext: false,
-    usedContextChunks
+    usedContextChunks,
+    activityEvents
   }
 
   return {

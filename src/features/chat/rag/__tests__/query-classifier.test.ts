@@ -100,6 +100,17 @@ describe("classifyQuery — conversational intent", () => {
     expect(result.shouldUseRAG).toBe(true)
   })
 
+  it("skips RAG for short casual chat even when history exists", () => {
+    const history = [
+      { role: "user", content: "yo" },
+      { role: "assistant", content: "Hey! What's up?" }
+    ]
+    const result = classifyQuery("umm nothing much just chat", history)
+    expect(result.intent).toBe("conversational")
+    expect(result.shouldUseRAG).toBe(false)
+    expect(result.suggestedTopK).toBe(0)
+  })
+
   it("does not classify long questions as conversational", () => {
     const result = classifyQuery(
       "Can you explain this entire topic in great detail?"

@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatStreamMessage,
   OllamaChatRequest,
@@ -16,6 +17,36 @@ import {
   type ProviderConfig,
   ProviderId
 } from "./types"
+
+/** Normalized tool → Ollama `/api/chat` `tools` entry (OpenAI-style). */
+const toOllamaTool = (tool: ToolDefinition) => ({
+  type: "function",
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters
+  }
+})
+
+interface OllamaToolCall {
+  id?: string
+  function?: { name?: string; arguments?: unknown }
+}
+
+/** Ollama tool call → normalized {@link ToolCall}. Arguments arrive as an object. */
+const normalizeOllamaToolCall = (
+  raw: OllamaToolCall,
+  index: number
+): ToolCall => {
+  const name = raw.function?.name ?? ""
+  const args = raw.function?.arguments
+  return {
+    id: raw.id || `${name || "tool"}_${index}`,
+    name,
+    arguments:
+      args && typeof args === "object" ? (args as Record<string, unknown>) : {}
+  }
+}
 
 export class OllamaProvider implements LLMProvider {
   id = ProviderId.OLLAMA
@@ -63,7 +94,10 @@ export class OllamaProvider implements LLMProvider {
       num_thread,
       num_gpu,
       num_batch,
-      keep_alive
+      keep_alive,
+      think,
+      tools,
+      tool_choice
     } = request
     const baseUrl = this.config.baseUrl || "http://localhost:11434"
 
@@ -89,14 +123,30 @@ export class OllamaProvider implements LLMProvider {
     )
 
     // Map to Ollama's wire shape. Vision models take image input as raw base64
-    // strings (no data: prefix) on the `images` field of a message.
+    // strings (no data: prefix) on the `images` field of a message. Tool turns
+    // round-trip through `assistant.tool_calls` and `tool` result messages
+    // (`{ role: "tool", tool_name, content }`).
     const ollamaMessages = messages.map((m) => {
-      const mapped: { role: string; content: string; images?: string[] } = {
+      const mapped: {
+        role: string
+        content: string
+        images?: string[]
+        tool_name?: string
+        tool_calls?: Array<{ function: { name: string; arguments: unknown } }>
+      } = {
         role: m.role,
         content: m.content
       }
       if (m.images && m.images.length > 0) {
         mapped.images = m.images.map((img) => img.base64)
+      }
+      if (m.role === "tool" && m.toolName) {
+        mapped.tool_name = m.toolName
+      }
+      if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+        mapped.tool_calls = m.toolCalls.map((call) => ({
+          function: { name: call.name, arguments: call.arguments }
+        }))
       }
       return mapped
     })
@@ -105,7 +155,15 @@ export class OllamaProvider implements LLMProvider {
       model,
       messages: ollamaMessages,
       stream: true,
+      think,
       keep_alive,
+      // Ollama has no `tool_choice` param; express "none" by omitting tools.
+      // It accepts tool-call history without a tools array, so this is safe and
+      // still prevents further tool calls in the synthesis pass.
+      tools:
+        tool_choice === "none" || !tools || tools.length === 0
+          ? undefined
+          : tools.map(toOllamaTool),
       options:
         Object.keys(filteredOptions).length > 0 ? filteredOptions : undefined
     }
@@ -138,63 +196,109 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const decoder = new TextDecoder()
+    // A single NDJSON object can straddle a read boundary, so accumulate and
+    // only parse complete (newline-terminated) lines; the remainder carries to
+    // the next read. Without this, a split object fails to parse and the whole
+    // message (which may carry tool_calls or the final done+metrics) is lost.
+    let buffer = ""
+
+    const processLine = (line: string) => {
+      if (!line.trim()) return
+      let data: {
+        error?: unknown
+        message?: {
+          content?: string
+          thinking?: string
+          reasoning?: string
+          reasoning_content?: string
+          tool_calls?: OllamaToolCall[]
+        }
+        done?: boolean
+        total_duration?: number
+        load_duration?: number
+        sample_count?: number
+        sample_duration?: number
+        prompt_eval_count?: number
+        prompt_eval_duration?: number
+        eval_count?: number
+        eval_duration?: number
+      }
+      try {
+        data = JSON.parse(line)
+      } catch (error) {
+        logger.warn("Failed to parse chunk", "OllamaProvider", { error })
+        return
+      }
+
+      if (data.error) {
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : "The provider reported an error while generating the response."
+        throw createAppError(message, {
+          kind: "provider",
+          providerId: ProviderId.OLLAMA,
+          userMessage:
+            "The provider reported an error while generating the response.",
+          debug: typeof data.error === "string" ? data.error : undefined
+        })
+      }
+
+      const thinkingDelta =
+        data.message?.thinking ||
+        data.message?.reasoning ||
+        data.message?.reasoning_content
+
+      if (thinkingDelta) {
+        onChunk({
+          thinkingDelta,
+          done: false
+        })
+      }
+
+      // Ollama emits the whole tool_calls array in one message (arguments
+      // already parsed to an object), unlike OpenAI's streamed fragments.
+      const rawToolCalls = data.message?.tool_calls
+      if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
+        onChunk({
+          toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
+          done: false
+        })
+      }
+
+      onChunk({
+        delta: data.message?.content || "",
+        done: data.done,
+        metrics: data.done
+          ? {
+              total_duration: data.total_duration,
+              load_duration: data.load_duration,
+              sample_count: data.sample_count,
+              sample_duration: data.sample_duration,
+              prompt_eval_count: data.prompt_eval_count,
+              prompt_eval_duration: data.prompt_eval_duration,
+              eval_count: data.eval_count,
+              eval_duration: data.eval_duration
+            }
+          : undefined
+      })
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
+          // Flush a final line left without a trailing newline at EOF.
+          if (buffer.trim()) processLine(buffer)
+          buffer = ""
           onChunk({ done: true })
           break
         }
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const data = JSON.parse(line)
-            if (data.error) {
-              throw createAppError(data.error, {
-                kind: "provider",
-                providerId: ProviderId.OLLAMA,
-                userMessage:
-                  "The provider reported an error while generating the response.",
-                debug: typeof data.error === "string" ? data.error : undefined
-              })
-            }
-
-            const thinkingDelta =
-              data.message?.thinking ||
-              data.message?.reasoning ||
-              data.message?.reasoning_content
-
-            if (thinkingDelta) {
-              onChunk({
-                thinkingDelta,
-                done: false
-              })
-            }
-
-            onChunk({
-              delta: data.message?.content || "",
-              done: data.done,
-              metrics: data.done
-                ? {
-                    total_duration: data.total_duration,
-                    load_duration: data.load_duration,
-                    sample_count: data.sample_count,
-                    sample_duration: data.sample_duration,
-                    prompt_eval_count: data.prompt_eval_count,
-                    prompt_eval_duration: data.prompt_eval_duration,
-                    eval_count: data.eval_count,
-                    eval_duration: data.eval_duration
-                  }
-                : undefined
-            })
-          } catch (e) {
-            logger.warn("Failed to parse chunk", "OllamaProvider", { error: e })
-          }
-        }
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+        for (const line of lines) processLine(line)
       }
     } finally {
       reader.releaseLock()

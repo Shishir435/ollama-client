@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
-import { Circle, SendHorizontal } from "@/lib/lucide-icon"
+import { SendHorizontal, StopCircle } from "@/lib/lucide-icon"
 
 export const SendOrStopButton = ({
   onSend,
@@ -32,7 +32,7 @@ export const SendOrStopButton = ({
       label={label}
       icon={
         isStreaming || isLoading ? (
-          <Circle size={16} className="animate-pulse text-status-danger" />
+          <StopCircle size={16} className="text-status-danger" />
         ) : (
           <SendHorizontal size={16} />
         )

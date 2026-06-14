@@ -136,6 +136,32 @@ describe("useChatStreaming", () => {
     )
   })
 
+  it("non-done thinking-only chunk writes thinking to UI immediately", async () => {
+    const { options, spies } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 8
+
+    await capturedSetMessages?.([
+      {
+        id: 8,
+        content: "",
+        thinking: "thinking is streaming",
+        done: false
+      }
+    ])
+
+    expect(spies.updateMessage).toHaveBeenCalledTimes(1)
+    expect(spies.updateMessage).toHaveBeenCalledWith(
+      8,
+      expect.objectContaining({
+        content: "",
+        thinking: "thinking is streaming",
+        done: false
+      }),
+      true
+    )
+  })
+
   it("rapid chunks coalesce into one DB write (debounce reset)", async () => {
     const { options, spies } = mkOptions()
     const { result } = renderHook(() => useChatStreaming(options))

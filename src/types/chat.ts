@@ -1,4 +1,6 @@
-export type Role = "user" | "assistant" | "system"
+import type { ToolCall } from "@/lib/tools/types"
+
+export type Role = "user" | "assistant" | "system" | "tool"
 
 export interface FileAttachment {
   id?: number
@@ -58,6 +60,27 @@ export interface RagSources {
   query: string
 }
 
+export interface ActivityEvent {
+  id: string
+  kind:
+    | "preparing_context"
+    | "query_rewrite"
+    | "searching_memory"
+    | "searching_files"
+    | "reading_page"
+    | "calling_tool"
+    | "generating_answer"
+  label: string
+  status: "running" | "done" | "error"
+  startedAt: number
+  finishedAt?: number
+  inputPreview?: string
+  outputPreview?: string
+  resultCount?: number
+  sourceTitles?: string[]
+  error?: string
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
@@ -68,6 +91,17 @@ export interface ChatMessage {
   attachments?: FileAttachment[]
   /** Images attached for vision models. Distinct from RAG `attachments`. */
   images?: ImageAttachment[]
+  /**
+   * Tool calls requested by the model on an assistant turn. Used transiently
+   * inside the background tool loop to echo the assistant turn back to the
+   * provider; the visible/persisted assistant message is the final answer, with
+   * the tool run summary in `metrics.toolRuns`.
+   */
+  toolCalls?: ToolCall[]
+  /** For `role: "tool"` result messages — the tool whose output this carries. */
+  toolName?: string
+  /** For `role: "tool"` result messages — the originating tool call id. */
+  toolCallId?: string
   timestamp?: number
   metrics?: {
     total_duration?: number
@@ -79,6 +113,7 @@ export interface ChatMessage {
     ragQuery?: string
     ragSources?: RagSource[]
     usedContextChunks?: UsedContextChunk[]
+    activityEvents?: ActivityEvent[]
     toolRuns?: ToolRun[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
@@ -88,6 +123,7 @@ export interface ChatMessage {
     ragContextLength?: number
     tabContextTruncated?: boolean
     contextBuildFailed?: boolean
+    thinkingOnlyResponse?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
@@ -97,6 +133,10 @@ export interface ChatMessage {
 export interface ToolRun {
   toolId: string
   label: string
+  displayNameKey?: string
+  iconKey?: string
+  category?: import("@/lib/tools/types").ToolCategory
+  risk?: import("@/lib/tools/types").ToolRiskLevel
   status: "pending" | "running" | "done" | "error"
   startedAt: number
   completedAt?: number
@@ -106,6 +146,12 @@ export interface ToolRun {
     excerpt?: string
   }>
   error?: string
+  /** The tool's result was trimmed to the configured per-result char cap. */
+  truncated?: boolean
+  /** Arguments the model passed to the tool (shown as the step's input). */
+  args?: Record<string, unknown>
+  /** Short preview of the tool's output (shown as the step's result). */
+  resultPreview?: string
 }
 
 export interface ChatSession {
@@ -124,6 +170,17 @@ export interface ChatStreamMessage {
   done?: boolean
   content?: string
   aborted?: boolean
+  /**
+   * Tool calls the model emitted this turn, normalized across providers. The
+   * background tool loop consumes these; they are not forwarded to the UI.
+   */
+  toolCalls?: ToolCall[]
+  /**
+   * A snapshot of the current tool-run trace. Forwarded to the UI, which
+   * replaces `metrics.toolRuns` with the latest snapshot so the chain-of-thought
+   * trace updates live as tools run.
+   */
+  toolRuns?: ToolRun[]
   error?: {
     status: number
     message: string

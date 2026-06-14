@@ -1,3 +1,4 @@
+import type { ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -59,6 +60,26 @@ export interface ChatRequest {
   keep_alive?: string | number
   max_tokens?: number
   stream?: boolean
+  /**
+   * Ollama thinking toggle. Used for short internal utility calls where hidden
+   * reasoning would waste time and never be shown to the user.
+   */
+  think?: boolean
+  /**
+   * Tool definitions offered to the model. Only set for tool-capable models
+   * (gated on resolved `toolCalling`); when absent the request is identical to
+   * the pre-tool-calling wire shape, so non-tool models are unaffected.
+   */
+  tools?: ToolDefinition[]
+  /**
+   * Tool-call policy. "none" forbids new tool calls while keeping the `tools`
+   * array in the payload, so strict OpenAI-compatible endpoints that reject a
+   * message history with tool turns but no `tools` field do not 400. Used by the
+   * synthesis pass after the tool loop hits its iteration cap. Ollama has no such
+   * param, so its adapter expresses "none" by omitting tools (it accepts tool
+   * history without them).
+   */
+  tool_choice?: "auto" | "none" | "required"
 }
 
 export interface EmbeddingSupport {

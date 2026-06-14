@@ -154,7 +154,13 @@ export default defineConfig({
       sidebar: [
         {
           label: "Guides",
-          items: [{ label: "Provider Setup", slug: "guides/provider-setup" }]
+          items: [
+            { label: "Provider Setup", slug: "guides/provider-setup" },
+            {
+              label: "Context, Images, and Tools",
+              slug: "guides/context-and-tools"
+            }
+          ]
         },
         {
           label: "Concepts",

@@ -224,8 +224,9 @@
       "tooltip_messages": "Number of AI responses"
     },
     "reasoning": {
-      "aria_label": "Model reasoning",
-      "title": "Thought Process",
+      "aria_label": "Activity log",
+      "title": "Activity",
+      "debug": "Debug reasoning",
       "thinking": "Thinking…",
       "done": "Done",
       "hide": "Hide",
@@ -234,10 +235,18 @@
       "loading_queued": "Queued",
       "trace": {
         "planning": "Planning",
+        "preparing": "Preparing context",
         "thinking": "Thinking",
         "page": "Reading page",
         "files": "RAG",
         "web": "Searching web",
+        "knowledge": "Searching knowledge",
+        "tab": "Reading tab",
+        "tabs": "Listing tabs",
+        "selection": "Reading selection",
+        "trimmed": "result trimmed",
+        "change_limit": "Change limit",
+        "documents": "Searching files",
         "answering": "Answering"
       }
     },
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "Checking status...",
       "downloading": "Downloading {{model}}... {{progress}}",
-      "ready": "Embedding model ready: {{model}}",
-      "missing": "Model missing: {{model}}",
-      "checking_model": "Checking embedding model...",
+      "ready": "RAG/search embedding model ready: {{model}}",
+      "missing": "RAG/search embedding model missing: {{model}}",
+      "checking_model": "Checking RAG/search embedding model...",
       "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
       "download_button": "Download Model"
@@ -569,10 +578,10 @@
       "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
-      "checking": "Checking Provider status...",
-      "error": "Provider not reachable",
-      "empty": "No models found",
-      "ready": "Provider is ready"
+      "checking": "Checking local provider...",
+      "error": "Local provider not reachable",
+      "empty": "Local provider reached, but no chat models found",
+      "ready": "Local provider ready"
     }
   },
   "prompts": {
@@ -670,6 +679,8 @@
       "description": "Control how much tab and RAG context is injected into each request.",
       "max_tab_context_chars": "Max tab context chars",
       "max_rag_context_chars": "Max RAG context chars",
+      "max_tool_result_chars": "Max tool result chars",
+      "max_tool_result_chars_hint": "Each tool result (page text, transcripts, document search) is trimmed to this many characters before the model reads it. Lower is faster on a laptop; raise it if answers miss detail.",
       "auto_refresh_label": "Auto-refresh selected tab context",
       "auto_refresh_description": "When enabled, selected tabs are re-checked periodically for changes."
     },

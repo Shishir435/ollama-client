@@ -14,6 +14,7 @@ import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 export const Chat = () => {
   const {
     messages,
+    pendingActivityEvents,
     sendMessage,
     generateResponse,
     stopGeneration,
@@ -159,6 +160,7 @@ export const Chat = () => {
         <>
           <ChatMessageList
             messages={messages}
+            pendingActivityEvents={pendingActivityEvents}
             isLoading={isLoading}
             isStreaming={isStreaming}
             highlightedMessage={highlightedMessage}

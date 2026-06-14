@@ -224,8 +224,8 @@
       "tooltip_messages": "AI応答数"
     },
     "reasoning": {
-      "aria_label": "モデルの思考プロセス",
-      "title": "思考プロセス",
+      "aria_label": "アクティビティログ",
+      "title": "アクティビティ",
       "thinking": "思考中…",
       "done": "完了",
       "hide": "隠す",
@@ -238,8 +238,17 @@
         "page": "ページを読取中",
         "files": "RAG",
         "web": "Web検索中",
-        "answering": "回答中"
-      }
+        "knowledge": "ナレッジを検索中",
+        "tab": "タブを読取中",
+        "tabs": "タブ一覧を取得中",
+        "selection": "選択範囲を読取中",
+        "trimmed": "結果を短縮済み",
+        "change_limit": "上限を変更",
+        "documents": "ファイルを検索中",
+        "answering": "回答中",
+        "preparing": "コンテキストを準備中"
+      },
+      "debug": "デバッグ推論"
     },
     "feedback": {
       "helpful_tooltip": "役に立った",
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "状態を確認中...",
       "downloading": "{{model}} をダウンロード中... {{progress}}",
-      "ready": "エンベディングモデル準備完了: {{model}}",
-      "missing": "モデル欠落: {{model}}",
-      "checking_model": "エンベディングモデルを確認中...",
+      "ready": "RAG/検索用エンベディングモデル準備完了: {{model}}",
+      "missing": "RAG/検索用エンベディングモデルがありません: {{model}}",
+      "checking_model": "RAG/検索用エンベディングモデルを確認中...",
       "error": "ステータスを確認できませんでした。再試行するにはクリックしてください。",
       "required_for_rag": "エンベディングモデルはRAG機能に必要です。",
       "download_button": "モデルをダウンロード"
@@ -534,10 +543,10 @@
       "feedback_clear_error": "フィードバックデータを削除できませんでした"
     },
     "provider_status": {
-      "checking": "Providerの状態を確認中...",
-      "error": "Providerに接続できません",
-      "empty": "モデルが見つかりません",
-      "ready": "Providerは準備完了です"
+      "checking": "ローカルプロバイダーを確認中...",
+      "error": "ローカルプロバイダーに接続できません",
+      "empty": "ローカルプロバイダーに接続しましたが、チャットモデルが見つかりません",
+      "ready": "ローカルプロバイダー準備完了"
     },
     "capabilities": {
       "edit_tooltip": "機能を設定",

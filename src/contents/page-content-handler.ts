@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import { extractContentWithLoading } from "@/lib/content-extractor"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -14,16 +14,94 @@ import { safeSendResponse } from "./message-response"
 import { isUdemyLecturePage, isYouTubeWatchPage } from "./page-platforms"
 import { isExcludedUrl } from "./url-filter"
 
+const normalizeText = (value: string | null | undefined): string =>
+  value?.replace(/\s+/g, " ").trim() || ""
+
+const firstText = (selectors: string[]): string => {
+  for (const selector of selectors) {
+    const value = normalizeText(
+      document.querySelector<HTMLElement>(selector)?.textContent
+    )
+    if (value) return value
+  }
+  return ""
+}
+
+const firstAttribute = (selectors: string[], attribute: string): string => {
+  for (const selector of selectors) {
+    const value = normalizeText(
+      document.querySelector<HTMLElement>(selector)?.getAttribute(attribute)
+    )
+    if (value) return value
+  }
+  return ""
+}
+
+const canonicalVideoUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url)
+    const videoId = parsed.searchParams.get("v")
+    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : url
+  } catch {
+    return url
+  }
+}
+
+const extractYouTubeMetadata = (currentUrl: string, pageTitle: string) => {
+  const channel =
+    firstText([
+      "ytd-video-owner-renderer ytd-channel-name a",
+      "#owner ytd-channel-name a",
+      "#channel-name a",
+      "ytd-watch-metadata ytd-channel-name a"
+    ]) || "unknown"
+
+  const likes =
+    firstAttribute(
+      [
+        'segmented-like-dislike-button-view-model button[aria-label*="like" i]',
+        '#top-level-buttons-computed button[aria-label*="like" i]',
+        'ytd-toggle-button-renderer:first-child button[aria-label*="like" i]'
+      ],
+      "aria-label"
+    ) ||
+    firstText([
+      "segmented-like-dislike-button-view-model like-button-view-model",
+      "#top-level-buttons-computed ytd-toggle-button-renderer:first-child"
+    ]) ||
+    "unavailable"
+
+  const dislikes =
+    firstAttribute(
+      [
+        'segmented-like-dislike-button-view-model button[aria-label*="dislike" i]',
+        '#top-level-buttons-computed button[aria-label*="dislike" i]'
+      ],
+      "aria-label"
+    ) || "unavailable"
+
+  return [
+    `Video URL: ${canonicalVideoUrl(currentUrl)}`,
+    `Title: ${pageTitle}`,
+    `Channel: ${channel}`,
+    `Likes: ${likes}`,
+    `Dislikes: ${dislikes}`,
+    "Transcript:"
+  ].join("\n")
+}
+
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
-  const tabAccessEnabled = await plasmoGlobalStorage.get<boolean>(
+  const storedTabAccess = await plasmoGlobalStorage.get<boolean>(
     STORAGE_KEYS.BROWSER.TABS_ACCESS
   )
+  const tabAccessEnabled = storedTabAccess ?? DEFAULT_TABS_ACCESS
 
   if (!tabAccessEnabled) {
     contentDebugLog("[Content Script] Tab access is disabled")
     safeSendResponse(sendResponse, {
+      success: false,
       html: "Tab access is disabled by the user.",
       title: document.title || "Untitled"
     })
@@ -38,6 +116,7 @@ export const handleGetPageContent = async (
   if (await isExcludedUrl(currentUrl)) {
     contentDebugLog("[Content Script] URL is excluded")
     safeSendResponse(sendResponse, {
+      success: false,
       html: "This page is excluded by your settings.",
       title: document.title || "Untitled"
     })
@@ -62,6 +141,7 @@ export const handleGetPageContent = async (
     )
     const pageTitle = resolvePageTitle(document, "")
     const transcript = await getTranscript()
+    const metadata = extractYouTubeMetadata(currentUrl, pageTitle)
 
     if (!transcript?.trim()) {
       logger.warn("YouTube transcript extraction failed", "ContentScript", {
@@ -77,6 +157,7 @@ export const handleGetPageContent = async (
       transcript,
       platform: "youtube",
       missingMessage: "No transcript found for this YouTube video.",
+      metadata,
       allowMissing: true
     })
     return
@@ -179,6 +260,7 @@ export const handleGetPageContent = async (
   ).__lastProviderExtractionResult = extractionDebug
 
   safeSendResponse(sendResponse, {
+    success: true,
     html: finalContent,
     title: pageTitle,
     extractionDebug

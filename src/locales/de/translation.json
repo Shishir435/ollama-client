@@ -224,8 +224,8 @@
       "tooltip_messages": "Anzahl der KI-Antworten"
     },
     "reasoning": {
-      "aria_label": "Modell-Überlegungen",
-      "title": "Denkprozess",
+      "aria_label": "Aktivitätsprotokoll",
+      "title": "Aktivität",
       "thinking": "Überlegt…",
       "done": "Fertig",
       "hide": "Ausblenden",
@@ -238,8 +238,17 @@
         "page": "Seite lesen",
         "files": "RAG",
         "web": "Websuche",
-        "answering": "Antworten"
-      }
+        "knowledge": "Wissen durchsuchen",
+        "tab": "Tab lesen",
+        "tabs": "Tabs auflisten",
+        "selection": "Auswahl lesen",
+        "trimmed": "Ergebnis gekürzt",
+        "change_limit": "Limit ändern",
+        "documents": "Dateien durchsuchen",
+        "answering": "Antworten",
+        "preparing": "Kontext vorbereiten"
+      },
+      "debug": "Debug-Reasoning"
     },
     "feedback": {
       "helpful_tooltip": "Das war hilfreich",
@@ -374,9 +383,9 @@
     "embedding_status": {
       "checking": "Status wird geprüft...",
       "downloading": "Lade {{model}} herunter... {{progress}}",
-      "ready": "Embedding-Modell bereit: {{model}}",
-      "missing": "Modell fehlt: {{model}}",
-      "checking_model": "Embedding-Modell wird geprüft...",
+      "ready": "RAG-/Such-Embedding-Modell bereit: {{model}}",
+      "missing": "RAG-/Such-Embedding-Modell fehlt: {{model}}",
+      "checking_model": "RAG-/Such-Embedding-Modell wird geprüft...",
       "error": "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
       "required_for_rag": "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
       "download_button": "Modell herunterladen"
@@ -534,10 +543,10 @@
       "feedback_clear_error": "Feedback-Daten konnten nicht gelöscht werden"
     },
     "provider_status": {
-      "checking": "Provider-Status wird geprüft...",
-      "error": "Provider nicht erreichbar",
-      "empty": "Keine Modelle gefunden",
-      "ready": "Provider ist bereit"
+      "checking": "Lokaler Provider wird geprüft...",
+      "error": "Lokaler Provider nicht erreichbar",
+      "empty": "Lokaler Provider erreichbar, aber keine Chat-Modelle gefunden",
+      "ready": "Lokaler Provider bereit"
     },
     "capabilities": {
       "edit_tooltip": "Fähigkeiten festlegen",

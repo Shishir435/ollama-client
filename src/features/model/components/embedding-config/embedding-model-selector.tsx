@@ -27,7 +27,7 @@ import {
   RECOMMENDED_EMBEDDING_MODELS
 } from "@/lib/constants"
 import { recommendedEmbeddingBaseSet } from "@/lib/embeddings/model-name-filter"
-import { Database, RefreshCw } from "@/lib/lucide-icon"
+import { Brain, RefreshCw } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ProviderModel } from "@/types"
 
@@ -104,7 +104,7 @@ export const EmbeddingModelSelector = ({
 
   return (
     <SettingsCard
-      icon={Database}
+      icon={Brain}
       title={t("settings.embeddings.title")}
       description={t("settings.embeddings.description")}
       badge="Beta">

@@ -6,9 +6,10 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) =>
       ({
-        "chat.reasoning.aria_label": "Model reasoning",
-        "chat.reasoning.title": "Thought Process",
+        "chat.reasoning.aria_label": "Activity log",
+        "chat.reasoning.title": "Activity",
         "chat.reasoning.trace.planning": "Planning",
+        "chat.reasoning.trace.preparing": "Preparing context",
         "chat.reasoning.trace.thinking": "Thinking",
         "chat.reasoning.trace.page": "Reading page",
         "chat.reasoning.trace.files": "RAG",
@@ -40,7 +41,9 @@ describe("ChatMessageContent", () => {
       />
     )
 
-    expect(screen.getAllByText("Thinking...").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Preparing context...").length).toBeGreaterThan(
+      0
+    )
     expect(screen.queryByText("Typing")).not.toBeInTheDocument()
   })
 })

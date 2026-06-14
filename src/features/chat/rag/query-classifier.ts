@@ -62,6 +62,25 @@ export function classifyQuery(
   const lower = query.toLowerCase().trim()
   const entities = extractEntities(query)
 
+  const casualPatterns =
+    /^(hi|hey|yo|hello|hiya|sup|thanks|thank you|ok|okay|cool|nice|great|awesome|lol|haha|good morning|good night|nothing much|not much|just chat|let'?s chat|chat with me|umm|um|hmm|huh)\b/i
+  const isShortCasual =
+    query.length < 80 &&
+    !query.includes("?") &&
+    (casualPatterns.test(lower) ||
+      /\b(nothing much|not much|just chat|chilling|bored)\b/i.test(lower))
+
+  if (isShortCasual) {
+    return {
+      intent: "conversational",
+      confidence: 0.85,
+      entities,
+      shouldUseRAG: false,
+      suggestedTopK: 0,
+      suggestedMode: "similarity"
+    }
+  }
+
   // Pattern-based classification
   const patterns = {
     factual: /^(what|who|when|where|which|define|explain)\s/i,

@@ -7,6 +7,32 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+- Documentation updated for image input, browser-context tools, and model capability gating.
+
+## [0.10.0] - 2026-06-13
+### Added
+- Tool calling runtime (foundation): tool-capable models can call internal tools mid-conversation, with the calls and results round-tripped through both provider adapters (Ollama native `tools` + `tool`-role results; OpenAI-compatible `tools`/`tool_calls`). Gated on the model's resolved `toolCalling` capability — non-tool models are completely unaffected.
+- Provider-agnostic, MCP-ready architecture: a `ToolSource` abstraction with a `ToolRegistry` that aggregates sources and routes calls by name. Internal tools are the first source; a future MCP server registers as another source with no change to the adapters, the tool loop, or the UI.
+- Internal tools, all running locally: `rag_search` (past-conversation memory), `file_search` (uploaded/indexed documents), `current_tab` (active tab's readable text, incl. YouTube transcript), `list_tabs` + `read_tab` (enumerate and read any open tab by id or title/URL — answer about any tab without adding it through the tab-context UI), and `selected_text` (most recent page selection). Tab tools inject the content script on demand, so tabs opened before the extension load are read without a refresh. They honor the user's excluded-URL settings and explain gracefully when a tab is a browser-internal page (chrome://, web store) rather than failing.
+- Transparency: the chain-of-thought reasoning trace now shows each tool run live (name, running/done/error status, and the sources it looked at), so it is always visible what the extension is doing on the user's behalf.
+
+### Changed
+- Tool calls are now inspectable in the reasoning trace: each tool step shows its name, status, the input arguments the model passed, and a preview of the output (or the error / sources / "trimmed" note). The panel auto-expands while a tool is running and collapses once the answer streams.
+- Reasoning ("thinking") is now shown inline and live instead of behind a click-to-open popover. It auto-expands while the model is thinking — so on reasoning models like qwen3, where the long thinking phase used to look frozen with the answer appearing all at once, the live reasoning is now visible and scrolls as it streams; it collapses once the answer starts and can be toggled anytime.
+- When tools are offered to a model, the system prompt now names them and tells the model to call them for "current page / this video / my files / open tabs / selected text" questions. Without this, capable models sometimes replied "I can't access your tabs" instead of calling the tool. (Reasoning-distill models such as deepseek-r1 still tag `tools` but call them unreliably — prefer qwen3 / llama3.x for tool use.)
+- Tool results are now trimmed to a configurable per-result character cap (default 10,000) before the model reads them, so a long page, transcript, or document dump no longer balloons the prompt and stalls generation on a laptop. When a result is trimmed it is shown in the reasoning trace ("result trimmed — change limit in Settings → Context") and the limit is adjustable on the options page.
+- Model tool-capability is cached per session instead of re-fetched (`/api/show`) on every message, cutting pre-stream latency and request churn.
+- Each tool call has a 60s timeout; a hung tool degrades to an error result instead of blocking the chat.
+- Browser tab access now defaults to **on** so tab context and the tab tools work out of the box (still toggleable from context settings / options).
+- Sending a message now shows the "Thinking…" state immediately. Previously the indicator only appeared after pre-stream work (RAG embedding, vector search) finished, so a slow context build looked like nothing was happening.
+- `read_tab` now treats a stale tab id as recoverable: it refreshes readable tabs and falls back to the active readable tab when possible, instead of surfacing a hard tool error.
+- Tool-call status icons and labels were tightened so provider health, embedding health, exports, context controls, stop generation, and session drawer actions read correctly at a glance.
+
+### Notes
+- The tool exchange is ephemeral, mirroring RAG context injection: only the final answer and the tool-run trace persist — no schema migration and no new message rows.
+- Architecture is MCP-ready: a future MCP server registers as another tool source with no change to the adapters, loop, or UI.
+
 ## [0.9.1] - 2026-06-13
 ### Added
 - Image / vision input: attach images to a chat message for vision-capable models. Drag-and-drop, file picker, and clipboard paste are supported; staged images appear in the composer's attachment sheet (reusing the file-attachment UI) and as click-to-enlarge thumbnails in sent messages.

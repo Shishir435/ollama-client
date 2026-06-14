@@ -18,7 +18,7 @@ export interface VectorDocument {
     chunkIndex?: number
     totalChunks?: number
     page?: number
-    role?: "user" | "assistant" | "system"
+    role?: "user" | "assistant" | "system" | "tool"
     chatId?: string
     messageId?: number
     // Quality assessment metadata (added during migration/embedding)

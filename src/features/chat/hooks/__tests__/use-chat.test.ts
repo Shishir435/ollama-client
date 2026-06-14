@@ -87,7 +87,11 @@ vi.mock("@/features/chat/stores/load-stream-store", () => ({
     setIsLoading: vi.fn(),
     isStreaming: false,
     setIsStreaming: vi.fn()
-  }))
+  })),
+  // sendMessage reads the live store for its re-entrancy guard.
+  loadStreamStore: {
+    getState: vi.fn(() => ({ isLoading: false, isStreaming: false }))
+  }
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
@@ -236,6 +240,9 @@ describe("useChat", () => {
   })
 
   it("adds a completed assistant error when context preparation fails", async () => {
+    const { useLoadStream } = await import(
+      "@/features/chat/stores/load-stream-store"
+    )
     const { useChatStream } = await import(
       "@/features/chat/hooks/use-chat-stream"
     )
@@ -244,10 +251,18 @@ describe("useChat", () => {
     )
     const addMessage = vi.fn().mockResolvedValue(123)
     const startStream = vi.fn()
+    const setIsLoading = vi.fn()
+    const setIsStreaming = vi.fn()
 
     vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
       new Error("storage unavailable")
     )
+    vi.mocked(useLoadStream).mockReturnValue({
+      isLoading: false,
+      setIsLoading,
+      isStreaming: false,
+      setIsStreaming
+    })
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
       stopStream: vi.fn()
@@ -290,6 +305,9 @@ describe("useChat", () => {
     })
 
     expect(startStream).not.toHaveBeenCalled()
+    expect(setIsLoading).toHaveBeenCalledWith(true)
+    expect(setIsLoading).toHaveBeenCalledWith(false)
+    expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(addMessage).toHaveBeenNthCalledWith(
       1,
       "session-1",

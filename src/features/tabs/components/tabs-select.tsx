@@ -14,7 +14,11 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-import { DEFAULT_EXCLUDE_URLS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EXCLUDE_URLS,
+  DEFAULT_TABS_ACCESS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { Eye, RefreshCw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { STATUS_STYLES } from "@/lib/ui-status"
@@ -35,7 +39,7 @@ export const TabsSelect = () => {
       key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_TABS_ACCESS
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(tabAccess)
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()

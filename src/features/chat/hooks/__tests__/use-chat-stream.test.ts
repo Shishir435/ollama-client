@@ -131,6 +131,41 @@ describe("useChatStream", () => {
     expect(setMessages).toHaveBeenCalledTimes(3) // Initial + 2 chunks
   })
 
+  it("accepts raw provider thinking chunks if normalization is bypassed", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "Hello" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        message: {
+          role: "assistant",
+          content: "",
+          thinking: "raw thought"
+        },
+        done: false
+      })
+    })
+
+    const latestMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(latestMessages?.at(-1)).toMatchObject({
+      content: "",
+      thinking: "raw thought"
+    })
+  })
+
   it("should handle stream completion", () => {
     const { result } = renderHook(() =>
       useChatStream({
@@ -156,6 +191,41 @@ describe("useChatStream", () => {
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(mockPort.disconnect).toHaveBeenCalled()
+  })
+
+  it("shows a safe fallback when the model returns only thinking", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "what is this?" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({ thinkingDelta: "This is the answer." })
+      listener({ done: true })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      role: "assistant",
+      content:
+        "I did not receive a final answer from the model. Please try again.",
+      thinking: "This is the answer.",
+      metrics: {
+        thinkingOnlyResponse: true
+      },
+      done: true
+    })
   })
 
   it("should handle stream errors", () => {

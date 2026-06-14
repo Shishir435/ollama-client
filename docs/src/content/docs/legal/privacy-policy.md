@@ -18,6 +18,8 @@ The extension does **not** run first-party analytics, ad trackers, or telemetry 
 - Chat prompts and model responses generated during use.
 - Session metadata (titles, timestamps, branch state).
 - Optional uploaded file content for local retrieval workflows.
+- Optional images attached to chat messages.
+- Optional page content, tab titles/URLs, and selected text when you use browser-context features or when a tool-capable model calls a browser-context tool.
 - Settings and provider configuration values.
 
 ## Where data is stored
@@ -36,6 +38,8 @@ The extension sends prompts to whichever provider endpoint you configure. Typica
 
 LAN endpoints are supported when configured by the user. If you point the extension to a remote endpoint, your prompt data will be sent to that endpoint.
 
+When browser-context tools or image input are used, the extracted context or image data becomes part of the provider request for that chat turn. Local providers receive it locally; remote providers receive it over the configured remote endpoint.
+
 :::caution
 Your privacy outcome depends on the provider endpoint you configure, not just the extension code. Review the privacy posture of any non-local endpoint before using it for sensitive prompts.
 :::
@@ -52,6 +56,7 @@ The extension requests browser permissions for chat UX, optional page extraction
 
 - You can delete chats and associated local artifacts from the UI.
 - You can disable RAG and related indexing features.
+- You can disable browser tab access from settings or the composer context controls.
 - You can reset storage and configuration from the settings page.
 
 ## Security notes

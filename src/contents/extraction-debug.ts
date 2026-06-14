@@ -64,6 +64,7 @@ export const sendTranscriptOnlyResponse = ({
   transcript,
   platform,
   missingMessage,
+  metadata,
   allowMissing = false
 }: {
   sendResponse: (response: unknown) => void
@@ -72,10 +73,12 @@ export const sendTranscriptOnlyResponse = ({
   transcript: string | null
   platform: "youtube" | "udemy"
   missingMessage: string
+  metadata?: string
   allowMissing?: boolean
 }): boolean => {
   const hasTranscript = !!transcript?.trim()
-  const finalContent = hasTranscript ? transcript.trim() : missingMessage
+  const body = hasTranscript ? transcript.trim() : missingMessage
+  const finalContent = metadata ? `${metadata.trim()}\n\n${body}` : body
 
   if (!hasTranscript && !allowMissing) return false
 
@@ -83,7 +86,7 @@ export const sendTranscriptOnlyResponse = ({
     currentUrl,
     pageTitle,
     scraper: `${platform}-transcript`,
-    transcript: hasTranscript ? finalContent : null,
+    transcript: hasTranscript ? transcript.trim() : null,
     finalContent,
     extractionResult: null,
     selectedExtractor: `${platform}-transcript`,

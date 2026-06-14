@@ -14,7 +14,7 @@ import {
   splitThinkingDelta,
   type ThinkingParserState
 } from "@/lib/thinking-parser"
-import type { ChatMessage } from "@/types"
+import type { ChatMessage, ToolRun } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -26,6 +26,12 @@ interface StreamOptions {
 
 interface StreamMessage {
   type?: string
+  message?: {
+    content?: string
+    thinking?: string
+    reasoning?: string
+    reasoning_content?: string
+  }
   payload?: {
     sources?: Array<{
       id: string | number
@@ -41,6 +47,7 @@ interface StreamMessage {
   }
   delta?: string
   thinkingDelta?: string
+  toolRuns?: ToolRun[]
   done?: boolean
   error?: {
     status: number
@@ -138,20 +145,36 @@ export const useChatStream = ({
       }
 
       let didUpdate = false
+      const rawThinkingDelta =
+        msg.message?.thinking ||
+        msg.message?.reasoning ||
+        msg.message?.reasoning_content
+      const normalizedThinkingDelta = msg.thinkingDelta ?? rawThinkingDelta
 
-      if (msg.thinkingDelta) {
-        if (DEBUG_THINKING_STREAM) {
-          logger.debug("ThinkingStream delta", "useChatStream", {
-            delta: msg.thinkingDelta
-          })
+      // Live tool-run trace snapshot — replace with the latest so the
+      // chain-of-thought trace reflects what tools are running / have run.
+      if (msg.toolRuns) {
+        assistantMessage.metrics = {
+          ...assistantMessage.metrics,
+          toolRuns: msg.toolRuns
         }
-        assistantMessage.thinking = `${assistantMessage.thinking || ""}${msg.thinkingDelta}`
         didUpdate = true
       }
 
-      if (msg.delta !== undefined) {
+      if (normalizedThinkingDelta) {
+        if (DEBUG_THINKING_STREAM) {
+          logger.debug("ThinkingStream delta", "useChatStream", {
+            delta: normalizedThinkingDelta
+          })
+        }
+        assistantMessage.thinking = `${assistantMessage.thinking || ""}${normalizedThinkingDelta}`
+        didUpdate = true
+      }
+
+      const normalizedDelta = msg.delta ?? msg.message?.content
+      if (normalizedDelta !== undefined) {
         const { visible, thinking } = splitThinkingDelta(
-          msg.delta,
+          normalizedDelta,
           thinkingState
         )
 
@@ -212,12 +235,27 @@ export const useChatStream = ({
             description: displayError.message
           })
         } else {
+          const thinkingOnlyResponse =
+            !assistantMessage.content.trim() &&
+            Boolean(assistantMessage.thinking?.trim())
+          const finalAssistantMessage = thinkingOnlyResponse
+            ? {
+                ...assistantMessage,
+                content:
+                  "I did not receive a final answer from the model. Please try again.",
+                metrics: {
+                  ...assistantMessage.metrics,
+                  thinkingOnlyResponse: true
+                }
+              }
+            : assistantMessage
+
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
             {
-              ...assistantMessage,
+              ...finalAssistantMessage,
               metrics: {
-                ...assistantMessage.metrics,
+                ...finalAssistantMessage.metrics,
                 ...msg.metrics
               },
               done: true

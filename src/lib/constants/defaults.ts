@@ -75,6 +75,11 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   unload_on_switch: false
 }
 
+// Browser tab access (reading page content for chat context and tab tools).
+// Defaults on so the tab features work out of the box; users can turn it off
+// from the context settings or options page (STORAGE_KEYS.BROWSER.TABS_ACCESS).
+export const DEFAULT_TABS_ACCESS = true
+
 // Image input (vision models). Max size is the default; users can override it
 // on the options page via STORAGE_KEYS.IMAGES.MAX_SIZE_MB.
 export const DEFAULT_MAX_IMAGE_SIZE_MB = 10

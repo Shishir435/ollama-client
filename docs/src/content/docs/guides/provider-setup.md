@@ -32,6 +32,8 @@ Pull at least one chat model:
 ollama pull qwen2.5:3b
 ```
 
+For tool calling and image input, choose a model that actually supports those capabilities. The extension detects reported capabilities where providers expose them, and lets you override them from the model menu when a provider cannot report them.
+
 Pull one embeddings model for RAG:
 
 ```bash
@@ -68,6 +70,8 @@ curl http://localhost:8000/v1/models
 ## 6. Reality checks
 
 - Chat generation is fully provider-agnostic.
+- Image input is model-dependent. If the selected model is not vision-capable, the composer blocks image attach instead of sending unsupported input.
+- Tool calling is model-dependent. Tool-capable models can inspect browser context through local extension tools; non-tool models keep the old plain chat path.
 - Model-management actions depend on provider capabilities. Ollama has the fullest support; LM Studio adds pull/unload support.
 - Embedding generation uses the configured provider when supported, then falls back through the shared embedding path and Ollama for reliability.
 
@@ -89,5 +93,6 @@ On Firefox or strict environments, you may need to set `OLLAMA_ORIGINS` to allow
 ## Related
 
 - [Architecture](/concepts/architecture/)
+- [Context, Images, and Tools](/guides/context-and-tools/)
 - [Privacy policy](/legal/privacy-policy/)
 - [GitHub repository](https://github.com/Shishir435/ollama-client)

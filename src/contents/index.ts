@@ -28,6 +28,7 @@ browser.runtime.onMessage.addListener(
         errorMessage
       })
       safeSendResponse(sendResponse, {
+        success: false,
         html: `Failed to parse content. Error: ${errorMessage}`,
         title: document.title || "Untitled"
       })

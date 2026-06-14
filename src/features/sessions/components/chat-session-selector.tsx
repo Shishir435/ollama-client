@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react"
+import { PanelLeftOpen } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -41,9 +41,11 @@ export const ChatSessionSelector = ({
             variant="ghost"
             size="icon"
             className="m-1 cursor-pointer rounded-control border border-sidebar-border bg-surface-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
+            aria-label={t("sessions.selector.title")}
+            title={t("sessions.selector.title")}
           />
         }>
-        <Menu className="icon-md" />
+        <PanelLeftOpen className="icon-md" />
       </SheetTrigger>
 
       <SheetContent
