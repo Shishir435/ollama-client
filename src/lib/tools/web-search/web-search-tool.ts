@@ -51,8 +51,8 @@ const formatResults = (
     const date = result.publishedAt ? ` — ${result.publishedAt}` : ""
     lines.push(
       `${index + 1}. ${result.title}${host}${date}`,
-      truncate(result.snippet, PER_SNIPPET_CHAR_LIMIT),
-      result.url
+      result.url,
+      truncate(result.snippet, PER_SNIPPET_CHAR_LIMIT)
     )
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   SettingsFormField,
@@ -53,6 +53,11 @@ export const WebSearchSettings = () => {
   const { config, updateConfig } = useWebSearchConfig()
   const [isTesting, setIsTesting] = useState(false)
   const [testState, setTestState] = useState<"success" | "error" | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => abortRef.current?.abort()
+  }, [])
 
   const backend = getWebSearchBackend(config.provider)
   const visibleFields = providerFields[config.provider] ?? []
@@ -64,6 +69,11 @@ export const WebSearchSettings = () => {
   }
 
   const testSearch = async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const { signal } = controller
+
     setIsTesting(true)
     setTestState(null)
     try {
@@ -91,8 +101,10 @@ export const WebSearchSettings = () => {
           count: 1,
           safeSearch: config.safeSearch
         },
-        config
+        config,
+        signal
       )
+      if (signal.aborted) return
       setTestState("success")
       toast({
         title: t("settings.web_search.test.success", {
@@ -100,13 +112,14 @@ export const WebSearchSettings = () => {
         })
       })
     } catch {
+      if (signal.aborted) return
       setTestState("error")
       toast({
         title: t("settings.web_search.test.error"),
         variant: "destructive"
       })
     } finally {
-      setIsTesting(false)
+      if (!signal.aborted) setIsTesting(false)
     }
   }
 

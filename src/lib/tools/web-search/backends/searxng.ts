@@ -61,23 +61,26 @@ export const searxngBackend: WebSearchBackend = {
   search: async (q, config, signal) => {
     const count = clampSearchCount(q.count ?? config.count)
     const pages = clampSearchPages(config.searxngPages)
-    const results: SearxngResult[] = []
+    const pageNumbers = Array.from({ length: pages }, (_, i) => i + 1)
 
-    for (let page = 1; page <= pages; page += 1) {
-      const url = buildSearchUrl(
-        config,
-        q.query,
-        page,
-        q.safeSearch ?? config.safeSearch
-      )
-      const response = await fetch(url, {
-        signal,
-        headers: { Accept: "application/json" }
+    const pageResults = await Promise.all(
+      pageNumbers.map(async (page) => {
+        const url = buildSearchUrl(
+          config,
+          q.query,
+          page,
+          q.safeSearch ?? config.safeSearch
+        )
+        const response = await fetch(url, {
+          signal,
+          headers: { Accept: "application/json" }
+        })
+        await assertOkResponse(response, "SearXNG")
+        const data = (await response.json()) as SearxngResponse
+        return data.results ?? []
       })
-      await assertOkResponse(response, "SearXNG")
-      const data = (await response.json()) as SearxngResponse
-      results.push(...(data.results ?? []))
-    }
+    )
+    const results: SearxngResult[] = pageResults.flat()
 
     return dedupeResults(results)
       .slice(0, count)
