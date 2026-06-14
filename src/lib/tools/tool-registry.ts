@@ -32,6 +32,11 @@ export class ToolRegistry {
 
   /** Resolve every source's tools into a deduped, validated definition list. */
   async listDefinitions(): Promise<ToolDefinition[]> {
+    // Reuse the cached route map until a register() invalidates it, so direct
+    // callers don't re-run every source's (future async/MCP) listTools per turn.
+    if (this.route) {
+      return [...this.route.values()].map((entry) => entry.definition)
+    }
     const route = new Map<string, RegisteredTool>()
     for (const source of this.sources) {
       let tools: ToolDefinition[]

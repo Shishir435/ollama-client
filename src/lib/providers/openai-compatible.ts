@@ -99,7 +99,9 @@ class ToolCallAccumulator {
       if (entry.args) {
         try {
           const parsed = JSON.parse(entry.args)
-          if (parsed && typeof parsed === "object") {
+          // Tool args must be an object; an array parses as typeof "object"
+          // too, so guard it out rather than passing it through silently.
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
             args = parsed as Record<string, unknown>
           }
         } catch {
