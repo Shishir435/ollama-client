@@ -320,8 +320,8 @@ export const ReasoningTrace = ({
 
   return (
     <section className="mb-2 flex max-w-full flex-col gap-1 text-xs">
-      <div className="inline-flex max-w-full items-center gap-1 self-start rounded-chip bg-background/35 px-1 py-0.5">
-        <div className="flex min-w-0 items-center gap-0.5">
+      <div className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-chip bg-background/35 px-1 py-0.5">
+        <div className="flex shrink-0 items-center gap-0.5">
           <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
           {steps.map((step) => {
             const Icon = step.icon ?? Circle
@@ -358,7 +358,7 @@ export const ReasoningTrace = ({
         {activeLabel && (
           <span
             className={cn(
-              "max-w-56 truncate pr-1 text-[11px]",
+              "min-w-0 flex-1 truncate pr-1 text-[11px]",
               activeStep?.status === "error"
                 ? "text-status-danger"
                 : "text-muted-foreground"
