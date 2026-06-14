@@ -1,5 +1,6 @@
 import { createInternalToolSource } from "./internal/internal-tool-source"
 import { ToolRegistry } from "./tool-registry"
+import { createWebSearchToolSource } from "./web-search/web-search-tool-source"
 
 let registry: ToolRegistry | null = null
 
@@ -12,6 +13,7 @@ export const getToolRegistry = (): ToolRegistry => {
   if (!registry) {
     registry = new ToolRegistry()
     registry.register(createInternalToolSource())
+    registry.register(createWebSearchToolSource())
     // Future: registry.register(createMcpToolSource(serverConfig))
   }
   return registry

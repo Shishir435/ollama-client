@@ -100,6 +100,9 @@ export const STORAGE_KEYS = {
     // Per-image size cap (MB) for vision input; configurable on options page.
     MAX_SIZE_MB: "image-max-size-mb"
   },
+  WEB_SEARCH: {
+    CONFIG: "web-search-config"
+  },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",

@@ -10,7 +10,7 @@ export interface ToolDisplayMeta {
 const LEGACY_TOOL_DISPLAY_META: Record<string, ToolDisplayMeta> = {
   web_search: {
     displayNameKey: "chat.reasoning.trace.web",
-    iconKey: "search",
+    iconKey: "globe",
     category: "web"
   },
   rag_search: {

@@ -97,4 +97,19 @@ describe("ToolRegistry", () => {
       iconKey: "search"
     })
   })
+
+  it("invalidates cached definitions", async () => {
+    let tools = [def("one")]
+    const reg = new ToolRegistry()
+    reg.register({
+      id: "a",
+      listTools: () => tools,
+      callTool: async (name) => ({ content: `a:${name}` })
+    })
+
+    expect((await reg.listDefinitions()).map((d) => d.name)).toEqual(["one"])
+    tools = [def("two")]
+    reg.invalidate()
+    expect((await reg.listDefinitions()).map((d) => d.name)).toEqual(["two"])
+  })
 })

@@ -113,8 +113,37 @@ Current internal tools:
 | `selected_text` | Use the most recent page selection captured by the extension. |
 | `file_search` | Search uploaded/indexed files. |
 | `rag_search` | Search local chat memory / indexed conversation context. |
+| `web_search` | Search the live web through the configured search provider. |
 
 Tool results are trimmed before they are fed back to the model. The UI persists the final assistant answer and trace metadata, not the intermediate tool messages.
+
+### Web search adapter seam
+
+Web search is intentionally provider-agnostic at the model boundary. The model sees only `web_search({ query, count? })`; the backend is resolved from device-local settings at runtime.
+
+Implementation paths:
+
+- `src/lib/tools/web-search/types.ts` defines `WebSearchBackend`, `WebSearchProviderConfig`, and normalized `WebSearchResult`.
+- `src/lib/tools/web-search/backends/` contains provider adapters for SearXNG, Brave Search, and Tavily.
+- `src/lib/tools/web-search/registry.ts` is the backend registry/factory seam.
+- `src/lib/tools/web-search/web-search-tool-source.ts` exposes the tool only when enabled and valid.
+- `src/features/web-search/` owns the settings UI and chat-toolbar toggle.
+
+Provider behavior:
+
+| Provider | Request shape | Result cap behavior |
+|---|---|---|
+| SearXNG | `GET /search?q=...&format=json&pageno=N&safesearch=...` | No API-side count; fetch configured pages, de-dupe, then slice locally. |
+| Brave Search | `GET https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token` | Sends `count`. |
+| Tavily | `POST https://api.tavily.com/search` with bearer auth | Sends `max_results`. |
+
+References:
+
+- [SearXNG Search API](https://docs.searxng.org/dev/search_api.html)
+- [Brave Search API](https://api-dashboard.search.brave.com/app/documentation/web-search/responses)
+- [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search)
+
+Search titles and snippets are untrusted data. The tool strips HTML, caps snippets and total output, keeps API keys out of logs, and asks the model to cite returned URLs for current facts.
 
 ## Image input
 

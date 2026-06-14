@@ -238,11 +238,15 @@ export const useChatStream = ({
           const thinkingOnlyResponse =
             !assistantMessage.content.trim() &&
             Boolean(assistantMessage.thinking?.trim())
+          const toolBackedThinkingOnlyResponse =
+            thinkingOnlyResponse &&
+            (assistantMessage.metrics?.toolRuns?.length ?? 0) > 0
           const finalAssistantMessage = thinkingOnlyResponse
             ? {
                 ...assistantMessage,
-                content:
-                  "I did not receive a final answer from the model. Please try again.",
+                content: toolBackedThinkingOnlyResponse
+                  ? assistantMessage.thinking?.trim() || ""
+                  : "I did not receive a final answer from the model. Please try again.",
                 metrics: {
                   ...assistantMessage.metrics,
                   thinkingOnlyResponse: true

@@ -6,7 +6,7 @@ description: How Ollama Client adds files, images, tabs, selected text, and loca
 Ollama Client has two ways to add context to a chat turn.
 
 - **Explicit context**: you attach files or images, select tabs, or capture selected text before sending.
-- **Tool-called context**: a tool-capable model asks the extension for context while it is generating an answer.
+- **Tool-called context**: a tool-capable model asks the extension for context or web results while it is generating an answer.
 
 Both paths run through the extension. What leaves the device depends on the provider endpoint you selected.
 
@@ -34,6 +34,7 @@ Examples:
 - "Compare the open docs tabs."
 - "Find where we discussed embedding limits."
 - "Answer from my uploaded files."
+- "Search the web for the latest release notes."
 
 Current internal tools:
 
@@ -45,8 +46,29 @@ Current internal tools:
 | `selected_text` | The latest selected text captured by the extension. |
 | `file_search` | Uploaded/indexed files. |
 | `rag_search` | Local chat memory and indexed conversation context. |
+| `web_search` | Current web results through the configured search provider. |
 
 The tool loop is provider-agnostic. Ollama receives native tool definitions, while OpenAI-compatible providers receive OpenAI-style tool definitions.
+
+## Web search
+
+Web search is off by default. When enabled, tool-capable models see one tool: `web_search({ query, count? })`. The selected backend remains a settings/runtime concern, so adding or removing a provider does not change the model-visible interface.
+
+Supported search providers:
+
+| Provider | Endpoint | Limit behavior |
+|---|---|---|
+| SearXNG | User-configured self-hosted endpoint, usually `http://localhost:8080` | Uses `pageno`; the extension can fetch 1-3 pages, de-dupe URLs, then cap results before returning them to the model. |
+| Brave Search | `https://api.search.brave.com/res/v1/web/search` | Uses Brave's `count` query parameter. |
+| Tavily | `https://api.tavily.com/search` | Uses Tavily's `max_results` request field. |
+
+Search provider API references:
+
+- [SearXNG Search API](https://docs.searxng.org/dev/search_api.html)
+- [Brave Search API](https://api-dashboard.search.brave.com/app/documentation/web-search/responses)
+- [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search)
+
+The system guidance tells models to use web search for current/time-sensitive facts and cite returned URLs. Result titles and snippets are treated as untrusted text, capped, and shown in the reasoning trace.
 
 ## What the user sees
 
@@ -79,6 +101,7 @@ Tool and image data are not sent anywhere until a chat turn is sent to a provide
 - With a local provider, context stays on your machine or local network.
 - With a remote provider, prompts, extracted context, tool results, files snippets, and images included in that turn are sent to that endpoint.
 - Tool results are trimmed before being returned to the model so a long page or transcript does not dominate the prompt.
+- Web search provider config is device-local. API keys are masked in settings and should not appear in logs.
 - Browser tab access can be disabled from settings or the composer context controls.
 - URL exclusions still apply to tab tools and manual tab context.
 

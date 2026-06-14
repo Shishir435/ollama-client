@@ -4,6 +4,7 @@ import {
   FileSearch,
   FileStack,
   FileText,
+  Globe,
   List,
   ListTree,
   PanelsTopLeft,
@@ -60,6 +61,7 @@ const TOOL_ICONS: Record<
   React.ComponentType<{ className?: string }>
 > = {
   search: Search,
+  globe: Globe,
   "file-stack": FileStack,
   "panels-top-left": PanelsTopLeft,
   list: List,
