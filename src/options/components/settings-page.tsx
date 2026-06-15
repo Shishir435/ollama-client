@@ -1,4 +1,10 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react"
 import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
@@ -14,6 +20,7 @@ import { PerformanceWarning } from "@/components/performance-warning"
 import {
   type NavSection,
   SettingsMobileNav,
+  SettingsSearch,
   SettingsSidebar
 } from "@/components/settings"
 import { SocialHandles } from "@/components/social-handles"
@@ -26,7 +33,10 @@ import { EmbeddingSettings } from "@/features/model/components/embedding-setting
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
-import { getSettingsEntry } from "@/features/settings/settings-registry"
+import {
+  getSettingsEntry,
+  type SettingsEntry
+} from "@/features/settings/settings-registry"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
@@ -188,15 +198,8 @@ export const SettingsPage = () => {
     }
   }, [activeTab, validTabKeys])
 
-  useEffect(() => {
+  const highlightFocus = useCallback((focusId: string) => {
     if (typeof window === "undefined") return
-
-    const nextUrl = new URL(window.location.href)
-    nextUrl.searchParams.set("tab", activeTab)
-    window.history.replaceState({}, "", nextUrl.toString())
-
-    const focusId = nextUrl.searchParams.get("focus")
-    if (!focusId) return
 
     let attempts = 0
     const maxAttempts = 40
@@ -242,7 +245,40 @@ export const SettingsPage = () => {
     }
 
     window.setTimeout(highlightWhenReady, 0)
-  }, [activeTab])
+  }, [])
+
+  // Sync the tab into the URL and, when a `?focus` id is present, highlight it
+  // once the tab's content mounts.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.set("tab", activeTab)
+    window.history.replaceState({}, "", nextUrl.toString())
+
+    const focusId = nextUrl.searchParams.get("focus")
+    if (focusId) highlightFocus(focusId)
+  }, [activeTab, highlightFocus])
+
+  // Search/deep-link navigation to a specific setting. Switching tabs lets the
+  // effect above run the highlight; if we're already on the target tab the
+  // effect won't re-fire, so highlight directly.
+  const navigateToSetting = useCallback(
+    (entry: SettingsEntry) => {
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href)
+        url.searchParams.set("tab", entry.tab)
+        url.searchParams.set("focus", entry.id)
+        window.history.replaceState({}, "", url.toString())
+      }
+      if (entry.tab !== activeTab) {
+        setActiveTab(entry.tab)
+      } else {
+        highlightFocus(entry.id)
+      }
+    },
+    [activeTab, highlightFocus]
+  )
 
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
@@ -280,15 +316,21 @@ export const SettingsPage = () => {
       </PageHeader>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="hidden w-64 flex-none border-r border-sidebar-border bg-surface-sidebar lg:block">
+        <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
+          <div className="p-4 pb-2">
+            <SettingsSearch onSelect={navigateToSetting} />
+          </div>
           <SettingsSidebar
             sections={navSections}
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            className="w-full p-4"
+            className="w-full p-4 pt-2"
           />
         </div>
         <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-4 pt-4 sm:px-6 lg:hidden">
+            <SettingsSearch onSelect={navigateToSetting} />
+          </div>
           <SettingsMobileNav
             items={allNavItems}
             activeTab={activeTab}

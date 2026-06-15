@@ -1073,6 +1073,9 @@
       "title": "Ollama Client Settings",
       "description": "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Guides tab."
     },
+    "search": {
+      "placeholder": "Search settings…"
+    },
     "sections": {
       "app": "App",
       "ai_models": "AI & Models",
