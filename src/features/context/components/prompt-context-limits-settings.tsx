@@ -8,6 +8,7 @@ import {
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import {
+  DEFAULT_AUTO_REFRESH_TAB_CONTEXT,
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
   DEFAULT_MAX_TOOL_RESULT_CHARS,
@@ -51,7 +52,7 @@ export const PromptContextLimitsSettings = () => {
       key: STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_AUTO_REFRESH_TAB_CONTEXT
   )
 
   return (

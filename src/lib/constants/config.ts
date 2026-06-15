@@ -190,6 +190,11 @@ export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000
 // fed back to the model as a new turn, so an unbounded result balloons the
 // prompt and slows generation. Kept modest for laptop use; user-configurable.
 export const DEFAULT_MAX_TOOL_RESULT_CHARS = 10000
+// Answering-mode + tab-context refresh defaults. Centralized here (instead of
+// inline `false` at each useStorage call site) so the section-defaults manifest
+// has a single source to import.
+export const DEFAULT_GROUNDED_ONLY_MODE = false
+export const DEFAULT_AUTO_REFRESH_TAB_CONTEXT = false
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000
 

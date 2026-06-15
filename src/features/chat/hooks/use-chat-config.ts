@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 
 import {
+  DEFAULT_GROUNDED_ONLY_MODE,
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
   STORAGE_KEYS
@@ -72,7 +73,7 @@ export const useChatConfig = (): ChatConfig => {
       key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
       instance: plasmoGlobalStorage
     },
-    false
+    DEFAULT_GROUNDED_ONLY_MODE
   )
 
   return {
