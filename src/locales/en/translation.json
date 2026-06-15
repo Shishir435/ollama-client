@@ -745,6 +745,18 @@
         "label": "Allow content extraction",
         "description": "Enable enhanced content extraction with lazy loading support"
       },
+      "selection_actions": {
+        "label": "Enable Selection Actions",
+        "description": "Show local AI actions when text is selected on a page."
+      },
+      "selection_actions_min_chars": {
+        "label": "Minimum selected characters",
+        "description": "Selections shorter than this stay hidden."
+      },
+      "selection_actions_list": {
+        "label": "Selection action list",
+        "description": "Choose which local text actions appear in the page toolbar."
+      },
       "selection_button": {
         "label": "Show \"Ask Local LLM\" button after selection",
         "description": "Show a floating action button when selecting text to speed up adding it to chat"

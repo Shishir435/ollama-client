@@ -352,8 +352,10 @@ const ContentExtractionSettingsForm = ({
 
       <SettingsSwitch
         id="selection-actions-enabled"
-        label="Enable Selection Actions"
-        description="Show local AI actions when text is selected on a page."
+        label={t("settings.content_extraction.selection_actions.label")}
+        description={t(
+          "settings.content_extraction.selection_actions.description"
+        )}
         checked={config.selectionActionsEnabled}
         onCheckedChange={(checked) =>
           onUpdate({
@@ -364,8 +366,13 @@ const ContentExtractionSettingsForm = ({
       />
 
       <SettingsFormField
-        label="Minimum selected characters"
-        description="Selections shorter than this stay hidden.">
+        focusId="selection-actions-min-chars"
+        label={t(
+          "settings.content_extraction.selection_actions_min_chars.label"
+        )}
+        description={t(
+          "settings.content_extraction.selection_actions_min_chars.description"
+        )}>
         <Input
           type="number"
           min={1}
@@ -386,8 +393,10 @@ const ContentExtractionSettingsForm = ({
       </SettingsFormField>
 
       <SettingsFormField
-        label="Selection action list"
-        description="Choose which local text actions appear in the page toolbar.">
+        label={t("settings.content_extraction.selection_actions_list.label")}
+        description={t(
+          "settings.content_extraction.selection_actions_list.description"
+        )}>
         <div className="grid gap-2 sm:grid-cols-2">
           {SELECTION_ACTIONS.map((action) => {
             const enabledIds =
