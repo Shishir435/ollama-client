@@ -950,6 +950,18 @@
       "shortcuts": "Shortcuts"
     },
     "context": {
+      "sections": {
+        "conversation": "Conversation Context",
+        "conversation_description": "What the assistant remembers and how chat history is indexed.",
+        "prompt_budget": "Prompt Budget",
+        "prompt_budget_description": "Caps on how much context is packed into each prompt.",
+        "grounding": "Grounding",
+        "grounding_description": "Restrict answers to the page you are viewing.",
+        "retrieval": "Retrieval",
+        "retrieval_description": "Where the assistant looks beyond the conversation — the web and your knowledge base.",
+        "files_chunking": "Files & Chunking",
+        "files_chunking_description": "How uploaded files are accepted and split for retrieval."
+      },
       "file_upload": {
         "title": "File Ingestion",
         "description": "Configure how files are processed for knowledge retrieval."

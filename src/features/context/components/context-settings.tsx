@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsSection } from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
@@ -28,41 +28,65 @@ export const ContextSettings = () => {
 
   return (
     <SectionStack>
-      <TwoColumnGrid>
-        <MemorySettings />
-        <ChatBackfillPanel />
-      </TwoColumnGrid>
-      <PromptContextLimitsSettings />
-      <GroundingModeSettings />
-      <SettingsCard
-        icon={Globe}
-        title={t("settings.web_search.title")}
-        description={t("settings.web_search.description")}
-        badge={t("settings.web_search.beta_badge")}
-        badgeTooltip={t("settings.web_search.beta_tooltip")}>
-        <WebSearchSettings />
-      </SettingsCard>
-      <SettingsCard
-        icon={BookOpen}
-        title={t("model.embedding_config.rag_settings_title")}
-        description={t("model.embedding_config.rag_settings_description")}>
-        <RAGSettings />
-      </SettingsCard>
-      <TwoColumnGrid>
-        <SettingsCard
-          icon={Upload}
-          title={t("settings.context.file_upload.title")}
-          description={t("settings.context.file_upload.description")}>
-          <FileUploadSettings />
-        </SettingsCard>
+      <SettingsSection
+        title={t("settings.context.sections.conversation")}
+        description={t("settings.context.sections.conversation_description")}>
+        <TwoColumnGrid>
+          <MemorySettings />
+          <ChatBackfillPanel />
+        </TwoColumnGrid>
+      </SettingsSection>
 
+      <SettingsSection
+        title={t("settings.context.sections.prompt_budget")}
+        description={t("settings.context.sections.prompt_budget_description")}>
+        <PromptContextLimitsSettings />
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("settings.context.sections.grounding")}
+        description={t("settings.context.sections.grounding_description")}>
+        <GroundingModeSettings />
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("settings.context.sections.retrieval")}
+        description={t("settings.context.sections.retrieval_description")}>
         <SettingsCard
-          icon={Scissors}
-          title={t("model.embedding_config.chunking_title")}
-          description={t("model.embedding_config.chunking_description")}>
-          <TextSplittingSettings />
+          icon={Globe}
+          title={t("settings.web_search.title")}
+          description={t("settings.web_search.description")}
+          badge={t("settings.web_search.beta_badge")}
+          badgeTooltip={t("settings.web_search.beta_tooltip")}>
+          <WebSearchSettings />
         </SettingsCard>
-      </TwoColumnGrid>
+        <SettingsCard
+          icon={BookOpen}
+          title={t("model.embedding_config.rag_settings_title")}
+          description={t("model.embedding_config.rag_settings_description")}>
+          <RAGSettings />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection
+        title={t("settings.context.sections.files_chunking")}
+        description={t("settings.context.sections.files_chunking_description")}>
+        <TwoColumnGrid>
+          <SettingsCard
+            icon={Upload}
+            title={t("settings.context.file_upload.title")}
+            description={t("settings.context.file_upload.description")}>
+            <FileUploadSettings />
+          </SettingsCard>
+
+          <SettingsCard
+            icon={Scissors}
+            title={t("model.embedding_config.chunking_title")}
+            description={t("model.embedding_config.chunking_description")}>
+            <TextSplittingSettings />
+          </SettingsCard>
+        </TwoColumnGrid>
+      </SettingsSection>
     </SectionStack>
   )
 }
