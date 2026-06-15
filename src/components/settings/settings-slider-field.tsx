@@ -17,6 +17,8 @@ interface SettingsSliderFieldProps {
   leftLabel?: React.ReactNode
   rightLabel?: React.ReactNode
   valueLabel?: React.ReactNode
+  /** Settings-registry focus id; forwarded to the wrapping field. */
+  focusId?: string
 }
 
 export const SettingsSliderField = ({
@@ -29,9 +31,11 @@ export const SettingsSliderField = ({
   onValueChange,
   leftLabel,
   rightLabel,
-  valueLabel
+  valueLabel,
+  focusId
 }: SettingsSliderFieldProps) => (
   <SettingsFormField
+    focusId={focusId}
     label={
       <span className="inline-flex items-center gap-2">
         <span>{label}</span>
