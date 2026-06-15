@@ -1,4 +1,8 @@
-import type { WebSearchBackend, WebSearchProviderConfig } from "../types"
+import type {
+  WebSearchBackend,
+  WebSearchProviderConfig,
+  WebSearchTimeRange
+} from "../types"
 import {
   assertOkResponse,
   clampSearchCount,
@@ -29,7 +33,8 @@ const buildSearchUrl = (
   config: WebSearchProviderConfig,
   query: string,
   page: number,
-  safeSearch?: keyof typeof safeSearchMap
+  safeSearch?: keyof typeof safeSearchMap,
+  timeRange?: WebSearchTimeRange
 ) => {
   const base = new URL(config.endpoint?.trim() ?? "")
   const path = base.pathname.endsWith("/search")
@@ -40,6 +45,8 @@ const buildSearchUrl = (
   base.searchParams.set("format", "json")
   base.searchParams.set("pageno", String(page))
   base.searchParams.set("safesearch", safeSearchMap[safeSearch ?? "moderate"])
+  // SearXNG accepts day/week/month/year directly.
+  if (timeRange) base.searchParams.set("time_range", timeRange)
   return base
 }
 
@@ -69,7 +76,8 @@ export const searxngBackend: WebSearchBackend = {
           config,
           q.query,
           page,
-          q.safeSearch ?? config.safeSearch
+          q.safeSearch ?? config.safeSearch,
+          q.timeRange
         )
         const response = await fetch(url, {
           signal,

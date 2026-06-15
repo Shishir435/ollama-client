@@ -38,7 +38,8 @@ export const buildToolSystemGuidance = (
     const oldYears = `${currentYear - 2} or ${currentYear - 1}`
     guidance.push(
       `Current date is ${currentDate}. Use web_search for current or real-time facts; prefer it over guessing when a question is time-sensitive; cite returned URLs.`,
-      `For current/latest web searches, query the current year (${currentYear}) or the exact current date when useful. Do not add old years such as ${oldYears} unless the user asks for those years.`
+      `For current/latest web searches, query the current year (${currentYear}) or the exact current date when useful. Do not add old years such as ${oldYears} unless the user asks for those years.`,
+      "When the question is about recent or ongoing events (e.g. 'latest', 'recent', 'today', news, trips, prices), also set web_search time_range to 'day' or 'week' (use 'month' for less urgent recency) so stale results are filtered out."
     )
   }
 

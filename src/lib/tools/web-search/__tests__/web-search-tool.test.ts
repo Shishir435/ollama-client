@@ -30,6 +30,8 @@ const resultsState: { current: Array<Record<string, unknown>> } = {
   ]
 }
 
+const lastQuery: { current: Record<string, unknown> | null } = { current: null }
+
 vi.mock("../registry", () => ({
   getWebSearchBackend: vi.fn(() => ({
     id: "searxng",
@@ -37,12 +39,15 @@ vi.mock("../registry", () => ({
     validateConfig: vi.fn((config: WebSearchProviderConfig) =>
       config.endpoint ? { ok: true } : { ok: false, errorKey: "missing" }
     ),
-    search: vi.fn(async (_query, _config, signal?: AbortSignal) => {
-      if (signal?.aborted) {
-        throw new DOMException("Aborted", "AbortError")
+    search: vi.fn(
+      async (query: Record<string, unknown>, _config, signal?: AbortSignal) => {
+        lastQuery.current = query
+        if (signal?.aborted) {
+          throw new DOMException("Aborted", "AbortError")
+        }
+        return resultsState.current
       }
-      return resultsState.current
-    })
+    )
   }))
 }))
 
@@ -124,6 +129,17 @@ describe("web_search tool", () => {
     expect(result.content).toContain("Result 1")
     expect(result.content).toContain("Result 2")
     expect(result.content).not.toContain("Result 3")
+  })
+
+  it("passes a valid time_range through to the backend and ignores invalid ones", async () => {
+    configState.current.enabled = true
+    const { runWebSearch } = await import("../web-search-tool")
+
+    await runWebSearch({ query: "latest news", time_range: "week" }, {})
+    expect(lastQuery.current?.timeRange).toBe("week")
+
+    await runWebSearch({ query: "latest news", time_range: "decade" }, {})
+    expect(lastQuery.current?.timeRange).toBeUndefined()
   })
 
   it("returns an error when query is missing", async () => {

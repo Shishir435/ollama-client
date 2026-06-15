@@ -216,6 +216,45 @@ describe("web search backends", () => {
     })
   })
 
+  it("passes timeRange through to each backend's recency param", async () => {
+    // SearXNG: time_range query param, verbatim.
+    const searxngFetch = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ results: [] }))
+    vi.stubGlobal("fetch", searxngFetch)
+    await searxngBackend.search(
+      { query: "recent news", timeRange: "week" },
+      { provider: "searxng", enabled: true, endpoint: "http://localhost:8080" }
+    )
+    expect(
+      (searxngFetch.mock.calls[0][0] as URL).searchParams.get("time_range")
+    ).toBe("week")
+    vi.unstubAllGlobals()
+
+    // Brave: freshness = pd/pw/pm/py.
+    const braveFetch = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ web: { results: [] } }))
+    vi.stubGlobal("fetch", braveFetch)
+    await braveBackend.search(
+      { query: "recent news", timeRange: "day" },
+      { provider: "brave", enabled: true, apiKey: "k" }
+    )
+    expect(
+      (braveFetch.mock.calls[0][0] as URL).searchParams.get("freshness")
+    ).toBe("pd")
+    vi.unstubAllGlobals()
+
+    // Tavily: time_range in the JSON body.
+    const tavilyFetch = vi.fn().mockResolvedValue(jsonResponse({ results: [] }))
+    vi.stubGlobal("fetch", tavilyFetch)
+    await tavilyBackend.search(
+      { query: "recent news", timeRange: "month" },
+      { provider: "tavily", enabled: true, apiKey: "k" }
+    )
+    expect(tavilyFetch.mock.calls[0][1]?.body).toContain('"time_range":"month"')
+  })
+
   it("throws typed HTTP errors", async () => {
     vi.stubGlobal(
       "fetch",

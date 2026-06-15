@@ -45,7 +45,9 @@ export const tavilyBackend: WebSearchBackend = {
         search_depth: "basic",
         include_answer: false,
         include_raw_content: false,
-        include_images: false
+        include_images: false,
+        // Tavily accepts day/week/month/year; omit when not set.
+        ...(q.timeRange ? { time_range: q.timeRange } : {})
       })
     })
     await assertOkResponse(response, "Tavily")

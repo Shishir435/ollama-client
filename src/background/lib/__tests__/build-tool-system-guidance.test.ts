@@ -36,5 +36,6 @@ describe("buildToolSystemGuidance", () => {
     expect(guidance).toContain("Current date is 2026-06-14")
     expect(guidance).toContain("current year (2026)")
     expect(guidance).toContain("Do not add old years such as 2024 or 2025")
+    expect(guidance).toContain("set web_search time_range")
   })
 })

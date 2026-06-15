@@ -1,5 +1,10 @@
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
-import { clampSearchCount, MAX_SEARCH_COUNT } from "./backends/shared"
+import {
+  clampSearchCount,
+  MAX_SEARCH_COUNT,
+  parseTimeRange,
+  WEB_SEARCH_TIME_RANGES
+} from "./backends/shared"
 import { getWebSearchConfig } from "./config"
 import { getWebSearchBackend } from "./registry"
 import type { WebSearchResult } from "./types"
@@ -10,7 +15,7 @@ const TOOL_OUTPUT_CHAR_LIMIT = 6000
 export const webSearchDefinition: ToolDefinition = {
   name: "web_search",
   description:
-    "Search the live web for current information. Use when the answer may depend on recent events, real-time data, or facts not in the model's training or local context. Returns titled results with URLs and snippets.",
+    "Search the live web for current information. Use when the answer may depend on recent events, real-time data, or facts not in the model's training or local context. For time-sensitive questions (news, 'latest', 'recent', 'today', ongoing events), set time_range so results are fresh. Returns titled results with URLs and snippets.",
   displayNameKey: "chat.reasoning.trace.web",
   category: "web",
   iconKey: "globe",
@@ -28,6 +33,12 @@ export const webSearchDefinition: ToolDefinition = {
       count: {
         type: "number",
         description: "Max results to return."
+      },
+      time_range: {
+        type: "string",
+        enum: [...WEB_SEARCH_TIME_RANGES],
+        description:
+          "Restrict results to a recent window. Use 'day' or 'week' for breaking/recent news and ongoing events, 'month' for recent topics. Omit for questions that are not time-sensitive."
       }
     },
     required: ["query"]
@@ -118,7 +129,8 @@ export const runWebSearch = async (
       {
         query,
         count: MAX_SEARCH_COUNT,
-        safeSearch: config.safeSearch
+        safeSearch: config.safeSearch,
+        timeRange: parseTimeRange(args.time_range)
       },
       config,
       ctx.signal

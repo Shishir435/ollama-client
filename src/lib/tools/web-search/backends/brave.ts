@@ -29,6 +29,14 @@ const safeSearchMap = {
   strict: "strict"
 } as const
 
+// Brave expresses recency via `freshness`: pd/pw/pm/py = past day/week/month/year.
+const freshnessMap = {
+  day: "pd",
+  week: "pw",
+  month: "pm",
+  year: "py"
+} as const
+
 export const braveBackend: WebSearchBackend = {
   id: "brave",
   labelKey: "settings.web_search.providers.brave",
@@ -44,6 +52,8 @@ export const braveBackend: WebSearchBackend = {
       safeSearchMap[q.safeSearch ?? config.safeSearch ?? "moderate"]
     )
     if (q.lang) url.searchParams.set("search_lang", q.lang)
+    if (q.timeRange)
+      url.searchParams.set("freshness", freshnessMap[q.timeRange])
 
     const response = await fetch(url, {
       signal,
