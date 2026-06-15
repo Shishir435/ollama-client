@@ -52,9 +52,11 @@ export interface SettingsEntry {
 /**
  * The registry. Grouped by tab for readability; order here is not significant.
  *
- * NOTE: the vector-DB / embedding-store entries below currently render on the
- * Context tab. Phase 5 #7 relocates them to the Embeddings tab and updates the
- * `tab` field here (with a `?tab=context` → `?tab=embeddings` focus fallback).
+ * The vector-DB / embedding-store entries (embedding limits + the destructive
+ * database actions) live on the Embeddings tab as of Phase 5 #7. Old deep links
+ * that still point at `?tab=context` for these ids are redirected to the
+ * embeddings tab by `settings-page.tsx` (it resolves the focus id's tab through
+ * this registry).
  */
 export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- General -----------------------------------------------------------
@@ -409,10 +411,10 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     keywords: ["chunking strategy", "splitting"]
   },
 
-  // ---- Context: Vector-DB (moves to Embeddings in Phase 5 #7) ------------
+  // ---- Embeddings: vector-DB (relocated from Context, Phase 5 #7) --------
   {
     id: "max-embeddings-per-file",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.max_embeddings_label",
     descriptionKey: "model.embedding_config.max_embeddings_description",
@@ -421,7 +423,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "max-storage-size",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.max_storage_label",
     descriptionKey: "model.embedding_config.max_storage_description",
@@ -430,7 +432,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "auto-cleanup",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.auto_cleanup_label",
     descriptionKey: "model.embedding_config.auto_cleanup_description",
@@ -439,7 +441,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "cleanup-days-old",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.cleanup_age_label",
     descriptionKey: "model.embedding_config.cleanup_age_description",
@@ -448,7 +450,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "remove-duplicate-vectors",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.remove_duplicates_button",
     descriptionKey: "model.embedding_config.remove_duplicates_description",
@@ -457,7 +459,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "clear-chat-vectors",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.clear_chat_button",
     descriptionKey: "model.embedding_config.clear_chat_description",
@@ -466,7 +468,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "clear-all-vectors",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.clear_all_button",
     descriptionKey: "model.embedding_config.clear_all_description",
@@ -475,14 +477,14 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "rebuild-embeddings",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "settings.context.embedding_health.action",
     keywords: ["rebuild", "reindex", "embeddings", "health"]
   },
   {
     id: "rebuild-keyword-index",
-    tab: "context",
+    tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "settings.embeddings.rebuild_index.button",
     descriptionKey: "settings.embeddings.rebuild_index.description",

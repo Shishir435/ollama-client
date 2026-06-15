@@ -26,6 +26,7 @@ import { EmbeddingSettings } from "@/features/model/components/embedding-setting
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
+import { getSettingsEntry } from "@/features/settings/settings-registry"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
@@ -49,10 +50,14 @@ export const SettingsPage = () => {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === "undefined") return "general"
-    const requestedTab = new URLSearchParams(window.location.search)
-      .get("tab")
-      ?.replace(/^"+|"+$/g, "")
-    return requestedTab || "general"
+    const params = new URLSearchParams(window.location.search)
+    const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
+    // Honor the registry's tab for a deep-linked focus id so links survive a
+    // control moving tabs (e.g. vector-DB controls relocated Context →
+    // Embeddings in 0.10.2). The focus id's home tab wins over a stale `tab`.
+    const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
+    const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
+    return entryTab || requestedTab || "general"
   })
 
   const navSections: NavSection[] = [
