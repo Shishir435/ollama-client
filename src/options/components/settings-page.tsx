@@ -19,6 +19,7 @@ import {
 import { PerformanceWarning } from "@/components/performance-warning"
 import {
   type NavSection,
+  PresetPicker,
   SettingsMobileNav,
   SettingsSearch,
   SettingsSidebar
@@ -131,6 +132,7 @@ export const SettingsPage = () => {
           <LanguageSelector />
           <ChatDisplaySettings />
         </TwoColumnGrid>
+        <PresetPicker />
       </SectionStack>
     ),
     models: (

@@ -1,5 +1,7 @@
 export * from "./advanced-section"
 export * from "./confirm-action-dialog"
+export * from "./preset-picker"
+export * from "./section-reset-button"
 export * from "./select-row"
 export * from "./settings-action-row"
 export * from "./settings-card"

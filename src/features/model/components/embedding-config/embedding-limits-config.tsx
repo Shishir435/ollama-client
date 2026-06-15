@@ -1,6 +1,7 @@
 import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
+  SectionResetButton,
   SettingsCard,
   SettingsFormField,
   SettingsSwitch
@@ -27,6 +28,7 @@ export const EmbeddingLimitsConfig = ({
       <div className="space-y-4">
         <SettingsFormField
           htmlFor="maxEmbeddingsPerFile"
+          focusId="max-embeddings-per-file"
           label={t("model.embedding_config.max_embeddings_label")}
           description={t("model.embedding_config.max_embeddings_description")}>
           <Input
@@ -47,6 +49,7 @@ export const EmbeddingLimitsConfig = ({
 
         <SettingsFormField
           htmlFor="maxStorageSize"
+          focusId="max-storage-size"
           label={t("model.embedding_config.max_storage_label")}
           description={t("model.embedding_config.max_storage_description")}>
           <Input
@@ -66,7 +69,7 @@ export const EmbeddingLimitsConfig = ({
         </SettingsFormField>
 
         <SettingsSwitch
-          id="autoCleanup"
+          id="auto-cleanup"
           label={t("model.embedding_config.auto_cleanup_label")}
           description={t("model.embedding_config.auto_cleanup_description")}
           checked={config.autoCleanup}
@@ -76,6 +79,7 @@ export const EmbeddingLimitsConfig = ({
         {config.autoCleanup && (
           <SettingsFormField
             htmlFor="cleanupDaysOld"
+            focusId="cleanup-days-old"
             label={t("model.embedding_config.cleanup_age_label")}
             description={t("model.embedding_config.cleanup_age_description")}>
             <Input
@@ -94,6 +98,10 @@ export const EmbeddingLimitsConfig = ({
             />
           </SettingsFormField>
         )}
+
+        <div className="flex justify-end">
+          <SectionResetButton sectionId="embedding-limits" />
+        </div>
       </div>
     </SettingsCard>
   )

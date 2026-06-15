@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
+  SectionResetButton,
   SettingsCard,
   SettingsFormField,
   SettingsSwitch
@@ -136,6 +137,10 @@ export const PromptContextLimitsSettings = () => {
         checked={autoRefreshTabContext}
         onCheckedChange={setAutoRefreshTabContext}
       />
+
+      <div className="mt-4 flex justify-end">
+        <SectionResetButton sectionId="prompt-budget" />
+      </div>
     </SettingsCard>
   )
 }

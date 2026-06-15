@@ -1076,6 +1076,36 @@
     "search": {
       "placeholder": "Search settings…"
     },
+    "presets": {
+      "title": "Presets",
+      "description": "Apply a tuned combination in one click. You can still adjust any individual setting afterward.",
+      "apply": "Apply preset",
+      "applied": "Applied the {{name}} preset",
+      "preview_title": "Apply {{name}}?",
+      "preview_hint": "These settings will change:",
+      "fast": {
+        "label": "Fast",
+        "description": "Smaller context and retrieval for quicker, lighter responses."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "The recommended defaults — a good middle ground."
+      },
+      "large_context": {
+        "label": "Large context",
+        "description": "Bigger context and retrieval for thorough answers on capable machines."
+      },
+      "privacy_strict": {
+        "label": "Privacy strict",
+        "description": "No page access, answers grounded to the open page, no auto-embedding, web search off."
+      }
+    },
+    "reset_section": {
+      "button": "Reset section",
+      "title": "Reset this section to defaults?",
+      "description": "This restores the controls in this section to their default values. Other settings are untouched.",
+      "done": "Section reset to defaults"
+    },
     "sections": {
       "app": "App",
       "ai_models": "AI & Models",
