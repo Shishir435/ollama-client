@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { Globe } from "@/lib/lucide-icon"
+import { ExternalLink, Globe } from "@/lib/lucide-icon"
 import type { ToolRun } from "@/types"
 import { MessageSourcesSheet, type SourceItem } from "./message-sources-sheet"
 
@@ -78,17 +78,19 @@ export function WebSearchSourcesButton({
       }
       renderMetadata={(item) => {
         const url = item.source
-        const host = hostOf(url)
-        if (!url || !host) return null
+        if (!url) return null
+        const host = hostOf(url) ?? url
         return (
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="text-primary underline-offset-2 hover:underline"
+            title={url}
             // Stop the accordion trigger from toggling when opening the link.
-            onClick={(e) => e.stopPropagation()}>
-            {host}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex max-w-full items-center gap-1 text-primary underline-offset-2 hover:underline">
+            <ExternalLink className="size-3 shrink-0" aria-hidden />
+            <span className="min-w-0 truncate">{host}</span>
           </a>
         )
       }}

@@ -58,4 +58,17 @@ describe("WebSearchSourcesButton", () => {
     expect(screen.getByText("Used A")).toBeInTheDocument()
     expect(screen.getByText("Extra C")).toBeInTheDocument()
   })
+
+  it("renders each source's url as a verifiable external link", () => {
+    const run = webRun([
+      { title: "Used A", url: "https://a.com/page", excerpt: "ea", used: true }
+    ])
+    render(<WebSearchSourcesButton toolRuns={[run]} />)
+    fireEvent.click(screen.getByRole("button"))
+
+    const link = screen.getByRole("link", { name: /a\.com/ })
+    expect(link).toHaveAttribute("href", "https://a.com/page")
+    expect(link).toHaveAttribute("target", "_blank")
+    expect(link).toHaveAttribute("title", "https://a.com/page")
+  })
 })

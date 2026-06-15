@@ -103,12 +103,12 @@ export function MessageSourcesSheet({
                         value={value}
                         className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
                         <AccordionTrigger className="pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
-                          <div className="flex min-w-0 overflow-hidden flex-col gap-0.5">
+                          <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
                             <span className="truncate text-xs font-medium">
                               {item.title}
                             </span>
                             {meta && (
-                              <span className="truncate text-[10px] text-muted-foreground">
+                              <span className="block min-w-0 max-w-full truncate text-[10px] text-muted-foreground">
                                 {meta}
                               </span>
                             )}
