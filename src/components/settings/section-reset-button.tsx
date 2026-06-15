@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
+import { SettingsChangePreview } from "@/components/settings/settings-change-preview"
 import { Button } from "@/components/ui/button"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
@@ -64,19 +65,11 @@ export const SectionResetButton = ({
         title={t("settings.reset_section.title")}
         confirmLabel={t("settings.reset_section.button")}
         description={
-          <span className="block space-y-1">
+          <span className="block">
             <span className="block">
               {t("settings.reset_section.description")}
             </span>
-            <span className="mt-2 block max-h-48 overflow-y-auto rounded-md bg-muted/50 p-2 font-mono text-xs">
-              {defaults.map((d) => (
-                <span
-                  key={`${d.storageKey}.${d.field ?? ""}`}
-                  className="block">
-                  {d.field ?? d.storageKey} = {JSON.stringify(d.value)}
-                </span>
-              ))}
-            </span>
+            <SettingsChangePreview writes={defaults} />
           </span>
         }
         onConfirm={handleConfirm}

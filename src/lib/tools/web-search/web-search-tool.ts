@@ -11,6 +11,9 @@ import type { WebSearchResult } from "./types"
 
 const PER_SNIPPET_CHAR_LIMIT = 500
 const TOOL_OUTPUT_CHAR_LIMIT = 6000
+// The UI shows the full snippet (search snippets are short); this is just a
+// guard against a pathologically long one bloating persisted message metrics.
+const SOURCE_EXCERPT_CHAR_LIMIT = 1200
 
 export const webSearchDefinition: ToolDefinition = {
   name: "web_search",
@@ -83,7 +86,7 @@ const formatResults = (
     sources: all.map((result) => ({
       title: result.title,
       url: result.url,
-      excerpt: truncate(result.snippet, 200),
+      excerpt: truncate(result.snippet, SOURCE_EXCERPT_CHAR_LIMIT),
       publishedAt: result.publishedAt,
       used: usedUrls.has(result.url)
     }))

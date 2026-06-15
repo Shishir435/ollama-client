@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { SettingsCard } from "@/components/settings/settings-card"
+import { SettingsChangePreview } from "@/components/settings/settings-change-preview"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
 import {
   SETTINGS_PRESETS,
@@ -80,17 +81,9 @@ export const PresetPicker = () => {
         })}
         confirmLabel={t("settings.presets.apply")}
         description={
-          <span className="block space-y-1">
+          <span className="block">
             <span className="block">{t("settings.presets.preview_hint")}</span>
-            <span className="mt-2 block max-h-48 overflow-y-auto rounded-md bg-muted/50 p-2 font-mono text-xs">
-              {(pending?.writes ?? []).map((w) => (
-                <span
-                  key={`${w.storageKey}.${w.field ?? ""}`}
-                  className="block">
-                  {w.field ?? w.storageKey} = {JSON.stringify(w.value)}
-                </span>
-              ))}
-            </span>
+            {pending && <SettingsChangePreview writes={pending.writes} />}
           </span>
         }
         onConfirm={apply}
