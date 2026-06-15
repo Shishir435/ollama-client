@@ -72,6 +72,8 @@ export interface ToolResultSource {
   title: string
   url?: string
   excerpt?: string
+  /** Publication date/age when the backend reports it (helps judge recency). */
+  publishedAt?: string
   /**
    * Whether this source was included in the content handed to the model.
    * Search tools may surface more results than they feed the model (capped),

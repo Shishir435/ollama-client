@@ -59,16 +59,36 @@ describe("WebSearchSourcesButton", () => {
     expect(screen.getByText("Extra C")).toBeInTheDocument()
   })
 
-  it("renders each source's url as a verifiable external link", () => {
+  it("renders one verifiable host link per source in the row (no duplicate)", () => {
     const run = webRun([
       { title: "Used A", url: "https://a.com/page", excerpt: "ea", used: true }
     ])
     render(<WebSearchSourcesButton toolRuns={[run]} />)
     fireEvent.click(screen.getByRole("button"))
 
-    const link = screen.getByRole("link", { name: /a\.com/ })
-    expect(link).toHaveAttribute("href", "https://a.com/page")
-    expect(link).toHaveAttribute("target", "_blank")
-    expect(link).toHaveAttribute("title", "https://a.com/page")
+    const links = screen.getAllByRole("link", { name: /a\.com/ })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute("href", "https://a.com/page")
+    expect(links[0]).toHaveAttribute("target", "_blank")
+    expect(links[0]).toHaveAttribute("title", "https://a.com/page")
+  })
+
+  it("shows publish date and snippet in the expanded dropdown", () => {
+    const run = webRun([
+      {
+        title: "Dated source",
+        url: "https://a.com/page",
+        excerpt: "the snippet text",
+        publishedAt: "2026-06-02",
+        used: true
+      }
+    ])
+    render(<WebSearchSourcesButton toolRuns={[run]} />)
+    fireEvent.click(screen.getByRole("button"))
+    // Expand the accordion row.
+    fireEvent.click(screen.getByText("Dated source"))
+
+    expect(screen.getByText(/2026-06-02/)).toBeInTheDocument()
+    expect(screen.getByText("the snippet text")).toBeInTheDocument()
   })
 })

@@ -84,6 +84,7 @@ const formatResults = (
       title: result.title,
       url: result.url,
       excerpt: truncate(result.snippet, 200),
+      publishedAt: result.publishedAt,
       used: usedUrls.has(result.url)
     }))
   }

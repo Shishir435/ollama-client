@@ -279,7 +279,9 @@
       "web_title": "Web Sources ({{count}})",
       "web_used_label": "Sent to the model ({{count}})",
       "web_unused_label": "Also found — not sent ({{count}})",
-      "web_unused_hint": "Raise the web search result count in Settings to feed more of these to the model."
+      "web_unused_hint": "Raise the web search result count in Settings to feed more of these to the model.",
+      "web_published": "Published: {{date}}",
+      "web_no_snippet": "No preview available."
     },
     "search": {
       "button_title": "Search chat history (semantic search)",

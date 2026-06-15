@@ -47,6 +47,11 @@ export function WebSearchSourcesButton({
   const unused = sources.filter((s) => !s.used)
   const total = sources.length
 
+  // Lookup for per-item extras (publishedAt) the generic SourceItem can't hold.
+  const byUrl = new Map(
+    sources.filter((s) => s.url).map((s) => [s.url as string, s])
+  )
+
   const sections: { label?: string; items: SourceItem[] }[] = []
   if (used.length > 0) {
     sections.push({
@@ -94,25 +99,26 @@ export function WebSearchSourcesButton({
           </a>
         )
       }}
-      renderContent={(item) => (
-        <div className="space-y-2">
-          {item.source && (
-            <a
-              href={item.source}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 break-all text-[11px] text-primary underline underline-offset-2">
-              <ExternalLink className="size-3 shrink-0" aria-hidden />
-              {item.source}
-            </a>
-          )}
-          {item.content && (
+      renderContent={(item) => {
+        // The row already shows the clickable host; the dropdown adds the
+        // genuinely extra info SearXNG/Brave/Tavily return — publish date and
+        // the full snippet — rather than repeating the link.
+        const published = item.source
+          ? byUrl.get(item.source)?.publishedAt
+          : undefined
+        return (
+          <div className="space-y-1.5">
+            {published && (
+              <p className="text-[10px] text-muted-foreground">
+                {t("chat.sources.web_published", { date: published })}
+              </p>
+            )}
             <p className="whitespace-pre-wrap wrap-anywhere text-[11px] text-muted-foreground">
-              {item.content}
+              {item.content || t("chat.sources.web_no_snippet")}
             </p>
-          )}
-        </div>
-      )}
+          </div>
+        )
+      }}
     />
   )
 }

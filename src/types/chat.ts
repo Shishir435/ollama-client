@@ -144,6 +144,8 @@ export interface ToolRun {
     title: string
     url?: string
     excerpt?: string
+    /** Publication date/age when the backend reports it. */
+    publishedAt?: string
     /** Whether this source was sent to the model (vs only surfaced in the UI). */
     used?: boolean
   }>
