@@ -10,7 +10,12 @@ export interface WebSearchResult {
   url: string
   snippet: string
   publishedAt?: string
+  /** Search engine / site label the backend reports. */
   source?: string
+  /** Relevance score from the backend, when provided. */
+  score?: number
+  /** Result category (e.g. "general", "news"), when provided. */
+  category?: string
 }
 
 export interface WebSearchQuery {

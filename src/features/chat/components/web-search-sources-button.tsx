@@ -100,18 +100,32 @@ export function WebSearchSourcesButton({
         )
       }}
       renderContent={(item) => {
-        // The row already shows the clickable host; the dropdown adds the
-        // genuinely extra info SearXNG/Brave/Tavily return — publish date and
-        // the full snippet — rather than repeating the link.
-        const published = item.source
-          ? byUrl.get(item.source)?.publishedAt
-          : undefined
+        // The row already shows the clickable host; the dropdown adds every
+        // other useful field the backend returned (engine, category, score,
+        // publish date) plus the full snippet — rather than repeating the link.
+        const ws = item.source ? byUrl.get(item.source) : undefined
+        const chips: string[] = []
+        if (ws?.source)
+          chips.push(t("chat.sources.web_engine", { engine: ws.source }))
+        if (ws?.category) chips.push(ws.category)
+        if (typeof ws?.score === "number")
+          chips.push(
+            t("chat.sources.web_score", { score: ws.score.toFixed(2) })
+          )
+        if (ws?.publishedAt)
+          chips.push(t("chat.sources.web_published", { date: ws.publishedAt }))
         return (
-          <div className="space-y-1.5">
-            {published && (
-              <p className="text-[10px] text-muted-foreground">
-                {t("chat.sources.web_published", { date: published })}
-              </p>
+          <div className="space-y-2">
+            {chips.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {chips.map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {chip}
+                  </span>
+                ))}
+              </div>
             )}
             <p className="whitespace-pre-wrap wrap-anywhere text-[11px] text-muted-foreground">
               {item.content || t("chat.sources.web_no_snippet")}

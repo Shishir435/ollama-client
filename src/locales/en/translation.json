@@ -285,6 +285,8 @@
       "web_unused_label": "Also found — not sent ({{count}})",
       "web_unused_hint": "Raise the web search result count in Settings to feed more of these to the model.",
       "web_published": "Published: {{date}}",
+      "web_engine": "via {{engine}}",
+      "web_score": "score {{score}}",
       "web_no_snippet": "No preview available."
     },
     "search": {

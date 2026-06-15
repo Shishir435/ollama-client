@@ -17,6 +17,8 @@ interface SearxngResult {
   content?: string
   publishedDate?: string
   engine?: string
+  score?: number
+  category?: string
 }
 
 interface SearxngResponse {
@@ -98,7 +100,9 @@ export const searxngBackend: WebSearchBackend = {
           url: item.url,
           snippet: item.content,
           publishedAt: item.publishedDate,
-          source: item.engine
+          source: item.engine,
+          score: item.score,
+          category: item.category
         })
       )
       .filter((item): item is NonNullable<typeof item> => Boolean(item))

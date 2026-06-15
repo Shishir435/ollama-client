@@ -73,13 +73,15 @@ describe("WebSearchSourcesButton", () => {
     expect(links[0]).toHaveAttribute("title", "https://a.com/page")
   })
 
-  it("shows publish date and snippet in the expanded dropdown", () => {
+  it("shows backend metadata (engine, score, date) and snippet in the dropdown", () => {
     const run = webRun([
       {
         title: "Dated source",
         url: "https://a.com/page",
         excerpt: "the snippet text",
         publishedAt: "2026-06-02",
+        source: "duckduckgo",
+        score: 0.87,
         used: true
       }
     ])
@@ -89,6 +91,8 @@ describe("WebSearchSourcesButton", () => {
     fireEvent.click(screen.getByText("Dated source"))
 
     expect(screen.getByText(/2026-06-02/)).toBeInTheDocument()
+    expect(screen.getByText(/duckduckgo/)).toBeInTheDocument()
+    expect(screen.getByText(/0\.87/)).toBeInTheDocument()
     expect(screen.getByText("the snippet text")).toBeInTheDocument()
   })
 })

@@ -146,6 +146,12 @@ export interface ToolRun {
     excerpt?: string
     /** Publication date/age when the backend reports it. */
     publishedAt?: string
+    /** Search engine / site label the backend reports. */
+    source?: string
+    /** Relevance score from the backend, when provided. */
+    score?: number
+    /** Result category, when provided. */
+    category?: string
     /** Whether this source was sent to the model (vs only surfaced in the UI). */
     used?: boolean
   }>

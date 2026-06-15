@@ -88,6 +88,9 @@ const formatResults = (
       url: result.url,
       excerpt: truncate(result.snippet, SOURCE_EXCERPT_CHAR_LIMIT),
       publishedAt: result.publishedAt,
+      source: result.source,
+      score: result.score,
+      category: result.category,
       used: usedUrls.has(result.url)
     }))
   }

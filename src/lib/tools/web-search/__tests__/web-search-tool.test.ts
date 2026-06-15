@@ -98,6 +98,7 @@ describe("web_search tool", () => {
         title: "Result",
         url: "https://example.com",
         excerpt: "Snippet",
+        source: "example.com",
         used: true
       }
     ])

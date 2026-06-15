@@ -59,7 +59,8 @@ export const tavilyBackend: WebSearchBackend = {
           title: item.title,
           url: item.url,
           snippet: item.content,
-          publishedAt: item.published_date
+          publishedAt: item.published_date,
+          score: item.score
         })
       )
       .filter((item): item is NonNullable<typeof item> => Boolean(item))

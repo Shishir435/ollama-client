@@ -91,7 +91,9 @@ export const normalizeResult = (
     url,
     snippet,
     publishedAt: result.publishedAt,
-    source: result.source ?? getHostLabel(url)
+    source: result.source ?? getHostLabel(url),
+    score: typeof result.score === "number" ? result.score : undefined,
+    category: result.category
   }
 }
 
