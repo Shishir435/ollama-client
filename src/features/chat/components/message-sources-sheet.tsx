@@ -33,6 +33,8 @@ export interface MessageSourcesSheetProps {
   sections: { label?: string; items: SourceItem[] }[]
   preContent?: React.ReactNode
   renderMetadata: (item: SourceItem) => React.ReactNode
+  /** Override the expanded body. Defaults to the item's plain-text content. */
+  renderContent?: (item: SourceItem) => React.ReactNode
   getItemValue?: (item: SourceItem) => string
   feedback?: {
     query: string
@@ -49,6 +51,7 @@ export function MessageSourcesSheet({
   sections,
   preContent,
   renderMetadata,
+  renderContent,
   getItemValue = (item) => String(item.id),
   feedback
 }: MessageSourcesSheetProps) {
@@ -102,7 +105,7 @@ export function MessageSourcesSheet({
                         key={value}
                         value={value}
                         className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
-                        <AccordionTrigger className="pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
+                        <AccordionTrigger className="min-w-0 pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
                           <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
                             <span className="truncate text-xs font-medium">
                               {item.title}
@@ -119,9 +122,13 @@ export function MessageSourcesSheet({
                         </div>
                         <AccordionContent>
                           <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
-                            <div className="whitespace-pre-wrap text-[11px] text-muted-foreground wrap-anywhere">
-                              {item.content}
-                            </div>
+                            {renderContent ? (
+                              renderContent(item)
+                            ) : (
+                              <div className="whitespace-pre-wrap text-[11px] text-muted-foreground wrap-anywhere">
+                                {item.content}
+                              </div>
+                            )}
                           </div>
                           {feedback && (
                             <div className="mt-2 flex items-center gap-1">

@@ -94,6 +94,25 @@ export function WebSearchSourcesButton({
           </a>
         )
       }}
+      renderContent={(item) => (
+        <div className="space-y-2">
+          {item.source && (
+            <a
+              href={item.source}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 break-all text-[11px] text-primary underline underline-offset-2">
+              <ExternalLink className="size-3 shrink-0" aria-hidden />
+              {item.source}
+            </a>
+          )}
+          {item.content && (
+            <p className="whitespace-pre-wrap wrap-anywhere text-[11px] text-muted-foreground">
+              {item.content}
+            </p>
+          )}
+        </div>
+      )}
     />
   )
 }
