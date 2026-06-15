@@ -803,6 +803,7 @@
         "description": "Percentage of page to scroll (higher = more content, slower)"
       },
       "timeout": {
+        "section_title": "Page-load timeouts (advanced)",
         "scroll_delay": "Scroll delay in milliseconds",
         "mutation_timeout": "Mutation Observer timeout in milliseconds",
         "network_timeout": "Network idle timeout in milliseconds",

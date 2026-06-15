@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { FormGrid, SectionStack } from "@/components/layout"
 import {
+  AdvancedSection,
   SettingsCard,
   SettingsFormField,
   SettingsSliderField,
@@ -446,19 +447,25 @@ const ContentExtractionSettingsForm = ({
         onUpdate({ scrollDepth: value })
       )}
 
-      {/* Advanced Settings Grid */}
-      <FormGrid>
-        {TIMEOUT_FIELDS.map((field) => (
-          <div key={field.id}>
-            {renderTimeoutInput(
-              field,
-              config[field.name],
-              (value) => onUpdate({ [field.name]: value }),
-              "text-center"
-            )}
-          </div>
-        ))}
-      </FormGrid>
+      {/* Advanced page-load timeouts — collapsed by default with a summary */}
+      <AdvancedSection
+        title={t("settings.content_extraction.timeout.section_title")}
+        summary={TIMEOUT_FIELDS.map(
+          (field) => `${field.label}: ${config[field.name]}`
+        ).join(" · ")}>
+        <FormGrid>
+          {TIMEOUT_FIELDS.map((field) => (
+            <div key={field.id}>
+              {renderTimeoutInput(
+                field,
+                config[field.name],
+                (value) => onUpdate({ [field.name]: value }),
+                "text-center"
+              )}
+            </div>
+          ))}
+        </FormGrid>
+      </AdvancedSection>
     </SettingsCard>
   )
 }
