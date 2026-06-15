@@ -50,21 +50,46 @@ export const useImportChat = () => {
           }
 
           const rawSessions = Array.isArray(raw) ? raw : [raw]
+          logger.info("Parsing import file", "useImportChat", {
+            fileName: file.name,
+            isArray: Array.isArray(raw),
+            sessionCount: rawSessions.length
+          })
 
           for (const item of rawSessions) {
             // Salvage rather than discard: keep the session even when some
             // messages or sub-attachments are malformed, defaulting missing
             // scalars. Only a session with nothing rescuable is skipped.
-            const salvaged = salvageImportedSession(item, now, makeId)
-            if (salvaged) {
-              importedSessions.push(salvaged.session as unknown as ChatSession)
-              summary.droppedMessages += salvaged.droppedMessages
+            const outcome = salvageImportedSession(item, now, makeId)
+
+            // Per-session diagnostics: exactly what was kept vs dropped, and
+            // for every dropped message the field path that failed.
+            logger.info("Salvage outcome", "useImportChat", {
+              fileName: file.name,
+              sessionId: outcome.sessionId,
+              kept: outcome.session !== null,
+              skipReason: outcome.skipReason,
+              messagesIn: outcome.messagesIn,
+              messagesKept: outcome.messagesKept,
+              droppedMessages: outcome.droppedMessages,
+              dropReasons: outcome.dropReasons
+            })
+
+            if (outcome.session) {
+              importedSessions.push(outcome.session as unknown as ChatSession)
+              summary.droppedMessages += outcome.droppedMessages
             } else {
               summary.skippedSessions++
               logger.warn(
                 "Skipping unrescuable session in file",
                 "useImportChat",
-                { fileName: file.name }
+                {
+                  fileName: file.name,
+                  sessionId: outcome.sessionId,
+                  skipReason: outcome.skipReason,
+                  messagesIn: outcome.messagesIn,
+                  dropReasons: outcome.dropReasons
+                }
               )
             }
           }
@@ -79,15 +104,39 @@ export const useImportChat = () => {
 
       summary.importedSessions = importedSessions.length
 
-      if (importedSessions.length > 0) {
-        await bulkPutSessions(importedSessions)
+      logger.info("Import salvage complete", "useImportChat", {
+        importedSessions: summary.importedSessions,
+        skippedSessions: summary.skippedSessions,
+        droppedMessages: summary.droppedMessages,
+        invalidFiles: summary.invalidFiles
+      })
 
-        chatSessionStore.setState((state) => ({
-          sessions: [...importedSessions, ...state.sessions],
-          currentSessionId: state.currentSessionId ?? importedSessions[0].id,
-          hasSession: true,
-          hydrated: true
-        }))
+      if (importedSessions.length > 0) {
+        // Persist + store update are wrapped: a throw here (e.g. a DB
+        // constraint) previously escaped unhandled, leaving salvaged sessions
+        // neither persisted nor surfaced. Log it and fall through to the
+        // failure toast instead.
+        try {
+          await bulkPutSessions(importedSessions)
+
+          chatSessionStore.setState((state) => ({
+            sessions: [...importedSessions, ...state.sessions],
+            currentSessionId: state.currentSessionId ?? importedSessions[0].id,
+            hasSession: true,
+            hydrated: true
+          }))
+          logger.info("Imported sessions persisted", "useImportChat", {
+            count: importedSessions.length,
+            ids: importedSessions.map((s) => s.id)
+          })
+        } catch (err) {
+          logger.error("Failed to persist imported sessions", "useImportChat", {
+            error: err,
+            count: importedSessions.length
+          })
+          summary.importedSessions = 0
+          importedSessions.length = 0
+        }
       }
 
       // Always surface the outcome. Silent skips are how an empty import used

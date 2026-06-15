@@ -236,41 +236,80 @@ const LenientChatMessageSchema = z.object({
     .catch(undefined)
 })
 
-export interface SalvagedSession {
-  /** The rescued session, safe to persist. */
-  session: ChatSessionImportParsed
-  /** Count of messages that could not be rescued and were dropped. */
+export interface SalvageOutcome {
+  /** The rescued session, or `null` when nothing usable remained. */
+  session: ChatSessionImportParsed | null
+  /** Why the session was skipped, when `session` is null. */
+  skipReason?: "not-an-object" | "no-rescuable-messages"
+  /** The session's own id (or generated id), for log correlation. */
+  sessionId?: string
+  /** How many message entries the raw session contained. */
+  messagesIn: number
+  /** How many messages were kept after salvage. */
+  messagesKept: number
+  /** How many messages could not be rescued and were dropped. */
   droppedMessages: number
+  /**
+   * One short reason per dropped message (the failing field paths), so the
+   * importer can log exactly what the file tripped on instead of guessing.
+   */
+  dropReasons: string[]
 }
 
+/** Summarize a zod error as "path:code" pairs for compact logging. */
+const summarizeIssues = (error: z.ZodError): string =>
+  error.issues
+    .map((issue) => `${issue.path.join(".") || "<root>"}:${issue.code}`)
+    .join(", ")
+
 /**
- * Rescue one raw session object. Returns `null` only when nothing usable
- * remains (not an object, or no valid messages at all). Otherwise it returns
- * a fully-typed session with defaults filled in and a count of dropped
- * messages. Callers supply `now`/`makeId` so this stays free of ambient
+ * Rescue one raw session object. Returns a structured outcome (never throws)
+ * describing what was kept and what was dropped and why. `session` is null
+ * only when nothing usable remains (not an object, or no valid messages).
+ * Callers supply `now`/`makeId` so this stays free of ambient
  * `Date.now()`/`crypto` for testability.
  */
 export const salvageImportedSession = (
   raw: unknown,
   now: number,
   makeId: () => string
-): SalvagedSession | null => {
-  if (!raw || typeof raw !== "object") return null
+): SalvageOutcome => {
+  if (!raw || typeof raw !== "object") {
+    return {
+      session: null,
+      skipReason: "not-an-object",
+      messagesIn: 0,
+      messagesKept: 0,
+      droppedMessages: 0,
+      dropReasons: []
+    }
+  }
   const obj = raw as Record<string, unknown>
 
   const rawMessages = Array.isArray(obj.messages) ? obj.messages : []
   const messages: z.infer<typeof LenientChatMessageSchema>[] = []
-  let droppedMessages = 0
+  const dropReasons: string[] = []
   for (const entry of rawMessages) {
     const parsed = LenientChatMessageSchema.safeParse(entry)
     if (parsed.success) messages.push(parsed.data)
-    else droppedMessages++
+    else dropReasons.push(summarizeIssues(parsed.error))
   }
 
-  // A session with no rescuable messages is not worth importing.
-  if (messages.length === 0) return null
-
   const id = typeof obj.id === "string" && obj.id ? obj.id : makeId()
+
+  // A session with no rescuable messages is not worth importing.
+  if (messages.length === 0) {
+    return {
+      session: null,
+      skipReason: "no-rescuable-messages",
+      sessionId: id,
+      messagesIn: rawMessages.length,
+      messagesKept: 0,
+      droppedMessages: dropReasons.length,
+      dropReasons
+    }
+  }
+
   const title = typeof obj.title === "string" ? obj.title : "Imported chat"
   const createdAt = typeof obj.createdAt === "number" ? obj.createdAt : now
   const updatedAt = typeof obj.updatedAt === "number" ? obj.updatedAt : now
@@ -291,7 +330,11 @@ export const salvageImportedSession = (
       currentLeafId,
       messages
     } as ChatSessionImportParsed,
-    droppedMessages
+    sessionId: id,
+    messagesIn: rawMessages.length,
+    messagesKept: messages.length,
+    droppedMessages: dropReasons.length,
+    dropReasons
   }
 }
 
