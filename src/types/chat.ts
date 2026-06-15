@@ -144,6 +144,8 @@ export interface ToolRun {
     title: string
     url?: string
     excerpt?: string
+    /** Whether this source was sent to the model (vs only surfaced in the UI). */
+    used?: boolean
   }>
   error?: string
   /** The tool's result was trimmed to the configured per-result char cap. */

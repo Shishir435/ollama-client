@@ -48,7 +48,8 @@ const ToolRunSchema = z.object({
       z.object({
         title: z.string(),
         url: z.string().optional(),
-        excerpt: z.string().optional()
+        excerpt: z.string().optional(),
+        used: z.boolean().optional()
       })
     )
     .optional(),

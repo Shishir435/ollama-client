@@ -25,6 +25,7 @@ import { RegenerateButton } from "./regenerate-button"
 import { RunDetails } from "./run-details"
 import { SpeechButton } from "./speech-button"
 import { UsedContextButton } from "./used-context-button"
+import { WebSearchSourcesButton } from "./web-search-sources-button"
 
 export const ChatMessageFooter = ({
   msg,
@@ -175,6 +176,8 @@ export const ChatMessageFooter = ({
               tabContextTruncated={msg.metrics.tabContextTruncated}
             />
           )}
+
+        <WebSearchSourcesButton toolRuns={msg.metrics?.toolRuns} />
 
         {onEdit && isUser && (
           <TooltipActionButton

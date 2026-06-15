@@ -19,6 +19,17 @@ vi.mock("../config", async () => {
   }
 })
 
+const resultsState: { current: Array<Record<string, unknown>> } = {
+  current: [
+    {
+      title: "Result",
+      url: "https://example.com",
+      snippet: "Snippet",
+      source: "example.com"
+    }
+  ]
+}
+
 vi.mock("../registry", () => ({
   getWebSearchBackend: vi.fn(() => ({
     id: "searxng",
@@ -30,14 +41,7 @@ vi.mock("../registry", () => ({
       if (signal?.aborted) {
         throw new DOMException("Aborted", "AbortError")
       }
-      return [
-        {
-          title: "Result",
-          url: "https://example.com",
-          snippet: "Snippet",
-          source: "example.com"
-        }
-      ]
+      return resultsState.current
     })
   }))
 }))
@@ -51,6 +55,14 @@ describe("web_search tool", () => {
       count: 5,
       safeSearch: "moderate"
     }
+    resultsState.current = [
+      {
+        title: "Result",
+        url: "https://example.com",
+        snippet: "Snippet",
+        source: "example.com"
+      }
+    ]
   })
 
   it("is absent from the source when disabled", async () => {
@@ -80,9 +92,38 @@ describe("web_search tool", () => {
       {
         title: "Result",
         url: "https://example.com",
-        excerpt: "Snippet"
+        excerpt: "Snippet",
+        used: true
       }
     ])
+  })
+
+  it("marks results beyond the cap as unused and only sends the cap to the model", async () => {
+    configState.current.enabled = true
+    configState.current.count = 2
+    resultsState.current = Array.from({ length: 5 }, (_, i) => ({
+      title: `Result ${i + 1}`,
+      url: `https://example.com/${i + 1}`,
+      snippet: `Snippet ${i + 1}`,
+      source: "example.com"
+    }))
+    const { runWebSearch } = await import("../web-search-tool")
+    const result = await runWebSearch({ query: "facts" }, {})
+
+    // All five surface in sources; only the first two are flagged used.
+    expect(result.sources).toHaveLength(5)
+    expect(result.sources?.filter((s) => s.used)).toHaveLength(2)
+    expect(result.sources?.map((s) => s.used)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false
+    ])
+    // The model-facing content lists only the used slice.
+    expect(result.content).toContain("Result 1")
+    expect(result.content).toContain("Result 2")
+    expect(result.content).not.toContain("Result 3")
   })
 
   it("returns an error when query is missing", async () => {

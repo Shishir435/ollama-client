@@ -72,6 +72,12 @@ export interface ToolResultSource {
   title: string
   url?: string
   excerpt?: string
+  /**
+   * Whether this source was included in the content handed to the model.
+   * Search tools may surface more results than they feed the model (capped),
+   * so the UI can show "used" vs "also found" — false/undefined = not sent.
+   */
+  used?: boolean
 }
 
 /** The outcome of executing a tool, fed back to the model as a `tool` message. */

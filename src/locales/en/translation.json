@@ -271,7 +271,15 @@
       "tab_context_label": "Tab Context ({{count}})",
       "rag_context_label": "RAG Context ({{count}})",
       "char_counts": "tab chars: {{tab}} | rag chars: {{rag}}",
-      "trimmed": "trimmed"
+      "trimmed": "trimmed",
+      "web_source": "{{count}} web source",
+      "web_source_plural": "{{count}} web sources",
+      "view_web": "View {{count}} web source",
+      "view_web_plural": "View {{count}} web sources",
+      "web_title": "Web Sources ({{count}})",
+      "web_used_label": "Sent to the model ({{count}})",
+      "web_unused_label": "Also found — not sent ({{count}})",
+      "web_unused_hint": "Raise the web search result count in Settings to feed more of these to the model."
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
