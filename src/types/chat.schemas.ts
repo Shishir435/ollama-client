@@ -183,6 +183,118 @@ export const ChatSessionImportSchema = ChatSessionSchema.extend({
   messages: z.array(ChatMessageSchema)
 })
 
+// ---- Lenient import (salvage) --------------------------------------------
+//
+// The strict schema above is all-or-nothing: a single bad/missing sub-field
+// anywhere in a session fails the whole-session parse, so the importer
+// silently drops the entire chat. That makes import brittle against older
+// exports, partial exports, and tool-calling turns (assistant messages with
+// no content, images missing a re-encoded base64, a session row missing a
+// timestamp). The lenient layer salvages instead of discarding: it coerces or
+// defaults required scalars, drops only the invalid messages/sub-attachments,
+// and keeps everything that can be rescued. `salvageImportedSession` reports
+// what was dropped so the UI can surface it rather than fake success.
+
+/** Keep only the array items that individually validate; drop the rest. */
+const lenientArray = <T extends z.ZodTypeAny>(item: T) =>
+  z.preprocess(
+    (value) =>
+      Array.isArray(value)
+        ? value.filter((entry) => item.safeParse(entry).success)
+        : undefined,
+    z.array(item).optional()
+  )
+
+/**
+ * A message that can be rescued. `role` is the only hard requirement — without
+ * it the message is meaningless. `content` coerces to "" (tool/assistant turns
+ * legitimately carry no text); every optional field is dropped if malformed
+ * rather than failing the message.
+ */
+const LenientChatMessageSchema = z.object({
+  id: z.union([z.number(), z.string()]).optional().catch(undefined),
+  role: z.enum(["user", "assistant", "system", "tool"]),
+  content: z.string().catch(""),
+  thinking: z.string().optional().catch(undefined),
+  done: z.boolean().optional().catch(undefined),
+  model: z.string().optional().catch(undefined),
+  attachments: lenientArray(FileAttachmentSchema),
+  images: lenientArray(ImageAttachmentSchema),
+  toolCalls: lenientArray(ToolCallSchema),
+  toolName: z.string().optional().catch(undefined),
+  toolCallId: z.string().optional().catch(undefined),
+  timestamp: z.number().optional().catch(undefined),
+  metrics: ChatMessageMetricsSchema.optional().catch(undefined),
+  parentId: z.union([z.number(), z.string()]).optional().catch(undefined),
+  childrenIds: z
+    .array(z.union([z.number(), z.string()]))
+    .optional()
+    .catch(undefined),
+  siblingIds: z
+    .array(z.union([z.number(), z.string()]))
+    .optional()
+    .catch(undefined)
+})
+
+export interface SalvagedSession {
+  /** The rescued session, safe to persist. */
+  session: ChatSessionImportParsed
+  /** Count of messages that could not be rescued and were dropped. */
+  droppedMessages: number
+}
+
+/**
+ * Rescue one raw session object. Returns `null` only when nothing usable
+ * remains (not an object, or no valid messages at all). Otherwise it returns
+ * a fully-typed session with defaults filled in and a count of dropped
+ * messages. Callers supply `now`/`makeId` so this stays free of ambient
+ * `Date.now()`/`crypto` for testability.
+ */
+export const salvageImportedSession = (
+  raw: unknown,
+  now: number,
+  makeId: () => string
+): SalvagedSession | null => {
+  if (!raw || typeof raw !== "object") return null
+  const obj = raw as Record<string, unknown>
+
+  const rawMessages = Array.isArray(obj.messages) ? obj.messages : []
+  const messages: z.infer<typeof LenientChatMessageSchema>[] = []
+  let droppedMessages = 0
+  for (const entry of rawMessages) {
+    const parsed = LenientChatMessageSchema.safeParse(entry)
+    if (parsed.success) messages.push(parsed.data)
+    else droppedMessages++
+  }
+
+  // A session with no rescuable messages is not worth importing.
+  if (messages.length === 0) return null
+
+  const id = typeof obj.id === "string" && obj.id ? obj.id : makeId()
+  const title = typeof obj.title === "string" ? obj.title : "Imported chat"
+  const createdAt = typeof obj.createdAt === "number" ? obj.createdAt : now
+  const updatedAt = typeof obj.updatedAt === "number" ? obj.updatedAt : now
+  const modelId = typeof obj.modelId === "string" ? obj.modelId : undefined
+  const currentLeafId =
+    typeof obj.currentLeafId === "number" ||
+    typeof obj.currentLeafId === "string"
+      ? obj.currentLeafId
+      : undefined
+
+  return {
+    session: {
+      id,
+      title,
+      createdAt,
+      updatedAt,
+      modelId,
+      currentLeafId,
+      messages
+    } as ChatSessionImportParsed,
+    droppedMessages
+  }
+}
+
 // -- Output type aliases for consumers that need typed results --
 
 export type ChatMessageParsed = z.infer<typeof ChatMessageSchema>

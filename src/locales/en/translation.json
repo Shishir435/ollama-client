@@ -636,7 +636,16 @@
     },
     "import": {
       "tooltip": "Import chat sessions",
-      "aria_label": "Import chat sessions"
+      "aria_label": "Import chat sessions",
+      "toast": {
+        "success_title": "Imported {{count}} chat session",
+        "success_title_plural": "Imported {{count}} chat sessions",
+        "partial_title": "Imported {{count}} chat session with issues",
+        "partial_title_plural": "Imported {{count}} chat sessions with issues",
+        "partial_description": "Skipped {{skipped}} session(s), dropped {{droppedMessages}} message(s), {{invalidFiles}} unreadable file(s).",
+        "failed_title": "Nothing imported",
+        "failed_description": "No readable chat sessions were found in the selected file(s)."
+      }
     },
     "actions": {
       "more": "More actions for {{title}}",
