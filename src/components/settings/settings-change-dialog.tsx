@@ -33,7 +33,7 @@ const TogglePreview = ({ on }: { on: boolean }) => (
   <span
     aria-hidden
     className={cn(
-      "relative inline-flex h-[18px] w-[30px] shrink-0 items-center rounded-full transition-colors",
+      "relative inline-flex h-4.5 w-7.5 shrink-0 items-center rounded-full transition-colors",
       on ? "bg-primary" : "bg-input"
     )}>
     <span
