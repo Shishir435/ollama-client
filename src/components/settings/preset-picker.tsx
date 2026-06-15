@@ -1,9 +1,8 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { SettingsCard } from "@/components/settings/settings-card"
-import { SettingsChangePreview } from "@/components/settings/settings-change-preview"
+import { SettingsChangeDialog } from "@/components/settings/settings-change-dialog"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
 import {
   SETTINGS_PRESETS,
@@ -11,7 +10,20 @@ import {
 } from "@/features/settings/presets"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
-import { Sparkles } from "@/lib/lucide-icon"
+import {
+  Layers,
+  type LucideIcon,
+  Shield,
+  Sparkles,
+  Zap
+} from "@/lib/lucide-icon"
+
+const PRESET_ICONS: Record<string, LucideIcon> = {
+  fast: Zap,
+  balanced: Sparkles,
+  "large-context": Layers,
+  "privacy-strict": Shield
+}
 
 /**
  * One-click settings presets. Applying a preset is a batch write across
@@ -70,24 +82,25 @@ export const PresetPicker = () => {
         ))}
       </div>
 
-      <ConfirmActionDialog
-        open={confirm.open}
-        onOpenChange={(next) => {
-          if (!next) close()
-        }}
-        busy={busy}
-        title={t("settings.presets.preview_title", {
-          name: pending ? t(pending.labelKey) : ""
-        })}
-        confirmLabel={t("settings.presets.apply")}
-        description={
-          <span className="block">
-            <span className="block">{t("settings.presets.preview_hint")}</span>
-            {pending && <SettingsChangePreview writes={pending.writes} />}
-          </span>
-        }
-        onConfirm={apply}
-      />
+      {pending && (
+        <SettingsChangeDialog
+          open={confirm.open}
+          onOpenChange={(next) => {
+            if (!next) close()
+          }}
+          busy={busy}
+          icon={PRESET_ICONS[pending.id] ?? Sparkles}
+          title={t("settings.presets.preview_title", {
+            name: t(pending.labelKey)
+          })}
+          description={t(pending.descriptionKey)}
+          writes={pending.writes}
+          confirmLabel={t("settings.presets.apply")}
+          confirmIcon={PRESET_ICONS[pending.id] ?? Sparkles}
+          footnote={t("settings.presets.footer_note")}
+          onConfirm={apply}
+        />
+      )}
     </SettingsCard>
   )
 }

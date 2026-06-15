@@ -21,6 +21,10 @@
       "retry": "Retry",
       "refresh": "Refresh"
     },
+    "toggle": {
+      "on": "On",
+      "off": "Off"
+    },
     "updated_at": "Updated",
     "social": {
       "title": "Connect With Me",
@@ -1092,8 +1096,28 @@
       "description": "Apply a tuned combination in one click. You can still adjust any individual setting afterward.",
       "apply": "Apply preset",
       "applied": "Applied the {{name}} preset",
-      "preview_title": "Apply {{name}}?",
+      "preview_title": "Apply {{name}}",
       "preview_hint": "These settings will change:",
+      "footer_note": "You can fine-tune any of these afterward in Settings.",
+      "fields": {
+        "tab_access": "Allow models to read your other open tabs",
+        "grounded_only": "Restrict answers to the current page only",
+        "auto_refresh_tab": "Automatically refresh context from the open tab",
+        "auto_embed_chat": "Automatically embed chat history for memory",
+        "global_auto_embed": "Auto-embed content across all chats",
+        "web_search_label": "Web search",
+        "web_search": "Let tool-capable models search the live web",
+        "max_tab_chars": "Character budget for tab context in the prompt",
+        "max_rag_chars": "Character budget for retrieved context in the prompt",
+        "max_tool_chars": "Character cap per tool result fed back to the model",
+        "use_reranking": "Re-score retrieved results for better relevance",
+        "search_limit": "How many results retrieval returns (top-K)",
+        "min_rerank": "Minimum score a result must beat to be kept",
+        "enhanced_chunking": "Smarter, structure-aware text splitting",
+        "chunk_size": "Characters per chunk when splitting text",
+        "chunk_overlap": "Overlap between adjacent chunks",
+        "chunking_strategy": "How documents are split for retrieval"
+      },
       "fast": {
         "label": "Fast",
         "description": "Smaller context and retrieval for quicker, lighter responses."

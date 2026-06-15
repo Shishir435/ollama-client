@@ -1,8 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
-import { SettingsChangePreview } from "@/components/settings/settings-change-preview"
+import { SettingsChangeDialog } from "@/components/settings/settings-change-dialog"
 import { Button } from "@/components/ui/button"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
@@ -56,22 +55,18 @@ export const SectionResetButton = ({
         <RotateCcw className="icon-sm mr-1.5" />
         {t("settings.reset_section.button")}
       </Button>
-      <ConfirmActionDialog
+      <SettingsChangeDialog
         open={confirm.open}
         onOpenChange={(next) => {
           if (!next) confirm.closeDialog()
         }}
         busy={busy}
+        icon={RotateCcw}
         title={t("settings.reset_section.title")}
+        description={t("settings.reset_section.description")}
+        writes={defaults}
         confirmLabel={t("settings.reset_section.button")}
-        description={
-          <span className="block">
-            <span className="block">
-              {t("settings.reset_section.description")}
-            </span>
-            <SettingsChangePreview writes={defaults} />
-          </span>
-        }
+        confirmIcon={RotateCcw}
         onConfirm={handleConfirm}
       />
     </>
