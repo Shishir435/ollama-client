@@ -636,7 +636,8 @@
     },
     "import": {
       "tooltip": "चैट सेशन आयात करें",
-      "aria_label": "चैट सेशन आयात करें"
+      "aria_label": "चैट सेशन आयात करें",
+      "default_title": "Imported chat"
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",
@@ -1285,7 +1286,13 @@
         }
       }
     },
-    "saved": "सहेजा गया"
+    "saved": "सहेजा गया",
+    "presets": {
+      "error_title": "Failed to apply preset"
+    },
+    "reset_section": {
+      "error_title": "Failed to reset section"
+    }
   },
   "guides": {
     "title": "सहायक गाइड और दस्तावेज़ीकरण",

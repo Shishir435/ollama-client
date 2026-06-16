@@ -278,7 +278,8 @@ const summarizeIssues = (error: z.ZodError): string =>
 export const salvageImportedSession = (
   raw: unknown,
   now: number,
-  makeId: () => string
+  makeId: () => string,
+  titleFallback?: string
 ): SalvageOutcome => {
   if (!raw || typeof raw !== "object") {
     return {
@@ -316,7 +317,10 @@ export const salvageImportedSession = (
     }
   }
 
-  const title = typeof obj.title === "string" ? obj.title : "Imported chat"
+  const title =
+    typeof obj.title === "string"
+      ? obj.title
+      : (titleFallback ?? "Imported chat")
   const createdAt = typeof obj.createdAt === "number" ? obj.createdAt : now
   const updatedAt = typeof obj.updatedAt === "number" ? obj.updatedAt : now
   const modelId = typeof obj.modelId === "string" ? obj.modelId : undefined

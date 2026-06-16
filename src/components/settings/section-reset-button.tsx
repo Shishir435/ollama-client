@@ -39,6 +39,15 @@ export const SectionResetButton = ({
       await applyStorageWrites(defaults)
       toast({ title: t("settings.reset_section.done") })
       confirm.closeDialog()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t(
+          "settings.reset_section.error_title",
+          "Failed to reset section"
+        ),
+        description: error instanceof Error ? error.message : String(error)
+      })
     } finally {
       setBusy(false)
     }

@@ -57,6 +57,12 @@ export const PresetPicker = () => {
         title: t("settings.presets.applied", { name: t(pending.labelKey) })
       })
       close()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t("settings.presets.error_title", "Failed to apply preset"),
+        description: error instanceof Error ? error.message : String(error)
+      })
     } finally {
       setBusy(false)
     }

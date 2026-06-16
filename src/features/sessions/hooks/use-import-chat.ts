@@ -60,7 +60,12 @@ export const useImportChat = () => {
             // Salvage rather than discard: keep the session even when some
             // messages or sub-attachments are malformed, defaulting missing
             // scalars. Only a session with nothing rescuable is skipped.
-            const outcome = salvageImportedSession(item, now, makeId)
+            const outcome = salvageImportedSession(
+              item,
+              now,
+              makeId,
+              t("sessions.import.default_title", "Imported chat")
+            )
 
             // Per-session diagnostics: exactly what was kept vs dropped, and
             // for every dropped message the field path that failed.
