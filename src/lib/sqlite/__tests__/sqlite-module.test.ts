@@ -26,6 +26,7 @@ import initSqlJs from "sql.js/dist/sql-wasm.js"
 import {
   exportDatabaseBytes,
   flushSave,
+  importDatabaseBytes,
   initSQLite,
   query,
   resetSQLiteDatabase,
@@ -161,6 +162,24 @@ function setupChrome() {
         .mockReturnValue("chrome-extension://test/assets/sql-wasm.wasm")
     }
   })
+  mockChromeLocalGet({})
+  mockChromeLocalSet()
+}
+
+function mockChromeLocalGet(value: unknown) {
+  ;(
+    chrome.storage.local.get as unknown as {
+      mockResolvedValue: (value: unknown) => void
+    }
+  ).mockResolvedValue(value)
+}
+
+function mockChromeLocalSet() {
+  ;(
+    chrome.storage.local.set as unknown as {
+      mockResolvedValue: (value?: unknown) => void
+    }
+  ).mockResolvedValue()
 }
 
 function setupFetch() {
@@ -300,6 +319,37 @@ describe("SQLite DB module", () => {
     await flushSave()
 
     expect(mockDb.export).toHaveBeenCalled()
+  })
+
+  it("flushSave skips stale contexts after another backup restore", async () => {
+    const { mockSQL, mockDb } = buildSQLMocks()
+    vi.mocked(initSqlJs).mockResolvedValue(mockSQL as any)
+    mockChromeLocalGet({
+      "sqlite-db-import-generation": "before"
+    })
+
+    await initSQLite()
+    mockDb.export.mockClear()
+
+    mockChromeLocalGet({
+      "sqlite-db-import-generation": "after"
+    })
+
+    await flushSave()
+
+    expect(mockDb.export).not.toHaveBeenCalled()
+  })
+
+  it("importDatabaseBytes bumps restore generation before reloading", async () => {
+    const { mockSQL } = buildSQLMocks()
+    vi.mocked(initSqlJs).mockResolvedValue(mockSQL as any)
+
+    await importDatabaseBytes(new Uint8Array([9, 8, 7]))
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      "sqlite-db-import-generation": expect.any(String)
+    })
+    expect(mockSQL.Database).toHaveBeenCalledWith(expect.any(Uint8Array))
   })
 
   // -------------------------------------------------------------------------
