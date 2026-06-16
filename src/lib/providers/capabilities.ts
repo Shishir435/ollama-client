@@ -129,11 +129,15 @@ const detectModelCapabilities = (
     }
   }
 
+  const isOllama = input.providerId === ProviderId.OLLAMA
+
   return {
     text: providerCaps?.chat ?? true,
     vision: false,
     embeddings: providerCaps?.embeddings ?? false,
-    toolCalling: providerCaps?.toolCalling ?? false,
+    // Ollama supports tool transport, but model support is tag-based. If
+    // /api/show metadata is missing, keep model-level tools off.
+    toolCalling: isOllama ? false : (providerCaps?.toolCalling ?? false),
     reasoning: false,
     contextLength: input.contextLength,
     source: "provider-default",
@@ -203,7 +207,7 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
     modelUnload: true,
     modelDelete: true,
     providerVersion: true,
-    toolCalling: false
+    toolCalling: true
   },
   [ProviderId.LM_STUDIO]: {
     ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,

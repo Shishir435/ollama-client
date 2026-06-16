@@ -15,8 +15,8 @@ Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-c
 
 | Provider | Default endpoint | Notes |
 |---|---|---|
-| Ollama | `http://localhost:11434` | Recommended baseline. Fullest model-management support. |
-| LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat and embeddings with LM Studio model discovery. |
+| Ollama | `http://localhost:11434` | Recommended baseline. Tool calling plus fullest model-management support. |
+| LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery. |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible. Run with `llama-server`. |
 | vLLM / LocalAI / KoboldCPP | User configured | OpenAI-compatible servers; use your actual URL. |
 
@@ -73,7 +73,7 @@ curl http://localhost:8000/v1/models
 
 - Chat generation is fully provider-agnostic.
 - Image input is model-dependent. If the selected model is not vision-capable, the composer blocks image attach instead of sending unsupported input.
-- Tool calling is model-dependent. Tool-capable models can inspect browser context through local extension tools; non-tool models keep the old plain chat path.
+- Tool calling is model-dependent. Ollama and LM Studio both expose tool-calling APIs, but the selected model still needs tool-use support. Tool-capable models can inspect browser context through local extension tools; non-tool models keep the old plain chat path.
 - Web search is off by default and model-visible only as `web_search`. Backend choice is a user setting, not a model prompt detail.
 - Model-management actions depend on provider capabilities. Ollama has the fullest support; LM Studio adds pull/unload support.
 - Embedding generation uses the configured provider when supported, then falls back through the shared embedding path and Ollama for reliability.

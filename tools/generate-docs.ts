@@ -88,7 +88,7 @@ const providers: Array<{
     },
     build: (c) => new OllamaProvider(c),
     notes:
-      "Recommended baseline. Full feature parity including pull / delete / unload."
+      "Recommended baseline. Full feature parity including tool calling, pull / delete / unload."
   },
   {
     config: {
@@ -99,7 +99,8 @@ const providers: Array<{
       baseUrl: "http://localhost:1234/v1"
     },
     build: (c) => new LMStudioProvider(c),
-    notes: "OpenAI-compatible. Adds pull / unload over the OpenAI base."
+    notes:
+      "OpenAI-compatible. Supports tool calling and adds pull / unload over the OpenAI base."
   },
   {
     config: {

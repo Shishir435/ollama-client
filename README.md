@@ -30,8 +30,8 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 
 | Provider         | Default endpoint           | Notes                                                                |
 | ---------------- | -------------------------- | -------------------------------------------------------------------- |
-| Ollama           | `http://localhost:11434`   | Default fallback and fullest local model-management support          |
-| LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat and embeddings with LM Studio model discovery |
+| Ollama           | `http://localhost:11434`   | Default fallback with tool calling and fullest local model-management support |
+| LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible server via `llama-server`                          |
 | vLLM             | User configured            | OpenAI-compatible local or remote serving                            |
 | KoboldCPP        | User configured            | OpenAI-compatible endpoints with KoboldCPP sampler support           |

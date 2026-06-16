@@ -15,7 +15,8 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
       ...this.capabilities,
       modelPull: true,
       modelUnload: true,
-      providerVersion: false
+      providerVersion: false,
+      toolCalling: true
     }
   }
 
