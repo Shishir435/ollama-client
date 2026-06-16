@@ -3,7 +3,6 @@ import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_FILE_UPLOAD_CONFIG,
-  DEFAULT_MODEL_CONFIG,
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
@@ -28,8 +27,7 @@ const CONFIG_SOURCES: Record<string, Record<string, unknown>> = {
   [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: asRecord(
     DEFAULT_CONTENT_EXTRACTION_CONFIG
   ),
-  [STORAGE_KEYS.FILE_UPLOAD.CONFIG]: asRecord(DEFAULT_FILE_UPLOAD_CONFIG),
-  [STORAGE_KEYS.PROVIDER.MODEL_CONFIGS]: asRecord(DEFAULT_MODEL_CONFIG)
+  [STORAGE_KEYS.FILE_UPLOAD.CONFIG]: asRecord(DEFAULT_FILE_UPLOAD_CONFIG)
 }
 
 describe("section-defaults", () => {
@@ -76,6 +74,10 @@ describe("section-defaults", () => {
 
   it("getSectionDefaults returns [] for an unknown section", () => {
     expect(getSectionDefaults("nope")).toEqual([])
+  })
+
+  it("does not expose per-model configs as flat field writes", () => {
+    expect(getSectionDefaults("model-parameters")).toEqual([])
   })
 
   it("every defaulted section is non-empty", () => {

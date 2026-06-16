@@ -29,7 +29,6 @@ import {
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
   DEFAULT_MAX_TOOL_RESULT_CHARS,
-  DEFAULT_MODEL_CONFIG,
   STORAGE_KEYS
 } from "@/lib/constants"
 
@@ -42,8 +41,7 @@ export interface SectionDefault {
   value: unknown
 }
 
-const { CHAT, EMBEDDINGS, FILE_UPLOAD, IMAGES, PROVIDER, BROWSER } =
-  STORAGE_KEYS
+const { CHAT, EMBEDDINGS, FILE_UPLOAD, IMAGES, BROWSER } = STORAGE_KEYS
 
 /**
  * sectionId → defaults. sectionIds match the `sectionId` field used in the
@@ -138,53 +136,6 @@ export const SECTION_DEFAULTS: Record<string, SectionDefault[]> = {
       storageKey: EMBEDDINGS.CONFIG,
       field: "cleanupDaysOld",
       value: DEFAULT_EMBEDDING_CONFIG.cleanupDaysOld
-    }
-  ],
-  "model-parameters": [
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "temperature",
-      value: DEFAULT_MODEL_CONFIG.temperature
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "top_p",
-      value: DEFAULT_MODEL_CONFIG.top_p
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "top_k",
-      value: DEFAULT_MODEL_CONFIG.top_k
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "min_p",
-      value: DEFAULT_MODEL_CONFIG.min_p
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "seed",
-      value: DEFAULT_MODEL_CONFIG.seed
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "num_ctx",
-      value: DEFAULT_MODEL_CONFIG.num_ctx
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "num_predict",
-      value: DEFAULT_MODEL_CONFIG.num_predict
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "repeat_penalty",
-      value: DEFAULT_MODEL_CONFIG.repeat_penalty
-    },
-    {
-      storageKey: PROVIDER.MODEL_CONFIGS,
-      field: "repeat_last_n",
-      value: DEFAULT_MODEL_CONFIG.repeat_last_n
     }
   ],
   "content-extraction": [
