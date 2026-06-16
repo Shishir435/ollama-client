@@ -111,4 +111,34 @@ describe("WebSearchSourcesButton", () => {
     expect(screen.getByText(/0\.87/)).toBeInTheDocument()
     expect(screen.getByText("the snippet text")).toBeInTheDocument()
   })
+
+  it("keeps metadata tied to the clicked duplicate URL row", () => {
+    const run = webRun([
+      {
+        id: "call-1:web-0",
+        title: "First source",
+        url: "https://a.com/page",
+        excerpt: "first snippet",
+        publishedAt: "2026-06-01",
+        source: "engine-a",
+        used: true
+      },
+      {
+        id: "call-2:web-0",
+        title: "Second source",
+        url: "https://a.com/page",
+        excerpt: "second snippet",
+        publishedAt: "2026-06-02",
+        source: "engine-b",
+        used: true
+      }
+    ])
+    render(<WebSearchSourcesButton toolRuns={[run]} />)
+    fireEvent.click(screen.getByRole("button"))
+    fireEvent.click(screen.getByText("First source"))
+
+    expect(screen.getByText(/2026-06-01/)).toBeInTheDocument()
+    expect(screen.getByText(/engine-a/)).toBeInTheDocument()
+    expect(screen.queryByText(/2026-06-02/)).not.toBeInTheDocument()
+  })
 })

@@ -46,6 +46,7 @@ const ToolRunSchema = z.object({
   sources: z
     .array(
       z.object({
+        id: z.union([z.string(), z.number()]).optional(),
         title: z.string(),
         url: z.string().optional(),
         excerpt: z.string().optional(),

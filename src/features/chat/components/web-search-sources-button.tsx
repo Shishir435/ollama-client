@@ -8,6 +8,7 @@ export interface WebSearchSourcesButtonProps {
 }
 
 type WebSource = NonNullable<ToolRun["sources"]>[number]
+type IndexedWebSource = { source: WebSource; itemId: string }
 
 const hostOf = (url?: string): string | undefined => {
   if (!url) return undefined
@@ -18,8 +19,8 @@ const hostOf = (url?: string): string | undefined => {
   }
 }
 
-const toItem = (source: WebSource, index: number): SourceItem => ({
-  id: source.url ? `${source.url}-${index}` : `web-${index}`,
+const toItem = ({ source, itemId }: IndexedWebSource): SourceItem => ({
+  id: itemId,
   title: source.title,
   content: source.excerpt ?? "",
   score: 0,
@@ -43,13 +44,21 @@ export function WebSearchSourcesButton({
     .flatMap((run) => run.sources ?? [])
   if (sources.length === 0) return null
 
-  const used = sources.filter((s) => s.used)
-  const unused = sources.filter((s) => !s.used)
+  const indexedSources: IndexedWebSource[] = sources.map((source, index) => ({
+    source,
+    itemId: source.id
+      ? `${source.id}-${index}`
+      : source.url
+        ? `${source.url}-${index}`
+        : `web-${index}`
+  }))
+  const used = indexedSources.filter(({ source }) => source.used)
+  const unused = indexedSources.filter(({ source }) => !source.used)
   const total = sources.length
 
   // Lookup for per-item extras (publishedAt) the generic SourceItem can't hold.
-  const byUrl = new Map(
-    sources.filter((s) => s.url).map((s) => [s.url as string, s])
+  const byItemId = new Map(
+    indexedSources.map(({ source, itemId }) => [itemId, source])
   )
 
   const sections: { label?: string; items: SourceItem[] }[] = []
@@ -103,7 +112,7 @@ export function WebSearchSourcesButton({
         // The row already shows the clickable host; the dropdown adds every
         // other useful field the backend returned (engine, category, score,
         // publish date) plus the full snippet — rather than repeating the link.
-        const ws = item.source ? byUrl.get(item.source) : undefined
+        const ws = byItemId.get(String(item.id))
         const chips: string[] = []
         if (ws?.source)
           chips.push(t("chat.sources.web_engine", { engine: ws.source }))

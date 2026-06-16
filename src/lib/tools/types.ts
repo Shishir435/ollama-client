@@ -69,6 +69,8 @@ export interface ToolCall {
 }
 
 export interface ToolResultSource {
+  /** Stable per-run source id for UI lookup. */
+  id?: string | number
   title: string
   url?: string
   excerpt?: string

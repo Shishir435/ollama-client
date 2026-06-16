@@ -141,6 +141,7 @@ export interface ToolRun {
   startedAt: number
   completedAt?: number
   sources?: Array<{
+    id?: string | number
     title: string
     url?: string
     excerpt?: string

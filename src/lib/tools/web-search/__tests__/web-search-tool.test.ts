@@ -92,9 +92,11 @@ describe("web_search tool", () => {
     const result = await runWebSearch({ query: "current facts" }, {})
     expect(result.isError).toBeUndefined()
     expect(result.content).toContain("Web search results")
+    expect(result.content).toContain("Cite source URLs you use")
     expect(result.content).toContain("https://example.com")
     expect(result.sources).toEqual([
       {
+        id: "web-0",
         title: "Result",
         url: "https://example.com",
         excerpt: "Snippet",
@@ -132,6 +134,46 @@ describe("web_search tool", () => {
     expect(result.content).not.toContain("Result 3")
   })
 
+  it("dedupes equivalent URLs before choosing used and unused sources", async () => {
+    configState.current.enabled = true
+    configState.current.count = 2
+    resultsState.current = [
+      {
+        title: "Tracked",
+        url: "https://www.example.com/page/?utm_source=x&b=2&a=1#section",
+        snippet: "Short",
+        source: "engine-a",
+        score: 0.2
+      },
+      {
+        title: "Canonical",
+        url: "https://example.com/page?a=1&b=2",
+        snippet: "Longer canonical snippet",
+        source: "engine-b",
+        score: 0.9
+      },
+      {
+        title: "Other",
+        url: "https://other.example/item",
+        snippet: "Other snippet"
+      }
+    ]
+    const { runWebSearch } = await import("../web-search-tool")
+    const result = await runWebSearch({ query: "facts" }, {})
+
+    expect(result.sources).toHaveLength(2)
+    expect(result.sources?.[0]).toMatchObject({
+      id: "web-0",
+      title: "Tracked",
+      url: "https://www.example.com/page/?utm_source=x&b=2&a=1#section",
+      excerpt: "Longer canonical snippet",
+      source: "engine-a",
+      score: 0.9,
+      used: true
+    })
+    expect(result.content.match(/example\.com\/page/g)).toHaveLength(1)
+  })
+
   it("passes a valid time_range through to the backend and ignores invalid ones", async () => {
     configState.current.enabled = true
     const { runWebSearch } = await import("../web-search-tool")
@@ -148,6 +190,15 @@ describe("web_search tool", () => {
     const result = await runWebSearch({}, {})
     expect(result.isError).toBe(true)
     expect(result.content).toContain("non-empty")
+  })
+
+  it("returns an error when count cannot be parsed", async () => {
+    const { runWebSearch } = await import("../web-search-tool")
+    const result = await runWebSearch({ query: "x", count: "many" }, {})
+    expect(result).toEqual({
+      content: "web_search 'count' must be a number.",
+      isError: true
+    })
   })
 
   it("turns aborts into an error result", async () => {
