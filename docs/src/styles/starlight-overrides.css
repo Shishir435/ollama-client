@@ -80,28 +80,22 @@ body {
 /* ---------- Tables ------------------------------------------------------- */
 
 .sl-markdown-content table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
   border-collapse: collapse;
   border: 1px solid var(--sl-color-gray-6);
   border-radius: 0.5rem;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   font-size: 0.875rem;
+  -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 50rem) {
-  .sl-markdown-content table {
-    display: block;
-    width: max-content;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .sl-markdown-content th,
-  .sl-markdown-content td {
-    min-width: max-content;
-    white-space: nowrap;
-  }
+.sl-markdown-content th,
+.sl-markdown-content td {
+  min-width: max-content;
+  white-space: nowrap;
 }
 
 .sl-markdown-content th,
