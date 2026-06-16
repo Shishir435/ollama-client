@@ -95,6 +95,10 @@ export interface RuntimeMessageMap {
     request: { type: typeof MESSAGE_KEYS.APP.RELOAD }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.APP.FLUSH_SQLITE]: {
+    request: { type: typeof MESSAGE_KEYS.APP.FLUSH_SQLITE }
+    response: RuntimeResponse
+  }
 }
 
 export type RuntimeMessageKey = keyof RuntimeMessageMap

@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { FormGrid, SectionStack } from "@/components/layout"
 import {
+  AdvancedSection,
   SettingsCard,
   SettingsFormField,
   SettingsSliderField,
@@ -352,8 +353,10 @@ const ContentExtractionSettingsForm = ({
 
       <SettingsSwitch
         id="selection-actions-enabled"
-        label="Enable Selection Actions"
-        description="Show local AI actions when text is selected on a page."
+        label={t("settings.content_extraction.selection_actions.label")}
+        description={t(
+          "settings.content_extraction.selection_actions.description"
+        )}
         checked={config.selectionActionsEnabled}
         onCheckedChange={(checked) =>
           onUpdate({
@@ -364,8 +367,13 @@ const ContentExtractionSettingsForm = ({
       />
 
       <SettingsFormField
-        label="Minimum selected characters"
-        description="Selections shorter than this stay hidden.">
+        focusId="selection-actions-min-chars"
+        label={t(
+          "settings.content_extraction.selection_actions_min_chars.label"
+        )}
+        description={t(
+          "settings.content_extraction.selection_actions_min_chars.description"
+        )}>
         <Input
           type="number"
           min={1}
@@ -386,8 +394,10 @@ const ContentExtractionSettingsForm = ({
       </SettingsFormField>
 
       <SettingsFormField
-        label="Selection action list"
-        description="Choose which local text actions appear in the page toolbar.">
+        label={t("settings.content_extraction.selection_actions_list.label")}
+        description={t(
+          "settings.content_extraction.selection_actions_list.description"
+        )}>
         <div className="grid gap-2 sm:grid-cols-2">
           {SELECTION_ACTIONS.map((action) => {
             const enabledIds =
@@ -437,19 +447,25 @@ const ContentExtractionSettingsForm = ({
         onUpdate({ scrollDepth: value })
       )}
 
-      {/* Advanced Settings Grid */}
-      <FormGrid>
-        {TIMEOUT_FIELDS.map((field) => (
-          <div key={field.id}>
-            {renderTimeoutInput(
-              field,
-              config[field.name],
-              (value) => onUpdate({ [field.name]: value }),
-              "text-center"
-            )}
-          </div>
-        ))}
-      </FormGrid>
+      {/* Advanced page-load timeouts — collapsed by default with a summary */}
+      <AdvancedSection
+        title={t("settings.content_extraction.timeout.section_title")}
+        summary={TIMEOUT_FIELDS.map(
+          (field) => `${field.label}: ${config[field.name]}`
+        ).join(" · ")}>
+        <FormGrid>
+          {TIMEOUT_FIELDS.map((field) => (
+            <div key={field.id}>
+              {renderTimeoutInput(
+                field,
+                config[field.name],
+                (value) => onUpdate({ [field.name]: value }),
+                "text-center"
+              )}
+            </div>
+          ))}
+        </FormGrid>
+      </AdvancedSection>
     </SettingsCard>
   )
 }

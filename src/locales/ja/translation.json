@@ -636,7 +636,8 @@
     },
     "import": {
       "tooltip": "チャットセッションをインポート",
-      "aria_label": "チャットセッションをインポート"
+      "aria_label": "チャットセッションをインポート",
+      "default_title": "Imported chat"
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -1285,7 +1286,13 @@
         }
       }
     },
-    "saved": "保存済み"
+    "saved": "保存済み",
+    "presets": {
+      "error_title": "Failed to apply preset"
+    },
+    "reset_section": {
+      "error_title": "Failed to reset section"
+    }
   },
   "guides": {
     "title": "役立つガイドとドキュメント",

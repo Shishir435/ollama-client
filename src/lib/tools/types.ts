@@ -69,9 +69,25 @@ export interface ToolCall {
 }
 
 export interface ToolResultSource {
+  /** Stable per-run source id for UI lookup. */
+  id?: string | number
   title: string
   url?: string
   excerpt?: string
+  /** Publication date/age when the backend reports it (helps judge recency). */
+  publishedAt?: string
+  /** Search engine / site label the backend reports. */
+  source?: string
+  /** Relevance score from the backend, when provided. */
+  score?: number
+  /** Result category, when provided. */
+  category?: string
+  /**
+   * Whether this source was included in the content handed to the model.
+   * Search tools may surface more results than they feed the model (capped),
+   * so the UI can show "used" vs "also found" — false/undefined = not sent.
+   */
+  used?: boolean
 }
 
 /** The outcome of executing a tool, fed back to the model as a `tool` message. */

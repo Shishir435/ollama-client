@@ -228,7 +228,12 @@ export const streamChatWithTools = async ({
       run.completedAt = Date.now()
       if (result.isError) run.error = result.content
       else run.resultPreview = result.content.slice(0, 240)
-      if (result.sources?.length) run.sources = result.sources
+      if (result.sources?.length) {
+        run.sources = result.sources.map((source, index) => ({
+          ...source,
+          id: `${call.id}:${source.id ?? index}`
+        }))
+      }
       if (truncated) run.truncated = true
       onChunk({ toolRuns: [...toolRuns] })
 

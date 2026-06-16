@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import type { LLMProvider } from "@/lib/providers/types"
-import type { ToolDefinition } from "@/lib/tools"
+import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
 import { streamChatWithTools } from "../stream-chat-with-tools"
@@ -22,10 +22,7 @@ const scriptedProvider = (scripts: ChatStreamMessage[][]): LLMProvider => {
 }
 
 const registryWith = (
-  run: (
-    name: string,
-    args: Record<string, unknown>
-  ) => Promise<{ content: string; isError?: boolean }>,
+  run: (name: string, args: Record<string, unknown>) => Promise<ToolResult>,
   definition: ToolDefinition = {
     name: "echo",
     description: "",
@@ -43,10 +40,7 @@ const registryWith = (
 
 const registryWithTools = (
   definitions: ToolDefinition[],
-  run: (
-    name: string,
-    args: Record<string, unknown>
-  ) => Promise<{ content: string; isError?: boolean }>
+  run: (name: string, args: Record<string, unknown>) => Promise<ToolResult>
 ) => {
   const reg = new ToolRegistry()
   reg.register({
@@ -176,6 +170,30 @@ describe("streamChatWithTools", () => {
       category: "knowledge",
       risk: "low"
     })
+  })
+
+  it("prefixes source ids with the originating tool call id", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "ok" }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({
+        content: "tool result",
+        sources: [{ id: "web-0", title: "Result", url: "https://a.com" }]
+      })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]?.sources?.[0]?.id).toBe("c1:web-0")
   })
 
   it("lets the caller result cap override a per-tool cap", async () => {

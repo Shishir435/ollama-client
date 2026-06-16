@@ -14,7 +14,7 @@ describe("provider capabilities", () => {
       modelUnload: true,
       modelDelete: true,
       providerVersion: true,
-      toolCalling: false
+      toolCalling: true
     })
 
     expect(PROVIDER_CAPABILITIES[ProviderId.LM_STUDIO]).toMatchObject({
@@ -80,6 +80,7 @@ describe("getModelCapabilities", () => {
     const caps = getModelCapabilities({ providerId: ProviderId.OLLAMA })
 
     expect(caps.vision).toBe(false)
+    expect(caps.toolCalling).toBe(false)
     expect(caps.reasoning).toBe(false)
     expect(caps.source).toBe("provider-default")
     expect(caps.confidence).toBe("low")

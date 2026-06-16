@@ -11,7 +11,7 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
-**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://ollama-client.shishirchaurasiya.in/) · [Provider setup](https://ollama-client.shishirchaurasiya.in/guides/provider-setup/) · [Architecture](https://ollama-client.shishirchaurasiya.in/concepts/architecture/) · [Privacy](https://ollama-client.shishirchaurasiya.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
+**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Architecture](https://www.ollamaclient.in/concepts/architecture/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
 ## What It Does
 
@@ -30,8 +30,8 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 
 | Provider         | Default endpoint           | Notes                                                                |
 | ---------------- | -------------------------- | -------------------------------------------------------------------- |
-| Ollama           | `http://localhost:11434`   | Default fallback and fullest local model-management support          |
-| LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat and embeddings with LM Studio model discovery |
+| Ollama           | `http://localhost:11434`   | Default fallback with tool calling and fullest local model-management support |
+| LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible server via `llama-server`                          |
 | vLLM             | User configured            | OpenAI-compatible local or remote serving                            |
 | KoboldCPP        | User configured            | OpenAI-compatible endpoints with KoboldCPP sampler support           |
@@ -148,13 +148,13 @@ Runtime flow:
 
 ## Documentation
 
-- [Provider setup](https://ollama-client.shishirchaurasiya.in/guides/provider-setup/)
-- [Context, images, and tools](https://ollama-client.shishirchaurasiya.in/guides/context-and-tools/)
-- [Provider capability matrix](https://ollama-client.shishirchaurasiya.in/concepts/provider-matrix/)
-- [Architecture](https://ollama-client.shishirchaurasiya.in/concepts/architecture/)
-- [Keyboard shortcuts](https://ollama-client.shishirchaurasiya.in/about/keyboard-shortcuts/)
-- [Changelog](https://ollama-client.shishirchaurasiya.in/about/changelog/)
-- [Privacy policy](https://ollama-client.shishirchaurasiya.in/legal/privacy-policy/)
+- [Provider setup](https://www.ollamaclient.in/guides/provider-setup/)
+- [Context, images, and tools](https://www.ollamaclient.in/guides/context-and-tools/)
+- [Provider capability matrix](https://www.ollamaclient.in/concepts/provider-matrix/)
+- [Architecture](https://www.ollamaclient.in/concepts/architecture/)
+- [Keyboard shortcuts](https://www.ollamaclient.in/about/keyboard-shortcuts/)
+- [Changelog](https://www.ollamaclient.in/about/changelog/)
+- [Privacy policy](https://www.ollamaclient.in/legal/privacy-policy/)
 - [Contributing guide](./CONTRIBUTING.md)
 - [AI assistant guide](./AGENTS.md)
 

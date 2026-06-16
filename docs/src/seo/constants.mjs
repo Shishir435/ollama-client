@@ -58,7 +58,7 @@ for (const envPath of [
 
 export const APP_VERSION = appPackage.packageJson.version
 
-const DEFAULT_SITE_URL = "https://ollama-client.shishirchaurasiya.in"
+const DEFAULT_SITE_URL = "https://www.ollamaclient.in"
 
 const normalizeSiteUrl = (url) => {
   const trimmed = (url || DEFAULT_SITE_URL).trim().replace(/\/+$/, "")

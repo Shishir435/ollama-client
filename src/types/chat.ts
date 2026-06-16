@@ -141,9 +141,20 @@ export interface ToolRun {
   startedAt: number
   completedAt?: number
   sources?: Array<{
+    id?: string | number
     title: string
     url?: string
     excerpt?: string
+    /** Publication date/age when the backend reports it. */
+    publishedAt?: string
+    /** Search engine / site label the backend reports. */
+    source?: string
+    /** Relevance score from the backend, when provided. */
+    score?: number
+    /** Result category, when provided. */
+    category?: string
+    /** Whether this source was sent to the model (vs only surfaced in the UI). */
+    used?: boolean
   }>
   error?: string
   /** The tool's result was trimmed to the configured per-result char cap. */

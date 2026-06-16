@@ -7,21 +7,31 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-06-16
+
 ### Added
 - Provider-agnostic web search tool (`web_search`) for tool-capable models, gated behind device-local settings and exposed as one model-visible tool regardless of backend. Initial backends are SearXNG, Brave Search, and Tavily.
 - Local SearXNG Docker Compose setup under `searxng/` for private development/testing with JSON search enabled.
 - Web search settings in the Context tab: enable toggle, provider selector, API key/endpoint fields, safe-search, result count, SearXNG page count, beta badge, provider base URL transparency, and test search.
 - Chat composer globe toggle for enabling/disabling web search without leaving the chat.
+- Settings registry, settings search, per-section reset, preset previews, and one-click presets for common configuration profiles.
+- Lenient chat import salvage path that keeps recoverable sessions and reports per-session diagnostics instead of dropping whole imports.
 
 ### Changed
+- Documentation domain moved to `https://www.ollamaclient.in/`.
 - Documentation updated for image input, browser-context tools, and model capability gating.
 - Tool guidance now tells models to use `web_search` for current/time-sensitive facts, include the current date in search planning, and cite returned URLs.
 - Web-search results are normalized, capped, and treated as untrusted snippets before being returned to the model.
+- Web-search sources now split used and unused results, show richer metadata, and keep source identity stable when multiple tool runs return the same URL.
+- Web-search backends now support time-range filtering where available and dedupe normalized URLs before result caps are applied.
 
 ### Fixed
 - Thinking-only tool responses now surface as the visible assistant answer instead of falling through to the generic "no final answer" fallback.
+- Ollama and LM Studio provider capability docs now report tool-calling support correctly; Ollama model-level tools still require the model's reported `tools` tag.
+- Settings batch writes now fail fast if scalar and field-level writes are mixed for the same storage key instead of silently dropping one write.
+- Settings `focus` URL params are cleaned up after use so tab changes do not retry stale highlights.
 
-## [0.10.0] - 2026-06-13
+## [0.10.1] - 2026-06-13
 ### Added
 - Tool calling runtime (foundation): tool-capable models can call internal tools mid-conversation, with the calls and results round-tripped through both provider adapters (Ollama native `tools` + `tool`-role results; OpenAI-compatible `tools`/`tool_calls`). Gated on the model's resolved `toolCalling` capability — non-tool models are completely unaffected.
 - Provider-agnostic, MCP-ready architecture: a `ToolSource` abstraction with a `ToolRegistry` that aggregates sources and routes calls by name. Internal tools are the first source; a future MCP server registers as another source with no change to the adapters, the tool loop, or the UI.

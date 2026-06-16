@@ -636,7 +636,8 @@
     },
     "import": {
       "tooltip": "Importa sessioni di chat",
-      "aria_label": "Importa sessioni di chat"
+      "aria_label": "Importa sessioni di chat",
+      "default_title": "Imported chat"
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -1285,7 +1286,13 @@
         }
       }
     },
-    "saved": "Salvato"
+    "saved": "Salvato",
+    "presets": {
+      "error_title": "Failed to apply preset"
+    },
+    "reset_section": {
+      "error_title": "Failed to reset section"
+    }
   },
   "guides": {
     "title": "Guide Utili e Documentazione",

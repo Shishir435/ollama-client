@@ -16,7 +16,7 @@ project-specific conventions an agent needs to be useful.
 - `pnpm` (the lockfile and scripts assume pnpm; npm/yarn will not work)
 - At least one provider running locally if you want to exercise the
   chat feature end-to-end. Ollama is the easiest:
-  - <https://ollama-client.shishirchaurasiya.in/guides/provider-setup/>
+  - <https://www.ollamaclient.in/guides/provider-setup/>
 
 ### Install and run
 
@@ -202,5 +202,5 @@ These are real, scoped, valuable for the project right now:
 - Reference code by `path:line` rather than only by screenshot when
   possible.
 - For setup questions, the
-  [docs site](https://ollama-client.shishirchaurasiya.in/) is usually
+  [docs site](https://www.ollamaclient.in/) is usually
   the right starting point.

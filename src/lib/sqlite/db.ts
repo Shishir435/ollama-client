@@ -10,10 +10,48 @@ type Database = import("sql.js").Database
 
 let db: Database | null = null
 let initPromise: Promise<Database> | null = null
+let loadedImportGeneration: string | null = null
 
 // Type for SQL parameter bindings
 type SqlValue = string | number | null | Uint8Array
 type QueryResult = Record<string, SqlValue>
+
+const SQLITE_DB_IMPORT_GENERATION_KEY = "sqlite-db-import-generation"
+
+const getDatabaseImportGeneration = async (): Promise<string | null> => {
+  try {
+    const data = await chrome.storage.local.get(SQLITE_DB_IMPORT_GENERATION_KEY)
+    const value = data?.[SQLITE_DB_IMPORT_GENERATION_KEY]
+    return typeof value === "string" ? value : null
+  } catch (error) {
+    logger.warn("Failed to read SQLite import generation", "SQLite", { error })
+    return null
+  }
+}
+
+const bumpDatabaseImportGeneration = async (): Promise<string> => {
+  const nextGeneration =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  await chrome.storage.local.set({
+    [SQLITE_DB_IMPORT_GENERATION_KEY]: nextGeneration
+  })
+  return nextGeneration
+}
+
+const canPersistLoadedDatabase = async (): Promise<boolean> => {
+  const currentGeneration = await getDatabaseImportGeneration()
+  const canPersist = currentGeneration === loadedImportGeneration
+  if (!canPersist) {
+    logger.warn(
+      "Skipping SQLite save from stale context after backup restore",
+      "SQLite"
+    )
+  }
+  return canPersist
+}
 
 /**
  * Load database from IndexedDB
@@ -88,6 +126,7 @@ export const initSQLite = async (): Promise<Database> => {
       )({
         wasmBinary: new Uint8Array(wasmBinary)
       })
+      loadedImportGeneration = await getDatabaseImportGeneration()
 
       // Try to load existing database from IndexedDB
       const savedDb = await loadDatabaseFromIndexedDB()
@@ -181,6 +220,7 @@ const scheduleAutoSave = () => {
     saveTimeout = null
     if (db) {
       try {
+        if (!(await canPersistLoadedDatabase())) return
         await saveDatabaseToIndexedDB(db.export())
         logger.info("Database auto-saved to IndexedDB", "SQLite")
       } catch (e) {
@@ -204,6 +244,7 @@ const scheduleAutoSave = () => {
 export const flushSave = async (): Promise<void> => {
   cancelPendingAutoSave()
   if (!db) return
+  if (!(await canPersistLoadedDatabase())) return
   await saveDatabaseToIndexedDB(db.export())
   logger.info("Database flushed to IndexedDB", "SQLite")
 }
@@ -224,10 +265,24 @@ export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
 }
 
 /**
+ * Export the durable IndexedDB copy directly. Backup export calls this after
+ * asking live extension pages to flush, so it does not accidentally read a
+ * stale in-memory SQL.js instance from the Options page.
+ */
+export const exportPersistedDatabaseBytes = async (): Promise<Uint8Array> => {
+  const savedDb = await loadDatabaseFromIndexedDB()
+  if (savedDb) return savedDb
+  return exportDatabaseBytes()
+}
+
+/**
  * Import raw database bytes from backup and reload memory DB
  */
 export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   logger.info("Importing database bytes...", "SQLite")
+
+  cancelPendingAutoSave()
+  const nextGeneration = await bumpDatabaseImportGeneration()
 
   // Save to IndexedDB
   await saveDatabaseToIndexedDB(bytes)
@@ -235,6 +290,7 @@ export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   // Reset singletons to force reload
   db = null
   initPromise = null
+  loadedImportGeneration = nextGeneration
 
   // Reinitialize DB
   await initSQLite()
@@ -265,6 +321,7 @@ export const resetSQLiteDatabase = async (): Promise<void> => {
   }
   db = null
   initPromise = null
+  loadedImportGeneration = await bumpDatabaseImportGeneration()
 
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)

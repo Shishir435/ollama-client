@@ -1,13 +1,30 @@
 import type {
   WebSearchConfigValidation,
   WebSearchProviderConfig,
-  WebSearchResult
+  WebSearchResult,
+  WebSearchTimeRange
 } from "../types"
 
 export const DEFAULT_SEARCH_COUNT = 5
 export const MAX_SEARCH_COUNT = 10
 export const DEFAULT_SEARXNG_PAGES = 1
 export const MAX_SEARXNG_PAGES = 3
+
+export const WEB_SEARCH_TIME_RANGES: readonly WebSearchTimeRange[] = [
+  "day",
+  "week",
+  "month",
+  "year"
+]
+
+/** Returns the value only if it is a valid time range, else undefined. */
+export const parseTimeRange = (
+  value: unknown
+): WebSearchTimeRange | undefined =>
+  typeof value === "string" &&
+  (WEB_SEARCH_TIME_RANGES as readonly string[]).includes(value)
+    ? (value as WebSearchTimeRange)
+    : undefined
 
 export const clampSearchCount = (count?: number): number => {
   if (typeof count !== "number" || !Number.isFinite(count)) {
@@ -74,7 +91,9 @@ export const normalizeResult = (
     url,
     snippet,
     publishedAt: result.publishedAt,
-    source: result.source ?? getHostLabel(url)
+    source: result.source ?? getHostLabel(url),
+    score: typeof result.score === "number" ? result.score : undefined,
+    category: result.category
   }
 }
 

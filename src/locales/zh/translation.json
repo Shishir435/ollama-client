@@ -636,7 +636,8 @@
     },
     "import": {
       "tooltip": "导入聊天会话",
-      "aria_label": "导入聊天会话"
+      "aria_label": "导入聊天会话",
+      "default_title": "Imported chat"
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -1285,7 +1286,13 @@
         }
       }
     },
-    "saved": "已保存"
+    "saved": "已保存",
+    "presets": {
+      "error_title": "Failed to apply preset"
+    },
+    "reset_section": {
+      "error_title": "Failed to reset section"
+    }
   },
   "guides": {
     "title": "有用的指南和文档",

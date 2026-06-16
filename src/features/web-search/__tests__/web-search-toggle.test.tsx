@@ -4,6 +4,7 @@ import { WebSearchToggle } from "../components/web-search-toggle"
 
 const updateConfig = vi.fn()
 let enabled = false
+let toolCalling = true
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -23,10 +24,18 @@ vi.mock("../stores/web-search-config-store", () => ({
   })
 }))
 
+vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
+  useSelectedModelCapabilities: () => ({
+    capabilities: { toolCalling },
+    isResolving: false
+  })
+}))
+
 describe("WebSearchToggle", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     enabled = false
+    toolCalling = true
   })
 
   it("toggles web search config from the chat toolbar", () => {
@@ -51,5 +60,13 @@ describe("WebSearchToggle", () => {
         name: "chat.input.web_search_toggle_tooltip"
       })
     ).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("renders nothing when the model can't tool-call", () => {
+    toolCalling = false
+
+    const { container } = render(<WebSearchToggle />)
+
+    expect(container).toBeEmptyDOMElement()
   })
 })
