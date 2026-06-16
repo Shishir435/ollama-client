@@ -99,7 +99,7 @@ export const SettingsChangeDialog = ({
         </DialogHeader>
 
         <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border/60">
-          {writes.map((write) => {
+          {writes.map((write, index) => {
             const meta = getPresetFieldMeta(write)
             const Icon = meta.icon
             const label = meta.labelKey
@@ -110,7 +110,8 @@ export const SettingsChangeDialog = ({
             const isBool = typeof write.value === "boolean"
             return (
               <div
-                key={`${write.storageKey}.${write.field ?? ""}`}
+                // biome-ignore lint/suspicious/noArrayIndexKey: settings preview rows can share storageKey/field; index suffix prevents future key collisions
+                key={`${write.storageKey}.${write.field ?? "__scalar__"}.${index}`}
                 className="flex items-center gap-3 px-3 py-2.5 not-last:border-b not-last:border-border/40">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/50 text-muted-foreground">
                   <Icon className="size-4" />
