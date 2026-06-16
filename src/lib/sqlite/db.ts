@@ -265,6 +265,17 @@ export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
 }
 
 /**
+ * Export the durable IndexedDB copy directly. Backup export calls this after
+ * asking live extension pages to flush, so it does not accidentally read a
+ * stale in-memory SQL.js instance from the Options page.
+ */
+export const exportPersistedDatabaseBytes = async (): Promise<Uint8Array> => {
+  const savedDb = await loadDatabaseFromIndexedDB()
+  if (savedDb) return savedDb
+  return exportDatabaseBytes()
+}
+
+/**
  * Import raw database bytes from backup and reload memory DB
  */
 export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {

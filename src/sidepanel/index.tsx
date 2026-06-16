@@ -14,7 +14,9 @@ import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import { getErrorMessage } from "@/lib/error-utils"
 import { queryClient } from "@/lib/query-client"
+import { flushSave } from "@/lib/sqlite/db"
 
 const IndexSidePanel = () => {
   useThemeWatcher()
@@ -23,10 +25,25 @@ const IndexSidePanel = () => {
   useProviderStorageMigration()
 
   useEffect(() => {
-    const listener = (message: { type?: string }) => {
+    const listener = async (message: { type?: string }) => {
       if (message.type === MESSAGE_KEYS.APP.RELOAD) {
         window.location.reload()
       }
+      if (message.type === MESSAGE_KEYS.APP.FLUSH_SQLITE) {
+        try {
+          await flushSave()
+          return { success: true }
+        } catch (error) {
+          return {
+            success: false,
+            error: {
+              status: 0,
+              message: getErrorMessage(error)
+            }
+          }
+        }
+      }
+      return undefined
     }
     browser.runtime.onMessage.addListener(listener)
     return () => browser.runtime.onMessage.removeListener(listener)

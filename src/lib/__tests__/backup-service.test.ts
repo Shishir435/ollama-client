@@ -2,7 +2,11 @@ import { importInto } from "dexie-export-import"
 import JSZip from "jszip"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { backupService } from "../backup-service"
-import { importDatabaseBytes } from "../sqlite/db"
+import {
+  exportPersistedDatabaseBytes,
+  flushSave,
+  importDatabaseBytes
+} from "../sqlite/db"
 
 vi.mock("jszip", () => {
   const MockZip = vi.fn().mockImplementation(
@@ -22,6 +26,10 @@ vi.mock("dexie-export-import", () => ({
 
 vi.mock("../sqlite/db", () => ({
   exportDatabaseBytes: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+  exportPersistedDatabaseBytes: vi
+    .fn()
+    .mockResolvedValue(new Uint8Array([1, 2, 3])),
+  flushSave: vi.fn().mockResolvedValue(undefined),
   importDatabaseBytes: vi.fn().mockResolvedValue(undefined)
 }))
 
@@ -58,6 +66,9 @@ describe("backupService", () => {
     global.chrome.runtime.getManifest = vi
       .fn()
       .mockReturnValue({ version: "1.0.0" })
+    global.chrome.runtime.sendMessage = vi.fn().mockResolvedValue({
+      success: true
+    })
   })
 
   describe("exportAll", () => {
@@ -87,12 +98,35 @@ describe("backupService", () => {
       expect(calledFiles).toContain("knowledge-db.json")
     })
 
+    it("should flush live SQLite contexts before reading persisted bytes", async () => {
+      await backupService.exportAll()
+
+      expect(flushSave).toHaveBeenCalledBefore(
+        vi.mocked(exportPersistedDatabaseBytes)
+      )
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        type: "app-flush-sqlite"
+      })
+      expect(exportPersistedDatabaseBytes).toHaveBeenCalled()
+    })
+
     it("should still succeed if Dexie export fails (with empty blobs)", async () => {
       const { exportDB } = await import("dexie-export-import")
       vi.mocked(exportDB).mockRejectedValueOnce(new Error("Dexie error"))
 
       const result = await backupService.exportAll()
       expect(result).toBeInstanceOf(Blob)
+    })
+
+    it("should export even when no other SQLite context responds", async () => {
+      vi.mocked(chrome.runtime.sendMessage).mockRejectedValueOnce(
+        new Error("No receiver")
+      )
+
+      const result = await backupService.exportAll()
+
+      expect(result).toBeInstanceOf(Blob)
+      expect(exportPersistedDatabaseBytes).toHaveBeenCalled()
     })
   })
 

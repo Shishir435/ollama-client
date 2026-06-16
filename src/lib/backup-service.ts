@@ -1,11 +1,16 @@
 import { exportDB, importInto } from "dexie-export-import"
 import JSZip from "jszip"
 import { z } from "zod"
+import { MESSAGE_KEYS } from "./constants"
 import { vectorDb } from "./embeddings/db"
 import { createAppError, getErrorMessage } from "./error-utils"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
-import { exportDatabaseBytes, importDatabaseBytes } from "./sqlite/db"
+import {
+  exportPersistedDatabaseBytes,
+  flushSave,
+  importDatabaseBytes
+} from "./sqlite/db"
 import { safeJsonParse } from "./validation"
 
 const BackupManifestSchema = z.object({
@@ -27,6 +32,20 @@ export type ImportResult = {
 }
 
 const MANIFEST_VERSION = 1
+
+const requestLiveSqliteFlush = async (): Promise<void> => {
+  try {
+    await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.FLUSH_SQLITE })
+  } catch (error) {
+    logger.debug(
+      "No live SQLite context responded to flush request",
+      "Backup",
+      {
+        error
+      }
+    )
+  }
+}
 
 export const backupService = {
   exportAll: async (): Promise<Blob> => {
@@ -55,7 +74,9 @@ export const backupService = {
     // SQLite Database
     try {
       logger.info("Exporting SQLite database...", "Backup")
-      const dbBytes = await exportDatabaseBytes()
+      await flushSave()
+      await requestLiveSqliteFlush()
+      const dbBytes = await exportPersistedDatabaseBytes()
       zip.file("database.sqlite", dbBytes)
       logger.info("SQLite database exported.", "Backup")
     } catch (e) {

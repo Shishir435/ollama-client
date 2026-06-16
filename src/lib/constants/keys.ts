@@ -54,7 +54,8 @@ export const MESSAGE_KEYS = {
     SELECTION_ACTION_ERROR: "selection-action-error"
   },
   APP: {
-    RELOAD: "app-reload"
+    RELOAD: "app-reload",
+    FLUSH_SQLITE: "app-flush-sqlite"
   }
 } as const
 
