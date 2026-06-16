@@ -321,7 +321,7 @@ export const resetSQLiteDatabase = async (): Promise<void> => {
   }
   db = null
   initPromise = null
-  loadedImportGeneration = null
+  loadedImportGeneration = await bumpDatabaseImportGeneration()
 
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)
