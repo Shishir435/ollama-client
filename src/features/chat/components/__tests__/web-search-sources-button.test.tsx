@@ -59,6 +59,22 @@ describe("WebSearchSourcesButton", () => {
     expect(screen.getByText("Extra C")).toBeInTheDocument()
   })
 
+  it("keeps duplicate URLs as distinct accordion items", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const run = webRun([
+      { title: "First hit", url: "https://a.com/page", used: true },
+      { title: "Second hit", url: "https://a.com/page", used: true }
+    ])
+
+    render(<WebSearchSourcesButton toolRuns={[run]} />)
+    fireEvent.click(screen.getByRole("button"))
+
+    expect(screen.getByText("First hit")).toBeInTheDocument()
+    expect(screen.getByText("Second hit")).toBeInTheDocument()
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it("renders one verifiable host link per source in the row (no duplicate)", () => {
     const run = webRun([
       { title: "Used A", url: "https://a.com/page", excerpt: "ea", used: true }

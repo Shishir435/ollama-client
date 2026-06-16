@@ -55,4 +55,18 @@ describe("applyStorageWrites", () => {
     expect(setPlasmoStoredValue).toHaveBeenCalledTimes(2)
     expect(store.get("embeddings-config")).toEqual({ x: 1, y: 2 })
   })
+
+  it("rejects mixed scalar and field writes for the same key", async () => {
+    const { setPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+
+    await expect(
+      applyStorageWrites([
+        { storageKey: "embeddings-config", field: "chunkSize", value: 800 },
+        { storageKey: "embeddings-config", value: { chunkSize: 200 } }
+      ])
+    ).rejects.toThrow(
+      'Cannot mix scalar and field settings writes for storage key "embeddings-config"'
+    )
+    expect(setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
 })

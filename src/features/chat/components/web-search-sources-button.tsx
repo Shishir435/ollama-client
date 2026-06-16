@@ -19,7 +19,7 @@ const hostOf = (url?: string): string | undefined => {
 }
 
 const toItem = (source: WebSource, index: number): SourceItem => ({
-  id: source.url ?? `web-${index}`,
+  id: source.url ? `${source.url}-${index}` : `web-${index}`,
   title: source.title,
   content: source.excerpt ?? "",
   score: 0,

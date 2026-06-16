@@ -38,6 +38,16 @@ export const applyStorageWrites = async (
     else byKey.set(write.storageKey, [write])
   }
 
+  for (const [key, group] of byKey) {
+    const hasFieldWrites = group.some((w) => w.field)
+    const hasScalarWrites = group.some((w) => !w.field)
+    if (hasFieldWrites && hasScalarWrites) {
+      throw new Error(
+        `Cannot mix scalar and field settings writes for storage key "${key}"`
+      )
+    }
+  }
+
   await Promise.all(
     Array.from(byKey.entries()).map(async ([key, group]) => {
       const fieldWrites = group.filter((w) => w.field)
