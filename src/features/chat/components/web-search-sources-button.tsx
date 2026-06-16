@@ -52,8 +52,8 @@ export function WebSearchSourcesButton({
         ? `${source.url}-${index}`
         : `web-${index}`
   }))
-  const used = indexedSources.filter(({ source }) => source.used)
-  const unused = indexedSources.filter(({ source }) => !source.used)
+  const used = indexedSources.filter(({ source }) => source.used !== false)
+  const unused = indexedSources.filter(({ source }) => source.used === false)
   const total = sources.length
 
   // Lookup for per-item extras (publishedAt) the generic SourceItem can't hold.
