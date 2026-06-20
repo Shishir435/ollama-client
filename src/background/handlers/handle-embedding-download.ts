@@ -1,5 +1,6 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
 import {
+  type AbortTimeout,
   createAbortTimeout,
   EMBEDDING_DOWNLOAD_TIMEOUT_MS
 } from "@/background/lib/fetch-timeout"
@@ -309,6 +310,9 @@ export const checkEmbeddingModelExists = async (
 export const downloadEmbeddingModelSilently = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL
 ): Promise<{ success: boolean; error?: string }> => {
+  // Declared here (armed only around the fetch below) so the catch can tell a
+  // timeout from other errors without leaving a timer running on early returns.
+  let downloadTimeout: AbortTimeout | undefined
   try {
     const normalizedModelName = normalizeEmbeddingModelName(modelName)
     // Check if model already exists
@@ -332,21 +336,17 @@ export const downloadEmbeddingModelSilently = async (
     // Non-streaming pull holds the connection until the whole model downloads;
     // cap it so a hung provider can't keep the request (and SW) alive forever.
     const controller = new AbortController()
-    const downloadTimeout = createAbortTimeout(
+    downloadTimeout = createAbortTimeout(
       controller,
       EMBEDDING_DOWNLOAD_TIMEOUT_MS
     )
-    let res: Response
-    try {
-      res = await fetch(`${baseUrl}/api/pull`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
-      })
-    } finally {
-      downloadTimeout.clear()
-    }
+    const res = await fetch(`${baseUrl}/api/pull`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    })
+    downloadTimeout.clear()
 
     if (!res.ok) {
       const errorText = await res.text()
@@ -378,6 +378,14 @@ export const downloadEmbeddingModelSilently = async (
     )
     return { success: true }
   } catch (error) {
+    downloadTimeout?.clear()
+    if (downloadTimeout?.timedOut()) {
+      const message = `Embedding model download timed out after ${
+        EMBEDDING_DOWNLOAD_TIMEOUT_MS / 60_000
+      } minutes.`
+      logger.error(message, "downloadEmbeddingModelSilently")
+      return { success: false, error: message }
+    }
     const errorMessage = getErrorMessage(error)
     logger.error(
       "Error downloading embedding model",
