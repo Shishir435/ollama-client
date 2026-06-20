@@ -78,6 +78,12 @@ describe("settings-registry", () => {
       expect(results.map((e) => e.id)).toContain("grounded-only-mode")
     })
 
+    it("uses prefix matching in the compatibility wrapper", () => {
+      expect(searchSettings("pres").map((e) => e.id)).toContain(
+        "settings-presets"
+      )
+    })
+
     it("matches selection actions to the content extraction tab", () => {
       const results = searchSettings("selection actions")
       const hit = results.find((e) => e.id === "selection-actions-enabled")

@@ -1,3 +1,8 @@
+import {
+  normalizeSettingsSearchText,
+  scoreSettingsSearchToken
+} from "@/features/settings/settings-search-scoring"
+
 /**
  * Settings registry — the single source of truth for "what settings exist,
  * where they live, and what they're called."
@@ -1239,14 +1244,6 @@ export interface RankedSettingsEntry {
   score: number
 }
 
-const normalizeSearchText = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-
 const getSearchParts = (entry: SettingsEntry, translate?: Translate) => {
   const parts = [
     entry.id.replace(/-/g, " "),
@@ -1262,56 +1259,6 @@ const getSearchParts = (entry: SettingsEntry, translate?: Translate) => {
     if (entry.descriptionKey) parts.push(translate(entry.descriptionKey))
   }
   return parts
-}
-
-const levenshteinDistance = (a: string, b: string): number => {
-  if (a === b) return 0
-  if (a.length === 0) return b.length
-  if (b.length === 0) return a.length
-
-  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
-  let current = Array.from({ length: b.length + 1 }, () => 0)
-
-  for (let i = 1; i <= a.length; i++) {
-    current[0] = i
-    for (let j = 1; j <= b.length; j++) {
-      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1
-      current[j] = Math.min(
-        current[j - 1] + 1,
-        previous[j] + 1,
-        previous[j - 1] + substitutionCost
-      )
-    }
-    ;[previous, current] = [current, previous]
-  }
-
-  return previous[b.length]
-}
-
-const fuzzyThreshold = (token: string): number => {
-  if (token.length < 3) return 0
-  if (token.length <= 5) return 1
-  return 2
-}
-
-const scoreToken = (
-  token: string,
-  haystack: string,
-  words: string[]
-): number => {
-  if (words.includes(token)) return 40
-  if (haystack.includes(token)) return 20
-
-  const threshold = fuzzyThreshold(token)
-  if (threshold === 0) return 0
-
-  const hasFuzzyWord = words.some(
-    (word) =>
-      Math.abs(word.length - token.length) <= threshold &&
-      levenshteinDistance(token, word) <= threshold
-  )
-
-  return hasFuzzyWord ? 8 : 0
 }
 
 /**
@@ -1332,18 +1279,19 @@ export const rankSettings = (
   query: string,
   translate?: Translate
 ): RankedSettingsEntry[] => {
-  const normalizedQuery = normalizeSearchText(query)
+  const normalizedQuery = normalizeSettingsSearchText(query)
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return []
 
   return SETTINGS_REGISTRY.map((entry, index) => {
-    const haystack = normalizeSearchText(
+    const haystack = normalizeSettingsSearchText(
       getSearchParts(entry, translate).join(" ")
     )
     const words = haystack.split(/\s+/).filter(Boolean)
     const phraseScore = haystack.includes(normalizedQuery) ? 100 : 0
     const tokenScore = tokens.reduce(
-      (total, token) => total + scoreToken(token, haystack, words),
+      (total, token) =>
+        total + scoreSettingsSearchToken(token, haystack, words),
       0
     )
     return {

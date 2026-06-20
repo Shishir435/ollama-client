@@ -231,7 +231,6 @@ export const WebSearchSettings = () => {
 
       {config.provider === "searxng" && (
         <SettingsSliderField
-          focusId="web-search-result-count"
           label={t("settings.web_search.searxng_pages.label")}
           description={t("settings.web_search.searxng_pages.description")}
           value={config.searxngPages ?? 1}
@@ -246,6 +245,7 @@ export const WebSearchSettings = () => {
       )}
 
       <SettingsSliderField
+        focusId="web-search-result-count"
         label={t("settings.web_search.result_count.label")}
         description={t("settings.web_search.result_count.description")}
         value={config.count ?? 5}

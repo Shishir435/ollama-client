@@ -44,8 +44,7 @@ export const SettingsSearch = ({
   inputRef,
   showShortcutHint = false
 }: SettingsSearchProps) => {
-  const { i18n, t } = useTranslation()
-  const language = i18n.language
+  const { t } = useTranslation()
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const blurTimer = useRef<number | null>(null)
@@ -57,9 +56,8 @@ export const SettingsSearch = ({
       : "Ctrl"
 
   const records = useMemo(() => {
-    void language
     return buildSettingsSearchRecords(undefined, t)
-  }, [language, t])
+  }, [t])
 
   const results = useMemo(
     () =>
