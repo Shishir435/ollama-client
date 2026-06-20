@@ -182,8 +182,10 @@
         "too_large": "{{name}} überschreitet das Bildlimit von {{max}} MB.",
         "unsupported_type": "{{name}} ist kein unterstützter Bildtyp. Verwende PNG, JPEG oder WebP.",
         "model_unsupported": "Das ausgewählte Modell unterstützt keine Bilder. Aktiviere die Unterstützung im Modellmenü oder wähle ein Vision-Modell.",
-        "heic_unsupported": "HEIC wird nicht unterstützt. Füge das Bild ein oder exportiere {{name}} als JPEG oder PNG."
-      }
+        "heic_unsupported": "HEIC wird nicht unterstützt. Füge das Bild ein oder exportiere {{name}} als JPEG oder PNG.",
+        "screenshot_failed": "Diese Seite konnte nicht aufgenommen werden. Manche Seiten lassen sich nicht erfassen."
+      },
+      "screenshot": "Screenshot aufnehmen"
     },
     "context_preview": {
       "files": "Angehängte Dateien",

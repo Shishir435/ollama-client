@@ -23,6 +23,7 @@ import {
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
+import { useFeatureFlag } from "@/stores/feature-flags"
 import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-sheet"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
@@ -77,10 +78,12 @@ export const ChatInputBox = ({
     clearAllProcessingStates,
     images,
     handleImageFiles,
+    captureScreenshot,
     visionUnsupported,
     removeImage,
     clearImages
   } = useChatInputAttachments()
+  const screenshotEnabled = useFeatureFlag("screenshotVision")
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
     {
@@ -420,6 +423,8 @@ export const ChatInputBox = ({
           onAttachmentClick={() => setShowAttachmentSheet(true)}
           acceptImages={!visionUnsupported}
           imageCount={images.length}
+          onCaptureScreenshot={captureScreenshot}
+          showScreenshot={screenshotEnabled && !visionUnsupported}
         />
 
         <div className="absolute right-3 top-3">

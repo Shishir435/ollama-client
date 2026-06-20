@@ -182,8 +182,10 @@
         "too_large": "{{name}} supera el límite de imagen de {{max}} MB.",
         "unsupported_type": "{{name}} no es un tipo de imagen compatible. Usa PNG, JPEG o WebP.",
         "model_unsupported": "El modelo seleccionado no admite visión. Actívalo en el menú de modelos o elige un modelo con visión.",
-        "heic_unsupported": "HEIC no es compatible. Pega la imagen o exporta {{name}} como JPEG o PNG."
-      }
+        "heic_unsupported": "HEIC no es compatible. Pega la imagen o exporta {{name}} como JPEG o PNG.",
+        "screenshot_failed": "No se pudo capturar esta página. Algunas páginas no se pueden capturar."
+      },
+      "screenshot": "Capturar pantalla"
     },
     "context_preview": {
       "files": "Archivos adjuntos",

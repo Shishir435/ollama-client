@@ -172,7 +172,8 @@
         "too_large": "{{name}} is larger than the {{max}}MB image limit.",
         "unsupported_type": "{{name}} is not a supported image type. Use PNG, JPEG, or WebP.",
         "heic_unsupported": "HEIC isn't supported. Paste the image, or export {{name}} as JPEG or PNG.",
-        "model_unsupported": "The selected model has no vision support. Enable it in the model menu, or pick a vision model."
+        "model_unsupported": "The selected model has no vision support. Enable it in the model menu, or pick a vision model.",
+        "screenshot_failed": "Couldn't capture this page. Some pages can't be captured."
       },
       "switch_model": "Change model",
       "chars": "Characters",
@@ -183,7 +184,8 @@
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "web_search_toggle_tooltip": "Web search",
       "drop_files_here": "Drop files here",
-      "attachments": "{{count}} attachments"
+      "attachments": "{{count}} attachments",
+      "screenshot": "Capture screenshot"
     },
     "context_preview": {
       "files": "Attached files",

@@ -5,6 +5,7 @@ import {
   type ImageRejectReason,
   useImageAttachments
 } from "@/features/chat/hooks/use-image-attachments"
+import { captureVisibleTabPng } from "@/features/chat/lib/capture-screenshot"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { useToast } from "@/hooks/use-toast"
@@ -87,6 +88,26 @@ export const useChatInputAttachments = () => {
     [visionUnsupported, addImageFiles, toast, t]
   )
 
+  const captureScreenshot = useCallback(async () => {
+    if (visionUnsupported) {
+      toast({
+        variant: "destructive",
+        description: t("chat.input.images.model_unsupported")
+      })
+      return
+    }
+    try {
+      const file = await captureVisibleTabPng()
+      void addImageFiles([file])
+    } catch (error) {
+      logger.warn("Screenshot capture failed", "ChatInputBox", { error })
+      toast({
+        variant: "destructive",
+        description: t("chat.input.images.screenshot_failed")
+      })
+    }
+  }, [visionUnsupported, addImageFiles, toast, t])
+
   const successfulFiles = processingStates
     .filter(
       (state): state is typeof state & { result: ProcessedFile } =>
@@ -102,6 +123,7 @@ export const useChatInputAttachments = () => {
     clearAllProcessingStates,
     images,
     handleImageFiles,
+    captureScreenshot,
     visionUnsupported,
     removeImage,
     clearImages

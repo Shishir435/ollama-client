@@ -10,6 +10,7 @@ export {
   Brain,
   Bug,
   Calendar,
+  Camera,
   Check,
   Check as CheckIcon,
   CheckCircle,
