@@ -24,7 +24,10 @@ const messages: Record<string, string> = {
   "settings.permissions.description":
     "See and control what this extension can access.",
   "settings.permissions.items.bookmarks.label": "Bookmarks",
-  "settings.permissions.items.bookmarks.description": "Index saved pages."
+  "settings.permissions.items.bookmarks.description": "Index saved pages.",
+  "settings.shortcuts.browser.title": "Open from anywhere",
+  "settings.shortcuts.browser.description":
+    "Set a browser-level shortcut to open the side panel."
 }
 
 vi.mock("react-i18next", () => ({
@@ -76,6 +79,13 @@ describe("SettingsSearch", () => {
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "privacy" } })
     expect(screen.getByText("Permissions & privacy")).toBeInTheDocument()
+  })
+
+  it("finds the browser-shortcuts pointer via a global-shortcut alias", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "global shortcut" } })
+    expect(screen.getAllByText("Open from anywhere").length).toBeGreaterThan(0)
   })
 
   it("shows reset module rows", () => {

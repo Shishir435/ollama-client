@@ -925,6 +925,19 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
 
   // ---- Shortcuts ---------------------------------------------------------
   {
+    id: "browser-shortcuts",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.browser.title",
+    descriptionKey: "settings.shortcuts.browser.description",
+    aliases: [
+      "global shortcut",
+      "open panel hotkey",
+      "browser shortcut",
+      "side panel"
+    ]
+  },
+  {
     id: "keyboard-shortcuts",
     tab: "shortcuts",
     sectionId: "shortcuts",
