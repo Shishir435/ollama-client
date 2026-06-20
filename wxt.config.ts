@@ -48,7 +48,7 @@ export default defineConfig({
       }
     },
     omnibox: {
-      keyword: "ol"
+      keyword: "olc"
     },
     host_permissions: ["<all_urls>"],
     permissions: [
