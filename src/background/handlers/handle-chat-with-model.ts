@@ -93,9 +93,13 @@ export const handleChatWithModel = withErrorContext(
             (await plasmoGlobalStorage.get<number>(
               STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS
             )) ?? DEFAULT_MAX_RAG_CONTEXT_CHARS
+          const truncationMarker = "\n\n[Context truncated due to length]"
           const cappedContext =
             maxRagChars > 0 && formattedContext.length > maxRagChars
-              ? `${formattedContext.slice(0, maxRagChars)}\n\n[Context truncated due to length]`
+              ? `${formattedContext.slice(
+                  0,
+                  Math.max(0, maxRagChars - truncationMarker.length)
+                )}${truncationMarker}`
               : formattedContext
 
           logger.info(
