@@ -28,6 +28,8 @@ import { useOmniboxQuery } from "../use-omnibox-query"
 
 const KEY = STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
 
+const pending = (query: string, at: number = Date.now()) => ({ query, at })
+
 beforeEach(() => {
   vi.clearAllMocks()
   storageMock.get.mockResolvedValue(undefined)
@@ -38,7 +40,7 @@ beforeEach(() => {
 describe("useOmniboxQuery", () => {
   it("does nothing until a model is ready", () => {
     const sendMessage = vi.fn()
-    storageMock.get.mockResolvedValue("hello")
+    storageMock.get.mockResolvedValue(pending("hello"))
 
     renderHook(() => useOmniboxQuery({ sendMessage, isModelReady: false }))
 
@@ -49,7 +51,7 @@ describe("useOmniboxQuery", () => {
 
   it("consumes a pending query once a model is ready", async () => {
     const sendMessage = vi.fn()
-    storageMock.get.mockResolvedValue("explain rag")
+    storageMock.get.mockResolvedValue(pending("explain rag"))
 
     renderHook(() => useOmniboxQuery({ sendMessage, isModelReady: true }))
 
@@ -59,7 +61,7 @@ describe("useOmniboxQuery", () => {
 
   it("sends a query that arrived before the model hydrated", async () => {
     const sendMessage = vi.fn()
-    storageMock.get.mockResolvedValue("deferred query")
+    storageMock.get.mockResolvedValue(pending("deferred query"))
 
     const { rerender } = renderHook(
       ({ ready }) => useOmniboxQuery({ sendMessage, isModelReady: ready }),
@@ -77,11 +79,24 @@ describe("useOmniboxQuery", () => {
 
   it("ignores empty pending queries", async () => {
     const sendMessage = vi.fn()
-    storageMock.get.mockResolvedValue("   ")
+    storageMock.get.mockResolvedValue(pending("   "))
 
     renderHook(() => useOmniboxQuery({ sendMessage, isModelReady: true }))
 
     await waitFor(() => expect(storageMock.get).toHaveBeenCalled())
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it("discards a stale pending query instead of sending it", async () => {
+    const sendMessage = vi.fn()
+    // Issued well beyond the TTL (PENDING_QUERY_TTL_MS = 60s).
+    storageMock.get.mockResolvedValue(
+      pending("old query", Date.now() - 120_000)
+    )
+
+    renderHook(() => useOmniboxQuery({ sendMessage, isModelReady: true }))
+
+    await waitFor(() => expect(storageMock.remove).toHaveBeenCalledWith(KEY))
     expect(sendMessage).not.toHaveBeenCalled()
   })
 })

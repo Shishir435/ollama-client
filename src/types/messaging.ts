@@ -7,6 +7,17 @@ export interface EmbeddingStatusMessage {
   message?: string
 }
 
+/**
+ * Durable omnibox-to-chat handoff persisted in storage. Carries the query and
+ * the time it was issued so the chat surface can drop stale entries (e.g. a
+ * query stored when no model was ready and never consumed) instead of
+ * auto-sending them on a much later side-panel open.
+ */
+export interface PendingOmniboxQuery {
+  query: string
+  at: number
+}
+
 export interface ChromeMessage {
   type: string
   payload?: unknown

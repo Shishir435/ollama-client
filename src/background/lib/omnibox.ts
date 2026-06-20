@@ -3,6 +3,7 @@ import { browser, supportsOmnibox } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import type { PendingOmniboxQuery } from "@/types/messaging"
 
 // Cache of the active tab, kept fresh so the omnibox `onInputEntered` listener
 // can open the side panel SYNCHRONOUSLY. `chrome.sidePanel.open()` requires an
@@ -56,9 +57,9 @@ export const registerOmniboxQuickAsk = (
     openChatSurface(cachedTab)
 
     void (async () => {
-      await setPlasmoStoredValue(
+      await setPlasmoStoredValue<PendingOmniboxQuery>(
         STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
-        query
+        { query, at: Date.now() }
       )
 
       // Refresh in the background so the next invocation has a current window.

@@ -74,7 +74,7 @@ describe("registerOmniboxQuickAsk", () => {
     await vi.waitFor(() =>
       expect(mocks.setPlasmoStoredValue).toHaveBeenCalledWith(
         STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
-        "explain sqlite wasm"
+        { query: "explain sqlite wasm", at: expect.any(Number) }
       )
     )
     expect(mocks.runtimeSendMessage).toHaveBeenCalledWith({
