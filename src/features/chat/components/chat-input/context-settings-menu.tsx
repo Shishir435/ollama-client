@@ -37,7 +37,6 @@ import {
 import { Layers } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import { useFeatureFlag } from "@/stores/feature-flags"
 import type { ContentExtractionConfig } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
@@ -235,10 +234,8 @@ export const ContextSettingsMenu = () => {
       },
       false
     )
-  const screenshotEnabled = useFeatureFlag("screenshotVision")
   const { capabilities } = useSelectedModelCapabilities()
-  const showAutoScreenshot =
-    screenshotEnabled && (capabilities?.vision ?? false)
+  const showAutoScreenshot = capabilities?.vision ?? false
 
   const excludedPatterns =
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS

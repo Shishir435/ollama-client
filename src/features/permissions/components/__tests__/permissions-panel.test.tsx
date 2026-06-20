@@ -32,9 +32,7 @@ describe("PermissionsPanel", () => {
     render(<PermissionsPanel />)
     expect(document.getElementById("permission-bookmarks")).toBeTruthy()
     expect(document.getElementById("permission-history")).toBeTruthy()
-    expect(
-      document.getElementById("feature-flag-screenshotVision")
-    ).toBeTruthy()
+    expect(document.getElementById("feature-flag-notifications")).toBeTruthy()
   })
 
   it("requests the API permission when its switch is enabled", () => {
@@ -75,9 +73,7 @@ describe("PermissionsPanel", () => {
     process.env.NODE_ENV = "production"
     try {
       render(<PermissionsPanel />)
-      expect(
-        document.getElementById("feature-flag-screenshotVision")
-      ).toBeNull()
+      expect(document.getElementById("feature-flag-notifications")).toBeNull()
     } finally {
       process.env.NODE_ENV = prev
     }

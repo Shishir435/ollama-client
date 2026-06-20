@@ -43,7 +43,7 @@ export const ChatInputToolbar = ({
 
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 px-2 py-2 backdrop-blur">
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 items-center gap-0.5">
         <ModelMenu
           showStatusPopup={false}
           tooltipTextContent={t("chat.input.switch_model")}

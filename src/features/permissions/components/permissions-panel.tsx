@@ -52,7 +52,6 @@ const OPTIONAL_PERMISSIONS: OptionalPermissionMeta[] = [
  * are experimental toggles, not polished end-user copy.
  */
 const FLAG_LABELS: Record<FeatureFlag, string> = {
-  screenshotVision: "Screenshot → vision",
   notifications: "Background notifications",
   omnibox: "Omnibox quick-ask",
   bookmarksHistoryRag: "Bookmarks & history knowledge",

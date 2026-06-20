@@ -23,7 +23,6 @@ import {
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import { useFeatureFlag } from "@/stores/feature-flags"
 import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-sheet"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
@@ -84,7 +83,6 @@ export const ChatInputBox = ({
     removeImage,
     clearImages
   } = useChatInputAttachments()
-  const screenshotEnabled = useFeatureFlag("screenshotVision")
 
   const [autoScreenshotOnVision] = useStorage<boolean>(
     {
@@ -179,12 +177,7 @@ export const ChatInputBox = ({
     // Auto-attach a fresh screenshot when enabled for a vision model — but never
     // override an image the user staged manually.
     let outgoingImages = images
-    if (
-      autoScreenshotOnVision &&
-      screenshotEnabled &&
-      !visionUnsupported &&
-      images.length === 0
-    ) {
+    if (autoScreenshotOnVision && !visionUnsupported && images.length === 0) {
       const shot = await captureScreenshotAttachment()
       if (shot) outgoingImages = [shot]
     }
@@ -446,7 +439,7 @@ export const ChatInputBox = ({
           acceptImages={!visionUnsupported}
           imageCount={images.length}
           onCaptureScreenshot={captureScreenshot}
-          showScreenshot={screenshotEnabled && !visionUnsupported}
+          showScreenshot={!visionUnsupported}
         />
 
         <div className="absolute right-3 top-3">
