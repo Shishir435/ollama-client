@@ -4,6 +4,16 @@ import {
 } from "@/features/settings/settings-search-scoring"
 
 /**
+ * Tab groups is a Chromium-only API. Detected inline (not via `browser-api`) so
+ * the registry stays import-light and doesn't force every test that mocks
+ * `browser-api` to also stub a capability gate.
+ */
+const TAB_GROUPS_AVAILABLE =
+  typeof chrome !== "undefined" &&
+  typeof (chrome as unknown as Record<string, unknown>).tabGroups !==
+    "undefined"
+
+/**
  * Settings registry — the single source of truth for "what settings exist,
  * where they live, and what they're called."
  *
@@ -1254,14 +1264,20 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.permissions.items.downloads.description",
     aliases: ["downloads", "save file", "export", "permission"]
   },
-  {
-    id: "permission-tab-groups",
-    tab: "permissions",
-    sectionId: "permissions",
-    labelKey: "settings.permissions.items.tabGroups.label",
-    descriptionKey: "settings.permissions.items.tabGroups.description",
-    aliases: ["tab groups", "permission"]
-  },
+  // Only register tab groups for search where its focus target actually exists
+  // (the panel row only mounts on Chromium).
+  ...(TAB_GROUPS_AVAILABLE
+    ? [
+        {
+          id: "permission-tab-groups",
+          tab: "permissions" as const,
+          sectionId: "permissions",
+          labelKey: "settings.permissions.items.tabGroups.label",
+          descriptionKey: "settings.permissions.items.tabGroups.description",
+          aliases: ["tab groups", "permission"]
+        }
+      ]
+    : []),
   {
     id: "permissions-host",
     tab: "permissions",
