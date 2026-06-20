@@ -26,6 +26,16 @@ describe("parseModelRef", () => {
     expect(parseModelRef("  m  ")).toEqual({ model: "m" })
     expect(parseModelRef({ model: "  m  " })).toEqual({ model: "m" })
   })
+
+  it("returns null for empty, missing, or non-model payloads", () => {
+    expect(parseModelRef("")).toBeNull()
+    expect(parseModelRef("   ")).toBeNull()
+    expect(parseModelRef({})).toBeNull()
+    expect(parseModelRef({ model: "" })).toBeNull()
+    expect(parseModelRef({ model: 1 })).toBeNull()
+    expect(parseModelRef(undefined)).toBeNull()
+    expect(parseModelRef(null)).toBeNull()
+  })
 })
 
 describe("parseWarmupPayload", () => {
@@ -45,10 +55,6 @@ describe("parseWarmupPayload", () => {
     })
   })
 
-  it("returns null when the model is missing", () => {
-    expect(parseWarmupPayload({})).toBeNull()
-  })
-
   it("works for a bare string (no previous model)", () => {
     expect(parseWarmupPayload("b")).toEqual({
       model: "b",
@@ -57,22 +63,34 @@ describe("parseWarmupPayload", () => {
     })
   })
 
-  it("returns null for empty, missing, or non-model payloads", () => {
-    expect(parseModelRef("")).toBeNull()
-    expect(parseModelRef("   ")).toBeNull()
-    expect(parseModelRef({})).toBeNull()
-    expect(parseModelRef({ model: "" })).toBeNull()
-    expect(parseModelRef({ model: 1 })).toBeNull()
-    expect(parseModelRef(undefined)).toBeNull()
-    expect(parseModelRef(null)).toBeNull()
+  it("drops non-string previous* fields", () => {
+    expect(
+      parseWarmupPayload({
+        model: "b",
+        previousModel: 1,
+        previousProviderId: {}
+      })
+    ).toEqual({
+      model: "b",
+      previousModel: undefined,
+      previousProviderId: undefined
+    })
+  })
+
+  it("returns null when no usable model is present", () => {
+    expect(parseWarmupPayload({})).toBeNull()
+    expect(parseWarmupPayload({ model: "" })).toBeNull()
+    expect(parseWarmupPayload(undefined)).toBeNull()
+    expect(parseWarmupPayload({ previousModel: "a" })).toBeNull()
   })
 })
 
 describe("parseStringPayload", () => {
-  it("returns non-empty strings", () => {
+  it("returns non-empty strings, trimmed", () => {
     expect(parseStringPayload("http://localhost:11434")).toBe(
       "http://localhost:11434"
     )
+    expect(parseStringPayload("  spaced  ")).toBe("spaced")
   })
   it("returns null for empty or non-strings", () => {
     expect(parseStringPayload("  ")).toBeNull()

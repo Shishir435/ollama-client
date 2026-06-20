@@ -65,9 +65,12 @@ export const parseWarmupPayload = (payload: unknown): WarmupRef | null => {
   return ref
 }
 
-/** Extract a non-empty string payload, or `null`. */
-export const parseStringPayload = (payload: unknown): string | null =>
-  typeof payload === "string" && payload.trim() ? payload : null
+/** Extract a non-empty, trimmed string payload, or `null`. */
+export const parseStringPayload = (payload: unknown): string | null => {
+  if (typeof payload !== "string") return null
+  const trimmed = payload.trim()
+  return trimmed || null
+}
 
 /** Optional `{ providerId? }` payload (always returns an object). */
 export const parseProviderIdPayload = (
