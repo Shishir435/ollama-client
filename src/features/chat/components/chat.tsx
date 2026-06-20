@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
+import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
-import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import type { ChatMessage } from "@/types"
@@ -13,10 +11,6 @@ import { ChatHeader } from "./chat-header"
 import { ChatInputBox } from "./chat-input-box"
 import { ChatMessageList } from "./chat-message-list"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
-
-const pendingOmniboxStorage = getPlasmoStorageForKey(
-  STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
-)
 
 export const Chat = () => {
   const {
@@ -42,88 +36,10 @@ export const Chat = () => {
   } = useChatSessions()
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
-  const lastOmniboxQueryRef = useRef<{ query: string; at: number } | null>(null)
-  // The selected model hydrates asynchronously from storage. The omnibox can
-  // fire a query before that, so we hold the query in storage and only consume
-  // it once a model is ready — otherwise generateResponse bails on the missing
-  // model and the turn hangs at "Preparing context...".
-  const isModelReadyRef = useRef(isModelReady)
-  isModelReadyRef.current = isModelReady
 
-  const consumeOmniboxQuery = useCallback(
-    async (rawQuery: string) => {
-      const query = rawQuery.trim()
-      if (!query) return
-
-      // Not ready yet: leave the query in storage so the readiness effect picks
-      // it up once the model hydrates. Make sure it is persisted (runtime-message
-      // path delivers the query without writing storage itself).
-      if (!isModelReadyRef.current) {
-        await pendingOmniboxStorage.set(
-          STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
-          query
-        )
-        return
-      }
-
-      const now = Date.now()
-      const lastQuery = lastOmniboxQueryRef.current
-      if (lastQuery?.query === query && now - lastQuery.at < 2000) {
-        await pendingOmniboxStorage.remove(
-          STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
-        )
-        return
-      }
-
-      lastOmniboxQueryRef.current = { query, at: now }
-      await pendingOmniboxStorage.remove(
-        STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
-      )
-      void sendMessage(query)
-    },
-    [sendMessage]
-  )
-
-  useEffect(() => {
-    const checkPendingOmniboxQuery = async () => {
-      const pendingQuery = await pendingOmniboxStorage.get<string>(
-        STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
-      )
-      if (pendingQuery) await consumeOmniboxQuery(pendingQuery)
-    }
-
-    // Re-check whenever the model becomes ready so a query that arrived before
-    // hydration is sent as soon as a model is available.
-    if (!isModelReady) return
-
-    void checkPendingOmniboxQuery()
-
-    const pendingOmniboxWatch = {
-      [STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY]: (change: {
-        newValue?: string
-      }) => {
-        if (change.newValue) void consumeOmniboxQuery(change.newValue)
-      }
-    }
-
-    pendingOmniboxStorage.watch(pendingOmniboxWatch)
-
-    const handleMessage = (message: unknown) => {
-      const msg = message as { type?: string; payload?: unknown }
-      if (
-        msg.type === MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY &&
-        typeof msg.payload === "string"
-      ) {
-        void consumeOmniboxQuery(msg.payload)
-      }
-    }
-
-    chrome.runtime.onMessage.addListener(handleMessage)
-    return () => {
-      pendingOmniboxStorage.unwatch(pendingOmniboxWatch)
-      chrome.runtime.onMessage.removeListener(handleMessage)
-    }
-  }, [consumeOmniboxQuery, isModelReady])
+  // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
+  // the chat UI decoupled from address-bar integration.
+  useOmniboxQuery({ sendMessage, isModelReady })
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({
