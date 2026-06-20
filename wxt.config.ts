@@ -68,6 +68,19 @@ export default defineConfig({
       "downloads",
       "tabGroups"
     ],
+    // Browser-level keyboard command (v0.11.1 / F2). Uses the reserved
+    // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
+    // `openPanelOnActionClick`, that TOGGLES the side panel (open and close),
+    // which a custom command calling `sidePanel.open()` cannot do. Rebindable at
+    // chrome://extensions/shortcuts; the browser may drop the default on conflict.
+    commands: {
+      _execute_action: {
+        suggested_key: {
+          default: "Alt+Shift+O",
+          mac: "Command+Shift+O"
+        }
+      }
+    },
     web_accessible_resources: [
       {
         resources: ["assets/*.wasm", "chunks/*.js", "content-scripts/*.css"],

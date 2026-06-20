@@ -38,7 +38,11 @@
     "continue": "Continuar Importación",
     "reload": "Recargar Extensión",
     "close": "Cerrar",
-    "remove": "Eliminar"
+    "remove": "Eliminar",
+    "toggle": {
+      "off": "Desactivado",
+      "on": "Activado"
+    }
   },
   "extension": {
     "name": "Ollama Client - Chat con modelos LLM locales",
@@ -271,7 +275,19 @@
       "tab_context_label": "Contexto de pestaña ({{count}})",
       "rag_context_label": "Contexto RAG ({{count}})",
       "char_counts": "caracts. pestaña: {{tab}} | caracts. RAG: {{rag}}",
-      "trimmed": "recortado"
+      "trimmed": "recortado",
+      "view_web": "Ver {{count}} fuente web",
+      "view_web_plural": "Ver {{count}} fuentes web",
+      "web_engine": "vía {{engine}}",
+      "web_no_snippet": "No hay vista previa disponible.",
+      "web_published": "Publicado: {{date}}",
+      "web_score": "puntuación {{score}}",
+      "web_source": "{{count}} fuente web",
+      "web_source_plural": "{{count}} fuentes web",
+      "web_title": "Fuentes web ({{count}})",
+      "web_unused_hint": "Aumenta el número de resultados de búsqueda web en Ajustes para enviar más de estos al modelo.",
+      "web_unused_label": "También encontrados — no enviados ({{count}})",
+      "web_used_label": "Enviados al modelo ({{count}})"
     },
     "search": {
       "button_title": "Buscar historial de chat (búsqueda semántica)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "Importar sesiones de chat",
       "aria_label": "Importar sesiones de chat",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "No se encontraron sesiones de chat legibles en los archivos seleccionados.",
+        "failed_title": "No se importó nada",
+        "partial_description": "Se omitieron {{skipped}} sesión(es), se descartaron {{droppedMessages}} mensaje(s), {{invalidFiles}} archivo(s) ilegible(s).",
+        "partial_title": "Se importó {{count}} sesión de chat con problemas",
+        "partial_title_plural": "Se importaron {{count}} sesiones de chat con problemas",
+        "success_title": "Se importó {{count}} sesión de chat",
+        "success_title_plural": "Se importaron {{count}} sesiones de chat"
+      }
     },
     "actions": {
       "more": "Más acciones para {{title}}",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "Máx. caracteres de contexto de pestaña",
       "max_rag_context_chars": "Máx. caracteres de contexto RAG",
       "auto_refresh_label": "Auto-actualizar contexto de pestaña seleccionada",
-      "auto_refresh_description": "Cuando está habilitado, las pestañas seleccionadas se verifican periódicamente en busca de cambios."
+      "auto_refresh_description": "Cuando está habilitado, las pestañas seleccionadas se verifican periódicamente en busca de cambios.",
+      "max_tool_result_chars": "Máx. caracteres del resultado de herramienta",
+      "max_tool_result_chars_hint": "Cada resultado de herramienta (texto de página, transcripciones, búsqueda de documentos) se recorta a esta cantidad de caracteres antes de que el modelo lo lea. Un valor más bajo es más rápido en un portátil; auméntalo si las respuestas omiten detalles."
     },
     "grounding_mode": {
       "label": "Responder solo desde el contexto de página seleccionado",
@@ -726,7 +753,13 @@
       "export_pdf": "Exportar como PDF",
       "export_pdf_desc": "Exportar chat actual como PDF",
       "export_text": "Exportar como Texto",
-      "export_text_desc": "Exportar chat actual como texto"
+      "export_text_desc": "Exportar chat actual como texto",
+      "browser": {
+        "title": "Abrir desde cualquier lugar",
+        "description": "Configura un atajo a nivel de navegador para abrir el panel lateral de chat desde cualquier página. El navegador gestiona esta asignación: copia la dirección de abajo y pégala en la barra de direcciones para establecer o cambiar la tecla.",
+        "copy": "Copiar dirección",
+        "copied": "Copiado: pégalo en la barra de direcciones"
+      }
     },
     "content_extraction": {
       "title": "Extracción de Contenido",
@@ -784,11 +817,24 @@
         "scroll_delay": "Retraso de desplazamiento en milisegundos",
         "mutation_timeout": "Tiempo de espera de Mutation Observer en milisegundos",
         "network_timeout": "Tiempo de inactividad de red en milisegundos",
-        "max_wait": "Tiempo máximo de espera (milisegundos)"
+        "max_wait": "Tiempo máximo de espera (milisegundos)",
+        "section_title": "Tiempos de espera de carga de página (avanzado)"
       },
       "badges": {
         "recommended": "Recomendado",
         "active": "Activo"
+      },
+      "selection_actions": {
+        "description": "Muestra acciones de IA local cuando se selecciona texto en una página.",
+        "label": "Activar acciones de selección"
+      },
+      "selection_actions_list": {
+        "description": "Elige qué acciones de texto local aparecen en la barra de herramientas de la página.",
+        "label": "Lista de acciones de selección"
+      },
+      "selection_actions_min_chars": {
+        "description": "Las selecciones más cortas que esto permanecen ocultas.",
+        "label": "Mínimo de caracteres seleccionados"
       }
     },
     "model": {
@@ -937,7 +983,8 @@
       "voices": "Voces",
       "reset": "Restablecer",
       "guides": "Guías",
-      "shortcuts": "Atajos"
+      "shortcuts": "Atajos",
+      "permissions": "Permisos"
     },
     "context": {
       "file_upload": {
@@ -955,6 +1002,18 @@
         "progress": "Reconstruyendo embeddings del chat ({{current}}/{{total}})",
         "success": "Embeddings reconstruidos correctamente.",
         "error": "No se pudieron reconstruir los embeddings."
+      },
+      "sections": {
+        "conversation": "Contexto de la conversación",
+        "conversation_description": "Lo que el asistente recuerda y cómo se indexa el historial de chat.",
+        "files_chunking": "Archivos y fragmentación",
+        "files_chunking_description": "Cómo se aceptan y dividen los archivos subidos para la recuperación.",
+        "grounding": "Anclaje",
+        "grounding_description": "Limita las respuestas a la página que estás viendo.",
+        "prompt_budget": "Presupuesto del prompt",
+        "prompt_budget_description": "Límites de cuánto contexto se incluye en cada prompt.",
+        "retrieval": "Recuperación",
+        "retrieval_description": "Dónde busca el asistente más allá de la conversación: la web y tu base de conocimiento."
       }
     },
     "web_search": {
@@ -1288,10 +1347,97 @@
     },
     "saved": "Guardado",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "Se aplicó el preajuste {{name}}",
+      "apply": "Aplicar preajuste",
+      "balanced": {
+        "description": "Los valores predeterminados recomendados: un buen punto intermedio.",
+        "label": "Equilibrado"
+      },
+      "description": "Aplica una combinación ajustada con un solo clic. Aún puedes modificar cualquier ajuste individual después.",
+      "fast": {
+        "description": "Menos contexto y recuperación para respuestas más rápidas y ligeras.",
+        "label": "Rápido"
+      },
+      "fields": {
+        "auto_embed_chat": "Incorporar automáticamente el historial de chat para la memoria",
+        "auto_refresh_tab": "Actualizar automáticamente el contexto desde la pestaña abierta",
+        "chunk_overlap": "Solapamiento entre fragmentos adyacentes",
+        "chunk_size": "Caracteres por fragmento al dividir el texto",
+        "chunking_strategy": "Cómo se dividen los documentos para la recuperación",
+        "enhanced_chunking": "División de texto más inteligente y consciente de la estructura",
+        "global_auto_embed": "Incorporación automática de contenido en todos los chats",
+        "grounded_only": "Limitar las respuestas únicamente a la página actual",
+        "max_rag_chars": "Presupuesto de caracteres para el contexto recuperado en el prompt",
+        "max_tab_chars": "Presupuesto de caracteres para el contexto de la pestaña en el prompt",
+        "max_tool_chars": "Límite de caracteres por resultado de herramienta enviado al modelo",
+        "min_rerank": "Puntuación mínima que un resultado debe superar para conservarse",
+        "search_limit": "Cuántos resultados devuelve la recuperación (top-K)",
+        "tab_access": "Permitir que los modelos lean tus otras pestañas abiertas",
+        "use_reranking": "Volver a puntuar los resultados recuperados para mejorar la relevancia",
+        "web_search": "Permitir que los modelos con herramientas busquen en la web en vivo",
+        "web_search_label": "Búsqueda web"
+      },
+      "footer_note": "Puedes ajustar cualquiera de estos después en Ajustes.",
+      "large_context": {
+        "description": "Mayor contexto y recuperación para respuestas exhaustivas en equipos potentes.",
+        "label": "Contexto grande"
+      },
+      "preview_hint": "Estos ajustes cambiarán:",
+      "preview_title": "Aplicar {{name}}",
+      "privacy_strict": {
+        "description": "Sin acceso a la página, respuestas ancladas a la página abierta, sin incorporación automática, búsqueda web desactivada.",
+        "label": "Privacidad estricta"
+      },
+      "title": "Preajustes"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "Restablecer sección",
+      "description": "Esto restablece los controles de esta sección a sus valores predeterminados. Los demás ajustes no se modifican.",
+      "done": "Sección restablecida a los valores predeterminados",
+      "title": "¿Restablecer esta sección a los valores predeterminados?"
+    },
+    "permissions": {
+      "title": "Permisos y privacidad",
+      "description": "Consulta y controla a qué puede acceder esta extensión. Todo permanece en tu dispositivo.",
+      "optional": {
+        "title": "Acceso opcional",
+        "description": "Se concede solo cuando lo activas y se puede revocar aquí en cualquier momento. Cada opción habilita una función local; ningún dato sale de tu dispositivo."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Marcadores",
+          "description": "Permite indexar páginas guardadas en el conocimiento local para búsqueda y chat."
+        },
+        "history": {
+          "label": "Historial de navegación",
+          "description": "Permite indexar y recuperar tu historial localmente. Nunca se sube."
+        },
+        "notifications": {
+          "label": "Notificaciones",
+          "description": "Te avisa cuando termina una tarea local larga (incrustación, reindexado)."
+        },
+        "downloads": {
+          "label": "Descargas",
+          "description": "Guarda el contenido generado (código, diagramas, respuestas) en un archivo."
+        },
+        "tabGroups": {
+          "label": "Grupos de pestañas",
+          "description": "Trabaja con grupos de pestañas completos para resúmenes y comparaciones entre varias pestañas."
+        }
+      },
+      "host": {
+        "title": "Acceso a sitios",
+        "description": "Esta extensión mantiene acceso a todos los sitios. Es necesario para que puedas apuntarla a cualquier URL de proveedor local o remoto y para que las funciones de contexto de página y selección funcionen en cualquier página. Nunca se usa para enviar tus datos a ningún sitio."
+      },
+      "preview": {
+        "title": "Funciones en vista previa",
+        "description": "Funciones experimentales en desarrollo. Desactivadas por defecto; actívalas bajo tu responsabilidad."
+      }
+    },
+    "search": {
+      "placeholder": "Buscar ajustes…"
     }
   },
   "guides": {

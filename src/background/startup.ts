@@ -19,6 +19,36 @@ const openClientWindow = () => {
   })
 }
 
+/**
+ * Open the chat surface for a tab: the native side panel on Chromium, a popup
+ * window on Firefox (or when no window context is available). Used by the
+ * toolbar action's `onClicked` (the keyboard hotkey uses the reserved
+ * `_execute_action` command, which toggles the panel natively).
+ */
+const openPanelForTab = (tab?: { id?: number; windowId?: number }) => {
+  if (isChromiumBased() && "sidePanel" in browser) {
+    const windowId = tab?.windowId
+    if (!windowId) {
+      openClientWindow()
+      return
+    }
+
+    const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
+      .sidePanel
+    sidePanel.open({ windowId, tabId: tab?.id }).catch((error) => {
+      logger.warn(
+        "Failed to open side panel, falling back to popup",
+        "BackgroundSW",
+        { error }
+      )
+      openClientWindow()
+    })
+    return
+  }
+
+  openClientWindow()
+}
+
 const registerActionHandler = () => {
   const actionAPI =
     browser.action ||
@@ -39,27 +69,7 @@ const registerActionHandler = () => {
       )
 
     if (actionAPI) {
-      actionAPI.onClicked.addListener((tab) => {
-        const windowId = tab.windowId
-        if (!windowId) {
-          openClientWindow()
-          return
-        }
-
-        sidePanel
-          .open({
-            windowId,
-            tabId: tab.id
-          })
-          .catch((error) => {
-            logger.warn(
-              "Failed to open side panel, falling back to popup",
-              "BackgroundSW",
-              { error }
-            )
-            openClientWindow()
-          })
-      })
+      actionAPI.onClicked.addListener((tab) => openPanelForTab(tab))
     }
     return
   }

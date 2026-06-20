@@ -6,6 +6,8 @@ import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
+import { useToast } from "@/hooks/use-toast"
+import { isChromiumBased } from "@/lib/browser-api"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_SHORTCUTS,
@@ -25,6 +27,7 @@ const shortcutFocusId = (id: ShortcutAction) =>
 
 export const ShortcutsSettings = () => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const {
     shortcuts,
     updateShortcut,
@@ -32,6 +35,20 @@ export const ShortcutsSettings = () => {
     resetShortcuts,
     hasConflict
   } = useShortcutStore()
+
+  // Browsers don't allow extensions to open chrome://extensions/shortcuts (or
+  // about:addons) programmatically, so we copy the URL and let the user paste it.
+  const browserShortcutsUrl = isChromiumBased()
+    ? "chrome://extensions/shortcuts"
+    : "about:addons"
+  const copyBrowserShortcutsUrl = () => {
+    navigator.clipboard
+      ?.writeText(browserShortcutsUrl)
+      .then(() =>
+        toast({ description: t("settings.shortcuts.browser.copied") })
+      )
+      .catch(() => {})
+  }
   const [recordingAction, setRecordingAction] = useState<ShortcutAction | null>(
     null
   )
@@ -179,6 +196,27 @@ export const ShortcutsSettings = () => {
       focusId="keyboard-shortcuts"
       title={t("settings.shortcuts.title")}
       description={t("settings.shortcuts.description")}>
+      {/* Browser-level command pointer (v0.11.1 / F2). The browser owns these
+          bindings, so they can't be rebound from this page. */}
+      <div
+        data-settings-focus-id="browser-shortcuts"
+        className="rounded-md border border-border/60 bg-muted/30 px-3 py-2.5">
+        <p className="text-sm font-medium">
+          {t("settings.shortcuts.browser.title")}
+        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {t("settings.shortcuts.browser.description")}
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <code className="rounded bg-muted px-2 py-1 text-xs">
+            {browserShortcutsUrl}
+          </code>
+          <Button variant="outline" size="sm" onClick={copyBrowserShortcutsUrl}>
+            {t("settings.shortcuts.browser.copy")}
+          </Button>
+        </div>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 text-muted-foreground" />

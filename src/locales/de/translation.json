@@ -38,7 +38,11 @@
     "continue": "Import Fortsetzen",
     "reload": "Erweiterung Neu Laden",
     "close": "Schließen",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "toggle": {
+      "off": "Aus",
+      "on": "An"
+    }
   },
   "extension": {
     "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
@@ -271,7 +275,19 @@
       "tab_context_label": "Tab-Kontext ({{count}})",
       "rag_context_label": "RAG-Kontext ({{count}})",
       "char_counts": "Tab-Zeichen: {{tab}} | RAG-Zeichen: {{rag}}",
-      "trimmed": "gekürzt"
+      "trimmed": "gekürzt",
+      "view_web": "{{count}} Web-Quelle anzeigen",
+      "view_web_plural": "{{count}} Web-Quellen anzeigen",
+      "web_engine": "über {{engine}}",
+      "web_no_snippet": "Keine Vorschau verfügbar.",
+      "web_published": "Veröffentlicht: {{date}}",
+      "web_score": "Bewertung {{score}}",
+      "web_source": "{{count}} Web-Quelle",
+      "web_source_plural": "{{count}} Web-Quellen",
+      "web_title": "Web-Quellen ({{count}})",
+      "web_unused_hint": "Erhöhe die Anzahl der Web-Suchergebnisse in den Einstellungen, um dem Modell mehr davon bereitzustellen.",
+      "web_unused_label": "Ebenfalls gefunden – nicht gesendet ({{count}})",
+      "web_used_label": "An das Modell gesendet ({{count}})"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "Chat-Sitzungen importieren",
       "aria_label": "Chat-Sitzungen importieren",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "In den ausgewählten Dateien wurden keine lesbaren Chat-Sitzungen gefunden.",
+        "failed_title": "Nichts importiert",
+        "partial_description": "{{skipped}} Sitzung(en) übersprungen, {{droppedMessages}} Nachricht(en) verworfen, {{invalidFiles}} unlesbare Datei(en).",
+        "partial_title": "{{count}} Chat-Sitzung mit Problemen importiert",
+        "partial_title_plural": "{{count}} Chat-Sitzungen mit Problemen importiert",
+        "success_title": "{{count}} Chat-Sitzung importiert",
+        "success_title_plural": "{{count}} Chat-Sitzungen importiert"
+      }
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "Max. Tab-Kontext-Zeichen",
       "max_rag_context_chars": "Max. RAG-Kontext-Zeichen",
       "auto_refresh_label": "Ausgewählten Tab-Kontext automatisch aktualisieren",
-      "auto_refresh_description": "Wenn aktiviert, werden ausgewählte Tabs periodisch auf Änderungen überprüft."
+      "auto_refresh_description": "Wenn aktiviert, werden ausgewählte Tabs periodisch auf Änderungen überprüft.",
+      "max_tool_result_chars": "Max. Zeichen pro Tool-Ergebnis",
+      "max_tool_result_chars_hint": "Jedes Tool-Ergebnis (Seitentext, Transkripte, Dokumentsuche) wird auf diese Anzahl Zeichen gekürzt, bevor das Modell es liest. Ein niedrigerer Wert ist auf einem Laptop schneller; erhöhe ihn, wenn Antworten Details vermissen lassen."
     },
     "grounding_mode": {
       "label": "Nur aus ausgewähltem Seitenkontext antworten",
@@ -726,7 +753,13 @@
       "export_pdf": "Als PDF exportieren",
       "export_pdf_desc": "Aktuellen Chat als PDF exportieren",
       "export_text": "Als Text exportieren",
-      "export_text_desc": "Aktuellen Chat als Text exportieren"
+      "export_text_desc": "Aktuellen Chat als Text exportieren",
+      "browser": {
+        "title": "Von überall öffnen",
+        "description": "Lege einen browserweiten Shortcut fest, um das Chat-Seitenpanel von jeder Seite aus zu öffnen. Der Browser verwaltet diese Belegung – kopiere die Adresse unten und füge sie in die Adressleiste ein, um die Taste festzulegen oder zu ändern.",
+        "copy": "Adresse kopieren",
+        "copied": "Kopiert – füge sie in die Adressleiste ein"
+      }
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",
@@ -784,11 +817,24 @@
         "scroll_delay": "Scroll-Verzögerung in Millisekunden",
         "mutation_timeout": "Mutation Observer Timeout in Millisekunden",
         "network_timeout": "Netzwerk-Idle-Timeout in Millisekunden",
-        "max_wait": "Maximale Wartezeit (Millisekunden)"
+        "max_wait": "Maximale Wartezeit (Millisekunden)",
+        "section_title": "Zeitlimits für das Laden von Seiten (erweitert)"
       },
       "badges": {
         "recommended": "Empfohlen",
         "active": "Aktiv"
+      },
+      "selection_actions": {
+        "description": "Lokale KI-Aktionen anzeigen, wenn Text auf einer Seite markiert ist.",
+        "label": "Auswahl-Aktionen aktivieren"
+      },
+      "selection_actions_list": {
+        "description": "Wähle aus, welche lokalen Text-Aktionen in der Seitenleiste erscheinen.",
+        "label": "Liste der Auswahl-Aktionen"
+      },
+      "selection_actions_min_chars": {
+        "description": "Auswahlen, die kürzer als dieser Wert sind, bleiben ausgeblendet.",
+        "label": "Mindestanzahl ausgewählter Zeichen"
       }
     },
     "model": {
@@ -937,7 +983,8 @@
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
-      "shortcuts": "Tastaturkürzel"
+      "shortcuts": "Tastaturkürzel",
+      "permissions": "Berechtigungen"
     },
     "context": {
       "file_upload": {
@@ -955,6 +1002,18 @@
         "progress": "Chat-Embeddings werden neu aufgebaut ({{current}}/{{total}})",
         "success": "Embeddings erfolgreich neu aufgebaut.",
         "error": "Embeddings konnten nicht neu aufgebaut werden."
+      },
+      "sections": {
+        "conversation": "Gesprächskontext",
+        "conversation_description": "Woran sich der Assistent erinnert und wie der Chatverlauf indexiert wird.",
+        "files_chunking": "Dateien & Aufteilung",
+        "files_chunking_description": "Wie hochgeladene Dateien angenommen und für den Abruf aufgeteilt werden.",
+        "grounding": "Verankerung",
+        "grounding_description": "Antworten auf die Seite beschränken, die du gerade ansiehst.",
+        "prompt_budget": "Prompt-Budget",
+        "prompt_budget_description": "Obergrenzen dafür, wie viel Kontext in jeden Prompt gepackt wird.",
+        "retrieval": "Abruf",
+        "retrieval_description": "Wo der Assistent über das Gespräch hinaus sucht – im Web und in deiner Wissensdatenbank."
       }
     },
     "web_search": {
@@ -1288,10 +1347,97 @@
     },
     "saved": "Gespeichert",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "Voreinstellung {{name}} angewendet",
+      "apply": "Voreinstellung anwenden",
+      "balanced": {
+        "description": "Die empfohlenen Standardwerte – ein guter Mittelweg.",
+        "label": "Ausgewogen"
+      },
+      "description": "Wende eine abgestimmte Kombination mit einem Klick an. Du kannst danach immer noch jede einzelne Einstellung anpassen.",
+      "fast": {
+        "description": "Kleinerer Kontext und Abruf für schnellere, leichtere Antworten.",
+        "label": "Schnell"
+      },
+      "fields": {
+        "auto_embed_chat": "Chatverlauf automatisch für das Gedächtnis einbetten",
+        "auto_refresh_tab": "Kontext automatisch aus dem geöffneten Tab aktualisieren",
+        "chunk_overlap": "Überlappung zwischen benachbarten Abschnitten",
+        "chunk_size": "Zeichen pro Abschnitt beim Aufteilen von Text",
+        "chunking_strategy": "Wie Dokumente für den Abruf aufgeteilt werden",
+        "enhanced_chunking": "Intelligentere, strukturbewusste Textaufteilung",
+        "global_auto_embed": "Inhalte automatisch über alle Chats hinweg einbetten",
+        "grounded_only": "Antworten nur auf die aktuelle Seite beschränken",
+        "max_rag_chars": "Zeichenbudget für abgerufenen Kontext im Prompt",
+        "max_tab_chars": "Zeichenbudget für Tab-Kontext im Prompt",
+        "max_tool_chars": "Zeichenobergrenze pro Tool-Ergebnis, das an das Modell zurückgegeben wird",
+        "min_rerank": "Mindestbewertung, die ein Ergebnis übertreffen muss, um behalten zu werden",
+        "search_limit": "Wie viele Ergebnisse der Abruf zurückgibt (Top-K)",
+        "tab_access": "Modellen erlauben, deine anderen geöffneten Tabs zu lesen",
+        "use_reranking": "Abgerufene Ergebnisse für bessere Relevanz neu bewerten",
+        "web_search": "Tool-fähigen Modellen erlauben, das Live-Web zu durchsuchen",
+        "web_search_label": "Web-Suche"
+      },
+      "footer_note": "Du kannst alle diese Werte danach in den Einstellungen feinabstimmen.",
+      "large_context": {
+        "description": "Größerer Kontext und Abruf für gründliche Antworten auf leistungsfähigen Rechnern.",
+        "label": "Großer Kontext"
+      },
+      "preview_hint": "Diese Einstellungen werden geändert:",
+      "preview_title": "{{name}} anwenden",
+      "privacy_strict": {
+        "description": "Kein Seitenzugriff, Antworten auf die geöffnete Seite verankert, kein automatisches Einbetten, Web-Suche aus.",
+        "label": "Strenger Datenschutz"
+      },
+      "title": "Voreinstellungen"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "Abschnitt zurücksetzen",
+      "description": "Dadurch werden die Bedienelemente in diesem Abschnitt auf ihre Standardwerte zurückgesetzt. Andere Einstellungen bleiben unverändert.",
+      "done": "Abschnitt auf Standardwerte zurückgesetzt",
+      "title": "Diesen Abschnitt auf Standardwerte zurücksetzen?"
+    },
+    "permissions": {
+      "title": "Berechtigungen & Datenschutz",
+      "description": "Sieh und steuere, worauf diese Erweiterung zugreifen darf. Alles bleibt auf deinem Gerät.",
+      "optional": {
+        "title": "Optionaler Zugriff",
+        "description": "Wird nur erteilt, wenn du ihn aktivierst, und ist hier jederzeit widerrufbar. Jede Option schaltet eine lokale Funktion frei; keine Daten verlassen dein Gerät."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Lesezeichen",
+          "description": "Ermöglicht das Indexieren gespeicherter Seiten für Suche und Chat im lokalen Wissen."
+        },
+        "history": {
+          "label": "Browserverlauf",
+          "description": "Ermöglicht das lokale Indexieren und Abrufen deines Verlaufs. Wird nie hochgeladen."
+        },
+        "notifications": {
+          "label": "Benachrichtigungen",
+          "description": "Benachrichtigt dich, wenn ein langer lokaler Vorgang (Einbettung, Nachfüllung) abgeschlossen ist."
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Generierte Inhalte (Code, Diagramme, Antworten) in einer Datei speichern."
+        },
+        "tabGroups": {
+          "label": "Tab-Gruppen",
+          "description": "Mit ganzen Tab-Gruppen arbeiten – für Zusammenfassungen und Vergleiche über mehrere Tabs."
+        }
+      },
+      "host": {
+        "title": "Website-Zugriff",
+        "description": "Diese Erweiterung behält Zugriff auf alle Websites. Das ist nötig, damit du sie auf eine beliebige lokale oder entfernte Provider-URL richten kannst und damit Seiteninhalt- und Auswahlfunktionen auf jeder Seite funktionieren. Er wird niemals verwendet, um deine Daten irgendwohin zu senden."
+      },
+      "preview": {
+        "title": "Vorschaufunktionen",
+        "description": "Experimentelle Funktionen in Entwicklung. Standardmäßig deaktiviert; Aktivierung auf eigenes Risiko."
+      }
+    },
+    "search": {
+      "placeholder": "Einstellungen durchsuchen…"
     }
   },
   "guides": {

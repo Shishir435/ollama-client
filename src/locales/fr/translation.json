@@ -38,7 +38,11 @@
     "continue": "Continuer l'Importation",
     "reload": "Recharger l'Extension",
     "close": "Fermer",
-    "remove": "Supprimer"
+    "remove": "Supprimer",
+    "toggle": {
+      "off": "Désactivé",
+      "on": "Activé"
+    }
   },
   "extension": {
     "name": "Ollama Client - Chat avec des modèles LLM locaux",
@@ -271,7 +275,19 @@
       "tab_context_label": "Contexte d'onglet ({{count}})",
       "rag_context_label": "Contexte RAG ({{count}})",
       "char_counts": "car. onglet : {{tab}} | car. RAG : {{rag}}",
-      "trimmed": "tronqué"
+      "trimmed": "tronqué",
+      "view_web": "Afficher {{count}} source web",
+      "view_web_plural": "Afficher {{count}} sources web",
+      "web_engine": "via {{engine}}",
+      "web_no_snippet": "Aucun aperçu disponible.",
+      "web_published": "Publié le : {{date}}",
+      "web_score": "score {{score}}",
+      "web_source": "{{count}} source web",
+      "web_source_plural": "{{count}} sources web",
+      "web_title": "Sources web ({{count}})",
+      "web_unused_hint": "Augmentez le nombre de résultats de recherche web dans les Paramètres pour en transmettre davantage au modèle.",
+      "web_unused_label": "Également trouvé — non envoyé ({{count}})",
+      "web_used_label": "Envoyé au modèle ({{count}})"
     },
     "search": {
       "button_title": "Rechercher l'historique de chat (recherche sémantique)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "Importer des sessions de chat",
       "aria_label": "Importer des sessions de chat",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "Aucune session de discussion lisible n'a été trouvée dans le ou les fichiers sélectionnés.",
+        "failed_title": "Aucune importation",
+        "partial_description": "{{skipped}} session(s) ignorée(s), {{droppedMessages}} message(s) supprimé(s), {{invalidFiles}} fichier(s) illisible(s).",
+        "partial_title": "{{count}} session de discussion importée avec des problèmes",
+        "partial_title_plural": "{{count}} sessions de discussion importées avec des problèmes",
+        "success_title": "{{count}} session de discussion importée",
+        "success_title_plural": "{{count}} sessions de discussion importées"
+      }
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "Caractères max de contexte d'onglet",
       "max_rag_context_chars": "Caractères max de contexte RAG",
       "auto_refresh_label": "Actualiser automatiquement le contexte d'onglet sélectionné",
-      "auto_refresh_description": "Lorsqu'activé, les onglets sélectionnés sont vérifiés périodiquement pour les changements."
+      "auto_refresh_description": "Lorsqu'activé, les onglets sélectionnés sont vérifiés périodiquement pour les changements.",
+      "max_tool_result_chars": "Caractères max. par résultat d'outil",
+      "max_tool_result_chars_hint": "Chaque résultat d'outil (texte de page, transcriptions, recherche de documents) est tronqué à ce nombre de caractères avant que le modèle ne le lise. Une valeur plus basse est plus rapide sur un ordinateur portable ; augmentez-la si les réponses manquent de détails."
     },
     "grounding_mode": {
       "label": "Répondre uniquement à partir du contexte de page sélectionné",
@@ -726,7 +753,13 @@
       "export_pdf": "Exporter en PDF",
       "export_pdf_desc": "Exporter le chat actuel en PDF",
       "export_text": "Exporter en Texte",
-      "export_text_desc": "Exporter le chat actuel en texte brut"
+      "export_text_desc": "Exporter le chat actuel en texte brut",
+      "browser": {
+        "title": "Ouvrir depuis n'importe où",
+        "description": "Définissez un raccourci au niveau du navigateur pour ouvrir le panneau latéral de chat depuis n'importe quelle page. Le navigateur gère cette attribution : copiez l'adresse ci-dessous et collez-la dans la barre d'adresse pour définir ou modifier la touche.",
+        "copy": "Copier l'adresse",
+        "copied": "Copié — collez-le dans la barre d'adresse"
+      }
     },
     "content_extraction": {
       "title": "Extraction de Contenu",
@@ -784,11 +817,24 @@
         "scroll_delay": "Délai de défilement en millisecondes",
         "mutation_timeout": "Délai d'attente de Mutation Observer en millisecondes",
         "network_timeout": "Délai d'inactivité du réseau en millisecondes",
-        "max_wait": "Temps d'attente maximum (millisecondes)"
+        "max_wait": "Temps d'attente maximum (millisecondes)",
+        "section_title": "Délais d'expiration du chargement des pages (avancé)"
       },
       "badges": {
         "recommended": "Recommandé",
         "active": "Actif"
+      },
+      "selection_actions": {
+        "description": "Afficher les actions d'IA locale lorsque du texte est sélectionné sur une page.",
+        "label": "Activer les actions de sélection"
+      },
+      "selection_actions_list": {
+        "description": "Choisissez les actions de texte locales qui apparaissent dans la barre d'outils de la page.",
+        "label": "Liste des actions de sélection"
+      },
+      "selection_actions_min_chars": {
+        "description": "Les sélections plus courtes que cette valeur restent masquées.",
+        "label": "Nombre minimal de caractères sélectionnés"
       }
     },
     "model": {
@@ -937,7 +983,8 @@
       "voices": "Voix",
       "reset": "Réinitialiser",
       "guides": "Guides",
-      "shortcuts": "Raccourcis"
+      "shortcuts": "Raccourcis",
+      "permissions": "Autorisations"
     },
     "context": {
       "file_upload": {
@@ -955,6 +1002,18 @@
         "progress": "Reconstruction des embeddings du chat ({{current}}/{{total}})",
         "success": "Embeddings reconstruits avec succès.",
         "error": "Impossible de reconstruire les embeddings."
+      },
+      "sections": {
+        "conversation": "Contexte de la conversation",
+        "conversation_description": "Ce dont l'assistant se souvient et la manière dont l'historique des discussions est indexé.",
+        "files_chunking": "Fichiers et découpage",
+        "files_chunking_description": "Comment les fichiers importés sont acceptés et découpés pour la récupération.",
+        "grounding": "Ancrage",
+        "grounding_description": "Limiter les réponses à la page que vous consultez.",
+        "prompt_budget": "Budget de prompt",
+        "prompt_budget_description": "Limites sur la quantité de contexte intégrée à chaque prompt.",
+        "retrieval": "Récupération",
+        "retrieval_description": "Où l'assistant cherche au-delà de la conversation — le web et votre base de connaissances."
       }
     },
     "web_search": {
@@ -1288,10 +1347,97 @@
     },
     "saved": "Enregistré",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "Préréglage {{name}} appliqué",
+      "apply": "Appliquer le préréglage",
+      "balanced": {
+        "description": "Les valeurs par défaut recommandées — un bon compromis.",
+        "label": "Équilibré"
+      },
+      "description": "Appliquez une combinaison optimisée en un clic. Vous pouvez toujours ajuster chaque paramètre individuellement par la suite.",
+      "fast": {
+        "description": "Contexte et récupération réduits pour des réponses plus rapides et plus légères.",
+        "label": "Rapide"
+      },
+      "fields": {
+        "auto_embed_chat": "Intégrer automatiquement l'historique des discussions pour la mémoire",
+        "auto_refresh_tab": "Actualiser automatiquement le contexte depuis l'onglet ouvert",
+        "chunk_overlap": "Chevauchement entre les segments adjacents",
+        "chunk_size": "Caractères par segment lors du découpage du texte",
+        "chunking_strategy": "Comment les documents sont découpés pour la récupération",
+        "enhanced_chunking": "Découpage du texte plus intelligent, tenant compte de la structure",
+        "global_auto_embed": "Intégration automatique du contenu dans toutes les discussions",
+        "grounded_only": "Limiter les réponses à la page actuelle uniquement",
+        "max_rag_chars": "Budget de caractères pour le contexte récupéré dans le prompt",
+        "max_tab_chars": "Budget de caractères pour le contexte de l'onglet dans le prompt",
+        "max_tool_chars": "Limite de caractères par résultat d'outil renvoyé au modèle",
+        "min_rerank": "Score minimal qu'un résultat doit dépasser pour être conservé",
+        "search_limit": "Nombre de résultats renvoyés par la récupération (top-K)",
+        "tab_access": "Autoriser les modèles à lire vos autres onglets ouverts",
+        "use_reranking": "Réévaluer les résultats récupérés pour une meilleure pertinence",
+        "web_search": "Permettre aux modèles compatibles avec les outils de rechercher sur le web en direct",
+        "web_search_label": "Recherche web"
+      },
+      "footer_note": "Vous pourrez affiner chacun de ces réglages par la suite dans les Paramètres.",
+      "large_context": {
+        "description": "Contexte et récupération plus importants pour des réponses approfondies sur les machines performantes.",
+        "label": "Grand contexte"
+      },
+      "preview_hint": "Ces paramètres seront modifiés :",
+      "preview_title": "Appliquer {{name}}",
+      "privacy_strict": {
+        "description": "Aucun accès aux pages, réponses ancrées à la page ouverte, aucune intégration automatique, recherche web désactivée.",
+        "label": "Confidentialité stricte"
+      },
+      "title": "Préréglages"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "Réinitialiser la section",
+      "description": "Cela rétablit les contrôles de cette section à leurs valeurs par défaut. Les autres paramètres ne sont pas modifiés.",
+      "done": "Section réinitialisée aux valeurs par défaut",
+      "title": "Réinitialiser cette section aux valeurs par défaut ?"
+    },
+    "permissions": {
+      "title": "Autorisations et confidentialité",
+      "description": "Consultez et contrôlez ce à quoi cette extension peut accéder. Tout reste sur votre appareil.",
+      "optional": {
+        "title": "Accès facultatif",
+        "description": "Accordé uniquement lorsque vous l'activez, et révocable ici à tout moment. Chaque option active une fonctionnalité locale ; aucune donnée ne quitte votre appareil."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Favoris",
+          "description": "Permet d'indexer les pages enregistrées dans la base de connaissances locale pour la recherche et le chat."
+        },
+        "history": {
+          "label": "Historique de navigation",
+          "description": "Permet d'indexer et de retrouver votre historique localement. Jamais envoyé."
+        },
+        "notifications": {
+          "label": "Notifications",
+          "description": "Vous prévient lorsqu'une tâche locale longue (intégration, réindexation) se termine."
+        },
+        "downloads": {
+          "label": "Téléchargements",
+          "description": "Enregistrez le contenu généré (code, diagrammes, réponses) dans un fichier."
+        },
+        "tabGroups": {
+          "label": "Groupes d'onglets",
+          "description": "Travaillez avec des groupes d'onglets entiers pour des résumés et comparaisons multi-onglets."
+        }
+      },
+      "host": {
+        "title": "Accès aux sites",
+        "description": "Cette extension conserve l'accès à tous les sites. C'est nécessaire pour la pointer vers n'importe quelle URL de fournisseur locale ou distante, et pour que les fonctions de contexte de page et de sélection fonctionnent sur toutes les pages. Cet accès n'est jamais utilisé pour envoyer vos données où que ce soit."
+      },
+      "preview": {
+        "title": "Fonctionnalités en avant-première",
+        "description": "Fonctionnalités expérimentales en cours de développement. Désactivées par défaut ; activez-les à vos risques."
+      }
+    },
+    "search": {
+      "placeholder": "Rechercher dans les paramètres…"
     }
   },
   "guides": {
