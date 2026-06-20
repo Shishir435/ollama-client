@@ -5,7 +5,7 @@ import {
   type ImageRejectReason,
   useImageAttachments
 } from "@/features/chat/hooks/use-image-attachments"
-import { captureVisibleTabPng } from "@/features/chat/lib/capture-screenshot"
+import { captureVisibleTabImage } from "@/features/chat/lib/capture-screenshot"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { useToast } from "@/hooks/use-toast"
@@ -99,7 +99,7 @@ export const useChatInputAttachments = () => {
       return
     }
     try {
-      const file = await captureVisibleTabPng()
+      const file = await captureVisibleTabImage()
       void addImageFiles([file])
     } catch (error) {
       logger.warn("Screenshot capture failed", "ChatInputBox", { error })
@@ -116,7 +116,7 @@ export const useChatInputAttachments = () => {
     useCallback(async (): Promise<ImageAttachment | null> => {
       if (visionUnsupported) return null
       try {
-        const file = await captureVisibleTabPng()
+        const file = await captureVisibleTabImage()
         return await fileToAttachment(file)
       } catch (error) {
         logger.warn("Auto screenshot capture failed", "ChatInputBox", { error })
