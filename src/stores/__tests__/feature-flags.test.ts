@@ -24,7 +24,7 @@ describe("feature-flags store", () => {
     useFeatureFlagsStore.getState().setFlag("omnibox", true)
     const { flags } = useFeatureFlagsStore.getState()
     expect(flags.omnibox).toBe(true)
-    expect(flags.notifications).toBe(false)
+    expect(flags.downloads).toBe(false)
   })
 
   it("isFeatureEnabled reflects the current state non-reactively", () => {

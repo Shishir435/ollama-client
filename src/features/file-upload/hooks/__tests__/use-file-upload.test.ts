@@ -11,7 +11,8 @@ vi.mock("@plasmohq/storage/hook", () => ({
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     runtime: {
-      connect: vi.fn()
+      connect: vi.fn(),
+      sendMessage: vi.fn()
     }
   }
 }))
@@ -125,6 +126,9 @@ describe("useFileUpload", () => {
       vectorIds: [1, 2]
     })
     vi.mocked(browser.runtime.connect).mockReturnValue(createMockPort() as any)
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
+      success: true
+    } as never)
   })
 
   it("calls onFileProcessed once when embeddings are disabled", async () => {

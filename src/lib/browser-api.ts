@@ -67,6 +67,11 @@ export const supportsCaptureVisibleTab = (): boolean =>
 /** Address-bar keyword entry (Chrome + Firefox). */
 export const supportsOmnibox = (): boolean => hasChromeNamespace("omnibox")
 
+/** Durable background alarms for scheduled local jobs (Chrome + Firefox). */
+export const supportsAlarms = (): boolean =>
+  typeof browser.alarms?.create === "function" &&
+  typeof browser.alarms?.clear === "function"
+
 /**
  * Offscreen documents are PARKED — the extension CSP blocked the approach for
  * embedding/HNSW work (FEATURE_ROADMAP §7). Always false until that is revisited;

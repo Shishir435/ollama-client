@@ -197,6 +197,17 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Active knowledge-set preference."
   },
+  [STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS]: {
+    key: STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS,
+    scope: "device-local",
+    reason:
+      "Alarm state and recurring local jobs are tied to this browser profile."
+  },
+  [STORAGE_KEYS.BACKGROUND.REMINDERS]: {
+    key: STORAGE_KEYS.BACKGROUND.REMINDERS,
+    scope: "device-local",
+    reason: "Pending one-off reminder alarms are tied to this browser profile."
+  },
   [STORAGE_KEYS.SHORTCUTS]: {
     key: STORAGE_KEYS.SHORTCUTS,
     scope: "sync-safe",

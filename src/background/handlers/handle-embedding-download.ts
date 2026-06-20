@@ -4,6 +4,7 @@ import {
   createAbortTimeout,
   EMBEDDING_DOWNLOAD_TIMEOUT_MS
 } from "@/background/lib/fetch-timeout"
+import { notifyJobComplete } from "@/background/lib/notify"
 import { getBaseUrl } from "@/background/lib/utils"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -376,6 +377,11 @@ export const downloadEmbeddingModelSilently = async (
       "downloadEmbeddingModelSilently",
       { modelName: normalizedModelName }
     )
+    void notifyJobComplete({
+      id: "embedding-model-download",
+      title: "Embedding model ready",
+      message: `${normalizedModelName} finished downloading - retrieval is ready to use.`
+    })
     return { success: true }
   } catch (error) {
     downloadTimeout?.clear()

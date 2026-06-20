@@ -17,7 +17,6 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
  */
 
 export const FEATURE_FLAG_DEFAULTS = {
-  notifications: false, // E5 — notifications + scheduled jobs
   omnibox: false, // E6 — omnibox quick-ask
   bookmarksHistoryRag: false, // E2 — bookmarks/history local RAG
   perSiteProfiles: false, // E3 — per-site auto-context profiles

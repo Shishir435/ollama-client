@@ -11,7 +11,8 @@ vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: { get: vi.fn(), query: vi.fn(), sendMessage: vi.fn() },
     scripting: { executeScript: vi.fn() }
-  }
+  },
+  supportsAlarms: vi.fn(() => true)
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({

@@ -136,6 +136,13 @@ export interface RuntimeMessageMap {
     request: { type: typeof MESSAGE_KEYS.APP.FLUSH_SQLITE }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE]: {
+    request: {
+      type: typeof MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE
+      payload: { id?: string; title: string; message: string }
+    }
+    response: RuntimeResponse
+  }
 }
 
 export type RuntimeMessageKey = keyof RuntimeMessageMap

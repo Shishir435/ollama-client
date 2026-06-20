@@ -1,6 +1,8 @@
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
 import { updateDNRRules } from "@/background/lib/dnr"
+import { registerReminderAlarms } from "@/background/lib/reminders"
+import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -148,4 +150,6 @@ export const initializeBackgroundStartup = () => {
   registerActionHandler()
   registerInstallHandlers()
   registerToolRegistryInvalidation()
+  registerScheduledJobs()
+  registerReminderAlarms()
 }

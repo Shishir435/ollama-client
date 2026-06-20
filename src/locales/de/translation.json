@@ -1419,7 +1419,14 @@
         },
         "notifications": {
           "label": "Benachrichtigungen",
-          "description": "Benachrichtigt dich, wenn ein langer lokaler Vorgang (Einbettung, Nachfüllung) abgeschlossen ist."
+          "description": "Benachrichtigt dich, wenn ein langer lokaler Vorgang (Einbettung, Nachfüllung) abgeschlossen ist.",
+          "testButton": "Testbenachrichtigung senden",
+          "testTitle": "Ollama Client Benachrichtigungstest",
+          "testMessage": "Benachrichtigungen funktionieren.",
+          "testSent": "Test gesendet. Wenn kein Banner erscheint, prüfe die Browser- oder Systembenachrichtigungen.",
+          "testDenied": "Benachrichtigungsberechtigung wurde nicht erteilt.",
+          "testSkipped": "Benachrichtigung übersprungen: {{reason}}.",
+          "testFailed": "Testbenachrichtigung konnte nicht gesendet werden."
         },
         "downloads": {
           "label": "Downloads",
@@ -1433,6 +1440,16 @@
       "host": {
         "title": "Website-Zugriff",
         "description": "Diese Erweiterung behält Zugriff auf alle Websites. Das ist nötig, damit du sie auf eine beliebige lokale oder entfernte Provider-URL richten kannst und damit Seiteninhalt- und Auswahlfunktionen auf jeder Seite funktionieren. Er wird niemals verwendet, um deine Daten irgendwohin zu senden."
+      },
+      "scheduled": {
+        "title": "Geplante lokale Aufgaben",
+        "description": "Wiederkehrende Arbeit läuft nur in diesem Browserprofil. Du kannst sie hier jederzeit ausschalten.",
+        "items": {
+          "vectorMaintenance": {
+            "label": "Wissenswartung",
+            "description": "Führt täglich eine Bereinigung des lokalen Vektorspeichers und doppelter Wissensblöcke aus."
+          }
+        }
       },
       "preview": {
         "title": "Vorschaufunktionen",

@@ -10,6 +10,10 @@ import {
 } from "../handle-embedding-download"
 import { createMockResponse } from "./test-utils"
 
+vi.mock("@/background/lib/notify", () => ({
+  notifyJobComplete: vi.fn()
+}))
+
 // Mock dependencies
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn().mockResolvedValue("http://localhost:11434")

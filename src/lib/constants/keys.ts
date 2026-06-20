@@ -55,7 +55,8 @@ export const MESSAGE_KEYS = {
   },
   APP: {
     RELOAD: "app-reload",
-    FLUSH_SQLITE: "app-flush-sqlite"
+    FLUSH_SQLITE: "app-flush-sqlite",
+    NOTIFY_JOB_COMPLETE: "app-notify-job-complete"
   }
 } as const
 
@@ -133,6 +134,10 @@ export const STORAGE_KEYS = {
   },
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"
+  },
+  BACKGROUND: {
+    SCHEDULED_JOBS: "background-scheduled-jobs",
+    REMINDERS: "background-reminders"
   },
   SHORTCUTS: "keyboard-shortcuts"
 }
