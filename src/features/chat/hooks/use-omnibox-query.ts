@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
 
@@ -104,10 +105,10 @@ export const useOmniboxQuery = ({
       }
     }
 
-    chrome.runtime.onMessage.addListener(handleMessage)
+    browser.runtime.onMessage.addListener(handleMessage)
     return () => {
       pendingOmniboxStorage.unwatch(pendingOmniboxWatch)
-      chrome.runtime.onMessage.removeListener(handleMessage)
+      browser.runtime.onMessage.removeListener(handleMessage)
     }
   }, [consumeOmniboxQuery, isModelReady])
 }

@@ -9,8 +9,18 @@ const storageMock = vi.hoisted(() => ({
   unwatch: vi.fn()
 }))
 
+const browserMock = vi.hoisted(() => ({
+  runtime: {
+    onMessage: { addListener: vi.fn(), removeListener: vi.fn() }
+  }
+}))
+
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStorageForKey: () => storageMock
+}))
+
+vi.mock("@/lib/browser-api", () => ({
+  browser: browserMock
 }))
 
 import { STORAGE_KEYS } from "@/lib/constants"
@@ -23,14 +33,6 @@ beforeEach(() => {
   storageMock.get.mockResolvedValue(undefined)
   storageMock.set.mockResolvedValue(undefined)
   storageMock.remove.mockResolvedValue(undefined)
-
-  globalThis.chrome = {
-    ...(globalThis.chrome ?? {}),
-    runtime: {
-      ...(globalThis.chrome?.runtime ?? {}),
-      onMessage: { addListener: vi.fn(), removeListener: vi.fn() }
-    }
-  } as unknown as typeof chrome
 })
 
 describe("useOmniboxQuery", () => {
