@@ -30,5 +30,13 @@ describe("storage key registry", () => {
     expect(
       getStorageKeyMetadata(STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT)
     ).toMatchObject({ scope: "device-local" })
+    expect(
+      getStorageKeyMetadata(STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS)
+    ).toMatchObject({ scope: "device-local" })
+    expect(
+      getStorageKeyMetadata(STORAGE_KEYS.BACKGROUND.REMINDERS)
+    ).toMatchObject({
+      scope: "device-local"
+    })
   })
 })

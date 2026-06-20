@@ -1419,7 +1419,14 @@
         },
         "notifications": {
           "label": "Notifiche",
-          "description": "Ti avvisa al termine di un'attività locale lunga (embedding, reindicizzazione)."
+          "description": "Ti avvisa al termine di un'attività locale lunga (embedding, reindicizzazione).",
+          "testButton": "Invia notifica di prova",
+          "testTitle": "Test notifica di Ollama Client",
+          "testMessage": "Le notifiche funzionano.",
+          "testSent": "Test inviato. Se non appare alcun banner, controlla le notifiche del browser o del sistema.",
+          "testDenied": "Autorizzazione alle notifiche non concessa.",
+          "testSkipped": "Notifica saltata: {{reason}}.",
+          "testFailed": "Impossibile inviare la notifica di prova."
         },
         "downloads": {
           "label": "Download",
@@ -1433,6 +1440,16 @@
       "host": {
         "title": "Accesso ai siti",
         "description": "Questa estensione mantiene l'accesso a tutti i siti. È necessario per poterla puntare a qualsiasi URL di provider locale o remoto e affinché le funzioni di contesto pagina e selezione funzionino su qualsiasi pagina. Non viene mai usato per inviare i tuoi dati da nessuna parte."
+      },
+      "scheduled": {
+        "title": "Attività locali pianificate",
+        "description": "Il lavoro ricorrente viene eseguito solo in questo profilo del browser. Puoi disattivarlo qui in qualsiasi momento.",
+        "items": {
+          "vectorMaintenance": {
+            "label": "Manutenzione della conoscenza",
+            "description": "Esegue ogni giorno la pulizia dello spazio vettoriale locale e dei frammenti di conoscenza duplicati."
+          }
+        }
       },
       "preview": {
         "title": "Funzioni in anteprima",

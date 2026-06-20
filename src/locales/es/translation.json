@@ -1419,7 +1419,14 @@
         },
         "notifications": {
           "label": "Notificaciones",
-          "description": "Te avisa cuando termina una tarea local larga (incrustación, reindexado)."
+          "description": "Te avisa cuando termina una tarea local larga (incrustación, reindexado).",
+          "testButton": "Enviar notificación de prueba",
+          "testTitle": "Prueba de notificación de Ollama Client",
+          "testMessage": "Las notificaciones funcionan.",
+          "testSent": "Prueba enviada. Si no aparece ningún aviso, revisa las notificaciones del navegador o del sistema.",
+          "testDenied": "No se concedió el permiso de notificaciones.",
+          "testSkipped": "Notificación omitida: {{reason}}.",
+          "testFailed": "No se pudo enviar la notificación de prueba."
         },
         "downloads": {
           "label": "Descargas",
@@ -1433,6 +1440,16 @@
       "host": {
         "title": "Acceso a sitios",
         "description": "Esta extensión mantiene acceso a todos los sitios. Es necesario para que puedas apuntarla a cualquier URL de proveedor local o remoto y para que las funciones de contexto de página y selección funcionen en cualquier página. Nunca se usa para enviar tus datos a ningún sitio."
+      },
+      "scheduled": {
+        "title": "Tareas locales programadas",
+        "description": "El trabajo recurrente se ejecuta solo en este perfil del navegador. Puedes desactivarlo aquí en cualquier momento.",
+        "items": {
+          "vectorMaintenance": {
+            "label": "Mantenimiento del conocimiento",
+            "description": "Ejecuta una limpieza diaria del almacenamiento vectorial local y de fragmentos de conocimiento duplicados."
+          }
+        }
       },
       "preview": {
         "title": "Funciones en vista previa",

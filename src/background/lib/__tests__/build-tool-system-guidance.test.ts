@@ -38,4 +38,10 @@ describe("buildToolSystemGuidance", () => {
     expect(guidance).toContain("Do not add old years such as 2024 or 2025")
     expect(guidance).toContain("set web_search time_range")
   })
+
+  it("adds reminder rules when schedule_reminder is present", () => {
+    const guidance = buildToolSystemGuidance([tool("schedule_reminder")])
+    expect(guidance).toContain("explicitly asks to be reminded")
+    expect(guidance).toContain("delay_minutes=2")
+  })
 })

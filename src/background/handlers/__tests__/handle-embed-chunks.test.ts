@@ -7,6 +7,10 @@ import {
   handleEmbedFileChunksPort
 } from "../handle-embed-chunks"
 
+vi.mock("@/background/lib/notify", () => ({
+  notifyJobComplete: vi.fn()
+}))
+
 // Mock dependencies
 vi.mock("@/lib/embeddings/embedding-client", () => ({
   generateEmbeddingsBatch: vi.fn()
@@ -185,10 +189,10 @@ describe("Handle Embed Chunks", () => {
       expect(port.disconnect).toHaveBeenCalled()
     })
 
-    it("should handle done message", () => {
+    it("should handle done message", async () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message?.({ type: "done" })
+      await listeners.message?.({ type: "done" })
 
       expect(port.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -198,11 +202,11 @@ describe("Handle Embed Chunks", () => {
       expect(port.disconnect).toHaveBeenCalled()
     })
 
-    it("should ignore duplicate done messages after closing", () => {
+    it("should ignore duplicate done messages after closing", async () => {
       handleEmbedFileChunksPort(port)
 
-      listeners.message?.({ type: "done" })
-      listeners.message?.({ type: "done" })
+      await listeners.message?.({ type: "done" })
+      await listeners.message?.({ type: "done" })
 
       expect(port.postMessage).toHaveBeenCalledTimes(1)
       expect(port.postMessage).toHaveBeenCalledWith(

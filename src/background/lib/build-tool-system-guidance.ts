@@ -2,6 +2,7 @@ import type { ToolDefinition } from "@/lib/tools"
 
 const TAB_TOOL_NAMES = new Set(["current_tab", "read_tab", "list_tabs"])
 const WEB_SEARCH_TOOL_NAME = "web_search"
+const SCHEDULE_REMINDER_TOOL_NAME = "schedule_reminder"
 
 const formatDateForGuidance = (date: Date): string => {
   const year = date.getFullYear()
@@ -19,6 +20,9 @@ export const buildToolSystemGuidance = (
   const toolNames = tools.map((tool) => tool.name).join(", ")
   const hasTabTools = tools.some((tool) => TAB_TOOL_NAMES.has(tool.name))
   const hasWebSearch = tools.some((tool) => tool.name === WEB_SEARCH_TOOL_NAME)
+  const hasScheduleReminder = tools.some(
+    (tool) => tool.name === SCHEDULE_REMINDER_TOOL_NAME
+  )
   const guidance = [
     `You have tools available: ${toolNames}.`,
     "When the user refers to current page, current tab, open tabs, selected text, uploaded files, or earlier conversations, call the matching tool to fetch real content before answering.",
@@ -40,6 +44,12 @@ export const buildToolSystemGuidance = (
       `Current date is ${currentDate}. Use web_search for current or real-time facts; prefer it over guessing when a question is time-sensitive; cite returned URLs.`,
       `For current/latest web searches, query the current year (${currentYear}) or the exact current date when useful. Do not add old years such as ${oldYears} unless the user asks for those years.`,
       "When the question is about recent or ongoing events (e.g. 'latest', 'recent', 'today', news, trips, prices), also set web_search time_range to 'day' or 'week' (use 'month' for less urgent recency) so stale results are filtered out."
+    )
+  }
+
+  if (hasScheduleReminder) {
+    guidance.push(
+      "Use schedule_reminder only when the user explicitly asks to be reminded or notified later. For requests like 'remind me in 2 minutes to stretch', call schedule_reminder with delay_minutes=2 and message='Stretch', then confirm it was scheduled."
     )
   }
 

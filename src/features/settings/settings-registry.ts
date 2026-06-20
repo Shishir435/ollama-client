@@ -1306,6 +1306,15 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.permissions.host.description",
     aliases: ["host access", "all urls", "site access", "remote url"]
   },
+  {
+    id: "scheduled-job-vector-maintenance",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.scheduled.items.vectorMaintenance.label",
+    descriptionKey:
+      "settings.permissions.scheduled.items.vectorMaintenance.description",
+    aliases: ["scheduled jobs", "maintenance", "alarms", "cleanup"]
+  },
   // Preview-features card is dev-only (hidden in the production build), so only
   // register its search entry where the focus target actually mounts.
   ...(PREVIEW_FEATURES_VISIBLE

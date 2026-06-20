@@ -54,7 +54,8 @@ export default defineConfig({
       "tabs",
       "scripting",
       "declarativeNetRequest",
-      "contextMenus"
+      "contextMenus",
+      "alarms"
     ],
     // Optional API permissions (v0.11.0 groundwork — FEATURE_ROADMAP §5 item 2).
     // Declared so they can be requested at runtime via src/lib/permissions.ts;

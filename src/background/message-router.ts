@@ -19,6 +19,7 @@ import {
   parseStringPayload,
   parseWarmupPayload
 } from "@/background/lib/message-payloads"
+import { notifyJobComplete } from "@/background/lib/notify"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
@@ -275,6 +276,49 @@ export const registerMessageRouter = () => {
               }
             })
           })
+          return true
+        }
+
+        case MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE: {
+          const payload = message.payload as
+            | { id?: string; title?: unknown; message?: unknown }
+            | undefined
+          if (
+            !payload ||
+            typeof payload.title !== "string" ||
+            typeof payload.message !== "string"
+          ) {
+            respondInvalidPayload(response)
+            return true
+          }
+
+          notifyJobComplete({
+            id: typeof payload.id === "string" ? payload.id : undefined,
+            title: payload.title,
+            message: payload.message
+          })
+            .then((result) => {
+              safeSendResponse(response, {
+                success: result.sent,
+                data: result,
+                error: result.sent
+                  ? undefined
+                  : {
+                      status: 0,
+                      message: result.reason || "Notification skipped"
+                    }
+              })
+            })
+            .catch((error) => {
+              safeSendResponse(response, {
+                success: false,
+                error: {
+                  status: 0,
+                  message:
+                    error instanceof Error ? error.message : String(error)
+                }
+              })
+            })
           return true
         }
 

@@ -1007,7 +1007,14 @@
         },
         "notifications": {
           "label": "Notifications",
-          "description": "Notify you when a long local job (embedding, backfill) finishes."
+          "description": "Notify you when a long local job (embedding, backfill) finishes.",
+          "testButton": "Send test notification",
+          "testTitle": "Ollama Client notification test",
+          "testMessage": "Notifications are working.",
+          "testSent": "Test sent. If no banner appears, check browser or OS notification settings.",
+          "testDenied": "Notification permission was not granted.",
+          "testSkipped": "Notification skipped: {{reason}}.",
+          "testFailed": "Could not send test notification."
         },
         "downloads": {
           "label": "Downloads",
@@ -1021,6 +1028,16 @@
       "host": {
         "title": "Site access",
         "description": "This extension keeps access to all sites. It is required so you can point it at any local or remote provider URL, and so page-context and selection features work on any page. It is never used to send your data anywhere."
+      },
+      "scheduled": {
+        "title": "Scheduled local jobs",
+        "description": "Recurring work runs only in this browser profile. Turn it off here at any time.",
+        "items": {
+          "vectorMaintenance": {
+            "label": "Knowledge maintenance",
+            "description": "Run daily cleanup for local vector storage and duplicate knowledge chunks."
+          }
+        }
       },
       "preview": {
         "title": "Preview features",

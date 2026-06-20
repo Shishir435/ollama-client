@@ -1,4 +1,5 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
+import { notifyJobComplete } from "@/background/lib/notify"
 import { generateEmbeddingsBatch } from "@/lib/embeddings/embedding-client"
 import { storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
@@ -77,6 +78,11 @@ export const handleEmbedFileChunks = async (
         success: true,
         data: { embedded: results.length }
       })
+      void notifyJobComplete({
+        id: `embed-file-${payload.metadata.fileId}`,
+        title: "File embedding done",
+        message: `${payload.metadata.title || "File"} is ready for local knowledge search.`
+      })
     } catch (e) {
       logger.warn(
         "Port closed before success response sent",
@@ -108,6 +114,7 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
   let processed = 0
   let cancelled = false
   let closed = false
+  let batchQueue = Promise.resolve()
 
   const postMessage = (message: Record<string, unknown>) => {
     if (closed) return false
@@ -189,52 +196,65 @@ export const handleEmbedFileChunksPort = (port: ChromePort) => {
 
         totalChunks += batch.length
 
-        // Generate embeddings for this batch
-        const texts = batch.map((c) => c.text)
-        const results = await generateEmbeddingsBatch(texts, modelName)
+        batchQueue = batchQueue.then(async () => {
+          if (cancelled) return
 
-        // Store each embedding
-        for (let i = 0; i < results.length; i++) {
-          if (cancelled) break
-          const res = results[i]
-          const chunk = batch[i]
+          // Generate embeddings for this batch
+          const texts = batch.map((c) => c.text)
+          const results = await generateEmbeddingsBatch(texts, modelName)
 
-          // Type guard: check if this is an EmbeddingResult (not an error)
-          if ("embedding" in res && res.embedding) {
-            try {
-              await storeVector(chunk.text, res.embedding, {
-                type: "file",
-                fileId: metadata?.fileId || "",
-                title: metadata?.title,
-                source: metadata?.title || metadata?.fileId || "Unknown File",
-                timestamp: metadata?.timestamp || Date.now(),
-                chunkIndex: chunk.index,
-                totalChunks: totalChunks,
-                embeddingModel: "model" in res ? res.model : undefined,
-                embeddingDim: res.embedding.length
-              })
-            } catch (e) {
-              logger.warn(
-                "Failed to store vector for chunk",
-                "handleEmbedFileChunksPort",
-                { chunkIndex: chunk.index, error: e }
-              )
+          // Store each embedding
+          for (let i = 0; i < results.length; i++) {
+            if (cancelled) break
+            const res = results[i]
+            const chunk = batch[i]
+
+            // Type guard: check if this is an EmbeddingResult (not an error)
+            if ("embedding" in res && res.embedding) {
+              try {
+                await storeVector(chunk.text, res.embedding, {
+                  type: "file",
+                  fileId: metadata?.fileId || "",
+                  title: metadata?.title,
+                  source: metadata?.title || metadata?.fileId || "Unknown File",
+                  timestamp: metadata?.timestamp || Date.now(),
+                  chunkIndex: chunk.index,
+                  totalChunks: totalChunks,
+                  embeddingModel: "model" in res ? res.model : undefined,
+                  embeddingDim: res.embedding.length
+                })
+              } catch (e) {
+                logger.warn(
+                  "Failed to store vector for chunk",
+                  "handleEmbedFileChunksPort",
+                  { chunkIndex: chunk.index, error: e }
+                )
+              }
             }
+            processed++
           }
-          processed++
-        }
 
-        // Send progress update
-        postMessage({
-          status: "progress",
-          processed,
-          total: totalChunks
+          // Send progress update
+          postMessage({
+            status: "progress",
+            processed,
+            total: totalChunks
+          })
         })
+        await batchQueue
         return
       }
 
       if (msg.type === "done") {
+        await batchQueue
         postMessage({ status: "done", processed, total: totalChunks })
+        if (!cancelled && processed > 0) {
+          void notifyJobComplete({
+            id: metadata?.fileId ? `embed-file-${metadata.fileId}` : undefined,
+            title: "File embedding done",
+            message: `${metadata?.title || "File"} is ready for local knowledge search.`
+          })
+        }
         closePort()
         return
       }

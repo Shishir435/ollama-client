@@ -163,6 +163,22 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                     "useFileUpload"
                   )
                   await markKnowledgeFileEmbedded(fileId)
+                  void browser.runtime
+                    .sendMessage({
+                      type: MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE,
+                      payload: {
+                        id: `embed-file-${fileId}`,
+                        title: "File embedding done",
+                        message: `${result.metadata.fileName || "File"} is ready for local knowledge search.`
+                      }
+                    })
+                    .catch((error) => {
+                      logger.debug?.(
+                        "File embedding notification skipped",
+                        "useFileUpload",
+                        { error }
+                      )
+                    })
                 } else {
                   logger.error(
                     `Failed to process "${file.name}"`,
@@ -284,15 +300,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
                         })
                         return next
                       })
-                    }
-                    try {
-                      port.postMessage({ type: "done" })
-                    } catch (e) {
-                      logger.warn(
-                        "Port closed before done signal",
-                        "useFileUpload",
-                        { error: e }
-                      )
                     }
                     try {
                       port.disconnect()

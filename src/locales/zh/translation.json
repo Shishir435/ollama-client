@@ -1419,7 +1419,14 @@
         },
         "notifications": {
           "label": "通知",
-          "description": "当较长的本地任务（嵌入、回填）完成时通知你。"
+          "description": "当较长的本地任务（嵌入、回填）完成时通知你。",
+          "testButton": "发送测试通知",
+          "testTitle": "Ollama Client 通知测试",
+          "testMessage": "通知可以正常工作。",
+          "testSent": "测试已发送。如果没有出现横幅，请检查浏览器或系统通知设置。",
+          "testDenied": "未授予通知权限。",
+          "testSkipped": "通知已跳过：{{reason}}。",
+          "testFailed": "无法发送测试通知。"
         },
         "downloads": {
           "label": "下载",
@@ -1433,6 +1440,16 @@
       "host": {
         "title": "网站访问",
         "description": "此扩展保留对所有网站的访问权限。这是必要的，以便你可以将其指向任何本地或远程提供方 URL，并使页面上下文和选择功能在任何页面上都能正常工作。它绝不会用于将你的数据发送到任何地方。"
+      },
+      "scheduled": {
+        "title": "已计划的本地任务",
+        "description": "重复任务只会在此浏览器配置文件中运行。你可以随时在这里关闭。",
+        "items": {
+          "vectorMaintenance": {
+            "label": "知识维护",
+            "description": "每天清理本地向量存储和重复的知识片段。"
+          }
+        }
       },
       "preview": {
         "title": "预览功能",
