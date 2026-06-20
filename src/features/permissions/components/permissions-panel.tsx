@@ -122,6 +122,7 @@ export const PermissionsPanel = ({
   return (
     <div className="grid gap-4">
       <SettingsCard
+        focusId="permissions"
         icon={Shield}
         title={t("settings.permissions.optional.title")}
         description={t("settings.permissions.optional.description")}>
@@ -139,6 +140,7 @@ export const PermissionsPanel = ({
 
       {!compact && (
         <SettingsCard
+          focusId="permissions-host"
           icon={Globe}
           title={t("settings.permissions.host.title")}
           description={t("settings.permissions.host.description")}
@@ -146,6 +148,7 @@ export const PermissionsPanel = ({
       )}
 
       <SettingsCard
+        focusId="permissions-preview"
         icon={Sparkles}
         title={t("settings.permissions.preview.title")}
         description={t("settings.permissions.preview.description")}>

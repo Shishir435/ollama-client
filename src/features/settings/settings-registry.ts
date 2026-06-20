@@ -1211,6 +1211,72 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     labelKey: "guides.support.title",
     descriptionKey: "guides.support.description",
     aliases: ["product hunt", "support project"]
+  },
+
+  // ---- Permissions & Privacy ---------------------------------------------
+  {
+    id: "permissions",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.title",
+    descriptionKey: "settings.permissions.description",
+    aliases: ["permissions", "privacy", "access", "consent", "data"]
+  },
+  {
+    id: "permission-bookmarks",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.bookmarks.label",
+    descriptionKey: "settings.permissions.items.bookmarks.description",
+    aliases: ["bookmarks", "saved pages", "permission"]
+  },
+  {
+    id: "permission-history",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.history.label",
+    descriptionKey: "settings.permissions.items.history.description",
+    aliases: ["history", "browsing history", "permission"]
+  },
+  {
+    id: "permission-notifications",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.notifications.label",
+    descriptionKey: "settings.permissions.items.notifications.description",
+    aliases: ["notifications", "alerts", "permission"]
+  },
+  {
+    id: "permission-downloads",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.downloads.label",
+    descriptionKey: "settings.permissions.items.downloads.description",
+    aliases: ["downloads", "save file", "export", "permission"]
+  },
+  {
+    id: "permission-tab-groups",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.tabGroups.label",
+    descriptionKey: "settings.permissions.items.tabGroups.description",
+    aliases: ["tab groups", "permission"]
+  },
+  {
+    id: "permissions-host",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.host.title",
+    descriptionKey: "settings.permissions.host.description",
+    aliases: ["host access", "all urls", "site access", "remote url"]
+  },
+  {
+    id: "permissions-preview",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.preview.title",
+    descriptionKey: "settings.permissions.preview.description",
+    aliases: ["preview", "experimental", "beta", "feature flags"]
   }
 ]
 
