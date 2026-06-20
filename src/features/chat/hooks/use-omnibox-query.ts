@@ -101,6 +101,10 @@ export const useOmniboxQuery = ({
         msg.type === MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY &&
         typeof msg.payload === "string"
       ) {
+        // The background also forwards the address-bar `disposition`
+        // (Enter vs Alt/Meta+Enter). It is intentionally ignored: the side
+        // panel is the only chat surface, so every quick-ask opens there
+        // regardless of how the user submitted the omnibox entry.
         void consumeOmniboxQuery(msg.payload)
       }
     }
