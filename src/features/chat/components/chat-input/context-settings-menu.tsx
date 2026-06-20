@@ -21,6 +21,13 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle
+} from "@/components/ui/sheet"
+import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -197,6 +204,7 @@ export const ContextSettingsMenu = () => {
   const { tabContents } = useTabContents()
   const getTabStatus = useTabStatusMap()
   const [open, setOpen] = useState(false)
+  const [permsOpen, setPermsOpen] = useState(false)
   const [previewTabId, setPreviewTabId] = useState<string | null>(null)
   const [tabSearch, setTabSearch] = useState("")
   const [config] = useStorage<ContentExtractionConfig>(
@@ -378,8 +386,33 @@ export const ContextSettingsMenu = () => {
               openPreview={openPreview}
             />
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 justify-start gap-2 rounded-control border-t border-border/40 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setOpen(false)
+              setPermsOpen(true)
+            }}>
+            <ShieldCheck className="icon-sm shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left">
+              {t("settings.permissions.title")}
+            </span>
+          </Button>
         </PopoverContent>
       </Popover>
+      <Sheet open={permsOpen} onOpenChange={setPermsOpen}>
+        <SheetContent
+          side="right"
+          className="w-[min(26rem,calc(100vw-1.25rem))] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("settings.permissions.title")}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-3">
+            <PermissionsPanel compact />
+          </div>
+        </SheetContent>
+      </Sheet>
       <PreviewSheet
         open={Boolean(previewTabId)}
         onOpenChange={(next) => {

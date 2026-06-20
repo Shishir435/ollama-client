@@ -22,6 +22,7 @@ const TAB_LABEL_KEYS: Record<string, string> = {
   prompts: "settings.tabs.prompts",
   shortcuts: "settings.tabs.shortcuts",
   voices: "settings.tabs.voices",
+  permissions: "settings.tabs.permissions",
   reset: "settings.tabs.reset",
   guides: "settings.tabs.guides"
 }

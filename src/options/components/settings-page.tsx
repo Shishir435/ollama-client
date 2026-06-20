@@ -34,6 +34,7 @@ import { ContentExtractionSettings } from "@/features/model/components/content-e
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
+import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
@@ -52,6 +53,7 @@ import {
   RefreshCcw,
   Server,
   Settings,
+  Shield,
   Sparkles,
   Volume2,
   Zap
@@ -123,6 +125,11 @@ export const SettingsPage = () => {
     {
       title: t("settings.sections.system"),
       items: [
+        {
+          key: "permissions",
+          label: t("settings.tabs.permissions"),
+          icon: Shield
+        },
         { key: "reset", label: t("settings.tabs.reset"), icon: RefreshCcw },
         { key: "guides", label: t("settings.tabs.guides"), icon: BookOpen }
       ]
@@ -178,6 +185,11 @@ export const SettingsPage = () => {
     voices: (
       <SectionStack>
         <SpeechSettings />
+      </SectionStack>
+    ),
+    permissions: (
+      <SectionStack>
+        <PermissionsPanel />
       </SectionStack>
     ),
     reset: (

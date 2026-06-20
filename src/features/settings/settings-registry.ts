@@ -29,6 +29,7 @@ export const SETTINGS_TABS = [
   "prompts",
   "shortcuts",
   "voices",
+  "permissions",
   "reset",
   "guides"
 ] as const
