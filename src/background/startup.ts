@@ -10,6 +10,9 @@ import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
 import type { ChromeSidePanel } from "@/types"
 
+/** Browser-level command id; mirrors the `commands` block in wxt.config.ts. */
+const OPEN_PANEL_COMMAND = "open-panel"
+
 const openClientWindow = () => {
   browser.windows.create({
     url: browser.runtime.getURL("sidepanel.html"),
@@ -17,6 +20,35 @@ const openClientWindow = () => {
     width: 420,
     height: 640
   })
+}
+
+/**
+ * Open the chat surface for a tab: the native side panel on Chromium, a popup
+ * window on Firefox (or when no window context is available). Shared by the
+ * toolbar action and the `open-panel` keyboard command.
+ */
+const openPanelForTab = (tab?: { id?: number; windowId?: number }) => {
+  if (isChromiumBased() && "sidePanel" in browser) {
+    const windowId = tab?.windowId
+    if (!windowId) {
+      openClientWindow()
+      return
+    }
+
+    const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
+      .sidePanel
+    sidePanel.open({ windowId, tabId: tab?.id }).catch((error) => {
+      logger.warn(
+        "Failed to open side panel, falling back to popup",
+        "BackgroundSW",
+        { error }
+      )
+      openClientWindow()
+    })
+    return
+  }
+
+  openClientWindow()
 }
 
 const registerActionHandler = () => {
@@ -39,27 +71,7 @@ const registerActionHandler = () => {
       )
 
     if (actionAPI) {
-      actionAPI.onClicked.addListener((tab) => {
-        const windowId = tab.windowId
-        if (!windowId) {
-          openClientWindow()
-          return
-        }
-
-        sidePanel
-          .open({
-            windowId,
-            tabId: tab.id
-          })
-          .catch((error) => {
-            logger.warn(
-              "Failed to open side panel, falling back to popup",
-              "BackgroundSW",
-              { error }
-            )
-            openClientWindow()
-          })
-      })
+      actionAPI.onClicked.addListener((tab) => openPanelForTab(tab))
     }
     return
   }
@@ -69,6 +81,33 @@ const registerActionHandler = () => {
       openClientWindow()
     })
   }
+}
+
+/**
+ * Browser-level keyboard command (v0.11.1 / F2). Opens the chat side panel from
+ * any page. `sidePanel.open` requires a user gesture — the command qualifies.
+ */
+const registerCommandHandler = () => {
+  const commands = (
+    browser as unknown as {
+      commands?: {
+        onCommand?: {
+          addListener: (
+            cb: (
+              command: string,
+              tab?: { id?: number; windowId?: number }
+            ) => void
+          ) => void
+        }
+      }
+    }
+  ).commands
+
+  if (!commands?.onCommand) return
+
+  commands.onCommand.addListener((command, tab) => {
+    if (command === OPEN_PANEL_COMMAND) openPanelForTab(tab)
+  })
 }
 
 const registerInstallHandlers = () => {
@@ -136,6 +175,7 @@ export const initializeBackgroundStartup = () => {
   void runEmbeddingDimensionMigration()
   initializeContextMenu()
   registerActionHandler()
+  registerCommandHandler()
   registerInstallHandlers()
   registerToolRegistryInvalidation()
 }

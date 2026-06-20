@@ -6,6 +6,7 @@ import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
+import { isChromiumBased, openExternalUrl } from "@/lib/browser-api"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_SHORTCUTS,
@@ -179,6 +180,28 @@ export const ShortcutsSettings = () => {
       focusId="keyboard-shortcuts"
       title={t("settings.shortcuts.title")}
       description={t("settings.shortcuts.description")}>
+      {/* Browser-level command pointer (v0.11.1 / F2). The browser owns these
+          bindings, so they can't be rebound from this page. */}
+      <div
+        data-settings-focus-id="browser-shortcuts"
+        className="rounded-md border border-border/60 bg-muted/30 px-3 py-2.5">
+        <p className="text-sm font-medium">
+          {t("settings.shortcuts.browser.title")}
+        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {t("settings.shortcuts.browser.description")}
+        </p>
+        {isChromiumBased() && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => openExternalUrl("chrome://extensions/shortcuts")}>
+            {t("settings.shortcuts.browser.button")}
+          </Button>
+        )}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 text-muted-foreground" />

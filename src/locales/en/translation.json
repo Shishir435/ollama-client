@@ -720,6 +720,11 @@
       "description": "Customize keyboard shortcuts for quick access to features.",
       "recording": "Press keys...",
       "reset_all": "Reset All Shortcuts",
+      "browser": {
+        "title": "Open from anywhere",
+        "description": "Set a browser-level shortcut to open the chat side panel from any page. The browser manages this binding, so it's configured in your browser's shortcuts page.",
+        "button": "Open browser shortcuts"
+      },
       "new_chat": "New Chat",
       "new_chat_desc": "Create a new chat session",
       "focus_input": "Focus Input",
