@@ -38,7 +38,11 @@
     "continue": "继续导入",
     "reload": "重新加载扩展",
     "close": "关闭",
-    "remove": "移除"
+    "remove": "移除",
+    "toggle": {
+      "off": "关闭",
+      "on": "开启"
+    }
   },
   "extension": {
     "name": "Ollama Client - 与本地 LLM 模型聊天",
@@ -271,7 +275,19 @@
       "tab_context_label": "标签页上下文 ({{count}})",
       "rag_context_label": "RAG上下文 ({{count}})",
       "char_counts": "标签字符: {{tab}} | RAG字符: {{rag}}",
-      "trimmed": "已截断"
+      "trimmed": "已截断",
+      "view_web": "查看 {{count}} 个网络来源",
+      "view_web_plural": "查看 {{count}} 个网络来源",
+      "web_engine": "来自 {{engine}}",
+      "web_no_snippet": "无可用预览。",
+      "web_published": "发布于：{{date}}",
+      "web_score": "评分 {{score}}",
+      "web_source": "{{count}} 个网络来源",
+      "web_source_plural": "{{count}} 个网络来源",
+      "web_title": "网络来源（{{count}}）",
+      "web_unused_hint": "在设置中调高网络搜索结果数量，可向模型提供更多此类内容。",
+      "web_unused_label": "也已找到 — 未发送（{{count}}）",
+      "web_used_label": "已发送给模型（{{count}}）"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "导入聊天会话",
       "aria_label": "导入聊天会话",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "在所选文件中未找到可读取的聊天会话。",
+        "failed_title": "未导入任何内容",
+        "partial_description": "已跳过 {{skipped}} 个会话，丢弃 {{droppedMessages}} 条消息，{{invalidFiles}} 个文件无法读取。",
+        "partial_title": "已导入 {{count}} 个聊天会话，但存在问题",
+        "partial_title_plural": "已导入 {{count}} 个聊天会话，但存在问题",
+        "success_title": "已导入 {{count}} 个聊天会话",
+        "success_title_plural": "已导入 {{count}} 个聊天会话"
+      }
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "最大标签页上下文字符数",
       "max_rag_context_chars": "最大RAG上下文字符数",
       "auto_refresh_label": "自动刷新所选标签页上下文",
-      "auto_refresh_description": "启用后，所选标签页会定期检查是否有变化。"
+      "auto_refresh_description": "启用后，所选标签页会定期检查是否有变化。",
+      "max_tool_result_chars": "工具结果最大字符数",
+      "max_tool_result_chars_hint": "每个工具结果（页面文本、字幕、文档搜索）在模型读取前都会被裁剪到这一字符数。数值越低，在笔记本电脑上越快；如果回答遗漏细节，可调高。"
     },
     "grounding_mode": {
       "label": "仅从所选页面上下文回答",
@@ -790,11 +817,24 @@
         "scroll_delay": "滚动延迟（毫秒）",
         "mutation_timeout": "变动观察器超时（毫秒）",
         "network_timeout": "网络空闲超时（毫秒）",
-        "max_wait": "最长等待时间（毫秒）"
+        "max_wait": "最长等待时间（毫秒）",
+        "section_title": "页面加载超时（高级）"
       },
       "badges": {
         "recommended": "推荐",
         "active": "活动"
+      },
+      "selection_actions": {
+        "description": "在页面上选中文本时显示本地 AI 操作。",
+        "label": "启用划词操作"
+      },
+      "selection_actions_list": {
+        "description": "选择页面工具栏中显示哪些本地文本操作。",
+        "label": "划词操作列表"
+      },
+      "selection_actions_min_chars": {
+        "description": "短于此长度的选中文本将不予显示。",
+        "label": "最少选中字符数"
       }
     },
     "model": {
@@ -962,6 +1002,18 @@
         "progress": "正在重建聊天 Embedding（{{current}}/{{total}}）",
         "success": "Embedding 重建成功。",
         "error": "无法重建 Embedding。"
+      },
+      "sections": {
+        "conversation": "对话上下文",
+        "conversation_description": "助手记住哪些内容，以及聊天记录如何被索引。",
+        "files_chunking": "文件与分块",
+        "files_chunking_description": "上传文件如何被接受并拆分以供检索。",
+        "grounding": "页面锚定",
+        "grounding_description": "将回答限定在你当前查看的页面内。",
+        "prompt_budget": "提示词预算",
+        "prompt_budget_description": "限制每个提示词中可打包多少上下文。",
+        "retrieval": "检索",
+        "retrieval_description": "助手在对话之外查阅的范围 — 网络和你的知识库。"
       }
     },
     "web_search": {
@@ -1295,10 +1347,56 @@
     },
     "saved": "已保存",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "已应用 {{name}} 预设",
+      "apply": "应用预设",
+      "balanced": {
+        "description": "推荐的默认配置 — 兼顾各方面的良好折中。",
+        "label": "均衡"
+      },
+      "description": "一键应用调校好的组合。之后你仍可单独调整任意设置。",
+      "fast": {
+        "description": "更小的上下文和检索范围，响应更快、更轻量。",
+        "label": "快速"
+      },
+      "fields": {
+        "auto_embed_chat": "自动嵌入聊天记录以用作记忆",
+        "auto_refresh_tab": "自动从打开的标签页刷新上下文",
+        "chunk_overlap": "相邻分块之间的重叠",
+        "chunk_size": "拆分文本时每个分块的字符数",
+        "chunking_strategy": "文档如何拆分以供检索",
+        "enhanced_chunking": "更智能、感知结构的文本拆分",
+        "global_auto_embed": "在所有聊天中自动嵌入内容",
+        "grounded_only": "仅将回答限定在当前页面",
+        "max_rag_chars": "提示词中检索上下文的字符预算",
+        "max_tab_chars": "提示词中标签页上下文的字符预算",
+        "max_tool_chars": "每个反馈给模型的工具结果的字符上限",
+        "min_rerank": "结果必须超过才能保留的最低评分",
+        "search_limit": "检索返回的结果数量（Top-K）",
+        "tab_access": "允许模型读取你其他打开的标签页",
+        "use_reranking": "对检索结果重新评分以提升相关性",
+        "web_search": "让具备工具能力的模型搜索实时网络",
+        "web_search_label": "网络搜索"
+      },
+      "footer_note": "之后你可以在设置中微调其中任意一项。",
+      "large_context": {
+        "description": "更大的上下文和检索范围，在性能强劲的设备上提供更全面的回答。",
+        "label": "大上下文"
+      },
+      "preview_hint": "以下设置将会更改：",
+      "preview_title": "应用 {{name}}",
+      "privacy_strict": {
+        "description": "不访问页面，回答锚定到当前打开的页面，不自动嵌入，关闭网络搜索。",
+        "label": "严格隐私"
+      },
+      "title": "预设"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "重置此部分",
+      "description": "此操作会将此部分的控件恢复为默认值。其他设置不受影响。",
+      "done": "此部分已重置为默认值",
+      "title": "将此部分重置为默认值？"
     },
     "permissions": {
       "title": "权限与隐私",
@@ -1337,6 +1435,9 @@
         "title": "预览功能",
         "description": "正在开发中的实验性功能。默认关闭；启用风险自负。"
       }
+    },
+    "search": {
+      "placeholder": "搜索设置…"
     }
   },
   "guides": {

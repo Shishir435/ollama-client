@@ -38,7 +38,11 @@
     "continue": "Continua Importazione",
     "reload": "Ricarica Estensione",
     "close": "Chiudi",
-    "remove": "Rimuovi"
+    "remove": "Rimuovi",
+    "toggle": {
+      "off": "Off",
+      "on": "On"
+    }
   },
   "extension": {
     "name": "Ollama Client - Chat con modelli LLM locali",
@@ -271,7 +275,19 @@
       "tab_context_label": "Contesto scheda ({{count}})",
       "rag_context_label": "Contesto RAG ({{count}})",
       "char_counts": "caratt. scheda: {{tab}} | caratt. RAG: {{rag}}",
-      "trimmed": "troncato"
+      "trimmed": "troncato",
+      "view_web": "Visualizza {{count}} fonte web",
+      "view_web_plural": "Visualizza {{count}} fonti web",
+      "web_engine": "tramite {{engine}}",
+      "web_no_snippet": "Nessuna anteprima disponibile.",
+      "web_published": "Pubblicato: {{date}}",
+      "web_score": "punteggio {{score}}",
+      "web_source": "{{count}} fonte web",
+      "web_source_plural": "{{count}} fonti web",
+      "web_title": "Fonti web ({{count}})",
+      "web_unused_hint": "Aumenta il numero di risultati della ricerca web nelle Impostazioni per fornirne di più al modello.",
+      "web_unused_label": "Trovate anche queste — non inviate ({{count}})",
+      "web_used_label": "Inviate al modello ({{count}})"
     },
     "search": {
       "button_title": "Cerca nella cronologia chat (ricerca semantica)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "Importa sessioni di chat",
       "aria_label": "Importa sessioni di chat",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "Nessuna sessione di chat leggibile è stata trovata nel/i file selezionato/i.",
+        "failed_title": "Nessun elemento importato",
+        "partial_description": "Saltate {{skipped}} sessione/i, scartati {{droppedMessages}} messaggio/i, {{invalidFiles}} file illeggibile/i.",
+        "partial_title": "Importata {{count}} sessione di chat con problemi",
+        "partial_title_plural": "Importate {{count}} sessioni di chat con problemi",
+        "success_title": "Importata {{count}} sessione di chat",
+        "success_title_plural": "Importate {{count}} sessioni di chat"
+      }
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "Max caratteri contesto scheda",
       "max_rag_context_chars": "Max caratteri contesto RAG",
       "auto_refresh_label": "Aggiorna automaticamente contesto scheda selezionata",
-      "auto_refresh_description": "Quando abilitato, le schede selezionate vengono verificate periodicamente per eventuali modifiche."
+      "auto_refresh_description": "Quando abilitato, le schede selezionate vengono verificate periodicamente per eventuali modifiche.",
+      "max_tool_result_chars": "Caratteri massimi del risultato dello strumento",
+      "max_tool_result_chars_hint": "Ogni risultato dello strumento (testo della pagina, trascrizioni, ricerca documenti) viene troncato a questo numero di caratteri prima che il modello lo legga. Un valore più basso è più veloce su un laptop; aumentalo se le risposte tralasciano dettagli."
     },
     "grounding_mode": {
       "label": "Rispondi solo dal contesto di pagina selezionato",
@@ -790,11 +817,24 @@
         "scroll_delay": "Ritardo di scorrimento in millisecondi",
         "mutation_timeout": "Timeout di Mutation Observer in millisecondi",
         "network_timeout": "Timeout di inattività della rete in millisecondi",
-        "max_wait": "Tempo massimo di attesa (millisecondi)"
+        "max_wait": "Tempo massimo di attesa (millisecondi)",
+        "section_title": "Timeout di caricamento pagina (avanzate)"
       },
       "badges": {
         "recommended": "Raccomandato",
         "active": "Attivo"
+      },
+      "selection_actions": {
+        "description": "Mostra le azioni dell'IA locale quando viene selezionato del testo su una pagina.",
+        "label": "Abilita le azioni di selezione"
+      },
+      "selection_actions_list": {
+        "description": "Scegli quali azioni di testo locali appaiono nella barra degli strumenti della pagina.",
+        "label": "Elenco delle azioni di selezione"
+      },
+      "selection_actions_min_chars": {
+        "description": "Le selezioni più corte di questo valore restano nascoste.",
+        "label": "Caratteri minimi selezionati"
       }
     },
     "model": {
@@ -962,6 +1002,18 @@
         "progress": "Ricostruzione embedding chat ({{current}}/{{total}})",
         "success": "Embedding ricostruiti correttamente.",
         "error": "Impossibile ricostruire gli embedding."
+      },
+      "sections": {
+        "conversation": "Contesto della conversazione",
+        "conversation_description": "Cosa ricorda l'assistente e come viene indicizzata la cronologia delle chat.",
+        "files_chunking": "File e suddivisione",
+        "files_chunking_description": "Come vengono accettati e suddivisi i file caricati per il recupero.",
+        "grounding": "Ancoraggio",
+        "grounding_description": "Limita le risposte alla pagina che stai visualizzando.",
+        "prompt_budget": "Budget del prompt",
+        "prompt_budget_description": "Limiti su quanto contesto viene inserito in ogni prompt.",
+        "retrieval": "Recupero",
+        "retrieval_description": "Dove l'assistente cerca oltre la conversazione — il web e la tua knowledge base."
       }
     },
     "web_search": {
@@ -1295,10 +1347,56 @@
     },
     "saved": "Salvato",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "Preset {{name}} applicato",
+      "apply": "Applica preset",
+      "balanced": {
+        "description": "I valori predefiniti consigliati — un buon compromesso.",
+        "label": "Bilanciato"
+      },
+      "description": "Applica una combinazione ottimizzata con un clic. Puoi comunque regolare ogni singola impostazione in seguito.",
+      "fast": {
+        "description": "Contesto e recupero ridotti per risposte più rapide e leggere.",
+        "label": "Veloce"
+      },
+      "fields": {
+        "auto_embed_chat": "Incorpora automaticamente la cronologia delle chat per la memoria",
+        "auto_refresh_tab": "Aggiorna automaticamente il contesto dalla scheda aperta",
+        "chunk_overlap": "Sovrapposizione tra blocchi adiacenti",
+        "chunk_size": "Caratteri per blocco durante la suddivisione del testo",
+        "chunking_strategy": "Come vengono suddivisi i documenti per il recupero",
+        "enhanced_chunking": "Suddivisione del testo più intelligente e consapevole della struttura",
+        "global_auto_embed": "Incorpora automaticamente i contenuti in tutte le chat",
+        "grounded_only": "Limita le risposte solo alla pagina corrente",
+        "max_rag_chars": "Budget di caratteri per il contesto recuperato nel prompt",
+        "max_tab_chars": "Budget di caratteri per il contesto della scheda nel prompt",
+        "max_tool_chars": "Limite di caratteri per ogni risultato dello strumento restituito al modello",
+        "min_rerank": "Punteggio minimo che un risultato deve superare per essere mantenuto",
+        "search_limit": "Quanti risultati restituisce il recupero (top-K)",
+        "tab_access": "Consenti ai modelli di leggere le altre schede aperte",
+        "use_reranking": "Riassegna un punteggio ai risultati recuperati per una migliore pertinenza",
+        "web_search": "Consenti ai modelli con supporto agli strumenti di cercare sul web in tempo reale",
+        "web_search_label": "Ricerca web"
+      },
+      "footer_note": "Puoi perfezionare ognuna di queste opzioni in seguito nelle Impostazioni.",
+      "large_context": {
+        "description": "Contesto e recupero più ampi per risposte approfondite su macchine performanti.",
+        "label": "Contesto ampio"
+      },
+      "preview_hint": "Queste impostazioni verranno modificate:",
+      "preview_title": "Applica {{name}}",
+      "privacy_strict": {
+        "description": "Nessun accesso alle pagine, risposte ancorate alla pagina aperta, nessun incorporamento automatico, ricerca web disattivata.",
+        "label": "Privacy rigorosa"
+      },
+      "title": "Preset"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "Reimposta sezione",
+      "description": "Questo ripristina i controlli di questa sezione ai valori predefiniti. Le altre impostazioni non vengono toccate.",
+      "done": "Sezione reimpostata ai valori predefiniti",
+      "title": "Reimpostare questa sezione ai valori predefiniti?"
     },
     "permissions": {
       "title": "Autorizzazioni e privacy",
@@ -1337,6 +1435,9 @@
         "title": "Funzioni in anteprima",
         "description": "Funzioni sperimentali in sviluppo. Disattivate per impostazione predefinita; attivale a tuo rischio."
       }
+    },
+    "search": {
+      "placeholder": "Cerca nelle impostazioni…"
     }
   },
   "guides": {

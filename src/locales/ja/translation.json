@@ -38,7 +38,11 @@
     "continue": "インポートを続行",
     "reload": "拡張機能を再読み込み",
     "close": "閉じる",
-    "remove": "削除"
+    "remove": "削除",
+    "toggle": {
+      "off": "オフ",
+      "on": "オン"
+    }
   },
   "extension": {
     "name": "Ollama Client - ローカル LLM モデルとチャット",
@@ -271,7 +275,19 @@
       "tab_context_label": "タブコンテキスト ({{count}})",
       "rag_context_label": "RAGコンテキスト ({{count}})",
       "char_counts": "タブ文字数: {{tab}} | RAG文字数: {{rag}}",
-      "trimmed": "切り詰め済み"
+      "trimmed": "切り詰め済み",
+      "view_web": "{{count}} 件のウェブソースを表示",
+      "view_web_plural": "{{count}} 件のウェブソースを表示",
+      "web_engine": "{{engine}} 経由",
+      "web_no_snippet": "プレビューはありません。",
+      "web_published": "公開日: {{date}}",
+      "web_score": "スコア {{score}}",
+      "web_source": "{{count}} 件のウェブソース",
+      "web_source_plural": "{{count}} 件のウェブソース",
+      "web_title": "ウェブソース ({{count}})",
+      "web_unused_hint": "設定でウェブ検索の結果件数を増やすと、より多くの結果をモデルに渡せます。",
+      "web_unused_label": "見つかったが未送信 ({{count}})",
+      "web_used_label": "モデルに送信済み ({{count}})"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -637,7 +653,16 @@
     "import": {
       "tooltip": "チャットセッションをインポート",
       "aria_label": "チャットセッションをインポート",
-      "default_title": "Imported chat"
+      "default_title": "Imported chat",
+      "toast": {
+        "failed_description": "選択したファイルから読み取り可能なチャットセッションが見つかりませんでした。",
+        "failed_title": "インポートされませんでした",
+        "partial_description": "{{skipped}} 件のセッションをスキップ、{{droppedMessages}} 件のメッセージを破棄、{{invalidFiles}} 件の読み取り不可能なファイルがありました。",
+        "partial_title": "{{count}} 件のチャットセッションを問題ありでインポートしました",
+        "partial_title_plural": "{{count}} 件のチャットセッションを問題ありでインポートしました",
+        "success_title": "{{count}} 件のチャットセッションをインポートしました",
+        "success_title_plural": "{{count}} 件のチャットセッションをインポートしました"
+      }
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -682,7 +707,9 @@
       "max_tab_context_chars": "最大タブコンテキスト文字数",
       "max_rag_context_chars": "最大RAGコンテキスト文字数",
       "auto_refresh_label": "選択したタブコンテキストを自動更新",
-      "auto_refresh_description": "有効にすると、選択したタブが定期的に変更されていないか確認されます。"
+      "auto_refresh_description": "有効にすると、選択したタブが定期的に変更されていないか確認されます。",
+      "max_tool_result_chars": "ツール結果の最大文字数",
+      "max_tool_result_chars_hint": "各ツール結果（ページテキスト、文字起こし、ドキュメント検索）は、モデルが読み取る前にこの文字数まで切り詰められます。値を下げるとノートパソコンでは高速になります。回答に詳細が欠ける場合は値を上げてください。"
     },
     "grounding_mode": {
       "label": "選択したページコンテキストからのみ回答",
@@ -790,11 +817,24 @@
         "scroll_delay": "スクロール遅延（ミリ秒）",
         "mutation_timeout": "Mutation Observerタイムアウト（ミリ秒）",
         "network_timeout": "ネットワークアイドルタイムアウト（ミリ秒）",
-        "max_wait": "最大待機時間（ミリ秒）"
+        "max_wait": "最大待機時間（ミリ秒）",
+        "section_title": "ページ読み込みのタイムアウト（詳細設定）"
       },
       "badges": {
         "recommended": "推奨",
         "active": "アクティブ"
+      },
+      "selection_actions": {
+        "description": "ページ上でテキストを選択したときにローカル AI アクションを表示します。",
+        "label": "選択アクションを有効にする"
+      },
+      "selection_actions_list": {
+        "description": "ページツールバーに表示するローカルテキストアクションを選択します。",
+        "label": "選択アクション一覧"
+      },
+      "selection_actions_min_chars": {
+        "description": "これより短い選択範囲は表示されません。",
+        "label": "選択する最小文字数"
       }
     },
     "model": {
@@ -962,6 +1002,18 @@
         "progress": "チャット Embedding を再構築中（{{current}}/{{total}}）",
         "success": "Embedding を正常に再構築しました。",
         "error": "Embedding を再構築できませんでした。"
+      },
+      "sections": {
+        "conversation": "会話コンテキスト",
+        "conversation_description": "アシスタントが記憶する内容と、チャット履歴のインデックス方法。",
+        "files_chunking": "ファイルとチャンク分割",
+        "files_chunking_description": "アップロードされたファイルの受け入れ方法と、検索のための分割方法。",
+        "grounding": "グラウンディング",
+        "grounding_description": "回答を現在表示しているページに限定します。",
+        "prompt_budget": "プロンプトバジェット",
+        "prompt_budget_description": "各プロンプトに詰め込むコンテキスト量の上限。",
+        "retrieval": "検索（リトリーバル）",
+        "retrieval_description": "アシスタントが会話の外で参照する範囲 — ウェブとナレッジベース。"
       }
     },
     "web_search": {
@@ -1295,10 +1347,56 @@
     },
     "saved": "保存済み",
     "presets": {
-      "error_title": "Failed to apply preset"
+      "error_title": "Failed to apply preset",
+      "applied": "{{name}} プリセットを適用しました",
+      "apply": "プリセットを適用",
+      "balanced": {
+        "description": "推奨されるデフォルト設定 — バランスの取れた選択です。",
+        "label": "バランス"
+      },
+      "description": "調整済みの組み合わせをワンクリックで適用できます。適用後に各設定を個別に調整することもできます。",
+      "fast": {
+        "description": "コンテキストと検索を小さくして、より速く軽い応答を実現します。",
+        "label": "高速"
+      },
+      "fields": {
+        "auto_embed_chat": "メモリ用にチャット履歴を自動で埋め込む",
+        "auto_refresh_tab": "開いているタブからコンテキストを自動で更新する",
+        "chunk_overlap": "隣接するチャンク間のオーバーラップ",
+        "chunk_size": "テキスト分割時の 1 チャンクあたりの文字数",
+        "chunking_strategy": "検索のためのドキュメントの分割方法",
+        "enhanced_chunking": "構造を考慮した、よりスマートなテキスト分割",
+        "global_auto_embed": "すべてのチャットでコンテンツを自動埋め込み",
+        "grounded_only": "回答を現在のページのみに限定する",
+        "max_rag_chars": "プロンプト内の検索コンテキストの文字数バジェット",
+        "max_tab_chars": "プロンプト内のタブコンテキストの文字数バジェット",
+        "max_tool_chars": "モデルに返すツール結果ごとの文字数上限",
+        "min_rerank": "結果を保持するために超える必要のある最小スコア",
+        "search_limit": "検索が返す結果の件数（上位 K 件）",
+        "tab_access": "モデルが他の開いているタブを読み取ることを許可する",
+        "use_reranking": "関連性を高めるために検索結果を再スコアリングする",
+        "web_search": "ツール対応モデルがライブのウェブを検索できるようにする",
+        "web_search_label": "ウェブ検索"
+      },
+      "footer_note": "これらはいずれも後から設定で微調整できます。",
+      "large_context": {
+        "description": "高性能なマシンで徹底的な回答を得るため、コンテキストと検索を大きくします。",
+        "label": "大きいコンテキスト"
+      },
+      "preview_hint": "次の設定が変更されます:",
+      "preview_title": "{{name}} を適用",
+      "privacy_strict": {
+        "description": "ページアクセスなし、回答は開いているページに限定、自動埋め込みなし、ウェブ検索オフ。",
+        "label": "プライバシー厳格"
+      },
+      "title": "プリセット"
     },
     "reset_section": {
-      "error_title": "Failed to reset section"
+      "error_title": "Failed to reset section",
+      "button": "セクションをリセット",
+      "description": "このセクションのコントロールをデフォルト値に戻します。他の設定は変更されません。",
+      "done": "セクションをデフォルトにリセットしました",
+      "title": "このセクションをデフォルトにリセットしますか？"
     },
     "permissions": {
       "title": "権限とプライバシー",
@@ -1337,6 +1435,9 @@
         "title": "プレビュー機能",
         "description": "開発中の実験的な機能です。既定ではオフです。自己責任で有効にしてください。"
       }
+    },
+    "search": {
+      "placeholder": "設定を検索…"
     }
   },
   "guides": {

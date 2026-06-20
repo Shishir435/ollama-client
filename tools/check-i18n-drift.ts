@@ -6,13 +6,13 @@
  * separately, EXTRA keys not present in `en` (likely renamed/removed in en but
  * left behind in the locale). Extra keys warn only.
  *
- * The non-`en` locales currently carry a known backlog of missing keys, so the
- * gate runs in WARN mode by default (reports drift, exits 0) and only fails the
- * build with `--strict`. Wire `--strict` into CI once the backlog is backfilled;
- * until then the warn output catches NEW drift in review without blocking merges.
+ * All locales are fully translated, so `pnpm check:i18n` runs in `--strict` mode
+ * (fails on ANY missing key) to keep it that way. Add an `en` key without
+ * translating it for every locale and this fails — translate the new keys (or
+ * temporarily run without `--strict`) rather than letting a backlog accumulate.
  *
- * Run: pnpm check:i18n            (warn — report only)
- *      pnpm check:i18n --strict   (fail CI on any missing key)
+ * Run: pnpm check:i18n            (strict — fails on any missing key)
+ *      npx tsx tools/check-i18n-drift.ts   (warn-only — report without failing)
  */
 
 import fs from "fs"
