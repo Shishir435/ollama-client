@@ -4,7 +4,7 @@ import { withErrorContext } from "@/background/lib/error-handler"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostMessage } from "@/background/lib/utils"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MAX_RAG_CONTEXT_CHARS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -85,9 +85,30 @@ export const handleChatWithModel = withErrorContext(
         if (enhancedResults.length > 0) {
           const { formattedContext, sources } =
             formatEnhancedResults(enhancedResults)
+
+          // Enforce the prompt-budget ceiling (same setting the client RAG path
+          // uses) so a large set of recalled memories can't blow the model's
+          // context window. `<= 0` means unlimited.
+          const maxRagChars =
+            (await plasmoGlobalStorage.get<number>(
+              STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS
+            )) ?? DEFAULT_MAX_RAG_CONTEXT_CHARS
+          const truncationMarker = "\n\n[Context truncated due to length]"
+          const cappedContext =
+            maxRagChars > 0 && formattedContext.length > maxRagChars
+              ? `${formattedContext.slice(
+                  0,
+                  Math.max(0, maxRagChars - truncationMarker.length)
+                )}${truncationMarker}`
+              : formattedContext
+
           logger.info(
             `Injected ${enhancedResults.length} past context items`,
-            "handleChatWithModel"
+            "handleChatWithModel",
+            {
+              contextChars: cappedContext.length,
+              truncated: cappedContext.length < formattedContext.length
+            }
           )
 
           try {
@@ -100,7 +121,7 @@ export const handleChatWithModel = withErrorContext(
               error: e
             })
           }
-          contextHeader = `\n\nIMPORTANT: You have access to context from previous conversations:\n${formattedContext}\n\nUse this context to provide personalized responses.`
+          contextHeader = `\n\nIMPORTANT: You have access to context from previous conversations:\n${cappedContext}\n\nUse this context to provide personalized responses.`
         }
       }
     }
