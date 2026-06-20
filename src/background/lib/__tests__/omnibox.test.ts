@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   onInputEnteredAddListener: vi.fn(),
+  onInputChangedAddListener: vi.fn(),
   setDefaultSuggestion: vi.fn(),
   tabsQuery: vi.fn(),
   runtimeSendMessage: vi.fn(),
@@ -17,6 +18,15 @@ vi.mock("@/lib/browser-api", () => ({
     },
     runtime: {
       sendMessage: mocks.runtimeSendMessage
+    },
+    omnibox: {
+      setDefaultSuggestion: mocks.setDefaultSuggestion,
+      onInputChanged: {
+        addListener: mocks.onInputChangedAddListener
+      },
+      onInputEntered: {
+        addListener: mocks.onInputEnteredAddListener
+      }
     }
   }
 }))
@@ -38,14 +48,6 @@ beforeEach(() => {
   mocks.tabsQuery.mockResolvedValue([{ id: 12, windowId: 34 }])
   mocks.runtimeSendMessage.mockResolvedValue(undefined)
   mocks.setPlasmoStoredValue.mockResolvedValue(undefined)
-  vi.stubGlobal("chrome", {
-    omnibox: {
-      setDefaultSuggestion: mocks.setDefaultSuggestion,
-      onInputEntered: {
-        addListener: mocks.onInputEnteredAddListener
-      }
-    }
-  })
 })
 
 describe("registerOmniboxQuickAsk", () => {

@@ -4,24 +4,6 @@ import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
-type OmniboxApi = {
-  setDefaultSuggestion?: (suggestion: { description: string }) => void
-  onInputChanged?: {
-    addListener: (listener: (text: string) => void) => void
-  }
-  onInputEntered?: {
-    addListener: (
-      listener: (
-        text: string,
-        disposition?: "currentTab" | "newForegroundTab" | "newBackgroundTab"
-      ) => void
-    ) => void
-  }
-}
-
-const getOmniboxApi = (): OmniboxApi | undefined =>
-  (chrome as unknown as { omnibox?: OmniboxApi }).omnibox
-
 // Cache of the active tab, kept fresh so the omnibox `onInputEntered` listener
 // can open the side panel SYNCHRONOUSLY. `chrome.sidePanel.open()` requires an
 // active user gesture, which Chrome consumes at the first `await`. Querying the
@@ -51,7 +33,7 @@ export const registerOmniboxQuickAsk = (
 ): void => {
   if (!supportsOmnibox()) return
 
-  const omnibox = getOmniboxApi()
+  const omnibox = browser.omnibox
   if (!omnibox?.onInputEntered) return
 
   omnibox.setDefaultSuggestion?.({
