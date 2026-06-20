@@ -128,6 +128,13 @@ export interface RuntimeMessageMap {
     }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY]: {
+    request: {
+      type: typeof MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY
+      payload: string
+    }
+    response: RuntimeResponse
+  }
   [MESSAGE_KEYS.APP.RELOAD]: {
     request: { type: typeof MESSAGE_KEYS.APP.RELOAD }
     response: RuntimeResponse

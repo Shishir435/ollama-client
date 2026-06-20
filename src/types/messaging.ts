@@ -10,6 +10,7 @@ export interface EmbeddingStatusMessage {
 export interface ChromeMessage {
   type: string
   payload?: unknown
+  disposition?: string
   query?: string
   name?: string
   cancel?: boolean
