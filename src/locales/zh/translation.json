@@ -726,7 +726,13 @@
       "export_pdf": "导出为PDF",
       "export_pdf_desc": "导出当前聊天为PDF文件",
       "export_text": "导出为文本",
-      "export_text_desc": "导出当前聊天为文本文件"
+      "export_text_desc": "导出当前聊天为文本文件",
+      "browser": {
+        "title": "随处打开",
+        "description": "设置浏览器级快捷键，从任意页面打开聊天侧边栏。该绑定由浏览器管理——复制下面的地址并粘贴到地址栏中以设置或更改按键。",
+        "copy": "复制地址",
+        "copied": "已复制——粘贴到地址栏中"
+      }
     },
     "content_extraction": {
       "title": "内容提取",
@@ -937,7 +943,8 @@
       "voices": "声音",
       "reset": "重置",
       "guides": "指南",
-      "shortcuts": "快捷键"
+      "shortcuts": "快捷键",
+      "permissions": "权限"
     },
     "context": {
       "file_upload": {
@@ -1292,6 +1299,44 @@
     },
     "reset_section": {
       "error_title": "Failed to reset section"
+    },
+    "permissions": {
+      "title": "权限与隐私",
+      "description": "查看并控制此扩展可以访问的内容。所有数据都保留在你的设备上。",
+      "optional": {
+        "title": "可选访问",
+        "description": "仅在你开启时授予，并可随时在此撤销。每一项都会启用一个本地功能；不会有任何数据离开你的设备。"
+      },
+      "items": {
+        "bookmarks": {
+          "label": "书签",
+          "description": "允许将已保存的页面索引到本地知识库，用于搜索和聊天。"
+        },
+        "history": {
+          "label": "浏览历史",
+          "description": "允许在本地索引并调用你的历史记录。绝不会上传。"
+        },
+        "notifications": {
+          "label": "通知",
+          "description": "当较长的本地任务（嵌入、回填）完成时通知你。"
+        },
+        "downloads": {
+          "label": "下载",
+          "description": "将生成的内容（代码、图表、回答）保存为文件。"
+        },
+        "tabGroups": {
+          "label": "标签组",
+          "description": "处理整个标签组，进行多标签摘要和比较。"
+        }
+      },
+      "host": {
+        "title": "网站访问",
+        "description": "此扩展保留对所有网站的访问权限。这是必要的，以便你可以将其指向任何本地或远程提供方 URL，并使页面上下文和选择功能在任何页面上都能正常工作。它绝不会用于将你的数据发送到任何地方。"
+      },
+      "preview": {
+        "title": "预览功能",
+        "description": "正在开发中的实验性功能。默认关闭；启用风险自负。"
+      }
     }
   },
   "guides": {

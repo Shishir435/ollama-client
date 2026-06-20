@@ -726,7 +726,13 @@
       "export_pdf": "Esporta come PDF",
       "export_pdf_desc": "Esporta chat corrente come PDF",
       "export_text": "Esporta come Testo",
-      "export_text_desc": "Esporta chat corrente come testo"
+      "export_text_desc": "Esporta chat corrente come testo",
+      "browser": {
+        "title": "Apri da ovunque",
+        "description": "Imposta una scorciatoia a livello di browser per aprire il pannello laterale della chat da qualsiasi pagina. Il browser gestisce questa associazione: copia l'indirizzo qui sotto e incollalo nella barra degli indirizzi per impostare o cambiare il tasto.",
+        "copy": "Copia indirizzo",
+        "copied": "Copiato: incollalo nella barra degli indirizzi"
+      }
     },
     "content_extraction": {
       "title": "Estrazione Contenuto",
@@ -937,7 +943,8 @@
       "voices": "Voci",
       "reset": "Reimposta",
       "guides": "Guide",
-      "shortcuts": "Scorciatoie"
+      "shortcuts": "Scorciatoie",
+      "permissions": "Autorizzazioni"
     },
     "context": {
       "file_upload": {
@@ -1292,6 +1299,44 @@
     },
     "reset_section": {
       "error_title": "Failed to reset section"
+    },
+    "permissions": {
+      "title": "Autorizzazioni e privacy",
+      "description": "Visualizza e controlla a cosa può accedere questa estensione. Tutto resta sul tuo dispositivo.",
+      "optional": {
+        "title": "Accesso facoltativo",
+        "description": "Concesso solo quando lo attivi e revocabile qui in qualsiasi momento. Ogni opzione abilita una funzione locale; nessun dato lascia il tuo dispositivo."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Segnalibri",
+          "description": "Consente di indicizzare le pagine salvate nella conoscenza locale per ricerca e chat."
+        },
+        "history": {
+          "label": "Cronologia di navigazione",
+          "description": "Consente di indicizzare e richiamare la cronologia in locale. Mai caricata."
+        },
+        "notifications": {
+          "label": "Notifiche",
+          "description": "Ti avvisa al termine di un'attività locale lunga (embedding, reindicizzazione)."
+        },
+        "downloads": {
+          "label": "Download",
+          "description": "Salva i contenuti generati (codice, diagrammi, risposte) in un file."
+        },
+        "tabGroups": {
+          "label": "Gruppi di schede",
+          "description": "Lavora con interi gruppi di schede per riepiloghi e confronti su più schede."
+        }
+      },
+      "host": {
+        "title": "Accesso ai siti",
+        "description": "Questa estensione mantiene l'accesso a tutti i siti. È necessario per poterla puntare a qualsiasi URL di provider locale o remoto e affinché le funzioni di contesto pagina e selezione funzionino su qualsiasi pagina. Non viene mai usato per inviare i tuoi dati da nessuna parte."
+      },
+      "preview": {
+        "title": "Funzioni in anteprima",
+        "description": "Funzioni sperimentali in sviluppo. Disattivate per impostazione predefinita; attivale a tuo rischio."
+      }
     }
   },
   "guides": {

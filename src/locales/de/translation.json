@@ -726,7 +726,13 @@
       "export_pdf": "Als PDF exportieren",
       "export_pdf_desc": "Aktuellen Chat als PDF exportieren",
       "export_text": "Als Text exportieren",
-      "export_text_desc": "Aktuellen Chat als Text exportieren"
+      "export_text_desc": "Aktuellen Chat als Text exportieren",
+      "browser": {
+        "title": "Von überall öffnen",
+        "description": "Lege einen browserweiten Shortcut fest, um das Chat-Seitenpanel von jeder Seite aus zu öffnen. Der Browser verwaltet diese Belegung – kopiere die Adresse unten und füge sie in die Adressleiste ein, um die Taste festzulegen oder zu ändern.",
+        "copy": "Adresse kopieren",
+        "copied": "Kopiert – füge sie in die Adressleiste ein"
+      }
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",
@@ -937,7 +943,8 @@
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
       "guides": "Anleitungen",
-      "shortcuts": "Tastaturkürzel"
+      "shortcuts": "Tastaturkürzel",
+      "permissions": "Berechtigungen"
     },
     "context": {
       "file_upload": {
@@ -1292,6 +1299,44 @@
     },
     "reset_section": {
       "error_title": "Failed to reset section"
+    },
+    "permissions": {
+      "title": "Berechtigungen & Datenschutz",
+      "description": "Sieh und steuere, worauf diese Erweiterung zugreifen darf. Alles bleibt auf deinem Gerät.",
+      "optional": {
+        "title": "Optionaler Zugriff",
+        "description": "Wird nur erteilt, wenn du ihn aktivierst, und ist hier jederzeit widerrufbar. Jede Option schaltet eine lokale Funktion frei; keine Daten verlassen dein Gerät."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Lesezeichen",
+          "description": "Ermöglicht das Indexieren gespeicherter Seiten für Suche und Chat im lokalen Wissen."
+        },
+        "history": {
+          "label": "Browserverlauf",
+          "description": "Ermöglicht das lokale Indexieren und Abrufen deines Verlaufs. Wird nie hochgeladen."
+        },
+        "notifications": {
+          "label": "Benachrichtigungen",
+          "description": "Benachrichtigt dich, wenn ein langer lokaler Vorgang (Einbettung, Nachfüllung) abgeschlossen ist."
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Generierte Inhalte (Code, Diagramme, Antworten) in einer Datei speichern."
+        },
+        "tabGroups": {
+          "label": "Tab-Gruppen",
+          "description": "Mit ganzen Tab-Gruppen arbeiten – für Zusammenfassungen und Vergleiche über mehrere Tabs."
+        }
+      },
+      "host": {
+        "title": "Website-Zugriff",
+        "description": "Diese Erweiterung behält Zugriff auf alle Websites. Das ist nötig, damit du sie auf eine beliebige lokale oder entfernte Provider-URL richten kannst und damit Seiteninhalt- und Auswahlfunktionen auf jeder Seite funktionieren. Er wird niemals verwendet, um deine Daten irgendwohin zu senden."
+      },
+      "preview": {
+        "title": "Vorschaufunktionen",
+        "description": "Experimentelle Funktionen in Entwicklung. Standardmäßig deaktiviert; Aktivierung auf eigenes Risiko."
+      }
     }
   },
   "guides": {

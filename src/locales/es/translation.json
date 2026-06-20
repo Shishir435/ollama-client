@@ -726,7 +726,13 @@
       "export_pdf": "Exportar como PDF",
       "export_pdf_desc": "Exportar chat actual como PDF",
       "export_text": "Exportar como Texto",
-      "export_text_desc": "Exportar chat actual como texto"
+      "export_text_desc": "Exportar chat actual como texto",
+      "browser": {
+        "title": "Abrir desde cualquier lugar",
+        "description": "Configura un atajo a nivel de navegador para abrir el panel lateral de chat desde cualquier página. El navegador gestiona esta asignación: copia la dirección de abajo y pégala en la barra de direcciones para establecer o cambiar la tecla.",
+        "copy": "Copiar dirección",
+        "copied": "Copiado: pégalo en la barra de direcciones"
+      }
     },
     "content_extraction": {
       "title": "Extracción de Contenido",
@@ -937,7 +943,8 @@
       "voices": "Voces",
       "reset": "Restablecer",
       "guides": "Guías",
-      "shortcuts": "Atajos"
+      "shortcuts": "Atajos",
+      "permissions": "Permisos"
     },
     "context": {
       "file_upload": {
@@ -1292,6 +1299,44 @@
     },
     "reset_section": {
       "error_title": "Failed to reset section"
+    },
+    "permissions": {
+      "title": "Permisos y privacidad",
+      "description": "Consulta y controla a qué puede acceder esta extensión. Todo permanece en tu dispositivo.",
+      "optional": {
+        "title": "Acceso opcional",
+        "description": "Se concede solo cuando lo activas y se puede revocar aquí en cualquier momento. Cada opción habilita una función local; ningún dato sale de tu dispositivo."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Marcadores",
+          "description": "Permite indexar páginas guardadas en el conocimiento local para búsqueda y chat."
+        },
+        "history": {
+          "label": "Historial de navegación",
+          "description": "Permite indexar y recuperar tu historial localmente. Nunca se sube."
+        },
+        "notifications": {
+          "label": "Notificaciones",
+          "description": "Te avisa cuando termina una tarea local larga (incrustación, reindexado)."
+        },
+        "downloads": {
+          "label": "Descargas",
+          "description": "Guarda el contenido generado (código, diagramas, respuestas) en un archivo."
+        },
+        "tabGroups": {
+          "label": "Grupos de pestañas",
+          "description": "Trabaja con grupos de pestañas completos para resúmenes y comparaciones entre varias pestañas."
+        }
+      },
+      "host": {
+        "title": "Acceso a sitios",
+        "description": "Esta extensión mantiene acceso a todos los sitios. Es necesario para que puedas apuntarla a cualquier URL de proveedor local o remoto y para que las funciones de contexto de página y selección funcionen en cualquier página. Nunca se usa para enviar tus datos a ningún sitio."
+      },
+      "preview": {
+        "title": "Funciones en vista previa",
+        "description": "Funciones experimentales en desarrollo. Desactivadas por defecto; actívalas bajo tu responsabilidad."
+      }
     }
   },
   "guides": {

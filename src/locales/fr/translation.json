@@ -726,7 +726,13 @@
       "export_pdf": "Exporter en PDF",
       "export_pdf_desc": "Exporter le chat actuel en PDF",
       "export_text": "Exporter en Texte",
-      "export_text_desc": "Exporter le chat actuel en texte brut"
+      "export_text_desc": "Exporter le chat actuel en texte brut",
+      "browser": {
+        "title": "Ouvrir depuis n'importe où",
+        "description": "Définissez un raccourci au niveau du navigateur pour ouvrir le panneau latéral de chat depuis n'importe quelle page. Le navigateur gère cette attribution : copiez l'adresse ci-dessous et collez-la dans la barre d'adresse pour définir ou modifier la touche.",
+        "copy": "Copier l'adresse",
+        "copied": "Copié — collez-le dans la barre d'adresse"
+      }
     },
     "content_extraction": {
       "title": "Extraction de Contenu",
@@ -937,7 +943,8 @@
       "voices": "Voix",
       "reset": "Réinitialiser",
       "guides": "Guides",
-      "shortcuts": "Raccourcis"
+      "shortcuts": "Raccourcis",
+      "permissions": "Autorisations"
     },
     "context": {
       "file_upload": {
@@ -1292,6 +1299,44 @@
     },
     "reset_section": {
       "error_title": "Failed to reset section"
+    },
+    "permissions": {
+      "title": "Autorisations et confidentialité",
+      "description": "Consultez et contrôlez ce à quoi cette extension peut accéder. Tout reste sur votre appareil.",
+      "optional": {
+        "title": "Accès facultatif",
+        "description": "Accordé uniquement lorsque vous l'activez, et révocable ici à tout moment. Chaque option active une fonctionnalité locale ; aucune donnée ne quitte votre appareil."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Favoris",
+          "description": "Permet d'indexer les pages enregistrées dans la base de connaissances locale pour la recherche et le chat."
+        },
+        "history": {
+          "label": "Historique de navigation",
+          "description": "Permet d'indexer et de retrouver votre historique localement. Jamais envoyé."
+        },
+        "notifications": {
+          "label": "Notifications",
+          "description": "Vous prévient lorsqu'une tâche locale longue (intégration, réindexation) se termine."
+        },
+        "downloads": {
+          "label": "Téléchargements",
+          "description": "Enregistrez le contenu généré (code, diagrammes, réponses) dans un fichier."
+        },
+        "tabGroups": {
+          "label": "Groupes d'onglets",
+          "description": "Travaillez avec des groupes d'onglets entiers pour des résumés et comparaisons multi-onglets."
+        }
+      },
+      "host": {
+        "title": "Accès aux sites",
+        "description": "Cette extension conserve l'accès à tous les sites. C'est nécessaire pour la pointer vers n'importe quelle URL de fournisseur locale ou distante, et pour que les fonctions de contexte de page et de sélection fonctionnent sur toutes les pages. Cet accès n'est jamais utilisé pour envoyer vos données où que ce soit."
+      },
+      "preview": {
+        "title": "Fonctionnalités en avant-première",
+        "description": "Fonctionnalités expérimentales en cours de développement. Désactivées par défaut ; activez-les à vos risques."
+      }
     }
   },
   "guides": {
