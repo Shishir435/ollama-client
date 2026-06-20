@@ -84,13 +84,21 @@ export const syncScheduledJobAlarms = async (): Promise<void> => {
   const settings = await getScheduledJobSettings()
 
   for (const job of Object.values(JOBS)) {
-    if (settings.enabled[job.id]) {
-      await alarms.create(job.alarmName, {
-        delayInMinutes: job.delayInMinutes,
-        periodInMinutes: job.periodInMinutes
+    try {
+      if (settings.enabled[job.id]) {
+        await alarms.clear(job.alarmName)
+        await alarms.create(job.alarmName, {
+          delayInMinutes: job.delayInMinutes,
+          periodInMinutes: job.periodInMinutes
+        })
+      } else {
+        await alarms.clear(job.alarmName)
+      }
+    } catch (error) {
+      logger.warn("Scheduled job alarm sync failed", "ScheduledJobs", {
+        jobId: job.id,
+        error
       })
-    } else {
-      await alarms.clear(job.alarmName)
     }
   }
 }

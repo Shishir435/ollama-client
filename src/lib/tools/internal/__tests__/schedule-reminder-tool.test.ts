@@ -48,4 +48,21 @@ describe("schedule_reminder tool", () => {
     )
     expect(result.isError).toBe(true)
   })
+
+  it("reports scheduling failures without confirming the reminder", async () => {
+    mocks.scheduleReminder.mockRejectedValue(
+      new Error(
+        "Notifications permission is required before scheduling reminders."
+      )
+    )
+
+    const result = await runScheduleReminder(
+      { message: "Stretch", delay_minutes: 2 },
+      {}
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Could not schedule reminder")
+    expect(result.content).toContain("Notifications permission is required")
+  })
 })

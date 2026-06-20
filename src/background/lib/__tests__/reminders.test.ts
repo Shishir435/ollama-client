@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   onAlarmAddListener: vi.fn(),
   getPlasmoStoredValue: vi.fn(),
   setPlasmoStoredValue: vi.fn(),
+  hasPermission: vi.fn(),
   notifyJobComplete: vi.fn()
 }))
 
@@ -28,6 +29,10 @@ vi.mock("@/background/lib/notify", () => ({
   notifyJobComplete: mocks.notifyJobComplete
 }))
 
+vi.mock("@/lib/permissions", () => ({
+  hasPermission: mocks.hasPermission
+}))
+
 vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn() }
 }))
@@ -45,6 +50,7 @@ beforeEach(() => {
   mocks.getPlasmoStoredValue.mockResolvedValue({ reminders: [] })
   mocks.setPlasmoStoredValue.mockResolvedValue(undefined)
   mocks.createAlarm.mockResolvedValue(undefined)
+  mocks.hasPermission.mockResolvedValue(true)
 })
 
 describe("reminders", () => {
@@ -64,6 +70,46 @@ describe("reminders", () => {
       alarmNameForReminder(reminder.id),
       { when: reminder.dueAt }
     )
+  })
+
+  it("rejects scheduling when notification permission is missing", async () => {
+    mocks.hasPermission.mockResolvedValue(false)
+
+    await expect(
+      scheduleReminder({ message: "Stretch", delayMinutes: 2 })
+    ).rejects.toThrow("Notifications permission is required")
+
+    expect(mocks.createAlarm).not.toHaveBeenCalled()
+    expect(mocks.setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
+
+  it("rolls back the stored reminder when alarm creation fails", async () => {
+    mocks.createAlarm.mockRejectedValue(new Error("alarm failed"))
+
+    await expect(
+      scheduleReminder({ message: "Stretch", delayMinutes: 2 })
+    ).rejects.toThrow("alarm failed")
+
+    expect(mocks.setPlasmoStoredValue).toHaveBeenNthCalledWith(
+      1,
+      STORAGE_KEYS.BACKGROUND.REMINDERS,
+      { reminders: [expect.objectContaining({ message: "Stretch" })] }
+    )
+    expect(mocks.setPlasmoStoredValue).toHaveBeenNthCalledWith(
+      2,
+      STORAGE_KEYS.BACKGROUND.REMINDERS,
+      { reminders: [] }
+    )
+  })
+
+  it("does not create an alarm when reminder storage fails", async () => {
+    mocks.setPlasmoStoredValue.mockRejectedValue(new Error("storage failed"))
+
+    await expect(
+      scheduleReminder({ message: "Stretch", delayMinutes: 2 })
+    ).rejects.toThrow("storage failed")
+
+    expect(mocks.createAlarm).not.toHaveBeenCalled()
   })
 
   it("fires a reminder, removes it, and sends notification", async () => {

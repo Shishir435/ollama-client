@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getScheduledJobSettings: vi.fn(),
   checkStorageLimit: vi.fn(),
   removeDuplicateVectors: vi.fn(),
+  loggerWarn: vi.fn(),
   notifyJobComplete: vi.fn()
 }))
 
@@ -46,7 +47,7 @@ vi.mock("@/background/lib/notify", () => ({
 }))
 
 vi.mock("@/lib/logger", () => ({
-  logger: { info: vi.fn(), warn: vi.fn() }
+  logger: { info: vi.fn(), warn: mocks.loggerWarn }
 }))
 
 import {
@@ -75,9 +76,15 @@ describe("background scheduled jobs", () => {
 
     await syncScheduledJobAlarms()
 
+    expect(mocks.clearAlarm).toHaveBeenCalledWith(
+      "ollama-client:scheduled-job:vector-maintenance"
+    )
     expect(mocks.createAlarm).toHaveBeenCalledWith(
       "ollama-client:scheduled-job:vector-maintenance",
       { delayInMinutes: 5, periodInMinutes: 1440 }
+    )
+    expect(mocks.clearAlarm.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.createAlarm.mock.invocationCallOrder[0]
     )
   })
 
@@ -86,6 +93,21 @@ describe("background scheduled jobs", () => {
 
     expect(mocks.clearAlarm).toHaveBeenCalledWith(
       "ollama-client:scheduled-job:vector-maintenance"
+    )
+  })
+
+  it("logs alarm sync failures without throwing", async () => {
+    mocks.getScheduledJobSettings.mockResolvedValue({
+      enabled: { "vector-maintenance": true }
+    })
+    mocks.createAlarm.mockRejectedValue(new Error("alarm failed"))
+
+    await expect(syncScheduledJobAlarms()).resolves.toBeUndefined()
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      "Scheduled job alarm sync failed",
+      "ScheduledJobs",
+      expect.objectContaining({ jobId: "vector-maintenance" })
     )
   })
 

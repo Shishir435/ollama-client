@@ -2,6 +2,7 @@ import { notifyJobComplete } from "@/background/lib/notify"
 import { browser, supportsAlarms } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { hasPermission } from "@/lib/permissions"
 import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
@@ -83,6 +84,12 @@ export const scheduleReminder = async ({
     throw new Error("Browser alarms API is unavailable.")
   }
 
+  if (!(await hasPermission("notifications"))) {
+    throw new Error(
+      "Notifications permission is required before scheduling reminders."
+    )
+  }
+
   const now = Date.now()
   const reminder: Reminder = {
     id: createReminderId(),
@@ -92,12 +99,26 @@ export const scheduleReminder = async ({
   }
 
   const store = await getReminderStore()
-  await setReminderStore({
-    reminders: [...store.reminders, reminder]
-  })
-  await alarms.create(alarmNameForReminder(reminder.id), {
-    when: reminder.dueAt
-  })
+  const nextStore = { reminders: [...store.reminders, reminder] }
+  await setReminderStore(nextStore)
+
+  try {
+    await alarms.create(alarmNameForReminder(reminder.id), {
+      when: reminder.dueAt
+    })
+  } catch (error) {
+    await setReminderStore(store).catch((rollbackError) => {
+      logger.warn(
+        "Failed to roll back reminder after alarm creation failure",
+        "Reminders",
+        {
+          reminderId: reminder.id,
+          rollbackError
+        }
+      )
+    })
+    throw error
+  }
 
   return reminder
 }
