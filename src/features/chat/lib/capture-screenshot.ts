@@ -13,6 +13,11 @@ export const captureVisibleTabPng = async (
   timestamp: number = Date.now()
 ): Promise<File> => {
   const win = await browser.windows.getCurrent()
+  if (win.id === undefined) {
+    // Without an explicit id, captureVisibleTab would silently fall back to the
+    // last-focused window — defeating the point of pinning to this window.
+    throw new Error("Could not resolve the current window to capture")
+  }
   const dataUrl = await browser.tabs.captureVisibleTab(win.id, {
     format: "png"
   })

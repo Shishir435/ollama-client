@@ -32,8 +32,20 @@ describe("captureVisibleTabPng", () => {
     expect(file.size).toBeGreaterThan(0)
   })
 
-  it("throws when capture returns no data (e.g. a restricted page)", async () => {
+  it("propagates a rejection on a restricted page (chrome://, Web Store)", async () => {
+    mocks.captureVisibleTab.mockRejectedValue(
+      new Error("Cannot capture a restricted page")
+    )
+    await expect(captureVisibleTabPng()).rejects.toThrow(/restricted/)
+  })
+
+  it("throws when capture resolves with empty data", async () => {
     mocks.captureVisibleTab.mockResolvedValue("")
     await expect(captureVisibleTabPng()).rejects.toThrow()
+  })
+
+  it("throws when the current window has no id", async () => {
+    mocks.getCurrent.mockResolvedValue({})
+    await expect(captureVisibleTabPng()).rejects.toThrow(/window/)
   })
 })
