@@ -56,6 +56,18 @@ export default defineConfig({
       "declarativeNetRequest",
       "contextMenus"
     ],
+    // Optional API permissions (v0.11.0 groundwork — FEATURE_ROADMAP §5 item 2).
+    // Declared so they can be requested at runtime via src/lib/permissions.ts;
+    // NOT granted until a feature asks the user. Standing `permissions` stays
+    // minimal. Host access (`<all_urls>`) is intentionally NOT optional — see §0.4.
+    //   bookmarks/history -> E2   notifications -> E5   downloads -> E9   tabGroups -> E4
+    optional_permissions: [
+      "bookmarks",
+      "history",
+      "notifications",
+      "downloads",
+      "tabGroups"
+    ],
     web_accessible_resources: [
       {
         resources: ["assets/*.wasm", "chunks/*.js", "content-scripts/*.css"],
