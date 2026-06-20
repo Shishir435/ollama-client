@@ -16,7 +16,8 @@ import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import {
   parseModelRef,
   parseProviderIdPayload,
-  parseStringPayload
+  parseStringPayload,
+  parseWarmupPayload
 } from "@/background/lib/message-payloads"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { safeSendResponse } from "@/background/lib/utils"
@@ -211,7 +212,7 @@ export const registerMessageRouter = () => {
         }
 
         case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL: {
-          const ref = parseModelRef(message.payload)
+          const ref = parseWarmupPayload(message.payload)
           if (ref) handleWarmupModel(ref, response)
           else respondInvalidPayload(response)
           return true

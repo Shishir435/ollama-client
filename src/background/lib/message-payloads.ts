@@ -26,12 +26,43 @@ export const parseModelRef = (payload: unknown): ModelRef | null => {
     const obj = payload as { model?: unknown; providerId?: unknown }
     if (typeof obj.model !== "string" || !obj.model.trim()) return null
     return {
-      model: obj.model,
+      model: obj.model.trim(),
       providerId:
         typeof obj.providerId === "string" ? obj.providerId : undefined
     }
   }
   return null
+}
+
+/** A warmup ref: a {@link ModelRef} plus the previously-active model to unload. */
+export interface WarmupRef extends ModelRef {
+  previousModel?: string
+  previousProviderId?: string
+}
+
+/**
+ * Parse a WARMUP_MODEL payload, carrying through the `previous*` fields the
+ * unload-on-switch path depends on (a plain `parseModelRef` would drop them).
+ */
+export const parseWarmupPayload = (payload: unknown): WarmupRef | null => {
+  const ref = parseModelRef(payload)
+  if (!ref) return null
+  if (payload && typeof payload === "object") {
+    const obj = payload as {
+      previousModel?: unknown
+      previousProviderId?: unknown
+    }
+    return {
+      ...ref,
+      previousModel:
+        typeof obj.previousModel === "string" ? obj.previousModel : undefined,
+      previousProviderId:
+        typeof obj.previousProviderId === "string"
+          ? obj.previousProviderId
+          : undefined
+    }
+  }
+  return ref
 }
 
 /** Extract a non-empty string payload, or `null`. */

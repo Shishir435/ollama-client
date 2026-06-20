@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   parseModelRef,
   parseProviderIdPayload,
-  parseStringPayload
+  parseStringPayload,
+  parseWarmupPayload
 } from "@/background/lib/message-payloads"
 
 describe("parseModelRef", () => {
@@ -19,6 +20,41 @@ describe("parseModelRef", () => {
 
   it("drops a non-string providerId", () => {
     expect(parseModelRef({ model: "m", providerId: 5 })).toEqual({ model: "m" })
+  })
+
+  it("trims the model name in both string and object paths", () => {
+    expect(parseModelRef("  m  ")).toEqual({ model: "m" })
+    expect(parseModelRef({ model: "  m  " })).toEqual({ model: "m" })
+  })
+})
+
+describe("parseWarmupPayload", () => {
+  it("carries through previousModel/previousProviderId (unload-on-switch)", () => {
+    expect(
+      parseWarmupPayload({
+        model: "b",
+        providerId: "ollama",
+        previousModel: "a",
+        previousProviderId: "ollama"
+      })
+    ).toEqual({
+      model: "b",
+      providerId: "ollama",
+      previousModel: "a",
+      previousProviderId: "ollama"
+    })
+  })
+
+  it("returns null when the model is missing", () => {
+    expect(parseWarmupPayload({})).toBeNull()
+  })
+
+  it("works for a bare string (no previous model)", () => {
+    expect(parseWarmupPayload("b")).toEqual({
+      model: "b",
+      previousModel: undefined,
+      previousProviderId: undefined
+    })
   })
 
   it("returns null for empty, missing, or non-model payloads", () => {

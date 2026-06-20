@@ -76,7 +76,12 @@ export interface RuntimeMessageMap {
   [MESSAGE_KEYS.PROVIDER.WARMUP_MODEL]: {
     request: {
       type: typeof MESSAGE_KEYS.PROVIDER.WARMUP_MODEL
-      payload: { model: string; providerId?: string }
+      payload: {
+        model: string
+        providerId?: string
+        previousModel?: string
+        previousProviderId?: string
+      }
     }
     response: RuntimeResponse
   }
