@@ -77,7 +77,3 @@ artifacts/
 *.diff
 
 .commandcode/
-
-# Local planning docs (not for VCS)
-FEATURE_ROADMAP.md
-RELEASE_0.11.md
