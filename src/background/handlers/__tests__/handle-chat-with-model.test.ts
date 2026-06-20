@@ -74,15 +74,22 @@ describe("handleChatWithModel", () => {
   let mockPort: ReturnType<typeof createMockPort>
   let mockIsPortClosed: ReturnType<typeof createMockIsPortClosed>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     clearHandlerMocks()
     setupHandlerMocks()
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
 
-    // Reset mockProvider to its hoisted state if needed,
-    // but vi.clearAllMocks should handle the internal mock functions.
+    // clearAllMocks resets calls but not implementations, so restore the RAG
+    // mock defaults here. This makes every test start with empty memory and
+    // removes the need for per-test teardown (which leaks if an assert throws).
+    const rag = await import("@/features/chat/rag/rag-pipeline")
+    vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([])
+    vi.mocked(rag.formatEnhancedResults).mockReturnValue({
+      formattedContext: "",
+      sources: []
+    } as never)
   })
 
   describe("successful chat requests", () => {
@@ -247,13 +254,7 @@ describe("handleChatWithModel", () => {
       )
       expect(systemMsg.content).toContain("[Context truncated due to length]")
       expect(systemMsg.content).not.toContain(longContext)
-
-      // Restore rag mocks so later tests see the empty default.
-      vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([])
-      vi.mocked(rag.formatEnhancedResults).mockReturnValue({
-        formattedContext: "",
-        sources: []
-      } as never)
+      // No manual teardown needed — beforeEach restores the RAG mock defaults.
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
