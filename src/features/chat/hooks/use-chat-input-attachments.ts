@@ -117,7 +117,8 @@ export const useChatInputAttachments = () => {
       if (visionUnsupported) return null
       try {
         const file = await captureVisibleTabImage()
-        return await fileToAttachment(file)
+        // notify=false: silent auto-send path, no reject toasts.
+        return await fileToAttachment(file, false)
       } catch (error) {
         logger.warn("Auto screenshot capture failed", "ChatInputBox", { error })
         return null

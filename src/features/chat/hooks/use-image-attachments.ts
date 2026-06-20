@@ -40,27 +40,31 @@ export const useImageAttachments = ({
 }: UseImageAttachmentsOptions) => {
   const [images, setImages] = useState<ImageAttachment[]>([])
 
-  // Validate + read one file into an ImageAttachment, or null (calling onReject).
-  // Does NOT stage it — callers that want it staged use addFiles.
+  // Validate + read one file into an ImageAttachment, or null. Does NOT stage it
+  // — callers that want it staged use addFiles. `notify` controls the onReject
+  // toast: pass false for silent paths (e.g. auto screenshot on send).
   const fileToAttachment = useCallback(
-    async (file: File): Promise<ImageAttachment | null> => {
+    async (file: File, notify = true): Promise<ImageAttachment | null> => {
+      const reject = (reason: ImageRejectReason) => {
+        if (notify) onReject?.(reason, file)
+      }
       if (isHeic(file)) {
-        onReject?.("heic", file)
+        reject("heic")
         return null
       }
       if (!isSupportedImage(file.type)) {
-        onReject?.("type", file)
+        reject("type")
         return null
       }
       if (file.size > maxSizeBytes) {
-        onReject?.("size", file)
+        reject("size")
         return null
       }
       let base64: string
       try {
         base64 = await readFileAsBase64(file)
       } catch {
-        onReject?.("type", file)
+        reject("type")
         return null
       }
       return {
