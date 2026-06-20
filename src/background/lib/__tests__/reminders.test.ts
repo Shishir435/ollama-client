@@ -137,13 +137,39 @@ describe("reminders", () => {
     )
   })
 
-  it("registers reminder alarm listener", () => {
+  it("serializes concurrent reminder fires without restoring stale reminders", async () => {
+    let store = {
+      reminders: [
+        { id: "r1", message: "One", dueAt: 123, createdAt: 100 },
+        { id: "r2", message: "Two", dueAt: 456, createdAt: 200 }
+      ]
+    }
+    mocks.getPlasmoStoredValue.mockImplementation(async () => store)
+    mocks.setPlasmoStoredValue.mockImplementation(async (_key, nextStore) => {
+      store = nextStore as typeof store
+    })
+
+    await Promise.all([fireReminder("r1"), fireReminder("r2")])
+
+    expect(store.reminders).toEqual([])
+    expect(mocks.notifyJobComplete).toHaveBeenCalledTimes(2)
+    expect(mocks.notifyJobComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "One" })
+    )
+    expect(mocks.notifyJobComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Two" })
+    )
+  })
+
+  it("registers reminder alarm listener", async () => {
     registerReminderAlarms()
 
     expect(mocks.onAlarmAddListener).toHaveBeenCalledTimes(1)
     const onAlarm = mocks.onAlarmAddListener.mock.calls[0][0]
     onAlarm({ name: "ollama-client:reminder:r1" })
 
-    expect(mocks.getPlasmoStoredValue).toHaveBeenCalled()
+    await vi.waitFor(() =>
+      expect(mocks.getPlasmoStoredValue).toHaveBeenCalled()
+    )
   })
 })

@@ -30,6 +30,8 @@ interface ReminderStore {
   reminders: Reminder[]
 }
 
+let reminderStoreLock: Promise<void> = Promise.resolve()
+
 const getAlarmsApi = (): AlarmsApi | undefined =>
   (browser as unknown as { alarms?: AlarmsApi }).alarms
 
@@ -49,6 +51,17 @@ const getReminderStore = async (): Promise<ReminderStore> => {
 
 const setReminderStore = async (store: ReminderStore): Promise<void> => {
   await setPlasmoStoredValue(STORAGE_KEYS.BACKGROUND.REMINDERS, store)
+}
+
+const withReminderStoreLock = async <T>(
+  operation: () => Promise<T>
+): Promise<T> => {
+  const run = reminderStoreLock.then(operation, operation)
+  reminderStoreLock = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
 }
 
 export const alarmNameForReminder = (id: string): string =>
@@ -98,16 +111,24 @@ export const scheduleReminder = async ({
     createdAt: now
   }
 
-  const store = await getReminderStore()
-  const nextStore = { reminders: [...store.reminders, reminder] }
-  await setReminderStore(nextStore)
+  await withReminderStoreLock(async () => {
+    const store = await getReminderStore()
+    await setReminderStore({
+      reminders: [...store.reminders, reminder]
+    })
+  })
 
   try {
     await alarms.create(alarmNameForReminder(reminder.id), {
       when: reminder.dueAt
     })
   } catch (error) {
-    await setReminderStore(store).catch((rollbackError) => {
+    await withReminderStoreLock(async () => {
+      const store = await getReminderStore()
+      await setReminderStore({
+        reminders: store.reminders.filter((item) => item.id !== reminder.id)
+      })
+    }).catch((rollbackError) => {
       logger.warn(
         "Failed to roll back reminder after alarm creation failure",
         "Reminders",
@@ -124,13 +145,18 @@ export const scheduleReminder = async ({
 }
 
 export const fireReminder = async (id: string): Promise<void> => {
-  const store = await getReminderStore()
-  const reminder = store.reminders.find((item) => item.id === id)
-  if (!reminder) return
+  const reminder = await withReminderStoreLock(async () => {
+    const store = await getReminderStore()
+    const reminder = store.reminders.find((item) => item.id === id)
+    if (!reminder) return undefined
 
-  await setReminderStore({
-    reminders: store.reminders.filter((item) => item.id !== id)
+    await setReminderStore({
+      reminders: store.reminders.filter((item) => item.id !== id)
+    })
+
+    return reminder
   })
+  if (!reminder) return
 
   void notifyJobComplete({
     id: `reminder-${reminder.id}`,
