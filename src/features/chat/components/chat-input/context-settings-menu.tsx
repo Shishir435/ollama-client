@@ -5,6 +5,7 @@ import {
   CheckIcon,
   Eye,
   Loader2,
+  Lock,
   RefreshCw,
   Search,
   ShieldCheck
@@ -374,7 +375,7 @@ export const ContextSettingsMenu = () => {
                 setOpen(false)
                 setPermsOpen(true)
               }}>
-              <ShieldCheck className="icon-sm shrink-0" />
+              <Lock className="icon-sm shrink-0" />
               <span className="min-w-0 flex-1 truncate text-left">
                 {t("settings.permissions.title")}
               </span>

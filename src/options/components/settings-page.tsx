@@ -50,10 +50,10 @@ import {
   Database,
   FileText,
   Github,
+  Lock,
   RefreshCcw,
   Server,
   Settings,
-  Shield,
   Sparkles,
   Volume2,
   Zap
@@ -128,7 +128,7 @@ export const SettingsPage = () => {
         {
           key: "permissions",
           label: t("settings.tabs.permissions"),
-          icon: Shield
+          icon: Lock
         },
         { key: "reset", label: t("settings.tabs.reset"), icon: RefreshCcw },
         { key: "guides", label: t("settings.tabs.guides"), icon: BookOpen }

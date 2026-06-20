@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { supportsTabGroups } from "@/lib/browser-api"
-import { Globe, Shield, Sparkles } from "@/lib/lucide-icon"
+import { Globe, Lock, Sparkles } from "@/lib/lucide-icon"
 import {
   hasPermission,
   type OptionalApiPermission,
@@ -123,7 +123,7 @@ export const PermissionsPanel = ({
     <div className="grid gap-4">
       <SettingsCard
         focusId="permissions"
-        icon={Shield}
+        icon={Lock}
         title={t("settings.permissions.optional.title")}
         description={t("settings.permissions.optional.description")}>
         {OPTIONAL_PERMISSIONS.filter((m) => m.available()).map((meta) => (
