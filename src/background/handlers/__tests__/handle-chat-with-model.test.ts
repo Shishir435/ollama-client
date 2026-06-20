@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
-import type { ChatWithModelMessage } from "@/types"
+import type { ChatMessage, ChatWithModelMessage } from "@/types"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import {
   clearHandlerMocks,
@@ -210,6 +210,50 @@ describe("handleChatWithModel", () => {
         expect.any(Function),
         expect.any(AbortSignal)
       )
+    })
+
+    it("caps injected memory context to the RAG char budget", async () => {
+      const { plasmoGlobalStorage } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
+        if (key === STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS) return 20
+        return undefined
+      })
+      const rag = await import("@/features/chat/rag/rag-pipeline")
+      vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([
+        { score: 1 }
+      ] as never)
+      const longContext = "X".repeat(100)
+      vi.mocked(rag.formatEnhancedResults).mockReturnValue({
+        formattedContext: longContext,
+        sources: []
+      } as never)
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "hi" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const request = mockStreamChat.mock.calls[0][0]
+      const systemMsg = request.messages.find(
+        (m: ChatMessage) => m.role === "system"
+      )
+      expect(systemMsg.content).toContain("[Context truncated due to length]")
+      expect(systemMsg.content).not.toContain(longContext)
+
+      // Restore rag mocks so later tests see the empty default.
+      vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([])
+      vi.mocked(rag.formatEnhancedResults).mockReturnValue({
+        formattedContext: "",
+        sources: []
+      } as never)
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
