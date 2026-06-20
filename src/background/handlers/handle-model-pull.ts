@@ -6,6 +6,10 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { normalizeError } from "@/background/lib/error-handler"
 import {
+  createAbortTimeout,
+  PULL_CONNECT_TIMEOUT_MS
+} from "@/background/lib/fetch-timeout"
+import {
   getBaseUrl,
   getPullAbortControllerKey,
   safePostMessage
@@ -56,6 +60,10 @@ export const handleModelPull = async (
   const controllerKey = getPullAbortControllerKey(port.name, modelName)
   setAbortController(controllerKey, controller)
 
+  // Cap the initial connection only — once headers arrive the download stream
+  // may legitimately run for minutes, so the timer is cleared before streaming.
+  const connectTimeout = createAbortTimeout(controller, PULL_CONNECT_TIMEOUT_MS)
+
   try {
     const requestBody: DefaultProviderPullRequest = { name: modelName }
     const isLmStudio = provider.id === ProviderId.LM_STUDIO
@@ -72,6 +80,7 @@ export const handleModelPull = async (
       body,
       signal: controller.signal
     })
+    connectTimeout.clear()
 
     if (!res.ok) {
       safePostMessage(port, {
@@ -95,7 +104,17 @@ export const handleModelPull = async (
 
     await handlePullStream(res, port, isPortClosed, modelName)
   } catch (err) {
-    if (isAbortError(err)) {
+    connectTimeout.clear()
+    if (connectTimeout.timedOut()) {
+      safePostMessage(port, {
+        error: {
+          status: 408,
+          message: `Connection timed out after ${
+            PULL_CONNECT_TIMEOUT_MS / 1000
+          }s. Is the provider running and reachable?`
+        }
+      })
+    } else if (isAbortError(err)) {
       safePostMessage(port, { error: "Download cancelled" })
     } else {
       safePostMessage(port, {

@@ -1,4 +1,8 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
+import {
+  createAbortTimeout,
+  EMBEDDING_DOWNLOAD_TIMEOUT_MS
+} from "@/background/lib/fetch-timeout"
 import { getBaseUrl } from "@/background/lib/utils"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -325,11 +329,24 @@ export const downloadEmbeddingModelSilently = async (
       stream: false // Don't stream for silent download
     }
 
-    const res = await fetch(`${baseUrl}/api/pull`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
-    })
+    // Non-streaming pull holds the connection until the whole model downloads;
+    // cap it so a hung provider can't keep the request (and SW) alive forever.
+    const controller = new AbortController()
+    const downloadTimeout = createAbortTimeout(
+      controller,
+      EMBEDDING_DOWNLOAD_TIMEOUT_MS
+    )
+    let res: Response
+    try {
+      res = await fetch(`${baseUrl}/api/pull`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      })
+    } finally {
+      downloadTimeout.clear()
+    }
 
     if (!res.ok) {
       const errorText = await res.text()
