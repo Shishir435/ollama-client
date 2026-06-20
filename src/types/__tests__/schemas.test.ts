@@ -165,6 +165,41 @@ describe("ChatMessageMetricsSchema", () => {
     expect(result.success).toBe(true)
   })
 
+  it("accepts persisted web-search sources with nullable optional fields", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      toolRuns: [
+        {
+          toolId: "web_search",
+          label: "web_search",
+          category: "web",
+          status: "done",
+          startedAt: 1,
+          sources: [
+            {
+              title: "Example",
+              url: "https://example.com",
+              excerpt: null,
+              publishedAt: null,
+              source: null,
+              score: null,
+              category: null,
+              used: true
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.toolRuns?.[0].sources?.[0]).toEqual({
+        title: "Example",
+        url: "https://example.com",
+        used: true
+      })
+    }
+  })
+
   it("accepts activity event metadata", () => {
     const result = ChatMessageMetricsSchema.safeParse({
       activityEvents: [

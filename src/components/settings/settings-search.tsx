@@ -1,4 +1,4 @@
-import { type Ref, useId, useMemo, useRef, useState } from "react"
+import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { MiniBadge } from "@/components/ui/mini-badge"
@@ -76,6 +76,13 @@ export const SettingsSearch = ({
     setQuery("")
     setOpen(false)
   }
+
+  useEffect(
+    () => () => {
+      if (blurTimer.current) window.clearTimeout(blurTimer.current)
+    },
+    []
+  )
 
   return (
     <div className={cn("relative", className)}>

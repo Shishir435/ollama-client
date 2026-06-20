@@ -64,6 +64,7 @@ export const SettingsPage = () => {
   const { t } = useTranslation()
   const desktopSearchRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
+  const highlightTimersRef = useRef<Set<number>>(new Set())
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     if (typeof window === "undefined") return "general"
     const params = new URLSearchParams(window.location.search)
@@ -209,6 +210,13 @@ export const SettingsPage = () => {
 
     let attempts = 0
     const maxAttempts = 40
+    const scheduleHighlightTimer = (callback: () => void, delay: number) => {
+      const timerId = window.setTimeout(() => {
+        highlightTimersRef.current.delete(timerId)
+        callback()
+      }, delay)
+      highlightTimersRef.current.add(timerId)
+    }
 
     const highlightWhenReady = () => {
       attempts += 1
@@ -219,7 +227,7 @@ export const SettingsPage = () => {
 
       if (!focusTarget) {
         if (attempts < maxAttempts) {
-          window.setTimeout(highlightWhenReady, 50)
+          scheduleHighlightTimer(highlightWhenReady, 50)
         }
         return
       }
@@ -236,7 +244,7 @@ export const SettingsPage = () => {
         "ring-offset-background"
       )
 
-      window.setTimeout(() => {
+      scheduleHighlightTimer(() => {
         focusContainer.classList.remove(
           "ring-2",
           "ring-primary",
@@ -250,8 +258,18 @@ export const SettingsPage = () => {
       }
     }
 
-    window.setTimeout(highlightWhenReady, 0)
+    scheduleHighlightTimer(highlightWhenReady, 0)
   }, [])
+
+  useEffect(
+    () => () => {
+      for (const timerId of highlightTimersRef.current) {
+        window.clearTimeout(timerId)
+      }
+      highlightTimersRef.current.clear()
+    },
+    []
+  )
 
   // Sync the tab into the URL and, when a `?focus` id is present, highlight it
   // once the tab's content mounts.
@@ -354,6 +372,7 @@ export const SettingsPage = () => {
               activeTab={activeTab}
               inputRef={desktopSearchRef}
               onSelect={navigateToSetting}
+              showShortcutHint
             />
           </div>
           <SettingsSidebar

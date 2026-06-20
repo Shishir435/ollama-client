@@ -292,6 +292,60 @@ describe("messages", () => {
     expect(msg.thinking).toBe("reasoning...")
   })
 
+  it("messageFromRow preserves persisted web-search tool sources", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      {
+        id: 1,
+        sessionId: "s1",
+        role: "assistant",
+        content: "Answer with citations",
+        model: "m",
+        timestamp: 5,
+        parentId: null,
+        done: 1,
+        metrics: JSON.stringify({
+          toolRuns: [
+            {
+              toolId: "web_search",
+              label: "web_search",
+              category: "web",
+              status: "done",
+              startedAt: 1,
+              completedAt: 2,
+              sources: [
+                {
+                  id: "call-1:web-0",
+                  title: "Example",
+                  url: "https://example.com",
+                  excerpt: "snippet",
+                  score: null,
+                  used: true
+                }
+              ]
+            }
+          ]
+        }),
+        thinking: null
+      }
+    ])
+
+    const [msg] = await repo.getAllMessages()
+
+    expect(msg.metrics?.toolRuns?.[0]).toMatchObject({
+      toolId: "web_search",
+      status: "done",
+      sources: [
+        {
+          id: "call-1:web-0",
+          title: "Example",
+          url: "https://example.com",
+          excerpt: "snippet",
+          used: true
+        }
+      ]
+    })
+  })
+
   it("messageFromRow tolerates malformed JSON in metrics", async () => {
     mockedQuery.mockResolvedValueOnce([
       {

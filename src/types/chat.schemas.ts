@@ -1,5 +1,20 @@
 import { z } from "zod"
 
+const optionalString = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.string().optional()
+)
+
+const optionalNumber = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.number().optional()
+)
+
+const optionalBoolean = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.boolean().optional()
+)
+
 // ---- Metrics (used inside messages and for SQLite parseMetrics) ----
 
 const RagSourceSchema = z.object({
@@ -48,13 +63,13 @@ const ToolRunSchema = z.object({
       z.object({
         id: z.union([z.string(), z.number()]).optional(),
         title: z.string(),
-        url: z.string().optional(),
-        excerpt: z.string().optional(),
-        publishedAt: z.string().optional(),
-        source: z.string().optional(),
-        score: z.number().optional(),
-        category: z.string().optional(),
-        used: z.boolean().optional()
+        url: optionalString,
+        excerpt: optionalString,
+        publishedAt: optionalString,
+        source: optionalString,
+        score: optionalNumber,
+        category: optionalString,
+        used: optionalBoolean
       })
     )
     .optional(),
