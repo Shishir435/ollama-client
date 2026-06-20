@@ -128,6 +128,19 @@ export interface RuntimeMessageMap {
     }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY]: {
+    request: {
+      type: typeof MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY
+      payload: string
+      // The address-bar disposition (Enter vs Alt/Meta+Enter). Forwarded for
+      // completeness; the quick-ask always opens the side panel, so it is not
+      // currently acted on. See use-omnibox-query.ts.
+      disposition?: "currentTab" | "newForegroundTab" | "newBackgroundTab"
+      // Marks the message as background-originated (see message-router).
+      fromBackground?: boolean
+    }
+    response: RuntimeResponse
+  }
   [MESSAGE_KEYS.APP.RELOAD]: {
     request: { type: typeof MESSAGE_KEYS.APP.RELOAD }
     response: RuntimeResponse

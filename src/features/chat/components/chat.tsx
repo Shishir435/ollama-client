@@ -1,6 +1,7 @@
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
+import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
@@ -18,6 +19,7 @@ export const Chat = () => {
     sendMessage,
     generateResponse,
     stopGeneration,
+    isModelReady,
     hasMore,
     onLoadMore
   } = useChat()
@@ -34,6 +36,10 @@ export const Chat = () => {
   } = useChatSessions()
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
+
+  // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
+  // the chat UI decoupled from address-bar integration.
+  useOmniboxQuery({ sendMessage, isModelReady })
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({

@@ -86,6 +86,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Ephemeral cross-surface handoff; should not sync to another device."
   },
+  [STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY]: {
+    key: STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
+    scope: "device-local",
+    reason:
+      "Ephemeral omnibox-to-chat handoff; should not sync to another device."
+  },
   [STORAGE_KEYS.TTS.RATE]: {
     key: STORAGE_KEYS.TTS.RATE,
     scope: "sync-safe",

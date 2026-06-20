@@ -48,6 +48,7 @@ export const MESSAGE_KEYS = {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat",
+    OMNIBOX_QUERY: "omnibox-query",
     SELECTION_BRIDGE_PORT: "selection-bridge-port",
     SELECTION_ACTION_CHUNK: "selection-action-chunk",
     SELECTION_ACTION_DONE: "selection-action-done",
@@ -92,7 +93,8 @@ export const STORAGE_KEYS = {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
     CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
-    PENDING_SELECTION_TEXT: "pending-selection-text"
+    PENDING_SELECTION_TEXT: "pending-selection-text",
+    PENDING_OMNIBOX_QUERY: "pending-omnibox-query"
   },
   TTS: {
     RATE: "tts-rate",

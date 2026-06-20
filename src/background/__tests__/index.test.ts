@@ -38,7 +38,8 @@ const mockBrowser = {
 vi.mock("@/lib/browser-api", () => ({
   browser: mockBrowser,
   isChromiumBased: vi.fn().mockReturnValue(true),
-  supportsAlarms: vi.fn().mockReturnValue(false)
+  supportsAlarms: vi.fn().mockReturnValue(false),
+  supportsOmnibox: vi.fn().mockReturnValue(false)
 }))
 
 // Mock Handlers

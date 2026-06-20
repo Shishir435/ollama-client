@@ -47,6 +47,9 @@ export default defineConfig({
         128: "assets/icon.png"
       }
     },
+    omnibox: {
+      keyword: "olc"
+    },
     host_permissions: ["<all_urls>"],
     permissions: [
       "storage",

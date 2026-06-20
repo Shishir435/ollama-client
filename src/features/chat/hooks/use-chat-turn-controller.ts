@@ -112,6 +112,21 @@ export const useChatTurnController = ({
     const hasImages = !!images && images.length > 0
     if (!rawInput && (!files || files.length === 0) && !hasImages) return
 
+    // Guard against entering the loading state with no resolvable model:
+    // generateResponse would bail silently, leaving the turn stuck at
+    // "Preparing context..." forever.
+    const resolvedModel =
+      customModel || config.selectedModelRef?.modelId || config.selectedModel
+    if (!resolvedModel) {
+      toast({
+        variant: "destructive",
+        title: "No model selected",
+        description:
+          "Select a model in the model menu before sending a message."
+      })
+      return
+    }
+
     setIsLoading(true)
     const preparingEvent: ActivityEvent = {
       id: "preparing-context",

@@ -1,6 +1,7 @@
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
 import { updateDNRRules } from "@/background/lib/dnr"
+import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { browser, isChromiumBased } from "@/lib/browser-api"
@@ -150,6 +151,7 @@ export const initializeBackgroundStartup = () => {
   registerActionHandler()
   registerInstallHandlers()
   registerToolRegistryInvalidation()
+  registerOmniboxQuickAsk(openPanelForTab)
   registerScheduledJobs()
   registerReminderAlarms()
 }

@@ -28,6 +28,9 @@ describe("storage key registry", () => {
       getStorageKeyMetadata(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
     ).toMatchObject({ scope: "device-local" })
     expect(
+      getStorageKeyMetadata(STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY)
+    ).toMatchObject({ scope: "device-local" })
+    expect(
       getStorageKeyMetadata(STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT)
     ).toMatchObject({ scope: "device-local" })
     expect(
