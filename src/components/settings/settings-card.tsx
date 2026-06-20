@@ -20,7 +20,7 @@ export interface SettingsCardProps {
   description: string
   badge?: React.ReactNode
   badgeTooltip?: React.ReactNode
-  children: React.ReactNode
+  children?: React.ReactNode
   className?: string
   focusId?: string
   headerClassName?: string

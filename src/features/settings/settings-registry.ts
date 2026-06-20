@@ -4,6 +4,23 @@ import {
 } from "@/features/settings/settings-search-scoring"
 
 /**
+ * Tab groups is a Chromium-only API. Detected inline (not via `browser-api`) so
+ * the registry stays import-light and doesn't force every test that mocks
+ * `browser-api` to also stub a capability gate.
+ */
+const TAB_GROUPS_AVAILABLE =
+  typeof chrome !== "undefined" &&
+  typeof (chrome as unknown as Record<string, unknown>).tabGroups !==
+    "undefined"
+
+/**
+ * Preview-feature toggles are a dev/QA control hidden in the production build
+ * (see `permissions-panel.tsx`). Gate the matching search entry the same way so
+ * a production search hit can't land on a card that never mounts.
+ */
+const PREVIEW_FEATURES_VISIBLE = process.env.NODE_ENV !== "production"
+
+/**
  * Settings registry — the single source of truth for "what settings exist,
  * where they live, and what they're called."
  *
@@ -29,6 +46,7 @@ export const SETTINGS_TABS = [
   "prompts",
   "shortcuts",
   "voices",
+  "permissions",
   "reset",
   "guides"
 ] as const
@@ -1210,7 +1228,85 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     labelKey: "guides.support.title",
     descriptionKey: "guides.support.description",
     aliases: ["product hunt", "support project"]
-  }
+  },
+
+  // ---- Permissions & Privacy ---------------------------------------------
+  {
+    id: "permissions",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.title",
+    descriptionKey: "settings.permissions.description",
+    aliases: ["permissions", "privacy", "access", "consent", "data"]
+  },
+  {
+    id: "permission-bookmarks",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.bookmarks.label",
+    descriptionKey: "settings.permissions.items.bookmarks.description",
+    aliases: ["bookmarks", "saved pages", "permission"]
+  },
+  {
+    id: "permission-history",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.history.label",
+    descriptionKey: "settings.permissions.items.history.description",
+    aliases: ["history", "browsing history", "permission"]
+  },
+  {
+    id: "permission-notifications",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.notifications.label",
+    descriptionKey: "settings.permissions.items.notifications.description",
+    aliases: ["notifications", "alerts", "permission"]
+  },
+  {
+    id: "permission-downloads",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.downloads.label",
+    descriptionKey: "settings.permissions.items.downloads.description",
+    aliases: ["downloads", "save file", "export", "permission"]
+  },
+  // Only register tab groups for search where its focus target actually exists
+  // (the panel row only mounts on Chromium).
+  ...(TAB_GROUPS_AVAILABLE
+    ? [
+        {
+          id: "permission-tab-groups",
+          tab: "permissions" as const,
+          sectionId: "permissions",
+          labelKey: "settings.permissions.items.tabGroups.label",
+          descriptionKey: "settings.permissions.items.tabGroups.description",
+          aliases: ["tab groups", "permission"]
+        }
+      ]
+    : []),
+  {
+    id: "permissions-host",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.host.title",
+    descriptionKey: "settings.permissions.host.description",
+    aliases: ["host access", "all urls", "site access", "remote url"]
+  },
+  // Preview-features card is dev-only (hidden in the production build), so only
+  // register its search entry where the focus target actually mounts.
+  ...(PREVIEW_FEATURES_VISIBLE
+    ? [
+        {
+          id: "permissions-preview",
+          tab: "permissions" as const,
+          sectionId: "permissions",
+          labelKey: "settings.permissions.preview.title",
+          descriptionKey: "settings.permissions.preview.description",
+          aliases: ["preview", "experimental", "beta", "feature flags"]
+        }
+      ]
+    : [])
 ]
 
 const TAB_SET = new Set<string>(SETTINGS_TABS)

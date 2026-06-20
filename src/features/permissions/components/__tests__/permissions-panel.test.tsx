@@ -1,0 +1,85 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
+import { useFeatureFlagsStore } from "@/stores/feature-flags"
+
+const perm = vi.hoisted(() => ({
+  hasPermission: vi.fn(),
+  requestPermission: vi.fn(),
+  removePermission: vi.fn()
+}))
+
+vi.mock("@/lib/permissions", () => ({
+  hasPermission: perm.hasPermission,
+  requestPermission: perm.requestPermission,
+  removePermission: perm.removePermission
+}))
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key })
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  perm.hasPermission.mockResolvedValue(false)
+  perm.requestPermission.mockResolvedValue(true)
+  perm.removePermission.mockResolvedValue(true)
+  useFeatureFlagsStore.getState().reset()
+})
+
+describe("PermissionsPanel", () => {
+  it("renders optional-permission and preview-flag switches", () => {
+    render(<PermissionsPanel />)
+    expect(document.getElementById("permission-bookmarks")).toBeTruthy()
+    expect(document.getElementById("permission-history")).toBeTruthy()
+    expect(
+      document.getElementById("feature-flag-screenshotVision")
+    ).toBeTruthy()
+  })
+
+  it("requests the API permission when its switch is enabled", () => {
+    render(<PermissionsPanel />)
+    fireEvent.click(document.getElementById("permission-bookmarks") as Element)
+    expect(perm.requestPermission).toHaveBeenCalledWith("bookmarks")
+  })
+
+  it("keeps the toggle granted when a revoke fails (no misleading signal)", async () => {
+    perm.hasPermission.mockResolvedValue(true)
+    perm.removePermission.mockResolvedValue(false) // revoke fails — still held
+    render(<PermissionsPanel />)
+    // First switch is the bookmarks optional-permission row.
+    const sw = screen.getAllByRole("switch")[0]
+    await waitFor(() => expect(sw).toBeChecked())
+    fireEvent.click(sw)
+    await waitFor(() =>
+      expect(perm.removePermission).toHaveBeenCalledWith("bookmarks")
+    )
+    // Real state re-queried (still granted) → toggle stays on, not optimistic off.
+    await waitFor(() => expect(sw).toBeChecked())
+  })
+
+  it("toggling a preview flag updates the feature-flags store", () => {
+    render(<PermissionsPanel />)
+    fireEvent.click(document.getElementById("feature-flag-omnibox") as Element)
+    expect(useFeatureFlagsStore.getState().flags.omnibox).toBe(true)
+  })
+
+  it("compact mode omits the host-access note card", () => {
+    const { queryByText } = render(<PermissionsPanel compact />)
+    // host title key is only rendered in non-compact mode
+    expect(queryByText("settings.permissions.host.title")).toBeNull()
+  })
+
+  it("hides the preview-features card in the production build", () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = "production"
+    try {
+      render(<PermissionsPanel />)
+      expect(
+        document.getElementById("feature-flag-screenshotVision")
+      ).toBeNull()
+    } finally {
+      process.env.NODE_ENV = prev
+    }
+  })
+})

@@ -49,6 +49,7 @@ export {
   Linkedin,
   ListChecks,
   Loader2,
+  Lock,
   Menu,
   MessageSquare,
   Mic,

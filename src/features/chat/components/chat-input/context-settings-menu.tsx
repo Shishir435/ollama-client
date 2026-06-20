@@ -5,6 +5,7 @@ import {
   CheckIcon,
   Eye,
   Loader2,
+  Lock,
   RefreshCw,
   Search,
   ShieldCheck
@@ -21,6 +22,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -197,6 +199,7 @@ export const ContextSettingsMenu = () => {
   const { tabContents } = useTabContents()
   const getTabStatus = useTabStatusMap()
   const [open, setOpen] = useState(false)
+  const [permsOpen, setPermsOpen] = useState(false)
   const [previewTabId, setPreviewTabId] = useState<string | null>(null)
   const [tabSearch, setTabSearch] = useState("")
   const [config] = useStorage<ContentExtractionConfig>(
@@ -364,6 +367,19 @@ export const ContextSettingsMenu = () => {
                 </Button>
               )
             })}
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 justify-start gap-2 rounded-control px-2 text-xs text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+              onClick={() => {
+                setOpen(false)
+                setPermsOpen(true)
+              }}>
+              <Lock className="icon-sm shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">
+                {t("settings.permissions.title")}
+              </span>
+            </Button>
           </div>
           {tabAccess && (
             <TabContextPanel
@@ -380,6 +396,7 @@ export const ContextSettingsMenu = () => {
           )}
         </PopoverContent>
       </Popover>
+      <PermissionsSheet open={permsOpen} onOpenChange={setPermsOpen} />
       <PreviewSheet
         open={Boolean(previewTabId)}
         onOpenChange={(next) => {

@@ -975,9 +975,48 @@
       "embeddings": "Embeddings",
       "providers": "Providers",
       "voices": "Voices",
+      "permissions": "Permissions",
       "reset": "Reset",
       "guides": "Guides",
       "shortcuts": "Shortcuts"
+    },
+    "permissions": {
+      "title": "Permissions & privacy",
+      "description": "See and control what this extension can access. Everything stays on your device.",
+      "optional": {
+        "title": "Optional access",
+        "description": "Granted only when you turn it on, and revocable here at any time. Each unlocks a local feature; no data leaves your device."
+      },
+      "items": {
+        "bookmarks": {
+          "label": "Bookmarks",
+          "description": "Let you index saved pages into local knowledge for search and chat."
+        },
+        "history": {
+          "label": "Browsing history",
+          "description": "Let you index and recall your history locally. Never uploaded."
+        },
+        "notifications": {
+          "label": "Notifications",
+          "description": "Notify you when a long local job (embedding, backfill) finishes."
+        },
+        "downloads": {
+          "label": "Downloads",
+          "description": "Save generated artifacts (code, diagrams, answers) to a file."
+        },
+        "tabGroups": {
+          "label": "Tab groups",
+          "description": "Work with whole tab groups for multi-tab summaries and compare."
+        }
+      },
+      "host": {
+        "title": "Site access",
+        "description": "This extension keeps access to all sites. It is required so you can point it at any local or remote provider URL, and so page-context and selection features work on any page. It is never used to send your data anywhere."
+      },
+      "preview": {
+        "title": "Preview features",
+        "description": "Experimental, in-development features. Off by default; enable at your own risk."
+      }
     },
     "context": {
       "sections": {

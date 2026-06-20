@@ -18,7 +18,13 @@ const messages: Record<string, string> = {
   "settings.providers.base_url": "Base URL",
   "settings.providers.base_url_default": "Default",
   "settings.reset.modules.browser.title": "Browser Settings",
-  "settings.reset.modules.browser.description": "Tab access & URL patterns"
+  "settings.reset.modules.browser.description": "Tab access & URL patterns",
+  "settings.tabs.permissions": "Permissions",
+  "settings.permissions.title": "Permissions & privacy",
+  "settings.permissions.description":
+    "See and control what this extension can access.",
+  "settings.permissions.items.bookmarks.label": "Bookmarks",
+  "settings.permissions.items.bookmarks.description": "Index saved pages."
 }
 
 vi.mock("react-i18next", () => ({
@@ -56,6 +62,20 @@ describe("SettingsSearch", () => {
     fireEvent.change(input, { target: { value: "balanced" } })
     expect(screen.getByText("Balanced")).toBeInTheDocument()
     expect(screen.getByText("Presets")).toBeInTheDocument()
+  })
+
+  it("finds an individual Permissions control by label", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "bookmarks" } })
+    expect(screen.getByText("Bookmarks")).toBeInTheDocument()
+  })
+
+  it("finds the Permissions tab via a privacy alias", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "privacy" } })
+    expect(screen.getByText("Permissions & privacy")).toBeInTheDocument()
   })
 
   it("shows reset module rows", () => {
