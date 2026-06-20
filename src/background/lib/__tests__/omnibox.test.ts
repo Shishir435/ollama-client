@@ -59,17 +59,21 @@ describe("registerOmniboxQuickAsk", () => {
     })
     expect(mocks.onInputEnteredAddListener).toHaveBeenCalledTimes(1)
 
+    // Cache is primed asynchronously on register; wait for it to resolve so the
+    // listener can open the panel synchronously from the cached tab.
+    await vi.waitFor(() => expect(mocks.tabsQuery).toHaveBeenCalled())
+    await Promise.resolve()
+
     const onInputEntered = mocks.onInputEnteredAddListener.mock.calls[0][0]
     onInputEntered(" explain sqlite wasm ", "currentTab")
+
+    expect(openChatSurface).toHaveBeenCalledWith({ id: 12, windowId: 34 })
 
     await vi.waitFor(() =>
       expect(mocks.setPlasmoStoredValue).toHaveBeenCalledWith(
         STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
         "explain sqlite wasm"
       )
-    )
-    await vi.waitFor(() =>
-      expect(openChatSurface).toHaveBeenCalledWith({ id: 12, windowId: 34 })
     )
     expect(mocks.runtimeSendMessage).toHaveBeenCalledWith({
       type: MESSAGE_KEYS.BROWSER.OMNIBOX_QUERY,

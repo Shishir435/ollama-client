@@ -100,11 +100,16 @@ export const useChat = () => {
     toast
   })
 
+  const isModelReady = Boolean(
+    config.selectedModelRef?.modelId || config.selectedModel
+  )
+
   return {
     messages,
     pendingActivityEvents,
     isLoading,
     isStreaming,
+    isModelReady,
     sendMessage,
     generateResponse,
     stopGeneration: stopStream,

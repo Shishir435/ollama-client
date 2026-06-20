@@ -25,6 +25,7 @@ export const Chat = () => {
     sendMessage,
     generateResponse,
     stopGeneration,
+    isModelReady,
     hasMore,
     onLoadMore
   } = useChat()
@@ -42,11 +43,28 @@ export const Chat = () => {
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
   const lastOmniboxQueryRef = useRef<{ query: string; at: number } | null>(null)
+  // The selected model hydrates asynchronously from storage. The omnibox can
+  // fire a query before that, so we hold the query in storage and only consume
+  // it once a model is ready — otherwise generateResponse bails on the missing
+  // model and the turn hangs at "Preparing context...".
+  const isModelReadyRef = useRef(isModelReady)
+  isModelReadyRef.current = isModelReady
 
   const consumeOmniboxQuery = useCallback(
     async (rawQuery: string) => {
       const query = rawQuery.trim()
       if (!query) return
+
+      // Not ready yet: leave the query in storage so the readiness effect picks
+      // it up once the model hydrates. Make sure it is persisted (runtime-message
+      // path delivers the query without writing storage itself).
+      if (!isModelReadyRef.current) {
+        await pendingOmniboxStorage.set(
+          STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
+          query
+        )
+        return
+      }
 
       const now = Date.now()
       const lastQuery = lastOmniboxQueryRef.current
@@ -73,6 +91,10 @@ export const Chat = () => {
       )
       if (pendingQuery) await consumeOmniboxQuery(pendingQuery)
     }
+
+    // Re-check whenever the model becomes ready so a query that arrived before
+    // hydration is sent as soon as a model is available.
+    if (!isModelReady) return
 
     void checkPendingOmniboxQuery()
 
@@ -101,7 +123,7 @@ export const Chat = () => {
       pendingOmniboxStorage.unwatch(pendingOmniboxWatch)
       chrome.runtime.onMessage.removeListener(handleMessage)
     }
-  }, [consumeOmniboxQuery])
+  }, [consumeOmniboxQuery, isModelReady])
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({
