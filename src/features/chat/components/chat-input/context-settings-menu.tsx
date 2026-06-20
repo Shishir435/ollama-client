@@ -342,7 +342,7 @@ export const ContextSettingsMenu = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  className="rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
                   aria-label={t("tabs.context")}
                 />
               }
@@ -351,7 +351,7 @@ export const ContextSettingsMenu = () => {
           label={t("tabs.context")}
           icon={
             <IconBadge
-              icon={<Layers className="icon-md" aria-hidden="true" />}
+              icon={<Layers className="icon-lg" aria-hidden="true" />}
               count={selectedTabIds.length}
             />
           }

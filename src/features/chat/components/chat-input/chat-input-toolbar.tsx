@@ -57,8 +57,8 @@ export const ChatInputToolbar = ({
           showText={false}
           variant="ghost"
           size="icon"
-          className="size-8 shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-          iconClassName="icon-md"
+          className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+          iconClassName="icon-lg"
         />
 
         <FileUploadButton
@@ -71,11 +71,11 @@ export const ChatInputToolbar = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+            className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
             onClick={onCaptureScreenshot}
             disabled={isLoading}
             label={t("chat.input.screenshot")}
-            icon={<Camera className="icon-md" aria-hidden="true" />}
+            icon={<Camera className="icon-lg" aria-hidden="true" />}
           />
         )}
         {attachmentCount > 0 && onAttachmentClick && (
@@ -83,14 +83,14 @@ export const ChatInputToolbar = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="relative size-8 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+            className="relative shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
             onClick={onAttachmentClick}
             label={t("chat.input.attachments", {
               count: attachmentCount
             })}
             icon={
               <IconBadge
-                icon={<FileText className="icon-md" aria-hidden="true" />}
+                icon={<FileText className="icon-lg" aria-hidden="true" />}
                 count={attachmentCount}
               />
             }
