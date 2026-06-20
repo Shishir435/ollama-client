@@ -127,7 +127,9 @@ export const STORAGE_KEYS = {
     MAX_RAG_CONTEXT_CHARS: "chat-max-rag-context-chars",
     MAX_TOOL_RESULT_CHARS: "chat-max-tool-result-chars",
     GROUNDED_ONLY_MODE: "chat-grounded-only-mode",
-    AUTO_REFRESH_TAB_CONTEXT: "chat-auto-refresh-tab-context"
+    AUTO_REFRESH_TAB_CONTEXT: "chat-auto-refresh-tab-context",
+    // E1: auto-capture a screenshot on send when a vision model is selected.
+    AUTO_SCREENSHOT_ON_VISION: "chat-auto-screenshot-on-vision"
   },
   KNOWLEDGE: {
     ACTIVE_SET: "knowledge-active-set"

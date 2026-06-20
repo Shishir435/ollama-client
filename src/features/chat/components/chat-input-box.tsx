@@ -79,11 +79,20 @@ export const ChatInputBox = ({
     images,
     handleImageFiles,
     captureScreenshot,
+    captureScreenshotAttachment,
     visionUnsupported,
     removeImage,
     clearImages
   } = useChatInputAttachments()
   const screenshotEnabled = useFeatureFlag("screenshotVision")
+
+  const [autoScreenshotOnVision] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
     {
@@ -146,11 +155,11 @@ export const ChatInputBox = ({
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     // Don't start a new turn while one is in flight (the action button is a
     // Stop button then; this guards programmatic/edge callers too).
     if (isLoading) return
@@ -167,11 +176,24 @@ export const ChatInputBox = ({
       return
     }
 
+    // Auto-attach a fresh screenshot when enabled for a vision model — but never
+    // override an image the user staged manually.
+    let outgoingImages = images
+    if (
+      autoScreenshotOnVision &&
+      screenshotEnabled &&
+      !visionUnsupported &&
+      images.length === 0
+    ) {
+      const shot = await captureScreenshotAttachment()
+      if (shot) outgoingImages = [shot]
+    }
+
     onSend(
       undefined,
       undefined,
       successfulFiles.length > 0 ? successfulFiles : undefined,
-      images.length > 0 ? images : undefined
+      outgoingImages.length > 0 ? outgoingImages : undefined
     )
     clearAllProcessingStates()
     clearImages()

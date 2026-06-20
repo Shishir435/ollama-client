@@ -185,7 +185,8 @@
         "heic_unsupported": "HEIC はサポートされていません。画像を貼り付けるか、{{name}} を JPEG または PNG として書き出してください。",
         "screenshot_failed": "このページをキャプチャできませんでした。一部のページはキャプチャできません。"
       },
-      "screenshot": "スクリーンショットを撮る"
+      "screenshot": "スクリーンショットを撮る",
+      "auto_screenshot": "スクリーンショットを自動添付"
     },
     "context_preview": {
       "files": "添付ファイル",

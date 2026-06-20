@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import {
   AppWindow,
   BrainCircuit,
+  Camera,
   CheckIcon,
   Eye,
   Loader2,
@@ -22,6 +23,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
@@ -35,6 +37,7 @@ import {
 import { Layers } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
+import { useFeatureFlag } from "@/stores/feature-flags"
 import type { ContentExtractionConfig } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
@@ -224,6 +227,19 @@ export const ContextSettingsMenu = () => {
     false
   )
 
+  const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
+    useStorage<boolean>(
+      {
+        key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+        instance: plasmoGlobalStorage
+      },
+      false
+    )
+  const screenshotEnabled = useFeatureFlag("screenshotVision")
+  const { capabilities } = useSelectedModelCapabilities()
+  const showAutoScreenshot =
+    screenshotEnabled && (capabilities?.vision ?? false)
+
   const excludedPatterns =
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS
 
@@ -299,7 +315,18 @@ export const ContextSettingsMenu = () => {
       onClick: () => setGroundedOnlyMode(!groundedOnlyMode),
       icon: ShieldCheck,
       label: t("settings.grounding_mode.label")
-    }
+    },
+    ...(showAutoScreenshot
+      ? [
+          {
+            key: "auto-screenshot",
+            checked: autoScreenshotOnVision,
+            onClick: () => setAutoScreenshotOnVision(!autoScreenshotOnVision),
+            icon: Camera,
+            label: t("chat.input.auto_screenshot")
+          }
+        ]
+      : [])
   ]
 
   const previewTab = previewTabId

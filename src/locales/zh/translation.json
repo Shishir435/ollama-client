@@ -185,7 +185,8 @@
         "heic_unsupported": "不支持 HEIC。请粘贴图片，或将 {{name}} 导出为 JPEG 或 PNG。",
         "screenshot_failed": "无法截取此页面。某些页面无法截取。"
       },
-      "screenshot": "截取屏幕"
+      "screenshot": "截取屏幕",
+      "auto_screenshot": "自动附加截图"
     },
     "context_preview": {
       "files": "已附加文件",

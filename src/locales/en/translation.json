@@ -185,7 +185,8 @@
       "web_search_toggle_tooltip": "Web search",
       "drop_files_here": "Drop files here",
       "attachments": "{{count}} attachments",
-      "screenshot": "Capture screenshot"
+      "screenshot": "Capture screenshot",
+      "auto_screenshot": "Auto-attach screenshot"
     },
     "context_preview": {
       "files": "Attached files",

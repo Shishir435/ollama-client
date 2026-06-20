@@ -13,6 +13,7 @@ import { DEFAULT_MAX_IMAGE_SIZE_MB, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { ImageAttachment } from "@/types"
 
 export const useChatInputAttachments = () => {
   const { t } = useTranslation()
@@ -66,6 +67,7 @@ export const useChatInputAttachments = () => {
   const {
     images,
     addFiles: addImageFiles,
+    fileToAttachment,
     remove: removeImage,
     clear: clearImages
   } = useImageAttachments({
@@ -108,6 +110,20 @@ export const useChatInputAttachments = () => {
     }
   }, [visionUnsupported, addImageFiles, toast, t])
 
+  // For the auto-attach-on-send path: capture + build an attachment without
+  // staging it, and stay silent on failure (no toast spam on every send).
+  const captureScreenshotAttachment =
+    useCallback(async (): Promise<ImageAttachment | null> => {
+      if (visionUnsupported) return null
+      try {
+        const file = await captureVisibleTabPng()
+        return await fileToAttachment(file)
+      } catch (error) {
+        logger.warn("Auto screenshot capture failed", "ChatInputBox", { error })
+        return null
+      }
+    }, [visionUnsupported, fileToAttachment])
+
   const successfulFiles = processingStates
     .filter(
       (state): state is typeof state & { result: ProcessedFile } =>
@@ -124,6 +140,7 @@ export const useChatInputAttachments = () => {
     images,
     handleImageFiles,
     captureScreenshot,
+    captureScreenshotAttachment,
     visionUnsupported,
     removeImage,
     clearImages

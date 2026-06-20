@@ -185,7 +185,8 @@
         "heic_unsupported": "HEIC wird nicht unterstützt. Füge das Bild ein oder exportiere {{name}} als JPEG oder PNG.",
         "screenshot_failed": "Diese Seite konnte nicht aufgenommen werden. Manche Seiten lassen sich nicht erfassen."
       },
-      "screenshot": "Screenshot aufnehmen"
+      "screenshot": "Screenshot aufnehmen",
+      "auto_screenshot": "Screenshot automatisch anhängen"
     },
     "context_preview": {
       "files": "Angehängte Dateien",

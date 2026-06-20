@@ -185,7 +185,8 @@
         "heic_unsupported": "HEIC non è supportato. Incolla l'immagine o esporta {{name}} come JPEG o PNG.",
         "screenshot_failed": "Impossibile catturare questa pagina. Alcune pagine non possono essere catturate."
       },
-      "screenshot": "Cattura schermata"
+      "screenshot": "Cattura schermata",
+      "auto_screenshot": "Allega screenshot automaticamente"
     },
     "context_preview": {
       "files": "File allegati",
