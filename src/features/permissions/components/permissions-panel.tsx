@@ -131,7 +131,11 @@ const OptionalPermissionRow = ({
   )
 }
 
-const TestNotificationButton = () => {
+const TestNotificationButton = ({
+  onPermissionStateChanged
+}: {
+  onPermissionStateChanged: () => void
+}) => {
   const { t } = useTranslation()
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -148,6 +152,7 @@ const TestNotificationButton = () => {
         setStatus(t("settings.permissions.items.notifications.testDenied"))
         return
       }
+      onPermissionStateChanged()
 
       const response = (await browser.runtime.sendMessage({
         type: MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE,
@@ -182,7 +187,7 @@ const TestNotificationButton = () => {
     } finally {
       setSending(false)
     }
-  }, [t])
+  }, [onPermissionStateChanged, t])
 
   return (
     <div className="grid gap-2">
@@ -251,6 +256,11 @@ export const PermissionsPanel = ({
   const { t } = useTranslation()
   const flags = useFeatureFlagsStore((s) => s.flags)
   const setFlag = useFeatureFlagsStore((s) => s.setFlag)
+  const [permissionRefreshKey, setPermissionRefreshKey] = useState(0)
+
+  const refreshPermissionRows = useCallback(() => {
+    setPermissionRefreshKey((value) => value + 1)
+  }, [])
 
   // Preview-flag toggles are a dev/QA control, not end-user UI. Hidden in the
   // production build; the flag store still gates in-progress code paths. Flags
@@ -266,7 +276,7 @@ export const PermissionsPanel = ({
         description={t("settings.permissions.optional.description")}>
         {OPTIONAL_PERMISSIONS.filter((m) => m.available()).map((meta) => (
           <OptionalPermissionRow
-            key={meta.perm}
+            key={`${meta.perm}-${permissionRefreshKey}`}
             meta={meta}
             label={t(`settings.permissions.items.${meta.perm}.label`)}
             description={t(
@@ -274,7 +284,9 @@ export const PermissionsPanel = ({
             )}
           />
         ))}
-        <TestNotificationButton />
+        <TestNotificationButton
+          onPermissionStateChanged={refreshPermissionRows}
+        />
       </SettingsCard>
 
       {!compact && (

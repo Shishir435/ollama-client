@@ -120,6 +120,40 @@ describe("PermissionsPanel", () => {
     )
   })
 
+  it("refreshes the notifications switch after the test button grants permission", async () => {
+    let notificationsGranted = false
+    perm.hasPermission.mockImplementation(async (permission) =>
+      permission === "notifications" ? notificationsGranted : false
+    )
+    perm.requestPermission.mockImplementation(async (permission) => {
+      if (permission === "notifications") notificationsGranted = true
+      return true
+    })
+
+    render(<PermissionsPanel />)
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", {
+          name: "settings.permissions.items.notifications.label"
+        })
+      ).not.toBeChecked()
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.permissions.items.notifications.testButton"
+      })
+    )
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", {
+          name: "settings.permissions.items.notifications.label"
+        })
+      ).toBeChecked()
+    )
+  })
+
   it("shows skipped feedback when background gives no response", async () => {
     browserApi.sendMessage.mockResolvedValue(undefined)
 
