@@ -73,6 +73,38 @@ export interface RuntimeMessageMap {
     }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.PROVIDER.WARMUP_MODEL]: {
+    request: {
+      type: typeof MESSAGE_KEYS.PROVIDER.WARMUP_MODEL
+      payload: { model: string; providerId?: string }
+    }
+    response: RuntimeResponse
+  }
+  [MESSAGE_KEYS.PROVIDER.DELETE_MODEL]: {
+    request: {
+      type: typeof MESSAGE_KEYS.PROVIDER.DELETE_MODEL
+      payload: string
+    }
+    response: RuntimeResponse
+  }
+  [MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION]: {
+    request: { type: typeof MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION }
+    response: RuntimeResponse<{ data?: { version?: string } }>
+  }
+  [MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL]: {
+    request: {
+      type: typeof MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL
+      payload: { model: string; providerId?: string }
+    }
+    response: RuntimeResponse
+  }
+  [MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS]: {
+    request: {
+      type: typeof MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS
+      payload?: unknown
+    }
+    response: RuntimeResponse
+  }
   [MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL]: {
     request: {
       type: typeof MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL

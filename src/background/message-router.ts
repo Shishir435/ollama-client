@@ -13,6 +13,11 @@ import { handleShowModelDetails } from "@/background/handlers/handle-show-model-
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
+import {
+  parseModelRef,
+  parseProviderIdPayload,
+  parseStringPayload
+} from "@/background/lib/message-payloads"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
@@ -26,26 +31,11 @@ import type {
   SendResponseFunction
 } from "@/types"
 
-const isModelPayload = (
-  payload: unknown
-): payload is string | { model: string; providerId?: string } =>
-  typeof payload === "string" ||
-  (typeof payload === "object" && payload !== null && "model" in payload)
-
-const parseEmbeddingModelPayload = (payload: unknown) => {
-  const modelName =
-    typeof payload === "string"
-      ? payload
-      : payload && typeof payload === "object" && "model" in payload
-        ? (payload as { model: string }).model
-        : null
-  const providerId =
-    payload && typeof payload === "object" && "providerId" in payload
-      ? (payload as { providerId?: string }).providerId
-      : undefined
-
-  return { modelName, providerId }
-}
+const respondInvalidPayload = (sendResponse: SendResponseFunction) =>
+  safeSendResponse(sendResponse, {
+    success: false,
+    error: { status: 400, message: "Invalid message payload" }
+  })
 
 const openSidePanelForSelection = (tab?: {
   windowId?: number
@@ -134,10 +124,11 @@ const handleSelectionMessage = (
 
 export const registerMessageRouter = () => {
   browser.runtime.onMessage.addListener(
-    (message, sender, sendResponse): true | undefined => {
+    (rawMessage, sender, sendResponse): true | undefined => {
       const response = sendResponse as SendResponseFunction
+      const message = rawMessage as ChromeMessage
 
-      switch ((message as ChromeMessage).type) {
+      switch (message.type) {
         case MESSAGE_KEYS.PROVIDER.GET_MODELS:
         case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
           handleGetModels(response)
@@ -145,10 +136,8 @@ export const registerMessageRouter = () => {
         }
 
         case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS: {
-          const payload = (message as ChromeMessage).payload
-          if (isModelPayload(payload)) {
-            handleShowModelDetails(payload, response)
-          }
+          const ref = parseModelRef(message.payload)
+          if (ref) handleShowModelDetails(ref, response)
           return true
         }
 
@@ -181,8 +170,8 @@ export const registerMessageRouter = () => {
 
         case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL:
         case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL: {
-          const query = (message as ChromeMessage).query
-          if (query && typeof query === "string") {
+          const query = parseStringPayload(message.query)
+          if (query) {
             handleScrapeModel(query, response)
             return true
           }
@@ -191,8 +180,8 @@ export const registerMessageRouter = () => {
 
         case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS:
         case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS: {
-          const name = (message as ChromeMessage).name
-          if (name && typeof name === "string") {
+          const name = parseStringPayload(message.name)
+          if (name) {
             handleScrapeModelVariants(name, response)
             return true
           }
@@ -201,44 +190,36 @@ export const registerMessageRouter = () => {
 
         case MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL:
         case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
-          const payload = (message as ChromeMessage).payload
-          if (typeof payload === "string")
-            handleUpdateBaseUrl(payload, response)
+          const baseUrl = parseStringPayload(message.payload)
+          if (baseUrl) handleUpdateBaseUrl(baseUrl, response)
           return true
         }
 
         case MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS:
         case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
           handleGetLoadedModels(
-            (message as ChromeMessage).payload as
-              | { providerId?: string }
-              | undefined,
+            parseProviderIdPayload(message.payload),
             response
           )
           return true
         }
 
         case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL: {
-          const payload = (message as ChromeMessage).payload
-          if (isModelPayload(payload)) {
-            handleUnloadModel(payload, response)
-          }
+          const ref = parseModelRef(message.payload)
+          if (ref) handleUnloadModel(ref, response)
           return true
         }
 
         case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL: {
-          handleWarmupModel(
-            (message as ChromeMessage).payload as { model: string },
-            response
-          )
+          const ref = parseModelRef(message.payload)
+          if (ref) handleWarmupModel(ref, response)
+          else respondInvalidPayload(response)
           return true
         }
 
         case MESSAGE_KEYS.PROVIDER.DELETE_MODEL: {
-          const payload = (message as ChromeMessage).payload
-          if (typeof payload === "string") {
-            handleDeleteModel(payload, response)
-          }
+          const modelName = parseStringPayload(message.payload)
+          if (modelName) handleDeleteModel(modelName, response)
           return true
         }
 
@@ -249,11 +230,9 @@ export const registerMessageRouter = () => {
         }
 
         case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL: {
-          const { modelName, providerId } = parseEmbeddingModelPayload(
-            (message as ChromeMessage).payload
-          )
+          const ref = parseModelRef(message.payload)
 
-          if (typeof modelName !== "string") {
+          if (!ref) {
             safeSendResponse(response, {
               success: false,
               error: { status: 400, message: "Invalid embedding model request" }
@@ -261,7 +240,7 @@ export const registerMessageRouter = () => {
             return true
           }
 
-          checkEmbeddingModelExists(modelName, providerId)
+          checkEmbeddingModelExists(ref.model, ref.providerId)
             .then((result) => {
               safeSendResponse(response, {
                 success: true,
@@ -281,34 +260,25 @@ export const registerMessageRouter = () => {
         }
 
         case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL: {
-          handlePrepareEmbeddingModel(
-            (message as ChromeMessage).payload,
-            response
-          )
+          handlePrepareEmbeddingModel(message.payload, response)
           return true
         }
 
         case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS: {
-          handleEmbedFileChunks(message as ChromeMessage, response).catch(
-            (err) => {
-              safeSendResponse(response, {
-                success: false,
-                error: {
-                  status: 0,
-                  message: err instanceof Error ? err.message : String(err)
-                }
-              })
-            }
-          )
+          handleEmbedFileChunks(message, response).catch((err) => {
+            safeSendResponse(response, {
+              success: false,
+              error: {
+                status: 0,
+                message: err instanceof Error ? err.message : String(err)
+              }
+            })
+          })
           return true
         }
 
         case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
-          return handleSelectionMessage(
-            message as ChromeMessage,
-            sender.tab,
-            response
-          )
+          return handleSelectionMessage(message, sender.tab, response)
         }
       }
     }
