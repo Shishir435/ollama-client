@@ -67,6 +67,7 @@ export const ChatBackfillPanel = () => {
   return (
     <SettingsCard
       icon={Sparkles}
+      focusId="backfill-embeddings"
       title={t("chat.backfill.title")}
       description={t("chat.backfill.description")}
       contentClassName="space-y-4">

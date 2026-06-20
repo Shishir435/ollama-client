@@ -159,6 +159,7 @@ const ContentExtractionSettingsForm = ({
     <SettingsFormField
       key={field.id}
       htmlFor={field.id}
+      focusId={field.id}
       label={
         <>
           <field.icon className="icon-xs" />
@@ -203,6 +204,7 @@ const ContentExtractionSettingsForm = ({
   ) => (
     <div className="space-y-3">
       <SettingsFormField
+        focusId="content-scraper"
         label={
           <>
             <FileText className="icon-md" />
@@ -284,6 +286,7 @@ const ContentExtractionSettingsForm = ({
   ) => (
     <SettingsFormField
       htmlFor={id || "scroll-strategy"}
+      focusId="scroll-strategy"
       label={
         <>
           <Target className="icon-md" />
@@ -317,6 +320,7 @@ const ContentExtractionSettingsForm = ({
     const depthPercent = Math.round(depth * 100)
     return (
       <SettingsSliderField
+        focusId="scroll-depth"
         label={
           <>
             <Zap className="icon-md" />
@@ -344,7 +348,7 @@ const ContentExtractionSettingsForm = ({
       badge="Beta">
       {/* Enable/Disable Toggle */}
       <SettingsSwitch
-        id="enabled"
+        id="content-extraction-enabled"
         label={t("settings.content_extraction.enable.label")}
         description={t("settings.content_extraction.enable.description")}
         checked={config.enabled}

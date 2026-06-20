@@ -100,11 +100,25 @@ describe("ProviderSettings", () => {
   it("renders selected provider controls and delegates primary actions", () => {
     const actions = mockProviderState({ hasUnsavedChanges: true })
 
-    renderProviderSettings()
+    const { container } = renderProviderSettings()
 
     expect(screen.getAllByText("Ollama")).toHaveLength(2)
     expect(
       screen.getByText("settings.providers.not_tested")
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-picker"]')
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-base-url"]')
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-enabled"]')
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector(
+        '[data-settings-focus-id="provider-test-connection"]'
+      )
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "OpenAI Compatible" }))
@@ -134,11 +148,19 @@ describe("ProviderSettings", () => {
       headerStatus: { dot: "bg-status-success", label: "connected" }
     })
 
-    renderProviderSettings()
+    const { container } = renderProviderSettings()
 
     expect(screen.getByDisplayValue("secret")).toBeInTheDocument()
     expect(screen.getByText(/This endpoint is remote/)).toBeInTheDocument()
     expect(screen.getByText("CSP hint")).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-api-key"]')
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector(
+        '[data-settings-focus-id="provider-custom-models"]'
+      )
+    ).toBeInTheDocument()
 
     const customModelInput = screen.getByPlaceholderText(
       "e.g. google/gemini-pro"

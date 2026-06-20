@@ -145,6 +145,7 @@ export const DataMigrationSettings = () => {
       description={t("settings.migration.description")}>
       <div className="space-y-4">
         <SettingsFormField
+          focusId="data-migration-export"
           label={t("settings.migration.export.label")}
           description={t("settings.migration.export.description")}>
           <Button
@@ -161,6 +162,7 @@ export const DataMigrationSettings = () => {
         </SettingsFormField>
 
         <SettingsFormField
+          focusId="data-migration-import"
           label={t("settings.migration.import.label")}
           description={t("settings.migration.import.description")}>
           <Button

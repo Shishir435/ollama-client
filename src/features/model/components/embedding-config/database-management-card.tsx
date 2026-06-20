@@ -29,6 +29,8 @@ export const DatabaseManagementCard = ({
       description={t("model.embedding_config.database_management_description")}
       contentClassName="space-y-3">
       <SettingsRow
+        data-settings-focus="true"
+        data-settings-focus-id="remove-duplicate-vectors"
         label={t("model.embedding_config.remove_duplicates_button")}
         description={t("model.embedding_config.remove_duplicates_description")}
         control={
@@ -42,6 +44,8 @@ export const DatabaseManagementCard = ({
       />
 
       <SettingsRow
+        data-settings-focus="true"
+        data-settings-focus-id="clear-chat-vectors"
         label={t("model.embedding_config.clear_chat_button")}
         description={t("model.embedding_config.clear_chat_description")}
         control={
@@ -55,6 +59,8 @@ export const DatabaseManagementCard = ({
       />
 
       <SettingsRow
+        data-settings-focus="true"
+        data-settings-focus-id="clear-all-vectors"
         label={t("model.embedding_config.clear_all_button")}
         description={t("model.embedding_config.clear_all_description")}
         control={

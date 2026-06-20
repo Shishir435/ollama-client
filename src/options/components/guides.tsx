@@ -9,6 +9,9 @@ import { GUIDES } from "@/lib/constants-ui"
 import { ExternalLink, Notebook } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
+const guideFocusId = (labelKey: string) =>
+  `guide-${labelKey.split(".")[labelKey.split(".").length - 2] ?? "item"}`
+
 export const Guides = () => {
   const { t } = useTranslation()
 
@@ -16,6 +19,7 @@ export const Guides = () => {
     <SectionStack>
       <SettingsCard
         icon={Notebook}
+        focusId="guides-card"
         title={t("guides.title")}
         description={t("guides.description")}>
         <div className="grid gap-3">
@@ -23,6 +27,8 @@ export const Guides = () => {
             ({ labelKey, href, descriptionKey, badgeKey, icon: Icon }) => (
               <Card
                 key={href}
+                data-settings-focus="true"
+                data-settings-focus-id={guideFocusId(labelKey)}
                 className="group transition-all hover:border-primary/20 hover:shadow-xs">
                 <CardContent className="flex items-center justify-between">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -60,7 +66,10 @@ export const Guides = () => {
         </div>
 
         <div className="border-t pt-4">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div
+            data-settings-focus="true"
+            data-settings-focus-id="guide-support"
+            className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="text-center sm:text-left">
               <h4 className="mb-1 text-sm font-medium">
                 {t("guides.support.title")}

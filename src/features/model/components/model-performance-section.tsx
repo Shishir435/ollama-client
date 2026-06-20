@@ -73,6 +73,7 @@ export const ModelPerformanceSection = ({
       contentClassName="space-y-5">
       <SettingsFormField
         htmlFor="keep-alive"
+        focusId="keep-alive"
         label={t("settings.model.runtime.keep_alive_label")}
         description={t("settings.model.runtime.keep_alive_description")}>
         <Input
@@ -86,6 +87,7 @@ export const ModelPerformanceSection = ({
 
       <FormGrid>
         <SettingsSwitch
+          id="warm-on-select"
           label={t("settings.model.runtime.warm_on_select_label")}
           description={t("settings.model.runtime.warm_on_select_description")}
           checked={config.warm_on_select ?? false}
@@ -94,6 +96,7 @@ export const ModelPerformanceSection = ({
           }
         />
         <SettingsSwitch
+          id="unload-on-switch"
           label={t("settings.model.runtime.unload_on_switch_label")}
           description={t("settings.model.runtime.unload_on_switch_description")}
           checked={config.unload_on_switch ?? false}

@@ -36,6 +36,7 @@ export const EmbeddingSearchConfig = ({
       <div className="space-y-4">
         <SettingsFormField
           htmlFor="defaultSearchLimit"
+          focusId="embeddings-search-limit-topk"
           label={t("model.embedding_config.search_limit_label")}
           description={t("model.embedding_config.search_limit_description")}>
           <Input
@@ -56,6 +57,7 @@ export const EmbeddingSearchConfig = ({
         </SettingsFormField>
 
         <SettingsSliderField
+          focusId="embeddings-min-similarity"
           label={t("model.embedding_config.min_similarity_label")}
           valueLabel={config.defaultMinSimilarity.toFixed(2)}
           description={t("model.embedding_config.min_similarity_description")}
@@ -72,6 +74,7 @@ export const EmbeddingSearchConfig = ({
 
         <SettingsFormField
           htmlFor="searchCacheTTL"
+          focusId="embeddings-cache-ttl"
           label={t("model.embedding_config.cache_ttl_label")}
           description={t("model.embedding_config.cache_ttl_description")}
           className="pt-2 border-t">
@@ -94,6 +97,7 @@ export const EmbeddingSearchConfig = ({
 
         <SettingsFormField
           htmlFor="searchCacheMaxSize"
+          focusId="embeddings-cache-max-size"
           label={t("model.embedding_config.cache_max_size_label")}
           description={t("model.embedding_config.cache_max_size_description")}>
           <Input
@@ -114,6 +118,7 @@ export const EmbeddingSearchConfig = ({
         </SettingsFormField>
 
         <SettingsFormField
+          focusId="embeddings-ann-backend"
           label={t("model.embedding_config.ann_backend_label")}
           description={t("model.embedding_config.ann_backend_description")}
           className="pt-2 border-t">
@@ -149,6 +154,7 @@ export const EmbeddingSearchConfig = ({
 
         <SettingsFormField
           htmlFor="annMinVectors"
+          focusId="embeddings-ann-min-vectors"
           label={t("model.embedding_config.ann_min_vectors_label")}
           description={t("model.embedding_config.ann_min_vectors_description")}>
           <Input

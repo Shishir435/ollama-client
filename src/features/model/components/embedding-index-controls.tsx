@@ -54,6 +54,7 @@ export const EmbeddingIndexControls = () => {
   return (
     <SettingsCard
       icon={Database}
+      focusId="rebuild-keyword-index"
       title={t("settings.embeddings.rebuild_index.title")}
       description={t("settings.embeddings.rebuild_index.description")}
       headerActions={

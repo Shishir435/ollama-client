@@ -56,6 +56,7 @@ export const EmbeddingTestSearch = ({
   return (
     <SettingsCard
       icon={Search}
+      focusId="embeddings-test-search"
       title={t("settings.embeddings.test_search.title")}
       description={t("settings.embeddings.test_search.description")}>
       <div className="flex gap-2 mb-3">

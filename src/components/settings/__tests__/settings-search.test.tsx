@@ -2,9 +2,30 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { SettingsSearch } from "../settings-search"
 
-// t returns the key so we can assert on label keys directly.
+const messages: Record<string, string> = {
+  "settings.tabs.general": "General",
+  "settings.tabs.providers": "Providers",
+  "settings.tabs.context": "Context",
+  "settings.tabs.extraction": "Extraction",
+  "settings.search.placeholder": "Search settings…",
+  "settings.prompt_context_limits.max_tool_result_chars":
+    "Max tool result chars",
+  "settings.grounding_mode.label": "Answer only from selected page context",
+  "settings.content_extraction.selection_actions.label": "Selection actions",
+  "settings.presets.title": "Presets",
+  "settings.presets.description": "Apply a tuned combination in one click.",
+  "settings.presets.balanced.label": "Balanced",
+  "settings.providers.base_url": "Base URL",
+  "settings.providers.base_url_default": "Default",
+  "settings.reset.modules.browser.title": "Browser Settings",
+  "settings.reset.modules.browser.description": "Tab access & URL patterns"
+}
+
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key })
+  useTranslation: () => ({
+    i18n: { language: "en" },
+    t: (key: string) => messages[key] ?? key
+  })
 }))
 
 describe("SettingsSearch", () => {
@@ -12,19 +33,60 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "tool result" } })
-    expect(
-      screen.getByText("settings.prompt_context_limits.max_tool_result_chars")
-    ).toBeInTheDocument()
+    expect(screen.getByText("Max tool result chars")).toBeInTheDocument()
   })
 
-  it("calls onSelect with the chosen entry and clears the query", () => {
+  it("shows fuzzy provider matches", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "provder" } })
+    expect(screen.getAllByText("Providers").length).toBeGreaterThan(0)
+  })
+
+  it("shows presets for partial preset queries", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    expect(screen.getByText("Presets")).toBeInTheDocument()
+  })
+
+  it("shows matched child values with parent context", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "balanced" } })
+    expect(screen.getByText("Balanced")).toBeInTheDocument()
+    expect(screen.getByText("Presets")).toBeInTheDocument()
+  })
+
+  it("shows reset module rows", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "browser settings" } })
+    expect(screen.getByText("Browser Settings")).toBeInTheDocument()
+  })
+
+  it("can show the mobile shortcut hint", () => {
+    render(<SettingsSearch onSelect={() => {}} showShortcutHint />)
+    expect(
+      screen.getByLabelText("Search settings shortcut")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Search settings")).toBeNull()
+  })
+
+  it("calls onSelect with the chosen record and clears the query", () => {
     const onSelect = vi.fn()
     render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox") as HTMLInputElement
-    fireEvent.change(input, { target: { value: "grounded only" } })
-    fireEvent.mouseDown(screen.getByText("settings.grounding_mode.label"))
+    fireEvent.change(input, { target: { value: "answer only" } })
+    fireEvent.mouseDown(
+      screen.getByText("Answer only from selected page context")
+    )
     expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "grounded-only-mode", tab: "context" })
+      expect.objectContaining({
+        entryId: "grounded-only-mode",
+        focusId: "grounded-only-mode",
+        tab: "context"
+      })
     )
     expect(input.value).toBe("")
   })
@@ -36,7 +98,10 @@ describe("SettingsSearch", () => {
     fireEvent.change(input, { target: { value: "selection actions" } })
     fireEvent.keyDown(input, { key: "Enter" })
     expect(onSelect).toHaveBeenCalledTimes(1)
-    expect(onSelect.mock.calls[0][0].tab).toBe("contentExtraction")
+    expect(onSelect.mock.calls[0][0]).toMatchObject({
+      entryId: "selection-actions-enabled",
+      tab: "contentExtraction"
+    })
   })
 
   it("shows nothing for an empty query", () => {

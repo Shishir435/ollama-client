@@ -7,6 +7,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-06-20
+
+### Added
+- i18n-backed settings search index that searches translated labels, descriptions, and visible child strings instead of only hand-written headings.
+- Ranked settings search with case/diacritic/punctuation normalization, partial-token matching, and typo-tolerant fuzzy matching for common misses like `provder`, `ollma`, and partial queries like `prese`.
+- Search coverage for provider controls, prompt templates, keyboard shortcuts, guides, reset modules, reset danger zone, embedding storage stats, semantic search, cache, ANN, and advanced embedding search controls.
+- Cmd/Ctrl+K shortcut on the options page to focus settings search, plus compact placeholder-based search hints for smaller screens.
+
+### Changed
+- Settings search results now show the matching translated child text with parent context, then deep-link to the owning tab and focus/highlight the concrete control where possible.
+- `useChat` now delegates turn lifecycle work to `useChatTurnController`, keeping the public hook focused on wiring state into the chat UI.
+- Chat composer attachment handling, file-upload pipeline work, and provider settings panels were split into smaller focused modules without changing storage keys or public behavior.
+
+### Fixed
+- Settings search now finds presets, browser settings, base URL/API key provider controls, prompt/shortcut/guide text, and embedding search internals that were previously missed.
+- Search deep links no longer stop at the right tab for many controls; focus IDs were added across settings cards, fields, reset rows, guide rows, shortcut rows, and provider controls.
+- Duplicate `search-limit-topk` focus targets between Context and Embeddings were separated so highlights land on the intended control.
+
 ## [0.10.2] - 2026-06-16
 
 ### Added

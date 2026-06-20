@@ -31,6 +31,7 @@ export interface ControlledNumberInputProps
   commitMode?: "change" | "blur"
   label?: string
   icon?: LucideIcon
+  focusId?: string
 }
 
 /**
@@ -49,6 +50,7 @@ export const ControlledNumberInput = ({
   className,
   label,
   icon: Icon,
+  focusId,
   ...props
 }: ControlledNumberInputProps) => {
   const { control, getFieldState } = useFormContext()
@@ -111,6 +113,7 @@ export const ControlledNumberInput = ({
   return (
     <SettingsFormField
       htmlFor={inputId}
+      focusId={focusId}
       label={
         Icon ? (
           <div className="flex items-center gap-2">

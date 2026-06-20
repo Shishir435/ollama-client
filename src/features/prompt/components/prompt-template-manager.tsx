@@ -113,6 +113,7 @@ export const PromptTemplateManager = () => {
     <SectionStack>
       <SettingsCard
         icon={FileText}
+        focusId="prompt-templates"
         title={t("settings.prompts.title")}
         description={t("settings.prompts.description", {
           count: templates?.length || 0

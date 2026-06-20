@@ -81,6 +81,7 @@ export const TextSplittingSettings = () => {
     <div className="space-y-6">
       <div className="space-y-4">
         <SettingsSwitch
+          id="enhanced-chunking"
           label={t("model.embedding_config.enhanced_chunking_label")}
           description={t(
             "model.embedding_config.enhanced_chunking_description"
@@ -97,6 +98,7 @@ export const TextSplittingSettings = () => {
       </div>
 
       <SettingsSliderField
+        focusId="chunk-size"
         label={t("model.embedding_config.chunk_size_label")}
         valueLabel={`${chunkSize} tokens`}
         description={t("model.embedding_config.chunk_size_description")}
@@ -108,6 +110,7 @@ export const TextSplittingSettings = () => {
       />
 
       <SettingsSliderField
+        focusId="chunk-overlap"
         label={t("model.embedding_config.chunk_overlap_label")}
         valueLabel={`${chunkOverlap} tokens`}
         description={t("model.embedding_config.chunk_overlap_description")}
@@ -120,6 +123,7 @@ export const TextSplittingSettings = () => {
 
       {!config.useEnhancedChunking && (
         <SettingsFormField
+          focusId="chunking-strategy"
           label={t("model.embedding_config.chunking_strategy_label")}>
           <Select
             value={config.chunkingStrategy}

@@ -153,7 +153,7 @@ export function FeedbackSettings() {
       description={t("model.embedding_config.feedback_learning_description")}
       contentClassName="space-y-6">
       <SettingsSwitch
-        id="feedback-enabled"
+        id="embeddings-feedback-enabled"
         label={t("model.embedding_config.feedback_enable_label")}
         description={t("model.embedding_config.feedback_enable_description")}
         checked={feedbackEnabled}
@@ -161,7 +161,7 @@ export function FeedbackSettings() {
       />
 
       <SettingsSwitch
-        id="feedback-show-chunks"
+        id="embeddings-show-retrieved-chunks"
         label={t("model.embedding_config.feedback_show_chunks_label")}
         description={t(
           "model.embedding_config.feedback_show_chunks_description"
@@ -225,6 +225,7 @@ export function FeedbackSettings() {
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <SettingsFormField
+          focusId="embeddings-feedback-clear"
           label={t("model.embedding_config.feedback_privacy_title")}
           description={t("model.embedding_config.feedback_privacy_note")}
         />

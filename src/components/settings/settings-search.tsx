@@ -1,11 +1,13 @@
-import { useId, useMemo, useRef, useState } from "react"
+import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { MiniBadge } from "@/components/ui/mini-badge"
+import type { SettingsTab } from "@/features/settings/settings-registry"
 import {
-  type SettingsEntry,
-  searchSettings
-} from "@/features/settings/settings-registry"
+  buildSettingsSearchRecords,
+  rankSettingsSearchRecords,
+  type SettingsSearchRecord
+} from "@/features/settings/settings-search-index"
 import { Search } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -28,36 +30,64 @@ const MAX_RESULTS = 8
 
 interface SettingsSearchProps {
   /** Navigate to and highlight the chosen setting (sets tab + focus). */
-  onSelect: (entry: SettingsEntry) => void
+  onSelect: (record: SettingsSearchRecord) => void
+  activeTab?: SettingsTab
   className?: string
+  inputRef?: Ref<HTMLInputElement>
+  showShortcutHint?: boolean
 }
 
 export const SettingsSearch = ({
   onSelect,
-  className
+  activeTab,
+  className,
+  inputRef,
+  showShortcutHint = false
 }: SettingsSearchProps) => {
   const { t } = useTranslation()
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const blurTimer = useRef<number | null>(null)
   const listId = useId()
+  const modKey =
+    typeof navigator !== "undefined" &&
+    navigator.platform.toUpperCase().includes("MAC")
+      ? "⌘"
+      : "Ctrl"
+
+  const records = useMemo(() => {
+    return buildSettingsSearchRecords(undefined, t)
+  }, [t])
 
   const results = useMemo(
-    () => (query.trim() ? searchSettings(query, t).slice(0, MAX_RESULTS) : []),
-    [query, t]
+    () =>
+      query.trim()
+        ? rankSettingsSearchRecords(query, records, activeTab)
+            .slice(0, MAX_RESULTS)
+            .map((result) => result.record)
+        : [],
+    [activeTab, query, records]
   )
 
-  const choose = (entry: SettingsEntry) => {
-    onSelect(entry)
+  const choose = (record: SettingsSearchRecord) => {
+    onSelect(record)
     setQuery("")
     setOpen(false)
   }
+
+  useEffect(
+    () => () => {
+      if (blurTimer.current) window.clearTimeout(blurTimer.current)
+    },
+    []
+  )
 
   return (
     <div className={cn("relative", className)}>
       <div className="relative">
         <Search className="icon-sm pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
+          ref={inputRef}
           type="search"
           role="combobox"
           aria-expanded={open && results.length > 0}
@@ -81,30 +111,47 @@ export const SettingsSearch = ({
               choose(results[0])
             }
           }}
-          className="h-9 w-full rounded-control border border-input bg-background pl-8 pr-3 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
+          className={cn(
+            "h-9 w-full rounded-control border border-input bg-background pl-8 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
+            showShortcutHint ? "pr-20" : "pr-3"
+          )}
         />
+        {showShortcutHint && (
+          <KbdGroup
+            aria-label="Search settings shortcut"
+            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+            <Kbd>{modKey}</Kbd>
+            <Kbd>K</Kbd>
+          </KbdGroup>
+        )}
       </div>
 
       {open && results.length > 0 && (
         <ul
           id={listId}
           className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
-          {results.map((entry) => (
-            <li key={entry.id}>
+          {results.map((record) => (
+            <li
+              key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}>
               <button
                 type="button"
                 // mousedown fires before input blur, so the click survives.
                 onMouseDown={(e) => {
                   e.preventDefault()
                   if (blurTimer.current) window.clearTimeout(blurTimer.current)
-                  choose(entry)
+                  choose(record)
                 }}
-                className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent">
-                <span className="truncate">{t(entry.labelKey)}</span>
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent">
+                <span className="truncate">{record.displayLabel}</span>
                 <MiniBadge
-                  text={t(TAB_LABEL_KEYS[entry.tab] ?? entry.tab)}
-                  className="shrink-0"
+                  text={t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
+                  className="row-span-2 shrink-0"
                 />
+                {record.displayContext && (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {record.displayContext}
+                  </span>
+                )}
               </button>
             </li>
           ))}

@@ -63,6 +63,7 @@ export const PromptContextLimitsSettings = () => {
       <FormGrid>
         <SettingsFormField
           htmlFor="max-tab-context-chars"
+          focusId="max-tab-context-chars"
           label={t("settings.prompt_context_limits.max_tab_context_chars")}>
           <Input
             id="max-tab-context-chars"
@@ -82,6 +83,7 @@ export const PromptContextLimitsSettings = () => {
 
         <SettingsFormField
           htmlFor="max-rag-context-chars"
+          focusId="max-rag-context-chars"
           label={t("settings.prompt_context_limits.max_rag_context_chars")}>
           <Input
             id="max-rag-context-chars"

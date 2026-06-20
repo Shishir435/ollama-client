@@ -20,6 +20,7 @@ export interface ControlledSliderProps
   icon?: LucideIcon
   leftLabel?: string
   rightLabel?: string
+  focusId?: string
 }
 
 const toNumber = (value: unknown, fallback: number): number =>
@@ -40,6 +41,7 @@ export const ControlledSlider = ({
   icon: Icon,
   leftLabel,
   rightLabel,
+  focusId,
   ...props
 }: ControlledSliderProps) => {
   const { control } = useFormContext()
@@ -66,6 +68,7 @@ export const ControlledSlider = ({
   return (
     <SettingsFormField
       htmlFor={name}
+      focusId={focusId}
       label={
         Icon ? (
           <div className="flex items-center gap-2">

@@ -26,6 +26,7 @@ export const StorageStatsCard = ({
   return (
     <SettingsCard
       icon={Database}
+      focusId="embeddings-storage-stats"
       title={t("model.embedding_config.storage_stats_title")}
       description={t(
         "model.embedding_config.storage_stats_description",

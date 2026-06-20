@@ -9,17 +9,13 @@ import {
 } from "@/lib/constants"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getDisplayErrorMessage } from "@/lib/error-display"
-import { isFileTypeSupported, processFile } from "@/lib/file-processors"
+import { processFile } from "@/lib/file-processors"
 import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
 import { processKnowledge } from "@/lib/knowledge"
-import {
-  addFileToKnowledgeSet,
-  getActiveKnowledgeSetId,
-  markKnowledgeFileEmbedded
-} from "@/lib/knowledge/knowledge-sets"
+import { markKnowledgeFileEmbedded } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type {
@@ -27,6 +23,11 @@ import type {
   EmbeddingStatusMessage,
   FileUploadConfig
 } from "@/types"
+import {
+  ensureProcessedFileId,
+  registerKnowledgeFile,
+  validateFileForUpload
+} from "./file-upload-pipeline"
 
 export interface UseFileUploadOptions {
   onFileProcessed?: (file: ProcessedFile) => void
@@ -69,25 +70,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       // Initialize processing states
       for (const file of fileArray) {
-        // Check if file type is supported
-        if (!isFileTypeSupported(file)) {
-          const error = new Error(
-            `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), DOCX (.docx), CSV/TSV (.csv, .tsv), and HTML (.html).`
-          )
-          newStates.set(file, {
-            file,
-            status: "error",
-            error: error.message
-          })
-          if (onError) onError(error)
-          continue
-        }
-
-        // Check file size
-        if (file.size > maxFileSize) {
-          const error = new Error(
-            `File "${file.name}" exceeds maximum size of ${(maxFileSize / 1024 / 1024).toFixed(0)}MB`
-          )
+        const error = validateFileForUpload(file, maxFileSize)
+        if (error) {
           newStates.set(file, {
             file,
             status: "error",
@@ -113,24 +97,10 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
         try {
           const result = await processFile(file)
-          const fallbackId =
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? `file-${crypto.randomUUID()}`
-              : `file-${Date.now()}-${Math.random().toString(16).slice(2)}`
-          const fileId = result.metadata.fileId || fallbackId
-          result.metadata.fileId = fileId
+          const fileId = ensureProcessedFileId(result)
 
           try {
-            const knowledgeSetId = await getActiveKnowledgeSetId()
-            result.metadata.knowledgeSetId = knowledgeSetId
-            await addFileToKnowledgeSet({
-              id: fileId,
-              knowledgeSetId,
-              fileName: result.metadata.fileName,
-              fileType: result.metadata.fileType,
-              fileSize: result.metadata.fileSize,
-              createdAt: result.metadata.processedAt || Date.now()
-            })
+            await registerKnowledgeFile(result, fileId)
           } catch (err) {
             logger.warn("Failed to register knowledge file", "useFileUpload", {
               error: err
