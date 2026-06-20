@@ -105,6 +105,7 @@ export const EmbeddingModelSelector = ({
   return (
     <SettingsCard
       icon={Brain}
+      focusId="embeddings-model-select"
       title={t("settings.embeddings.title")}
       description={t("settings.embeddings.description")}
       badge="Beta">
@@ -192,6 +193,7 @@ export const EmbeddingModelSelector = ({
 
           {hasAdvancedModels && (
             <SettingsSwitch
+              id="embeddings-show-advanced-models"
               label={t("settings.embeddings.model_select.show_advanced_label")}
               description={t(
                 "settings.embeddings.model_select.show_advanced_description"

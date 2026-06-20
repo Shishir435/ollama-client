@@ -41,8 +41,14 @@ export interface SettingsEntry {
   labelKey: string
   /** i18n key for the control's description, when it has one. */
   descriptionKey?: string
+  /** Additional visible i18n strings that should route to this setting. */
+  searchKeys?: string[]
+  /** Focus target override for search records; defaults to `id`. */
+  focusId?: string
   /** Extra search terms (plain words, not i18n keys) for fuzzy matching. */
   keywords?: string[]
+  /** Non-i18n search aliases, typos, and technical synonyms. */
+  aliases?: string[]
   /** Power-user tuning control — eligible for "Advanced" grouping (item 10). */
   advanced?: boolean
   /** Deletes/clears data — never auto-collapsed, flagged in danger zones. */
@@ -65,7 +71,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     tab: "general",
     sectionId: "general",
     labelKey: "common.language.select_label",
-    keywords: ["language", "locale", "translation"]
+    aliases: ["language", "locale", "translation"]
   },
   {
     id: "show-session-metrics",
@@ -73,7 +79,25 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     sectionId: "general",
     labelKey: "settings.chat_display.session_metrics_label",
     descriptionKey: "settings.chat_display.session_metrics_description",
-    keywords: ["metrics", "tokens", "performance", "stats"]
+    aliases: ["metrics", "tokens", "performance", "stats"]
+  },
+  {
+    id: "settings-presets",
+    tab: "general",
+    sectionId: "presets",
+    labelKey: "settings.presets.title",
+    descriptionKey: "settings.presets.description",
+    searchKeys: [
+      "settings.presets.fast.label",
+      "settings.presets.fast.description",
+      "settings.presets.balanced.label",
+      "settings.presets.balanced.description",
+      "settings.presets.large_context.label",
+      "settings.presets.large_context.description",
+      "settings.presets.privacy_strict.label",
+      "settings.presets.privacy_strict.description"
+    ],
+    aliases: ["preset", "presets", "profiles", "quick setup"]
   },
 
   // ---- Models: system ----------------------------------------------------
@@ -190,6 +214,81 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     labelKey: "settings.model.runtime.unload_on_switch_label",
     descriptionKey: "settings.model.runtime.unload_on_switch_description",
     keywords: ["unload", "memory", "switch"]
+  },
+
+  // ---- Providers ---------------------------------------------------------
+  {
+    id: "provider-picker",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.tabs.providers",
+    searchKeys: [
+      "settings.providers.default",
+      "settings.providers.beta_badge",
+      "settings.providers.enabled",
+      "settings.providers.disabled",
+      "settings.providers.inactive",
+      "settings.providers.connected",
+      "settings.providers.connection_failed",
+      "settings.providers.not_tested"
+    ],
+    aliases: [
+      "provider",
+      "providers",
+      "ollama",
+      "lm studio",
+      "llama.cpp",
+      "vllm",
+      "koboldcpp",
+      "localai",
+      "openai compatible",
+      "localhost",
+      "remote"
+    ]
+  },
+  {
+    id: "provider-enabled",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.enabled",
+    searchKeys: ["settings.providers.disabled"],
+    aliases: ["provider", "enable", "disable", "toggle"]
+  },
+  {
+    id: "provider-test-connection",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.test",
+    searchKeys: [
+      "settings.providers.connected",
+      "settings.providers.connection_failed",
+      "settings.providers.not_tested"
+    ],
+    aliases: ["provider", "test", "connection", "health", "localhost"]
+  },
+  {
+    id: "provider-base-url",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.base_url",
+    descriptionKey: "settings.providers.base_url_default",
+    searchKeys: ["settings.base_url.title", "settings.base_url.label"],
+    aliases: ["provider", "base url", "endpoint", "localhost", "remote"]
+  },
+  {
+    id: "provider-api-key",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.api_key",
+    aliases: ["provider", "api key", "token", "secret", "remote"]
+  },
+  {
+    id: "provider-custom-models",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.custom_models",
+    descriptionKey: "settings.providers.custom_models_description",
+    aliases: ["provider", "custom models", "manual models", "openai compatible"]
   },
 
   // ---- Context: Conversation Context -------------------------------------
@@ -477,6 +576,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "rebuild-embeddings",
+    focusId: "embeddings-model-select",
     tab: "embeddings",
     sectionId: "vector-db",
     labelKey: "settings.context.embedding_health.action",
@@ -490,6 +590,18 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.embeddings.rebuild_index.description",
     advanced: true,
     keywords: ["rebuild", "keyword", "index"]
+  },
+  {
+    id: "embeddings-storage-stats",
+    tab: "embeddings",
+    sectionId: "vector-db",
+    labelKey: "model.embedding_config.storage_stats_title",
+    searchKeys: [
+      "model.embedding_config.total_vectors",
+      "model.embedding_config.storage_used",
+      "model.embedding_config.cache"
+    ],
+    keywords: ["storage statistics", "vectors", "cache", "usage"]
   },
 
   // ---- Embeddings: model selection ---------------------------------------
@@ -564,6 +676,76 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     labelKey: "settings.embeddings.test_generation.button",
     descriptionKey: "settings.embeddings.test_generation.description",
     keywords: ["test", "generation", "diagnostic"]
+  },
+  {
+    id: "embeddings-test-search",
+    tab: "embeddings",
+    sectionId: "embeddings-test",
+    labelKey: "settings.embeddings.test_search.title",
+    descriptionKey: "settings.embeddings.test_search.description",
+    searchKeys: ["settings.embeddings.test_search.placeholder"],
+    aliases: ["semantic search", "test search", "search files"],
+    keywords: ["search", "semantic", "uploaded files", "query"]
+  },
+  {
+    id: "embeddings-search-limit-topk",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.search_limit_label",
+    descriptionKey: "model.embedding_config.search_limit_description",
+    advanced: true,
+    keywords: ["search limit", "top k", "semantic search", "retrieval"]
+  },
+  {
+    id: "embeddings-min-similarity",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.min_similarity_label",
+    descriptionKey: "model.embedding_config.min_similarity_description",
+    advanced: true,
+    keywords: ["similarity", "threshold", "semantic search", "cosine"]
+  },
+  {
+    id: "embeddings-cache-ttl",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.cache_ttl_label",
+    descriptionKey: "model.embedding_config.cache_ttl_description",
+    advanced: true,
+    keywords: ["cache", "ttl", "minutes", "search cache"]
+  },
+  {
+    id: "embeddings-cache-max-size",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.cache_max_size_label",
+    descriptionKey: "model.embedding_config.cache_max_size_description",
+    advanced: true,
+    keywords: ["cache", "cached queries", "search cache"]
+  },
+  {
+    id: "embeddings-ann-backend",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.ann_backend_label",
+    descriptionKey: "model.embedding_config.ann_backend_description",
+    searchKeys: [
+      "model.embedding_config.ann_backend_placeholder",
+      "model.embedding_config.ann_backend_group",
+      "model.embedding_config.ann_backend_ts",
+      "model.embedding_config.ann_backend_bruteforce"
+    ],
+    advanced: true,
+    keywords: ["ann", "hnsw", "brute force", "vector search"]
+  },
+  {
+    id: "embeddings-ann-min-vectors",
+    tab: "embeddings",
+    sectionId: "embeddings-search",
+    labelKey: "model.embedding_config.ann_min_vectors_label",
+    descriptionKey: "model.embedding_config.ann_min_vectors_description",
+    advanced: true,
+    keywords: ["ann", "min vectors", "threshold", "vector search"]
   },
   {
     id: "data-migration-export",
@@ -686,6 +868,343 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     sectionId: "voices",
     labelKey: "settings.speech.pitch_label",
     keywords: ["pitch", "tone", "tts", "speech"]
+  },
+
+  // ---- Prompts -----------------------------------------------------------
+  {
+    id: "prompt-templates",
+    tab: "prompts",
+    sectionId: "prompts",
+    labelKey: "settings.prompts.title",
+    searchKeys: [
+      "settings.prompts.new_template",
+      "settings.prompts.search_placeholder",
+      "settings.prompts.category_placeholder",
+      "settings.prompts.all_categories",
+      "settings.prompts.sort.recent",
+      "settings.prompts.sort.popular",
+      "settings.prompts.sort.alphabetical",
+      "settings.prompts.empty_state.title",
+      "settings.prompts.empty_state.description",
+      "settings.prompts.export",
+      "settings.prompts.import",
+      "settings.prompts.reset",
+      "settings.prompts.form.title",
+      "settings.prompts.form.category",
+      "settings.prompts.form.description",
+      "settings.prompts.form.tags",
+      "settings.prompts.form.system_prompt",
+      "settings.prompts.form.user_prompt",
+      "settings.prompts.form.create_button"
+    ],
+    aliases: ["prompt templates", "templates", "system prompt template"]
+  },
+
+  // ---- Shortcuts ---------------------------------------------------------
+  {
+    id: "keyboard-shortcuts",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.title",
+    descriptionKey: "settings.shortcuts.description",
+    searchKeys: [
+      "settings.shortcuts.recording",
+      "settings.shortcuts.reset_all",
+      "settings.shortcuts.new_chat",
+      "settings.shortcuts.new_chat_desc",
+      "settings.shortcuts.focus_input",
+      "settings.shortcuts.focus_input_desc",
+      "settings.shortcuts.toggle_sidebar",
+      "settings.shortcuts.toggle_sidebar_desc",
+      "settings.shortcuts.stop_generation",
+      "settings.shortcuts.stop_generation_desc",
+      "settings.shortcuts.open_settings",
+      "settings.shortcuts.open_settings_desc",
+      "settings.shortcuts.toggle_theme",
+      "settings.shortcuts.toggle_theme_desc",
+      "settings.shortcuts.toggle_rag",
+      "settings.shortcuts.toggle_rag_desc",
+      "settings.shortcuts.toggle_speech",
+      "settings.shortcuts.toggle_speech_desc",
+      "settings.shortcuts.toggle_tabs",
+      "settings.shortcuts.toggle_tabs_desc",
+      "settings.shortcuts.search_messages",
+      "settings.shortcuts.search_messages_desc",
+      "settings.shortcuts.clear_chat",
+      "settings.shortcuts.clear_chat_desc",
+      "settings.shortcuts.copy_last_response",
+      "settings.shortcuts.copy_last_response_desc",
+      "settings.shortcuts.toggle_session_metrics",
+      "settings.shortcuts.toggle_session_metrics_desc",
+      "settings.shortcuts.export_json",
+      "settings.shortcuts.export_json_desc",
+      "settings.shortcuts.export_markdown",
+      "settings.shortcuts.export_markdown_desc",
+      "settings.shortcuts.export_pdf",
+      "settings.shortcuts.export_pdf_desc",
+      "settings.shortcuts.export_text",
+      "settings.shortcuts.export_text_desc"
+    ],
+    aliases: ["shortcuts", "keyboard", "hotkeys", "keybindings"]
+  },
+  {
+    id: "shortcut-focus-input",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.focus_input",
+    descriptionKey: "settings.shortcuts.focus_input_desc",
+    aliases: ["input shortcut", "focus chat input"]
+  },
+  {
+    id: "shortcut-close-sidebar",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_sidebar",
+    descriptionKey: "settings.shortcuts.toggle_sidebar_desc",
+    aliases: ["sidebar shortcut", "close sidebar"]
+  },
+  {
+    id: "shortcut-settings",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.open_settings",
+    descriptionKey: "settings.shortcuts.open_settings_desc",
+    aliases: ["settings shortcut", "open settings"]
+  },
+  {
+    id: "shortcut-search-messages",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.search_messages",
+    descriptionKey: "settings.shortcuts.search_messages_desc",
+    aliases: ["message search shortcut", "semantic chat search"]
+  },
+  {
+    id: "shortcut-new-chat",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.new_chat",
+    descriptionKey: "settings.shortcuts.new_chat_desc",
+    aliases: ["new chat shortcut"]
+  },
+  {
+    id: "shortcut-stop-generation",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.stop_generation",
+    descriptionKey: "settings.shortcuts.stop_generation_desc",
+    aliases: ["stop response shortcut"]
+  },
+  {
+    id: "shortcut-clear-chat",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.clear_chat",
+    descriptionKey: "settings.shortcuts.clear_chat_desc",
+    aliases: ["clear chat shortcut"]
+  },
+  {
+    id: "shortcut-copy-last-response",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.copy_last_response",
+    descriptionKey: "settings.shortcuts.copy_last_response_desc",
+    aliases: ["copy response shortcut"]
+  },
+  {
+    id: "shortcut-export-json",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.export_json",
+    descriptionKey: "settings.shortcuts.export_json_desc",
+    aliases: ["json export shortcut"]
+  },
+  {
+    id: "shortcut-export-markdown",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.export_markdown",
+    descriptionKey: "settings.shortcuts.export_markdown_desc",
+    aliases: ["markdown export shortcut"]
+  },
+  {
+    id: "shortcut-export-pdf",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.export_pdf",
+    descriptionKey: "settings.shortcuts.export_pdf_desc",
+    aliases: ["pdf export shortcut"]
+  },
+  {
+    id: "shortcut-export-text",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.export_text",
+    descriptionKey: "settings.shortcuts.export_text_desc",
+    aliases: ["text export shortcut"]
+  },
+  {
+    id: "shortcut-toggle-theme",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_theme",
+    descriptionKey: "settings.shortcuts.toggle_theme_desc",
+    aliases: ["theme shortcut"]
+  },
+  {
+    id: "shortcut-toggle-rag",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_rag",
+    descriptionKey: "settings.shortcuts.toggle_rag_desc",
+    aliases: ["rag shortcut", "context retrieval shortcut"]
+  },
+  {
+    id: "shortcut-toggle-speech",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_speech",
+    descriptionKey: "settings.shortcuts.toggle_speech_desc",
+    aliases: ["speech shortcut", "tts shortcut"]
+  },
+  {
+    id: "shortcut-toggle-tabs",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_tabs",
+    descriptionKey: "settings.shortcuts.toggle_tabs_desc",
+    aliases: ["tabs shortcut", "tab access shortcut"]
+  },
+  {
+    id: "shortcut-toggle-session-metrics",
+    tab: "shortcuts",
+    sectionId: "shortcuts",
+    labelKey: "settings.shortcuts.toggle_session_metrics",
+    descriptionKey: "settings.shortcuts.toggle_session_metrics_desc",
+    aliases: ["metrics shortcut", "session metrics shortcut"]
+  },
+
+  // ---- Reset -------------------------------------------------------------
+  {
+    id: "reset-settings",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.title",
+    descriptionKey: "settings.reset.description",
+    aliases: ["reset settings", "clear data"]
+  },
+  {
+    id: "reset-provider",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.provider.title",
+    descriptionKey: "settings.reset.modules.provider.description",
+    aliases: ["provider settings", "models", "configuration"]
+  },
+  {
+    id: "reset-theme",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.theme.title",
+    descriptionKey: "settings.reset.modules.theme.description",
+    aliases: ["theme", "ui", "appearance"]
+  },
+  {
+    id: "reset-browser",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.browser.title",
+    descriptionKey: "settings.reset.modules.browser.description",
+    aliases: ["browser settings", "tab access", "url patterns"]
+  },
+  {
+    id: "reset-tts",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.tts.title",
+    descriptionKey: "settings.reset.modules.tts.description",
+    aliases: ["text to speech", "tts", "speech"]
+  },
+  {
+    id: "reset-chat-sessions",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.chat_sessions.title",
+    descriptionKey: "settings.reset.modules.chat_sessions.description",
+    aliases: ["chat history", "conversation history"]
+  },
+  {
+    id: "reset-feedback",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.modules.feedback.title",
+    descriptionKey: "settings.reset.modules.feedback.description",
+    aliases: ["user feedback", "learning feedback"]
+  },
+  {
+    id: "reset-danger-zone",
+    tab: "reset",
+    sectionId: "reset-modules",
+    labelKey: "settings.reset.danger_zone.title",
+    descriptionKey: "settings.reset.danger_zone.description",
+    searchKeys: ["settings.reset.danger_zone.button"],
+    aliases: ["reset all", "clear all", "danger zone", "factory reset"],
+    destructive: true
+  },
+
+  // ---- Guides ------------------------------------------------------------
+  {
+    id: "guides-overview",
+    focusId: "guides-card",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.title",
+    descriptionKey: "guides.description",
+    aliases: ["documentation", "docs", "help"]
+  },
+  {
+    id: "guide-setup",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.items.setup.label",
+    descriptionKey: "guides.items.setup.description",
+    searchKeys: ["guides.items.setup.badge"],
+    aliases: ["setup guide", "install guide"]
+  },
+  {
+    id: "guide-library",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.items.library.label",
+    descriptionKey: "guides.items.library.description",
+    searchKeys: ["guides.items.library.badge"],
+    aliases: ["model library", "ollama library"]
+  },
+  {
+    id: "guide-github",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.items.github.label",
+    descriptionKey: "guides.items.github.description",
+    searchKeys: ["guides.items.github.badge"],
+    aliases: ["github", "repo", "source code", "releases"]
+  },
+  {
+    id: "guide-faq",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.items.faq.label",
+    descriptionKey: "guides.items.faq.description",
+    searchKeys: ["guides.items.faq.badge"],
+    aliases: ["faq", "troubleshooting", "support"]
+  },
+  {
+    id: "guide-support",
+    tab: "guides",
+    sectionId: "guides",
+    labelKey: "guides.support.title",
+    descriptionKey: "guides.support.description",
+    aliases: ["product hunt", "support project"]
   }
 ]
 
@@ -705,7 +1224,7 @@ export const getSectionEntries = (sectionId: string): SettingsEntry[] =>
 
 /** Look up a single entry by its focus id. */
 export const getSettingsEntry = (id: string): SettingsEntry | undefined =>
-  SETTINGS_REGISTRY.find((entry) => entry.id === id)
+  SETTINGS_REGISTRY.find((entry) => entry.id === id || entry.focusId === id)
 
 /**
  * Optional translator: resolves an i18n key to display text. When supplied,
@@ -715,33 +1234,125 @@ export const getSettingsEntry = (id: string): SettingsEntry | undefined =>
  */
 export type Translate = (key: string) => string
 
+export interface RankedSettingsEntry {
+  entry: SettingsEntry
+  score: number
+}
+
+const normalizeSearchText = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+
+const getSearchParts = (entry: SettingsEntry, translate?: Translate) => {
+  const parts = [
+    entry.id.replace(/-/g, " "),
+    entry.id,
+    entry.labelKey,
+    entry.descriptionKey ?? "",
+    ...(entry.searchKeys ?? []),
+    ...(entry.aliases ?? []),
+    ...(entry.keywords ?? [])
+  ]
+  if (translate) {
+    parts.push(translate(entry.labelKey))
+    if (entry.descriptionKey) parts.push(translate(entry.descriptionKey))
+  }
+  return parts
+}
+
+const levenshteinDistance = (a: string, b: string): number => {
+  if (a === b) return 0
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
+  let current = Array.from({ length: b.length + 1 }, () => 0)
+
+  for (let i = 1; i <= a.length; i++) {
+    current[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + substitutionCost
+      )
+    }
+    ;[previous, current] = [current, previous]
+  }
+
+  return previous[b.length]
+}
+
+const fuzzyThreshold = (token: string): number => {
+  if (token.length < 3) return 0
+  if (token.length <= 5) return 1
+  return 2
+}
+
+const scoreToken = (
+  token: string,
+  haystack: string,
+  words: string[]
+): number => {
+  if (words.includes(token)) return 40
+  if (haystack.includes(token)) return 20
+
+  const threshold = fuzzyThreshold(token)
+  if (threshold === 0) return 0
+
+  const hasFuzzyWord = words.some(
+    (word) =>
+      Math.abs(word.length - token.length) <= threshold &&
+      levenshteinDistance(token, word) <= threshold
+  )
+
+  return hasFuzzyWord ? 8 : 0
+}
+
 /**
- * Search the registry. Matches every whitespace-separated token in `query`
- * (AND semantics) against the entry's id, keyword list, label/description i18n
- * keys, and — when `translate` is given — the resolved label/description text.
+ * Search the registry. Ranks exact phrases, exact words, substrings, and small
+ * typos against the entry's id, keywords, label/description i18n keys, and —
+ * when `translate` is given — the resolved label/description text.
  *
- * Returns matches in registry order. An empty/whitespace query returns [].
+ * Returns ranked matches. An empty/whitespace query returns [].
  */
 export const searchSettings = (
   query: string,
   translate?: Translate
 ): SettingsEntry[] => {
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean)
+  return rankSettings(query, translate).map((result) => result.entry)
+}
+
+export const rankSettings = (
+  query: string,
+  translate?: Translate
+): RankedSettingsEntry[] => {
+  const normalizedQuery = normalizeSearchText(query)
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return []
 
-  return SETTINGS_REGISTRY.filter((entry) => {
-    const parts = [
-      entry.id.replace(/-/g, " "),
-      entry.id,
-      entry.labelKey,
-      entry.descriptionKey ?? "",
-      ...(entry.keywords ?? [])
-    ]
-    if (translate) {
-      parts.push(translate(entry.labelKey))
-      if (entry.descriptionKey) parts.push(translate(entry.descriptionKey))
+  return SETTINGS_REGISTRY.map((entry, index) => {
+    const haystack = normalizeSearchText(
+      getSearchParts(entry, translate).join(" ")
+    )
+    const words = haystack.split(/\s+/).filter(Boolean)
+    const phraseScore = haystack.includes(normalizedQuery) ? 100 : 0
+    const tokenScore = tokens.reduce(
+      (total, token) => total + scoreToken(token, haystack, words),
+      0
+    )
+    return {
+      entry,
+      score: phraseScore + tokenScore,
+      index
     }
-    const haystack = parts.join(" ").toLowerCase()
-    return tokens.every((token) => haystack.includes(token))
   })
+    .filter((result) => result.score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ entry, score }) => ({ entry, score }))
 }

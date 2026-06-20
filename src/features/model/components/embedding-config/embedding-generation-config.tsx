@@ -27,6 +27,7 @@ export const EmbeddingGenerationConfig = ({
       <div className="space-y-4">
         <SettingsFormField
           htmlFor="batchSize"
+          focusId="embeddings-batch-size"
           label={t("model.embedding_config.batch_size_label")}
           description={t("model.embedding_config.batch_size_description")}>
           <Input
@@ -45,7 +46,7 @@ export const EmbeddingGenerationConfig = ({
         </SettingsFormField>
 
         <SettingsSwitch
-          id="enableCaching"
+          id="embeddings-enable-caching"
           label={t("model.embedding_config.enable_caching_label")}
           description={t("model.embedding_config.enable_caching_description")}
           checked={config.enableCaching}

@@ -19,6 +19,7 @@ export type FormValues = {
 export type NumberInputConfig = {
   name: keyof FormValues
   label: string
+  focusId?: string
   icon?: LucideIcon
   min?: number
   max?: number
@@ -30,6 +31,7 @@ export type NumberInputConfig = {
 export type SliderConfig = {
   name: keyof FormValues
   label: string
+  focusId?: string
   icon?: LucideIcon
   min: number
   max: number
@@ -57,6 +59,7 @@ export const fieldValidations: Record<
 export const getSliderConfigs = (t: TFunction): SliderConfig[] => [
   {
     name: "temperature",
+    focusId: "temperature",
     label: t("settings.model.parameters.temperature.label"),
     icon: Thermometer,
     min: 0,
@@ -67,6 +70,7 @@ export const getSliderConfigs = (t: TFunction): SliderConfig[] => [
   },
   {
     name: "top_p",
+    focusId: "top-p",
     label: t("settings.model.parameters.top_p.label"),
     icon: Eye,
     min: 0,
@@ -80,6 +84,7 @@ export const getSliderConfigs = (t: TFunction): SliderConfig[] => [
 export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   {
     name: "top_k",
+    focusId: "top-k",
     label: t("settings.model.parameters.top_k.label"),
     icon: Hash,
     min: 1,
@@ -95,6 +100,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "min_p",
+    focusId: "min-p",
     label: t("settings.model.parameters.min_p.label"),
     icon: Layers,
     step: 0.01,
@@ -118,6 +124,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "seed",
+    focusId: "seed",
     label: t("settings.model.parameters.seed.label"),
     min: 0,
     group: "context-row1",
@@ -132,6 +139,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "num_ctx",
+    focusId: "num-ctx",
     label: t("settings.model.parameters.num_ctx.label"),
     min: 128,
     group: "context-row1",
@@ -146,6 +154,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "num_predict",
+    focusId: "num-predict",
     label: t("settings.model.parameters.num_predict.label"),
     group: "context-row2",
     validation: {
@@ -159,6 +168,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "repeat_penalty",
+    focusId: "repeat-penalty",
     label: t("settings.model.parameters.repeat_penalty.label"),
     step: 0.1,
     min: 0.1,
@@ -174,6 +184,7 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
   },
   {
     name: "repeat_last_n",
+    focusId: "repeat-last-n",
     label: t("settings.model.parameters.repeat_last_n.label"),
     min: -1,
     group: "context-row3",

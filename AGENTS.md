@@ -99,6 +99,7 @@ Each feature folder should own its UI, hooks, and (if needed) its Zustand store:
 - `model/` — model management UI, provider/embedding settings screens
 - `file-upload/` — file ingestion for RAG, per-format processors under `processors/`
 - `prompt/` — prompt templates
+- `settings/` — settings registry, i18n-backed settings search index, and search/deep-link tests
 - `memory/`, `knowledge/`, `context/`, `tabs/` — auxiliary chat-context features
 
 Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. **Feature-scoped stores live under `features/<x>/stores/`, never in `src/stores/`.**
@@ -167,6 +168,16 @@ Uses Biome (not ESLint/Prettier):
 
 When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/` (`ControlledTextInput`, `ControlledTextarea`, `ControlledNumberInput`, `ControlledSelect`, `ControlledSlider`, `ControlledSwitch`). Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX.
 
+### Settings search and deep links
+
+`src/features/settings/settings-registry.ts` is the source of truth for options-page settings search and deep-link focus. When adding or moving a setting:
+
+- Add or update a registry entry with the real tab, section, label i18n key, description key, and any visible child strings in `searchKeys`.
+- Prefer i18n keys over plain keywords. Use `aliases` only for technical synonyms, provider names, or common typos that are not visible UI copy.
+- Every registry `id` or `focusId` should resolve to a mounted element via `focusId`, `id`, or `data-settings-focus-id`. Use `SettingsCard`, `SettingsFormField`, `SettingsSliderField`, or `SettingsSwitch` focus props where available; otherwise add `data-settings-focus="true"` and `data-settings-focus-id="..."`.
+- Avoid duplicate focus IDs across tabs. Duplicate IDs make search highlights land on the wrong control after tab navigation.
+- Update `src/features/settings/__tests__/settings-registry.test.ts`, `settings-search-index.test.ts`, or the relevant component test when adding search coverage.
+
 ### i18n build pipeline
 
 `src/i18n/resources.ts` and Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json` are **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The typed resources file is `.gitignored`; `_locales` is committed because extension packages need it.
@@ -213,9 +224,10 @@ If you change anything under `src/locales/`, run `pnpm generate:resources` manua
 
 If you're touching one of these, expect to refactor as you go:
 
-- `src/features/chat/hooks/use-chat.ts` (~271 LOC; still the busiest hook — split further along stream / abort / thinking / attachments seams if you touch it)
+- `src/features/chat/hooks/use-chat-turn-controller.ts` owns turn lifecycle, streaming, abort, thinking, and attachment handoff. Keep `use-chat.ts` as wiring only.
+- `src/features/file-upload/hooks/use-file-upload.ts` still owns UI state around ingestion; pipeline helpers live in `file-upload-pipeline.ts`. Continue moving validation, registration, and embedding enqueue logic out of the hook when touching it.
 - `src/features/sessions/stores/chat-session-store.ts` is now a thin barrel (~19 LOC) over extracted store slices/actions; persistence reads via `src/lib/repositories/chat-history.ts`. The earlier ~485-LOC god-store has been split — don't go looking for it.
-- `src/features/model/components/provider-settings.tsx` (large, no direct tests; split per provider section)
+- `src/features/model/components/provider-settings.tsx` delegates provider connection details and custom model editing to small components; keep new provider settings slices similarly scoped and covered by component tests.
 - `src/contents/index.ts` is now a thin entry (~38 LOC); selection-capture / dom-observer / messaging have been pulled into siblings.
 - `src/types/index.ts` is now a 14-line re-export barrel over six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`). New code should prefer importing from the per-domain path (`@/types/chat`) over the barrel.
 - Dexie chat-history paths are retired. Vector storage and knowledge sets still use Dexie; chat history stays SQLite-only through the facade.

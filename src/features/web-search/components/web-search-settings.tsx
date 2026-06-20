@@ -139,7 +139,7 @@ export const WebSearchSettings = () => {
           label={t("settings.web_search.provider.label")}
           description={t("settings.web_search.provider.description")}
           className="min-w-0"
-          data-settings-focus-id="web-search-provider">
+          focusId="web-search-provider">
           <Select
             value={config.provider}
             onValueChange={(provider) =>
@@ -165,7 +165,7 @@ export const WebSearchSettings = () => {
           label={t("settings.web_search.safe_search.label")}
           description={t("settings.web_search.safe_search.description")}
           className="min-w-0"
-          data-settings-focus-id="web-search-safe-search">
+          focusId="web-search-safe-search">
           <Select
             value={config.safeSearch}
             onValueChange={(safeSearch) =>
@@ -192,7 +192,7 @@ export const WebSearchSettings = () => {
           htmlFor="web-search-endpoint"
           label={t("settings.web_search.endpoint.label")}
           description={t("settings.web_search.endpoint.description")}
-          data-settings-focus-id="web-search-endpoint">
+          focusId="web-search-endpoint">
           <Input
             id="web-search-endpoint"
             type="url"
@@ -218,7 +218,7 @@ export const WebSearchSettings = () => {
           htmlFor="web-search-api-key"
           label={t("settings.web_search.api_key.label")}
           description={t("settings.web_search.api_key.description")}
-          data-settings-focus-id="web-search-api-key">
+          focusId="web-search-api-key">
           <Input
             id="web-search-api-key"
             type="password"
@@ -231,6 +231,7 @@ export const WebSearchSettings = () => {
 
       {config.provider === "searxng" && (
         <SettingsSliderField
+          focusId="web-search-result-count"
           label={t("settings.web_search.searxng_pages.label")}
           description={t("settings.web_search.searxng_pages.description")}
           value={config.searxngPages ?? 1}

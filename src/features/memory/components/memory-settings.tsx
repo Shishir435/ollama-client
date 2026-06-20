@@ -78,7 +78,7 @@ export const MemorySettings = () => {
       badge={t("settings.memory.beta_badge")}
       contentClassName="space-y-6">
       <SettingsSwitch
-        id="memory-toggle"
+        id="memory-enabled"
         label={t("settings.memory.enable.label")}
         description={t("settings.memory.enable.description")}
         checked={isEnabled}
@@ -88,6 +88,7 @@ export const MemorySettings = () => {
       <div className="border-t pt-4">
         <div className="flex items-center justify-between">
           <SettingsFormField
+            focusId="clear-memory"
             label={t("settings.memory.clear.label")}
             description={
               <>

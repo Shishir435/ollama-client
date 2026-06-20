@@ -71,7 +71,10 @@ export const SpeechSettings = () => {
         description={t("settings.speech.description")}
         contentClassName="space-y-5">
         {/* Voice Selection */}
-        <div className="space-y-3">
+        <div
+          className="space-y-3"
+          data-settings-focus="true"
+          data-settings-focus-id="voice-selection">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mic className="icon-md text-muted-foreground" />
@@ -95,6 +98,7 @@ export const SpeechSettings = () => {
 
         {/* Rate Control */}
         <SettingsSliderField
+          focusId="speech-rate"
           label={t("settings.speech.rate_label")}
           value={rate}
           valueLabel={
@@ -115,6 +119,7 @@ export const SpeechSettings = () => {
 
         {/* Pitch Control */}
         <SettingsSliderField
+          focusId="speech-pitch"
           label={t("settings.speech.pitch_label")}
           value={pitch}
           valueLabel={

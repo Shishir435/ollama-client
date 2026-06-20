@@ -56,6 +56,7 @@ export const FileUploadSettings = () => {
       <FieldStack>
         <SettingsFormField
           htmlFor="max-file-size"
+          focusId="max-file-size-mb"
           label={t("file_upload.settings.max_file_size_label")}
           description={t("file_upload.settings.max_file_size_description")}>
           <div className="flex items-center gap-2">
@@ -73,6 +74,7 @@ export const FileUploadSettings = () => {
 
         <SettingsFormField
           htmlFor="max-image-size"
+          focusId="max-image-size-mb"
           label={t("file_upload.settings.max_image_size_label")}
           description={t("file_upload.settings.max_image_size_description")}>
           <div className="flex items-center gap-2">

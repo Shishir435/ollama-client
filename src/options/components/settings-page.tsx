@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react"
 import { useTranslation } from "react-i18next"
@@ -36,8 +37,10 @@ import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
-  type SettingsEntry
+  isSettingsTab,
+  type SettingsTab
 } from "@/features/settings/settings-registry"
+import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
@@ -59,16 +62,17 @@ import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
 export const SettingsPage = () => {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState(() => {
+  const desktopSearchRef = useRef<HTMLInputElement>(null)
+  const mobileSearchRef = useRef<HTMLInputElement>(null)
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     if (typeof window === "undefined") return "general"
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
     // Honor the registry's tab for a deep-linked focus id so links survive a
-    // control moving tabs (e.g. vector-DB controls relocated Context →
-    // Embeddings in 0.10.2). The focus id's home tab wins over a stale `tab`.
+    // control moving tabs. The focus id's home tab wins over a stale `tab`.
     const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
     const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-    return entryTab || requestedTab || "general"
+    return entryTab || (requestedTab as SettingsTab) || "general"
   })
 
   const navSections: NavSection[] = [
@@ -266,25 +270,51 @@ export const SettingsPage = () => {
   // effect above run the highlight; if we're already on the target tab the
   // effect won't re-fire, so highlight directly.
   const navigateToSetting = useCallback(
-    (entry: SettingsEntry) => {
+    (record: SettingsSearchRecord) => {
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href)
-        url.searchParams.set("tab", entry.tab)
-        url.searchParams.set("focus", entry.id)
+        url.searchParams.set("tab", record.tab)
+        url.searchParams.set("focus", record.focusId)
         window.history.replaceState({}, "", url.toString())
       }
-      if (entry.tab !== activeTab) {
-        setActiveTab(entry.tab)
+      if (record.tab !== activeTab) {
+        setActiveTab(record.tab)
       } else {
-        highlightFocus(entry.id)
+        highlightFocus(record.focusId)
       }
     },
     [activeTab, highlightFocus]
   )
 
+  const handleTabChange = useCallback((key: string) => {
+    if (isSettingsTab(key)) setActiveTab(key)
+  }, [])
+
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
     "https://github.com/Shishir435/ollama-client"
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().includes("MAC")
+      const pressedMod = isMac ? event.metaKey : event.ctrlKey
+      if (!pressedMod || event.shiftKey || event.altKey) return
+      if (event.key.toLowerCase() !== "k") return
+
+      event.preventDefault()
+      const refs = [mobileSearchRef, desktopSearchRef]
+      const visibleSearch =
+        refs.find((ref) => ref.current && ref.current.offsetParent !== null)
+          ?.current ??
+        desktopSearchRef.current ??
+        mobileSearchRef.current
+      visibleSearch?.focus()
+      visibleSearch?.select()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   return (
     <AppShell>
@@ -320,23 +350,32 @@ export const SettingsPage = () => {
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
           <div className="p-4 pb-2">
-            <SettingsSearch onSelect={navigateToSetting} />
+            <SettingsSearch
+              activeTab={activeTab}
+              inputRef={desktopSearchRef}
+              onSelect={navigateToSetting}
+            />
           </div>
           <SettingsSidebar
             sections={navSections}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             className="w-full p-4 pt-2"
           />
         </div>
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="px-4 pt-4 sm:px-6 lg:hidden">
-            <SettingsSearch onSelect={navigateToSetting} />
+            <SettingsSearch
+              activeTab={activeTab}
+              inputRef={mobileSearchRef}
+              onSelect={navigateToSetting}
+              showShortcutHint
+            />
           </div>
           <SettingsMobileNav
             items={allNavItems}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             className="flex-none px-4 pt-4 sm:px-6"
           />
           <main className="min-w-0 flex-1 overflow-y-auto">

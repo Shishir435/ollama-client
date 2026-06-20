@@ -1,18 +1,8 @@
-import {
-  CheckCircle2,
-  Info,
-  Loader2,
-  Plus,
-  Save,
-  Trash2,
-  XCircle,
-  Zap
-} from "lucide-react"
+import { CheckCircle2, Info, Loader2, XCircle, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
-import { SettingsActionRow, SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,13 +11,13 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
+import { ProviderConnectionPanel } from "@/features/model/components/provider-connection-panel"
+import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
-import { DEFAULT_PROVIDERS } from "@/lib/providers/manager"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 
@@ -63,13 +53,15 @@ export const ProviderSettings = () => {
 
   return (
     <SectionStack>
-      <ProviderGrid
-        providers={providers}
-        selectedId={selectedId}
-        providerHealth={providerHealth}
-        manualTestStatus={connectionStatus}
-        onSelect={setSelectedId}
-      />
+      <div data-settings-focus="true" data-settings-focus-id="provider-picker">
+        <ProviderGrid
+          providers={providers}
+          selectedId={selectedId}
+          providerHealth={providerHealth}
+          manualTestStatus={connectionStatus}
+          onSelect={setSelectedId}
+        />
+      </div>
 
       {/* Configuration Panel */}
       {activeConfig && (
@@ -107,7 +99,10 @@ export const ProviderSettings = () => {
             </div>
 
             <InlineActions className="gap-4">
-              <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-2"
+                data-settings-focus="true"
+                data-settings-focus-id="provider-enabled">
                 <Label htmlFor="enabled-switch" className="text-sm font-medium">
                   {activeConfig.enabled
                     ? t("settings.providers.enabled")
@@ -121,6 +116,8 @@ export const ProviderSettings = () => {
               </div>
 
               <Button
+                data-settings-focus="true"
+                data-settings-focus-id="provider-test-connection"
                 variant="outline"
                 size="sm"
                 onClick={handleTestConnection}
@@ -152,144 +149,21 @@ export const ProviderSettings = () => {
 
           <CardContent>
             <FieldStack>
-              <SettingsFormField
-                label={t("settings.providers.base_url")}
-                description={
-                  <>
-                    {t("settings.providers.base_url_default")}:{" "}
-                    {
-                      DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)
-                        ?.baseUrl
-                    }
-                  </>
-                }>
-                <SettingsActionRow>
-                  <Input
-                    value={activeConfig.baseUrl || ""}
-                    onChange={(e) => updateConfig({ baseUrl: e.target.value })}
-                    placeholder="https://api.example.com/v1"
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={() => handleSave(activeConfig)}
-                    disabled={!hasUnsavedChanges}>
-                    <Save className="icon-md mr-2" />
-                    {t("settings.providers.save")}
-                  </Button>
-                </SettingsActionRow>
-                {isRemoteEndpoint && (
-                  <p className="mt-2 text-xs text-status-warning">
-                    This endpoint is remote. Prompts and responses will be sent
-                    outside your local machine.
-                  </p>
-                )}
-                {cspCompatibilityHint && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {cspCompatibilityHint}
-                  </p>
-                )}
-              </SettingsFormField>
+              <ProviderConnectionPanel
+                activeConfig={activeConfig}
+                cspCompatibilityHint={cspCompatibilityHint}
+                isLocalProvider={isLocalProvider}
+                isRemoteEndpoint={isRemoteEndpoint}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onSave={handleSave}
+                updateConfig={updateConfig}
+              />
 
               {!isLocalProvider && (
-                <SettingsFormField label={t("settings.providers.api_key")}>
-                  <Input
-                    type="password"
-                    value={activeConfig.apiKey || ""}
-                    onChange={(e) => updateConfig({ apiKey: e.target.value })}
-                    placeholder="sk-..."
-                  />
-                </SettingsFormField>
-              )}
-
-              {!isLocalProvider && (
-                <SettingsFormField
-                  label={t("settings.providers.custom_models")}
-                  description={t(
-                    "settings.providers.custom_models_description"
-                  )}>
-                  <FieldStack className="space-y-3">
-                    <SettingsActionRow>
-                      <Input
-                        placeholder="e.g. google/gemini-pro"
-                        id="custom-model-input"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const input = e.currentTarget
-                            const val = input.value.trim()
-                            if (
-                              val &&
-                              !activeConfig.customModels?.includes(val)
-                            ) {
-                              updateConfig({
-                                customModels: [
-                                  ...(activeConfig.customModels || []),
-                                  val
-                                ]
-                              })
-                              input.value = ""
-                            }
-                          }
-                        }}
-                      />
-                      <TooltipActionButton
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          const input = document.getElementById(
-                            "custom-model-input"
-                          ) as HTMLInputElement
-                          const val = input.value.trim()
-                          if (
-                            val &&
-                            !activeConfig.customModels?.includes(val)
-                          ) {
-                            updateConfig({
-                              customModels: [
-                                ...(activeConfig.customModels || []),
-                                val
-                              ]
-                            })
-                            input.value = ""
-                          }
-                        }}
-                        icon={Plus}
-                        iconClassName="icon-md"
-                        label={t("settings.model.system.add_button")}
-                      />
-                    </SettingsActionRow>
-
-                    {activeConfig.customModels &&
-                      activeConfig.customModels.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {activeConfig.customModels.map((m) => (
-                            <div
-                              key={m}
-                              className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-sm">
-                              <span>{m}</span>
-                              <TooltipActionButton
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="size-5 hover:text-destructive"
-                                onClick={() => {
-                                  updateConfig({
-                                    customModels:
-                                      activeConfig.customModels?.filter(
-                                        (cm) => cm !== m
-                                      )
-                                  })
-                                }}
-                                icon={Trash2}
-                                iconClassName="icon-sm"
-                                label={t("common.close")}
-                                ariaLabel={`${t("common.close")} ${m}`}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                  </FieldStack>
-                </SettingsFormField>
+                <ProviderCustomModels
+                  activeConfig={activeConfig}
+                  updateConfig={updateConfig}
+                />
               )}
             </FieldStack>
           </CardContent>

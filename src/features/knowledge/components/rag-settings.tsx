@@ -218,6 +218,7 @@ export const RAGSettings = () => {
     <div className="space-y-6">
       <div className="space-y-4">
         <SettingsSwitch
+          id="rag-enabled"
           label={t("model.embedding_config.rag_enable_label")}
           description={t("model.embedding_config.rag_enable_description")}
           checked={useRAG}
@@ -225,6 +226,7 @@ export const RAGSettings = () => {
         />
 
         <SettingsSwitch
+          id="use-reranking"
           label={t("model.embedding_config.reranking_label")}
           description={t("model.embedding_config.reranking_description")}
           checked={config.useReranking ?? false}
@@ -239,6 +241,7 @@ export const RAGSettings = () => {
       </div>
 
       <SettingsSliderField
+        focusId="search-limit-topk"
         label={t("model.embedding_config.search_limit_label")}
         valueLabel={`Top-K: ${topK}`}
         description={t("model.embedding_config.search_limit_description")}
@@ -250,6 +253,7 @@ export const RAGSettings = () => {
       />
 
       <SettingsSliderField
+        focusId="min-rerank-score"
         label={t("knowledge_sets.min_rerank_label")}
         valueLabel={minRerankScore.toFixed(2)}
         description={t("knowledge_sets.min_rerank_description")}
@@ -271,6 +275,7 @@ export const RAGSettings = () => {
           <AccordionTrigger>{t("knowledge_sets.title")}</AccordionTrigger>
           <AccordionContent className="space-y-6 pt-4">
             <SettingsFormField
+              focusId="active-knowledge-set"
               label={t("knowledge_sets.active_label")}
               description={t("knowledge_sets.active_description")}>
               <Select

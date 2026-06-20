@@ -61,7 +61,10 @@ export const EmbeddingHealthAlert = ({
       : 0
 
   return (
-    <div className="space-y-3">
+    <div
+      className="space-y-3"
+      data-settings-focus="true"
+      data-settings-focus-id="rebuild-embeddings">
       <StatusAlert
         variant="warning"
         icon={AlertTriangle}

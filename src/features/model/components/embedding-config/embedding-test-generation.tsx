@@ -46,6 +46,7 @@ export const EmbeddingTestGeneration = ({
   return (
     <SettingsCard
       icon={Sparkles}
+      focusId="embeddings-test-generation"
       title={t("settings.embeddings.test_generation.title")}
       description={t("settings.embeddings.test_generation.description")}
       headerActions={

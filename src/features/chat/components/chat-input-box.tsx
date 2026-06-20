@@ -2,15 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  type ImageRejectReason,
-  useImageAttachments
-} from "@/features/chat/hooks/use-image-attachments"
+import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
-import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
-import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
@@ -18,13 +13,11 @@ import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useToast } from "@/hooks/use-toast"
 import {
-  DEFAULT_MAX_IMAGE_SIZE_MB,
   DEFAULT_TABS_ACCESS,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
-import { logger } from "@/lib/logger"
 import {
   getPlasmoStorageForKey,
   plasmoGlobalStorage
@@ -79,78 +72,15 @@ export const ChatInputBox = ({
   const {
     processFiles,
     processingStates,
+    successfulFiles,
     clearProcessingState,
-    clearAllProcessingStates
-  } = useFileUpload({
-    onError: (error) => {
-      logger.error("File processing error", "ChatInputBox", { error })
-      toast({
-        variant: "destructive",
-        title: "File Upload Failed",
-        description: error.message || "Failed to process file"
-      })
-    }
-  })
-
-  const { capabilities, isResolving: capabilitiesResolving } =
-    useSelectedModelCapabilities()
-  const visionSupported = capabilities?.vision ?? false
-  // Confirmed-unsupported only once detection has finished. While it's still
-  // resolving we don't block — otherwise the first attach (before /api/show
-  // returns) would be wrongly rejected on a vision model.
-  const visionUnsupported = !visionSupported && !capabilitiesResolving
-
-  const [maxImageSizeMb] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_IMAGE_SIZE_MB
-  )
-
-  // Stable reference so useImageAttachments' addFiles isn't recreated each render.
-  const handleImageReject = useCallback(
-    (reason: ImageRejectReason, file: File) => {
-      const description =
-        reason === "size"
-          ? t("chat.input.images.too_large", {
-              name: file.name,
-              max: maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB
-            })
-          : reason === "heic"
-            ? t("chat.input.images.heic_unsupported", { name: file.name })
-            : t("chat.input.images.unsupported_type", { name: file.name })
-      toast({ variant: "destructive", description })
-    },
-    [t, toast, maxImageSizeMb]
-  )
-
-  const {
+    clearAllProcessingStates,
     images,
-    addFiles: addImageFiles,
-    remove: removeImage,
-    clear: clearImages
-  } = useImageAttachments({
-    maxSizeBytes: (maxImageSizeMb || DEFAULT_MAX_IMAGE_SIZE_MB) * 1024 * 1024,
-    onReject: handleImageReject
-  })
-
-  // Route image files to the image pipeline when the model supports vision,
-  // otherwise reject with a clear, capability-aware message.
-  const handleImageFiles = useCallback(
-    (imageFiles: File[]) => {
-      if (imageFiles.length === 0) return
-      if (visionUnsupported) {
-        toast({
-          variant: "destructive",
-          description: t("chat.input.images.model_unsupported")
-        })
-        return
-      }
-      void addImageFiles(imageFiles)
-    },
-    [visionUnsupported, addImageFiles, toast, t]
-  )
+    handleImageFiles,
+    visionUnsupported,
+    removeImage,
+    clearImages
+  } = useChatInputAttachments()
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
     {
@@ -216,13 +146,6 @@ export const ChatInputBox = ({
       handleSend()
     }
   }
-
-  const successfulFiles = processingStates
-    .filter(
-      (s): s is typeof s & { status: "success"; result: ProcessedFile } =>
-        s.status === "success" && s.result !== undefined
-    )
-    .map((s) => s.result)
 
   const handleSend = () => {
     // Don't start a new turn while one is in flight (the action button is a

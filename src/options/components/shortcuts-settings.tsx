@@ -20,6 +20,9 @@ const CATEGORY_LABELS = {
   toggles: "Toggles"
 } as const
 
+const shortcutFocusId = (id: ShortcutAction) =>
+  `shortcut-${id.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`
+
 export const ShortcutsSettings = () => {
   const { t } = useTranslation()
   const {
@@ -173,6 +176,7 @@ export const ShortcutsSettings = () => {
   return (
     <SettingsCard
       icon={Keyboard}
+      focusId="keyboard-shortcuts"
       title={t("settings.shortcuts.title")}
       description={t("settings.shortcuts.description")}>
       {/* Search */}
@@ -214,6 +218,8 @@ export const ShortcutsSettings = () => {
                     <button
                       type="button"
                       key={shortcut.id}
+                      data-settings-focus="true"
+                      data-settings-focus-id={shortcutFocusId(shortcut.id)}
                       className={cn(
                         "group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50",
                         isRecording && "bg-accent ring-2 ring-primary"

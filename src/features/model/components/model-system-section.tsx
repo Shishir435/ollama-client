@@ -48,6 +48,7 @@ export const ModelSystemSection = ({
       contentClassName="space-y-6">
       <SettingsFormField
         htmlFor="system"
+        focusId="system-prompt"
         label={t("settings.model.system.prompt_label")}
         className="space-y-3">
         <ControlledTextarea
@@ -67,6 +68,7 @@ export const ModelSystemSection = ({
       <Separator />
       <SettingsFormField
         htmlFor="stop-sequences"
+        focusId="stop-sequences"
         label={
           <div className="flex items-center gap-2">
             <StopCircle className="icon-md" />

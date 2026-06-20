@@ -102,6 +102,7 @@ export const ResetStorage = () => {
     <SectionStack>
       <SettingsCard
         icon={RefreshCcw}
+        focusId="reset-settings"
         title={t("settings.reset.title")}
         description={t("settings.reset.description")}>
         <div className="grid gap-3">
@@ -120,38 +121,47 @@ export const ResetStorage = () => {
 
         <Separator />
 
-        <StatusAlert
-          variant="destructive"
-          icon={RefreshCcw}
-          title={t("settings.reset.danger_zone.title")}
-          description={t("settings.reset.danger_zone.description")}
-          actions={
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger
-                render={
-                  <Button variant="destructive" className="w-full sm:w-auto" />
-                }>
-                {t("settings.reset.danger_zone.button")}
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("settings.reset.dialog.title")}</DialogTitle>
-                  <DialogDescription>
-                    {t("settings.reset.dialog.description")}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="flex flex-col gap-4">
-                  <Button variant="destructive" onClick={handleResetAll}>
-                    {t("settings.reset.dialog.confirm")}
-                  </Button>
-                  <Button variant="secondary" onClick={() => setOpen(false)}>
-                    {t("settings.reset.dialog.cancel")}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          }
-        />
+        <div
+          data-settings-focus="true"
+          data-settings-focus-id="reset-danger-zone">
+          <StatusAlert
+            variant="destructive"
+            icon={RefreshCcw}
+            title={t("settings.reset.danger_zone.title")}
+            description={t("settings.reset.danger_zone.description")}
+            actions={
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger
+                  render={
+                    <Button
+                      variant="destructive"
+                      className="w-full sm:w-auto"
+                    />
+                  }>
+                  {t("settings.reset.danger_zone.button")}
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {t("settings.reset.dialog.title")}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {t("settings.reset.dialog.description")}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="flex flex-col gap-4">
+                    <Button variant="destructive" onClick={handleResetAll}>
+                      {t("settings.reset.dialog.confirm")}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setOpen(false)}>
+                      {t("settings.reset.dialog.cancel")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            }
+          />
+        </div>
       </SettingsCard>
     </SectionStack>
   )
@@ -175,9 +185,13 @@ const ModuleResetItem = ({
   const { t } = useTranslation()
   const [resetting, setResetting] = useState(false)
   const ModuleIcon = getModuleIcon(module)
+  const focusId = `reset-${module.toLowerCase().replace(/_/g, "-")}`
 
   return (
-    <Card className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
+    <Card
+      data-settings-focus="true"
+      data-settings-focus-id={focusId}
+      className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">

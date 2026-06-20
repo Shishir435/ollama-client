@@ -22,6 +22,7 @@ export interface SettingsCardProps {
   badgeTooltip?: React.ReactNode
   children: React.ReactNode
   className?: string
+  focusId?: string
   headerClassName?: string
   contentClassName?: string
   headerActions?: React.ReactNode
@@ -54,12 +55,13 @@ export const SettingsCard = ({
   badgeTooltip,
   children,
   className,
+  focusId,
   headerClassName,
   contentClassName,
   headerActions
 }: SettingsCardProps) => {
   return (
-    <Card className={className}>
+    <Card className={className} data-settings-focus-id={focusId}>
       <CardHeader className={headerClassName || "pb-4"}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

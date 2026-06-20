@@ -71,6 +71,7 @@ export const PresetPicker = () => {
   return (
     <SettingsCard
       icon={Sparkles}
+      focusId="settings-presets"
       title={t("settings.presets.title")}
       description={t("settings.presets.description")}>
       <div className="grid gap-2 sm:grid-cols-2">

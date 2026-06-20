@@ -4,6 +4,7 @@ import {
   getSettingsEntry,
   getSettingsForTab,
   isSettingsTab,
+  rankSettings,
   SETTINGS_REGISTRY,
   SETTINGS_TABS,
   searchSettings
@@ -83,12 +84,57 @@ describe("settings-registry", () => {
       expect(hit?.tab).toBe("contentExtraction")
     })
 
-    it("requires all tokens (AND semantics)", () => {
-      // 'temperature' exists; 'temperature voice' should not match it.
+    it("matches reset module rows", () => {
+      const results = searchSettings("browser settings")
+      const hit = results.find((e) => e.id === "reset-browser")
+      expect(hit?.tab).toBe("reset")
+    })
+
+    it("matches non-model tabs that were easy to miss", () => {
+      expect(searchSettings("prompt templates").map((e) => e.id)).toContain(
+        "prompt-templates"
+      )
+      expect(searchSettings("keyboard shortcuts").map((e) => e.id)).toContain(
+        "keyboard-shortcuts"
+      )
+      expect(searchSettings("setup guide").map((e) => e.id)).toContain(
+        "guide-setup"
+      )
+    })
+
+    it("matches embedding search internals on the embeddings tab", () => {
+      expect(searchSettings("semantic search").map((e) => e.id)).toContain(
+        "embeddings-test-search"
+      )
+      expect(searchSettings("search cache ttl").map((e) => e.id)).toContain(
+        "embeddings-cache-ttl"
+      )
+      expect(searchSettings("ann backend").map((e) => e.id)).toContain(
+        "embeddings-ann-backend"
+      )
+    })
+
+    it("matches reset danger zone separately from module rows", () => {
+      const hit = searchSettings("danger zone").find(
+        (e) => e.id === "reset-danger-zone"
+      )
+      expect(hit?.tab).toBe("reset")
+      expect(hit?.destructive).toBe(true)
+    })
+
+    it("keeps useful partial matches instead of strict AND misses", () => {
       expect(searchSettings("temperature").map((e) => e.id)).toContain(
         "temperature"
       )
-      expect(searchSettings("temperature voice")).toEqual([])
+      expect(searchSettings("temperature voice").map((e) => e.id)).toContain(
+        "temperature"
+      )
+      expect(searchSettings("prese").map((e) => e.id)).toContain(
+        "settings-presets"
+      )
+      expect(searchSettings("preset").map((e) => e.id)).toContain(
+        "settings-presets"
+      )
     })
 
     it("can match resolved label text via a translator", () => {
@@ -96,6 +142,31 @@ describe("settings-registry", () => {
         key === "settings.grounding_mode.label" ? "Answer only from page" : key
       const results = searchSettings("answer only from page", translate)
       expect(results.map((e) => e.id)).toContain("grounded-only-mode")
+    })
+
+    it("matches fuzzy provider and settings queries", () => {
+      expect(searchSettings("provder").map((e) => e.id)).toContain(
+        "provider-picker"
+      )
+      expect(searchSettings("ollma").map((e) => e.id)).toContain(
+        "provider-picker"
+      )
+      expect(searchSettings("base url").map((e) => e.id)).toContain(
+        "provider-base-url"
+      )
+      expect(searchSettings("api").map((e) => e.id)).toContain(
+        "provider-api-key"
+      )
+    })
+
+    it("ranks exact phrase matches above loose partial matches", () => {
+      const results = rankSettings("base url")
+      expect(results[0].entry.id).toBe("provider-base-url")
+      expect(results[0].score).toBeGreaterThan(0)
+    })
+
+    it("returns [] for unrelated queries", () => {
+      expect(searchSettings("zzzzqqqq nowhere")).toEqual([])
     })
   })
 })
