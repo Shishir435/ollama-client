@@ -88,10 +88,14 @@ const OptionalPermissionRow = ({
   const onToggle = useCallback(
     async (next: boolean) => {
       // Must run from this click (user gesture) for the browser to honor request.
-      const ok = next
-        ? await requestPermission(meta.perm)
-        : !(await removePermission(meta.perm))
-      setGranted(ok ? next : await hasPermission(meta.perm))
+      if (next) {
+        await requestPermission(meta.perm)
+      } else {
+        await removePermission(meta.perm)
+      }
+      // Re-query the real state so a denied request or failed revoke never shows
+      // a misleading granted/revoked signal.
+      setGranted(await hasPermission(meta.perm))
     },
     [meta.perm]
   )

@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { useFeatureFlagsStore } from "@/stores/feature-flags"
@@ -41,6 +41,21 @@ describe("PermissionsPanel", () => {
     render(<PermissionsPanel />)
     fireEvent.click(document.getElementById("permission-bookmarks") as Element)
     expect(perm.requestPermission).toHaveBeenCalledWith("bookmarks")
+  })
+
+  it("keeps the toggle granted when a revoke fails (no misleading signal)", async () => {
+    perm.hasPermission.mockResolvedValue(true)
+    perm.removePermission.mockResolvedValue(false) // revoke fails — still held
+    render(<PermissionsPanel />)
+    // First switch is the bookmarks optional-permission row.
+    const sw = screen.getAllByRole("switch")[0]
+    await waitFor(() => expect(sw).toBeChecked())
+    fireEvent.click(sw)
+    await waitFor(() =>
+      expect(perm.removePermission).toHaveBeenCalledWith("bookmarks")
+    )
+    // Real state re-queried (still granted) → toggle stays on, not optimistic off.
+    await waitFor(() => expect(sw).toBeChecked())
   })
 
   it("toggling a preview flag updates the feature-flags store", () => {

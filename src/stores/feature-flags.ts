@@ -50,12 +50,17 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()(
       storage: {
         getItem: async (name) => {
           const value = await plasmoGlobalStorage.get(name)
-          if (!value) return null
-          try {
-            return JSON.parse(value)
-          } catch {
-            return null
+          if (value == null) return null
+          if (typeof value === "string") {
+            try {
+              return JSON.parse(value)
+            } catch {
+              return null
+            }
           }
+          // chrome.storage returns pre-parsed objects — pass through directly
+          // (mirrors the guard in shortcut-store.ts).
+          return value as ReturnType<typeof JSON.parse>
         },
         setItem: async (name, value) => {
           await plasmoGlobalStorage.set(name, value)
