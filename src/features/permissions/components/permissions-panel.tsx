@@ -119,6 +119,11 @@ export const PermissionsPanel = ({
   const flags = useFeatureFlagsStore((s) => s.flags)
   const setFlag = useFeatureFlagsStore((s) => s.setFlag)
 
+  // Preview-flag toggles are a dev/QA control, not end-user UI. Hidden in the
+  // production build; the flag store still gates in-progress code paths. Flags
+  // are disposable — delete each one once its feature ships stable and on.
+  const showPreviewFeatures = process.env.NODE_ENV !== "production"
+
   return (
     <div className="grid gap-4">
       <SettingsCard
@@ -147,21 +152,23 @@ export const PermissionsPanel = ({
         />
       )}
 
-      <SettingsCard
-        focusId="permissions-preview"
-        icon={Sparkles}
-        title={t("settings.permissions.preview.title")}
-        description={t("settings.permissions.preview.description")}>
-        {(Object.keys(FLAG_LABELS) as FeatureFlag[]).map((flag) => (
-          <SettingsSwitch
-            key={flag}
-            id={`feature-flag-${flag}`}
-            label={FLAG_LABELS[flag]}
-            checked={flags[flag]}
-            onCheckedChange={(next) => setFlag(flag, next)}
-          />
-        ))}
-      </SettingsCard>
+      {showPreviewFeatures && (
+        <SettingsCard
+          focusId="permissions-preview"
+          icon={Sparkles}
+          title={t("settings.permissions.preview.title")}
+          description={t("settings.permissions.preview.description")}>
+          {(Object.keys(FLAG_LABELS) as FeatureFlag[]).map((flag) => (
+            <SettingsSwitch
+              key={flag}
+              id={`feature-flag-${flag}`}
+              label={FLAG_LABELS[flag]}
+              checked={flags[flag]}
+              onCheckedChange={(next) => setFlag(flag, next)}
+            />
+          ))}
+        </SettingsCard>
+      )}
     </div>
   )
 }

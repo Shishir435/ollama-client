@@ -54,4 +54,17 @@ describe("PermissionsPanel", () => {
     // host title key is only rendered in non-compact mode
     expect(queryByText("settings.permissions.host.title")).toBeNull()
   })
+
+  it("hides the preview-features card in the production build", () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = "production"
+    try {
+      render(<PermissionsPanel />)
+      expect(
+        document.getElementById("feature-flag-screenshotVision")
+      ).toBeNull()
+    } finally {
+      process.env.NODE_ENV = prev
+    }
+  })
 })
