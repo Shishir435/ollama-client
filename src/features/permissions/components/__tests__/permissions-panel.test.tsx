@@ -120,7 +120,7 @@ describe("PermissionsPanel", () => {
     )
   })
 
-  it("falls back to direct notification when background gives no response", async () => {
+  it("shows skipped feedback when background gives no response", async () => {
     browserApi.sendMessage.mockResolvedValue(undefined)
 
     render(<PermissionsPanel />)
@@ -131,11 +131,11 @@ describe("PermissionsPanel", () => {
     )
 
     await waitFor(() =>
-      expect(browserApi.createNotification).toHaveBeenCalled()
+      expect(
+        screen.getByText("settings.permissions.items.notifications.testSkipped")
+      ).toBeTruthy()
     )
-    expect(
-      screen.getByText("settings.permissions.items.notifications.testSent")
-    ).toBeTruthy()
+    expect(browserApi.createNotification).not.toHaveBeenCalled()
   })
 
   it("keeps the toggle granted when a revoke fails (no misleading signal)", async () => {

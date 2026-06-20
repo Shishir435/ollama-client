@@ -136,53 +136,6 @@ const TestNotificationButton = () => {
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
 
-  const sendDirectTestNotification = useCallback(async (): Promise<boolean> => {
-    const payload = {
-      type: "basic",
-      iconUrl: browser.runtime.getURL("assets/icon.png"),
-      title: t("settings.permissions.items.notifications.testTitle"),
-      message: t("settings.permissions.items.notifications.testMessage")
-    } as const
-    const id = `test-notification-${Date.now()}`
-
-    const promiseNotifications = (
-      browser as unknown as {
-        notifications?: {
-          create: (id: string, options: typeof payload) => Promise<string>
-        }
-      }
-    ).notifications
-    if (promiseNotifications?.create) {
-      await promiseNotifications.create(id, payload)
-      return true
-    }
-
-    const callbackNotifications = (
-      globalThis.chrome as unknown as
-        | {
-            notifications?: {
-              create: (
-                id: string,
-                options: chrome.notifications.NotificationOptions,
-                callback?: (id: string) => void
-              ) => void
-            }
-            runtime?: { lastError?: { message?: string } }
-          }
-        | undefined
-    )?.notifications
-    if (!callbackNotifications?.create) return false
-
-    await new Promise<void>((resolve, reject) => {
-      callbackNotifications.create(id, payload, () => {
-        const lastError = globalThis.chrome?.runtime?.lastError
-        if (lastError) reject(new Error(lastError.message))
-        else resolve()
-      })
-    })
-    return true
-  }, [t])
-
   const sendTestNotification = useCallback(async () => {
     setSending(true)
     setStatus(null)
@@ -212,12 +165,6 @@ const TestNotificationButton = () => {
       if (response?.data?.sent || response?.success) {
         setStatus(t("settings.permissions.items.notifications.testSent"))
       } else {
-        const sentDirectly = await sendDirectTestNotification()
-        if (sentDirectly) {
-          setStatus(t("settings.permissions.items.notifications.testSent"))
-          return
-        }
-
         const reason =
           response?.data?.reason ||
           response?.error?.message ||
@@ -227,21 +174,15 @@ const TestNotificationButton = () => {
           t("settings.permissions.items.notifications.testSkipped", { reason })
         )
       }
-    } catch {
-      try {
-        const sentDirectly = await sendDirectTestNotification()
-        setStatus(
-          sentDirectly
-            ? t("settings.permissions.items.notifications.testSent")
-            : t("settings.permissions.items.notifications.testFailed")
-        )
-      } catch {
-        setStatus(t("settings.permissions.items.notifications.testFailed"))
-      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      setStatus(
+        t("settings.permissions.items.notifications.testSkipped", { reason })
+      )
     } finally {
       setSending(false)
     }
-  }, [sendDirectTestNotification, t])
+  }, [t])
 
   return (
     <div className="grid gap-2">

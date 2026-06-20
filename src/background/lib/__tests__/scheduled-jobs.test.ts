@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   createAlarm: vi.fn(),
   clearAlarm: vi.fn(),
+  getAlarm: vi.fn(),
   onAlarmAddListener: vi.fn(),
   onStorageChangedAddListener: vi.fn(),
   getScheduledJobSettings: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock("@/lib/browser-api", () => ({
     alarms: {
       create: (...args: unknown[]) => mocks.createAlarm(...args),
       clear: (...args: unknown[]) => mocks.clearAlarm(...args),
-      get: vi.fn(),
+      get: (...args: unknown[]) => mocks.getAlarm(...args),
       onAlarm: { addListener: mocks.onAlarmAddListener }
     },
     storage: {
@@ -64,28 +65,41 @@ beforeEach(() => {
   })
   mocks.createAlarm.mockResolvedValue(undefined)
   mocks.clearAlarm.mockResolvedValue(true)
+  mocks.getAlarm.mockResolvedValue(null)
   mocks.checkStorageLimit.mockResolvedValue(undefined)
   mocks.removeDuplicateVectors.mockResolvedValue({ deleted: 0, kept: 0 })
 })
 
 describe("background scheduled jobs", () => {
-  it("creates an alarm for enabled jobs", async () => {
+  it("creates an alarm for enabled jobs when none exists", async () => {
     mocks.getScheduledJobSettings.mockResolvedValue({
       enabled: { "vector-maintenance": true }
     })
 
     await syncScheduledJobAlarms()
 
-    expect(mocks.clearAlarm).toHaveBeenCalledWith(
+    expect(mocks.getAlarm).toHaveBeenCalledWith(
       "ollama-client:scheduled-job:vector-maintenance"
     )
     expect(mocks.createAlarm).toHaveBeenCalledWith(
       "ollama-client:scheduled-job:vector-maintenance",
       { delayInMinutes: 5, periodInMinutes: 1440 }
     )
-    expect(mocks.clearAlarm.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mocks.getAlarm.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.createAlarm.mock.invocationCallOrder[0]
     )
+  })
+
+  it("preserves an existing enabled alarm", async () => {
+    mocks.getScheduledJobSettings.mockResolvedValue({
+      enabled: { "vector-maintenance": true }
+    })
+    mocks.getAlarm.mockResolvedValue({ name: "existing" })
+
+    await syncScheduledJobAlarms()
+
+    expect(mocks.createAlarm).not.toHaveBeenCalled()
+    expect(mocks.clearAlarm).not.toHaveBeenCalled()
   })
 
   it("clears an alarm for disabled jobs", async () => {
