@@ -27,7 +27,7 @@ export const WebSearchToggle = () => {
           onPressedChange={(next) => updateConfig({ enabled: next })}
           aria-label={t("chat.input.web_search_toggle_tooltip")}
           className={cn(
-            "size-8 p-0",
+            "size-7 p-0",
             enabled
               ? "bg-transparent text-foreground hover:bg-muted/55 aria-pressed:bg-transparent data-[state=on]:bg-transparent"
               : "text-muted-foreground hover:bg-muted/55"
@@ -36,7 +36,7 @@ export const WebSearchToggle = () => {
       }
       label={t("chat.input.web_search_toggle_tooltip")}
       tooltipSide="top"
-      icon={<Globe className="icon-md" />}
+      icon={<Globe className="icon-lg" />}
     />
   )
 }

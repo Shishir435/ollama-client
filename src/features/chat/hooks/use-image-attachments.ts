@@ -40,44 +40,56 @@ export const useImageAttachments = ({
 }: UseImageAttachmentsOptions) => {
   const [images, setImages] = useState<ImageAttachment[]>([])
 
+  // Validate + read one file into an ImageAttachment, or null. Does NOT stage it
+  // — callers that want it staged use addFiles. `notify` controls the onReject
+  // toast: pass false for silent paths (e.g. auto screenshot on send).
+  const fileToAttachment = useCallback(
+    async (file: File, notify = true): Promise<ImageAttachment | null> => {
+      const reject = (reason: ImageRejectReason) => {
+        if (notify) onReject?.(reason, file)
+      }
+      if (isHeic(file)) {
+        reject("heic")
+        return null
+      }
+      if (!isSupportedImage(file.type)) {
+        reject("type")
+        return null
+      }
+      if (file.size > maxSizeBytes) {
+        reject("size")
+        return null
+      }
+      let base64: string
+      try {
+        base64 = await readFileAsBase64(file)
+      } catch {
+        reject("type")
+        return null
+      }
+      return {
+        imageId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        base64
+      }
+    },
+    [maxSizeBytes, onReject]
+  )
+
   const addFiles = useCallback(
     async (files: File[]) => {
       const accepted: ImageAttachment[] = []
       for (const file of files) {
-        if (isHeic(file)) {
-          onReject?.("heic", file)
-          continue
-        }
-        if (!isSupportedImage(file.type)) {
-          onReject?.("type", file)
-          continue
-        }
-        if (file.size > maxSizeBytes) {
-          onReject?.("size", file)
-          continue
-        }
-        let base64: string
-        try {
-          base64 = await readFileAsBase64(file)
-        } catch {
-          // Reading failed (e.g. FileReader.onerror) — surface it and keep the
-          // rest of the batch moving instead of rejecting the whole call.
-          onReject?.("type", file)
-          continue
-        }
-        accepted.push({
-          imageId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          fileName: file.name,
-          mimeType: file.type,
-          size: file.size,
-          base64
-        })
+        const attachment = await fileToAttachment(file)
+        if (attachment) accepted.push(attachment)
       }
       if (accepted.length > 0) {
         setImages((prev) => [...prev, ...accepted])
       }
     },
-    [maxSizeBytes, onReject]
+    [fileToAttachment]
   )
 
   const remove = useCallback((imageId: string) => {
@@ -86,5 +98,5 @@ export const useImageAttachments = ({
 
   const clear = useCallback(() => setImages([]), [])
 
-  return { images, addFiles, remove, clear }
+  return { images, addFiles, fileToAttachment, remove, clear }
 }

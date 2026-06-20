@@ -62,6 +62,7 @@ export const ChatInputBox = ({
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
     null
   )
+  const sendingRef = useRef(false)
   const [showPromptOverlay, setShowPromptOverlay] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -77,10 +78,20 @@ export const ChatInputBox = ({
     clearAllProcessingStates,
     images,
     handleImageFiles,
+    captureScreenshot,
+    captureScreenshotAttachment,
     visionUnsupported,
     removeImage,
     clearImages
   } = useChatInputAttachments()
+
+  const [autoScreenshotOnVision] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+      instance: plasmoGlobalStorage
+    },
+    false
+  )
 
   const [useRAG, setUseRAG] = useStorage<boolean>(
     {
@@ -143,35 +154,50 @@ export const ChatInputBox = ({
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     // Don't start a new turn while one is in flight (the action button is a
-    // Stop button then; this guards programmatic/edge callers too).
-    if (isLoading) return
+    // Stop button then; this guards programmatic/edge callers too). `isLoading`
+    // only flips after onSend, so a synchronous ref guards the async gap below
+    // (capturing a screenshot) against a second Enter triggering a double send.
+    if (isLoading || sendingRef.current) return
+    sendingRef.current = true
 
-    const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
-    const pendingTabCount = selectedTabNums.filter(
-      (tabId) => loadingIds?.[tabId]
-    ).length
-    if (tabAccess && pendingTabCount > 0) {
-      toast({
-        title: "Preparing tab context",
-        description: `Still extracting ${pendingTabCount} selected tab${pendingTabCount > 1 ? "s" : ""}. Please wait a moment.`
-      })
-      return
+    try {
+      const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
+      const pendingTabCount = selectedTabNums.filter(
+        (tabId) => loadingIds?.[tabId]
+      ).length
+      if (tabAccess && pendingTabCount > 0) {
+        toast({
+          title: "Preparing tab context",
+          description: `Still extracting ${pendingTabCount} selected tab${pendingTabCount > 1 ? "s" : ""}. Please wait a moment.`
+        })
+        return
+      }
+
+      // Auto-attach a fresh screenshot when enabled for a vision model — but
+      // never override an image the user staged manually.
+      let outgoingImages = images
+      if (autoScreenshotOnVision && !visionUnsupported && images.length === 0) {
+        const shot = await captureScreenshotAttachment()
+        if (shot) outgoingImages = [shot]
+      }
+
+      onSend(
+        undefined,
+        undefined,
+        successfulFiles.length > 0 ? successfulFiles : undefined,
+        outgoingImages.length > 0 ? outgoingImages : undefined
+      )
+      clearAllProcessingStates()
+      clearImages()
+    } finally {
+      sendingRef.current = false
     }
-
-    onSend(
-      undefined,
-      undefined,
-      successfulFiles.length > 0 ? successfulFiles : undefined,
-      images.length > 0 ? images : undefined
-    )
-    clearAllProcessingStates()
-    clearImages()
   }
 
   const handleSelectPrompt = (prompt: string) => {
@@ -420,6 +446,8 @@ export const ChatInputBox = ({
           onAttachmentClick={() => setShowAttachmentSheet(true)}
           acceptImages={!visionUnsupported}
           imageCount={images.length}
+          onCaptureScreenshot={captureScreenshot}
+          showScreenshot={!visionUnsupported}
         />
 
         <div className="absolute right-3 top-3">

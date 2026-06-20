@@ -21,9 +21,9 @@ describe("feature-flags store", () => {
   })
 
   it("setFlag enables a single flag without touching others", () => {
-    useFeatureFlagsStore.getState().setFlag("screenshotVision", true)
+    useFeatureFlagsStore.getState().setFlag("omnibox", true)
     const { flags } = useFeatureFlagsStore.getState()
-    expect(flags.screenshotVision).toBe(true)
+    expect(flags.omnibox).toBe(true)
     expect(flags.notifications).toBe(false)
   })
 

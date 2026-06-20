@@ -181,6 +181,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Tab-context refresh preference."
   },
+  [STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION]: {
+    key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+    scope: "sync-safe",
+    reason: "Auto-screenshot-on-vision preference."
+  },
   [STORAGE_KEYS.WEB_SEARCH.CONFIG]: {
     key: STORAGE_KEYS.WEB_SEARCH.CONFIG,
     scope: "device-local",

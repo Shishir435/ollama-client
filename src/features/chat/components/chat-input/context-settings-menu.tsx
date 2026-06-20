@@ -2,6 +2,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import {
   AppWindow,
   BrainCircuit,
+  Camera,
   CheckIcon,
   Eye,
   Loader2,
@@ -22,6 +23,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
@@ -224,6 +226,17 @@ export const ContextSettingsMenu = () => {
     false
   )
 
+  const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
+    useStorage<boolean>(
+      {
+        key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+        instance: plasmoGlobalStorage
+      },
+      false
+    )
+  const { capabilities } = useSelectedModelCapabilities()
+  const showAutoScreenshot = capabilities?.vision ?? false
+
   const excludedPatterns =
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS
 
@@ -299,7 +312,18 @@ export const ContextSettingsMenu = () => {
       onClick: () => setGroundedOnlyMode(!groundedOnlyMode),
       icon: ShieldCheck,
       label: t("settings.grounding_mode.label")
-    }
+    },
+    ...(showAutoScreenshot
+      ? [
+          {
+            key: "auto-screenshot",
+            checked: autoScreenshotOnVision,
+            onClick: () => setAutoScreenshotOnVision(!autoScreenshotOnVision),
+            icon: Camera,
+            label: t("chat.input.auto_screenshot")
+          }
+        ]
+      : [])
   ]
 
   const previewTab = previewTabId
@@ -318,7 +342,7 @@ export const ContextSettingsMenu = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  className="rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
                   aria-label={t("tabs.context")}
                 />
               }
@@ -327,7 +351,7 @@ export const ContextSettingsMenu = () => {
           label={t("tabs.context")}
           icon={
             <IconBadge
-              icon={<Layers className="icon-md" aria-hidden="true" />}
+              icon={<Layers className="icon-lg" aria-hidden="true" />}
               count={selectedTabIds.length}
             />
           }

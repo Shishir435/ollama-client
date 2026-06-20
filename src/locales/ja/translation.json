@@ -182,8 +182,11 @@
         "too_large": "{{name}} は画像の上限 {{max}}MB を超えています。",
         "unsupported_type": "{{name}} はサポートされていない画像形式です。PNG、JPEG、または WebP を使用してください。",
         "model_unsupported": "選択中のモデルはビジョンに対応していません。モデルメニューで有効にするか、ビジョン対応モデルを選択してください。",
-        "heic_unsupported": "HEIC はサポートされていません。画像を貼り付けるか、{{name}} を JPEG または PNG として書き出してください。"
-      }
+        "heic_unsupported": "HEIC はサポートされていません。画像を貼り付けるか、{{name}} を JPEG または PNG として書き出してください。",
+        "screenshot_failed": "このページをキャプチャできませんでした。一部のページはキャプチャできません。"
+      },
+      "screenshot": "スクリーンショットを撮る",
+      "auto_screenshot": "スクリーンショットを自動添付"
     },
     "context_preview": {
       "files": "添付ファイル",

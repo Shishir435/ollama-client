@@ -67,7 +67,7 @@ export const FileUploadButton = ({
         variant="ghost"
         size="icon"
         className={cn(
-          "size-8 shrink-0 rounded-control text-muted-foreground transition-all duration-200",
+          "shrink-0 rounded-control text-muted-foreground transition-all duration-200",
           "hover:bg-muted hover:text-foreground",
           "focus:bg-muted focus:text-foreground focus:opacity-100",
           disabled && "opacity-50 cursor-not-allowed",
@@ -85,7 +85,7 @@ export const FileUploadButton = ({
             ? "file_upload.button.tooltip_with_images"
             : "file_upload.button.tooltip"
         )}
-        icon={<Paperclip className="icon-md" />}
+        icon={<Paperclip className="icon-lg" />}
       />
     </>
   )

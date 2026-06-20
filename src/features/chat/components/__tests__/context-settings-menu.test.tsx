@@ -93,6 +93,13 @@ vi.mock("@/features/tabs/hooks/use-tab-status-map", () => ({
   })
 }))
 
+vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
+  useSelectedModelCapabilities: () => ({
+    capabilities: undefined,
+    isResolving: false
+  })
+}))
+
 vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
   useSelectedTabs: () => ({
     selectedTabIds: ["7"],
