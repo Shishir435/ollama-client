@@ -10,9 +10,6 @@ import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
 import type { ChromeSidePanel } from "@/types"
 
-/** Browser-level command id; mirrors the `commands` block in wxt.config.ts. */
-const OPEN_PANEL_COMMAND = "open-panel"
-
 const openClientWindow = () => {
   browser.windows.create({
     url: browser.runtime.getURL("sidepanel.html"),
@@ -24,8 +21,9 @@ const openClientWindow = () => {
 
 /**
  * Open the chat surface for a tab: the native side panel on Chromium, a popup
- * window on Firefox (or when no window context is available). Shared by the
- * toolbar action and the `open-panel` keyboard command.
+ * window on Firefox (or when no window context is available). Used by the
+ * toolbar action's `onClicked` (the keyboard hotkey uses the reserved
+ * `_execute_action` command, which toggles the panel natively).
  */
 const openPanelForTab = (tab?: { id?: number; windowId?: number }) => {
   if (isChromiumBased() && "sidePanel" in browser) {
@@ -81,33 +79,6 @@ const registerActionHandler = () => {
       openClientWindow()
     })
   }
-}
-
-/**
- * Browser-level keyboard command (v0.11.1 / F2). Opens the chat side panel from
- * any page. `sidePanel.open` requires a user gesture — the command qualifies.
- */
-const registerCommandHandler = () => {
-  const commands = (
-    browser as unknown as {
-      commands?: {
-        onCommand?: {
-          addListener: (
-            cb: (
-              command: string,
-              tab?: { id?: number; windowId?: number }
-            ) => void
-          ) => void
-        }
-      }
-    }
-  ).commands
-
-  if (!commands?.onCommand) return
-
-  commands.onCommand.addListener((command, tab) => {
-    if (command === OPEN_PANEL_COMMAND) openPanelForTab(tab)
-  })
 }
 
 const registerInstallHandlers = () => {
@@ -175,7 +146,6 @@ export const initializeBackgroundStartup = () => {
   void runEmbeddingDimensionMigration()
   initializeContextMenu()
   registerActionHandler()
-  registerCommandHandler()
   registerInstallHandlers()
   registerToolRegistryInvalidation()
 }

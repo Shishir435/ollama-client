@@ -68,17 +68,17 @@ export default defineConfig({
       "downloads",
       "tabGroups"
     ],
-    // Browser-level keyboard command (v0.11.1 / F2). Opens the chat side panel
-    // from any page. The browser owns the binding — users can rebind or clear it
-    // at chrome://extensions/shortcuts. Suggested default may be unset by the
-    // browser if it conflicts; that's expected.
+    // Browser-level keyboard command (v0.11.1 / F2). Uses the reserved
+    // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
+    // `openPanelOnActionClick`, that TOGGLES the side panel (open and close),
+    // which a custom command calling `sidePanel.open()` cannot do. Rebindable at
+    // chrome://extensions/shortcuts; the browser may drop the default on conflict.
     commands: {
-      "open-panel": {
+      _execute_action: {
         suggested_key: {
           default: "Alt+Shift+O",
           mac: "Command+Shift+O"
-        },
-        description: "Open the chat side panel"
+        }
       }
     },
     web_accessible_resources: [
