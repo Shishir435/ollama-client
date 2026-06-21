@@ -234,10 +234,17 @@ export const getRecentHistoryItems = async (
   if (!supportsHistory()) return []
   if (!(await hasPermission("history"))) return []
 
-  return browser.history.search({
+  const settings = await getBrowserKnowledgeSettings()
+  const historySettings = settings.sources.history
+  const clampedLimit = Math.max(1, Math.min(50, Math.floor(limit)))
+  const items = await browser.history.search({
     text: "",
-    maxResults: Math.max(1, Math.min(50, Math.floor(limit)))
+    maxResults: clampedLimit
   })
+
+  return items
+    .filter((item) => shouldIncludeUrl(item.url, historySettings))
+    .slice(0, clampedLimit)
 }
 
 export const searchBookmarkItems = async (

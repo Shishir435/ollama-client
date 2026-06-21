@@ -255,6 +255,36 @@ describe("browser knowledge sources", () => {
     ])
   })
 
+  it("filters live recent history with stored domain exclusions", async () => {
+    const { getRecentHistoryItems } = await import("@/lib/browser-knowledge")
+
+    mocks.getPlasmoStoredValue.mockResolvedValue({
+      sources: {
+        history: {
+          enabled: true,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: ["blocked.example.com"]
+        }
+      }
+    })
+    mocks.historySearch.mockResolvedValue([
+      { id: "h1", title: "Allowed", url: "https://docs.example.com/a" },
+      { id: "h2", title: "Blocked", url: "https://blocked.example.com/a" }
+    ])
+
+    const items = await getRecentHistoryItems(10)
+
+    expect(mocks.historySearch).toHaveBeenCalledWith({
+      text: "",
+      maxResults: 10
+    })
+    expect(items).toEqual([
+      { id: "h1", title: "Allowed", url: "https://docs.example.com/a" }
+    ])
+  })
+
   it("does not collect or delete when a source is disabled", async () => {
     const { indexBrowserKnowledgeSource } = await import(
       "@/lib/browser-knowledge"
