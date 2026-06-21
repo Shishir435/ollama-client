@@ -86,6 +86,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Bookmarks/history indexing scope is tied to local browser data and profile."
   },
+  [STORAGE_KEYS.BROWSER.PER_SITE_PROFILES]: {
+    key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
+    scope: "sync-safe",
+    reason:
+      "Per-site context rules are user privacy preferences and should follow the user."
+  },
   [STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT]: {
     key: STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
     scope: "device-local",
