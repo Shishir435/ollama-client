@@ -43,6 +43,7 @@ import {
   Target,
   Trash2
 } from "@/lib/lucide-icon"
+import type { PerSiteProfile, PerSiteRuleMode } from "@/lib/per-site-profiles"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig, ScrollStrategy } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
@@ -52,19 +53,26 @@ const SCROLL_STRATEGY_OPTIONS = SCROLL_STRATEGY_OPTIONS_SHORT
 
 export interface SiteSpecificOverridesProps {
   config: ContentExtractionConfig
+  perSiteProfiles: PerSiteProfile[]
   onAddSiteOverride: (pattern: string) => void
   onRemoveSiteOverride: (pattern: string) => void
   onUpdateSiteOverride: (
     pattern: string,
     updates: Partial<ContentExtractionConfig>
   ) => void
+  onUpdateSiteProfile: (
+    pattern: string,
+    updates: Partial<Pick<PerSiteProfile, "tabContext" | "groundedOnly">>
+  ) => void
 }
 
 export const SiteSpecificOverrides = ({
   config,
+  perSiteProfiles,
   onAddSiteOverride,
   onRemoveSiteOverride,
-  onUpdateSiteOverride
+  onUpdateSiteOverride,
+  onUpdateSiteProfile
 }: SiteSpecificOverridesProps) => {
   const { t } = useTranslation()
   const [newSitePattern, setNewSitePattern] = useState("")
@@ -187,8 +195,30 @@ export const SiteSpecificOverrides = ({
     )
   }
 
+  const renderContextRuleSelect = (
+    value: PerSiteRuleMode,
+    onValueChange: (value: PerSiteRuleMode) => void,
+    label: string
+  ) => (
+    <SettingsFormField label={label} labelClassName="text-xs">
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(["inherit", "always", "never"] as PerSiteRuleMode[]).map((mode) => (
+            <SelectItem key={mode} value={mode}>
+              {t(`settings.permissions.siteProfiles.modes.${mode}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </SettingsFormField>
+  )
+
   return (
     <SettingsCard
+      focusId="site-overrides"
       icon={Target}
       title={t("model.site_overrides.title")}
       description={t("model.site_overrides.description")}
@@ -351,6 +381,9 @@ export const SiteSpecificOverrides = ({
                 <CardContent className="space-y-4">
                   {(() => {
                     const override = config.siteOverrides[selectedSiteOverride]
+                    const profile = perSiteProfiles.find(
+                      (item) => item.pattern === selectedSiteOverride
+                    )
                     return (
                       <>
                         <FormGrid>
@@ -370,6 +403,29 @@ export const SiteSpecificOverrides = ({
                                 scrollDepth: value
                               }),
                             `site-${selectedSiteOverride}-depth`
+                          )}
+                        </FormGrid>
+                        <Separator />
+                        <FormGrid>
+                          {renderContextRuleSelect(
+                            profile?.tabContext ?? "inherit",
+                            (value) =>
+                              onUpdateSiteProfile(selectedSiteOverride, {
+                                tabContext: value
+                              }),
+                            t(
+                              "settings.permissions.siteProfiles.fields.tabContext"
+                            )
+                          )}
+                          {renderContextRuleSelect(
+                            profile?.groundedOnly ?? "inherit",
+                            (value) =>
+                              onUpdateSiteProfile(selectedSiteOverride, {
+                                groundedOnly: value
+                              }),
+                            t(
+                              "settings.permissions.siteProfiles.fields.groundedOnly"
+                            )
                           )}
                         </FormGrid>
                         <Separator />

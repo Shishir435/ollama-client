@@ -253,12 +253,12 @@ object matched against the active tab's URL that flips existing toggles.
 **Privacy:** 🟢 — rules are local config; they _reduce_ data exposure (e.g.
 "never read mail tabs") more than they add it.
 
-**Implementation status:** ✅ v0.11.9 ships the local rule editor in Permissions,
-sync-safe profile storage, URL matching, automatic tab-context selection for
-`always` rules, grounded-mode overrides, and `never read` enforcement across
-content extraction + browser tab tools. Selection-action defaults / preset
-binding remain optional follow-ups once the preset flow has a stable runtime
-hook.
+**Implementation status:** ✅ v0.11.9 ships per-site context controls inside the
+Extraction tab's Site-Specific Overrides editor, sync-safe profile storage, URL
+matching, automatic tab-context selection for `always` rules, grounded-mode
+overrides, and `never read` enforcement across content extraction + browser tab
+tools. Selection-action defaults / preset binding remain optional follow-ups
+once the preset flow has a stable runtime hook.
 
 **Effort:** M. **Value:** high; directly requested.
 

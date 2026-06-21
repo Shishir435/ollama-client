@@ -44,10 +44,6 @@ vi.mock("@/lib/scheduled-jobs", () => ({
   })
 }))
 
-vi.mock("@/features/permissions/components/per-site-profiles-editor", () => ({
-  PerSiteProfilesEditor: () => <div data-testid="per-site-profiles-editor" />
-}))
-
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
@@ -71,7 +67,6 @@ describe("PermissionsPanel", () => {
     expect(
       document.getElementById("scheduled-job-vector-maintenance")
     ).toBeTruthy()
-    expect(screen.getByTestId("per-site-profiles-editor")).toBeTruthy()
     expect(document.getElementById("feature-flag-omnibox")).toBeTruthy()
   })
 

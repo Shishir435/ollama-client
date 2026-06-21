@@ -22,7 +22,6 @@ import {
   setScheduledJobEnabled
 } from "@/lib/scheduled-jobs"
 import { type FeatureFlag, useFeatureFlagsStore } from "@/stores/feature-flags"
-import { PerSiteProfilesEditor } from "./per-site-profiles-editor"
 
 /**
  * Shared privacy / permissions surface (v0.11.0 groundwork — FEATURE_ROADMAP §5
@@ -298,8 +297,6 @@ export const PermissionsPanel = ({
           description={t("settings.permissions.host.description")}
         />
       )}
-
-      {!compact && <PerSiteProfilesEditor />}
 
       {!compact && (
         <SettingsCard
