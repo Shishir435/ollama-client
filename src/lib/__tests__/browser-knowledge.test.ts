@@ -232,6 +232,9 @@ describe("browser knowledge sources", () => {
     expect(mocks.fromDocuments.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.deleteVectors.mock.invocationCallOrder[0]
     )
+    expect(mocks.fromDocuments.mock.invocationCallOrder[1]).toBeLessThan(
+      mocks.deleteVectors.mock.invocationCallOrder[1]
+    )
   })
 
   it("filters live bookmark search with stored domain exclusions", async () => {
@@ -291,7 +294,44 @@ describe("browser knowledge sources", () => {
     ])
   })
 
-  it("does not delete old vectors when a reindex stores no collected documents", async () => {
+  it("does not delete old vectors when a reindex stores no documents", async () => {
+    const { indexBrowserKnowledgeSource } = await import(
+      "@/lib/browser-knowledge"
+    )
+
+    mocks.getTree.mockResolvedValue([{ id: "root", title: "root" }])
+
+    await expect(
+      indexBrowserKnowledgeSource("bookmarks", {
+        sources: {
+          bookmarks: {
+            enabled: true,
+            maxItems: 10,
+            sinceDays: undefined,
+            includeDomains: [],
+            excludeDomains: []
+          },
+          history: {
+            enabled: false,
+            maxItems: 10,
+            sinceDays: 7,
+            includeDomains: [],
+            excludeDomains: []
+          }
+        }
+      })
+    ).resolves.toEqual({
+      source: "bookmarks",
+      collected: 0,
+      deletedExisting: 0,
+      stored: 0
+    })
+
+    expect(mocks.deleteVectors).not.toHaveBeenCalled()
+    expect(mocks.fromDocuments).not.toHaveBeenCalled()
+  })
+
+  it("keeps old vectors when embedding stores fewer docs than collected", async () => {
     const { indexBrowserKnowledgeSource } = await import(
       "@/lib/browser-knowledge"
     )
@@ -331,6 +371,7 @@ describe("browser knowledge sources", () => {
       stored: 0
     })
 
+    expect(mocks.fromDocuments).toHaveBeenCalledTimes(1)
     expect(mocks.deleteVectors).not.toHaveBeenCalled()
   })
 

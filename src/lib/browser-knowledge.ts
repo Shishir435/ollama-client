@@ -305,8 +305,7 @@ export const indexBrowserKnowledgeSource = async (
       : await collectHistoryDocuments(sourceSettings)
 
   if (documents.length === 0) {
-    const deletedExisting = await forgetBrowserKnowledgeSource(source)
-    return { source, collected: 0, deletedExisting, stored: 0 }
+    return { source, collected: 0, deletedExisting: 0, stored: 0 }
   }
 
   const runId = `${source}-${Date.now()}`
