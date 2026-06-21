@@ -294,6 +294,43 @@ describe("browser knowledge sources", () => {
     ])
   })
 
+  it("does not read live bookmark search when bookmark source is disabled", async () => {
+    const { searchBookmarkItems } = await import("@/lib/browser-knowledge")
+
+    mocks.getPlasmoStoredValue.mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: false,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    await expect(searchBookmarkItems("docs", 10)).resolves.toEqual([])
+    expect(mocks.bookmarkSearch).not.toHaveBeenCalled()
+  })
+
+  it("does not read live history when history source is disabled", async () => {
+    const { getRecentHistoryItems } = await import("@/lib/browser-knowledge")
+
+    mocks.getPlasmoStoredValue.mockResolvedValue({
+      sources: {
+        history: {
+          enabled: false,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    await expect(getRecentHistoryItems(10)).resolves.toEqual([])
+    expect(mocks.historySearch).not.toHaveBeenCalled()
+  })
+
   it("does not delete old vectors when a reindex stores no documents", async () => {
     const { indexBrowserKnowledgeSource } = await import(
       "@/lib/browser-knowledge"

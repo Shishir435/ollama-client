@@ -360,6 +360,17 @@ describe("browser knowledge tools", () => {
 
   it("returns recent browser history with the requested limit", async () => {
     vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: true,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
     vi.mocked(browser.history.search).mockResolvedValue([
       {
         id: "1",
@@ -398,6 +409,16 @@ describe("browser knowledge tools", () => {
 
   it("searches bookmarks by query", async () => {
     vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: true,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
     vi.mocked(browser.bookmarks.search).mockResolvedValue([
       { id: "b1", title: "Saved Docs", url: "https://docs.test" }
     ] as never)

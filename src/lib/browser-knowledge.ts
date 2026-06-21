@@ -236,6 +236,8 @@ export const getRecentHistoryItems = async (
 
   const settings = await getBrowserKnowledgeSettings()
   const historySettings = settings.sources.history
+  if (!historySettings.enabled) return []
+
   const clampedLimit = Math.max(1, Math.min(50, Math.floor(limit)))
   const startTime = historySettings.sinceDays
     ? Date.now() - historySettings.sinceDays * 24 * 60 * 60 * 1000
@@ -260,6 +262,8 @@ export const searchBookmarkItems = async (
 
   const settings = await getBrowserKnowledgeSettings()
   const bookmarkSettings = settings.sources.bookmarks
+  if (!bookmarkSettings.enabled) return []
+
   const trimmed = query.trim()
   const matches = trimmed
     ? await browser.bookmarks.search(trimmed)
