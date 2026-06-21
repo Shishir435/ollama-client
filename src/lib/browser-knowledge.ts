@@ -237,8 +237,12 @@ export const getRecentHistoryItems = async (
   const settings = await getBrowserKnowledgeSettings()
   const historySettings = settings.sources.history
   const clampedLimit = Math.max(1, Math.min(50, Math.floor(limit)))
+  const startTime = historySettings.sinceDays
+    ? Date.now() - historySettings.sinceDays * 24 * 60 * 60 * 1000
+    : undefined
   const items = await browser.history.search({
     text: "",
+    startTime,
     maxResults: clampedLimit
   })
 
@@ -300,8 +304,28 @@ export const indexBrowserKnowledgeSource = async (
       ? await collectBookmarkDocuments(sourceSettings)
       : await collectHistoryDocuments(sourceSettings)
 
-  const deletedExisting = await forgetBrowserKnowledgeSource(source)
-  const storedIds = await fromDocuments(documents)
+  if (documents.length === 0) {
+    const deletedExisting = await forgetBrowserKnowledgeSource(source)
+    return { source, collected: 0, deletedExisting, stored: 0 }
+  }
+
+  const runId = `${source}-${Date.now()}`
+  const indexedDocuments = documents.map((document) => ({
+    ...document,
+    metadata: {
+      ...document.metadata,
+      browserIndexRunId: runId
+    }
+  }))
+  const storedIds = await fromDocuments(indexedDocuments)
+  const deletedExisting =
+    storedIds.length === documents.length
+      ? await deleteVectors({
+          type: "webpage",
+          source,
+          excludeBrowserIndexRunId: runId
+        })
+      : 0
 
   return {
     source,

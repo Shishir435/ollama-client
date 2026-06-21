@@ -169,7 +169,7 @@ describe("browser knowledge sources", () => {
     })
   })
 
-  it("reindexes enabled browser sources through the vector-store facade", async () => {
+  it("reindexes enabled browser sources without deleting old vectors first", async () => {
     const { indexBrowserKnowledgeSources } = await import(
       "@/lib/browser-knowledge"
     )
@@ -220,13 +220,18 @@ describe("browser knowledge sources", () => {
 
     expect(mocks.deleteVectors).toHaveBeenCalledWith({
       type: "webpage",
-      source: "bookmarks"
+      source: "bookmarks",
+      excludeBrowserIndexRunId: expect.stringMatching(/^bookmarks-/)
     })
     expect(mocks.deleteVectors).toHaveBeenCalledWith({
       type: "webpage",
-      source: "history"
+      source: "history",
+      excludeBrowserIndexRunId: expect.stringMatching(/^history-/)
     })
     expect(mocks.fromDocuments).toHaveBeenCalledTimes(2)
+    expect(mocks.fromDocuments.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.deleteVectors.mock.invocationCallOrder[0]
+    )
   })
 
   it("filters live bookmark search with stored domain exclusions", async () => {
@@ -278,11 +283,55 @@ describe("browser knowledge sources", () => {
 
     expect(mocks.historySearch).toHaveBeenCalledWith({
       text: "",
+      startTime: expect.any(Number),
       maxResults: 10
     })
     expect(items).toEqual([
       { id: "h1", title: "Allowed", url: "https://docs.example.com/a" }
     ])
+  })
+
+  it("does not delete old vectors when a reindex stores no collected documents", async () => {
+    const { indexBrowserKnowledgeSource } = await import(
+      "@/lib/browser-knowledge"
+    )
+
+    mocks.getTree.mockResolvedValue([
+      {
+        id: "root",
+        title: "root",
+        children: [{ id: "1", title: "Docs", url: "https://example.com/a" }]
+      }
+    ])
+    mocks.fromDocuments.mockResolvedValue([])
+
+    await expect(
+      indexBrowserKnowledgeSource("bookmarks", {
+        sources: {
+          bookmarks: {
+            enabled: true,
+            maxItems: 10,
+            sinceDays: undefined,
+            includeDomains: [],
+            excludeDomains: []
+          },
+          history: {
+            enabled: false,
+            maxItems: 10,
+            sinceDays: 7,
+            includeDomains: [],
+            excludeDomains: []
+          }
+        }
+      })
+    ).resolves.toEqual({
+      source: "bookmarks",
+      collected: 1,
+      deletedExisting: 0,
+      stored: 0
+    })
+
+    expect(mocks.deleteVectors).not.toHaveBeenCalled()
   })
 
   it("does not collect or delete when a source is disabled", async () => {

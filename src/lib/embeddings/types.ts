@@ -16,6 +16,7 @@ export interface VectorDocument {
     title?: string
     browserSource?: "bookmark" | "history"
     browserId?: string
+    browserIndexRunId?: string
     visitCount?: number
     lastVisitTime?: number
     timestamp: number

@@ -372,10 +372,13 @@ describe("browser knowledge tools", () => {
 
     const result = await runRecentHistory({ limit: 10 }, ctx)
 
-    expect(browser.history.search).toHaveBeenCalledWith({
-      text: "",
-      maxResults: 10
-    })
+    expect(browser.history.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "",
+        startTime: expect.any(Number),
+        maxResults: 10
+      })
+    )
     expect(result.content).toContain("Recent browser history")
     expect(result.content).toContain("Docs")
     expect(result.sources?.[0]).toEqual({

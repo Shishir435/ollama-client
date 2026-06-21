@@ -218,8 +218,17 @@ export const deleteVectors = async (filters: {
   fileId?: string
   url?: string
   messageId?: number
+  excludeBrowserIndexRunId?: string
 }): Promise<number> => {
-  const { type, source, sessionId, fileId, url, messageId } = filters
+  const {
+    type,
+    source,
+    sessionId,
+    fileId,
+    url,
+    messageId,
+    excludeBrowserIndexRunId
+  } = filters
 
   let query = vectorDb.vectors.toCollection()
 
@@ -240,6 +249,11 @@ export const deleteVectors = async (filters: {
   }
   if (messageId) {
     query = query.filter((v) => v.metadata.messageId === messageId)
+  }
+  if (excludeBrowserIndexRunId) {
+    query = query.filter(
+      (v) => v.metadata.browserIndexRunId !== excludeBrowserIndexRunId
+    )
   }
 
   const count = await query.count()
