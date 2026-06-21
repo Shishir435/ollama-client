@@ -75,11 +75,6 @@ export const supportsBookmarks = (): boolean =>
 export const supportsHistory = (): boolean =>
   typeof browser.history?.search === "function"
 
-/** SPA route-change observation for per-site profile refresh. */
-export const supportsWebNavigation = (): boolean =>
-  typeof browser.webNavigation?.onHistoryStateUpdated?.addListener ===
-  "function"
-
 /** Durable background alarms for scheduled local jobs (Chrome + Firefox). */
 export const supportsAlarms = (): boolean =>
   typeof browser.alarms?.create === "function" &&

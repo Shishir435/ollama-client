@@ -68,7 +68,7 @@ These are non-negotiable and gate every feature:
 | `bookmarks`                | absent | Local RAG over saved pages                                                                           |
 | `history`                  | absent | Local RAG / recall over browsing history                                                             |
 | `omnibox`                  | wired  | Address-bar keyword (`olc`) → side panel + local model (E6, shipped `v0.11.7`)                       |
-| `webNavigation`            | absent | Refresh tab context on SPA route change, not just full load                                          |
+| `webNavigation`            | absent | Deferred: only add when SPA route-change refresh is implemented                                      |
 | `idle`                     | absent | Pause/resume background work by user presence                                                        |
 | `tabGroups`                | absent | "Summarize this group", multi-tab compare                                                            |
 | `downloads` (programmatic) | absent | One-click save of generated artifacts (export/import exists at session level)                        |
@@ -241,9 +241,8 @@ site. "On github.com always include the diff", "on this docs site always ground
 to the page", "on mail.\* never read the tab." A profile bundles: tab-context
 on/off, grounding mode, selection-action defaults, optional preset.
 
-**APIs:** `webNavigation` (detect SPA route changes so the active profile updates
-without a full reload — fixes a known staleness gap in tab context), `tabs`,
-`storage`.
+**APIs:** `tabs`, `storage`. `webNavigation` is a follow-up only if/when SPA
+route-change refresh needs a browser-level listener.
 
 **Builds on:** multi-tab context capture (`use-tab-contents.ts`, with content-hash
 SPA detection already partially present), grounding modes
