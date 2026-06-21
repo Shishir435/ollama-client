@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "Funzioni in anteprima",
         "description": "Funzioni sperimentali in sviluppo. Disattivate per impostazione predefinita; attivale a tuo rischio."
+      },
+      "siteProfiles": {
+        "title": "Profili di contesto per sito",
+        "description": "Crea regole locali per i siti che devono usare il contesto della pagina sempre, mai o normalmente. I siti “Non leggere mai” sono esclusi da estrazione e strumenti delle schede.",
+        "empty": "Nessuna regola sito. Aggiungi un dominio come mail.google.com o *.company.com.",
+        "matchPreview": "La bozza corrente corrisponde a una regola esistente: {{name}}.",
+        "fields": {
+          "enabled": "Abilita regola",
+          "name": "Nome",
+          "pattern": "Pattern sito",
+          "tabContext": "Contesto scheda",
+          "groundedOnly": "Modalità fondata"
+        },
+        "placeholders": {
+          "add": "example.com o *.example.com",
+          "name": "Documenti lavoro",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Aggiungi regola",
+          "currentSite": "Aggiungi sito corrente",
+          "delete": "Elimina regola"
+        },
+        "modes": {
+          "inherit": "Usa impostazione globale",
+          "always": "Sempre attivo",
+          "never": "Mai"
+        }
       }
     },
     "search": {

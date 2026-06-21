@@ -38,9 +38,36 @@ export const setPerSiteProfileSettings = async (
   settings: PerSiteProfileSettings
 ): Promise<void> => {
   await setPlasmoStoredValue(STORAGE_KEYS.BROWSER.PER_SITE_PROFILES, {
-    profiles: settings.profiles
+    profiles: normalizePerSiteProfiles(settings.profiles)
   })
 }
+
+export const createPerSiteProfile = (
+  input: Partial<PerSiteProfile> & Pick<PerSiteProfile, "pattern">
+): PerSiteProfile => ({
+  id:
+    input.id ||
+    globalThis.crypto?.randomUUID?.() ||
+    `profile-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  name: input.name?.trim() || input.pattern.trim(),
+  pattern: input.pattern.trim(),
+  enabled: input.enabled ?? true,
+  tabContext: input.tabContext ?? "inherit",
+  groundedOnly: input.groundedOnly ?? "inherit"
+})
+
+export const normalizePerSiteProfiles = (
+  profiles: PerSiteProfile[]
+): PerSiteProfile[] =>
+  profiles
+    .filter((profile) => profile.pattern.trim())
+    .map((profile) =>
+      createPerSiteProfile({
+        ...profile,
+        name: profile.name || profile.pattern,
+        pattern: profile.pattern
+      })
+    )
 
 const wildcardToRegExp = (pattern: string): RegExp => {
   const escaped = pattern
@@ -99,4 +126,23 @@ export const getActivePerSiteProfile = async (
 export const isNeverReadUrl = async (url: string): Promise<boolean> => {
   const profile = await getActivePerSiteProfile(url)
   return profile?.tabContext === "never"
+}
+
+export const resolveGroundedOnlyModeForUrls = (
+  urls: string[],
+  profiles: PerSiteProfile[],
+  fallback: boolean
+): boolean => {
+  const modes = urls
+    .flatMap((url) =>
+      profiles.filter(
+        (profile) =>
+          profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
+      )
+    )
+    .map((profile) => profile.groundedOnly)
+
+  if (modes.includes("always")) return true
+  if (modes.includes("never")) return false
+  return fallback
 }

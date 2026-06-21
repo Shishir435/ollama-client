@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "Vorschaufunktionen",
         "description": "Experimentelle Funktionen in Entwicklung. Standardmäßig deaktiviert; Aktivierung auf eigenes Risiko."
+      },
+      "siteProfiles": {
+        "title": "Kontextprofile pro Website",
+        "description": "Erstelle lokale Regeln für Websites, die Seitenkontext immer, nie oder normal verwenden sollen. „Nie lesen“-Sites sind von Extraktion und Tab-Tools ausgeschlossen.",
+        "empty": "Noch keine Website-Regeln. Füge eine Domain wie mail.google.com oder *.company.com hinzu.",
+        "matchPreview": "Der aktuelle Entwurf passt zu einer bestehenden Regel: {{name}}.",
+        "fields": {
+          "enabled": "Regel aktivieren",
+          "name": "Name",
+          "pattern": "Website-Muster",
+          "tabContext": "Tab-Kontext",
+          "groundedOnly": "Grounding-Modus"
+        },
+        "placeholders": {
+          "add": "example.com oder *.example.com",
+          "name": "Arbeitsdokumente",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Regel hinzufügen",
+          "currentSite": "Aktuelle Website hinzufügen",
+          "delete": "Regel löschen"
+        },
+        "modes": {
+          "inherit": "Globale Einstellung verwenden",
+          "always": "Immer an",
+          "never": "Nie"
+        }
       }
     },
     "search": {

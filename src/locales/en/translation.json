@@ -1044,6 +1044,34 @@
       "preview": {
         "title": "Preview features",
         "description": "Experimental, in-development features. Off by default; enable at your own risk."
+      },
+      "siteProfiles": {
+        "title": "Per-site context profiles",
+        "description": "Create local rules for sites that should always, never, or normally use page context. “Never read” sites are excluded from extraction and tab tools.",
+        "empty": "No site rules yet. Add a domain like mail.google.com or *.company.com.",
+        "matchPreview": "Current draft matches existing rule: {{name}}.",
+        "fields": {
+          "enabled": "Enable rule",
+          "name": "Name",
+          "pattern": "Site pattern",
+          "tabContext": "Tab context",
+          "groundedOnly": "Grounded mode"
+        },
+        "placeholders": {
+          "add": "example.com or *.example.com",
+          "name": "Work docs",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Add rule",
+          "currentSite": "Add current site",
+          "delete": "Delete rule"
+        },
+        "modes": {
+          "inherit": "Use global setting",
+          "always": "Always on",
+          "never": "Never"
+        }
       }
     },
     "context": {

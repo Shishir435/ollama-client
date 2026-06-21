@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "Fonctionnalités en avant-première",
         "description": "Fonctionnalités expérimentales en cours de développement. Désactivées par défaut ; activez-les à vos risques."
+      },
+      "siteProfiles": {
+        "title": "Profils de contexte par site",
+        "description": "Créez des règles locales pour les sites qui doivent utiliser le contexte de page toujours, jamais ou normalement. Les sites “Ne jamais lire” sont exclus de l’extraction et des outils d’onglets.",
+        "empty": "Aucune règle de site pour le moment. Ajoutez un domaine comme mail.google.com ou *.company.com.",
+        "matchPreview": "Le brouillon actuel correspond à une règle existante : {{name}}.",
+        "fields": {
+          "enabled": "Activer la règle",
+          "name": "Nom",
+          "pattern": "Motif du site",
+          "tabContext": "Contexte d’onglet",
+          "groundedOnly": "Mode ancré"
+        },
+        "placeholders": {
+          "add": "example.com ou *.example.com",
+          "name": "Docs de travail",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Ajouter une règle",
+          "currentSite": "Ajouter le site actuel",
+          "delete": "Supprimer la règle"
+        },
+        "modes": {
+          "inherit": "Utiliser le réglage global",
+          "always": "Toujours activé",
+          "never": "Jamais"
+        }
       }
     },
     "search": {

@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "プレビュー機能",
         "description": "開発中の実験的な機能です。既定ではオフです。自己責任で有効にしてください。"
+      },
+      "siteProfiles": {
+        "title": "サイト別コンテキストプロファイル",
+        "description": "ページコンテキストを常に使う、使わない、通常どおりにするサイト別のローカルルールを作成します。「読み取らない」サイトは抽出とタブツールから除外されます。",
+        "empty": "サイトルールはまだありません。mail.google.com や *.company.com のようなドメインを追加してください。",
+        "matchPreview": "現在の入力は既存のルールに一致します: {{name}}。",
+        "fields": {
+          "enabled": "ルールを有効化",
+          "name": "名前",
+          "pattern": "サイトパターン",
+          "tabContext": "タブコンテキスト",
+          "groundedOnly": "根拠モード"
+        },
+        "placeholders": {
+          "add": "example.com または *.example.com",
+          "name": "仕事用ドキュメント",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "ルールを追加",
+          "currentSite": "現在のサイトを追加",
+          "delete": "ルールを削除"
+        },
+        "modes": {
+          "inherit": "グローバル設定を使用",
+          "always": "常にオン",
+          "never": "使用しない"
+        }
       }
     },
     "search": {

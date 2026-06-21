@@ -253,6 +253,13 @@ object matched against the active tab's URL that flips existing toggles.
 **Privacy:** 🟢 — rules are local config; they _reduce_ data exposure (e.g.
 "never read mail tabs") more than they add it.
 
+**Implementation status:** ✅ v0.11.9 ships the local rule editor in Permissions,
+sync-safe profile storage, URL matching, automatic tab-context selection for
+`always` rules, grounded-mode overrides, and `never read` enforcement across
+content extraction + browser tab tools. Selection-action defaults / preset
+binding remain optional follow-ups once the preset flow has a stable runtime
+hook.
+
 **Effort:** M. **Value:** high; directly requested.
 
 ### E4. Tab-Group & Multi-Tab Workflows — 🟡 `v0.11.10`
@@ -529,7 +536,7 @@ them out of `0.11.0` keeps the baseline a clean, low-risk branch point.
 | ✅     | `v0.11.6`  | E5 — notifications + scheduled jobs                                                                                                                               | B · headline       | 🟢      | F1              |
 | ✅     | `v0.11.7`  | E6 — omnibox quick-ask                                                                                                                                            | B · headline       | 🟢      | F3              |
 | ✅     | `v0.11.8`  | E2 — bookmarks/history local RAG                                                                                                                                  | C · differentiator | 🟡      | F1, consent UI  |
-| 🚧     | `v0.11.9`  | E3 — per-site auto-context profiles                                                                                                                               | C · differentiator | 🟡      | —               |
+| ✅     | `v0.11.9`  | E3 — per-site auto-context profiles                                                                                                                               | C · differentiator | 🟡      | —               |
 | ☐      | `v0.11.10` | E4 — tab-group / multi-tab workflows                                                                                                                              | D · depth          | 🟡      | E3              |
 | ☐      | `v0.11.11` | E7 — artifacts / output canvas                                                                                                                                    | D · depth          | 🟢      | —               |
 | ☐      | `v0.11.12` | E8 — prompt template variables + chaining                                                                                                                         | D · depth          | 🟢      | —               |

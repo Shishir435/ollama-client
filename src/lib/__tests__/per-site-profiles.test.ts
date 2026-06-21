@@ -116,4 +116,44 @@ describe("per-site profiles", () => {
       settings
     )
   })
+
+  it("resolves grounded-only overrides from matching profiles", async () => {
+    const { resolveGroundedOnlyModeForUrls } = await import(
+      "@/lib/per-site-profiles"
+    )
+
+    expect(
+      resolveGroundedOnlyModeForUrls(
+        ["https://docs.example.com/page"],
+        [
+          {
+            id: "docs",
+            name: "Docs",
+            pattern: "docs.example.com",
+            enabled: true,
+            tabContext: "inherit",
+            groundedOnly: "always"
+          }
+        ],
+        false
+      )
+    ).toBe(true)
+
+    expect(
+      resolveGroundedOnlyModeForUrls(
+        ["https://chat.example.com"],
+        [
+          {
+            id: "chat",
+            name: "Chat",
+            pattern: "chat.example.com",
+            enabled: true,
+            tabContext: "inherit",
+            groundedOnly: "never"
+          }
+        ],
+        true
+      )
+    ).toBe(false)
+  })
 })

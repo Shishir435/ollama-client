@@ -35,6 +35,11 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { Layers } from "@/lib/lucide-icon"
+import {
+  DEFAULT_PER_SITE_PROFILE_SETTINGS,
+  type PerSiteProfileSettings,
+  profilePatternMatchesUrl
+} from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
@@ -48,6 +53,8 @@ const trimPreview = (text: string, max = 140) => {
   const compact = text.replace(/\s+/g, " ").trim()
   return compact.length > max ? `${compact.slice(0, max)}...` : compact
 }
+
+const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 
 interface TabOptionRowProps {
   option: { value: string; label: string }
@@ -225,6 +232,14 @@ export const ContextSettingsMenu = () => {
     },
     false
   )
+  const [perSiteProfiles] = useStorage<PerSiteProfileSettings>(
+    {
+      key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_PER_SITE_PROFILE_SETTINGS
+  )
+  const perSiteProfileList = perSiteProfiles?.profiles ?? EMPTY_PROFILE_LIST
 
   const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
     useStorage<boolean>(
@@ -243,6 +258,11 @@ export const ContextSettingsMenu = () => {
   const tabOptions = useMemo(() => {
     const isAccessible = (url: string | undefined) => {
       if (!url) return false
+      const matchingProfile = perSiteProfileList.find(
+        (profile) =>
+          profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
+      )
+      if (matchingProfile?.tabContext === "never") return false
       return !excludedPatterns.some((p) => {
         try {
           return new RegExp(p).test(url)
@@ -258,7 +278,7 @@ export const ContextSettingsMenu = () => {
         value: String(tab.id),
         icon: AppWindow
       }))
-  }, [openTabs, t, excludedPatterns])
+  }, [openTabs, t, excludedPatterns, perSiteProfileList])
 
   const filteredTabOptions = useMemo(() => {
     const query = tabSearch.trim().toLowerCase()
@@ -276,6 +296,34 @@ export const ContextSettingsMenu = () => {
     if (next.length !== selectedTabIds.length) setSelectedTabIds(next)
     if (previewTabId && !allowedIds.has(previewTabId)) setPreviewTabId(null)
   }, [previewTabId, selectedTabIds, setSelectedTabIds, tabOptions])
+
+  useEffect(() => {
+    if (!tabAccess) return
+    const alwaysIds = openTabs
+      .filter(
+        (tab) =>
+          tab.id !== undefined &&
+          tab.url &&
+          perSiteProfileList.some(
+            (profile) =>
+              profile.enabled &&
+              profile.tabContext === "always" &&
+              profilePatternMatchesUrl(profile.pattern, tab.url || "")
+          )
+      )
+      .map((tab) => String(tab.id))
+      .filter((id) => tabOptions.some((option) => option.value === id))
+
+    const next = Array.from(new Set([...selectedTabIds, ...alwaysIds]))
+    if (next.length !== selectedTabIds.length) setSelectedTabIds(next)
+  }, [
+    openTabs,
+    perSiteProfileList,
+    selectedTabIds,
+    setSelectedTabIds,
+    tabAccess,
+    tabOptions
+  ])
 
   const toggleTab = (value: string) =>
     setSelectedTabIds(

@@ -1307,6 +1307,26 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     aliases: ["host access", "all urls", "site access", "remote url"]
   },
   {
+    id: "permissions-site-profiles",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.siteProfiles.title",
+    descriptionKey: "settings.permissions.siteProfiles.description",
+    searchKeys: [
+      "settings.permissions.siteProfiles.fields.pattern",
+      "settings.permissions.siteProfiles.fields.tabContext",
+      "settings.permissions.siteProfiles.fields.groundedOnly"
+    ],
+    aliases: [
+      "site profiles",
+      "per-site",
+      "auto context",
+      "never read",
+      "grounded only",
+      "domain rules"
+    ]
+  },
+  {
     id: "scheduled-job-vector-maintenance",
     tab: "permissions",
     sectionId: "permissions",
