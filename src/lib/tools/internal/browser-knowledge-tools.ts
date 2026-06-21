@@ -1,4 +1,5 @@
 import {
+  getBrowserKnowledgeSettings,
   getRecentHistoryItems,
   searchBookmarkItems
 } from "@/lib/browser-knowledge"
@@ -70,6 +71,15 @@ export const runRecentHistory = async (
   _ctx: ToolContext
 ): Promise<ToolResult> => {
   const limit = clampLimit(args.limit)
+  const settings = await getBrowserKnowledgeSettings()
+  if (!settings.sources.history.enabled) {
+    return {
+      content:
+        "Browsing history knowledge is disabled. Enable History in Settings > Permissions to let me read recent browser history.",
+      isError: true
+    }
+  }
+
   const items = await getRecentHistoryItems(limit)
 
   if (items.length === 0) {
@@ -102,6 +112,15 @@ export const runSearchBookmarks = async (
 ): Promise<ToolResult> => {
   const query = typeof args.query === "string" ? args.query.trim() : ""
   const limit = clampLimit(args.limit)
+  const settings = await getBrowserKnowledgeSettings()
+  if (!settings.sources.bookmarks.enabled) {
+    return {
+      content:
+        "Bookmark knowledge is disabled. Enable Bookmarks in Settings > Permissions to let me search saved pages.",
+      isError: true
+    }
+  }
+
   const items = await searchBookmarkItems(query, limit)
 
   if (items.length === 0) {

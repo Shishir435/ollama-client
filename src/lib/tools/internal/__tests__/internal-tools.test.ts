@@ -400,10 +400,42 @@ describe("browser knowledge tools", () => {
 
   it("reports unavailable history when permission is off", async () => {
     vi.mocked(hasPermission).mockResolvedValue(false)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: true,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
 
     const result = await runRecentHistory({ limit: 10 }, ctx)
 
     expect(result.content).toContain("permission may be off")
+    expect(browser.history.search).not.toHaveBeenCalled()
+  })
+
+  it("tells the user when history knowledge is disabled", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: false,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    const result = await runRecentHistory({ limit: 10 }, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Browsing history knowledge is disabled")
     expect(browser.history.search).not.toHaveBeenCalled()
   })
 
@@ -428,6 +460,26 @@ describe("browser knowledge tools", () => {
     expect(browser.bookmarks.search).toHaveBeenCalledWith("docs")
     expect(result.content).toContain("Matching bookmarks")
     expect(result.content).toContain("Saved Docs")
+  })
+
+  it("tells the user when bookmark knowledge is disabled", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: false,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    const result = await runSearchBookmarks({ query: "docs", limit: 5 }, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Bookmark knowledge is disabled")
+    expect(browser.bookmarks.search).not.toHaveBeenCalled()
   })
 })
 
