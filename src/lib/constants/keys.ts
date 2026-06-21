@@ -94,6 +94,7 @@ export const STORAGE_KEYS = {
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",
     CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
     KNOWLEDGE_SOURCES: "browser-knowledge-sources",
+    PER_SITE_PROFILES: "browser-per-site-profiles",
     PENDING_SELECTION_TEXT: "pending-selection-text",
     PENDING_OMNIBOX_QUERY: "pending-omnibox-query"
   },

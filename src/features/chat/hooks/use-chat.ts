@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react"
+import { useStorage } from "@plasmohq/storage/hook"
+import { useEffect, useMemo, useRef } from "react"
 import { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
 import { useChatSessionLifecycle } from "@/features/chat/hooks/use-chat-session-lifecycle"
@@ -7,9 +8,19 @@ import { useChatTurnController } from "@/features/chat/hooks/use-chat-turn-contr
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
 import { useToast } from "@/hooks/use-toast"
+import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_PER_SITE_PROFILE_SETTINGS,
+  type PerSiteProfileSettings,
+  resolveGroundedOnlyModeForUrls
+} from "@/lib/per-site-profiles"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+
+const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 
 export const useChat = () => {
   const config = useChatConfig()
@@ -18,6 +29,22 @@ export const useChat = () => {
   const { input, setInput } = useChatInput()
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
   const { builtContent: contextText, documents: tabDocuments } = useTabContent()
+  const [tabAccess] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_TABS_ACCESS
+  )
+  const [perSiteProfiles] = useStorage<PerSiteProfileSettings>(
+    {
+      key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_PER_SITE_PROFILE_SETTINGS
+  )
+  const { tabs: openTabs } = useOpenTabs(Boolean(tabAccess))
+  const perSiteProfileList = perSiteProfiles?.profiles ?? EMPTY_PROFILE_LIST
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 
@@ -81,8 +108,22 @@ export const useChat = () => {
       currentStreamingMessageIdRef
     })
 
+  const effectiveConfig = useMemo(() => {
+    const selectedUrls = selectedTabIds
+      .map((id) => openTabs.find((tab) => String(tab.id) === id)?.url)
+      .filter(Boolean) as string[]
+    return {
+      ...config,
+      groundedOnlyMode: resolveGroundedOnlyModeForUrls(
+        selectedUrls,
+        perSiteProfileList,
+        config.groundedOnlyMode
+      )
+    }
+  }, [config, openTabs, perSiteProfileList, selectedTabIds])
+
   const { pendingActivityEvents, sendMessage } = useChatTurnController({
-    config,
+    config: effectiveConfig,
     input,
     setInput,
     selectedTabIds,

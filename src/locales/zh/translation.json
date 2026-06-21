@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "预览功能",
         "description": "正在开发中的实验性功能。默认关闭；启用风险自负。"
+      },
+      "siteProfiles": {
+        "title": "按站点设置上下文配置",
+        "description": "为不同站点创建本地规则，控制页面上下文始终使用、从不使用或跟随全局设置。“从不读取”的站点会从提取和标签页工具中排除。",
+        "empty": "还没有站点规则。添加 mail.google.com 或 *.company.com 这样的域名。",
+        "matchPreview": "当前草稿匹配已有规则：{{name}}。",
+        "fields": {
+          "enabled": "启用规则",
+          "name": "名称",
+          "pattern": "站点模式",
+          "tabContext": "标签页上下文",
+          "groundedOnly": "基于上下文模式"
+        },
+        "placeholders": {
+          "add": "example.com 或 *.example.com",
+          "name": "工作文档",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "添加规则",
+          "currentSite": "添加当前站点",
+          "delete": "删除规则"
+        },
+        "modes": {
+          "inherit": "使用全局设置",
+          "always": "始终开启",
+          "never": "从不"
+        }
       }
     },
     "search": {

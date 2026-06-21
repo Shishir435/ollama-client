@@ -2,6 +2,7 @@ import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { isNeverReadUrl } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ContentExtractionConfig } from "@/types"
 
@@ -47,5 +48,5 @@ export const urlMatchesAny = (url: string, patterns: string[]): boolean => {
 /** True if `url` should be excluded from content extraction. */
 export const isExcludedUrl = async (url: string): Promise<boolean> => {
   const patterns = await resolveExcludedUrlPatterns()
-  return urlMatchesAny(url, patterns)
+  return urlMatchesAny(url, patterns) || (await isNeverReadUrl(url))
 }

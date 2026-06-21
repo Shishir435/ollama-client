@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "प्रीव्यू सुविधाएँ",
         "description": "प्रायोगिक, विकासाधीन सुविधाएँ। डिफ़ॉल्ट रूप से बंद; अपने जोखिम पर सक्षम करें।"
+      },
+      "siteProfiles": {
+        "title": "हर साइट के लिए context profiles",
+        "description": "उन साइटों के लिए लोकल rules बनाएं जिन्हें page context हमेशा, कभी नहीं, या normal तरीके से use करना चाहिए. “Never read” साइटें extraction और tab tools से बाहर रहेंगी.",
+        "empty": "अभी कोई site rule नहीं है. mail.google.com या *.company.com जैसी domain जोड़ें.",
+        "matchPreview": "मौजूदा draft इस rule से match करता है: {{name}}.",
+        "fields": {
+          "enabled": "Rule enable करें",
+          "name": "नाम",
+          "pattern": "Site pattern",
+          "tabContext": "Tab context",
+          "groundedOnly": "Grounded mode"
+        },
+        "placeholders": {
+          "add": "example.com या *.example.com",
+          "name": "Work docs",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Rule जोड़ें",
+          "currentSite": "Current site जोड़ें",
+          "delete": "Rule delete करें"
+        },
+        "modes": {
+          "inherit": "Global setting use करें",
+          "always": "हमेशा on",
+          "never": "कभी नहीं"
+        }
       }
     },
     "search": {

@@ -38,6 +38,12 @@ import {
   Target,
   Zap
 } from "@/lib/lucide-icon"
+import {
+  createPerSiteProfile,
+  DEFAULT_PER_SITE_PROFILE_SETTINGS,
+  type PerSiteProfile,
+  type PerSiteProfileSettings
+} from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type {
@@ -60,6 +66,14 @@ export const ContentExtractionSettings = () => {
     },
     DEFAULT_CONTENT_EXTRACTION_CONFIG
   )
+  const [perSiteProfileSettings, setPerSiteProfileSettings] =
+    useStorage<PerSiteProfileSettings>(
+      {
+        key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
+        instance: plasmoGlobalStorage
+      },
+      DEFAULT_PER_SITE_PROFILE_SETTINGS
+    )
 
   if (!config) {
     return null
@@ -78,6 +92,19 @@ export const ContentExtractionSettings = () => {
         [pattern]: {}
       }
     }))
+    setPerSiteProfileSettings((prev) => {
+      const profiles = prev?.profiles ?? []
+      if (profiles.some((profile) => profile.pattern === pattern)) return prev
+      return {
+        profiles: [
+          ...profiles,
+          createPerSiteProfile({
+            pattern,
+            name: pattern
+          })
+        ]
+      }
+    })
   }
 
   // Handler for removing site-specific override
@@ -86,6 +113,11 @@ export const ContentExtractionSettings = () => {
       const { [pattern]: _, ...remaining } = prev.siteOverrides
       return { ...prev, siteOverrides: remaining }
     })
+    setPerSiteProfileSettings((prev) => ({
+      profiles: (prev?.profiles ?? []).filter(
+        (profile) => profile.pattern !== pattern
+      )
+    }))
   }
 
   // Handler for updating site-specific override
@@ -103,6 +135,30 @@ export const ContentExtractionSettings = () => {
         }
       }
     }))
+  }
+
+  const handleUpdateSiteProfile = (
+    pattern: string,
+    updates: Partial<Pick<PerSiteProfile, "tabContext" | "groundedOnly">>
+  ) => {
+    setPerSiteProfileSettings((prev) => {
+      const profiles = prev?.profiles ?? []
+      const existing = profiles.find((profile) => profile.pattern === pattern)
+      const nextProfile = existing
+        ? { ...existing, ...updates }
+        : createPerSiteProfile({
+            pattern,
+            name: pattern,
+            ...updates
+          })
+      return {
+        profiles: existing
+          ? profiles.map((profile) =>
+              profile.pattern === pattern ? nextProfile : profile
+            )
+          : [...profiles, nextProfile]
+      }
+    })
   }
 
   // Handler for adding excluded URL pattern
@@ -129,9 +185,11 @@ export const ContentExtractionSettings = () => {
 
       <SiteSpecificOverrides
         config={config}
+        perSiteProfiles={perSiteProfileSettings?.profiles ?? []}
         onAddSiteOverride={handleAddSiteOverride}
         onRemoveSiteOverride={handleRemoveSiteOverride}
         onUpdateSiteOverride={handleUpdateSiteOverride}
+        onUpdateSiteProfile={handleUpdateSiteProfile}
       />
 
       <ExcludedUrls

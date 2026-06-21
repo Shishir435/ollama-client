@@ -818,6 +818,27 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.content_extraction.scroll_depth.description",
     keywords: ["scroll", "depth"]
   },
+  {
+    id: "site-overrides",
+    tab: "contentExtraction",
+    sectionId: "site-overrides",
+    labelKey: "model.site_overrides.title",
+    descriptionKey: "model.site_overrides.description",
+    searchKeys: [
+      "model.site_overrides.scroll_strategy_label",
+      "model.site_overrides.scroll_depth_label",
+      "settings.permissions.siteProfiles.fields.tabContext",
+      "settings.permissions.siteProfiles.fields.groundedOnly"
+    ],
+    aliases: [
+      "site overrides",
+      "per-site",
+      "auto context",
+      "never read",
+      "grounded only",
+      "domain rules"
+    ]
+  },
   // selection-actions labels are localized in Phase 6 #13; ids/keys reserved
   // here so search + focus light up the moment those keys land.
   {

@@ -1456,6 +1456,34 @@
       "preview": {
         "title": "Funciones en vista previa",
         "description": "Funciones experimentales en desarrollo. Desactivadas por defecto; actívalas bajo tu responsabilidad."
+      },
+      "siteProfiles": {
+        "title": "Perfiles de contexto por sitio",
+        "description": "Crea reglas locales para sitios que deben usar el contexto de página siempre, nunca o de forma normal. Los sitios “Nunca leer” se excluyen de la extracción y de las herramientas de pestañas.",
+        "empty": "Aún no hay reglas de sitio. Añade un dominio como mail.google.com o *.company.com.",
+        "matchPreview": "El borrador actual coincide con una regla existente: {{name}}.",
+        "fields": {
+          "enabled": "Activar regla",
+          "name": "Nombre",
+          "pattern": "Patrón del sitio",
+          "tabContext": "Contexto de pestaña",
+          "groundedOnly": "Modo fundamentado"
+        },
+        "placeholders": {
+          "add": "example.com o *.example.com",
+          "name": "Docs de trabajo",
+          "pattern": "docs.company.com"
+        },
+        "actions": {
+          "add": "Añadir regla",
+          "currentSite": "Añadir sitio actual",
+          "delete": "Eliminar regla"
+        },
+        "modes": {
+          "inherit": "Usar ajuste global",
+          "always": "Siempre activado",
+          "never": "Nunca"
+        }
       }
     },
     "search": {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { isNeverReadUrl } from "@/lib/per-site-profiles"
 import type { ChromeResponse } from "@/types"
 
 /** Built content-script file (see manifest `content_scripts`). */
@@ -139,7 +140,10 @@ export type TabAccess =
 export const classifyTabAccess = async (url?: string): Promise<TabAccess> => {
   if (!isContentScriptReadableUrl(url)) return "restricted"
   const patterns = await resolveExcludedUrlPatterns()
-  return urlMatchesAny(url as string, patterns) ? "excluded" : "ok"
+  return urlMatchesAny(url as string, patterns) ||
+    (await isNeverReadUrl(url as string))
+    ? "excluded"
+    : "ok"
 }
 
 /** Human-facing explanation the model can relay when a tab can't be read. */
@@ -173,8 +177,12 @@ export const getAllTabs = async (): Promise<OpenTab[]> => {
 export const listReadableTabs = async (): Promise<OpenTab[]> => {
   const tabs = await getAllTabs()
   const patterns = await resolveExcludedUrlPatterns()
-  return tabs.filter(
-    (tab) =>
-      isContentScriptReadableUrl(tab.url) && !urlMatchesAny(tab.url, patterns)
-  )
+  const readable: OpenTab[] = []
+  for (const tab of tabs) {
+    if (!isContentScriptReadableUrl(tab.url)) continue
+    if (urlMatchesAny(tab.url, patterns)) continue
+    if (await isNeverReadUrl(tab.url)) continue
+    readable.push(tab)
+  }
+  return readable
 }

@@ -10,6 +10,11 @@ import {
 } from "../url-filter"
 
 const mockedGet = vi.mocked(plasmoGlobalStorage.get)
+const profileNeverRead = vi.hoisted(() => vi.fn())
+
+vi.mock("@/lib/per-site-profiles", () => ({
+  isNeverReadUrl: profileNeverRead
+}))
 
 describe("urlMatchesAny", () => {
   it("returns false when no patterns are provided", () => {
@@ -46,6 +51,8 @@ describe("urlMatchesAny", () => {
 describe("resolveExcludedUrlPatterns", () => {
   beforeEach(() => {
     mockedGet.mockReset()
+    profileNeverRead.mockReset()
+    profileNeverRead.mockResolvedValue(false)
   })
 
   it("uses the patterns from the unified config when present", async () => {
@@ -99,6 +106,8 @@ describe("resolveExcludedUrlPatterns", () => {
 describe("isExcludedUrl", () => {
   beforeEach(() => {
     mockedGet.mockReset()
+    profileNeverRead.mockReset()
+    profileNeverRead.mockResolvedValue(false)
   })
 
   it("returns true when the URL matches a pattern", async () => {
@@ -109,6 +118,13 @@ describe("isExcludedUrl", () => {
       return undefined
     })
     expect(await isExcludedUrl("https://bank.example.com/login")).toBe(true)
+  })
+
+  it("returns true when a per-site profile marks the URL never-read", async () => {
+    mockedGet.mockResolvedValue(undefined)
+    profileNeverRead.mockResolvedValueOnce(true)
+
+    expect(await isExcludedUrl("https://mail.example.com/inbox")).toBe(true)
   })
 
   it("returns false when the URL matches no pattern", async () => {

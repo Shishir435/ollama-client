@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ContextSettingsMenu } from "@/features/chat/components/chat-input/context-settings-menu"
@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
   setGroundedOnlyMode: vi.fn(),
   setSelectedTabIds: vi.fn(),
   refreshSelectedTabContents: vi.fn(),
-  refreshTabs: vi.fn()
+  refreshTabs: vi.fn(),
+  selectedTabIds: ["7"] as string[],
+  perSiteProfiles: { profiles: [] as unknown[] }
 }))
 
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -22,6 +24,9 @@ vi.mock("@plasmohq/storage/hook", () => ({
     }
     if (config.key === "chat-grounded-only-mode") {
       return [false, mocks.setGroundedOnlyMode]
+    }
+    if (config.key === "browser-per-site-profiles") {
+      return [mocks.perSiteProfiles, vi.fn()]
     }
     return [undefined, vi.fn()]
   })
@@ -64,6 +69,11 @@ vi.mock("@/features/tabs/hooks/use-open-tab", () => ({
         url: "https://example.com"
       },
       {
+        id: 9,
+        title: "Private page",
+        url: "https://example.com/private"
+      },
+      {
         id: 8,
         title: "Chrome internals",
         url: "chrome://extensions"
@@ -79,6 +89,10 @@ vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
       7: {
         title: "Current page",
         html: "Extracted text from current page"
+      },
+      9: {
+        title: "Private page",
+        html: "Private extracted text"
       }
     },
     refreshSelectedTabContents: mocks.refreshSelectedTabContents
@@ -102,7 +116,7 @@ vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
 
 vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
   useSelectedTabs: () => ({
-    selectedTabIds: ["7"],
+    selectedTabIds: mocks.selectedTabIds,
     setSelectedTabIds: mocks.setSelectedTabIds
   })
 }))
@@ -110,6 +124,8 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 describe("ContextSettingsMenu", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.selectedTabIds = ["7"]
+    mocks.perSiteProfiles = { profiles: [] }
   })
 
   it("keeps controls searchable and opens page preview in bounded dialog", () => {
@@ -138,5 +154,81 @@ describe("ContextSettingsMenu", () => {
       screen.getAllByText("Extracted text from current page").length
     ).toBeGreaterThan(0)
     expect(screen.getByText("32 chars")).toBeInTheDocument()
+  })
+
+  it("hides and clears tabs matched by a never-read profile", () => {
+    mocks.perSiteProfiles = {
+      profiles: [
+        {
+          id: "example",
+          name: "Example",
+          pattern: "example.com",
+          enabled: true,
+          tabContext: "never",
+          groundedOnly: "inherit"
+        }
+      ]
+    }
+
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    expect(screen.queryByText("Current page")).not.toBeInTheDocument()
+    expect(mocks.setSelectedTabIds).toHaveBeenCalledWith([])
+  })
+
+  it("auto-selects tabs matched by an always-on profile", async () => {
+    mocks.selectedTabIds = []
+    mocks.perSiteProfiles = {
+      profiles: [
+        {
+          id: "example",
+          name: "Example",
+          pattern: "example.com",
+          enabled: true,
+          tabContext: "always",
+          groundedOnly: "inherit"
+        }
+      ]
+    }
+
+    render(<ContextSettingsMenu />)
+
+    await waitFor(() =>
+      expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7", "9"])
+    )
+  })
+
+  it("uses most-specific profile for overlapping tab rules", async () => {
+    mocks.selectedTabIds = []
+    mocks.perSiteProfiles = {
+      profiles: [
+        {
+          id: "example",
+          name: "Example",
+          pattern: "example.com",
+          enabled: true,
+          tabContext: "always",
+          groundedOnly: "inherit"
+        },
+        {
+          id: "private",
+          name: "Private",
+          pattern: "example.com/private",
+          enabled: true,
+          tabContext: "never",
+          groundedOnly: "inherit"
+        }
+      ]
+    }
+
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    expect(screen.getByText("Current page")).toBeInTheDocument()
+    expect(screen.queryByText("Private page")).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7"])
+    )
   })
 })
