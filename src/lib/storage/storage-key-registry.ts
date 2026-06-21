@@ -80,6 +80,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Content extraction preferences and site overrides."
   },
+  [STORAGE_KEYS.BROWSER.KNOWLEDGE_SOURCES]: {
+    key: STORAGE_KEYS.BROWSER.KNOWLEDGE_SOURCES,
+    scope: "device-local",
+    reason:
+      "Bookmarks/history indexing scope is tied to local browser data and profile."
+  },
   [STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT]: {
     key: STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
     scope: "device-local",

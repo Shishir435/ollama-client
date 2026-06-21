@@ -140,6 +140,14 @@ When adding a new message: declare it only under `PROVIDER_MESSAGE_KEYS`. Do not
 
 Each handler follows the pattern `handle-{action}.ts` and is registered in `src/background/index.ts`. Keep handlers thin — they should adapt the message protocol to `src/lib/` calls and stream results back through the port.
 
+### Internal LLM Tools
+
+Built-in model-callable tools live under `src/lib/tools/internal/` and are registered in `src/lib/tools/internal/internal-tool-source.ts`. When adding a tool:
+
+- Give it a stable `displayNameKey` and add that key to `chat.reasoning.trace` in every `src/locales/<lang>/translation.json` file. Otherwise the reasoning trace UI will show raw key paths.
+- Run `pnpm generate:resources` after locale edits so `src/i18n/resources.ts` and `public/_locales/**/messages.json` stay in sync.
+- Keep privacy-sensitive tools aligned with the same permission and scope filters used by their indexing/search pipeline; live tools must not bypass user exclusions.
+
 ### Testing
 
 - Framework: Vitest with `happy-dom` and `fake-indexeddb`.

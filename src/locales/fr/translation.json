@@ -250,6 +250,8 @@
         "tab": "Lecture de l'onglet",
         "tabs": "Liste des onglets",
         "selection": "Lecture de la sélection",
+        "history": "Lecture de l'historique",
+        "bookmarks": "Recherche dans les favoris",
         "trimmed": "résultat tronqué",
         "change_limit": "Modifier la limite",
         "documents": "Recherche de fichiers",

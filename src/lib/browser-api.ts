@@ -67,6 +67,14 @@ export const supportsCaptureVisibleTab = (): boolean =>
 /** Address-bar keyword entry (Chrome + Firefox). */
 export const supportsOmnibox = (): boolean => hasChromeNamespace("omnibox")
 
+/** Bookmark tree access. Requires optional `bookmarks` permission before use. */
+export const supportsBookmarks = (): boolean =>
+  typeof browser.bookmarks?.getTree === "function"
+
+/** Browser history search. Requires optional `history` permission before use. */
+export const supportsHistory = (): boolean =>
+  typeof browser.history?.search === "function"
+
 /** Durable background alarms for scheduled local jobs (Chrome + Firefox). */
 export const supportsAlarms = (): boolean =>
   typeof browser.alarms?.create === "function" &&

@@ -250,6 +250,8 @@
         "tab": "Leyendo pestaña",
         "tabs": "Listando pestañas",
         "selection": "Leyendo selección",
+        "history": "Leyendo historial",
+        "bookmarks": "Buscando marcadores",
         "trimmed": "resultado recortado",
         "change_limit": "Cambiar límite",
         "documents": "Buscando archivos",

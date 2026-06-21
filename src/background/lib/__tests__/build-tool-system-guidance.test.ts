@@ -44,4 +44,10 @@ describe("buildToolSystemGuidance", () => {
     expect(guidance).toContain("explicitly asks to be reminded")
     expect(guidance).toContain("delay_minutes=2")
   })
+
+  it("adds browser-knowledge rules when history/bookmark tools are present", () => {
+    const guidance = buildToolSystemGuidance([tool("get_recent_history")])
+    expect(guidance).toContain("recently visited websites")
+    expect(guidance).toContain("Settings > Permissions")
+  })
 })

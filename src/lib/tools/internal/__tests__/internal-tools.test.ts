@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
+import {
+  runRecentHistory,
+  runSearchBookmarks
+} from "../browser-knowledge-tools"
 import { runCurrentTab } from "../current-tab-tool"
 import { runFileSearch } from "../file-search-tool"
 import { runListTabs } from "../list-tabs-tool"
@@ -10,9 +13,17 @@ import { clearTabContentCache } from "../tab-utils"
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: { get: vi.fn(), query: vi.fn(), sendMessage: vi.fn() },
+    bookmarks: { search: vi.fn() },
+    history: { search: vi.fn() },
     scripting: { executeScript: vi.fn() }
   },
-  supportsAlarms: vi.fn(() => true)
+  supportsAlarms: vi.fn(() => true),
+  supportsBookmarks: vi.fn(() => true),
+  supportsHistory: vi.fn(() => true)
+}))
+
+vi.mock("@/lib/permissions", () => ({
+  hasPermission: vi.fn()
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -35,6 +46,7 @@ import {
   retrieveContextEnhanced
 } from "@/features/chat/rag/rag-pipeline"
 import { browser } from "@/lib/browser-api"
+import { hasPermission } from "@/lib/permissions"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
 const ctx = {}
@@ -340,6 +352,134 @@ describe("selected_text tool", () => {
     const result = await runSelectedText({}, ctx)
     expect(result.isError).toBeUndefined()
     expect(result.content).toContain("No text")
+  })
+})
+
+describe("browser knowledge tools", () => {
+  afterEach(() => vi.clearAllMocks())
+
+  it("returns recent browser history with the requested limit", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: true,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+    vi.mocked(browser.history.search).mockResolvedValue([
+      {
+        id: "1",
+        title: "Docs",
+        url: "https://docs.test",
+        lastVisitTime: 1710000000000,
+        visitCount: 2
+      }
+    ] as never)
+
+    const result = await runRecentHistory({ limit: 10 }, ctx)
+
+    expect(browser.history.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "",
+        startTime: expect.any(Number),
+        maxResults: 10
+      })
+    )
+    expect(result.content).toContain("Recent browser history")
+    expect(result.content).toContain("Docs")
+    expect(result.sources?.[0]).toEqual({
+      title: "Docs",
+      url: "https://docs.test"
+    })
+  })
+
+  it("reports unavailable history when permission is off", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(false)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: true,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    const result = await runRecentHistory({ limit: 10 }, ctx)
+
+    expect(result.content).toContain("permission may be off")
+    expect(browser.history.search).not.toHaveBeenCalled()
+  })
+
+  it("tells the user when history knowledge is disabled", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        history: {
+          enabled: false,
+          maxItems: 10,
+          sinceDays: 30,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    const result = await runRecentHistory({ limit: 10 }, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Browsing history knowledge is disabled")
+    expect(browser.history.search).not.toHaveBeenCalled()
+  })
+
+  it("searches bookmarks by query", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: true,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+    vi.mocked(browser.bookmarks.search).mockResolvedValue([
+      { id: "b1", title: "Saved Docs", url: "https://docs.test" }
+    ] as never)
+
+    const result = await runSearchBookmarks({ query: "docs", limit: 5 }, ctx)
+
+    expect(browser.bookmarks.search).toHaveBeenCalledWith("docs")
+    expect(result.content).toContain("Matching bookmarks")
+    expect(result.content).toContain("Saved Docs")
+  })
+
+  it("tells the user when bookmark knowledge is disabled", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(true)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: false,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: []
+        }
+      }
+    })
+
+    const result = await runSearchBookmarks({ query: "docs", limit: 5 }, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Bookmark knowledge is disabled")
+    expect(browser.bookmarks.search).not.toHaveBeenCalled()
   })
 })
 

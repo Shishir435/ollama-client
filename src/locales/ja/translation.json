@@ -250,6 +250,8 @@
         "tab": "タブを読取中",
         "tabs": "タブ一覧を取得中",
         "selection": "選択範囲を読取中",
+        "history": "履歴を読取中",
+        "bookmarks": "ブックマークを検索中",
         "trimmed": "結果を短縮済み",
         "change_limit": "上限を変更",
         "documents": "ファイルを検索中",
