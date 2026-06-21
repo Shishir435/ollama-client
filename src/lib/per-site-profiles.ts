@@ -97,6 +97,7 @@ export const profilePatternMatchesUrl = (
       if (hostname === lowerPattern || hostname.endsWith(`.${lowerPattern}`)) {
         return true
       }
+      return false
     }
 
     if (wildcardToRegExp(lowerPattern).test(target)) {
@@ -149,12 +150,8 @@ export const resolveGroundedOnlyModeForUrls = (
   fallback: boolean
 ): boolean => {
   const modes = urls
-    .flatMap((url) =>
-      profiles.filter(
-        (profile) =>
-          profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
-      )
-    )
+    .map((url) => getMatchingPerSiteProfile(url, { profiles }))
+    .filter((profile): profile is PerSiteProfile => Boolean(profile))
     .map((profile) => profile.groundedOnly)
 
   if (modes.includes("always")) return true

@@ -57,6 +57,9 @@ describe("per-site profiles", () => {
       )
     ).toBe(false)
     expect(
+      profilePatternMatchesUrl("github.com", "https://github.com.evil")
+    ).toBe(false)
+    expect(
       profilePatternMatchesUrl("github.com", "https://github.com/pull/1")
     ).toBe(true)
   })
@@ -201,6 +204,37 @@ describe("per-site profiles", () => {
             id: "chat",
             name: "Chat",
             pattern: "chat.example.com",
+            enabled: true,
+            tabContext: "inherit",
+            groundedOnly: "never"
+          }
+        ],
+        true
+      )
+    ).toBe(false)
+  })
+
+  it("resolves grounded-only with the most specific matching profile", async () => {
+    const { resolveGroundedOnlyModeForUrls } = await import(
+      "@/lib/per-site-profiles"
+    )
+
+    expect(
+      resolveGroundedOnlyModeForUrls(
+        ["https://github.com/private"],
+        [
+          {
+            id: "github",
+            name: "GitHub",
+            pattern: "github.com",
+            enabled: true,
+            tabContext: "inherit",
+            groundedOnly: "always"
+          },
+          {
+            id: "github-private",
+            name: "GitHub private",
+            pattern: "github.com/private",
             enabled: true,
             tabContext: "inherit",
             groundedOnly: "never"
