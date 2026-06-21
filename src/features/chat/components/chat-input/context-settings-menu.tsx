@@ -37,8 +37,8 @@ import {
 import { Layers } from "@/lib/lucide-icon"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
-  type PerSiteProfileSettings,
-  profilePatternMatchesUrl
+  getMatchingPerSiteProfile,
+  type PerSiteProfileSettings
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
@@ -258,10 +258,9 @@ export const ContextSettingsMenu = () => {
   const tabOptions = useMemo(() => {
     const isAccessible = (url: string | undefined) => {
       if (!url) return false
-      const matchingProfile = perSiteProfileList.find(
-        (profile) =>
-          profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
-      )
+      const matchingProfile = getMatchingPerSiteProfile(url, {
+        profiles: perSiteProfileList
+      })
       if (matchingProfile?.tabContext === "never") return false
       return !excludedPatterns.some((p) => {
         try {
@@ -304,12 +303,9 @@ export const ContextSettingsMenu = () => {
         (tab) =>
           tab.id !== undefined &&
           tab.url &&
-          perSiteProfileList.some(
-            (profile) =>
-              profile.enabled &&
-              profile.tabContext === "always" &&
-              profilePatternMatchesUrl(profile.pattern, tab.url || "")
-          )
+          getMatchingPerSiteProfile(tab.url, {
+            profiles: perSiteProfileList
+          })?.tabContext === "always"
       )
       .map((tab) => String(tab.id))
       .filter((id) => tabOptions.some((option) => option.value === id))

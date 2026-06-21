@@ -69,6 +69,11 @@ vi.mock("@/features/tabs/hooks/use-open-tab", () => ({
         url: "https://example.com"
       },
       {
+        id: 9,
+        title: "Private page",
+        url: "https://example.com/private"
+      },
+      {
         id: 8,
         title: "Chrome internals",
         url: "chrome://extensions"
@@ -84,6 +89,10 @@ vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
       7: {
         title: "Current page",
         html: "Extracted text from current page"
+      },
+      9: {
+        title: "Private page",
+        html: "Private extracted text"
       }
     },
     refreshSelectedTabContents: mocks.refreshSelectedTabContents
@@ -185,6 +194,39 @@ describe("ContextSettingsMenu", () => {
 
     render(<ContextSettingsMenu />)
 
+    await waitFor(() =>
+      expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7", "9"])
+    )
+  })
+
+  it("uses most-specific profile for overlapping tab rules", async () => {
+    mocks.selectedTabIds = []
+    mocks.perSiteProfiles = {
+      profiles: [
+        {
+          id: "example",
+          name: "Example",
+          pattern: "example.com",
+          enabled: true,
+          tabContext: "always",
+          groundedOnly: "inherit"
+        },
+        {
+          id: "private",
+          name: "Private",
+          pattern: "example.com/private",
+          enabled: true,
+          tabContext: "never",
+          groundedOnly: "inherit"
+        }
+      ]
+    }
+
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    expect(screen.getByText("Current page")).toBeInTheDocument()
+    expect(screen.queryByText("Private page")).not.toBeInTheDocument()
     await waitFor(() =>
       expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7"])
     )
