@@ -250,6 +250,8 @@
         "tab": "读取标签页",
         "tabs": "列出标签页",
         "selection": "读取选中文本",
+        "history": "读取历史记录",
+        "bookmarks": "搜索书签",
         "trimmed": "结果已截断",
         "change_limit": "更改限制",
         "documents": "搜索文件",

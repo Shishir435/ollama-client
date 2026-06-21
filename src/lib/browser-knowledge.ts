@@ -247,13 +247,15 @@ export const searchBookmarkItems = async (
   if (!supportsBookmarks()) return []
   if (!(await hasPermission("bookmarks"))) return []
 
+  const settings = await getBrowserKnowledgeSettings()
+  const bookmarkSettings = settings.sources.bookmarks
   const trimmed = query.trim()
   const matches = trimmed
     ? await browser.bookmarks.search(trimmed)
     : await browser.bookmarks.search({})
 
   return matches
-    .filter((item) => shouldIncludeUrl(item.url, DEFAULT_SOURCE_SETTINGS))
+    .filter((item) => shouldIncludeUrl(item.url, bookmarkSettings))
     .slice(0, Math.max(1, Math.min(50, Math.floor(limit))))
 }
 
@@ -281,14 +283,15 @@ export const indexBrowserKnowledgeSource = async (
 ): Promise<BrowserKnowledgeIndexResult> => {
   const resolved = settings ?? (await getBrowserKnowledgeSettings())
   const sourceSettings = resolved.sources[source]
-  const documents =
-    source === "bookmarks"
-      ? await collectBookmarkDocuments(sourceSettings)
-      : await collectHistoryDocuments(sourceSettings)
 
   if (!sourceSettings.enabled) {
     return { source, collected: 0, deletedExisting: 0, stored: 0 }
   }
+
+  const documents =
+    source === "bookmarks"
+      ? await collectBookmarkDocuments(sourceSettings)
+      : await collectHistoryDocuments(sourceSettings)
 
   const deletedExisting = await forgetBrowserKnowledgeSource(source)
   const storedIds = await fromDocuments(documents)

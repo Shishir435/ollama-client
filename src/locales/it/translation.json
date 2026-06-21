@@ -250,6 +250,8 @@
         "tab": "Lettura scheda",
         "tabs": "Elenco schede",
         "selection": "Lettura selezione",
+        "history": "Lettura cronologia",
+        "bookmarks": "Ricerca segnalibri",
         "trimmed": "risultato troncato",
         "change_limit": "Modifica limite",
         "documents": "Ricerca file",

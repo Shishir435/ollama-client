@@ -250,6 +250,8 @@
         "tab": "Tab lesen",
         "tabs": "Tabs auflisten",
         "selection": "Auswahl lesen",
+        "history": "Verlauf lesen",
+        "bookmarks": "Lesezeichen durchsuchen",
         "trimmed": "Ergebnis gekürzt",
         "change_limit": "Limit ändern",
         "documents": "Dateien durchsuchen",

@@ -5,7 +5,8 @@ const mocks = vi.hoisted(() => ({
   getPlasmoStoredValue: vi.fn(),
   setPlasmoStoredValue: vi.fn(),
   getTree: vi.fn(),
-  search: vi.fn(),
+  historySearch: vi.fn(),
+  bookmarkSearch: vi.fn(),
   deleteVectors: vi.fn(),
   fromDocuments: vi.fn()
 }))
@@ -21,8 +22,8 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
-    bookmarks: { getTree: mocks.getTree },
-    history: { search: mocks.search }
+    bookmarks: { getTree: mocks.getTree, search: mocks.bookmarkSearch },
+    history: { search: mocks.historySearch }
   },
   supportsBookmarks: () => true,
   supportsHistory: () => true
@@ -121,13 +122,13 @@ describe("browser knowledge sources", () => {
         excludeDomains: []
       })
     ).resolves.toEqual([])
-    expect(mocks.search).not.toHaveBeenCalled()
+    expect(mocks.historySearch).not.toHaveBeenCalled()
   })
 
   it("collects scoped history records with visit metadata", async () => {
     const { collectHistoryDocuments } = await import("@/lib/browser-knowledge")
 
-    mocks.search.mockResolvedValue([
+    mocks.historySearch.mockResolvedValue([
       {
         id: "10",
         title: "Article",
@@ -150,7 +151,7 @@ describe("browser knowledge sources", () => {
       excludeDomains: ["blocked.example.com"]
     })
 
-    expect(mocks.search).toHaveBeenCalledWith(
+    expect(mocks.historySearch).toHaveBeenCalledWith(
       expect.objectContaining({ text: "", maxResults: 5 })
     )
     expect(docs).toHaveLength(1)
@@ -180,7 +181,7 @@ describe("browser knowledge sources", () => {
         children: [{ id: "1", title: "Docs", url: "https://example.com/a" }]
       }
     ])
-    mocks.search.mockResolvedValue([
+    mocks.historySearch.mockResolvedValue([
       {
         id: "10",
         title: "Article",
@@ -226,5 +227,67 @@ describe("browser knowledge sources", () => {
       source: "history"
     })
     expect(mocks.fromDocuments).toHaveBeenCalledTimes(2)
+  })
+
+  it("filters live bookmark search with stored domain exclusions", async () => {
+    const { searchBookmarkItems } = await import("@/lib/browser-knowledge")
+
+    mocks.getPlasmoStoredValue.mockResolvedValue({
+      sources: {
+        bookmarks: {
+          enabled: true,
+          maxItems: 10,
+          includeDomains: [],
+          excludeDomains: ["blocked.example.com"]
+        }
+      }
+    })
+    mocks.bookmarkSearch.mockResolvedValue([
+      { id: "b1", title: "Allowed", url: "https://docs.example.com/a" },
+      { id: "b2", title: "Blocked", url: "https://blocked.example.com/a" }
+    ])
+
+    const items = await searchBookmarkItems("docs", 10)
+
+    expect(mocks.bookmarkSearch).toHaveBeenCalledWith("docs")
+    expect(items).toEqual([
+      { id: "b1", title: "Allowed", url: "https://docs.example.com/a" }
+    ])
+  })
+
+  it("does not collect or delete when a source is disabled", async () => {
+    const { indexBrowserKnowledgeSource } = await import(
+      "@/lib/browser-knowledge"
+    )
+
+    await expect(
+      indexBrowserKnowledgeSource("bookmarks", {
+        sources: {
+          bookmarks: {
+            enabled: false,
+            maxItems: 10,
+            sinceDays: undefined,
+            includeDomains: [],
+            excludeDomains: []
+          },
+          history: {
+            enabled: false,
+            maxItems: 10,
+            sinceDays: 7,
+            includeDomains: [],
+            excludeDomains: []
+          }
+        }
+      })
+    ).resolves.toEqual({
+      source: "bookmarks",
+      collected: 0,
+      deletedExisting: 0,
+      stored: 0
+    })
+
+    expect(mocks.getTree).not.toHaveBeenCalled()
+    expect(mocks.deleteVectors).not.toHaveBeenCalled()
+    expect(mocks.fromDocuments).not.toHaveBeenCalled()
   })
 })

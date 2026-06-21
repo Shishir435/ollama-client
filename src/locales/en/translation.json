@@ -252,6 +252,8 @@
         "tab": "Reading tab",
         "tabs": "Listing tabs",
         "selection": "Reading selection",
+        "history": "Reading history",
+        "bookmarks": "Searching bookmarks",
         "trimmed": "result trimmed",
         "change_limit": "Change limit",
         "documents": "Searching files",
