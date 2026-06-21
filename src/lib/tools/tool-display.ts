@@ -42,6 +42,16 @@ const LEGACY_TOOL_DISPLAY_META: Record<string, ToolDisplayMeta> = {
     displayNameKey: "chat.reasoning.trace.selection",
     iconKey: "text-select",
     category: "selection"
+  },
+  get_recent_history: {
+    displayNameKey: "chat.reasoning.trace.history",
+    iconKey: "history",
+    category: "browser"
+  },
+  search_bookmarks: {
+    displayNameKey: "chat.reasoning.trace.bookmarks",
+    iconKey: "bookmark",
+    category: "browser"
   }
 }
 

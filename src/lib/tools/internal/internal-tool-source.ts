@@ -4,6 +4,12 @@ import type {
   ToolResult,
   ToolSource
 } from "../types"
+import {
+  recentHistoryDefinition,
+  runRecentHistory,
+  runSearchBookmarks,
+  searchBookmarksDefinition
+} from "./browser-knowledge-tools"
 import { currentTabDefinition, runCurrentTab } from "./current-tab-tool"
 import { fileSearchDefinition, runFileSearch } from "./file-search-tool"
 import { listTabsDefinition, runListTabs } from "./list-tabs-tool"
@@ -31,6 +37,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: listTabsDefinition, run: runListTabs },
   { definition: readTabDefinition, run: runReadTab },
   { definition: selectedTextDefinition, run: runSelectedText },
+  { definition: recentHistoryDefinition, run: runRecentHistory },
+  { definition: searchBookmarksDefinition, run: runSearchBookmarks },
   { definition: scheduleReminderDefinition, run: runScheduleReminder }
 ]
 

@@ -1,6 +1,10 @@
 import type { ToolDefinition } from "@/lib/tools"
 
 const TAB_TOOL_NAMES = new Set(["current_tab", "read_tab", "list_tabs"])
+const BROWSER_KNOWLEDGE_TOOL_NAMES = new Set([
+  "get_recent_history",
+  "search_bookmarks"
+])
 const WEB_SEARCH_TOOL_NAME = "web_search"
 const SCHEDULE_REMINDER_TOOL_NAME = "schedule_reminder"
 
@@ -19,6 +23,9 @@ export const buildToolSystemGuidance = (
 
   const toolNames = tools.map((tool) => tool.name).join(", ")
   const hasTabTools = tools.some((tool) => TAB_TOOL_NAMES.has(tool.name))
+  const hasBrowserKnowledgeTools = tools.some((tool) =>
+    BROWSER_KNOWLEDGE_TOOL_NAMES.has(tool.name)
+  )
   const hasWebSearch = tools.some((tool) => tool.name === WEB_SEARCH_TOOL_NAME)
   const hasScheduleReminder = tools.some(
     (tool) => tool.name === SCHEDULE_REMINDER_TOOL_NAME
@@ -44,6 +51,12 @@ export const buildToolSystemGuidance = (
       `Current date is ${currentDate}. Use web_search for current or real-time facts; prefer it over guessing when a question is time-sensitive; cite returned URLs.`,
       `For current/latest web searches, query the current year (${currentYear}) or the exact current date when useful. Do not add old years such as ${oldYears} unless the user asks for those years.`,
       "When the question is about recent or ongoing events (e.g. 'latest', 'recent', 'today', news, trips, prices), also set web_search time_range to 'day' or 'week' (use 'month' for less urgent recency) so stale results are filtered out."
+    )
+  }
+
+  if (hasBrowserKnowledgeTools) {
+    guidance.push(
+      "When the user asks about recently visited websites/pages, call get_recent_history with the requested limit before answering. When the user asks about saved pages/bookmarks, call search_bookmarks before answering. If a browser-knowledge tool says permission is off or no data is available, tell the user to enable the matching permission in Settings > Permissions."
     )
   }
 

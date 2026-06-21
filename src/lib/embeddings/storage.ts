@@ -213,17 +213,21 @@ export const storeVector = async (
  */
 export const deleteVectors = async (filters: {
   type?: VectorDocument["metadata"]["type"]
+  source?: string
   sessionId?: string
   fileId?: string
   url?: string
   messageId?: number
 }): Promise<number> => {
-  const { type, sessionId, fileId, url, messageId } = filters
+  const { type, source, sessionId, fileId, url, messageId } = filters
 
   let query = vectorDb.vectors.toCollection()
 
   if (type) {
     query = query.filter((v) => v.metadata.type === type)
+  }
+  if (source) {
+    query = query.filter((v) => v.metadata.source === source)
   }
   if (sessionId) {
     query = query.filter((v) => v.metadata.sessionId === sessionId)
@@ -438,6 +442,7 @@ export const fromDocuments = async (
     pageContent: string
     metadata: Omit<VectorDocument["metadata"], "timestamp" | "type"> & {
       type?: VectorDocument["metadata"]["type"]
+      timestamp?: number
     }
   }>,
   fileId?: string
@@ -464,7 +469,7 @@ export const fromDocuments = async (
       const metadata: VectorDocument["metadata"] = {
         ...doc.metadata,
         type: doc.metadata.type || "file",
-        timestamp: Date.now(),
+        timestamp: doc.metadata.timestamp ?? Date.now(),
         fileId: fileId || doc.metadata.fileId,
         embeddingModel: embeddingResult.model,
         embeddingProviderId: embeddingResult.providerId,
