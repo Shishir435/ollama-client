@@ -74,8 +74,11 @@ const wildcardToRegExp = (pattern: string): RegExp => {
     .split("*")
     .map((part) => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"))
     .join(".*")
-  return new RegExp(escaped, "i")
+  return new RegExp(`^${escaped}`, "i")
 }
+
+const looksLikeExplicitRegExp = (pattern: string): boolean =>
+  /[\\^$+?()[\]{}|]/.test(pattern)
 
 export const profilePatternMatchesUrl = (
   pattern: string,
@@ -85,35 +88,47 @@ export const profilePatternMatchesUrl = (
   if (!trimmed || !url) return false
 
   try {
-    if (new RegExp(trimmed, "i").test(url)) return true
-  } catch {
-    // Invalid regex still gets wildcard/substr fallback.
-  }
-
-  try {
     const parsed = new URL(url)
-    const target = `${parsed.hostname}${parsed.pathname}`.toLowerCase()
+    const hostname = parsed.hostname.toLowerCase()
+    const target = `${hostname}${parsed.pathname}`.toLowerCase()
     const lowerPattern = trimmed.toLowerCase()
-    if (
-      target.includes(lowerPattern) ||
-      url.toLowerCase().includes(lowerPattern)
-    ) {
+
+    if (!lowerPattern.includes("/") && !lowerPattern.includes("*")) {
+      if (hostname === lowerPattern || hostname.endsWith(`.${lowerPattern}`)) {
+        return true
+      }
+    }
+
+    if (wildcardToRegExp(lowerPattern).test(target)) {
       return true
     }
-    return wildcardToRegExp(lowerPattern).test(target)
   } catch {
-    return url.toLowerCase().includes(trimmed.toLowerCase())
+    if (wildcardToRegExp(trimmed.toLowerCase()).test(url.toLowerCase())) {
+      return true
+    }
   }
+
+  if (looksLikeExplicitRegExp(trimmed)) {
+    try {
+      return new RegExp(trimmed, "i").test(url)
+    } catch {
+      return false
+    }
+  }
+
+  return false
 }
 
 export const getMatchingPerSiteProfile = (
   url: string,
   settings: PerSiteProfileSettings
 ): PerSiteProfile | undefined => {
-  return settings.profiles.find(
-    (profile) =>
-      profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
-  )
+  return settings.profiles
+    .filter(
+      (profile) =>
+        profile.enabled && profilePatternMatchesUrl(profile.pattern, url)
+    )
+    .sort((a, b) => b.pattern.length - a.pattern.length)[0]
 }
 
 export const getActivePerSiteProfile = async (

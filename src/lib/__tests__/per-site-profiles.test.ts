@@ -47,6 +47,60 @@ describe("per-site profiles", () => {
     ).toBe(profile)
   })
 
+  it("does not treat dots in domain patterns as regex wildcards", async () => {
+    const { profilePatternMatchesUrl } = await import("@/lib/per-site-profiles")
+
+    expect(
+      profilePatternMatchesUrl(
+        "github.com",
+        "https://githubXcom.unrelated.org/page"
+      )
+    ).toBe(false)
+    expect(
+      profilePatternMatchesUrl("github.com", "https://github.com/pull/1")
+    ).toBe(true)
+  })
+
+  it("supports explicit regex patterns", async () => {
+    const { profilePatternMatchesUrl } = await import("@/lib/per-site-profiles")
+
+    expect(
+      profilePatternMatchesUrl(
+        "^https://twitter\\.com/.*",
+        "https://twitter.com/home"
+      )
+    ).toBe(true)
+  })
+
+  it("prefers the most specific matching profile", async () => {
+    const { getMatchingPerSiteProfile } = await import(
+      "@/lib/per-site-profiles"
+    )
+
+    const broad = {
+      id: "github",
+      name: "GitHub",
+      pattern: "github.com",
+      enabled: true,
+      tabContext: "always" as const,
+      groundedOnly: "inherit" as const
+    }
+    const specific = {
+      id: "github-pulls",
+      name: "GitHub pulls",
+      pattern: "github.com/pull",
+      enabled: true,
+      tabContext: "never" as const,
+      groundedOnly: "always" as const
+    }
+
+    expect(
+      getMatchingPerSiteProfile("https://github.com/pull/1", {
+        profiles: [broad, specific]
+      })
+    ).toBe(specific)
+  })
+
   it("ignores disabled profiles", async () => {
     const { getMatchingPerSiteProfile } = await import(
       "@/lib/per-site-profiles"
@@ -113,7 +167,7 @@ describe("per-site profiles", () => {
     await setPerSiteProfileSettings(settings)
     expect(mocks.setPlasmoStoredValue).toHaveBeenCalledWith(
       "browser-per-site-profiles",
-      settings
+      { profiles: settings.profiles }
     )
   })
 

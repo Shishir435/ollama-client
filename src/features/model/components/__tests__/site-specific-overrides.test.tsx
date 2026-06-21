@@ -53,8 +53,9 @@ describe("SiteSpecificOverrides", () => {
     expect(
       screen.getByText("model.site_overrides.scroll_strategy_label")
     ).toBeInTheDocument()
-    expect(screen.getByText("model.site_overrides.scroll_depth_label"))
-      .toBeInTheDocument
+    expect(
+      screen.getByText("model.site_overrides.scroll_depth_label")
+    ).toBeInTheDocument()
     expect(
       screen.getByText("settings.permissions.siteProfiles.fields.tabContext")
     ).toBeInTheDocument()
