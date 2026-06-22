@@ -27,7 +27,11 @@ export const useTabGroups = (enabled: boolean) => {
       setGroups(await listAvailableBrowserTabGroups())
     } catch (error) {
       logger.error("Failed to fetch tab groups", "useTabGroups", { error })
-      setAvailability(await getTabGroupsAvailability())
+      try {
+        setAvailability(await getTabGroupsAvailability())
+      } catch {
+        // Keep current availability if the recovery check itself fails.
+      }
       setGroups([])
     } finally {
       setLoading(false)

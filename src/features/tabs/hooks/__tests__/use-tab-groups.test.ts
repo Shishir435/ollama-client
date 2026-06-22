@@ -63,4 +63,19 @@ describe("useTabGroups", () => {
     await waitFor(() => expect(result.current.availability).toBe("permission"))
     expect(result.current.groups).toEqual([])
   })
+
+  it("clears groups when fetch and recovery availability check both fail", async () => {
+    vi.mocked(getTabGroupsAvailability)
+      .mockResolvedValueOnce("available")
+      .mockRejectedValueOnce(new Error("permissions unavailable"))
+    vi.mocked(listAvailableBrowserTabGroups).mockRejectedValue(
+      new Error("permission revoked")
+    )
+
+    const { result } = renderHook(() => useTabGroups(true))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.availability).toBe("available")
+    expect(result.current.groups).toEqual([])
+  })
 })
