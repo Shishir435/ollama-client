@@ -5,9 +5,11 @@ import {
 } from "../browser-knowledge-tools"
 import { runCurrentTab } from "../current-tab-tool"
 import { runFileSearch } from "../file-search-tool"
+import { createInternalToolSource } from "../internal-tool-source"
 import { runListTabs } from "../list-tabs-tool"
 import { runReadTab } from "../read-tab-tool"
 import { runSelectedText } from "../selected-text-tool"
+import { runListTabGroups, runReadTabGroup } from "../tab-group-tools"
 import { clearTabContentCache } from "../tab-utils"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -19,11 +21,17 @@ vi.mock("@/lib/browser-api", () => ({
   },
   supportsAlarms: vi.fn(() => true),
   supportsBookmarks: vi.fn(() => true),
-  supportsHistory: vi.fn(() => true)
+  supportsHistory: vi.fn(() => true),
+  supportsTabGroups: vi.fn(() => true)
 }))
 
 vi.mock("@/lib/permissions", () => ({
   hasPermission: vi.fn()
+}))
+
+vi.mock("@/lib/browser-tab-groups", () => ({
+  getTabGroupsAvailability: vi.fn(),
+  listBrowserTabGroups: vi.fn()
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -45,7 +53,11 @@ import {
   formatEnhancedResults,
   retrieveContextEnhanced
 } from "@/features/chat/rag/rag-pipeline"
-import { browser } from "@/lib/browser-api"
+import { browser, supportsTabGroups } from "@/lib/browser-api"
+import {
+  getTabGroupsAvailability,
+  listBrowserTabGroups
+} from "@/lib/browser-tab-groups"
 import { hasPermission } from "@/lib/permissions"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
@@ -207,6 +219,91 @@ describe("list_tabs tool", () => {
     expect(result.content).toContain("id=2")
     expect(result.content).not.toContain("chrome://settings")
     expect(result.content).not.toContain("Chrome Web Store")
+  })
+})
+
+describe("tab group tools", () => {
+  afterEach(() => {
+    clearTabContentCache()
+    vi.clearAllMocks()
+  })
+
+  const groups = [
+    {
+      id: 4,
+      title: "Research",
+      tabs: [
+        {
+          id: 11,
+          title: "Docs",
+          url: "https://docs.test",
+          active: false
+        },
+        {
+          id: 12,
+          title: "Notes",
+          url: "https://notes.test",
+          active: false
+        }
+      ],
+      skipped: 1
+    }
+  ]
+
+  it("lists readable browser tab groups", async () => {
+    vi.mocked(getTabGroupsAvailability).mockResolvedValue("available")
+    vi.mocked(listBrowserTabGroups).mockResolvedValue(groups)
+
+    const result = await runListTabGroups({}, ctx)
+
+    expect(result.content).toContain("groupId=4")
+    expect(result.content).toContain("Research")
+    expect(result.content).toContain("skipped=1")
+  })
+
+  it("reads readable tabs from a tab group", async () => {
+    vi.mocked(getTabGroupsAvailability).mockResolvedValue("available")
+    vi.mocked(listBrowserTabGroups).mockResolvedValue(groups)
+    vi.mocked(browser.tabs.get).mockImplementation(
+      async (id) =>
+        ({
+          id,
+          title: id === 11 ? "Docs" : "Notes",
+          url: id === 11 ? "https://docs.test" : "https://notes.test"
+        }) as never
+    )
+    vi.mocked(browser.tabs.sendMessage)
+      .mockResolvedValueOnce({ html: "docs body", title: "Docs" } as never)
+      .mockResolvedValueOnce({ html: "notes body", title: "Notes" } as never)
+
+    const result = await runReadTabGroup({ groupId: 4 }, ctx)
+
+    expect(result.content).toContain("Tab group: Research")
+    expect(result.content).toContain("docs body")
+    expect(result.content).toContain("notes body")
+    expect(result.content).toContain("Skipped 1")
+    expect(result.sources).toHaveLength(2)
+  })
+
+  it("reports permission state before listing groups", async () => {
+    vi.mocked(getTabGroupsAvailability).mockResolvedValue("permission")
+
+    const result = await runListTabGroups({}, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Settings > Permissions")
+    expect(listBrowserTabGroups).not.toHaveBeenCalled()
+  })
+
+  it("exposes tab-group tools when supported even before permission is granted", async () => {
+    vi.mocked(supportsTabGroups).mockReturnValue(true)
+    vi.mocked(hasPermission).mockResolvedValue(false)
+
+    const source = createInternalToolSource()
+    const names = (await source.listTools()).map((tool) => tool.name)
+
+    expect(names).toContain("list_tab_groups")
+    expect(names).toContain("read_tab_group")
   })
 })
 

@@ -1,3 +1,4 @@
+import { supportsTabGroups } from "@/lib/browser-api"
 import type {
   ToolContext,
   ToolDefinition,
@@ -20,6 +21,12 @@ import {
   scheduleReminderDefinition
 } from "./schedule-reminder-tool"
 import { runSelectedText, selectedTextDefinition } from "./selected-text-tool"
+import {
+  listTabGroupsDefinition,
+  readTabGroupDefinition,
+  runListTabGroups,
+  runReadTabGroup
+} from "./tab-group-tools"
 
 interface InternalTool {
   definition: ToolDefinition
@@ -36,11 +43,23 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: currentTabDefinition, run: runCurrentTab },
   { definition: listTabsDefinition, run: runListTabs },
   { definition: readTabDefinition, run: runReadTab },
+  { definition: listTabGroupsDefinition, run: runListTabGroups },
+  { definition: readTabGroupDefinition, run: runReadTabGroup },
   { definition: selectedTextDefinition, run: runSelectedText },
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
   { definition: scheduleReminderDefinition, run: runScheduleReminder }
 ]
+
+const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
+  if (
+    tool.definition.name === "list_tab_groups" ||
+    tool.definition.name === "read_tab_group"
+  ) {
+    return supportsTabGroups()
+  }
+  return true
+}
 
 /**
  * The internal {@link ToolSource}. This is the first source; each future MCP
@@ -52,7 +71,17 @@ export const createInternalToolSource = (): ToolSource => {
   )
   return {
     id: "internal",
-    listTools: () => INTERNAL_TOOLS.map((tool) => tool.definition),
+    listTools: async () => {
+      const visible = await Promise.all(
+        INTERNAL_TOOLS.map(async (tool) => ({
+          tool,
+          visible: await isToolVisible(tool)
+        }))
+      )
+      return visible
+        .filter((entry) => entry.visible)
+        .map((entry) => entry.tool.definition)
+    },
     callTool: async (name, args, ctx) => {
       const tool = byName.get(name)
       if (!tool) {

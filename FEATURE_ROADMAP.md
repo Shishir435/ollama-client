@@ -261,7 +261,7 @@ once the preset flow has a stable runtime hook.
 
 **Effort:** M. **Value:** high; directly requested.
 
-### E4. Tab-Group & Multi-Tab Workflows — 🟡 `v0.11.10`
+### E4. Tab-Group & Multi-Tab Workflows — 🟡 `v0.11.10` 🚧 implemented
 
 **What:** "Summarize these 5 tabs", "compare these two articles", "answer using
 this whole tab group as context."
@@ -276,8 +276,9 @@ per-site rules (a "never read" site is excluded even inside a group).
 **Implementation plan review (pre-build):**
 
 1. **Capability + permission gate.** Reuse existing optional `tabGroups`
-   permission and `supportsTabGroups()`. Chromium gets native groups; Firefox
-   sees hidden/disabled group controls and still keeps manual multi-tab picker.
+   permission and `supportsTabGroups()`. Chromium and Firefox 139+ get native
+   groups; unsupported browsers hide group controls and keep manual multi-tab
+   picker.
 2. **Shared group access layer.** Add a small `browser-tab-groups` helper that
    lists tab groups, expands each group to readable tabs, and applies E3
    `never read` filtering before UI/tool output.
@@ -294,6 +295,13 @@ per-site rules (a "never read" site is excluded even inside a group).
 **Risk / scope decision:** Do not invent new tab-content assembly. Use existing
 multi-tab capture (`selectedTabIds`, `use-tab-contents.ts`, `buildRagContext`).
 Do not add new required permissions.
+
+**Implementation status:** v0.11.10 adds shared tab-group access, context-menu
+group selection, and `list_tab_groups` / `read_tab_group` internal tools behind
+the optional `tabGroups` permission. Group expansion honors normal readability
+filters plus E3 never-read rules and reports skipped tabs. Firefox support uses
+real API feature detection (`browser.tabGroups` / `chrome.tabGroups`) instead
+of Chromium-only checks.
 
 **Effort:** M.
 

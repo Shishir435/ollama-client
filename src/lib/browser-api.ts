@@ -52,9 +52,22 @@ export const supportsDNR = (): boolean =>
   typeof chrome !== "undefined" &&
   typeof chrome.declarativeNetRequest?.updateDynamicRules === "function"
 
-/** Tab groups — Chromium-only API. */
+const hasBrowserNamespace = (name: string): boolean =>
+  typeof (browser as unknown as Record<string, unknown>)[name] !== "undefined"
+
+const getFirefoxMajorVersion = (): number | undefined => {
+  const match = globalThis.navigator?.userAgent?.match(/Firefox\/(\d+)/i)
+  if (!match?.[1]) return undefined
+  const parsed = Number(match[1])
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/** Tab groups — Chromium and Firefox 139+. */
 export const supportsTabGroups = (): boolean =>
-  isChromiumBased() && hasChromeNamespace("tabGroups")
+  hasBrowserNamespace("tabGroups") ||
+  hasChromeNamespace("tabGroups") ||
+  isChromiumBased() ||
+  (getFirefoxMajorVersion() ?? 0) >= 139
 
 /** Browser-level keyboard commands (Chrome + Firefox). */
 export const supportsCommands = (): boolean =>

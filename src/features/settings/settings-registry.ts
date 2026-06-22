@@ -4,14 +4,22 @@ import {
 } from "@/features/settings/settings-search-scoring"
 
 /**
- * Tab groups is a Chromium-only API. Detected inline (not via `browser-api`) so
- * the registry stays import-light and doesn't force every test that mocks
- * `browser-api` to also stub a capability gate.
+ * Only register tab-group search when this browser exposes the API. Chromium and
+ * Firefox can both support it; older browsers hide the target row.
  */
+const extensionGlobals = globalThis as unknown as {
+  navigator?: { userAgent?: string }
+  browser?: Record<string, unknown>
+  chrome?: Record<string, unknown>
+}
+const firefoxMajorVersion = Number(
+  extensionGlobals.navigator?.userAgent?.match(/Firefox\/(\d+)/i)?.[1] ?? 0
+)
 const TAB_GROUPS_AVAILABLE =
-  typeof chrome !== "undefined" &&
-  typeof (chrome as unknown as Record<string, unknown>).tabGroups !==
-    "undefined"
+  typeof extensionGlobals.browser?.tabGroups !== "undefined" ||
+  typeof extensionGlobals.chrome?.tabGroups !== "undefined" ||
+  typeof extensionGlobals.chrome !== "undefined" ||
+  firefoxMajorVersion >= 139
 
 /**
  * Preview-feature toggles are a dev/QA control hidden in the production build
@@ -1305,8 +1313,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.permissions.items.downloads.description",
     aliases: ["downloads", "save file", "export", "permission"]
   },
-  // Only register tab groups for search where its focus target actually exists
-  // (the panel row only mounts on Chromium).
+  // Only register tab groups for search where its focus target actually exists.
   ...(TAB_GROUPS_AVAILABLE
     ? [
         {

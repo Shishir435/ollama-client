@@ -256,7 +256,9 @@
         "change_limit": "Limit ändern",
         "documents": "Dateien durchsuchen",
         "answering": "Antworten",
-        "preparing": "Kontext vorbereiten"
+        "preparing": "Kontext vorbereiten",
+        "tabGroup": "Tabgruppe lesen",
+        "tabGroups": "Tabgruppen auflisten"
       },
       "debug": "Debug-Reasoning"
     },
@@ -697,6 +699,12 @@
       "reliable": "{{percent}}% zuverlässig",
       "low_reliability": "Niedrige Extraktionszuverlässigkeit. Versuchen Sie: Scraper wechseln, Scrolltiefe anpassen oder manuelle Auswahlkontext verwenden.",
       "no_content": "(Noch kein extrahierter Inhalt)"
+    },
+    "groups": {
+      "title": "Tabgruppen",
+      "enable": "Tabgruppen aktivieren",
+      "refresh": "Tabgruppen aktualisieren",
+      "empty": "Keine Tabgruppen geöffnet."
     }
   },
   "settings": {
