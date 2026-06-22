@@ -53,16 +53,22 @@ const queryTabGroups = async (): Promise<ChromeTabGroup[]> => {
 
   if (!api?.query) return []
 
+  try {
+    const maybePromise = api.query({})
+    if (maybePromise && typeof maybePromise.then === "function") {
+      return await maybePromise
+    }
+  } catch {
+    // Older callback-only surfaces can require the callback argument.
+  }
+
   return new Promise<ChromeTabGroup[]>((resolve, reject) => {
     try {
-      const maybePromise = api.query({}, (groups) => {
+      api.query({}, (groups) => {
         const lastError = chromeRuntimeLastError()
         if (lastError) reject(new Error(lastError))
         else resolve(groups ?? [])
       })
-      if (maybePromise && typeof maybePromise.then === "function") {
-        maybePromise.then(resolve).catch(reject)
-      }
     } catch (error) {
       reject(error)
     }

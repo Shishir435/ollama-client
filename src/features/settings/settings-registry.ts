@@ -18,7 +18,6 @@ const firefoxMajorVersion = Number(
 const TAB_GROUPS_AVAILABLE =
   typeof extensionGlobals.browser?.tabGroups !== "undefined" ||
   typeof extensionGlobals.chrome?.tabGroups !== "undefined" ||
-  typeof extensionGlobals.chrome !== "undefined" ||
   firefoxMajorVersion >= 139
 
 /**

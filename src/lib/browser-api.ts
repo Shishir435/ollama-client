@@ -66,7 +66,6 @@ const getFirefoxMajorVersion = (): number | undefined => {
 export const supportsTabGroups = (): boolean =>
   hasBrowserNamespace("tabGroups") ||
   hasChromeNamespace("tabGroups") ||
-  isChromiumBased() ||
   (getFirefoxMajorVersion() ?? 0) >= 139
 
 /** Browser-level keyboard commands (Chrome + Firefox). */
