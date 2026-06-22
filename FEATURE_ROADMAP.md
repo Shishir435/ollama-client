@@ -273,6 +273,28 @@ on top.
 **Privacy:** 🟡 — reads multiple tabs; gated by explicit selection and the E3
 per-site rules (a "never read" site is excluded even inside a group).
 
+**Implementation plan review (pre-build):**
+
+1. **Capability + permission gate.** Reuse existing optional `tabGroups`
+   permission and `supportsTabGroups()`. Chromium gets native groups; Firefox
+   sees hidden/disabled group controls and still keeps manual multi-tab picker.
+2. **Shared group access layer.** Add a small `browser-tab-groups` helper that
+   lists tab groups, expands each group to readable tabs, and applies E3
+   `never read` filtering before UI/tool output.
+3. **UI workflow.** Extend the Context menu with a group section: group rows,
+   selected count, refresh, and one-click "select group tabs" using the current
+   `selectedTabIds` path so existing extraction/build-rag flow stays unchanged.
+4. **Internal tools.** Add `list_tab_groups` and `read_tab_group` only when
+   supported + permission granted. Tool output must be capped and must explain
+   skipped tabs (internal URL, excluded URL, E3 never-read).
+5. **Tests.** Cover unsupported browser fallback, permission-denied path,
+   group tab selection, never-read exclusion inside a group, and tool output
+   caps.
+
+**Risk / scope decision:** Do not invent new tab-content assembly. Use existing
+multi-tab capture (`selectedTabIds`, `use-tab-contents.ts`, `buildRagContext`).
+Do not add new required permissions.
+
 **Effort:** M.
 
 ### E5. Background Notifications & Scheduled Jobs — 🟢 `v0.11.6`
@@ -536,7 +558,7 @@ them out of `0.11.0` keeps the baseline a clean, low-risk branch point.
 | ✅     | `v0.11.7`  | E6 — omnibox quick-ask                                                                                                                                            | B · headline       | 🟢      | F3              |
 | ✅     | `v0.11.8`  | E2 — bookmarks/history local RAG                                                                                                                                  | C · differentiator | 🟡      | F1, consent UI  |
 | ✅     | `v0.11.9`  | E3 — per-site auto-context profiles                                                                                                                               | C · differentiator | 🟡      | —               |
-| ☐      | `v0.11.10` | E4 — tab-group / multi-tab workflows                                                                                                                              | D · depth          | 🟡      | E3              |
+| 🚧     | `v0.11.10` | E4 — tab-group / multi-tab workflows                                                                                                                              | D · depth          | 🟡      | E3              |
 | ☐      | `v0.11.11` | E7 — artifacts / output canvas                                                                                                                                    | D · depth          | 🟢      | —               |
 | ☐      | `v0.11.12` | E8 — prompt template variables + chaining                                                                                                                         | D · depth          | 🟢      | —               |
 | ☐      | `v0.11.13` | E9 — downloads for generated artifacts                                                                                                                            | D · depth          | 🟢      | —               |
