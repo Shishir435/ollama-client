@@ -1,6 +1,6 @@
 import {
   getTabGroupsAvailability,
-  listBrowserTabGroups
+  listAvailableBrowserTabGroups
 } from "@/lib/browser-tab-groups"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 import { readTabContent } from "./tab-utils"
@@ -86,7 +86,16 @@ export const runListTabGroups = async (
   const unavailable = unavailableResult(await getTabGroupsAvailability())
   if (unavailable) return unavailable
 
-  const groups = await listBrowserTabGroups()
+  let groups: Awaited<ReturnType<typeof listAvailableBrowserTabGroups>>
+  try {
+    groups = await listAvailableBrowserTabGroups()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      content: `Could not list browser tab groups (${message}). Check Tab groups permission in Settings > Permissions.`,
+      isError: true
+    }
+  }
   if (groups.length === 0) {
     return { content: "No browser tab groups are open." }
   }
@@ -108,7 +117,7 @@ export const runListTabGroups = async (
 }
 
 const matchGroup = (
-  groups: Awaited<ReturnType<typeof listBrowserTabGroups>>,
+  groups: Awaited<ReturnType<typeof listAvailableBrowserTabGroups>>,
   args: Record<string, unknown>
 ) => {
   const groupId =
@@ -140,7 +149,16 @@ export const runReadTabGroup = async (
   const unavailable = unavailableResult(await getTabGroupsAvailability())
   if (unavailable) return unavailable
 
-  const groups = await listBrowserTabGroups()
+  let groups: Awaited<ReturnType<typeof listAvailableBrowserTabGroups>>
+  try {
+    groups = await listAvailableBrowserTabGroups()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      content: `Could not read browser tab groups (${message}). Check Tab groups permission in Settings > Permissions.`,
+      isError: true
+    }
+  }
   if (groups.length === 0) return { content: "No browser tab groups are open." }
 
   const { target, ambiguous } = matchGroup(groups, args)

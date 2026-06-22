@@ -98,9 +98,9 @@ export const getTabGroupsAvailability = async (): Promise<
 export const requestTabGroupsAccess = async (): Promise<boolean> =>
   supportsTabGroups() && (await requestPermission("tabGroups"))
 
-export const listBrowserTabGroups = async (): Promise<BrowserTabGroup[]> => {
-  if ((await getTabGroupsAvailability()) !== "available") return []
-
+export const listAvailableBrowserTabGroups = async (): Promise<
+  BrowserTabGroup[]
+> => {
   const groups = await queryTabGroups()
   const excludedPatterns = await resolveExcludedUrlPatterns()
   const grouped: BrowserTabGroup[] = []
@@ -138,4 +138,9 @@ export const listBrowserTabGroups = async (): Promise<BrowserTabGroup[]> => {
   }
 
   return grouped
+}
+
+export const listBrowserTabGroups = async (): Promise<BrowserTabGroup[]> => {
+  if ((await getTabGroupsAvailability()) !== "available") return []
+  return listAvailableBrowserTabGroups()
 }

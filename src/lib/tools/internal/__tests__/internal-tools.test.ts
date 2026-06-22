@@ -31,6 +31,7 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/browser-tab-groups", () => ({
   getTabGroupsAvailability: vi.fn(),
+  listAvailableBrowserTabGroups: vi.fn(),
   listBrowserTabGroups: vi.fn()
 }))
 
@@ -56,6 +57,7 @@ import {
 import { browser, supportsTabGroups } from "@/lib/browser-api"
 import {
   getTabGroupsAvailability,
+  listAvailableBrowserTabGroups,
   listBrowserTabGroups
 } from "@/lib/browser-tab-groups"
 import { hasPermission } from "@/lib/permissions"
@@ -252,7 +254,7 @@ describe("tab group tools", () => {
 
   it("lists readable browser tab groups", async () => {
     vi.mocked(getTabGroupsAvailability).mockResolvedValue("available")
-    vi.mocked(listBrowserTabGroups).mockResolvedValue(groups)
+    vi.mocked(listAvailableBrowserTabGroups).mockResolvedValue(groups)
 
     const result = await runListTabGroups({}, ctx)
 
@@ -263,7 +265,7 @@ describe("tab group tools", () => {
 
   it("reads readable tabs from a tab group", async () => {
     vi.mocked(getTabGroupsAvailability).mockResolvedValue("available")
-    vi.mocked(listBrowserTabGroups).mockResolvedValue(groups)
+    vi.mocked(listAvailableBrowserTabGroups).mockResolvedValue(groups)
     vi.mocked(browser.tabs.get).mockImplementation(
       async (id) =>
         ({
@@ -292,7 +294,20 @@ describe("tab group tools", () => {
 
     expect(result.isError).toBe(true)
     expect(result.content).toContain("Settings > Permissions")
+    expect(listAvailableBrowserTabGroups).not.toHaveBeenCalled()
     expect(listBrowserTabGroups).not.toHaveBeenCalled()
+  })
+
+  it("returns an error if tab groups fail after availability is confirmed", async () => {
+    vi.mocked(getTabGroupsAvailability).mockResolvedValue("available")
+    vi.mocked(listAvailableBrowserTabGroups).mockRejectedValue(
+      new Error("permission revoked")
+    )
+
+    const result = await runListTabGroups({}, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("permission revoked")
   })
 
   it("exposes tab-group tools when supported even before permission is granted", async () => {

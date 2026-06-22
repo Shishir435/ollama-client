@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import {
   type BrowserTabGroup,
   getTabGroupsAvailability,
-  listBrowserTabGroups,
+  listAvailableBrowserTabGroups,
   requestTabGroupsAccess
 } from "@/lib/browser-tab-groups"
 import { logger } from "@/lib/logger"
@@ -24,9 +24,10 @@ export const useTabGroups = (enabled: boolean) => {
         setGroups([])
         return
       }
-      setGroups(await listBrowserTabGroups())
+      setGroups(await listAvailableBrowserTabGroups())
     } catch (error) {
       logger.error("Failed to fetch tab groups", "useTabGroups", { error })
+      setAvailability(await getTabGroupsAvailability())
       setGroups([])
     } finally {
       setLoading(false)
