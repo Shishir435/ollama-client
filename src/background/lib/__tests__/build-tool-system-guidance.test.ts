@@ -50,4 +50,10 @@ describe("buildToolSystemGuidance", () => {
     expect(guidance).toContain("recently visited websites")
     expect(guidance).toContain("Settings > Permissions")
   })
+
+  it("adds tab-group rules when tab group tools are present", () => {
+    const guidance = buildToolSystemGuidance([tool("list_tab_groups")])
+    expect(guidance).toContain("browser tab group")
+    expect(guidance).toContain("read_tab_group")
+  })
 })

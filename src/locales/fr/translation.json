@@ -256,7 +256,9 @@
         "change_limit": "Modifier la limite",
         "documents": "Recherche de fichiers",
         "answering": "Réponse",
-        "preparing": "Préparation du contexte"
+        "preparing": "Préparation du contexte",
+        "tabGroup": "Lecture du groupe d’onglets",
+        "tabGroups": "Liste des groupes d’onglets"
       },
       "debug": "Raisonnement de débogage"
     },
@@ -697,6 +699,12 @@
       "reliable": "{{percent}}% fiable",
       "low_reliability": "Faible fiabilité d'extraction. Essayez: changer de scraper, ajuster la profondeur de défilement ou utiliser un contexte de sélection manuel.",
       "no_content": "(Aucun contenu extrait pour le moment)"
+    },
+    "groups": {
+      "title": "Groupes d’onglets",
+      "enable": "Activer les groupes d’onglets",
+      "refresh": "Actualiser les groupes d’onglets",
+      "empty": "Aucun groupe d’onglets ouvert."
     }
   },
   "settings": {

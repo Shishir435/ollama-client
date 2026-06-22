@@ -10,8 +10,20 @@ const mocks = vi.hoisted(() => ({
   setSelectedTabIds: vi.fn(),
   refreshSelectedTabContents: vi.fn(),
   refreshTabs: vi.fn(),
+  refreshGroups: vi.fn(),
+  requestTabGroupsAccess: vi.fn(),
   selectedTabIds: ["7"] as string[],
-  perSiteProfiles: { profiles: [] as unknown[] }
+  perSiteProfiles: { profiles: [] as unknown[] },
+  tabGroupsAvailability: "unsupported" as
+    | "available"
+    | "unsupported"
+    | "permission",
+  tabGroups: [] as {
+    id: number
+    title: string
+    tabs: { id: number; title: string; url: string; active: boolean }[]
+    skipped: number
+  }[]
 }))
 
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -46,6 +58,10 @@ vi.mock("react-i18next", () => ({
         "tabs.inspector.untitled": "Untitled",
         "tabs.inspector.no_content": "(No extracted content yet)",
         "tabs.inspector.chars": `${values?.count ?? 0} chars`,
+        "tabs.groups.title": "Tab groups",
+        "tabs.groups.enable": "Enable tab groups",
+        "tabs.groups.refresh": "Refresh tab groups",
+        "tabs.groups.empty": "No tab groups are open.",
         "chat.input.rag_toggle_on": "RAG+",
         "chat.input.rag_toggle_off": "RAG",
         "settings.grounding_mode.label":
@@ -99,6 +115,16 @@ vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
   })
 }))
 
+vi.mock("@/features/tabs/hooks/use-tab-groups", () => ({
+  useTabGroups: () => ({
+    groups: mocks.tabGroups,
+    availability: mocks.tabGroupsAvailability,
+    loading: false,
+    refreshGroups: mocks.refreshGroups,
+    requestAccess: mocks.requestTabGroupsAccess
+  })
+}))
+
 vi.mock("@/features/tabs/hooks/use-tab-status-map", () => ({
   useTabStatusMap: () => () => ({
     loading: false,
@@ -126,6 +152,8 @@ describe("ContextSettingsMenu", () => {
     vi.clearAllMocks()
     mocks.selectedTabIds = ["7"]
     mocks.perSiteProfiles = { profiles: [] }
+    mocks.tabGroupsAvailability = "unsupported"
+    mocks.tabGroups = []
   })
 
   it("keeps controls searchable and opens page preview in bounded dialog", () => {
@@ -230,5 +258,47 @@ describe("ContextSettingsMenu", () => {
     await waitFor(() =>
       expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7"])
     )
+  })
+
+  it("selects readable tabs from a browser tab group", () => {
+    mocks.selectedTabIds = []
+    mocks.tabGroupsAvailability = "available"
+    mocks.tabGroups = [
+      {
+        id: 3,
+        title: "Research",
+        tabs: [
+          {
+            id: 7,
+            title: "Current page",
+            url: "https://example.com",
+            active: false
+          },
+          {
+            id: 9,
+            title: "Private page",
+            url: "https://example.com/private",
+            active: false
+          }
+        ],
+        skipped: 1
+      }
+    ]
+
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /Research/ }))
+
+    expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7", "9"])
+  })
+
+  it("offers tab-group permission when supported but not granted", () => {
+    mocks.tabGroupsAvailability = "permission"
+
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: "Enable tab groups" }))
+
+    expect(mocks.requestTabGroupsAccess).toHaveBeenCalled()
   })
 })

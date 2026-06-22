@@ -76,6 +76,18 @@ describe("PermissionsPanel", () => {
     expect(perm.requestPermission).toHaveBeenCalledWith("bookmarks")
   })
 
+  it("shows the tab-groups optional permission when supported", async () => {
+    browserApi.supportsTabGroups.mockReturnValue(true)
+    render(<PermissionsPanel />)
+
+    expect(document.getElementById("permission-tab-groups")).toBeTruthy()
+    fireEvent.click(document.getElementById("permission-tab-groups") as Element)
+
+    await waitFor(() =>
+      expect(perm.requestPermission).toHaveBeenCalledWith("tabGroups")
+    )
+  })
+
   it("sends a test notification from the permissions card", async () => {
     browserApi.sendMessage.mockResolvedValue({
       success: true,

@@ -256,7 +256,9 @@
         "change_limit": "更改限制",
         "documents": "搜索文件",
         "answering": "回答中",
-        "preparing": "正在准备上下文"
+        "preparing": "正在准备上下文",
+        "tabGroup": "读取标签页组",
+        "tabGroups": "列出标签页组"
       },
       "debug": "调试推理"
     },
@@ -697,6 +699,12 @@
       "reliable": "{{percent}}% 可靠性",
       "low_reliability": "提取可靠性较低。请尝试：更换爬虫、调整滚动深度或使用手动选择上下文。",
       "no_content": "（暂无提取的内容）"
+    },
+    "groups": {
+      "title": "标签页组",
+      "enable": "启用标签页组",
+      "refresh": "刷新标签页组",
+      "empty": "没有打开的标签页组。"
     }
   },
   "settings": {

@@ -33,6 +33,16 @@ const LEGACY_TOOL_DISPLAY_META: Record<string, ToolDisplayMeta> = {
     iconKey: "list",
     category: "browser"
   },
+  list_tab_groups: {
+    displayNameKey: "chat.reasoning.trace.tabGroups",
+    iconKey: "layers",
+    category: "browser"
+  },
+  read_tab_group: {
+    displayNameKey: "chat.reasoning.trace.tabGroup",
+    iconKey: "layers",
+    category: "browser"
+  },
   read_tab: {
     displayNameKey: "chat.reasoning.trace.tab",
     iconKey: "file-text",

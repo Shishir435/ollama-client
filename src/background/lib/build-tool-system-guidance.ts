@@ -1,6 +1,13 @@
 import type { ToolDefinition } from "@/lib/tools"
 
-const TAB_TOOL_NAMES = new Set(["current_tab", "read_tab", "list_tabs"])
+const TAB_TOOL_NAMES = new Set([
+  "current_tab",
+  "read_tab",
+  "list_tabs",
+  "list_tab_groups",
+  "read_tab_group"
+])
+const TAB_GROUP_TOOL_NAMES = new Set(["list_tab_groups", "read_tab_group"])
 const BROWSER_KNOWLEDGE_TOOL_NAMES = new Set([
   "get_recent_history",
   "search_bookmarks"
@@ -23,6 +30,9 @@ export const buildToolSystemGuidance = (
 
   const toolNames = tools.map((tool) => tool.name).join(", ")
   const hasTabTools = tools.some((tool) => TAB_TOOL_NAMES.has(tool.name))
+  const hasTabGroupTools = tools.some((tool) =>
+    TAB_GROUP_TOOL_NAMES.has(tool.name)
+  )
   const hasBrowserKnowledgeTools = tools.some((tool) =>
     BROWSER_KNOWLEDGE_TOOL_NAMES.has(tool.name)
   )
@@ -40,6 +50,12 @@ export const buildToolSystemGuidance = (
     guidance.push(
       "For tab content, set force=true when the user asks to refresh, refetch, rescrape, reload, or get latest tab content.",
       "If a tab tool says a page is blocked or unreadable, do not retry the same tab or another Chrome Web Store/internal page; answer from visible tab metadata/tool output, or ask the user to switch/share details."
+    )
+  }
+
+  if (hasTabGroupTools) {
+    guidance.push(
+      "When the user refers to a browser tab group, grouped tabs, or asks to summarize/compare a group, call list_tab_groups first unless the group id is already known, then read_tab_group for the target group."
     )
   }
 

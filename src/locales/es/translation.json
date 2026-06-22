@@ -256,7 +256,9 @@
         "change_limit": "Cambiar límite",
         "documents": "Buscando archivos",
         "answering": "Respondiendo",
-        "preparing": "Preparando contexto"
+        "preparing": "Preparando contexto",
+        "tabGroup": "Leyendo grupo de pestañas",
+        "tabGroups": "Listando grupos de pestañas"
       },
       "debug": "Razonamiento de depuración"
     },
@@ -697,6 +699,12 @@
       "reliable": "{{percent}}% fiable",
       "low_reliability": "Baja fiabilidad de extracción. Prueba: cambiar scraper, ajustar profundidad de desplazamiento o usar contexto de selección manual.",
       "no_content": "(Aún no hay contenido extraído)"
+    },
+    "groups": {
+      "title": "Grupos de pestañas",
+      "enable": "Activar grupos de pestañas",
+      "refresh": "Actualizar grupos de pestañas",
+      "empty": "No hay grupos de pestañas abiertos."
     }
   },
   "settings": {
