@@ -210,6 +210,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Web-search API keys and self-hosted endpoints are device-local secrets."
   },
+  [STORAGE_KEYS.TOOLS.FAMILIES]: {
+    key: STORAGE_KEYS.TOOLS.FAMILIES,
+    scope: "sync-safe",
+    reason:
+      "Which model-tool families are enabled is a portable preference, not a device secret."
+  },
   [STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET]: {
     key: STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET,
     scope: "sync-safe",

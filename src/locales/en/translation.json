@@ -1082,6 +1082,36 @@
           "always": "Always on",
           "never": "Never"
         }
+      },
+      "tools": {
+        "title": "Model tools",
+        "description": "Choose which actions the model can run on its own. Turning a group off hides those tools from the model entirely.",
+        "master": {
+          "label": "Allow the model to use tools",
+          "description": "Master switch. When off, the model can't call any tool, whatever the groups below say."
+        },
+        "families": {
+          "browser": {
+            "label": "Browser tabs & selection",
+            "description": "Read the current tab, open tabs, tab groups, and selected text."
+          },
+          "knowledge": {
+            "label": "Knowledge & files",
+            "description": "Search your uploaded files and chat memory."
+          },
+          "history": {
+            "label": "History & bookmarks",
+            "description": "Search browsing history and bookmarks. Also needs the matching permission above."
+          },
+          "web": {
+            "label": "Web search",
+            "description": "Run web searches with your configured search backend."
+          },
+          "automation": {
+            "label": "Automation",
+            "description": "Reminders and other scheduled actions."
+          }
+        }
       }
     },
     "context": {

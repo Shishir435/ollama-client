@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { browser, supportsTabGroups } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { Globe, Lock, Sparkles } from "@/lib/lucide-icon"
+import { Bot, Globe, Lock, Sparkles } from "@/lib/lucide-icon"
 import {
   hasPermission,
   type OptionalApiPermission,
@@ -21,6 +21,13 @@ import {
   type ScheduledJobId,
   setScheduledJobEnabled
 } from "@/lib/scheduled-jobs"
+import { TOOL_FAMILIES, type ToolFamily } from "@/lib/tools/tool-families"
+import {
+  getToolFamilySettings,
+  setToolFamilyEnabled,
+  setToolMasterEnabled,
+  type ToolFamilySettings
+} from "@/lib/tools/tool-settings"
 import { type FeatureFlag, useFeatureFlagsStore } from "@/stores/feature-flags"
 
 /**
@@ -244,6 +251,70 @@ const ScheduledJobRow = ({
   )
 }
 
+/**
+ * Model-tools governance (E10). Master switch + one toggle per tool family,
+ * gating which model-callable tools `resolveModelTools` offers. Family toggles
+ * stay interactive while the master is off (so users can pre-configure), but dim
+ * to signal the master overrides them.
+ */
+const ModelToolsCard = () => {
+  const { t } = useTranslation()
+  const [settings, setSettings] = useState<ToolFamilySettings | null>(null)
+
+  useEffect(() => {
+    let active = true
+    getToolFamilySettings().then((value) => {
+      if (active) setSettings(value)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  if (!settings) return null
+
+  const onMaster = async (next: boolean) => {
+    setSettings(await setToolMasterEnabled(next))
+  }
+  const onFamily = (family: ToolFamily) => async (next: boolean) => {
+    setSettings(await setToolFamilyEnabled(family, next))
+  }
+
+  return (
+    <SettingsCard
+      focusId="model-tools"
+      icon={Bot}
+      title={t("settings.permissions.tools.title")}
+      description={t("settings.permissions.tools.description")}>
+      <SettingsSwitch
+        id="model-tools-master"
+        label={t("settings.permissions.tools.master.label")}
+        description={t("settings.permissions.tools.master.description")}
+        checked={settings.enabled}
+        onCheckedChange={onMaster}
+      />
+      <div
+        className={settings.enabled ? undefined : "opacity-60"}
+        aria-disabled={!settings.enabled}>
+        <div className="grid gap-2">
+          {TOOL_FAMILIES.map((family) => (
+            <SettingsSwitch
+              key={family}
+              id={`model-tools-family-${family}`}
+              label={t(`settings.permissions.tools.families.${family}.label`)}
+              description={t(
+                `settings.permissions.tools.families.${family}.description`
+              )}
+              checked={settings.families[family]}
+              onCheckedChange={onFamily(family)}
+            />
+          ))}
+        </div>
+      </div>
+    </SettingsCard>
+  )
+}
+
 export interface PermissionsPanelProps {
   /** Denser layout + omit the host-access note, for the context popover. */
   compact?: boolean
@@ -287,6 +358,8 @@ export const PermissionsPanel = ({
           onPermissionStateChanged={refreshPermissionRows}
         />
       </SettingsCard>
+
+      <ModelToolsCard />
 
       {!compact && (
         <SettingsCard

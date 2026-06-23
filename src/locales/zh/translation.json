@@ -1498,6 +1498,36 @@
           "always": "始终开启",
           "never": "从不"
         }
+      },
+      "tools": {
+        "title": "模型工具",
+        "description": "选择模型可以自行执行哪些操作。关闭某个分组会对模型完全隐藏这些工具。",
+        "master": {
+          "label": "允许模型使用工具",
+          "description": "总开关。关闭时，无论下方分组如何设置，模型都无法调用任何工具。"
+        },
+        "families": {
+          "browser": {
+            "label": "浏览器标签页与选区",
+            "description": "读取当前标签页、已打开标签页、标签组和选中文本。"
+          },
+          "knowledge": {
+            "label": "知识与文件",
+            "description": "搜索你上传的文件和聊天记忆。"
+          },
+          "history": {
+            "label": "历史记录与书签",
+            "description": "搜索浏览历史和书签。还需上方对应的权限。"
+          },
+          "web": {
+            "label": "网络搜索",
+            "description": "使用你配置的搜索后端进行网络搜索。"
+          },
+          "automation": {
+            "label": "自动化",
+            "description": "提醒和其他计划操作。"
+          }
+        }
       }
     },
     "search": {

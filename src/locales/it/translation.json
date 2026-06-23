@@ -1498,6 +1498,36 @@
           "always": "Sempre attivo",
           "never": "Mai"
         }
+      },
+      "tools": {
+        "title": "Strumenti del modello",
+        "description": "Scegli quali azioni il modello può eseguire da solo. Disattivare un gruppo nasconde del tutto quegli strumenti al modello.",
+        "master": {
+          "label": "Consenti al modello di usare gli strumenti",
+          "description": "Interruttore principale. Se disattivato, il modello non può chiamare alcuno strumento, qualunque cosa dicano i gruppi sotto."
+        },
+        "families": {
+          "browser": {
+            "label": "Schede del browser e selezione",
+            "description": "Leggere la scheda corrente, le schede aperte, i gruppi di schede e il testo selezionato."
+          },
+          "knowledge": {
+            "label": "Conoscenza e file",
+            "description": "Cercare nei file caricati e nella memoria della chat."
+          },
+          "history": {
+            "label": "Cronologia e segnalibri",
+            "description": "Cercare nella cronologia di navigazione e nei segnalibri. Richiede anche l'autorizzazione corrispondente sopra."
+          },
+          "web": {
+            "label": "Ricerca web",
+            "description": "Eseguire ricerche web con il backend di ricerca configurato."
+          },
+          "automation": {
+            "label": "Automazione",
+            "description": "Promemoria e altre azioni pianificate."
+          }
+        }
       }
     },
     "search": {
