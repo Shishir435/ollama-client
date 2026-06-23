@@ -211,7 +211,8 @@
       "export_format_text": "पाठ",
       "previous_branch": "पिछली शाखा",
       "next_branch": "अगली शाखा",
-      "preview": "पूर्वावलोकन"
+      "preview": "पूर्वावलोकन",
+      "download": "डाउनलोड"
     },
     "metrics": {
       "total_time": "कुल समय",

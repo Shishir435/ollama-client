@@ -211,7 +211,8 @@
       "export_format_text": "テキスト",
       "previous_branch": "前のブランチ",
       "next_branch": "次のブランチ",
-      "preview": "プレビュー"
+      "preview": "プレビュー",
+      "download": "ダウンロード"
     },
     "metrics": {
       "total_time": "合計時間",
