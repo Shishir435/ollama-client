@@ -946,7 +946,9 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       "settings.prompts.form.tags",
       "settings.prompts.form.system_prompt",
       "settings.prompts.form.user_prompt",
-      "settings.prompts.form.create_button"
+      "settings.prompts.form.create_button",
+      "settings.prompts.variables.title",
+      "settings.prompts.variables.description"
     ],
     aliases: ["prompt templates", "templates", "system prompt template"]
   },
