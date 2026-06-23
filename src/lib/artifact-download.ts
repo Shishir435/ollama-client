@@ -14,6 +14,7 @@
 import type { ChatArtifact } from "@/lib/artifacts"
 import { browser } from "@/lib/browser-api"
 import { downloadFile } from "@/lib/exporters/utils"
+import { logger } from "@/lib/logger"
 import { hasPermission, requestPermission } from "@/lib/permissions"
 
 /** File extension per code language; falls back to `.txt` for unknown code. */
@@ -62,12 +63,14 @@ const mimeFor = (artifact: ChatArtifact): string => {
  * always appends the correct extension.
  */
 export const artifactFileName = (artifact: ChatArtifact): string => {
+  // Trim after slicing too: a 64-char cut can land inside a dash run.
   const base =
     artifact.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "artifact"
+      .slice(0, 64)
+      .replace(/-+$/, "") || "artifact"
   return `${base}.${extensionFor(artifact)}`
 }
 
@@ -82,22 +85,30 @@ export const downloadArtifact = async (
   const filename = artifactFileName(artifact)
   const blob = new Blob([artifact.content], { type: mimeFor(artifact) })
 
-  const granted =
-    (await hasPermission("downloads")) || (await requestPermission("downloads"))
+  // Top-level guard: call sites invoke this as `void downloadArtifact(...)`, so a
+  // rejection from the permission calls or the anchor fallback would otherwise be
+  // swallowed. Log it instead of failing silently.
+  try {
+    const granted =
+      (await hasPermission("downloads")) ||
+      (await requestPermission("downloads"))
 
-  if (granted && typeof browser.downloads?.download === "function") {
-    const url = URL.createObjectURL(blob)
-    try {
-      await browser.downloads.download({ url, filename, saveAs: true })
-      // Revoke once the download has had time to start reading the blob; revoking
-      // synchronously can abort the transfer in some browsers.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      return
-    } catch {
-      URL.revokeObjectURL(url)
-      // fall through to the anchor fallback below
+    if (granted && typeof browser.downloads?.download === "function") {
+      const url = URL.createObjectURL(blob)
+      try {
+        await browser.downloads.download({ url, filename, saveAs: true })
+        // Revoke once the download has had time to start reading the blob;
+        // revoking synchronously can abort the transfer in some browsers.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+        return
+      } catch {
+        URL.revokeObjectURL(url)
+        // fall through to the anchor fallback below
+      }
     }
-  }
 
-  downloadFile(blob, filename)
+    downloadFile(blob, filename)
+  } catch (error) {
+    logger.error("Artifact download failed", "downloadArtifact", { error })
+  }
 }

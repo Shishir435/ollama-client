@@ -73,6 +73,14 @@ describe("artifactFileName", () => {
     ).toBe("etc-passwd.ts")
     expect(artifactFileName(makeArtifact({ title: "   " }))).toBe("artifact.ts")
   })
+
+  it("does not leave a trailing dash when the 64-char slice lands on one", () => {
+    const name = artifactFileName(
+      makeArtifact({ title: `${"a".repeat(63)} tail` })
+    )
+    expect(name).toBe(`${"a".repeat(63)}.ts`)
+    expect(name).not.toContain("-.")
+  })
 })
 
 describe("downloadArtifact", () => {

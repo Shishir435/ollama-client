@@ -85,8 +85,10 @@ export const MarkdownCodeBlockActions = ({
       copyButton.addEventListener("click", () => {
         void navigator.clipboard.writeText(rawCode)
         copyButton.innerHTML = iconSvg(ICON_PATHS.check)
+        copyButton.setAttribute("aria-label", t("chat.actions.copied"))
         window.setTimeout(() => {
           copyButton.innerHTML = iconSvg(ICON_PATHS.copy)
+          copyButton.setAttribute("aria-label", copyLabel)
         }, 1500)
       })
       toolbar.appendChild(copyButton)
