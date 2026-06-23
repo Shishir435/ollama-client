@@ -1380,7 +1380,11 @@
         "title": "No templates found",
         "description": "Try adjusting your search or filter criteria"
       },
-      "no_description": "No description"
+      "no_description": "No description",
+      "variables": {
+        "title": "Variables",
+        "description": "Use variables in templates. Unknown variables stay in place until custom fields are supported."
+      }
     },
     "reset": {
       "title": "Reset Settings",

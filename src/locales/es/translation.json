@@ -1242,7 +1242,11 @@
         "title": "No se encontraron plantillas",
         "description": "Prueba a ajustar la búsqueda o los filtros."
       },
-      "no_description": "Sin descripción"
+      "no_description": "Sin descripción",
+      "variables": {
+        "title": "Variables",
+        "description": "Usa variables en las plantillas. Las variables desconocidas se conservan hasta admitir campos personalizados."
+      }
     },
     "reset": {
       "title": "Restablecer Ajustes",

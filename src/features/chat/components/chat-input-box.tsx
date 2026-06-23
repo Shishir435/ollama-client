@@ -7,6 +7,7 @@ import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-m
 import { useChatInput } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
+import { buildPromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-context"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
@@ -55,7 +56,7 @@ export const ChatInputBox = ({
   const { input, setInput, appendInput } = useChatInput()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
-  const { loadingIds } = useTabContents()
+  const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
@@ -200,7 +201,7 @@ export const ChatInputBox = ({
     }
   }
 
-  const handleSelectPrompt = (prompt: string) => {
+  const handleSelectPrompt = async (prompt: string) => {
     const start = selectionStartRef.current
     const end = selectionEndRef.current
 
@@ -393,7 +394,6 @@ export const ChatInputBox = ({
     (tabId) => loadingIds?.[tabId]
   ).length
   const isPreparingTabContext = tabAccess && pendingTabCount > 0
-
   return (
     <div className="relative">
       {showPromptOverlay && (
@@ -401,6 +401,13 @@ export const ChatInputBox = ({
           open={showPromptOverlay}
           onSelect={handleSelectPrompt}
           onClose={() => setShowPromptOverlay(false)}
+          variableContext={buildPromptTemplateVariableContext({
+            input,
+            selectionStart: selectionStartRef.current,
+            selectionEnd: selectionEndRef.current,
+            selectedTabIds,
+            tabContents
+          })}
         />
       )}
 

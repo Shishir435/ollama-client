@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 
 const mocks = vi.hoisted(() => ({
@@ -39,7 +39,7 @@ vi.mock("@/features/prompt/hooks/use-prompt-templates", () => ({
         id: "summarize",
         title: "Summarize Content",
         description: "Short summary",
-        userPrompt: "Summarize this content",
+        userPrompt: "Summarize {{selection}}",
         category: "Analysis",
         tags: ["summary"],
         usageCount: 2,
@@ -64,10 +64,21 @@ vi.mock("@/lib/browser-api", () => ({
 }))
 
 describe("PromptSelectorSheet", () => {
-  it("filters, previews, and inserts a prompt from the sheet", () => {
+  beforeEach(() => {
+    Element.prototype.getAnimations = vi.fn(() => [])
+  })
+
+  it("filters, previews, and inserts a resolved prompt from the sheet", async () => {
     const onSelect = vi.fn()
 
-    render(<PromptSelectorSheet open onSelect={onSelect} onClose={vi.fn()} />)
+    render(
+      <PromptSelectorSheet
+        open
+        onSelect={onSelect}
+        onClose={vi.fn()}
+        variableContext={{ selection: "selected text" }}
+      />
+    )
 
     expect(screen.getByText("Prompt Templates")).toBeInTheDocument()
 
@@ -83,12 +94,16 @@ describe("PromptSelectorSheet", () => {
     )
     expect(screen.getByText("User Prompt")).toBeInTheDocument()
     expect(
-      screen.getAllByText("Summarize this content").length
+      screen.getAllByText("Summarize selected text").length
     ).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole("button", { name: "Use Template" }))
 
-    expect(onSelect).toHaveBeenCalledWith("Summarize this content")
-    expect(mocks.incrementUsageCount).toHaveBeenCalledWith("summarize")
+    await waitFor(() =>
+      expect(onSelect).toHaveBeenCalledWith("Summarize selected text")
+    )
+    await waitFor(() =>
+      expect(mocks.incrementUsageCount).toHaveBeenCalledWith("summarize")
+    )
   })
 })

@@ -1242,7 +1242,11 @@
         "title": "テンプレートが見つかりません",
         "description": "検索条件またはフィルター条件を調整してください。"
       },
-      "no_description": "説明なし"
+      "no_description": "説明なし",
+      "variables": {
+        "title": "変数",
+        "description": "テンプレートで変数を使えます。未対応の変数はカスタムフィールド対応までそのまま残ります。"
+      }
     },
     "reset": {
       "title": "設定をリセット",

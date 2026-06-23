@@ -1242,7 +1242,11 @@
         "title": "कोई template नहीं मिला",
         "description": "अपनी search या filter criteria बदलकर देखें."
       },
-      "no_description": "कोई description नहीं"
+      "no_description": "कोई description नहीं",
+      "variables": {
+        "title": "वेरिएबल",
+        "description": "टेम्पलेट में वेरिएबल उपयोग करें। कस्टम फ़ील्ड समर्थन आने तक अज्ञात वेरिएबल बने रहेंगे।"
+      }
     },
     "reset": {
       "title": "सेटिंग रीसेट करें",

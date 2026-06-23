@@ -24,6 +24,7 @@ import type { PromptTemplate } from "@/types"
 import { PromptTemplateActions } from "./prompt-template-actions"
 import { PromptTemplateForm } from "./prompt-template-form"
 import { PromptTemplateList } from "./prompt-template-list"
+import { PromptTemplateVariableHelp } from "./prompt-template-variable-help"
 
 export const PromptTemplateManager = () => {
   const { t } = useTranslation()
@@ -134,6 +135,8 @@ export const PromptTemplateManager = () => {
             />
           </div>
         }>
+        <PromptTemplateVariableHelp />
+
         {/* Create Form Collapsible */}
         <Collapsible open={showCreateForm} onOpenChange={setShowCreateForm}>
           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">

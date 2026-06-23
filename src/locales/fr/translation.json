@@ -1242,7 +1242,11 @@
         "title": "Aucun modèle trouvé",
         "description": "Essayez d’ajuster votre recherche ou vos filtres."
       },
-      "no_description": "Aucune description"
+      "no_description": "Aucune description",
+      "variables": {
+        "title": "Variables",
+        "description": "Utilisez des variables dans les modèles. Les variables inconnues restent en place jusqu’à la prise en charge des champs personnalisés."
+      }
     },
     "reset": {
       "title": "Réinitialiser les Paramètres",

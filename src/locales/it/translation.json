@@ -1242,7 +1242,11 @@
         "title": "Nessun template trovato",
         "description": "Prova a modificare la ricerca o i filtri."
       },
-      "no_description": "Nessuna descrizione"
+      "no_description": "Nessuna descrizione",
+      "variables": {
+        "title": "Variabili",
+        "description": "Usa variabili nei modelli. Le variabili sconosciute restano finché non saranno supportati i campi personalizzati."
+      }
     },
     "reset": {
       "title": "Ripristina Impostazioni",

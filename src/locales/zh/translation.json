@@ -1242,7 +1242,11 @@
         "title": "未找到模板",
         "description": "请尝试调整搜索或筛选条件。"
       },
-      "no_description": "无描述"
+      "no_description": "无描述",
+      "variables": {
+        "title": "变量",
+        "description": "在模板中使用变量。未知变量会保留，直到支持自定义字段。"
+      }
     },
     "reset": {
       "title": "重置设置",
