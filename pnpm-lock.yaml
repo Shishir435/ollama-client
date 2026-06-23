@@ -104,6 +104,9 @@ importers:
       markdown-it-task-lists:
         specifier: ^2.1.1
         version: 2.1.1
+      mermaid:
+        specifier: ^11.15.0
+        version: 11.15.0
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0

@@ -46,4 +46,15 @@ describe("ChatMessageContent", () => {
     )
     expect(screen.queryByText("Typing")).not.toBeInTheDocument()
   })
+
+  it("renders message markdown content", () => {
+    render(
+      <ChatMessageContent
+        msg={{ role: "assistant", content: "Hello **there**" }}
+        isUser={false}
+      />
+    )
+
+    expect(screen.getByText("Hello **there**")).toBeInTheDocument()
+  })
 })

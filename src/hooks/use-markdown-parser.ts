@@ -1,7 +1,6 @@
 import DOMPurify from "dompurify"
 import MarkdownIt from "markdown-it"
 import container from "markdown-it-container"
-import MarkdownItCopyCode from "markdown-it-copy-code"
 import deflist from "markdown-it-deflist"
 import { full as emoji } from "markdown-it-emoji"
 import footnote from "markdown-it-footnote"
@@ -13,9 +12,6 @@ import { useEffect, useMemo, useState } from "react"
 
 import { hljs } from "@/lib/hljs"
 
-import "markdown-it-copy-code/styles/base.css"
-import "markdown-it-copy-code/styles/small.css"
-
 export const useMarkdownParser = (markdown: string) => {
   const md = useMemo(() => {
     const instance = new MarkdownIt({
@@ -23,9 +19,11 @@ export const useMarkdownParser = (markdown: string) => {
       linkify: true,
       typographer: true,
       highlight(str, lang) {
+        const safeLang = instance.utils.escapeHtml(lang || "")
+        const langAttrs = safeLang ? ` data-code-language="${safeLang}"` : ""
         if (lang && hljs.getLanguage(lang)) {
           try {
-            return `<pre class="hljs"><code>${
+            return `<pre class="hljs"${langAttrs}><code class="language-${safeLang}">${
               hljs.highlight(str, {
                 language: lang,
                 ignoreIllegals: true
@@ -33,7 +31,7 @@ export const useMarkdownParser = (markdown: string) => {
             }</code></pre>`
           } catch {}
         }
-        return `<pre class="hljs"><code>${instance.utils.escapeHtml(str)}</code></pre>`
+        return `<pre class="hljs"${langAttrs}><code>${instance.utils.escapeHtml(str)}</code></pre>`
       }
     })
 
@@ -43,7 +41,6 @@ export const useMarkdownParser = (markdown: string) => {
       .use(container, "info")
       .use(container, "warning")
       .use(emoji)
-      .use(MarkdownItCopyCode)
       .use(markdownItMark)
       .use(deflist)
       .use(sub)
