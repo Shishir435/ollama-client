@@ -210,7 +210,8 @@
       "export_format_markdown": "Markdown",
       "export_format_text": "文本",
       "previous_branch": "上一个分支",
-      "next_branch": "下一个分支"
+      "next_branch": "下一个分支",
+      "preview": "预览"
     },
     "metrics": {
       "total_time": "总时间",

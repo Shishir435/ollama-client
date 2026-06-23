@@ -210,7 +210,8 @@
       "export_format_markdown": "Markdown",
       "export_format_text": "Текст",
       "previous_branch": "Предыдущая ветка",
-      "next_branch": "Следующая ветка"
+      "next_branch": "Следующая ветка",
+      "preview": "Предпросмотр"
     },
     "metrics": {
       "total_time": "Общее время",

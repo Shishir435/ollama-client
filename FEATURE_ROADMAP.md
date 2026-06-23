@@ -352,7 +352,7 @@ only after the keyword; no passive capture.
 - Code: `src/background/lib/omnibox.ts`,
   `src/features/chat/hooks/use-omnibox-query.ts`.
 
-### E7. Artifacts / Output Canvas — 🟢 `v0.11.11`
+### E7. Artifacts / Output Canvas — 🟡 `v0.11.11` 🚧 in progress
 
 **What:** When the model outputs runnable/renderable content (HTML, SVG, mermaid,
 a code block), render it in a sandboxed preview pane alongside the chat instead of
@@ -366,6 +366,29 @@ safety).
 back a rebuilt component, preview it).
 
 **Privacy:** 🟢 — sandboxed, no network egress (CSP blocks it).
+
+**Implementation plan review (pre-build):**
+
+1. **Artifact detection.** Parse assistant markdown for fenced code blocks that
+   are directly renderable (`html`, `svg`, `mermaid`) or useful as source/code
+   artifacts (`js`, `ts`, `tsx`, `css`, `json`, etc.). Keep raw chat markdown
+   unchanged.
+2. **Canvas surface.** Add a compact artifact launcher on assistant messages,
+   opening a right-side preview sheet. Use a sandboxed iframe for HTML/SVG
+   previews and a source preview for non-renderable code.
+3. **Safety.** No network enablement, no extension privileges, no top-navigation.
+   Generated HTML runs inside `sandbox="allow-scripts"` only; external requests
+   remain blocked by extension CSP and sandbox origin isolation.
+4. **Visible by default.** Show the launcher before long code blocks so users can
+   preview generated artifacts without scrolling to the bottom of the answer.
+5. **Tests.** Cover markdown extraction, preview `srcDoc`, disabled canvas
+   rendering, and assistant-only rendering.
+
+**Implementation status:** v0.11.11 starts with always-on artifact detection and
+a sandboxed preview sheet for HTML/SVG/code blocks inside assistant messages.
+Downloads and richer Mermaid rendering remain follow-ups for E9 / later E7
+polish.
+
 **Effort:** M.
 
 ### E8. Prompt Template Variables & Chaining — 🟢 `v0.11.12`

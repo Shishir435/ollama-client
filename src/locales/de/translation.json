@@ -210,7 +210,8 @@
       "export_format_markdown": "Markdown",
       "export_format_text": "Text",
       "previous_branch": "Vorheriger Zweig",
-      "next_branch": "Nächster Zweig"
+      "next_branch": "Nächster Zweig",
+      "preview": "Vorschau"
     },
     "metrics": {
       "total_time": "Gesamtzeit",
