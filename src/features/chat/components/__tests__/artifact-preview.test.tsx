@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import type { ChatArtifact } from "@/lib/artifacts"
-import { ArtifactCanvas, previewSrcDoc } from "../artifact-canvas"
+import { ArtifactPreview, previewSrcDoc } from "../artifact-preview"
 
 const mermaidMock = vi.hoisted(() => ({
   initialize: vi.fn(),
@@ -14,28 +14,19 @@ vi.mock("mermaid", () => ({
   default: mermaidMock
 }))
 
-describe("ArtifactCanvas", () => {
-  it("renders nothing when disabled", () => {
-    const { container } = render(
-      <ArtifactCanvas
-        enabled={false}
-        content={"```html\n<h1>Hello</h1>\n```"}
-      />
-    )
-
-    expect(container).toBeEmptyDOMElement()
-  })
-
-  it("opens a sandboxed preview for renderable artifacts", () => {
+describe("ArtifactPreview", () => {
+  it("renders a sandboxed iframe for HTML artifacts", () => {
     render(
-      <ArtifactCanvas
-        enabled
-        content={"```html\n<section>Hello artifact</section>\n```"}
+      <ArtifactPreview
+        artifact={{
+          id: "html-1",
+          kind: "html",
+          language: "html",
+          title: "HTML artifact 1",
+          content: "<section>Hello artifact</section>",
+          renderable: true
+        }}
       />
-    )
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Preview HTML artifact 1/ })
     )
 
     const iframe = screen.getByTitle("HTML artifact 1")
@@ -47,23 +38,34 @@ describe("ArtifactCanvas", () => {
   })
 
   it("shows source preview for code artifacts", () => {
-    render(<ArtifactCanvas enabled content={"```ts\nconst value = 1\n```"} />)
-
-    fireEvent.click(screen.getByRole("button", { name: /Open ts artifact 1/i }))
+    render(
+      <ArtifactPreview
+        artifact={{
+          id: "code-1",
+          kind: "code",
+          language: "ts",
+          title: "ts artifact 1",
+          content: "const value = 1",
+          renderable: false
+        }}
+      />
+    )
 
     expect(screen.getByText("const value = 1")).toBeInTheDocument()
   })
 
   it("renders Mermaid artifacts as diagrams", async () => {
     render(
-      <ArtifactCanvas
-        enabled
-        content={"```mermaid\ngraph TD\n  A --> B\n```"}
+      <ArtifactPreview
+        artifact={{
+          id: "mermaid-1",
+          kind: "mermaid",
+          language: "mermaid",
+          title: "Mermaid diagram 1",
+          content: "graph TD\n  A --> B",
+          renderable: true
+        }}
       />
-    )
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Preview Mermaid diagram 1/i })
     )
 
     expect(await screen.findByTestId("mermaid-preview")).toContainHTML(

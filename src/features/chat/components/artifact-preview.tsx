@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ChatArtifact } from "@/lib/artifacts"
-import { extractChatArtifacts } from "@/lib/artifacts"
-import { Code, Eye, Sparkles } from "@/lib/lucide-icon"
-import { cn } from "@/lib/utils"
-import { CopyButton } from "./copy-button"
-import { PreviewSheet, PreviewTextBlock } from "./preview-sheet"
+import { PreviewTextBlock } from "./preview-sheet"
 
 const PREVIEW_RESET_STYLE =
   "<style>html,body{margin:0!important;padding:0!important;min-height:100%;}</style>"
@@ -152,67 +147,6 @@ export const ArtifactPreview = ({ artifact }: { artifact: ChatArtifact }) => {
         className="font-mono text-[11px]"
       />
     </ScrollArea>
-  )
-}
-
-export const ArtifactCanvas = ({
-  content,
-  enabled,
-  className
-}: {
-  content: string
-  enabled: boolean
-  className?: string
-}) => {
-  const artifacts = useMemo(() => extractChatArtifacts(content), [content])
-  const [activeId, setActiveId] = useState<string | null>(null)
-
-  if (!enabled || artifacts.length === 0) return null
-
-  const active = artifacts.find((artifact) => artifact.id === activeId) ?? null
-
-  return (
-    <div className={cn("not-prose mt-2 flex flex-wrap gap-1.5", className)}>
-      {artifacts.map((artifact) => (
-        <Button
-          key={artifact.id}
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-7 gap-1.5 rounded-chip px-2 text-xs"
-          onClick={() => setActiveId(artifact.id)}>
-          {artifact.renderable ? (
-            <Eye className="icon-xs" />
-          ) : (
-            <Code className="icon-xs" />
-          )}
-          <span className="max-w-44 truncate">
-            {artifact.renderable ? "Preview" : "Open"} {artifact.title}
-          </span>
-        </Button>
-      ))}
-      <PreviewSheet
-        open={Boolean(active)}
-        onOpenChange={(next) => {
-          if (!next) setActiveId(null)
-        }}
-        title={active?.title ?? "Artifact"}
-        meta={
-          active
-            ? `${active.language.toUpperCase()} · ${active.content.length.toLocaleString()} chars`
-            : undefined
-        }
-        actions={active ? <CopyButton text={active.content} /> : undefined}
-        className="w-[min(56rem,calc(100vw-1rem))] sm:max-w-4xl">
-        {active ? (
-          <ArtifactPreview artifact={active} />
-        ) : (
-          <div className="grid min-h-64 place-items-center text-muted-foreground">
-            <Sparkles className="icon-lg" />
-          </div>
-        )}
-      </PreviewSheet>
-    </div>
   )
 }
 
