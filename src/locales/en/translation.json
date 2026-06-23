@@ -211,7 +211,8 @@
       "export_format_text": "Text",
       "previous_branch": "Previous branch",
       "next_branch": "Next branch",
-      "preview": "Preview"
+      "preview": "Preview",
+      "download": "Download"
     },
     "metrics": {
       "total_time": "Total Time",

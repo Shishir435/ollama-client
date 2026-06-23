@@ -211,7 +211,8 @@
       "export_format_text": "Testo",
       "previous_branch": "Branch Precedente",
       "next_branch": "Branch Successivo",
-      "preview": "Anteprima"
+      "preview": "Anteprima",
+      "download": "Scarica"
     },
     "metrics": {
       "total_time": "Tempo totale",

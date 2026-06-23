@@ -8,7 +8,8 @@ vi.mock("react-i18next", () => ({
       ({
         "chat.actions.copy": "Copy",
         "chat.actions.copied": "Copied",
-        "chat.actions.preview": "Preview"
+        "chat.actions.preview": "Preview",
+        "chat.actions.download": "Download"
       })[key] ?? key
   })
 }))
@@ -44,6 +45,17 @@ describe("MarkdownRenderer", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument()
     })
+    expect(
+      screen.queryByRole("button", { name: /Preview/ })
+    ).not.toBeInTheDocument()
+  })
+
+  it("adds a download control to code artifacts (no preview required)", async () => {
+    render(<MarkdownRenderer content={"```ts\nconst a = 1\n```"} />)
+
+    expect(
+      await screen.findByRole("button", { name: /Download/ })
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /Preview/ })
     ).not.toBeInTheDocument()

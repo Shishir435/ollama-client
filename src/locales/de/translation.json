@@ -211,7 +211,8 @@
       "export_format_text": "Text",
       "previous_branch": "Vorheriger Zweig",
       "next_branch": "Nächster Zweig",
-      "preview": "Vorschau"
+      "preview": "Vorschau",
+      "download": "Herunterladen"
     },
     "metrics": {
       "total_time": "Gesamtzeit",
