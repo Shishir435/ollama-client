@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PreviewSheet } from "@/features/chat/components"
+import { usePromptTemplateResolution } from "@/features/prompt/hooks/use-prompt-template-resolution"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
+import type { PromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-variables"
 import { logger } from "@/lib/logger"
 import {
   Clock,
@@ -20,11 +22,13 @@ import {
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
+import { PromptTemplateVariableBadges } from "./prompt-template-variable-badges"
 
 export interface PromptSelectorSheetProps {
   open: boolean
-  onSelect: (prompt: string) => void
+  onSelect: (prompt: string) => void | Promise<void>
   onClose: () => void
+  variableContext?: PromptTemplateVariableContext
 }
 
 type SortMode = "recent" | "popular" | "alphabetical"
@@ -32,10 +36,13 @@ type SortMode = "recent" | "popular" | "alphabetical"
 export function PromptSelectorSheet({
   open,
   onSelect,
-  onClose
+  onClose,
+  variableContext
 }: PromptSelectorSheetProps) {
   const { t } = useTranslation()
   const { templates, incrementUsageCount } = usePromptTemplates()
+  const { getVariableNames, previewPrompt, resolveTemplatePrompt } =
+    usePromptTemplateResolution(variableContext)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortMode>("recent")
@@ -78,8 +85,9 @@ export function PromptSelectorSheet({
     })
   }, [templates, searchQuery, selectedCategory, sortBy])
 
-  const handleTemplateSelect = (template: PromptTemplate) => {
-    onSelect(template.userPrompt)
+  const handleTemplateSelect = async (template: PromptTemplate) => {
+    const prompt = await resolveTemplatePrompt(template)
+    await onSelect(prompt)
     incrementUsageCount(template.id)
   }
 
@@ -241,7 +249,7 @@ export function PromptSelectorSheet({
                     </span>
                   )}
                   <span className="line-clamp-2 text-xs text-muted-foreground/80">
-                    {template.userPrompt}
+                    {previewPrompt(template)}
                   </span>
                 </button>
                 <div className="flex items-center justify-between border-t border-border/35 px-3 py-2">
@@ -268,7 +276,7 @@ export function PromptSelectorSheet({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => copyToClipboard(template.userPrompt)}
+                      onClick={() => copyToClipboard(previewPrompt(template))}
                       aria-label={t("prompts.selector.copy")}>
                       <Copy className="icon-sm" />
                     </Button>
@@ -284,7 +292,10 @@ export function PromptSelectorSheet({
                     )}
                     <PromptPreviewBlock
                       title={t("prompts.selector.preview_user_prompt")}
-                      text={template.userPrompt}
+                      text={previewPrompt(template)}
+                    />
+                    <PromptTemplateVariableBadges
+                      names={getVariableNames(template)}
                     />
                     <Button
                       type="button"

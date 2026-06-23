@@ -1242,7 +1242,11 @@
         "title": "Keine Vorlagen gefunden",
         "description": "Passen Sie Ihre Suche oder Filterkriterien an."
       },
-      "no_description": "Keine Beschreibung"
+      "no_description": "Keine Beschreibung",
+      "variables": {
+        "title": "Variablen",
+        "description": "Nutze Variablen in Vorlagen; unbekannte Variablen bleiben erhalten."
+      }
     },
     "reset": {
       "title": "Einstellungen zurücksetzen",
