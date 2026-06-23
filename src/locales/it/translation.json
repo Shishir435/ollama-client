@@ -210,7 +210,8 @@
       "export_format_markdown": "Markdown",
       "export_format_text": "Testo",
       "previous_branch": "Branch Precedente",
-      "next_branch": "Branch Successivo"
+      "next_branch": "Branch Successivo",
+      "preview": "Anteprima"
     },
     "metrics": {
       "total_time": "Tempo totale",

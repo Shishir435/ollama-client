@@ -7,7 +7,8 @@ vi.mock("react-i18next", () => ({
     t: (key: string) =>
       ({
         "chat.actions.copy": "Copy",
-        "chat.actions.copied": "Copied"
+        "chat.actions.copied": "Copied",
+        "chat.actions.preview": "Preview"
       })[key] ?? key
   })
 }))
@@ -46,5 +47,17 @@ describe("MarkdownRenderer", () => {
     expect(
       screen.queryByRole("button", { name: /Preview/ })
     ).not.toBeInTheDocument()
+  })
+
+  it("numbers previews by artifacts, not all code blocks", async () => {
+    render(
+      <MarkdownRenderer
+        content={"```\nplain notes\n```\n\n```html\n<section>Hi</section>\n```"}
+      />
+    )
+
+    expect(
+      await screen.findByRole("button", { name: "Preview HTML artifact 1" })
+    ).toBeInTheDocument()
   })
 })

@@ -75,7 +75,7 @@ describe("ArtifactPreview", () => {
       expect.objectContaining({ securityLevel: "strict" })
     )
     expect(mermaidMock.render).toHaveBeenCalledWith(
-      expect.stringContaining("artifact-mermaid-1"),
+      expect.stringMatching(/^artifact-mermaid-1-[a-z0-9]+$/),
       "graph TD\n  A --> B"
     )
   })
@@ -96,6 +96,7 @@ describe("previewSrcDoc", () => {
     expect(previewSrcDoc(artifact)).toContain(
       "margin:0!important;padding:0!important"
     )
+    expect(previewSrcDoc(artifact)).toContain("Content-Security-Policy")
   })
 
   it("blocks link and form navigation inside HTML previews", () => {

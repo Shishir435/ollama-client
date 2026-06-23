@@ -210,7 +210,8 @@
       "export_format_markdown": "Markdown",
       "export_format_text": "テキスト",
       "previous_branch": "前のブランチ",
-      "next_branch": "次のブランチ"
+      "next_branch": "次のブランチ",
+      "preview": "プレビュー"
     },
     "metrics": {
       "total_time": "合計時間",

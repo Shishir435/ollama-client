@@ -14,7 +14,6 @@ const MAX_ARTIFACT_CHARS = 120_000
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   htm: "html",
-  xml: "svg",
   mmd: "mermaid",
   javascript: "js",
   typescript: "ts"

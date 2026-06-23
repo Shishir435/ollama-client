@@ -63,4 +63,14 @@ plain
 `)
     ).toEqual([])
   })
+
+  it("does not treat generic XML as SVG", () => {
+    expect(
+      extractChatArtifacts(`
+\`\`\`xml
+<rss><channel><title>Feed</title></channel></rss>
+\`\`\`
+`)
+    ).toEqual([])
+  })
 })

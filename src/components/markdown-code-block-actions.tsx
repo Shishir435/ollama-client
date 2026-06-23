@@ -27,8 +27,9 @@ export const MarkdownCodeBlockActions = ({
     const container = containerRef.current
     if (!container || !html) return
 
+    let artifactIndex = 0
     const blocks = Array.from(container.querySelectorAll("pre"))
-    blocks.forEach((pre, index) => {
+    blocks.forEach((pre) => {
       if (pre.parentElement?.dataset.codeBlockShell === "true") return
 
       const code = pre.querySelector("code")
@@ -37,8 +38,9 @@ export const MarkdownCodeBlockActions = ({
       const artifact = createChatArtifactFromCodeBlock({
         code: rawCode,
         language,
-        index: index + 1
+        index: artifactIndex + 1
       })
+      if (artifact) artifactIndex += 1
 
       const shell = document.createElement("div")
       shell.dataset.codeBlockShell = "true"
@@ -63,11 +65,15 @@ export const MarkdownCodeBlockActions = ({
       toolbar.appendChild(copyButton)
 
       if (artifact?.renderable) {
+        const previewLabel = t("chat.actions.preview")
         const previewButton = document.createElement("button")
         previewButton.type = "button"
         previewButton.className = codeActionButtonClass
-        previewButton.textContent = "Preview"
-        previewButton.setAttribute("aria-label", `Preview ${artifact.title}`)
+        previewButton.textContent = previewLabel
+        previewButton.setAttribute(
+          "aria-label",
+          `${previewLabel} ${artifact.title}`
+        )
         previewButton.addEventListener("click", () => {
           setActiveArtifact(artifact)
         })
