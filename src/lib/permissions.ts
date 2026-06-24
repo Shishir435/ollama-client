@@ -22,13 +22,25 @@ export type OptionalApiPermission =
   | "notifications"
   | "downloads"
   | "tabGroups"
+  | "alarms"
+
+/**
+ * `alarms` is genuinely requestable at runtime in Chrome MV3, but
+ * `@types/webextension-polyfill` classifies it as a standing (non-optional)
+ * permission, so the permission-API arg types reject it. This wraps the cast in
+ * one place — the underlying runtime call is valid.
+ */
+const permissionArg = (perm: OptionalApiPermission) =>
+  ({ permissions: [perm] }) as unknown as Parameters<
+    typeof browser.permissions.request
+  >[0]
 
 /** Is the optional permission currently granted? Never throws. */
 export const hasPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.contains({ permissions: [perm] })
+    return await browser.permissions.contains(permissionArg(perm))
   } catch {
     return false
   }
@@ -42,7 +54,7 @@ export const requestPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.request({ permissions: [perm] })
+    return await browser.permissions.request(permissionArg(perm))
   } catch {
     return false
   }
@@ -53,7 +65,7 @@ export const removePermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.remove({ permissions: [perm] })
+    return await browser.permissions.remove(permissionArg(perm))
   } catch {
     return false
   }

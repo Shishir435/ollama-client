@@ -1451,6 +1451,10 @@
         "tabGroups": {
           "label": "Gruppi di schede",
           "description": "Lavora con interi gruppi di schede per riepiloghi e confronti su più schede."
+        },
+        "alarms": {
+          "label": "Allarmi",
+          "description": "Esegui promemoria e manutenzione pianificata in background."
         }
       },
       "host": {

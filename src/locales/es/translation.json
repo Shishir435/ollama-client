@@ -1451,6 +1451,10 @@
         "tabGroups": {
           "label": "Grupos de pestañas",
           "description": "Trabaja con grupos de pestañas completos para resúmenes y comparaciones entre varias pestañas."
+        },
+        "alarms": {
+          "label": "Alarmas",
+          "description": "Ejecutar recordatorios y mantenimiento programado en segundo plano."
         }
       },
       "host": {

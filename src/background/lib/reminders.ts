@@ -88,6 +88,15 @@ export const scheduleReminder = async ({
     throw new Error("Reminder delay must be greater than 0 minutes.")
   }
 
+  // `alarms` is an optional permission (0.11.15). When ungranted the namespace is
+  // absent, so check the permission first to give a clear, actionable error
+  // instead of the generic "unsupported browser" one below.
+  if (!(await hasPermission("alarms"))) {
+    throw new Error(
+      "Alarms permission is required to schedule reminders. Enable it in Settings → Permissions."
+    )
+  }
+
   if (!supportsAlarms()) {
     throw new Error("Scheduled reminders are not supported in this browser.")
   }
@@ -165,11 +174,17 @@ export const fireReminder = async (id: string): Promise<void> => {
   })
 }
 
+// Guards a double-add when registration runs both at startup and again on a
+// runtime `alarms` permission grant within the same service-worker session.
+let reminderAlarmsRegistered = false
+
 export const registerReminderAlarms = (): void => {
+  if (reminderAlarmsRegistered) return
   if (!supportsAlarms()) return
   const alarms = getAlarmsApi()
   if (!alarms?.onAlarm) return
 
+  reminderAlarmsRegistered = true
   alarms.onAlarm.addListener((alarm) => {
     const id = reminderIdFromAlarmName(alarm.name)
     if (!id) return

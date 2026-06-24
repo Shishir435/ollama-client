@@ -1351,6 +1351,20 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       ]
     : []),
   {
+    id: "permission-alarms",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.alarms.label",
+    descriptionKey: "settings.permissions.items.alarms.description",
+    aliases: [
+      "alarms",
+      "reminders",
+      "scheduled jobs",
+      "maintenance",
+      "permission"
+    ]
+  },
+  {
     id: "permissions-host",
     tab: "permissions",
     sectionId: "permissions",

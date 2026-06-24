@@ -1035,6 +1035,10 @@
         "tabGroups": {
           "label": "Tab groups",
           "description": "Work with whole tab groups for multi-tab summaries and compare."
+        },
+        "alarms": {
+          "label": "Alarms",
+          "description": "Run reminders and scheduled background maintenance."
         }
       },
       "host": {

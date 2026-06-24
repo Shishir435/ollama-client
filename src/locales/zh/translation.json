@@ -1451,6 +1451,10 @@
         "tabGroups": {
           "label": "标签组",
           "description": "处理整个标签组，进行多标签摘要和比较。"
+        },
+        "alarms": {
+          "label": "闹钟",
+          "description": "运行提醒和计划的后台维护。"
         }
       },
       "host": {
