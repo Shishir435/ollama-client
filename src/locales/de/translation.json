@@ -1534,6 +1534,14 @@
             "label": "Automatisierung",
             "description": "Erinnerungen und andere geplante Aktionen."
           }
+        },
+        "perModel": {
+          "title": "Modellspezifische Ausnahmen",
+          "description": "Überschreibe die obigen Gruppen für ein bestimmtes Modell. Modelle ohne Ausnahme nutzen die Standardwerte oben.",
+          "selectPlaceholder": "Modell auswählen…",
+          "customBadge": "angepasst",
+          "reset": "Auf Standard zurücksetzen",
+          "empty": "Noch keine Modelle verfügbar."
         }
       }
     },

@@ -1534,6 +1534,14 @@
             "label": "Automazione",
             "description": "Promemoria e altre azioni pianificate."
           }
+        },
+        "perModel": {
+          "title": "Impostazioni per modello",
+          "description": "Sostituisci i gruppi sopra per un modello specifico. I modelli senza override usano i valori predefiniti sopra.",
+          "selectPlaceholder": "Scegli un modello…",
+          "customBadge": "personalizzato",
+          "reset": "Ripristina predefiniti",
+          "empty": "Nessun modello ancora disponibile."
         }
       }
     },

@@ -1534,6 +1534,14 @@
             "label": "Automatisation",
             "description": "Rappels et autres actions planifiées."
           }
+        },
+        "perModel": {
+          "title": "Réglages par modèle",
+          "description": "Remplacez les groupes ci-dessus pour un modèle précis. Les modèles sans réglage utilisent les valeurs par défaut ci-dessus.",
+          "selectPlaceholder": "Choisir un modèle…",
+          "customBadge": "personnalisé",
+          "reset": "Réinitialiser",
+          "empty": "Aucun modèle disponible pour l'instant."
         }
       }
     },

@@ -1118,6 +1118,14 @@
             "label": "Automation",
             "description": "Reminders and other scheduled actions."
           }
+        },
+        "perModel": {
+          "title": "Per-model overrides",
+          "description": "Override the groups above for a specific model. Models without an override use the defaults above.",
+          "selectPlaceholder": "Choose a model…",
+          "customBadge": "custom",
+          "reset": "Reset to defaults",
+          "empty": "No models available yet."
         }
       }
     },

@@ -1534,6 +1534,14 @@
             "label": "Automatización",
             "description": "Recordatorios y otras acciones programadas."
           }
+        },
+        "perModel": {
+          "title": "Ajustes por modelo",
+          "description": "Anula los grupos de arriba para un modelo concreto. Los modelos sin ajuste usan los valores predeterminados de arriba.",
+          "selectPlaceholder": "Elige un modelo…",
+          "customBadge": "personalizado",
+          "reset": "Restablecer valores",
+          "empty": "Aún no hay modelos disponibles."
         }
       }
     },

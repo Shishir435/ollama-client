@@ -6,7 +6,7 @@ import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
 import { getToolFamily } from "@/lib/tools/tool-families"
-import { getToolFamilySettings } from "@/lib/tools/tool-settings"
+import { getEffectiveToolFamilySettings } from "@/lib/tools/tool-model-overrides"
 
 /**
  * Caches a model's `/api/show` capability tags briefly, keyed by the provider
@@ -75,11 +75,15 @@ export const resolveModelTools = async (
 
   if (!capabilities.toolCalling) return undefined
 
-  // E10 governance: the user gates which tool families a model may be offered.
+  // Governance: the user gates which tool families a model may be offered.
   // Master off → no tools at all; otherwise drop tools whose family is disabled.
-  // Defaults are all-on, so this is byte-identical to pre-0.11.14 until a user
-  // turns something off.
-  const toolSettings = await getToolFamilySettings()
+  // Effective settings = global family defaults (E10) with any per-model override
+  // layered on top (0.11.18). Defaults are all-on with no override, so this stays
+  // byte-identical to pre-governance until a user turns something off.
+  const toolSettings = await getEffectiveToolFamilySettings(
+    resolvedProviderId,
+    model
+  )
   if (!toolSettings.enabled) return undefined
 
   const definitions = await getToolRegistry().listDefinitions()

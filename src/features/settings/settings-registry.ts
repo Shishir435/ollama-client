@@ -1294,7 +1294,9 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       "settings.permissions.tools.families.knowledge.label",
       "settings.permissions.tools.families.history.label",
       "settings.permissions.tools.families.web.label",
-      "settings.permissions.tools.families.automation.label"
+      "settings.permissions.tools.families.automation.label",
+      "settings.permissions.tools.perModel.title",
+      "settings.permissions.tools.perModel.description"
     ],
     aliases: [
       "model tools",
@@ -1302,7 +1304,9 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       "tool calling",
       "function calling",
       "agent",
-      "browser tools"
+      "browser tools",
+      "per model tools",
+      "per-model"
     ]
   },
   {
