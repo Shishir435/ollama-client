@@ -37,7 +37,8 @@ const FAMILY_BY_TOOL_NAME: Record<string, ToolFamily> = {
   recent_history: "history",
   search_bookmarks: "history",
   web_search: "web",
-  schedule_reminder: "automation"
+  schedule_reminder: "automation",
+  save_artifact: "automation"
 }
 
 /**

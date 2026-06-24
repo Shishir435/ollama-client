@@ -260,7 +260,9 @@
         "answering": "Respondiendo",
         "preparing": "Preparando contexto",
         "tabGroup": "Leyendo grupo de pestañas",
-        "tabGroups": "Listando grupos de pestañas"
+        "tabGroups": "Listando grupos de pestañas",
+        "schedule_reminder": "Programando recordatorio",
+        "save_artifact": "Guardando archivo"
       },
       "debug": "Razonamiento de depuración"
     },

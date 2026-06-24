@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   Circle,
+  Download,
   FileSearch,
   FileStack,
   FileText,
@@ -66,7 +67,8 @@ const TOOL_ICONS: Record<
   "panels-top-left": PanelsTopLeft,
   list: List,
   "file-text": FileText,
-  "text-select": TextSelect
+  "text-select": TextSelect,
+  download: Download
 }
 
 const ACTIVITY_ICONS: Record<
