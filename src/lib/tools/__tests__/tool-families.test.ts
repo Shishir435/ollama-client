@@ -19,6 +19,7 @@ describe("getToolFamily", () => {
     expect(getToolFamily(def({ name: "search_bookmarks" }))).toBe("history")
     expect(getToolFamily(def({ name: "web_search" }))).toBe("web")
     expect(getToolFamily(def({ name: "schedule_reminder" }))).toBe("automation")
+    expect(getToolFamily(def({ name: "save_artifact" }))).toBe("automation")
   })
 
   it("puts history/bookmark tools in `history`, not `browser`, despite their category", () => {

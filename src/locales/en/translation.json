@@ -261,7 +261,9 @@
         "documents": "Searching files",
         "answering": "Answering",
         "tabGroup": "Reading tab group",
-        "tabGroups": "Listing tab groups"
+        "tabGroups": "Listing tab groups",
+        "schedule_reminder": "Scheduling reminder",
+        "save_artifact": "Saving file"
       }
     },
     "feedback": {
