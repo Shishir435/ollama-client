@@ -120,6 +120,37 @@ export const setToolModelOverride = (
     await plasmoGlobalStorage.set(STORAGE_KEY, all)
   })
 
+/**
+ * Merge a partial change into a model's override, reading the authoritative
+ * stored value inside the write queue. Unlike merging from React state (which is
+ * stale between a write and its async reload), this makes rapid successive
+ * toggles of different fields compose instead of clobber each other.
+ */
+export const patchToolModelOverride = (
+  providerId: string,
+  modelName: string,
+  patch: ToolFamilyOverride
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllToolModelOverrides()
+    const key = toolModelOverrideKey(providerId, modelName)
+    const existing = all[key] ?? {}
+    const merged: ToolFamilyOverride = {
+      ...existing,
+      ...("enabled" in patch ? { enabled: patch.enabled } : {}),
+      ...(patch.families
+        ? { families: { ...existing.families, ...patch.families } }
+        : {})
+    }
+    const cleaned = pruneEmptyOverride(merged)
+    if (cleaned) {
+      all[key] = cleaned
+    } else {
+      delete all[key]
+    }
+    await plasmoGlobalStorage.set(STORAGE_KEY, all)
+  })
+
 export const clearToolModelOverride = (
   providerId: string,
   modelName: string

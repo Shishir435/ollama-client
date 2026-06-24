@@ -30,6 +30,7 @@ import {
   clearToolModelOverride,
   getEffectiveToolFamilySettings,
   getToolModelOverride,
+  patchToolModelOverride,
   setToolModelOverride,
   toolModelOverrideKey
 } from "../tool-model-overrides"
@@ -85,6 +86,29 @@ describe("tool-model-overrides", () => {
     expect(await getToolModelOverride("ollama", "qwen")).toBeNull()
     const effective = await getEffectiveToolFamilySettings("ollama", "qwen")
     expect(effective.enabled).toBe(true)
+  })
+
+  it("composes concurrent patches to different families without clobbering", async () => {
+    // The race the UI fix targets: two quick toggles before a reload resolves.
+    await Promise.all([
+      patchToolModelOverride("ollama", "qwen", {
+        families: { browser: false }
+      }),
+      patchToolModelOverride("ollama", "qwen", { families: { web: false } })
+    ])
+    const override = await getToolModelOverride("ollama", "qwen")
+    expect(override?.families?.browser).toBe(false)
+    expect(override?.families?.web).toBe(false)
+  })
+
+  it("patch merges a field over the stored override, leaving others intact", async () => {
+    await setToolModelOverride("ollama", "qwen", { enabled: false })
+    await patchToolModelOverride("ollama", "qwen", {
+      families: { knowledge: false }
+    })
+    const override = await getToolModelOverride("ollama", "qwen")
+    expect(override?.enabled).toBe(false)
+    expect(override?.families?.knowledge).toBe(false)
   })
 
   it("serializes concurrent writes to different models without dropping either", async () => {

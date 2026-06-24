@@ -34,7 +34,7 @@ import {
   clearToolModelOverride,
   getAllToolModelOverrides,
   getEffectiveToolFamilySettings,
-  setToolModelOverride,
+  patchToolModelOverride,
   type ToolFamilyOverride,
   type ToolModelOverrideMap,
   toolModelOverrideKey
@@ -335,15 +335,9 @@ const ModelToolOverridesSection = () => {
 
   const applyChange = async (patch: ToolFamilyOverride) => {
     if (!target) return
-    const existing = overrides[target.key] ?? {}
-    const next: ToolFamilyOverride = {
-      ...existing,
-      ...("enabled" in patch ? { enabled: patch.enabled } : {}),
-      ...(patch.families
-        ? { families: { ...existing.families, ...patch.families } }
-        : {})
-    }
-    await setToolModelOverride(target.providerId, target.name, next)
+    // Merge happens in storage (patchToolModelOverride), not from `overrides`
+    // state, so two quick toggles before a reload resolves don't clobber.
+    await patchToolModelOverride(target.providerId, target.name, patch)
     reloadOverrides()
     await loadEffective(target.providerId, target.name)
   }

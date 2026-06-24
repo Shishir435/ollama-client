@@ -52,7 +52,7 @@ vi.mock("@/features/model/hooks/use-provider-models", () => ({
 
 const toolOverrides = vi.hoisted(() => ({
   store: {} as Record<string, unknown>,
-  setToolModelOverride: vi.fn(),
+  patchToolModelOverride: vi.fn(),
   clearToolModelOverride: vi.fn()
 }))
 
@@ -68,8 +68,8 @@ vi.mock("@/lib/tools/tool-model-overrides", () => ({
       automation: true
     }
   })),
-  setToolModelOverride: (...args: unknown[]) =>
-    toolOverrides.setToolModelOverride(...args),
+  patchToolModelOverride: (...args: unknown[]) =>
+    toolOverrides.patchToolModelOverride(...args),
   clearToolModelOverride: (...args: unknown[]) =>
     toolOverrides.clearToolModelOverride(...args),
   toolModelOverrideKey: (providerId: string, model: string) =>
