@@ -56,8 +56,10 @@ const allOn = {
   }
 }
 let toolSettings: typeof allOn = allOn
-vi.mock("@/lib/tools/tool-settings", () => ({
-  getToolFamilySettings: () => Promise.resolve(toolSettings)
+// resolve-model-tools reads the per-model effective settings, which already
+// fold the global family settings in; mocking it covers both layers.
+vi.mock("@/lib/tools/tool-model-overrides", () => ({
+  getEffectiveToolFamilySettings: () => Promise.resolve(toolSettings)
 }))
 
 const toolModel = (): LLMProvider =>

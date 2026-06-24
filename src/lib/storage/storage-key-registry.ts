@@ -216,6 +216,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Which model-tool families are enabled is a portable preference, not a device secret."
   },
+  [STORAGE_KEYS.TOOLS.MODEL_OVERRIDES]: {
+    key: STORAGE_KEYS.TOOLS.MODEL_OVERRIDES,
+    scope: "sync-safe",
+    reason:
+      "Per-model tool-family overrides are portable preferences keyed by provider+model."
+  },
   [STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET]: {
     key: STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET,
     scope: "sync-safe",
