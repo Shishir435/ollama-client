@@ -92,7 +92,7 @@ const FLAG_LABELS: Record<FeatureFlag, string> = {
   bookmarksHistoryRag: "Bookmarks & history knowledge",
   perSiteProfiles: "Per-site context profiles",
   tabGroups: "Tab-group workflows",
-  templateChaining: "Template variables & chaining",
+  templateVariables: "Template variables",
   downloads: "Save generated artifacts",
   browserTools: "Browser actions as tools"
 }

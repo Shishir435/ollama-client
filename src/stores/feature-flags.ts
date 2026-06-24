@@ -21,7 +21,7 @@ export const FEATURE_FLAG_DEFAULTS = {
   bookmarksHistoryRag: false, // E2 — bookmarks/history local RAG
   perSiteProfiles: false, // E3 — per-site auto-context profiles
   tabGroups: false, // E4 — tab-group / multi-tab workflows
-  templateChaining: false, // E8 — prompt template variables + chaining
+  templateVariables: false, // E8 — prompt template variables
   downloads: false, // E9 — downloads for generated artifacts
   browserTools: false // E10 — browser actions as local tools
 } as const
