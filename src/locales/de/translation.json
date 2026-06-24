@@ -1498,6 +1498,36 @@
           "always": "Immer an",
           "never": "Nie"
         }
+      },
+      "tools": {
+        "title": "Modell-Tools",
+        "description": "Lege fest, welche Aktionen das Modell selbst ausführen darf. Eine deaktivierte Gruppe blendet diese Tools vollständig für das Modell aus.",
+        "master": {
+          "label": "Modell darf Tools verwenden",
+          "description": "Hauptschalter. Ist er aus, kann das Modell kein Tool aufrufen – unabhängig von den Gruppen unten."
+        },
+        "families": {
+          "browser": {
+            "label": "Browser-Tabs & Auswahl",
+            "description": "Aktuellen Tab, offene Tabs, Tab-Gruppen und markierten Text lesen."
+          },
+          "knowledge": {
+            "label": "Wissen & Dateien",
+            "description": "Hochgeladene Dateien und Chat-Speicher durchsuchen."
+          },
+          "history": {
+            "label": "Verlauf & Lesezeichen",
+            "description": "Browserverlauf und Lesezeichen durchsuchen. Benötigt auch die passende Berechtigung oben."
+          },
+          "web": {
+            "label": "Websuche",
+            "description": "Websuchen mit dem konfigurierten Such-Backend ausführen."
+          },
+          "automation": {
+            "label": "Automatisierung",
+            "description": "Erinnerungen und andere geplante Aktionen."
+          }
+        }
       }
     },
     "search": {

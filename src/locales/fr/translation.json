@@ -1498,6 +1498,36 @@
           "always": "Toujours activé",
           "never": "Jamais"
         }
+      },
+      "tools": {
+        "title": "Outils du modèle",
+        "description": "Choisissez les actions que le modèle peut exécuter lui-même. Désactiver un groupe masque entièrement ces outils au modèle.",
+        "master": {
+          "label": "Autoriser le modèle à utiliser des outils",
+          "description": "Interrupteur principal. S'il est désactivé, le modèle ne peut appeler aucun outil, quels que soient les groupes ci-dessous."
+        },
+        "families": {
+          "browser": {
+            "label": "Onglets du navigateur et sélection",
+            "description": "Lire l'onglet actuel, les onglets ouverts, les groupes d'onglets et le texte sélectionné."
+          },
+          "knowledge": {
+            "label": "Connaissances et fichiers",
+            "description": "Rechercher dans vos fichiers importés et la mémoire du chat."
+          },
+          "history": {
+            "label": "Historique et favoris",
+            "description": "Rechercher dans l'historique de navigation et les favoris. Nécessite aussi l'autorisation correspondante ci-dessus."
+          },
+          "web": {
+            "label": "Recherche web",
+            "description": "Lancer des recherches web avec le backend de recherche configuré."
+          },
+          "automation": {
+            "label": "Automatisation",
+            "description": "Rappels et autres actions planifiées."
+          }
+        }
       }
     },
     "search": {

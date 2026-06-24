@@ -1498,6 +1498,36 @@
           "always": "Siempre activado",
           "never": "Nunca"
         }
+      },
+      "tools": {
+        "title": "Herramientas del modelo",
+        "description": "Elige qué acciones puede ejecutar el modelo por su cuenta. Desactivar un grupo oculta por completo esas herramientas al modelo.",
+        "master": {
+          "label": "Permitir que el modelo use herramientas",
+          "description": "Interruptor principal. Si está apagado, el modelo no puede llamar a ninguna herramienta, digan lo que digan los grupos de abajo."
+        },
+        "families": {
+          "browser": {
+            "label": "Pestañas del navegador y selección",
+            "description": "Leer la pestaña actual, las pestañas abiertas, los grupos de pestañas y el texto seleccionado."
+          },
+          "knowledge": {
+            "label": "Conocimiento y archivos",
+            "description": "Buscar en tus archivos subidos y en la memoria del chat."
+          },
+          "history": {
+            "label": "Historial y marcadores",
+            "description": "Buscar en el historial de navegación y los marcadores. También requiere el permiso correspondiente de arriba."
+          },
+          "web": {
+            "label": "Búsqueda web",
+            "description": "Realizar búsquedas web con el backend de búsqueda configurado."
+          },
+          "automation": {
+            "label": "Automatización",
+            "description": "Recordatorios y otras acciones programadas."
+          }
+        }
       }
     },
     "search": {

@@ -5,6 +5,8 @@ import { getModelCapabilityOverride } from "@/lib/providers/model-capability-ove
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
+import { getToolFamily } from "@/lib/tools/tool-families"
+import { getToolFamilySettings } from "@/lib/tools/tool-settings"
 
 /**
  * Caches a model's `/api/show` capability tags briefly, keyed by the provider
@@ -73,6 +75,16 @@ export const resolveModelTools = async (
 
   if (!capabilities.toolCalling) return undefined
 
+  // E10 governance: the user gates which tool families a model may be offered.
+  // Master off → no tools at all; otherwise drop tools whose family is disabled.
+  // Defaults are all-on, so this is byte-identical to pre-0.11.14 until a user
+  // turns something off.
+  const toolSettings = await getToolFamilySettings()
+  if (!toolSettings.enabled) return undefined
+
   const definitions = await getToolRegistry().listDefinitions()
-  return definitions.length > 0 ? definitions : undefined
+  const allowed = definitions.filter(
+    (definition) => toolSettings.families[getToolFamily(definition)] !== false
+  )
+  return allowed.length > 0 ? allowed : undefined
 }

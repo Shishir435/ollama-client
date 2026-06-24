@@ -111,6 +111,10 @@ export const STORAGE_KEYS = {
   WEB_SEARCH: {
     CONFIG: "web-search-config"
   },
+  TOOLS: {
+    // E10: per-family governance over model-callable tools (master + families).
+    FAMILIES: "tools-families-config"
+  },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",

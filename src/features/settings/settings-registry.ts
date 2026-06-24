@@ -1283,6 +1283,29 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     aliases: ["permissions", "privacy", "access", "consent", "data"]
   },
   {
+    id: "model-tools",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.tools.title",
+    descriptionKey: "settings.permissions.tools.description",
+    searchKeys: [
+      "settings.permissions.tools.master.label",
+      "settings.permissions.tools.families.browser.label",
+      "settings.permissions.tools.families.knowledge.label",
+      "settings.permissions.tools.families.history.label",
+      "settings.permissions.tools.families.web.label",
+      "settings.permissions.tools.families.automation.label"
+    ],
+    aliases: [
+      "model tools",
+      "ai tools",
+      "tool calling",
+      "function calling",
+      "agent",
+      "browser tools"
+    ]
+  },
+  {
     id: "permission-bookmarks",
     tab: "permissions",
     sectionId: "permissions",
