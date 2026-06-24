@@ -154,4 +154,25 @@ export const initializeBackgroundStartup = () => {
   registerOmniboxQuickAsk(openPanelForTab)
   registerScheduledJobs()
   registerReminderAlarms()
+  registerAlarmPermissionReactivation()
+}
+
+/**
+ * `alarms` is an optional permission (0.11.15). When granted mid-session the API
+ * namespace appears, but the startup registration already ran while it was
+ * absent and added no listeners. Re-run registration (and re-sync periodic jobs)
+ * on grant so reminders/scheduled jobs start working without a restart. The
+ * register* functions are idempotent, so a later real SW restart is harmless.
+ */
+const registerAlarmPermissionReactivation = () => {
+  browser.permissions?.onAdded?.addListener((perms) => {
+    // `alarms` isn't in the polyfill's optional-permission union (see
+    // src/lib/permissions.ts); compare as plain strings.
+    const granted = (perms.permissions ?? []) as string[]
+    if (!granted.includes("alarms")) return
+    // `registerScheduledJobs` re-syncs periodic-job alarms itself, so there's
+    // no separate `syncScheduledJobAlarms` call here.
+    registerScheduledJobs()
+    registerReminderAlarms()
+  })
 }

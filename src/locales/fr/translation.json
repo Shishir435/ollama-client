@@ -1453,6 +1453,10 @@
         "tabGroups": {
           "label": "Groupes d'onglets",
           "description": "Travaillez avec des groupes d'onglets entiers pour des résumés et comparaisons multi-onglets."
+        },
+        "alarms": {
+          "label": "Alarmes",
+          "description": "Exécuter les rappels et la maintenance planifiée en arrière-plan."
         }
       },
       "host": {

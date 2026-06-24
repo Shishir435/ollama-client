@@ -62,7 +62,8 @@ const OPTIONAL_PERMISSIONS: OptionalPermissionMeta[] = [
     perm: "tabGroups",
     focusId: "permission-tab-groups",
     available: supportsTabGroups
-  }
+  },
+  { perm: "alarms", focusId: "permission-alarms", available: () => true }
 ]
 
 /**

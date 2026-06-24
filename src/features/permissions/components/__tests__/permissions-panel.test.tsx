@@ -64,10 +64,17 @@ describe("PermissionsPanel", () => {
     render(<PermissionsPanel />)
     expect(document.getElementById("permission-bookmarks")).toBeTruthy()
     expect(document.getElementById("permission-history")).toBeTruthy()
+    expect(document.getElementById("permission-alarms")).toBeTruthy()
     expect(
       document.getElementById("scheduled-job-vector-maintenance")
     ).toBeTruthy()
     expect(document.getElementById("feature-flag-omnibox")).toBeTruthy()
+  })
+
+  it("requests the alarms permission when its switch is enabled", () => {
+    render(<PermissionsPanel />)
+    fireEvent.click(document.getElementById("permission-alarms") as Element)
+    expect(perm.requestPermission).toHaveBeenCalledWith("alarms")
   })
 
   it("requests the API permission when its switch is enabled", () => {
