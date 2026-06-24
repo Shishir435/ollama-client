@@ -261,7 +261,8 @@
         "documents": "Searching files",
         "answering": "Answering",
         "tabGroup": "Reading tab group",
-        "tabGroups": "Listing tab groups"
+        "tabGroups": "Listing tab groups",
+        "capture_screenshot": "Capturing screenshot"
       }
     },
     "feedback": {

@@ -1,4 +1,5 @@
 import {
+  Camera,
   ChevronDown,
   Circle,
   FileSearch,
@@ -66,7 +67,8 @@ const TOOL_ICONS: Record<
   "panels-top-left": PanelsTopLeft,
   list: List,
   "file-text": FileText,
-  "text-select": TextSelect
+  "text-select": TextSelect,
+  camera: Camera
 }
 
 const ACTIVITY_ICONS: Record<

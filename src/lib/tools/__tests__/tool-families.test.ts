@@ -12,6 +12,7 @@ const def = (over: Partial<ToolDefinition>): ToolDefinition => ({
 describe("getToolFamily", () => {
   it("maps known built-in tools to their governance family", () => {
     expect(getToolFamily(def({ name: "current_tab" }))).toBe("browser")
+    expect(getToolFamily(def({ name: "capture_screenshot" }))).toBe("browser")
     expect(getToolFamily(def({ name: "selected_text" }))).toBe("browser")
     expect(getToolFamily(def({ name: "rag_search" }))).toBe("knowledge")
     expect(getToolFamily(def({ name: "file_search" }))).toBe("knowledge")

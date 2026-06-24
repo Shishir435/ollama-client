@@ -88,6 +88,54 @@ describe("streamChatWithTools", () => {
     expect(lastTrace?.[0]).toMatchObject({ toolId: "echo", status: "done" })
   })
 
+  it("forwards a tool's image result as a follow-up user message", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "shot", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "I can see the chart" }, { done: true }]
+    ])
+    const registry = registryWith(
+      async () => ({
+        content: "captured screenshot",
+        images: [{ base64: "AAAA", mimeType: "image/png" }]
+      }),
+      {
+        name: "shot",
+        description: "",
+        parameters: { type: "object", properties: {} }
+      }
+    )
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "look" }] },
+      registry,
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    const streamChat = provider.streamChat as ReturnType<typeof vi.fn>
+    const secondTurn = streamChat.mock.calls[1][0].messages
+    const toolMsg = secondTurn.find((m: { role: string }) => m.role === "tool")
+    const imageMsg = secondTurn.find(
+      (m: { role: string; images?: unknown[] }) =>
+        m.role === "user" && m.images?.length
+    )
+
+    expect(toolMsg?.content).toBe("captured screenshot")
+    expect(imageMsg).toBeDefined()
+    expect(imageMsg.images[0]).toMatchObject({
+      base64: "AAAA",
+      mimeType: "image/png"
+    })
+    // tool reply stays before the injected image user message.
+    expect(secondTurn.indexOf(imageMsg)).toBeGreaterThan(
+      secondTurn.indexOf(toolMsg)
+    )
+  })
+
   it("preserves metrics when a bare done trails the metrics-bearing done", async () => {
     // Providers emit a metrics done then a trailing bare { done: true } at
     // stream end; the bare one must not wipe the captured metrics.

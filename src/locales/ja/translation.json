@@ -260,7 +260,8 @@
         "answering": "回答中",
         "preparing": "コンテキストを準備中",
         "tabGroup": "タブグループを読み取り中",
-        "tabGroups": "タブグループを一覧表示中"
+        "tabGroups": "タブグループを一覧表示中",
+        "capture_screenshot": "スクリーンショットを撮影中"
       },
       "debug": "デバッグ推論"
     },

@@ -260,7 +260,8 @@
         "answering": "Réponse",
         "preparing": "Préparation du contexte",
         "tabGroup": "Lecture du groupe d’onglets",
-        "tabGroups": "Liste des groupes d’onglets"
+        "tabGroups": "Liste des groupes d’onglets",
+        "capture_screenshot": "Capture d'écran"
       },
       "debug": "Raisonnement de débogage"
     },

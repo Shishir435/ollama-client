@@ -8,7 +8,12 @@ import type {
   ToolRuntimePolicy
 } from "@/lib/tools"
 import { resolveToolRuntimePolicy } from "@/lib/tools"
-import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
+import type {
+  ChatMessage,
+  ChatStreamMessage,
+  ImageAttachment,
+  ToolRun
+} from "@/types"
 
 interface StreamChatWithToolsOptions {
   provider: LLMProvider
@@ -83,6 +88,37 @@ interface PreparedToolCall {
   call: ToolCall
   run: ToolRun
   policy: ToolRuntimePolicy
+}
+
+interface ExecutedToolCall {
+  /** The `tool`-role reply fed back for this call. */
+  toolMessage: ChatMessage
+  /** A follow-up `user` message carrying any images the tool returned. */
+  imageMessage?: ChatMessage
+}
+
+/**
+ * Turn a tool result's images into a follow-up user message, the only role that
+ * carries images on Ollama / OpenAI-compatible providers. Returns undefined when
+ * the tool produced no images.
+ */
+const buildImageMessage = (
+  call: ToolCall,
+  result: ToolResult
+): ChatMessage | undefined => {
+  if (!result.images?.length) return undefined
+  const images: ImageAttachment[] = result.images.map((image, index) => ({
+    imageId: `${call.id}:image:${index}`,
+    fileName: `${call.name}-${index}.${image.mimeType === "image/png" ? "png" : "jpg"}`,
+    mimeType: image.mimeType,
+    size: image.base64.length,
+    base64: image.base64
+  }))
+  return {
+    role: "user",
+    content: `Image result from the "${call.name}" tool:`,
+    images
+  }
 }
 
 /**
@@ -203,7 +239,7 @@ export const streamChatWithTools = async ({
 
     const executeToolCall = async (
       prepared: PreparedToolCall
-    ): Promise<ChatMessage> => {
+    ): Promise<ExecutedToolCall> => {
       const { call, policy, run } = prepared
       const result = policy.enabled
         ? await callWithTimeout(
@@ -238,10 +274,13 @@ export const streamChatWithTools = async ({
       onChunk({ toolRuns: [...toolRuns] })
 
       return {
-        role: "tool",
-        content: trimmedContent,
-        toolName: call.name,
-        toolCallId: call.id
+        toolMessage: {
+          role: "tool",
+          content: trimmedContent,
+          toolName: call.name,
+          toolCallId: call.id
+        },
+        imageMessage: buildImageMessage(call, result)
       }
     }
 
@@ -249,6 +288,17 @@ export const streamChatWithTools = async ({
       pendingToolCalls.map(prepareToolCall)
     )
     const toolResultMessages: ChatMessage[] = []
+    // `tool`-role messages can't carry images on Ollama / OpenAI-compatible
+    // providers, so image-bearing tool results become follow-up user messages.
+    // They are appended AFTER all tool results so each assistant tool-call turn's
+    // `tool` replies stay consecutive (strict endpoints reject an interleaved
+    // user message between them).
+    const imageMessages: ChatMessage[] = []
+
+    const collect = (executed: ExecutedToolCall) => {
+      toolResultMessages.push(executed.toolMessage)
+      if (executed.imageMessage) imageMessages.push(executed.imageMessage)
+    }
 
     for (let index = 0; index < preparedCalls.length; ) {
       const prepared = preparedCalls[index]
@@ -271,16 +321,16 @@ export const streamChatWithTools = async ({
         )
         // `Promise.all` preserves input order, so tool result messages are
         // appended in the same order the model requested them.
-        toolResultMessages.push(...groupResults)
+        for (const executed of groupResults) collect(executed)
         continue
       }
 
       startToolRun(prepared)
-      toolResultMessages.push(await executeToolCall(prepared))
+      collect(await executeToolCall(prepared))
       index++
     }
 
-    workingMessages.push(...toolResultMessages)
+    workingMessages.push(...toolResultMessages, ...imageMessages)
   }
 
   // Iteration cap hit: make one final, tool-disabled synthesis pass over the

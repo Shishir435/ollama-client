@@ -260,7 +260,8 @@
         "answering": "Antworten",
         "preparing": "Kontext vorbereiten",
         "tabGroup": "Tabgruppe lesen",
-        "tabGroups": "Tabgruppen auflisten"
+        "tabGroups": "Tabgruppen auflisten",
+        "capture_screenshot": "Screenshot wird aufgenommen"
       },
       "debug": "Debug-Reasoning"
     },

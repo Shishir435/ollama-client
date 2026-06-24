@@ -11,6 +11,10 @@ import {
   runSearchBookmarks,
   searchBookmarksDefinition
 } from "./browser-knowledge-tools"
+import {
+  captureScreenshotDefinition,
+  runCaptureScreenshot
+} from "./capture-screenshot-tool"
 import { currentTabDefinition, runCurrentTab } from "./current-tab-tool"
 import { fileSearchDefinition, runFileSearch } from "./file-search-tool"
 import { listTabsDefinition, runListTabs } from "./list-tabs-tool"
@@ -48,7 +52,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: selectedTextDefinition, run: runSelectedText },
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
-  { definition: scheduleReminderDefinition, run: runScheduleReminder }
+  { definition: scheduleReminderDefinition, run: runScheduleReminder },
+  { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
 ]
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {

@@ -260,7 +260,8 @@
         "answering": "Respondiendo",
         "preparing": "Preparando contexto",
         "tabGroup": "Leyendo grupo de pestañas",
-        "tabGroups": "Listando grupos de pestañas"
+        "tabGroups": "Listando grupos de pestañas",
+        "capture_screenshot": "Capturando pantalla"
       },
       "debug": "Razonamiento de depuración"
     },

@@ -260,7 +260,8 @@
         "answering": "Risposta",
         "preparing": "Preparazione del contesto",
         "tabGroup": "Lettura gruppo di schede",
-        "tabGroups": "Elenco gruppi di schede"
+        "tabGroups": "Elenco gruppi di schede",
+        "capture_screenshot": "Acquisizione screenshot"
       },
       "debug": "Ragionamento di debug"
     },

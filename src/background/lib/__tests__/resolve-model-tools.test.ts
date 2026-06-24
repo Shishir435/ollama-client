@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { LLMProvider } from "@/lib/providers/types"
+import type { ToolDefinition } from "@/lib/tools"
 import {
   clearModelToolCapabilityCache,
   resolveModelTools
@@ -10,7 +11,7 @@ vi.mock("@/lib/providers/model-capability-overrides", () => ({
   getModelCapabilityOverride: vi.fn(async () => null)
 }))
 
-const definitions = [
+const baseDefinitions: ToolDefinition[] = [
   {
     name: "current_tab",
     description: "Read tab",
@@ -27,6 +28,16 @@ const definitions = [
     parameters: { type: "object" as const, properties: {} }
   }
 ]
+
+// Mutable so a test can swap in a vision-only tool; reset in afterEach.
+let definitions: ToolDefinition[] = baseDefinitions
+
+const captureScreenshotTool: ToolDefinition = {
+  name: "capture_screenshot",
+  description: "Screenshot the tab",
+  parameters: { type: "object", properties: {} },
+  requires: ["vision"]
+}
 
 vi.mock("@/lib/tools", () => ({
   getToolRegistry: () => ({
@@ -52,6 +63,11 @@ vi.mock("@/lib/tools/tool-settings", () => ({
 const toolModel = (): LLMProvider =>
   providerWithDetails(vi.fn(async () => ({ capabilities: ["tools"] })))
 
+const visionToolModel = (): LLMProvider =>
+  providerWithDetails(
+    vi.fn(async () => ({ capabilities: ["tools", "vision"] }))
+  )
+
 const providerWithDetails = (
   getModelDetails: LLMProvider["getModelDetails"]
 ): LLMProvider => ({
@@ -75,6 +91,7 @@ describe("resolveModelTools", () => {
     vi.clearAllMocks()
     clearModelToolCapabilityCache()
     toolSettings = allOn
+    definitions = baseDefinitions
   })
 
   it("re-reads cached model capability tags after the short TTL expires", async () => {
@@ -123,6 +140,27 @@ describe("resolveModelTools", () => {
     }
     const tools = await resolveModelTools("qwen", "ollama", toolModel())
     expect(tools?.map((t) => t.name)).toEqual(["rag_search"])
+  })
+
+  it("hides vision-only tools from a non-vision model", async () => {
+    definitions = [...baseDefinitions, captureScreenshotTool]
+    const tools = await resolveModelTools("qwen", "ollama", toolModel())
+    expect(tools?.map((t) => t.name)).not.toContain("capture_screenshot")
+    expect(tools?.map((t) => t.name)).toEqual([
+      "current_tab",
+      "rag_search",
+      "web_search"
+    ])
+  })
+
+  it("offers vision-only tools to a vision-capable model", async () => {
+    definitions = [...baseDefinitions, captureScreenshotTool]
+    const tools = await resolveModelTools(
+      "qwen-vl",
+      "ollama",
+      visionToolModel()
+    )
+    expect(tools?.map((t) => t.name)).toContain("capture_screenshot")
   })
 
   it("returns undefined when all families are disabled", async () => {
