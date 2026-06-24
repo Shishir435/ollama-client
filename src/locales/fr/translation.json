@@ -262,7 +262,8 @@
         "tabGroup": "Lecture du groupe d’onglets",
         "tabGroups": "Liste des groupes d’onglets",
         "schedule_reminder": "Planification du rappel",
-        "save_artifact": "Enregistrement du fichier"
+        "save_artifact": "Enregistrement du fichier",
+        "capture_screenshot": "Capture d'écran"
       },
       "debug": "Raisonnement de débogage"
     },

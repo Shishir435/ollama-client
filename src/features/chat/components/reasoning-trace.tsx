@@ -1,4 +1,5 @@
 import {
+  Camera,
   ChevronDown,
   Circle,
   Download,
@@ -68,7 +69,8 @@ const TOOL_ICONS: Record<
   list: List,
   "file-text": FileText,
   "text-select": TextSelect,
-  download: Download
+  download: Download,
+  camera: Camera
 }
 
 const ACTIVITY_ICONS: Record<

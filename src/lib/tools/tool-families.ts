@@ -27,6 +27,7 @@ export const TOOL_FAMILIES: ToolFamily[] = [
 /** Explicit family per known tool name — the source of truth for built-ins. */
 const FAMILY_BY_TOOL_NAME: Record<string, ToolFamily> = {
   current_tab: "browser",
+  capture_screenshot: "browser",
   list_tabs: "browser",
   read_tab: "browser",
   list_tab_groups: "browser",

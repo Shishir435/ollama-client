@@ -262,7 +262,8 @@
         "tabGroup": "タブグループを読み取り中",
         "tabGroups": "タブグループを一覧表示中",
         "schedule_reminder": "リマインダーを設定中",
-        "save_artifact": "ファイルを保存中"
+        "save_artifact": "ファイルを保存中",
+        "capture_screenshot": "スクリーンショットを撮影中"
       },
       "debug": "デバッグ推論"
     },

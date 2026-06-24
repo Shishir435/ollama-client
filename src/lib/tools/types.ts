@@ -27,7 +27,13 @@ export type ToolCategory =
 
 export type ToolRiskLevel = "low" | "medium" | "high"
 
-export type ToolRequirement = "tabs" | "storage" | "selection" | "network"
+export type ToolRequirement =
+  | "tabs"
+  | "storage"
+  | "selection"
+  | "network"
+  /** Tool returns image content; only offer it to vision-capable models. */
+  | "vision"
 
 export interface ToolRuntimePolicy {
   timeoutMs: number
@@ -90,6 +96,13 @@ export interface ToolResultSource {
   used?: boolean
 }
 
+/** An image a tool produced, to be shown to a vision model. */
+export interface ToolResultImage {
+  /** Raw base64, no `data:` prefix (matches `ImageAttachment.base64`). */
+  base64: string
+  mimeType: string
+}
+
 /** The outcome of executing a tool, fed back to the model as a `tool` message. */
 export interface ToolResult {
   /** Plain-text content handed back to the model. */
@@ -98,6 +111,12 @@ export interface ToolResult {
   isError?: boolean
   /** Provenance shown in the reasoning trace (what the tool looked at). */
   sources?: ToolResultSource[]
+  /**
+   * Images the tool produced (e.g. a screenshot). The tool loop forwards these
+   * to the model as a follow-up user message, since `tool`-role messages can't
+   * carry images on Ollama / OpenAI-compatible providers.
+   */
+  images?: ToolResultImage[]
 }
 
 /** Ambient context handed to a tool at call time. */

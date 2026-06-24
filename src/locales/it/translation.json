@@ -262,7 +262,8 @@
         "tabGroup": "Lettura gruppo di schede",
         "tabGroups": "Elenco gruppi di schede",
         "schedule_reminder": "Pianificazione promemoria",
-        "save_artifact": "Salvataggio file"
+        "save_artifact": "Salvataggio file",
+        "capture_screenshot": "Acquisizione screenshot"
       },
       "debug": "Ragionamento di debug"
     },
