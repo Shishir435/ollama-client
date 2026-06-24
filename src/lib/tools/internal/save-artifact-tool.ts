@@ -62,8 +62,11 @@ const MIME_BY_EXTENSION: Record<string, string> = {
  */
 export const sanitizeArtifactFilename = (raw: string): string => {
   const base = raw.split(/[\\/]/).pop() ?? ""
+  // Keep Unicode letters/digits so meaningful names (données.csv, 报告.md) survive;
+  // collapse only path separators, control chars, and punctuation the downloads
+  // API rejects. The `u` flag is required for the \p{...} classes.
   const cleaned = base
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/[^\p{L}\p{N}._-]+/gu, "-")
     .replace(/^[-.]+|[-.]+$/g, "")
     .slice(0, 100)
     .replace(/[-.]+$/, "")
@@ -75,6 +78,14 @@ const mimeForFilename = (filename: string): string => {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "txt"
   return MIME_BY_EXTENSION[ext] ?? "text/plain"
 }
+
+/**
+ * Cap on raw content length. Generous but finite — keeps an unusually large model
+ * output from building a multi-MB data URL that fails with an opaque browser
+ * error instead of a clear, actionable one. Measured in characters (≈ an upper
+ * bound on the post-encode byte size for typical text).
+ */
+const MAX_CONTENT_CHARS = 25_000_000
 
 export const saveArtifactDefinition: ToolDefinition = {
   name: "save_artifact",
@@ -111,6 +122,13 @@ export const runSaveArtifact = async (
   if (!content) {
     return {
       content: "save_artifact requires non-empty content.",
+      isError: true
+    }
+  }
+
+  if (content.length > MAX_CONTENT_CHARS) {
+    return {
+      content: `Content is too large to save via this tool (${(content.length / 1_000_000).toFixed(1)}M characters). Split it into smaller files.`,
       isError: true
     }
   }

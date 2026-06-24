@@ -47,12 +47,29 @@ describe("sanitizeArtifactFilename", () => {
     expect(sanitizeArtifactFilename("")).toBe("artifact.txt")
     expect(sanitizeArtifactFilename("///")).toBe("artifact.txt")
   })
+
+  it("preserves Unicode letters and digits in the name", () => {
+    expect(sanitizeArtifactFilename("données.csv")).toBe("données.csv")
+    expect(sanitizeArtifactFilename("报告.md")).toBe("报告.md")
+    expect(sanitizeArtifactFilename("отчёт")).toBe("отчёт.txt")
+  })
 })
 
 describe("save_artifact tool", () => {
   it("rejects empty content without touching downloads", async () => {
     const result = await runSaveArtifact({ filename: "x.txt", content: "" }, {})
     expect(result.isError).toBe(true)
+    expect(mocks.download).not.toHaveBeenCalled()
+  })
+
+  it("rejects content over the size cap before building a data URL", async () => {
+    const huge = "a".repeat(25_000_001)
+    const result = await runSaveArtifact(
+      { filename: "big.txt", content: huge },
+      {}
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("too large")
     expect(mocks.download).not.toHaveBeenCalled()
   })
 
