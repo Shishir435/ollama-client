@@ -20,6 +20,7 @@ import { fileSearchDefinition, runFileSearch } from "./file-search-tool"
 import { listTabsDefinition, runListTabs } from "./list-tabs-tool"
 import { ragSearchDefinition, runRagSearch } from "./rag-search-tool"
 import { readTabDefinition, runReadTab } from "./read-tab-tool"
+import { runSaveArtifact, saveArtifactDefinition } from "./save-artifact-tool"
 import {
   runScheduleReminder,
   scheduleReminderDefinition
@@ -53,6 +54,7 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
   { definition: scheduleReminderDefinition, run: runScheduleReminder },
+  { definition: saveArtifactDefinition, run: runSaveArtifact },
   { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
 ]
 

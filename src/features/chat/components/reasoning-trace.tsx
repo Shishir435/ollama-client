@@ -2,6 +2,7 @@ import {
   Camera,
   ChevronDown,
   Circle,
+  Download,
   FileSearch,
   FileStack,
   FileText,
@@ -68,6 +69,7 @@ const TOOL_ICONS: Record<
   list: List,
   "file-text": FileText,
   "text-select": TextSelect,
+  download: Download,
   camera: Camera
 }
 

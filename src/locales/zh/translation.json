@@ -261,6 +261,8 @@
         "preparing": "正在准备上下文",
         "tabGroup": "读取标签页组",
         "tabGroups": "列出标签页组",
+        "schedule_reminder": "正在安排提醒",
+        "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏"
       },
       "debug": "调试推理"

@@ -261,6 +261,8 @@
         "preparing": "Kontext vorbereiten",
         "tabGroup": "Tabgruppe lesen",
         "tabGroups": "Tabgruppen auflisten",
+        "schedule_reminder": "Erinnerung planen",
+        "save_artifact": "Datei speichern",
         "capture_screenshot": "Screenshot wird aufgenommen"
       },
       "debug": "Debug-Reasoning"

@@ -261,6 +261,8 @@
         "preparing": "Preparando contexto",
         "tabGroup": "Leyendo grupo de pestañas",
         "tabGroups": "Listando grupos de pestañas",
+        "schedule_reminder": "Programando recordatorio",
+        "save_artifact": "Guardando archivo",
         "capture_screenshot": "Capturando pantalla"
       },
       "debug": "Razonamiento de depuración"
