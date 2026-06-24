@@ -58,6 +58,11 @@ const FAMILY_BY_CATEGORY: Record<ToolCategory, ToolFamily> = {
 export const getToolFamily = (definition: ToolDefinition): ToolFamily => {
   const byName = FAMILY_BY_TOOL_NAME[definition.name]
   if (byName) return byName
-  if (definition.category) return FAMILY_BY_CATEGORY[definition.category]
+  // `?? "automation"` guards a future source (e.g. MCP) emitting a category
+  // outside the ToolCategory union, which would otherwise return undefined and
+  // slip past the family filter ungoverned.
+  if (definition.category) {
+    return FAMILY_BY_CATEGORY[definition.category] ?? "automation"
+  }
   return "automation"
 }

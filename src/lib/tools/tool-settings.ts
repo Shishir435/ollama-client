@@ -46,24 +46,41 @@ export const getToolFamilySettings = async (): Promise<ToolFamilySettings> => {
   }
 }
 
-export const setToolMasterEnabled = async (
-  enabled: boolean
+/**
+ * Serialize read-modify-write mutations. The UI can fire two toggles before the
+ * first persist resolves; without this each handler reads the same stale
+ * snapshot and the later write clobbers the earlier change. Chaining each
+ * mutation onto the previous one makes get→set atomic relative to other writes.
+ */
+let writeLock: Promise<unknown> = Promise.resolve()
+
+const mutateToolFamilySettings = (
+  apply: (current: ToolFamilySettings) => ToolFamilySettings
 ): Promise<ToolFamilySettings> => {
-  const settings = await getToolFamilySettings()
-  const next: ToolFamilySettings = { ...settings, enabled }
-  await setPlasmoStoredValue(STORAGE_KEYS.TOOLS.FAMILIES, next)
-  return next
+  const run = writeLock.then(async () => {
+    const current = await getToolFamilySettings()
+    const next = apply(current)
+    await setPlasmoStoredValue(STORAGE_KEYS.TOOLS.FAMILIES, next)
+    return next
+  })
+  // Keep the chain alive even if one mutation rejects.
+  writeLock = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
 }
 
-export const setToolFamilyEnabled = async (
+export const setToolMasterEnabled = (
+  enabled: boolean
+): Promise<ToolFamilySettings> =>
+  mutateToolFamilySettings((current) => ({ ...current, enabled }))
+
+export const setToolFamilyEnabled = (
   family: ToolFamily,
   enabled: boolean
-): Promise<ToolFamilySettings> => {
-  const settings = await getToolFamilySettings()
-  const next: ToolFamilySettings = {
-    ...settings,
-    families: { ...settings.families, [family]: enabled }
-  }
-  await setPlasmoStoredValue(STORAGE_KEYS.TOOLS.FAMILIES, next)
-  return next
-}
+): Promise<ToolFamilySettings> =>
+  mutateToolFamilySettings((current) => ({
+    ...current,
+    families: { ...current.families, [family]: enabled }
+  }))

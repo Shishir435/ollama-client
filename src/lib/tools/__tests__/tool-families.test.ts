@@ -40,6 +40,11 @@ describe("getToolFamily", () => {
     expect(getToolFamily(def({ name: "mystery" }))).toBe("automation")
   })
 
+  it("defaults to automation for an unknown runtime category (e.g. MCP)", () => {
+    const rogue = def({ name: "mcp_thing", category: "telemetry" as never })
+    expect(getToolFamily(rogue)).toBe("automation")
+  })
+
   it("every family in the map is a known TOOL_FAMILIES member", () => {
     for (const name of ["current_tab", "rag_search", "recent_history"]) {
       expect(TOOL_FAMILIES).toContain(getToolFamily(def({ name })))

@@ -58,4 +58,24 @@ describe("tool-settings", () => {
       })
     )
   })
+
+  it("serializes concurrent mutations without losing a change", async () => {
+    // Stateful store so each write is visible to the next read.
+    let store: unknown
+    get.mockImplementation(async () => store)
+    set.mockImplementation(async (_key: string, value: unknown) => {
+      store = value
+    })
+
+    // Fire both before awaiting — the race the lock must prevent.
+    await Promise.all([
+      setToolMasterEnabled(false),
+      setToolFamilyEnabled("knowledge", false)
+    ])
+
+    expect(store).toMatchObject({
+      enabled: false,
+      families: expect.objectContaining({ knowledge: false })
+    })
+  })
 })
