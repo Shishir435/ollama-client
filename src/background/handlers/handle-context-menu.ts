@@ -106,11 +106,24 @@ const openSidePanelDuringGesture = (tab?: {
 
 /** Persist + broadcast the selection. Runs after the panel is already opening. */
 const deliverSelection = async (selectionText: string) => {
-  // Persist so a freshly-mounted sidepanel can pick it up on first render.
-  await setPlasmoStoredValue(
-    STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
-    selectionText
-  )
+  // Persist so a freshly-mounted sidepanel can pick it up on first render. A
+  // storage failure (e.g. quota) shouldn't reject and surface as an unhandled
+  // rejection — Chrome ignores this listener's return value — and the live
+  // broadcast below still reaches an already-open panel regardless.
+  try {
+    await setPlasmoStoredValue(
+      STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
+      selectionText
+    )
+  } catch (err) {
+    logger.warn(
+      "Could not persist pending selection",
+      "initializeContextMenu",
+      {
+        error: getErrorMessage(err)
+      }
+    )
+  }
 
   postSelectionToSidePanels(selectionText)
   setTimeout(() => {

@@ -3,10 +3,7 @@ import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-emb
 import { updateDNRRules } from "@/background/lib/dnr"
 import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
-import {
-  registerScheduledJobs,
-  syncScheduledJobAlarms
-} from "@/background/lib/scheduled-jobs"
+import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -173,8 +170,9 @@ const registerAlarmPermissionReactivation = () => {
     // src/lib/permissions.ts); compare as plain strings.
     const granted = (perms.permissions ?? []) as string[]
     if (!granted.includes("alarms")) return
+    // `registerScheduledJobs` re-syncs periodic-job alarms itself, so there's
+    // no separate `syncScheduledJobAlarms` call here.
     registerScheduledJobs()
     registerReminderAlarms()
-    void syncScheduledJobAlarms()
   })
 }
