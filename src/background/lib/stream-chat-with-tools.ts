@@ -97,6 +97,13 @@ interface ExecutedToolCall {
   imageMessage?: ChatMessage
 }
 
+/** Decoded byte size of a base64 string (no decoding), accounting for padding. */
+const base64ByteSize = (base64: string): number => {
+  if (!base64) return 0
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0
+  return Math.floor((base64.length * 3) / 4) - padding
+}
+
 /**
  * Turn a tool result's images into a follow-up user message, the only role that
  * carries images on Ollama / OpenAI-compatible providers. Returns undefined when
@@ -111,7 +118,8 @@ const buildImageMessage = (
     imageId: `${call.id}:image:${index}`,
     fileName: `${call.name}-${index}.${image.mimeType === "image/png" ? "png" : "jpg"}`,
     mimeType: image.mimeType,
-    size: image.base64.length,
+    // Decoded byte size — `base64.length` would overstate it by ~33%.
+    size: base64ByteSize(image.base64),
     base64: image.base64
   }))
   return {

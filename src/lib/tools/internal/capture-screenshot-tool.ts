@@ -81,12 +81,15 @@ export const runCaptureScreenshot = async (
   }
 
   try {
+    // Only resolve the active tab of the user's focused window. A bare
+    // `{ active: true }` fallback could return an active tab from a *non*-focused
+    // window, and capturing that window fails — surfacing a confusing "capture
+    // failed" instead of a clear "no active tab".
     const tab =
       (
         await browser.tabs.query({ active: true, lastFocusedWindow: true })
       )[0] ??
-      (await browser.tabs.query({ active: true, currentWindow: true }))[0] ??
-      (await browser.tabs.query({ active: true }))[0]
+      (await browser.tabs.query({ active: true, currentWindow: true }))[0]
 
     if (!tab?.id || tab.windowId === undefined) {
       return {

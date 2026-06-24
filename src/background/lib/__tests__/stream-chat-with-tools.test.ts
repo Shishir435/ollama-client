@@ -128,7 +128,9 @@ describe("streamChatWithTools", () => {
     expect(imageMsg).toBeDefined()
     expect(imageMsg.images[0]).toMatchObject({
       base64: "AAAA",
-      mimeType: "image/png"
+      mimeType: "image/png",
+      // decoded byte size of "AAAA" (4 base64 chars, no padding) = 3 bytes
+      size: 3
     })
     // tool reply stays before the injected image user message.
     expect(secondTurn.indexOf(imageMsg)).toBeGreaterThan(
