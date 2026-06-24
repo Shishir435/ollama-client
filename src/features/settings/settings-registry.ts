@@ -1306,6 +1306,16 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ]
   },
   {
+    // Routes per-model search hits to the model picker in the Model tools card.
+    // focusId must equal the Select's data-settings-focus-id.
+    id: "model-tools-per-model",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.tools.perModel.title",
+    descriptionKey: "settings.permissions.tools.perModel.description",
+    aliases: ["per model tools", "per-model", "model specific tools"]
+  },
+  {
     id: "permission-bookmarks",
     tab: "permissions",
     sectionId: "permissions",

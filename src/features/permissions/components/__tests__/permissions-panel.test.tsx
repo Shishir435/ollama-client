@@ -44,6 +44,43 @@ vi.mock("@/lib/scheduled-jobs", () => ({
   })
 }))
 
+const providerModels = vi.hoisted(() => ({
+  models: [{ name: "qwen", providerId: "ollama" }] as Array<{
+    name: string
+    providerId: string
+  }>
+}))
+
+vi.mock("@/features/model/hooks/use-provider-models", () => ({
+  useProviderModels: () => ({ models: providerModels.models })
+}))
+
+const toolOverrides = vi.hoisted(() => ({
+  store: {} as Record<string, unknown>,
+  patchToolModelOverride: vi.fn(),
+  clearToolModelOverride: vi.fn()
+}))
+
+vi.mock("@/lib/tools/tool-model-overrides", () => ({
+  getAllToolModelOverrides: vi.fn(async () => toolOverrides.store),
+  getEffectiveToolFamilySettings: vi.fn(async () => ({
+    enabled: true,
+    families: {
+      browser: true,
+      knowledge: true,
+      history: true,
+      web: true,
+      automation: true
+    }
+  })),
+  patchToolModelOverride: (...args: unknown[]) =>
+    toolOverrides.patchToolModelOverride(...args),
+  clearToolModelOverride: (...args: unknown[]) =>
+    toolOverrides.clearToolModelOverride(...args),
+  toolModelOverrideKey: (providerId: string, model: string) =>
+    `${providerId}::${model}`
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
@@ -57,6 +94,7 @@ beforeEach(() => {
   browserApi.createNotification.mockResolvedValue("test-notification")
   browserApi.supportsTabGroups.mockReturnValue(false)
   useFeatureFlagsStore.getState().reset()
+  providerModels.models = [{ name: "qwen", providerId: "ollama" }]
 })
 
 describe("PermissionsPanel", () => {
@@ -75,6 +113,34 @@ describe("PermissionsPanel", () => {
     render(<PermissionsPanel />)
     fireEvent.click(document.getElementById("permission-alarms") as Element)
     expect(perm.requestPermission).toHaveBeenCalledWith("alarms")
+  })
+
+  it("renders the per-model tool override section in the full layout", async () => {
+    render(<PermissionsPanel />)
+    await waitFor(() =>
+      expect(
+        screen.getByText("settings.permissions.tools.perModel.title")
+      ).toBeTruthy()
+    )
+  })
+
+  it("mounts the per-model focus-id target even with no models", async () => {
+    providerModels.models = []
+    render(<PermissionsPanel />)
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          '[data-settings-focus-id="model-tools-per-model"]'
+        )
+      ).toBeTruthy()
+    )
+  })
+
+  it("omits the per-model tool override section in the compact layout", () => {
+    render(<PermissionsPanel compact />)
+    expect(
+      screen.queryByText("settings.permissions.tools.perModel.title")
+    ).toBeNull()
   })
 
   it("requests the API permission when its switch is enabled", () => {

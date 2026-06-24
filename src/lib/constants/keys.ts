@@ -113,7 +113,9 @@ export const STORAGE_KEYS = {
   },
   TOOLS: {
     // E10: per-family governance over model-callable tools (master + families).
-    FAMILIES: "tools-families-config"
+    FAMILIES: "tools-families-config",
+    // 0.11.18: per-model overrides layered over the global family settings.
+    MODEL_OVERRIDES: "tools-model-overrides"
   },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",
