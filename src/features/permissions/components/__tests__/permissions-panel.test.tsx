@@ -44,10 +44,15 @@ vi.mock("@/lib/scheduled-jobs", () => ({
   })
 }))
 
+const providerModels = vi.hoisted(() => ({
+  models: [{ name: "qwen", providerId: "ollama" }] as Array<{
+    name: string
+    providerId: string
+  }>
+}))
+
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
-  useProviderModels: () => ({
-    models: [{ name: "qwen", providerId: "ollama" }]
-  })
+  useProviderModels: () => ({ models: providerModels.models })
 }))
 
 const toolOverrides = vi.hoisted(() => ({
@@ -89,6 +94,7 @@ beforeEach(() => {
   browserApi.createNotification.mockResolvedValue("test-notification")
   browserApi.supportsTabGroups.mockReturnValue(false)
   useFeatureFlagsStore.getState().reset()
+  providerModels.models = [{ name: "qwen", providerId: "ollama" }]
 })
 
 describe("PermissionsPanel", () => {
@@ -114,6 +120,18 @@ describe("PermissionsPanel", () => {
     await waitFor(() =>
       expect(
         screen.getByText("settings.permissions.tools.perModel.title")
+      ).toBeTruthy()
+    )
+  })
+
+  it("mounts the per-model focus-id target even with no models", async () => {
+    providerModels.models = []
+    render(<PermissionsPanel />)
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          '[data-settings-focus-id="model-tools-per-model"]'
+        )
       ).toBeTruthy()
     )
   })

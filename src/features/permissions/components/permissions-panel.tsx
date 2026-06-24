@@ -327,7 +327,9 @@ const ModelToolOverridesSection = () => {
 
   if (entries.length === 0) {
     return (
-      <p className="border-t pt-3 text-xs text-muted-foreground">
+      <p
+        data-settings-focus-id="model-tools-per-model"
+        className="border-t pt-3 text-xs text-muted-foreground">
         {t("settings.permissions.tools.perModel.empty")}
       </p>
     )
