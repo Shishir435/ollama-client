@@ -120,11 +120,17 @@ export const runScheduledJob = async (jobId: ScheduledJobId): Promise<void> => {
   }
 }
 
+// Guards a double-add when registration runs both at startup and again on a
+// runtime `alarms` permission grant within the same service-worker session.
+let scheduledJobsRegistered = false
+
 export const registerScheduledJobs = (): void => {
+  if (scheduledJobsRegistered) return
   if (!supportsAlarms()) return
   const alarms = getAlarmsApi()
   if (!alarms?.onAlarm) return
 
+  scheduledJobsRegistered = true
   alarms.onAlarm.addListener((alarm) => {
     const jobId = jobIdFromAlarmName(alarm.name)
     if (!jobId) return

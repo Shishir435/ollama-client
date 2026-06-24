@@ -72,8 +72,24 @@ describe("reminders", () => {
     )
   })
 
+  it("rejects scheduling when alarms permission is missing", async () => {
+    mocks.hasPermission.mockImplementation(
+      async (perm: string) => perm !== "alarms"
+    )
+
+    await expect(
+      scheduleReminder({ message: "Stretch", delayMinutes: 2 })
+    ).rejects.toThrow("Alarms permission is required")
+
+    expect(mocks.createAlarm).not.toHaveBeenCalled()
+    expect(mocks.setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
+
   it("rejects scheduling when notification permission is missing", async () => {
-    mocks.hasPermission.mockResolvedValue(false)
+    // alarms granted, notifications denied — the alarms gate must pass first.
+    mocks.hasPermission.mockImplementation(
+      async (perm: string) => perm !== "notifications"
+    )
 
     await expect(
       scheduleReminder({ message: "Stretch", delayMinutes: 2 })

@@ -1451,6 +1451,10 @@
         "tabGroups": {
           "label": "Tab-Gruppen",
           "description": "Mit ganzen Tab-Gruppen arbeiten – für Zusammenfassungen und Vergleiche über mehrere Tabs."
+        },
+        "alarms": {
+          "label": "Alarme",
+          "description": "Erinnerungen und geplante Hintergrundwartung ausführen."
         }
       },
       "host": {

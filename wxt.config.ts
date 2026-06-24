@@ -57,20 +57,21 @@ export default defineConfig({
       "tabs",
       "scripting",
       "declarativeNetRequest",
-      "contextMenus",
-      "alarms"
+      "contextMenus"
     ],
     // Optional API permissions (v0.11.0 groundwork — FEATURE_ROADMAP §5 item 2).
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
     // NOT granted until a feature asks the user. Standing `permissions` stays
     // minimal. Host access (`<all_urls>`) is intentionally NOT optional — see §0.4.
-    //   bookmarks/history -> E2   notifications -> E5   downloads -> E9   tabGroups -> E4
+    //   bookmarks/history -> E2   notifications -> E5   downloads -> E9
+    //   tabGroups -> E4   alarms -> reminders + scheduled jobs (0.11.15)
     optional_permissions: [
       "bookmarks",
       "history",
       "notifications",
       "downloads",
-      "tabGroups"
+      "tabGroups",
+      "alarms"
     ],
     // Browser-level keyboard command (v0.11.1 / F2). Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
