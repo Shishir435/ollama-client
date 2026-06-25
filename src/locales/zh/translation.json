@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "导出聊天",
-      "tooltip_all": "导出所有聊天会话",
       "aria_label": "导出聊天",
-      "aria_label_all": "导出所有聊天会话",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "所有会话",
       "role_user": "你",
       "role_assistant": "AI助手"
-    },
-    "import": {
-      "tooltip": "导入聊天会话",
-      "aria_label": "导入聊天会话",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "在所选文件中未找到可读取的聊天会话。",
-        "failed_title": "未导入任何内容",
-        "partial_description": "已跳过 {{skipped}} 个会话，丢弃 {{droppedMessages}} 条消息，{{invalidFiles}} 个文件无法读取。",
-        "partial_title": "已导入 {{count}} 个聊天会话，但存在问题",
-        "partial_title_plural": "已导入 {{count}} 个聊天会话，但存在问题",
-        "success_title": "已导入 {{count}} 个聊天会话",
-        "success_title_plural": "已导入 {{count}} 个聊天会话"
-      }
     },
     "actions": {
       "more": "{{title}} 的更多操作",

@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "Export chat",
-      "tooltip_all": "Export all chat sessions",
       "aria_label": "Export chat",
-      "aria_label_all": "Export all chat sessions",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "All Chat Sessions",
       "role_user": "You",
       "role_assistant": "AI Assistant"
-    },
-    "import": {
-      "tooltip": "Import chat sessions",
-      "aria_label": "Import chat sessions",
-      "default_title": "Imported chat",
-      "toast": {
-        "success_title": "Imported {{count}} chat session",
-        "success_title_plural": "Imported {{count}} chat sessions",
-        "partial_title": "Imported {{count}} chat session with issues",
-        "partial_title_plural": "Imported {{count}} chat sessions with issues",
-        "partial_description": "Skipped {{skipped}} session(s), dropped {{droppedMessages}} message(s), {{invalidFiles}} unreadable file(s).",
-        "failed_title": "Nothing imported",
-        "failed_description": "No readable chat sessions were found in the selected file(s)."
-      }
     },
     "actions": {
       "more": "More actions for {{title}}",

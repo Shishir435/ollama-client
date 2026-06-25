@@ -81,6 +81,7 @@ export const useChatStream = ({
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
+  const currentRequestIdRef = useRef<string | null>(null)
 
   const startStream = ({
     model,
@@ -94,6 +95,10 @@ export const useChatStream = ({
       name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
     })
     portRef.current = port
+    const requestId =
+      globalThis.crypto?.randomUUID?.() ||
+      `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    currentRequestIdRef.current = requestId
 
     setIsLoading(true)
     setIsStreaming(false)
@@ -109,9 +114,21 @@ export const useChatStream = ({
     setMessages(currentMessagesRef.current)
 
     let firstChunk = true
+    let streamSettled = false
     const thinkingState: ThinkingParserState = makeThinkingParserState()
 
+    const cleanupPort = () => {
+      streamSettled = true
+      port.onMessage.removeListener(listener)
+      port.disconnect()
+      if (portRef.current === port) {
+        portRef.current = null
+        currentRequestIdRef.current = null
+      }
+    }
+
     const listener = (msg: StreamMessage) => {
+      if (streamSettled) return
       if (DEBUG_THINKING_STREAM) {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
@@ -225,7 +242,7 @@ export const useChatStream = ({
             })
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
-            { role: "assistant", content: errMsg, done: true }
+            { ...assistantMessage, content: errMsg, done: true }
           ]
           toast({
             variant: "destructive",
@@ -269,10 +286,8 @@ export const useChatStream = ({
 
         currentMessagesRef.current = finalMessages
         setMessages(finalMessages)
-
-        port.onMessage.removeListener(listener)
-        port.disconnect()
-        portRef.current = null
+        assistantMessage.done = true
+        cleanupPort()
       }
     }
 
@@ -284,7 +299,7 @@ export const useChatStream = ({
           error: browser.runtime.lastError.message
         })
       }
-      if (!assistantMessage.done) {
+      if (!streamSettled && !assistantMessage.done) {
         setIsLoading(false)
         setIsStreaming(false)
         assistantMessage.done = true
@@ -294,7 +309,10 @@ export const useChatStream = ({
         ]
         currentMessagesRef.current = updated
         setMessages(updated)
-        portRef.current = null
+        if (portRef.current === port) {
+          portRef.current = null
+          currentRequestIdRef.current = null
+        }
       }
     })
 
@@ -304,7 +322,8 @@ export const useChatStream = ({
         model,
         providerId,
         messages,
-        sessionId
+        sessionId,
+        requestId
       }
     })
   }
@@ -320,8 +339,14 @@ export const useChatStream = ({
 
     try {
       portRef.current.postMessage({
-        type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION
+        type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
+        payload: currentRequestIdRef.current
+          ? { requestId: currentRequestIdRef.current }
+          : undefined
       })
+      portRef.current.disconnect()
+      portRef.current = null
+      currentRequestIdRef.current = null
     } catch (error) {
       logger.error("Failed to send stop message", "useChatStream", { error })
     } finally {

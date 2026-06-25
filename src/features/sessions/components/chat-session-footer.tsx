@@ -2,8 +2,6 @@ import { useTranslation } from "react-i18next"
 import { BugReportIcon } from "@/components/bug-report-icon"
 import { SettingsButton } from "@/components/settings-button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { ChatExportButton } from "./chat-export-button"
-import { ChatImportButton } from "./chat-import-button"
 
 export interface ChatSessionFooterProps {
   sessionCount: number
@@ -30,9 +28,7 @@ export const ChatSessionFooter = ({ sessionCount }: ChatSessionFooterProps) => {
               })
             : t("sessions.selector.session_count_plural", {
                 count: sessionCount
-              })}{" "}
-          <ChatExportButton showAllSessions />
-          <ChatImportButton />
+              })}
         </div>
       </div>
     </>

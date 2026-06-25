@@ -64,11 +64,13 @@ interface AnnBackend {
  */
 class LocalVectorIndex {
   private vectors: Array<{ id: number; embedding: Float32Array }> = []
+  private idToIndex = new Map<number, number>()
   private dimension: number | null = null
 
   initialize(dimension: number): void {
     this.dimension = dimension
     this.vectors = []
+    this.idToIndex.clear()
   }
 
   addVector(id: number, embedding: number[]): void {
@@ -80,10 +82,19 @@ class LocalVectorIndex {
       return
     }
 
-    this.vectors.push({
+    const existingIndex = this.idToIndex.get(id)
+    const vector = {
       id,
       embedding: new Float32Array(embedding)
-    })
+    }
+
+    if (existingIndex !== undefined) {
+      this.vectors[existingIndex] = vector
+      return
+    }
+
+    this.idToIndex.set(id, this.vectors.length)
+    this.vectors.push(vector)
   }
 
   buildIndex(vectors: Array<{ id: number; embedding: number[] }>): void {
@@ -168,6 +179,7 @@ class LocalVectorIndex {
 
   clear(): void {
     this.vectors = []
+    this.idToIndex.clear()
     this.dimension = null
   }
 }
@@ -184,6 +196,7 @@ class TsHnswBackend implements AnnBackend {
   private useFallback: boolean = false
   private dimension: number | null = null
   private count = 0
+  private indexedIds = new Set<number>()
   private persistTimer: NodeJS.Timeout | null = null
 
   /**
@@ -204,6 +217,7 @@ class TsHnswBackend implements AnnBackend {
     this.useFallback = true
     this.dimension = dimension
     this.count = 0
+    this.indexedIds.clear()
   }
 
   private buildDbName(dimension: number) {
@@ -232,6 +246,30 @@ class TsHnswBackend implements AnnBackend {
         config.hnswEfConstruction,
         this.buildDbName(dimension)
       )
+      const loadIndex = (
+        this.index as unknown as { loadIndex?: () => Promise<void> }
+      ).loadIndex
+      if (typeof loadIndex === "function") {
+        await loadIndex.call(this.index)
+        const loadedCount = Number(
+          (
+            this.index as unknown as {
+              nodes?: { size?: number }
+              elements?: { size?: number }
+              count?: number
+            }
+          ).nodes?.size ??
+            (
+              this.index as unknown as {
+                elements?: { size?: number }
+                count?: number
+              }
+            ).elements?.size ??
+            (this.index as unknown as { count?: number }).count ??
+            0
+        )
+        this.count = Number.isFinite(loadedCount) ? loadedCount : 0
+      }
     } catch (error) {
       logger.debug("Falling back to in-memory index", "HNSWIndex", { error })
       this.enableFallback(dimension)
@@ -252,6 +290,7 @@ class TsHnswBackend implements AnnBackend {
       this.enableFallback(dimension)
       this.fallbackIndex?.buildIndex(vectors)
       this.count = vectors.length
+      this.indexedIds = new Set(vectors.map((vector) => vector.id))
       return
     }
 
@@ -266,18 +305,23 @@ class TsHnswBackend implements AnnBackend {
       }))
     )
     this.count = vectors.length
+    this.indexedIds = new Set(vectors.map((vector) => vector.id))
     await this.index.saveIndex()
   }
 
   async addVector(id: number, embedding: number[]): Promise<void> {
     if (this.useFallback && this.fallbackIndex) {
       if (this.dimension !== embedding.length) return
+      const hadId = this.indexedIds.has(id)
       this.fallbackIndex.addVector(id, embedding)
-      this.count += 1
+      this.indexedIds.add(id)
+      if (!hadId) this.count += 1
       return
     }
     if (!this.index || this.dimension !== embedding.length) return
+    if (this.indexedIds.has(id)) return
     await this.index.addPoint(id, embedding)
+    this.indexedIds.add(id)
     this.count += 1
     this.schedulePersist()
   }
@@ -302,6 +346,7 @@ class TsHnswBackend implements AnnBackend {
     this.index = null
     this.dimension = null
     this.count = 0
+    this.indexedIds.clear()
     if (this.fallbackIndex) {
       this.fallbackIndex.clear()
     }
@@ -483,7 +528,24 @@ class HNSWIndexManager {
         this.localIndex.addVector(id, embedding)
       }
     } catch (error) {
-      logger.error("Failed to add vector to index", "HNSWIndex", { error })
+      logger.warn(
+        "Incremental vector add failed; rebuilding index",
+        "HNSWIndex",
+        {
+          error
+        }
+      )
+      await this.buildIndex(undefined, embedding.length).catch(
+        (rebuildError) => {
+          logger.error(
+            "Vector index rebuild after add failure failed",
+            "HNSWIndex",
+            {
+              error: rebuildError
+            }
+          )
+        }
+      )
     }
   }
 

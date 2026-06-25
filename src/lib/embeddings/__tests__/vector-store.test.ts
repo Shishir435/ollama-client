@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { hnswIndexManager } from "../hnsw-index"
+import { keywordIndexManager } from "../keyword-index"
 import {
   clearAllVectors,
   deleteVectors,
@@ -225,6 +227,26 @@ describe("Vector Store - Baseline Tests", () => {
 
       const kept = await getVectorsByContext({ sessionId: "keep-me" })
       expect(kept.length).toBe(1)
+    })
+
+    it("removes deleted vectors from live search indexes", async () => {
+      const id = await storeVector("delete indexed keyword", [1, 0, 0], {
+        type: "chat",
+        sessionId: "delete-me",
+        timestamp: Date.now(),
+        source: ""
+      })
+      await hnswIndexManager.initialize(3)
+      await hnswIndexManager.addVector(id, [1, 0, 0])
+
+      expect(keywordIndexManager.search("indexed")).toHaveLength(1)
+      expect(hnswIndexManager.getStats().numElements).toBe(1)
+
+      const deleted = await deleteVectors({ sessionId: "delete-me" })
+
+      expect(deleted).toBe(1)
+      expect(keywordIndexManager.search("indexed")).toHaveLength(0)
+      expect(hnswIndexManager.getStats().numElements).toBe(0)
     })
 
     it("should delete vectors by file ID", async () => {

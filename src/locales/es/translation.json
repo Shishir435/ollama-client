@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "Exportar chat",
-      "tooltip_all": "Exportar todas las sesiones de chat",
       "aria_label": "Exportar chat",
-      "aria_label_all": "Exportar todas las sesiones de chat",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
       "role_assistant": "Asistente IA"
-    },
-    "import": {
-      "tooltip": "Importar sesiones de chat",
-      "aria_label": "Importar sesiones de chat",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "No se encontraron sesiones de chat legibles en los archivos seleccionados.",
-        "failed_title": "No se importó nada",
-        "partial_description": "Se omitieron {{skipped}} sesión(es), se descartaron {{droppedMessages}} mensaje(s), {{invalidFiles}} archivo(s) ilegible(s).",
-        "partial_title": "Se importó {{count}} sesión de chat con problemas",
-        "partial_title_plural": "Se importaron {{count}} sesiones de chat con problemas",
-        "success_title": "Se importó {{count}} sesión de chat",
-        "success_title_plural": "Se importaron {{count}} sesiones de chat"
-      }
     },
     "actions": {
       "more": "Más acciones para {{title}}",

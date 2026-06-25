@@ -5,7 +5,8 @@ import {
   extractContentWithLoading,
   extractDomain,
   findMatchingSiteOverride,
-  getEffectiveConfig
+  getEffectiveConfig,
+  waitForNetworkIdle
 } from "../content-extractor"
 
 describe("Content Extractor", () => {
@@ -114,6 +115,32 @@ describe("Content Extractor", () => {
       document.body.appendChild(root)
 
       expect(detectPagePatterns()).toContain("react-spa")
+    })
+  })
+
+  describe("waitForNetworkIdle", () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    })
+
+    it("restores fetch and XMLHttpRequest.open after settling", async () => {
+      const originalFetch = window.fetch
+      const originalOpen = XMLHttpRequest.prototype.open
+
+      const promise = waitForNetworkIdle(1000, 100)
+      expect(window.fetch).not.toBe(originalFetch)
+      expect(XMLHttpRequest.prototype.open).not.toBe(originalOpen)
+
+      await vi.advanceTimersByTimeAsync(100)
+      await promise
+
+      expect(window.fetch).toBe(originalFetch)
+      expect(XMLHttpRequest.prototype.open).toBe(originalOpen)
     })
   })
 

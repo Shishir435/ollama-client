@@ -116,6 +116,57 @@ const buildToolTraceStep = (
   }
 }
 
+const isWebToolRun = (run: ToolRun) =>
+  run.category === "web" || run.toolId === "web_search"
+
+const getGroupedToolRunStatus = (runs: ToolRun[]): TraceStatus => {
+  if (runs.some((run) => run.status === "running")) return "running"
+  if (runs.some((run) => run.status === "error")) return "error"
+  return "done"
+}
+
+const buildWebToolTraceStep = (
+  runs: ToolRun[],
+  t: (key: string) => string
+): TraceStep => {
+  const firstRun = runs[0]
+  const firstError = runs.find((run) => run.error)?.error
+  return {
+    key: "tool-web-search-group",
+    label: firstRun
+      ? getToolRunLabel(firstRun, t)
+      : t("chat.reasoning.trace.web"),
+    status: getGroupedToolRunStatus(runs),
+    icon: Globe,
+    detail: firstError,
+    preview:
+      runs.length > 1
+        ? `${runs.length} search${runs.length === 1 ? "" : "es"}`
+        : undefined
+  }
+}
+
+const buildCompactToolTraceSteps = (
+  toolRuns: ToolRun[],
+  t: (key: string) => string
+): TraceStep[] => {
+  const webRuns: ToolRun[] = []
+  const steps: (TraceStep | "web-search-group")[] = []
+
+  for (const run of toolRuns) {
+    if (isWebToolRun(run)) {
+      webRuns.push(run)
+      if (!steps.includes("web-search-group")) steps.push("web-search-group")
+      continue
+    }
+    steps.push(buildToolTraceStep(run, t))
+  }
+
+  return steps.map((step) =>
+    step === "web-search-group" ? buildWebToolTraceStep(webRuns, t) : step
+  )
+}
+
 const getActivityCompactPreview = (
   event: ActivityEvent
 ): string | undefined => {
@@ -299,7 +350,7 @@ export const ReasoningTrace = ({
           icon: FileStack
         }
       : null,
-    ...toolRuns.map((run) => buildToolTraceStep(run, t)),
+    ...buildCompactToolTraceSteps(toolRuns, t),
     isBusy && hasVisibleContent
       ? {
           key: "answering",

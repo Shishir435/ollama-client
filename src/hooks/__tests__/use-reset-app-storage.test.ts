@@ -2,11 +2,13 @@ import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
+import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import {
   plasmoDeviceStorage,
   plasmoGlobalStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { ProviderStorageKey } from "@/lib/providers/types"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 vi.mock("@/lib/embeddings/feedback-service", () => ({
@@ -79,5 +81,14 @@ describe("useResetAppStorage", () => {
     expect(removePlasmoStoredValue).toHaveBeenCalled()
     expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
+  })
+
+  it("includes string storage keys and provider secrets in module reset maps", () => {
+    const keys = getAllResetKeys()
+
+    expect(keys.LANGUAGE).toEqual(["app-language"])
+    expect(keys.FEATURE_FLAGS).toEqual(["feature-flags"])
+    expect(keys.PROVIDER).toContain(ProviderStorageKey.CONFIG)
+    expect(keys.PROVIDER).toContain(ProviderStorageKey.MODEL_MAPPINGS)
   })
 })

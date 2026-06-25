@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "चैट निर्यात करें",
-      "tooltip_all": "सभी चैट सेशन निर्यात करें",
       "aria_label": "चैट निर्यात करें",
-      "aria_label_all": "सभी चैट सेशन निर्यात करें",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "सभी चैट सत्र",
       "role_user": "आप",
       "role_assistant": "AI सहायक"
-    },
-    "import": {
-      "tooltip": "चैट सेशन आयात करें",
-      "aria_label": "चैट सेशन आयात करें",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "चयनित फ़ाइल(फ़ाइलों) में कोई पठनीय चैट सत्र नहीं मिला।",
-        "failed_title": "कुछ भी इम्पोर्ट नहीं हुआ",
-        "partial_description": "{{skipped}} सत्र छोड़े गए, {{droppedMessages}} संदेश हटाए गए, {{invalidFiles}} पठनीय न होने वाली फ़ाइलें।",
-        "partial_title": "समस्याओं के साथ {{count}} चैट सत्र इम्पोर्ट हुआ",
-        "partial_title_plural": "समस्याओं के साथ {{count}} चैट सत्र इम्पोर्ट हुए",
-        "success_title": "{{count}} चैट सत्र इम्पोर्ट हुआ",
-        "success_title_plural": "{{count}} चैट सत्र इम्पोर्ट हुए"
-      }
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",

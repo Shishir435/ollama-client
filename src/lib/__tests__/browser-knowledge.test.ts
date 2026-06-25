@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
   historySearch: vi.fn(),
   bookmarkSearch: vi.fn(),
   deleteVectors: vi.fn(),
-  fromDocuments: vi.fn()
+  fromDocuments: vi.fn(),
+  isNeverReadUrl: vi.fn()
 }))
 
 vi.mock("@/lib/permissions", () => ({
@@ -34,6 +35,10 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
   fromDocuments: mocks.fromDocuments
 }))
 
+vi.mock("@/lib/per-site-profiles", () => ({
+  isNeverReadUrl: mocks.isNeverReadUrl
+}))
+
 describe("browser knowledge sources", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -41,6 +46,7 @@ describe("browser knowledge sources", () => {
     mocks.getPlasmoStoredValue.mockResolvedValue(undefined)
     mocks.deleteVectors.mockResolvedValue(0)
     mocks.fromDocuments.mockResolvedValue([1])
+    mocks.isNeverReadUrl.mockResolvedValue(false)
   })
 
   it("merges stored source settings over privacy-safe defaults", async () => {
@@ -167,6 +173,41 @@ describe("browser knowledge sources", () => {
         timestamp: 1710000000000
       }
     })
+  })
+
+  it("excludes bookmark and history URLs marked never-read", async () => {
+    const { collectBookmarkDocuments, collectHistoryDocuments } = await import(
+      "@/lib/browser-knowledge"
+    )
+
+    mocks.isNeverReadUrl.mockImplementation((url: string) =>
+      Promise.resolve(url.includes("private.example.com"))
+    )
+    mocks.getTree.mockResolvedValue([
+      {
+        id: "root",
+        title: "root",
+        children: [
+          { id: "1", title: "Public", url: "https://public.example.com/a" },
+          { id: "2", title: "Private", url: "https://private.example.com/a" }
+        ]
+      }
+    ])
+    mocks.historySearch.mockResolvedValue([
+      { id: "10", title: "Public", url: "https://public.example.com/a" },
+      { id: "11", title: "Private", url: "https://private.example.com/a" }
+    ])
+
+    const settings = {
+      enabled: true,
+      maxItems: 10,
+      sinceDays: 7,
+      includeDomains: [],
+      excludeDomains: []
+    }
+
+    await expect(collectBookmarkDocuments(settings)).resolves.toHaveLength(1)
+    await expect(collectHistoryDocuments(settings)).resolves.toHaveLength(1)
   })
 
   it("reindexes enabled browser sources without deleting old vectors first", async () => {

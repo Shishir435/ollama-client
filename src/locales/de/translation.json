@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "Chat exportieren",
-      "tooltip_all": "Alle Chat-Sitzungen exportieren",
       "aria_label": "Chat exportieren",
-      "aria_label_all": "Alle Chat-Sitzungen exportieren",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
       "role_assistant": "KI-Assistent"
-    },
-    "import": {
-      "tooltip": "Chat-Sitzungen importieren",
-      "aria_label": "Chat-Sitzungen importieren",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "In den ausgewählten Dateien wurden keine lesbaren Chat-Sitzungen gefunden.",
-        "failed_title": "Nichts importiert",
-        "partial_description": "{{skipped}} Sitzung(en) übersprungen, {{droppedMessages}} Nachricht(en) verworfen, {{invalidFiles}} unlesbare Datei(en).",
-        "partial_title": "{{count}} Chat-Sitzung mit Problemen importiert",
-        "partial_title_plural": "{{count}} Chat-Sitzungen mit Problemen importiert",
-        "success_title": "{{count}} Chat-Sitzung importiert",
-        "success_title_plural": "{{count}} Chat-Sitzungen importiert"
-      }
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",

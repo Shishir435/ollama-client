@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
@@ -13,6 +14,7 @@ import { ChatMessageList } from "./chat-message-list"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
 export const Chat = () => {
+  const { t } = useTranslation()
   const {
     messages,
     pendingActivityEvents,
@@ -147,6 +149,7 @@ export const Chat = () => {
   const handleDeleteMessage = async (message: ChatMessage) => {
     if (!message.id) return
     if (typeof message.id !== "number") return
+    if (!window.confirm(t("chat.actions.delete"))) return
     await deleteMessage(message.id)
   }
 

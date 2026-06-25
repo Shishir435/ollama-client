@@ -389,6 +389,18 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey: "settings.grounding_mode.description",
     keywords: ["grounding", "grounded", "page only", "answer from page"]
   },
+  {
+    id: "auto-screenshot-on-vision",
+    tab: "context",
+    sectionId: "grounding",
+    labelKey: "chat.input.auto_screenshot",
+    aliases: [
+      "auto screenshot",
+      "automatic screenshot",
+      "vision screenshot",
+      "capture screenshot"
+    ]
+  },
 
   // ---- Context: Web Search -----------------------------------------------
   {
@@ -447,7 +459,8 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     sectionId: "retrieval",
     labelKey: "model.embedding_config.rag_enable_label",
     descriptionKey: "model.embedding_config.rag_enable_description",
-    keywords: ["rag", "retrieval", "knowledge"]
+    keywords: ["rag", "retrieval", "knowledge"],
+    aliases: ["document search", "search my documents", "knowledge base"]
   },
   {
     id: "use-reranking",
@@ -801,7 +814,8 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.enable.label",
     descriptionKey: "settings.content_extraction.enable.description",
-    keywords: ["content extraction", "scrape", "page"]
+    keywords: ["content extraction", "scrape", "page"],
+    aliases: ["page reading", "read page", "website text", "current page"]
   },
   {
     id: "content-scraper",
@@ -1281,6 +1295,19 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     labelKey: "settings.permissions.title",
     descriptionKey: "settings.permissions.description",
     aliases: ["permissions", "privacy", "access", "consent", "data"]
+  },
+  {
+    id: "browser-tab-access",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.presets.fields.tab_access",
+    aliases: [
+      "tab access",
+      "other tabs",
+      "open tabs",
+      "read tabs",
+      "stop ai seeing tabs"
+    ]
   },
   {
     id: "model-tools",

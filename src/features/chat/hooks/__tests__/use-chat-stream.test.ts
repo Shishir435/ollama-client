@@ -306,6 +306,47 @@ describe("useChatStream", () => {
     expect(mockPort.disconnect).toHaveBeenCalled()
   })
 
+  it("preserves the generated assistant id on stream errors", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    const messages = [{ role: "user" as const, content: "Hello" }]
+    const generatedMessage = {
+      id: 42,
+      role: "assistant" as const,
+      content: "",
+      model: "llama2"
+    }
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages,
+        generatedMessage
+      })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: { status: 500, message: "Internal server error" }
+      })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      id: 42,
+      role: "assistant",
+      done: true
+    })
+  })
+
   it("should show typed provider errors with guidance", () => {
     const { result } = renderHook(() =>
       useChatStream({
@@ -362,8 +403,10 @@ describe("useChatStream", () => {
     })
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
-      type: PROVIDER_MESSAGE_KEYS.STOP_GENERATION
+      type: PROVIDER_MESSAGE_KEYS.STOP_GENERATION,
+      payload: { requestId: expect.any(String) }
     })
+    expect(mockPort.disconnect).toHaveBeenCalled()
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
   })

@@ -11,6 +11,9 @@ type Database = import("sql.js").Database
 let db: Database | null = null
 let initPromise: Promise<Database> | null = null
 let loadedImportGeneration: string | null = null
+let transactionDepth = 0
+let dirtyDuringTransaction = false
+let saveInFlight: Promise<void> = Promise.resolve()
 
 // Type for SQL parameter bindings
 type SqlValue = string | number | null | Uint8Array
@@ -146,6 +149,8 @@ export const initSQLite = async (): Promise<Database> => {
         await saveDatabaseToIndexedDB(db.export())
       }
 
+      db.run("PRAGMA foreign_keys=ON")
+
       // Idempotent per-column migrations. New databases get all columns
       // from SCHEMA_SQL above; databases created before a column was
       // added get the ALTER TABLE on the next open.
@@ -178,15 +183,17 @@ export const query = async (
 ): Promise<QueryResult[]> => {
   const database = await getDb()
   const stmt = database.prepare(sql)
-  stmt.bind(bind)
+  try {
+    stmt.bind(bind)
 
-  const results: QueryResult[] = []
-  while (stmt.step()) {
-    results.push(stmt.getAsObject())
+    const results: QueryResult[] = []
+    while (stmt.step()) {
+      results.push(stmt.getAsObject())
+    }
+    return results
+  } finally {
+    stmt.free()
   }
-  stmt.free()
-
-  return results
 }
 
 /**
@@ -197,12 +204,44 @@ export const run = async (
   bind: SqlValue[] = []
 ): Promise<void> => {
   const database = await getDb()
-  const stmt = database.prepare(sql)
-  stmt.bind(bind)
-  stmt.step()
-  stmt.free()
+  const normalizedSql = sql.trim().toUpperCase()
+  const startsTransaction = normalizedSql.startsWith("BEGIN")
+  const commitsTransaction = normalizedSql.startsWith("COMMIT")
+  const rollsBackTransaction = normalizedSql.startsWith("ROLLBACK")
 
-  // Trigger auto-save after write operations
+  if (startsTransaction) {
+    transactionDepth += 1
+  }
+
+  const stmt = database.prepare(sql)
+  try {
+    stmt.bind(bind)
+    stmt.step()
+  } finally {
+    stmt.free()
+  }
+
+  if (commitsTransaction || rollsBackTransaction) {
+    transactionDepth = Math.max(0, transactionDepth - 1)
+  }
+
+  if (startsTransaction || rollsBackTransaction) {
+    return
+  }
+
+  if (transactionDepth > 0) {
+    dirtyDuringTransaction = true
+    return
+  }
+
+  if (commitsTransaction) {
+    if (dirtyDuringTransaction) {
+      dirtyDuringTransaction = false
+      scheduleAutoSave()
+    }
+    return
+  }
+
   scheduleAutoSave()
 }
 
@@ -214,18 +253,34 @@ const cancelPendingAutoSave = () => {
     saveTimeout = null
   }
 }
+const persistDatabaseNow = async (): Promise<void> => {
+  if (!db) return
+  if (transactionDepth > 0) {
+    dirtyDuringTransaction = true
+    return
+  }
+  if (!(await canPersistLoadedDatabase())) return
+
+  saveInFlight = saveInFlight.then(async () => {
+    if (!db) return
+    if (transactionDepth > 0) {
+      dirtyDuringTransaction = true
+      return
+    }
+    await saveDatabaseToIndexedDB(db.export())
+  })
+  await saveInFlight
+}
+
 const scheduleAutoSave = () => {
   cancelPendingAutoSave()
   saveTimeout = setTimeout(async () => {
     saveTimeout = null
-    if (db) {
-      try {
-        if (!(await canPersistLoadedDatabase())) return
-        await saveDatabaseToIndexedDB(db.export())
-        logger.info("Database auto-saved to IndexedDB", "SQLite")
-      } catch (e) {
-        logger.error("Failed to auto-save database", "SQLite", { error: e })
-      }
+    try {
+      await persistDatabaseNow()
+      logger.info("Database auto-saved to IndexedDB", "SQLite")
+    } catch (e) {
+      logger.error("Failed to auto-save database", "SQLite", { error: e })
     }
   }, 1000) // Save 1 second after last change
 }
@@ -244,8 +299,7 @@ const scheduleAutoSave = () => {
 export const flushSave = async (): Promise<void> => {
   cancelPendingAutoSave()
   if (!db) return
-  if (!(await canPersistLoadedDatabase())) return
-  await saveDatabaseToIndexedDB(db.export())
+  await persistDatabaseNow()
   logger.info("Database flushed to IndexedDB", "SQLite")
 }
 
@@ -291,6 +345,8 @@ export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   db = null
   initPromise = null
   loadedImportGeneration = nextGeneration
+  transactionDepth = 0
+  dirtyDuringTransaction = false
 
   // Reinitialize DB
   await initSQLite()
@@ -322,6 +378,8 @@ export const resetSQLiteDatabase = async (): Promise<void> => {
   db = null
   initPromise = null
   loadedImportGeneration = await bumpDatabaseImportGeneration()
+  transactionDepth = 0
+  dirtyDuringTransaction = false
 
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)
@@ -374,6 +432,16 @@ const registerUnloadFlush = () => {
     target.addEventListener("pagehide", flush)
     target.addEventListener("beforeunload", flush)
   }
+  const runtime = (
+    globalThis as unknown as {
+      chrome?: {
+        runtime?: {
+          onSuspend?: { addListener?: (listener: () => void) => void }
+        }
+      }
+    }
+  ).chrome?.runtime
+  runtime?.onSuspend?.addListener?.(flush)
   if (target.document?.addEventListener) {
     target.document.addEventListener("visibilitychange", () => {
       if (target.document?.visibilityState === "hidden") flush()

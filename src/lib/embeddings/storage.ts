@@ -82,10 +82,13 @@ export const checkStorageLimit = async (): Promise<void> => {
     // Sort by timestamp (oldest first)
     sizes.sort((a, b) => a.timestamp - b.timestamp)
 
+    const deletedIds: number[] = []
+
     // Delete oldest vectors until under limit
     for (const item of sizes) {
       if (totalSize <= maxSizeBytes) break
       await vectorDb.vectors.delete(item.id)
+      deletedIds.push(item.id)
       totalSize -= item.size
 
       // Yield periodically to avoid blocking
@@ -93,7 +96,17 @@ export const checkStorageLimit = async (): Promise<void> => {
         await new Promise((resolve) => setTimeout(resolve, 0))
       }
     }
+
+    await removeVectorIdsFromIndexes(deletedIds)
   }
+}
+
+const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
+  if (ids.length === 0) return
+  for (const id of ids) {
+    keywordIndexManager.removeDocument(id)
+  }
+  await hnswIndexManager.clearIndex?.()
 }
 
 /**
@@ -163,10 +176,17 @@ export const storeVector = async (
   // Auto-cleanup if enabled
   if (config.autoCleanup) {
     const cutoffDate = Date.now() - config.cleanupDaysOld * 24 * 60 * 60 * 1000
-    await vectorDb.vectors
+    const expired = await vectorDb.vectors
       .where("metadata.timestamp")
       .below(cutoffDate)
-      .delete()
+      .toArray()
+    const expiredIds = expired
+      .map((doc) => doc.id)
+      .filter((id): id is number => id !== undefined)
+    if (expiredIds.length > 0) {
+      await vectorDb.vectors.bulkDelete(expiredIds)
+      await removeVectorIdsFromIndexes(expiredIds)
+    }
   }
 
   // Normalize embedding for faster similarity searches
@@ -256,17 +276,16 @@ export const deleteVectors = async (filters: {
     )
   }
 
-  const count = await query.count()
-  await query.delete()
+  const matches = await query.toArray()
+  const ids = matches
+    .map((doc) => doc.id)
+    .filter((id): id is number => id !== undefined)
+  if (ids.length > 0) {
+    await vectorDb.vectors.bulkDelete(ids)
+    await removeVectorIdsFromIndexes(ids)
+  }
 
-  // We should also remove from HNSW and keyword indexes
-  // This is a bit expensive as we don't know the IDs directly without querying first
-  // But deleteVectors is primarily used for cleanup, so we might need to rely on index rebuilds
-  // or implement more complex deletion logic here if needed.
-  // For now, we accept that indexes might be slightly out of sync until next full rebuild/refresh
-  // or handled by the caller.
-
-  return count
+  return matches.length
 }
 
 /**
@@ -407,7 +426,7 @@ export const removeDuplicateVectors = async (): Promise<{
 
   if (duplicates.length > 0) {
     await vectorDb.vectors.bulkDelete(duplicates)
-    // We should ideally clean indexes too, but implicit rebuild/clear is acceptable for this maintenance op
+    await removeVectorIdsFromIndexes(duplicates)
   }
 
   return {

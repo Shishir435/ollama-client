@@ -410,6 +410,48 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("Custom tool")).toBeInTheDocument()
   })
 
+  it("collapses multiple web search runs into one compact chip", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "answer",
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "web_search",
+                label: "web_search",
+                status: "done",
+                startedAt: 1
+              },
+              {
+                toolId: "web_search",
+                label: "web_search",
+                status: "done",
+                startedAt: 2
+              },
+              {
+                toolId: "web_search",
+                label: "web_search",
+                status: "done",
+                startedAt: 3
+              },
+              {
+                toolId: "web_search",
+                label: "web_search",
+                status: "done",
+                startedAt: 4
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    expect(screen.getAllByText("Searching web")).toHaveLength(1)
+    expect(screen.queryByText(/4 searches/)).not.toBeInTheDocument()
+  })
+
   it("does not pin a recovered tool error as the active label after answer text exists", () => {
     render(
       <ReasoningTrace

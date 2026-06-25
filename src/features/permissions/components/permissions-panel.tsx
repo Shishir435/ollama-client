@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/select"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser, supportsTabGroups } from "@/lib/browser-api"
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_PROVIDER_ID,
+  DEFAULT_TABS_ACCESS,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { Bot, Globe, Lock, Sparkles } from "@/lib/lucide-icon"
 import {
   hasPermission,
@@ -24,6 +29,7 @@ import {
   removePermission,
   requestPermission
 } from "@/lib/permissions"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   getScheduledJobSettings,
   type ScheduledJobId,
@@ -106,6 +112,37 @@ const SCHEDULED_JOB_LABELS: Record<
     descriptionKey:
       "settings.permissions.scheduled.items.vectorMaintenance.description"
   }
+}
+
+const TabAccessSettings = () => {
+  const { t } = useTranslation()
+  const [tabAccess, setTabAccess] = useState(DEFAULT_TABS_ACCESS)
+
+  useEffect(() => {
+    let active = true
+    plasmoGlobalStorage
+      .get<boolean>(STORAGE_KEYS.BROWSER.TABS_ACCESS)
+      .then((stored) => {
+        if (active) setTabAccess(stored ?? DEFAULT_TABS_ACCESS)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const onCheckedChange = async (next: boolean) => {
+    setTabAccess(next)
+    await plasmoGlobalStorage.set(STORAGE_KEYS.BROWSER.TABS_ACCESS, next)
+  }
+
+  return (
+    <SettingsSwitch
+      id="browser-tab-access"
+      label={t("settings.presets.fields.tab_access")}
+      checked={tabAccess}
+      onCheckedChange={onCheckedChange}
+    />
+  )
 }
 
 const OptionalPermissionRow = ({
@@ -543,8 +580,9 @@ export const PermissionsPanel = ({
           focusId="permissions-host"
           icon={Globe}
           title={t("settings.permissions.host.title")}
-          description={t("settings.permissions.host.description")}
-        />
+          description={t("settings.permissions.host.description")}>
+          <TabAccessSettings />
+        </SettingsCard>
       )}
 
       {!compact && (

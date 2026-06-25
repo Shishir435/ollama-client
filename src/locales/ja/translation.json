@@ -650,9 +650,7 @@
     },
     "export": {
       "tooltip": "チャットをエクスポート",
-      "tooltip_all": "すべてのチャットセッションをエクスポート",
       "aria_label": "チャットをエクスポート",
-      "aria_label_all": "すべてのチャットセッションをエクスポート",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +659,6 @@
       "all_sessions_title": "すべてのチャットセッション",
       "role_user": "あなた",
       "role_assistant": "AIアシスタント"
-    },
-    "import": {
-      "tooltip": "チャットセッションをインポート",
-      "aria_label": "チャットセッションをインポート",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "選択したファイルから読み取り可能なチャットセッションが見つかりませんでした。",
-        "failed_title": "インポートされませんでした",
-        "partial_description": "{{skipped}} 件のセッションをスキップ、{{droppedMessages}} 件のメッセージを破棄、{{invalidFiles}} 件の読み取り不可能なファイルがありました。",
-        "partial_title": "{{count}} 件のチャットセッションを問題ありでインポートしました",
-        "partial_title_plural": "{{count}} 件のチャットセッションを問題ありでインポートしました",
-        "success_title": "{{count}} 件のチャットセッションをインポートしました",
-        "success_title_plural": "{{count}} 件のチャットセッションをインポートしました"
-      }
     },
     "actions": {
       "more": "{{title}} のその他のアクション",

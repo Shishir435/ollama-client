@@ -237,12 +237,19 @@ export const createChatSessionMessageActions = (
     }
 
     set((state) => ({
-      sessions: state.sessions.map((s) => ({
-        ...s,
-        messages: s.messages?.map((m) =>
-          m.id === messageId ? { ...m, ...updates } : m
-        )
-      }))
+      sessions: state.sessions.map((session) => {
+        const messages = session.messages
+        if (!messages?.some((message) => message.id === messageId)) {
+          return session
+        }
+
+        return {
+          ...session,
+          messages: messages.map((message) =>
+            message.id === messageId ? { ...message, ...updates } : message
+          )
+        }
+      })
     }))
   },
 

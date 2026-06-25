@@ -236,6 +236,7 @@ describe("SQLite DB module", () => {
     expect(mockDb.run).toHaveBeenCalledWith(
       expect.stringContaining("CREATE TABLE")
     )
+    expect(mockDb.run).toHaveBeenCalledWith("PRAGMA foreign_keys=ON")
   })
 
   // -------------------------------------------------------------------------
@@ -287,6 +288,26 @@ describe("SQLite DB module", () => {
     expect(rowStmt.free).toHaveBeenCalled()
   })
 
+  it("query frees prepared statements when stepping throws", async () => {
+    const { mockSQL } = buildSQLMocks()
+    vi.mocked(initSqlJs).mockResolvedValue(mockSQL as any)
+
+    const db = await initSQLite()
+    const rowStmt = {
+      bind: vi.fn(),
+      step: vi.fn().mockImplementation(() => {
+        throw new Error("step failed")
+      }),
+      getAsObject: vi.fn(),
+      free: vi.fn(),
+      reset: vi.fn()
+    }
+    ;(db as any).prepare = vi.fn().mockReturnValue(rowStmt)
+
+    await expect(query("SELECT * FROM test")).rejects.toThrow("step failed")
+    expect(rowStmt.free).toHaveBeenCalled()
+  })
+
   // -------------------------------------------------------------------------
   // 4. run — executes statement with bind params
   // -------------------------------------------------------------------------
@@ -303,6 +324,27 @@ describe("SQLite DB module", () => {
     expect(mockStmt.bind).toHaveBeenCalledWith([42])
     expect(mockStmt.step).toHaveBeenCalled()
     expect(mockStmt.free).toHaveBeenCalled()
+  })
+
+  it("does not export a partial transaction before COMMIT", async () => {
+    vi.useFakeTimers()
+    const { mockSQL, mockDb } = buildSQLMocks()
+    vi.mocked(initSqlJs).mockResolvedValue(mockSQL as any)
+
+    await initSQLite()
+    mockDb.export.mockClear()
+
+    await run("BEGIN TRANSACTION")
+    await run("INSERT INTO test VALUES (?)", [42])
+    await vi.runAllTimersAsync()
+
+    expect(mockDb.export).not.toHaveBeenCalled()
+
+    await run("COMMIT")
+    await vi.runAllTimersAsync()
+
+    expect(mockDb.export).toHaveBeenCalled()
+    vi.useRealTimers()
   })
 
   // -------------------------------------------------------------------------
