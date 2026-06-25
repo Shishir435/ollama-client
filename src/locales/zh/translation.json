@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "无法获取模型"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "欢迎使用 Ollama Client",
+      "privacy": "一切都在您的设备上运行。您的聊天和数据绝不会离开设备。",
+      "body": "部分功能（书签与历史记录知识、提醒、保存文件和标签组）需要可选的浏览器权限。在您允许之前它们保持关闭；只授予您需要的权限。",
+      "open": "打开权限",
+      "dismiss": "以后再说"
+    }
   }
 }

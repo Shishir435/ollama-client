@@ -87,6 +87,8 @@ export const STORAGE_KEYS = {
     PREFERENCE: "light-dark-theme"
   },
   LANGUAGE: "app-language",
+  // One-shot flag: the first-run permissions/privacy intro has been shown.
+  ONBOARDING_PERMISSIONS_SEEN: "onboarding-permissions-seen",
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",

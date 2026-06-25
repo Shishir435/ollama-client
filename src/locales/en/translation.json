@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Failed to fetch models"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Welcome to Ollama Client",
+      "privacy": "Everything runs on your device. Your chats and data never leave it.",
+      "body": "Some features — bookmarks & history knowledge, reminders, saving files, and tab groups — need optional browser permissions. They stay off until you allow them, so grant only what you want.",
+      "open": "Open Permissions",
+      "dismiss": "Maybe later"
+    }
   }
 }

@@ -60,6 +60,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "UI preference."
   },
+  [STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN]: {
+    key: STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN,
+    scope: "device-local",
+    reason:
+      "One-shot first-run intro flag; optional permissions are per-device, so each browser shows it once."
+  },
   [STORAGE_KEYS.BROWSER.TABS_ACCESS]: {
     key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
     scope: "sync-safe",

@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Impossible de récupérer les modèles"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Bienvenue dans Ollama Client",
+      "privacy": "Tout s’exécute sur votre appareil. Vos conversations et données ne le quittent jamais.",
+      "body": "Certaines fonctionnalités — favoris et historique, rappels, enregistrement de fichiers et groupes d’onglets — nécessitent des autorisations facultatives du navigateur. Elles restent désactivées tant que vous ne les autorisez pas ; n’accordez que ce que vous voulez.",
+      "open": "Ouvrir les autorisations",
+      "dismiss": "Plus tard"
+    }
   }
 }

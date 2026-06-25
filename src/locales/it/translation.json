@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Impossibile recuperare i modelli"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Benvenuto in Ollama Client",
+      "privacy": "Tutto viene eseguito sul tuo dispositivo. Le tue chat e i tuoi dati non lo lasciano mai.",
+      "body": "Alcune funzioni — conoscenza di segnalibri e cronologia, promemoria, salvataggio file e gruppi di schede — richiedono autorizzazioni facoltative del browser. Restano disattivate finché non le abiliti; concedi solo ciò che vuoi.",
+      "open": "Apri autorizzazioni",
+      "dismiss": "Più tardi"
+    }
   }
 }

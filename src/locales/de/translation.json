@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Willkommen bei Ollama Client",
+      "privacy": "Alles läuft auf deinem Gerät. Deine Chats und Daten verlassen es nie.",
+      "body": "Einige Funktionen – Lesezeichen- & Verlaufswissen, Erinnerungen, Dateien speichern und Tab-Gruppen – benötigen optionale Browser-Berechtigungen. Sie bleiben aus, bis du sie erlaubst. Gewähre nur, was du möchtest.",
+      "open": "Berechtigungen öffnen",
+      "dismiss": "Später"
+    }
   }
 }

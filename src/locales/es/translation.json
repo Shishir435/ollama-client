@@ -1617,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "No se pudieron obtener los modelos"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Bienvenido a Ollama Client",
+      "privacy": "Todo se ejecuta en tu dispositivo. Tus chats y datos nunca salen de él.",
+      "body": "Algunas funciones —conocimiento de marcadores e historial, recordatorios, guardar archivos y grupos de pestañas— requieren permisos opcionales del navegador. Permanecen desactivadas hasta que las habilites; concede solo lo que quieras.",
+      "open": "Abrir permisos",
+      "dismiss": "Quizás más tarde"
+    }
   }
 }
