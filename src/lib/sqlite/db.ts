@@ -220,11 +220,14 @@ export const run = async (
       transactionDepth += 1
     }
   } finally {
+    // Decrement in finally so a throwing COMMIT/ROLLBACK step still releases
+    // the depth: SQLite auto-rolls-back a failed COMMIT, so the transaction is
+    // over either way. Leaving the counter elevated would silently halt every
+    // future auto-save.
+    if (commitsTransaction || rollsBackTransaction) {
+      transactionDepth = Math.max(0, transactionDepth - 1)
+    }
     stmt.free()
-  }
-
-  if (commitsTransaction || rollsBackTransaction) {
-    transactionDepth = Math.max(0, transactionDepth - 1)
   }
 
   if (startsTransaction) {
