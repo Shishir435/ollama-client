@@ -17,6 +17,7 @@ import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import { getErrorMessage } from "@/lib/error-utils"
 import { queryClient } from "@/lib/query-client"
 import { flushSave } from "@/lib/sqlite/db"
+import { FirstRunPermissionsDialog } from "@/sidepanel/components/first-run-permissions-dialog"
 
 const IndexSidePanel = () => {
   useThemeWatcher()
@@ -54,6 +55,7 @@ const IndexSidePanel = () => {
       <ErrorBoundary>
         <TooltipProvider>
           <Chat />
+          <FirstRunPermissionsDialog />
           <DevThemePane />
           <Toaster position={"top-center"} closeButton={true} />
         </TooltipProvider>

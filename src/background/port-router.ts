@@ -22,6 +22,7 @@ import type {
 export const registerPortRouter = () => {
   browser.runtime.onConnect.addListener((port: ChromePort) => {
     let isPortClosed = false
+    let currentAbortKey: string | undefined
     const isSelectionBridgePort = registerSelectionBridgePort(port)
 
     const getPortStatus: PortStatusFunction = () => isPortClosed
@@ -31,11 +32,12 @@ export const registerPortRouter = () => {
       if (isSelectionBridgePort) {
         unregisterSelectionBridgePort(port)
       }
-      abortAndClearController(port.name)
+      abortAndClearController(currentAbortKey ?? port.name)
     })
 
     port.onMessage.addListener(async (msg: ChromeMessage) => {
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
+        currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
           msg as ChatWithModelMessage,
           port,
@@ -45,7 +47,7 @@ export const registerPortRouter = () => {
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
         logger.info("Stop generation requested", "BackgroundSW")
-        abortAndClearController(port.name)
+        abortAndClearController(currentAbortKey ?? port.name)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {

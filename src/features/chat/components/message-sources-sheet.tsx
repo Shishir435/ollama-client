@@ -33,6 +33,7 @@ export interface MessageSourcesSheetProps {
   sections: { label?: string; items: SourceItem[] }[]
   preContent?: React.ReactNode
   renderMetadata: (item: SourceItem) => React.ReactNode
+  metadataPosition?: "before-title" | "after-title"
   /** Override the expanded body. Defaults to the item's plain-text content. */
   renderContent?: (item: SourceItem) => React.ReactNode
   getItemValue?: (item: SourceItem) => string
@@ -51,6 +52,7 @@ export function MessageSourcesSheet({
   sections,
   preContent,
   renderMetadata,
+  metadataPosition = "after-title",
   renderContent,
   getItemValue = (item) => String(item.id),
   feedback
@@ -107,10 +109,15 @@ export function MessageSourcesSheet({
                         className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
                         <AccordionTrigger className="min-w-0 pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
                           <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
+                            {meta && metadataPosition === "before-title" && (
+                              <span className="block min-w-0 max-w-full truncate text-[10px] text-muted-foreground">
+                                {meta}
+                              </span>
+                            )}
                             <span className="truncate text-xs font-medium">
                               {item.title}
                             </span>
-                            {meta && (
+                            {meta && metadataPosition === "after-title" && (
                               <span className="block min-w-0 max-w-full truncate text-[10px] text-muted-foreground">
                                 {meta}
                               </span>

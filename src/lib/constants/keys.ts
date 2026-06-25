@@ -87,8 +87,8 @@ export const STORAGE_KEYS = {
     PREFERENCE: "light-dark-theme"
   },
   LANGUAGE: "app-language",
-  // Dark-ship flags for in-progress 0.11.x features (FEATURE_ROADMAP §5 item 5).
-  FEATURE_FLAGS: "feature-flags",
+  // One-shot flag: the first-run permissions/privacy intro has been shown.
+  ONBOARDING_PERMISSIONS_SEEN: "onboarding-permissions-seen",
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",
     EXCLUDE_URL_PATTERNS: "exclude-url-pattern",

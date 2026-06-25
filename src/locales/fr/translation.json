@@ -212,7 +212,9 @@
       "previous_branch": "Branche précédente",
       "next_branch": "Branche suivante",
       "preview": "Aperçu",
-      "download": "Télécharger"
+      "download": "Télécharger",
+      "delete_confirm_title": "Supprimer ce message ?",
+      "delete_confirm_description": "Il sera définitivement supprimé de la conversation."
     },
     "metrics": {
       "total_time": "Temps total",
@@ -263,7 +265,8 @@
         "tabGroups": "Liste des groupes d’onglets",
         "schedule_reminder": "Planification du rappel",
         "save_artifact": "Enregistrement du fichier",
-        "capture_screenshot": "Capture d'écran"
+        "capture_screenshot": "Capture d'écran",
+        "searches": "{{count}} recherches"
       },
       "debug": "Raisonnement de débogage"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "Exporter le chat",
-      "tooltip_all": "Exporter toutes les sessions de chat",
       "aria_label": "Exporter le chat",
-      "aria_label_all": "Exporter toutes les sessions de chat",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "Toutes les sessions",
       "role_user": "Vous",
       "role_assistant": "Assistant IA"
-    },
-    "import": {
-      "tooltip": "Importer des sessions de chat",
-      "aria_label": "Importer des sessions de chat",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "Aucune session de discussion lisible n'a été trouvée dans le ou les fichiers sélectionnés.",
-        "failed_title": "Aucune importation",
-        "partial_description": "{{skipped}} session(s) ignorée(s), {{droppedMessages}} message(s) supprimé(s), {{invalidFiles}} fichier(s) illisible(s).",
-        "partial_title": "{{count}} session de discussion importée avec des problèmes",
-        "partial_title_plural": "{{count}} sessions de discussion importées avec des problèmes",
-        "success_title": "{{count}} session de discussion importée",
-        "success_title_plural": "{{count}} sessions de discussion importées"
-      }
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Fonctionnalités en avant-première",
-        "description": "Fonctionnalités expérimentales en cours de développement. Désactivées par défaut ; activez-les à vos risques."
-      },
       "siteProfiles": {
         "title": "Profils de contexte par site",
         "description": "Créez des règles locales pour les sites qui doivent utiliser le contexte de page toujours, jamais ou normalement. Les sites “Ne jamais lire” sont exclus de l’extraction et des outils d’onglets.",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Impossible de récupérer les modèles"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Bienvenue dans Ollama Client",
+      "privacy": "Tout s’exécute sur votre appareil. Vos conversations et données ne le quittent jamais.",
+      "body": "Certaines fonctionnalités — favoris et historique, rappels, enregistrement de fichiers et groupes d’onglets — nécessitent des autorisations facultatives du navigateur. Elles restent désactivées tant que vous ne les autorisez pas ; n’accordez que ce que vous voulez.",
+      "open": "Ouvrir les autorisations",
+      "dismiss": "Plus tard"
+    }
   }
 }

@@ -7,6 +7,7 @@ import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { isNeverReadUrl } from "./per-site-profiles"
 
 export type BrowserKnowledgeSource = "bookmarks" | "history"
 
@@ -77,10 +78,10 @@ const matchesDomain = (hostname: string, domain: string): boolean => {
   return hostname === normalized || hostname.endsWith(`.${normalized}`)
 }
 
-const shouldIncludeUrl = (
+const shouldIncludeUrl = async (
   url: string | undefined,
   settings: BrowserKnowledgeSourceSettings
-): url is string => {
+): Promise<boolean> => {
   if (!url || !/^https?:\/\//i.test(url)) return false
 
   const hostname = getHostname(url)
@@ -100,7 +101,11 @@ const shouldIncludeUrl = (
     return false
   }
 
-  return !excludeDomains.some((domain) => matchesDomain(hostname, domain))
+  if (excludeDomains.some((domain) => matchesDomain(hostname, domain))) {
+    return false
+  }
+
+  return !(await isNeverReadUrl(url))
 }
 
 export const getBrowserKnowledgeSettings =
@@ -142,12 +147,12 @@ export const setBrowserKnowledgeSourceSettings = async (
   return next
 }
 
-const bookmarkNodeToDocuments = (
+const bookmarkNodeToDocuments = async (
   node: browser.Bookmarks.BookmarkTreeNode,
   settings: BrowserKnowledgeSourceSettings,
   documents: BrowserKnowledgeDocument[]
-): void => {
-  if (node.url && shouldIncludeUrl(node.url, settings)) {
+): Promise<void> => {
+  if (node.url && (await shouldIncludeUrl(node.url, settings))) {
     const title = node.title?.trim() || node.url
     documents.push({
       pageContent: `Bookmark: ${title}\nURL: ${node.url}`,
@@ -164,7 +169,7 @@ const bookmarkNodeToDocuments = (
 
   for (const child of node.children ?? []) {
     if (documents.length >= settings.maxItems) return
-    bookmarkNodeToDocuments(child, settings, documents)
+    await bookmarkNodeToDocuments(child, settings, documents)
   }
 }
 
@@ -179,7 +184,7 @@ export const collectBookmarkDocuments = async (
 
   for (const root of tree) {
     if (documents.length >= settings.maxItems) break
-    bookmarkNodeToDocuments(root, settings, documents)
+    await bookmarkNodeToDocuments(root, settings, documents)
   }
 
   return documents.slice(0, settings.maxItems)
@@ -201,31 +206,35 @@ export const collectHistoryDocuments = async (
     maxResults: settings.maxItems
   })
 
-  return items
-    .filter((item) => shouldIncludeUrl(item.url, settings))
-    .slice(0, settings.maxItems)
-    .map((item) => {
-      const url = item.url as string
-      const title = item.title?.trim() || url
-      const lastVisitTime = item.lastVisitTime ?? Date.now()
+  const allowedItems = []
+  for (const item of items) {
+    if (await shouldIncludeUrl(item.url, settings)) {
+      allowedItems.push(item)
+    }
+  }
 
-      return {
-        pageContent: `History: ${title}\nURL: ${url}\nLast visited: ${new Date(
-          lastVisitTime
-        ).toISOString()}`,
-        metadata: {
-          source: "history",
-          type: "webpage",
-          url,
-          title,
-          browserSource: "history",
-          browserId: item.id,
-          visitCount: item.visitCount,
-          lastVisitTime,
-          timestamp: lastVisitTime
-        }
+  return allowedItems.slice(0, settings.maxItems).map((item) => {
+    const url = item.url as string
+    const title = item.title?.trim() || url
+    const lastVisitTime = item.lastVisitTime ?? Date.now()
+
+    return {
+      pageContent: `History: ${title}\nURL: ${url}\nLast visited: ${new Date(
+        lastVisitTime
+      ).toISOString()}`,
+      metadata: {
+        source: "history",
+        type: "webpage",
+        url,
+        title,
+        browserSource: "history",
+        browserId: item.id,
+        visitCount: item.visitCount,
+        lastVisitTime,
+        timestamp: lastVisitTime
       }
-    })
+    }
+  })
 }
 
 export const getRecentHistoryItems = async (
@@ -248,9 +257,14 @@ export const getRecentHistoryItems = async (
     maxResults: clampedLimit
   })
 
-  return items
-    .filter((item) => shouldIncludeUrl(item.url, historySettings))
-    .slice(0, clampedLimit)
+  const allowedItems = []
+  for (const item of items) {
+    if (await shouldIncludeUrl(item.url, historySettings)) {
+      allowedItems.push(item)
+    }
+  }
+
+  return allowedItems.slice(0, clampedLimit)
 }
 
 export const searchBookmarkItems = async (
@@ -269,9 +283,14 @@ export const searchBookmarkItems = async (
     ? await browser.bookmarks.search(trimmed)
     : await browser.bookmarks.search({})
 
-  return matches
-    .filter((item) => shouldIncludeUrl(item.url, bookmarkSettings))
-    .slice(0, Math.max(1, Math.min(50, Math.floor(limit))))
+  const allowedItems = []
+  for (const item of matches) {
+    if (await shouldIncludeUrl(item.url, bookmarkSettings)) {
+      allowedItems.push(item)
+    }
+  }
+
+  return allowedItems.slice(0, Math.max(1, Math.min(50, Math.floor(limit))))
 }
 
 export const collectBrowserKnowledgeDocuments = async (

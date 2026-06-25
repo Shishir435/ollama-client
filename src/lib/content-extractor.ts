@@ -128,7 +128,22 @@ export const waitForNetworkIdle = (
 ): Promise<void> => {
   return new Promise((resolve) => {
     let idleTimer: ReturnType<typeof setTimeout> | null = null
+    let timeoutTimer: ReturnType<typeof setTimeout> | null = null
     let startTime = Date.now()
+    let settled = false
+
+    const originalFetch = window.fetch
+    const originalOpen = XMLHttpRequest.prototype.open
+
+    const cleanupAndResolve = () => {
+      if (settled) return
+      settled = true
+      if (idleTimer) clearTimeout(idleTimer)
+      if (timeoutTimer) clearTimeout(timeoutTimer)
+      window.fetch = originalFetch
+      XMLHttpRequest.prototype.open = originalOpen
+      resolve()
+    }
 
     const resetIdleTimer = () => {
       if (idleTimer) clearTimeout(idleTimer)
@@ -136,20 +151,18 @@ export const waitForNetworkIdle = (
       idleTimer = setTimeout(() => {
         const idleDuration = Date.now() - startTime
         if (idleDuration >= minIdleTime) {
-          resolve()
+          cleanupAndResolve()
         }
       }, minIdleTime)
     }
 
     // Monitor fetch requests
-    const originalFetch = window.fetch
     window.fetch = (...args) => {
       resetIdleTimer()
       return originalFetch.apply(window, args)
     }
 
     // Monitor XMLHttpRequest
-    const originalOpen = XMLHttpRequest.prototype.open
     XMLHttpRequest.prototype.open = function (...args) {
       resetIdleTimer()
       return originalOpen.apply(this, args)
@@ -159,10 +172,7 @@ export const waitForNetworkIdle = (
     resetIdleTimer()
 
     // Timeout fallback
-    setTimeout(() => {
-      if (idleTimer) clearTimeout(idleTimer)
-      resolve()
-    }, timeout)
+    timeoutTimer = setTimeout(cleanupAndResolve, timeout)
   })
 }
 

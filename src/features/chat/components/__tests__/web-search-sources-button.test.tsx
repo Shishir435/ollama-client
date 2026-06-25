@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import type { ToolRun } from "@/types"
-import { WebSearchSourcesButton } from "../web-search-sources-button"
+import {
+  getWebSourceFaviconUrl,
+  WebSearchSourcesButton
+} from "../web-search-sources-button"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -89,7 +92,34 @@ describe("WebSearchSourcesButton", () => {
     expect(links[0]).toHaveAttribute("title", "https://a.com/page")
   })
 
-  it("shows backend metadata (engine, score, date) and snippet in the dropdown", () => {
+  it("shows the source host before the title", () => {
+    const run = webRun([
+      {
+        title: "Used A",
+        url: "https://a.com/page",
+        excerpt: "ea",
+        used: true
+      }
+    ])
+    render(<WebSearchSourcesButton toolRuns={[run]} />)
+    fireEvent.click(screen.getByRole("button"))
+
+    const triggerText =
+      screen.getByText("Used A").closest("button")?.textContent ?? ""
+    expect(triggerText.indexOf("a.com")).toBeLessThan(
+      triggerText.indexOf("Used A")
+    )
+  })
+
+  it("derives favicons from the source origin only", () => {
+    expect(getWebSourceFaviconUrl("https://www.example.com/path?q=1")).toBe(
+      "https://www.example.com/favicon.ico"
+    )
+    expect(getWebSourceFaviconUrl("ftp://example.com/file")).toBeUndefined()
+    expect(getWebSourceFaviconUrl("not-a-url")).toBeUndefined()
+  })
+
+  it("shows compact search-provider badges and hides debug metadata", () => {
     const run = webRun([
       {
         title: "Dated source",
@@ -97,6 +127,7 @@ describe("WebSearchSourcesButton", () => {
         excerpt: "the snippet text",
         publishedAt: "2026-06-02",
         source: "duckduckgo",
+        category: "general",
         score: 0.87,
         used: true
       }
@@ -106,13 +137,14 @@ describe("WebSearchSourcesButton", () => {
     // Expand the accordion row.
     fireEvent.click(screen.getByText("Dated source"))
 
+    expect(screen.getByTitle("DDG")).toBeInTheDocument()
     expect(screen.getByText(/2026-06-02/)).toBeInTheDocument()
-    expect(screen.getByText(/duckduckgo/)).toBeInTheDocument()
-    expect(screen.getByText(/0\.87/)).toBeInTheDocument()
+    expect(screen.queryByText("general")).not.toBeInTheDocument()
+    expect(screen.queryByText(/0\.87/)).not.toBeInTheDocument()
     expect(screen.getByText("the snippet text")).toBeInTheDocument()
   })
 
-  it("keeps metadata tied to the clicked duplicate URL row", () => {
+  it("keeps expanded details tied to the clicked duplicate URL row", () => {
     const run = webRun([
       {
         id: "call-1:web-0",
@@ -138,7 +170,8 @@ describe("WebSearchSourcesButton", () => {
     fireEvent.click(screen.getByText("First source"))
 
     expect(screen.getByText(/2026-06-01/)).toBeInTheDocument()
-    expect(screen.getByText(/engine-a/)).toBeInTheDocument()
+    expect(screen.getByText("first snippet")).toBeInTheDocument()
     expect(screen.queryByText(/2026-06-02/)).not.toBeInTheDocument()
+    expect(screen.queryByText("second snippet")).not.toBeInTheDocument()
   })
 })

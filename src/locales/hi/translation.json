@@ -212,7 +212,9 @@
       "previous_branch": "पिछली शाखा",
       "next_branch": "अगली शाखा",
       "preview": "पूर्वावलोकन",
-      "download": "डाउनलोड"
+      "download": "डाउनलोड",
+      "delete_confirm_title": "इस संदेश को हटाएं?",
+      "delete_confirm_description": "यह इसे बातचीत से स्थायी रूप से हटा देता है।"
     },
     "metrics": {
       "total_time": "कुल समय",
@@ -263,7 +265,8 @@
         "tabGroups": "टैब समूह सूचीबद्ध कर रहे हैं",
         "schedule_reminder": "रिमाइंडर शेड्यूल कर रहे हैं",
         "save_artifact": "फ़ाइल सहेज रहे हैं",
-        "capture_screenshot": "स्क्रीनशॉट ले रहे हैं"
+        "capture_screenshot": "स्क्रीनशॉट ले रहे हैं",
+        "searches": "{{count}} खोजें"
       },
       "debug": "डीबग तर्क"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "चैट निर्यात करें",
-      "tooltip_all": "सभी चैट सेशन निर्यात करें",
       "aria_label": "चैट निर्यात करें",
-      "aria_label_all": "सभी चैट सेशन निर्यात करें",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "सभी चैट सत्र",
       "role_user": "आप",
       "role_assistant": "AI सहायक"
-    },
-    "import": {
-      "tooltip": "चैट सेशन आयात करें",
-      "aria_label": "चैट सेशन आयात करें",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "चयनित फ़ाइल(फ़ाइलों) में कोई पठनीय चैट सत्र नहीं मिला।",
-        "failed_title": "कुछ भी इम्पोर्ट नहीं हुआ",
-        "partial_description": "{{skipped}} सत्र छोड़े गए, {{droppedMessages}} संदेश हटाए गए, {{invalidFiles}} पठनीय न होने वाली फ़ाइलें।",
-        "partial_title": "समस्याओं के साथ {{count}} चैट सत्र इम्पोर्ट हुआ",
-        "partial_title_plural": "समस्याओं के साथ {{count}} चैट सत्र इम्पोर्ट हुए",
-        "success_title": "{{count}} चैट सत्र इम्पोर्ट हुआ",
-        "success_title_plural": "{{count}} चैट सत्र इम्पोर्ट हुए"
-      }
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "प्रीव्यू सुविधाएँ",
-        "description": "प्रायोगिक, विकासाधीन सुविधाएँ। डिफ़ॉल्ट रूप से बंद; अपने जोखिम पर सक्षम करें।"
-      },
       "siteProfiles": {
         "title": "हर साइट के लिए context profiles",
         "description": "उन साइटों के लिए लोकल rules बनाएं जिन्हें page context हमेशा, कभी नहीं, या normal तरीके से use करना चाहिए. “Never read” साइटें extraction और tab tools से बाहर रहेंगी.",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "मॉडल प्राप्त करने में विफल"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Ollama Client में आपका स्वागत है",
+      "privacy": "सब कुछ आपके डिवाइस पर चलता है। आपकी चैट और डेटा इसे कभी नहीं छोड़ते।",
+      "body": "कुछ सुविधाएँ — बुकमार्क व इतिहास ज्ञान, रिमाइंडर, फ़ाइलें सहेजना और टैब समूह — को वैकल्पिक ब्राउज़र अनुमतियों की आवश्यकता होती है। जब तक आप अनुमति न दें ये बंद रहती हैं; केवल वही दें जो आप चाहते हैं।",
+      "open": "अनुमतियाँ खोलें",
+      "dismiss": "बाद में"
+    }
   }
 }

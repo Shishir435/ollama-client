@@ -221,6 +221,7 @@ export interface ChatWithModelMessage {
     messages: ChatMessage[]
     sessionId?: string
     chatId?: string
+    requestId?: string
   }
 }
 

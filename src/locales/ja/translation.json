@@ -212,7 +212,9 @@
       "previous_branch": "前のブランチ",
       "next_branch": "次のブランチ",
       "preview": "プレビュー",
-      "download": "ダウンロード"
+      "download": "ダウンロード",
+      "delete_confirm_title": "このメッセージを削除しますか?",
+      "delete_confirm_description": "会話から完全に削除されます。"
     },
     "metrics": {
       "total_time": "合計時間",
@@ -263,7 +265,8 @@
         "tabGroups": "タブグループを一覧表示中",
         "schedule_reminder": "リマインダーを設定中",
         "save_artifact": "ファイルを保存中",
-        "capture_screenshot": "スクリーンショットを撮影中"
+        "capture_screenshot": "スクリーンショットを撮影中",
+        "searches": "{{count}} 件の検索"
       },
       "debug": "デバッグ推論"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "チャットをエクスポート",
-      "tooltip_all": "すべてのチャットセッションをエクスポート",
       "aria_label": "チャットをエクスポート",
-      "aria_label_all": "すべてのチャットセッションをエクスポート",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "すべてのチャットセッション",
       "role_user": "あなた",
       "role_assistant": "AIアシスタント"
-    },
-    "import": {
-      "tooltip": "チャットセッションをインポート",
-      "aria_label": "チャットセッションをインポート",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "選択したファイルから読み取り可能なチャットセッションが見つかりませんでした。",
-        "failed_title": "インポートされませんでした",
-        "partial_description": "{{skipped}} 件のセッションをスキップ、{{droppedMessages}} 件のメッセージを破棄、{{invalidFiles}} 件の読み取り不可能なファイルがありました。",
-        "partial_title": "{{count}} 件のチャットセッションを問題ありでインポートしました",
-        "partial_title_plural": "{{count}} 件のチャットセッションを問題ありでインポートしました",
-        "success_title": "{{count}} 件のチャットセッションをインポートしました",
-        "success_title_plural": "{{count}} 件のチャットセッションをインポートしました"
-      }
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "プレビュー機能",
-        "description": "開発中の実験的な機能です。既定ではオフです。自己責任で有効にしてください。"
-      },
       "siteProfiles": {
         "title": "サイト別コンテキストプロファイル",
         "description": "ページコンテキストを常に使う、使わない、通常どおりにするサイト別のローカルルールを作成します。「読み取らない」サイトは抽出とタブツールから除外されます。",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "モデルの取得に失敗しました"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Ollama Client へようこそ",
+      "privacy": "すべてがお使いのデバイス上で動作します。チャットやデータが外部に送信されることはありません。",
+      "body": "一部の機能（ブックマーク・履歴の知識、リマインダー、ファイル保存、タブグループ）には任意のブラウザ権限が必要です。許可するまでオフのままです。必要なものだけ許可してください。",
+      "open": "権限を開く",
+      "dismiss": "後で"
+    }
   }
 }

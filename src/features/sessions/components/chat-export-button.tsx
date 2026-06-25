@@ -16,84 +16,47 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { BookOpen, Code, Download, FileDown, FileText } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
-export const ChatExportButton = ({
-  showAllSessions = false,
-  sessionId
-}: {
-  showAllSessions?: boolean
-  sessionId?: string
-}) => {
+export const ChatExportButton = ({ sessionId }: { sessionId?: string }) => {
   const { t } = useTranslation()
   const { sessions, currentSessionId } = useChatSessions()
   const {
     exportSessionAsPdf,
-    exportAllSessionsAsJson,
-    exportAllSessionsAsPdf,
     exportSessionAsJson,
     exportSessionAsMarkdown,
-    exportAllSessionsAsMarkdown,
-    exportSessionAsText,
-    exportAllSessionsAsText
+    exportSessionAsText
   } = useChatExport()
 
   const targetId = sessionId ?? currentSessionId
   const current = sessions.find((s) => s.id === targetId)
 
-  const actionItems: ActionMenuItemConfig[] = showAllSessions
+  const actionItems: ActionMenuItemConfig[] = current
     ? [
         {
           key: "json",
           label: t("sessions.export.format_json"),
           icon: <Code className="icon-md" />,
-          onClick: () => exportAllSessionsAsJson(sessions)
+          onClick: () => exportSessionAsJson(current)
         },
         {
           key: "pdf",
           label: t("sessions.export.format_pdf"),
           icon: <FileDown className="icon-md" />,
-          onClick: () => exportAllSessionsAsPdf(sessions)
+          onClick: () => exportSessionAsPdf(current)
         },
         {
           key: "markdown",
           label: t("sessions.export.format_markdown"),
           icon: <BookOpen className="icon-md" />,
-          onClick: () => exportAllSessionsAsMarkdown(sessions)
+          onClick: () => exportSessionAsMarkdown(current)
         },
         {
           key: "text",
           label: t("sessions.export.format_text"),
           icon: <FileText className="icon-md" />,
-          onClick: () => exportAllSessionsAsText(sessions)
+          onClick: () => exportSessionAsText(current)
         }
       ]
-    : current
-      ? [
-          {
-            key: "json",
-            label: t("sessions.export.format_json"),
-            icon: <Code className="icon-md" />,
-            onClick: () => exportSessionAsJson(current)
-          },
-          {
-            key: "pdf",
-            label: t("sessions.export.format_pdf"),
-            icon: <FileDown className="icon-md" />,
-            onClick: () => exportSessionAsPdf(current)
-          },
-          {
-            key: "markdown",
-            label: t("sessions.export.format_markdown"),
-            icon: <BookOpen className="icon-md" />,
-            onClick: () => exportSessionAsMarkdown(current)
-          },
-          {
-            key: "text",
-            label: t("sessions.export.format_text"),
-            icon: <FileText className="icon-md" />,
-            onClick: () => exportSessionAsText(current)
-          }
-        ]
-      : []
+    : []
 
   if (actionItems.length === 0) return null
 
@@ -106,25 +69,17 @@ export const ChatExportButton = ({
             size="icon"
             className={cn(
               "size-7 shrink-0 rounded-control transition-all duration-200",
-              !showAllSessions && "opacity-0 group-hover:opacity-100",
+              "group-hover:opacity-100",
               "hover:bg-muted hover:text-foreground",
               "focus:bg-muted focus:text-foreground focus:opacity-100"
             )}
-            ariaLabel={
-              showAllSessions
-                ? t("sessions.export.aria_label_all")
-                : t("sessions.export.aria_label")
-            }
-            tooltip={
-              showAllSessions
-                ? t("sessions.export.tooltip_all")
-                : t("sessions.export.tooltip")
-            }
+            ariaLabel={t("sessions.export.aria_label")}
+            tooltip={t("sessions.export.tooltip")}
             icon={<Download className="icon-md" />}
           />
         }>
         <DropdownMenuContent
-          align={showAllSessions ? "center" : "end"}
+          align="end"
           sideOffset={6}
           className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md data-open:animate-none data-closed:animate-none">
           <DropdownMenuGroup>

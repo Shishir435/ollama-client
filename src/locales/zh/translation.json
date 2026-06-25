@@ -212,7 +212,9 @@
       "previous_branch": "上一个分支",
       "next_branch": "下一个分支",
       "preview": "预览",
-      "download": "下载"
+      "download": "下载",
+      "delete_confirm_title": "删除此消息？",
+      "delete_confirm_description": "这将从对话中永久删除它。"
     },
     "metrics": {
       "total_time": "总时间",
@@ -263,7 +265,8 @@
         "tabGroups": "列出标签页组",
         "schedule_reminder": "正在安排提醒",
         "save_artifact": "正在保存文件",
-        "capture_screenshot": "正在截屏"
+        "capture_screenshot": "正在截屏",
+        "searches": "{{count}} 次搜索"
       },
       "debug": "调试推理"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "导出聊天",
-      "tooltip_all": "导出所有聊天会话",
       "aria_label": "导出聊天",
-      "aria_label_all": "导出所有聊天会话",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "所有会话",
       "role_user": "你",
       "role_assistant": "AI助手"
-    },
-    "import": {
-      "tooltip": "导入聊天会话",
-      "aria_label": "导入聊天会话",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "在所选文件中未找到可读取的聊天会话。",
-        "failed_title": "未导入任何内容",
-        "partial_description": "已跳过 {{skipped}} 个会话，丢弃 {{droppedMessages}} 条消息，{{invalidFiles}} 个文件无法读取。",
-        "partial_title": "已导入 {{count}} 个聊天会话，但存在问题",
-        "partial_title_plural": "已导入 {{count}} 个聊天会话，但存在问题",
-        "success_title": "已导入 {{count}} 个聊天会话",
-        "success_title_plural": "已导入 {{count}} 个聊天会话"
-      }
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "预览功能",
-        "description": "正在开发中的实验性功能。默认关闭；启用风险自负。"
-      },
       "siteProfiles": {
         "title": "按站点设置上下文配置",
         "description": "为不同站点创建本地规则，控制页面上下文始终使用、从不使用或跟随全局设置。“从不读取”的站点会从提取和标签页工具中排除。",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "无法获取模型"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "欢迎使用 Ollama Client",
+      "privacy": "一切都在您的设备上运行。您的聊天和数据绝不会离开设备。",
+      "body": "部分功能（书签与历史记录知识、提醒、保存文件和标签组）需要可选的浏览器权限。在您允许之前它们保持关闭；只授予您需要的权限。",
+      "open": "打开权限",
+      "dismiss": "以后再说"
+    }
   }
 }

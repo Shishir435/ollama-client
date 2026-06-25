@@ -120,6 +120,21 @@ describe("settings-registry", () => {
       )
     })
 
+    it("matches privacy and plain-language context aliases", () => {
+      expect(searchSettings("stop ai seeing tabs").map((e) => e.id)).toContain(
+        "browser-tab-access"
+      )
+      expect(searchSettings("auto screenshot").map((e) => e.id)).toContain(
+        "auto-screenshot-on-vision"
+      )
+      expect(searchSettings("document search").map((e) => e.id)).toContain(
+        "rag-enabled"
+      )
+      expect(searchSettings("page reading").map((e) => e.id)).toContain(
+        "content-extraction-enabled"
+      )
+    })
+
     it("matches reset danger zone separately from module rows", () => {
       const hit = searchSettings("danger zone").find(
         (e) => e.id === "reset-danger-zone"

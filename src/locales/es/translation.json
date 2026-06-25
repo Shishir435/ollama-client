@@ -212,7 +212,9 @@
       "previous_branch": "Rama Anterior",
       "next_branch": "Rama Siguiente",
       "preview": "Vista previa",
-      "download": "Descargar"
+      "download": "Descargar",
+      "delete_confirm_title": "¿Eliminar este mensaje?",
+      "delete_confirm_description": "Se eliminará permanentemente de la conversación."
     },
     "metrics": {
       "total_time": "Tiempo total",
@@ -263,7 +265,8 @@
         "tabGroups": "Listando grupos de pestañas",
         "schedule_reminder": "Programando recordatorio",
         "save_artifact": "Guardando archivo",
-        "capture_screenshot": "Capturando pantalla"
+        "capture_screenshot": "Capturando pantalla",
+        "searches": "{{count}} búsquedas"
       },
       "debug": "Razonamiento de depuración"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "Exportar chat",
-      "tooltip_all": "Exportar todas las sesiones de chat",
       "aria_label": "Exportar chat",
-      "aria_label_all": "Exportar todas las sesiones de chat",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
       "role_assistant": "Asistente IA"
-    },
-    "import": {
-      "tooltip": "Importar sesiones de chat",
-      "aria_label": "Importar sesiones de chat",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "No se encontraron sesiones de chat legibles en los archivos seleccionados.",
-        "failed_title": "No se importó nada",
-        "partial_description": "Se omitieron {{skipped}} sesión(es), se descartaron {{droppedMessages}} mensaje(s), {{invalidFiles}} archivo(s) ilegible(s).",
-        "partial_title": "Se importó {{count}} sesión de chat con problemas",
-        "partial_title_plural": "Se importaron {{count}} sesiones de chat con problemas",
-        "success_title": "Se importó {{count}} sesión de chat",
-        "success_title_plural": "Se importaron {{count}} sesiones de chat"
-      }
     },
     "actions": {
       "more": "Más acciones para {{title}}",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Funciones en vista previa",
-        "description": "Funciones experimentales en desarrollo. Desactivadas por defecto; actívalas bajo tu responsabilidad."
-      },
       "siteProfiles": {
         "title": "Perfiles de contexto por sitio",
         "description": "Crea reglas locales para sitios que deben usar el contexto de página siempre, nunca o de forma normal. Los sitios “Nunca leer” se excluyen de la extracción y de las herramientas de pestañas.",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "No se pudieron obtener los modelos"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Bienvenido a Ollama Client",
+      "privacy": "Todo se ejecuta en tu dispositivo. Tus chats y datos nunca salen de él.",
+      "body": "Algunas funciones —conocimiento de marcadores e historial, recordatorios, guardar archivos y grupos de pestañas— requieren permisos opcionales del navegador. Permanecen desactivadas hasta que las habilites; concede solo lo que quieras.",
+      "open": "Abrir permisos",
+      "dismiss": "Quizás más tarde"
+    }
   }
 }

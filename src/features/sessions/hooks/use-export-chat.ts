@@ -48,23 +48,12 @@ export const useChatExport = () => {
     jsonExporter.exportSession(fullSession, t, { fileName })
   }
 
-  const exportAllSessionsAsJson = async (sessions: ChatSession[]) => {
-    // For "All Sessions", we probably want to iterate and fetch full details for each
-    const fullSessions = await Promise.all(sessions.map(getFullSession))
-    jsonExporter.exportAllSessions(fullSessions, t)
-  }
-
   const exportSessionAsPdf = async (
     session: ChatSession,
     fileName?: string
   ) => {
     const fullSession = await getFullSession(session)
     pdfExporter.exportSession(fullSession, t, { fileName })
-  }
-
-  const exportAllSessionsAsPdf = async (sessions: ChatSession[]) => {
-    const fullSessions = await Promise.all(sessions.map(getFullSession))
-    pdfExporter.exportAllSessions(fullSessions, t)
   }
 
   const exportSessionAsMarkdown = async (
@@ -75,11 +64,6 @@ export const useChatExport = () => {
     markdownExporter.exportSession(fullSession, t, { fileName })
   }
 
-  const exportAllSessionsAsMarkdown = async (sessions: ChatSession[]) => {
-    const fullSessions = await Promise.all(sessions.map(getFullSession))
-    markdownExporter.exportAllSessions(fullSessions, t)
-  }
-
   const exportSessionAsText = async (
     session: ChatSession,
     fileName?: string
@@ -88,19 +72,10 @@ export const useChatExport = () => {
     textExporter.exportSession(fullSession, t, { fileName })
   }
 
-  const exportAllSessionsAsText = async (sessions: ChatSession[]) => {
-    const fullSessions = await Promise.all(sessions.map(getFullSession))
-    textExporter.exportAllSessions(fullSessions, t)
-  }
-
   return {
     exportSessionAsJson,
-    exportAllSessionsAsJson,
     exportSessionAsPdf,
-    exportAllSessionsAsPdf,
     exportSessionAsMarkdown,
-    exportAllSessionsAsMarkdown,
-    exportSessionAsText,
-    exportAllSessionsAsText
+    exportSessionAsText
   }
 }

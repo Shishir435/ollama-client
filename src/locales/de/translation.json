@@ -212,7 +212,9 @@
       "previous_branch": "Vorheriger Zweig",
       "next_branch": "Nächster Zweig",
       "preview": "Vorschau",
-      "download": "Herunterladen"
+      "download": "Herunterladen",
+      "delete_confirm_title": "Diese Nachricht löschen?",
+      "delete_confirm_description": "Sie wird dauerhaft aus der Unterhaltung entfernt."
     },
     "metrics": {
       "total_time": "Gesamtzeit",
@@ -263,7 +265,8 @@
         "tabGroups": "Tabgruppen auflisten",
         "schedule_reminder": "Erinnerung planen",
         "save_artifact": "Datei speichern",
-        "capture_screenshot": "Screenshot wird aufgenommen"
+        "capture_screenshot": "Screenshot wird aufgenommen",
+        "searches": "{{count}} Suchen"
       },
       "debug": "Debug-Reasoning"
     },
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "Chat exportieren",
-      "tooltip_all": "Alle Chat-Sitzungen exportieren",
       "aria_label": "Chat exportieren",
-      "aria_label_all": "Alle Chat-Sitzungen exportieren",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
       "role_assistant": "KI-Assistent"
-    },
-    "import": {
-      "tooltip": "Chat-Sitzungen importieren",
-      "aria_label": "Chat-Sitzungen importieren",
-      "default_title": "Imported chat",
-      "toast": {
-        "failed_description": "In den ausgewählten Dateien wurden keine lesbaren Chat-Sitzungen gefunden.",
-        "failed_title": "Nichts importiert",
-        "partial_description": "{{skipped}} Sitzung(en) übersprungen, {{droppedMessages}} Nachricht(en) verworfen, {{invalidFiles}} unlesbare Datei(en).",
-        "partial_title": "{{count}} Chat-Sitzung mit Problemen importiert",
-        "partial_title_plural": "{{count}} Chat-Sitzungen mit Problemen importiert",
-        "success_title": "{{count}} Chat-Sitzung importiert",
-        "success_title_plural": "{{count}} Chat-Sitzungen importiert"
-      }
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
@@ -1474,10 +1461,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Vorschaufunktionen",
-        "description": "Experimentelle Funktionen in Entwicklung. Standardmäßig deaktiviert; Aktivierung auf eigenes Risiko."
-      },
       "siteProfiles": {
         "title": "Kontextprofile pro Website",
         "description": "Erstelle lokale Regeln für Websites, die Seitenkontext immer, nie oder normal verwenden sollen. „Nie lesen“-Sites sind von Extraktion und Tab-Tools ausgeschlossen.",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Willkommen bei Ollama Client",
+      "privacy": "Alles läuft auf deinem Gerät. Deine Chats und Daten verlassen es nie.",
+      "body": "Einige Funktionen – Lesezeichen- & Verlaufswissen, Erinnerungen, Dateien speichern und Tab-Gruppen – benötigen optionale Browser-Berechtigungen. Sie bleiben aus, bis du sie erlaubst. Gewähre nur, was du möchtest.",
+      "open": "Berechtigungen öffnen",
+      "dismiss": "Später"
+    }
   }
 }

@@ -1,4 +1,7 @@
-import { setAbortController } from "@/background/lib/abort-controller-registry"
+import {
+  clearAbortController,
+  setAbortController
+} from "@/background/lib/abort-controller-registry"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
@@ -50,9 +53,10 @@ const limitMessagesForModel = (
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
     const { model, providerId, messages } = msg.payload
+    const abortKey = msg.payload.requestId || port.name
 
     const ac = new AbortController()
-    setAbortController(port.name, ac)
+    setAbortController(abortKey, ac)
 
     const modelConfigMap =
       (await plasmoGlobalStorage.get<ModelConfigMap>(
@@ -205,23 +209,27 @@ export const handleChatWithModel = withErrorContext(
       safePostMessage(port, chunk)
     }
 
-    if (tools && tools.length > 0) {
-      const { getToolRegistry } = await import("@/lib/tools")
-      const toolResultMaxChars =
-        (await plasmoGlobalStorage.get<number>(
-          STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS
-        )) ?? undefined
-      await streamChatWithTools({
-        provider,
-        request,
-        registry: getToolRegistry(),
-        onChunk,
-        signal: ac.signal,
-        ctx: { signal: ac.signal, sessionId: msg.payload.sessionId, model },
-        toolResultMaxChars
-      })
-    } else {
-      await provider.streamChat(request, onChunk, ac.signal)
+    try {
+      if (tools && tools.length > 0) {
+        const { getToolRegistry } = await import("@/lib/tools")
+        const toolResultMaxChars =
+          (await plasmoGlobalStorage.get<number>(
+            STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS
+          )) ?? undefined
+        await streamChatWithTools({
+          provider,
+          request,
+          registry: getToolRegistry(),
+          onChunk,
+          signal: ac.signal,
+          ctx: { signal: ac.signal, sessionId: msg.payload.sessionId, model },
+          toolResultMaxChars
+        })
+      } else {
+        await provider.streamChat(request, onChunk, ac.signal)
+      }
+    } finally {
+      clearAbortController(abortKey)
     }
   },
   {

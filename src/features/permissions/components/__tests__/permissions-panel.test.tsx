@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { getScheduledJobSettings } from "@/lib/scheduled-jobs"
-import { useFeatureFlagsStore } from "@/stores/feature-flags"
 
 const perm = vi.hoisted(() => ({
   hasPermission: vi.fn(),
@@ -93,12 +92,11 @@ beforeEach(() => {
   browserApi.sendMessage.mockResolvedValue({ success: true })
   browserApi.createNotification.mockResolvedValue("test-notification")
   browserApi.supportsTabGroups.mockReturnValue(false)
-  useFeatureFlagsStore.getState().reset()
   providerModels.models = [{ name: "qwen", providerId: "ollama" }]
 })
 
 describe("PermissionsPanel", () => {
-  it("renders optional-permission and preview-flag switches", () => {
+  it("renders optional-permission switches", () => {
     render(<PermissionsPanel />)
     expect(document.getElementById("permission-bookmarks")).toBeTruthy()
     expect(document.getElementById("permission-history")).toBeTruthy()
@@ -106,7 +104,6 @@ describe("PermissionsPanel", () => {
     expect(
       document.getElementById("scheduled-job-vector-maintenance")
     ).toBeTruthy()
-    expect(document.getElementById("feature-flag-omnibox")).toBeTruthy()
   })
 
   it("requests the alarms permission when its switch is enabled", () => {
@@ -272,27 +269,10 @@ describe("PermissionsPanel", () => {
     await waitFor(() => expect(sw).toBeChecked())
   })
 
-  it("toggling a preview flag updates the feature-flags store", () => {
-    render(<PermissionsPanel />)
-    fireEvent.click(document.getElementById("feature-flag-omnibox") as Element)
-    expect(useFeatureFlagsStore.getState().flags.omnibox).toBe(true)
-  })
-
   it("compact mode omits the host-access note card", () => {
     const { queryByText } = render(<PermissionsPanel compact />)
     // host title key is only rendered in non-compact mode
     expect(queryByText("settings.permissions.host.title")).toBeNull()
-  })
-
-  it("hides the preview-features card in the production build", () => {
-    const prev = process.env.NODE_ENV
-    process.env.NODE_ENV = "production"
-    try {
-      render(<PermissionsPanel />)
-      expect(document.getElementById("feature-flag-omnibox")).toBeNull()
-    } finally {
-      process.env.NODE_ENV = prev
-    }
   })
 
   it("loads scheduled-job settings", async () => {

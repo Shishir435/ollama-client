@@ -1,6 +1,11 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
-import { SettingsCard, SettingsSection } from "@/components/settings"
+import {
+  SettingsCard,
+  SettingsSection,
+  SettingsSwitch
+} from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
@@ -11,7 +16,30 @@ import {
 } from "@/features/knowledge/components"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { BookOpen, Globe, Scissors, Upload } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+
+const AutoScreenshotSettings = () => {
+  const { t } = useTranslation()
+  const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
+    useStorage<boolean>(
+      {
+        key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
+        instance: plasmoGlobalStorage
+      },
+      false
+    )
+
+  return (
+    <SettingsSwitch
+      id="auto-screenshot-on-vision"
+      label={t("chat.input.auto_screenshot")}
+      checked={autoScreenshotOnVision}
+      onCheckedChange={setAutoScreenshotOnVision}
+    />
+  )
+}
 
 /**
  * Context tab: conversation context, prompt budget, grounding, web search,
@@ -46,7 +74,10 @@ export const ContextSettings = () => {
       <SettingsSection
         title={t("settings.context.sections.grounding")}
         description={t("settings.context.sections.grounding_description")}>
-        <GroundingModeSettings />
+        <TwoColumnGrid>
+          <GroundingModeSettings />
+          <AutoScreenshotSettings />
+        </TwoColumnGrid>
       </SettingsSection>
 
       <SettingsSection

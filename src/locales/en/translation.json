@@ -212,7 +212,9 @@
       "previous_branch": "Previous branch",
       "next_branch": "Next branch",
       "preview": "Preview",
-      "download": "Download"
+      "download": "Download",
+      "delete_confirm_title": "Delete this message?",
+      "delete_confirm_description": "This permanently removes it from the conversation."
     },
     "metrics": {
       "total_time": "Total Time",
@@ -264,7 +266,8 @@
         "tabGroups": "Listing tab groups",
         "schedule_reminder": "Scheduling reminder",
         "save_artifact": "Saving file",
-        "capture_screenshot": "Capturing screenshot"
+        "capture_screenshot": "Capturing screenshot",
+        "searches": "{{count}} searches"
       }
     },
     "feedback": {
@@ -650,9 +653,7 @@
     },
     "export": {
       "tooltip": "Export chat",
-      "tooltip_all": "Export all chat sessions",
       "aria_label": "Export chat",
-      "aria_label_all": "Export all chat sessions",
       "format_json": "JSON",
       "format_pdf": "PDF",
       "format_markdown": "Markdown",
@@ -661,20 +662,6 @@
       "all_sessions_title": "All Chat Sessions",
       "role_user": "You",
       "role_assistant": "AI Assistant"
-    },
-    "import": {
-      "tooltip": "Import chat sessions",
-      "aria_label": "Import chat sessions",
-      "default_title": "Imported chat",
-      "toast": {
-        "success_title": "Imported {{count}} chat session",
-        "success_title_plural": "Imported {{count}} chat sessions",
-        "partial_title": "Imported {{count}} chat session with issues",
-        "partial_title_plural": "Imported {{count}} chat sessions with issues",
-        "partial_description": "Skipped {{skipped}} session(s), dropped {{droppedMessages}} message(s), {{invalidFiles}} unreadable file(s).",
-        "failed_title": "Nothing imported",
-        "failed_description": "No readable chat sessions were found in the selected file(s)."
-      }
     },
     "actions": {
       "more": "More actions for {{title}}",
@@ -1057,10 +1044,6 @@
             "description": "Run daily cleanup for local vector storage and duplicate knowledge chunks."
           }
         }
-      },
-      "preview": {
-        "title": "Preview features",
-        "description": "Experimental, in-development features. Off by default; enable at your own risk."
       },
       "siteProfiles": {
         "title": "Per-site context profiles",
@@ -1634,5 +1617,14 @@
   },
   "errors": {
     "failed_to_fetch_models": "Failed to fetch models"
+  },
+  "onboarding": {
+    "permissions": {
+      "title": "Welcome to Ollama Client",
+      "privacy": "Everything runs on your device. Your chats and data never leave it.",
+      "body": "Some features — bookmarks & history knowledge, reminders, saving files, and tab groups — need optional browser permissions. They stay off until you allow them, so grant only what you want.",
+      "open": "Open Permissions",
+      "dismiss": "Maybe later"
+    }
   }
 }

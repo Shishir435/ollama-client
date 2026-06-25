@@ -1,3 +1,6 @@
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
@@ -13,6 +16,7 @@ import { ChatMessageList } from "./chat-message-list"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
 export const Chat = () => {
+  const { t } = useTranslation()
   const {
     messages,
     pendingActivityEvents,
@@ -36,6 +40,7 @@ export const Chat = () => {
   } = useChatSessions()
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
 
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
@@ -144,10 +149,17 @@ export const Chat = () => {
     }
   }
 
-  const handleDeleteMessage = async (message: ChatMessage) => {
-    if (!message.id) return
+  // window.confirm can be silently suppressed inside an extension side panel,
+  // so route deletes through the shared in-app confirm dialog instead.
+  const handleDeleteMessage = (message: ChatMessage) => {
     if (typeof message.id !== "number") return
-    await deleteMessage(message.id)
+    setPendingDeleteId(message.id)
+  }
+
+  const confirmDeleteMessage = async () => {
+    if (pendingDeleteId === null) return
+    await deleteMessage(pendingDeleteId)
+    setPendingDeleteId(null)
   }
 
   const handleNavigateBranch = async (nodeId: number | string) => {
@@ -194,6 +206,17 @@ export const Chat = () => {
         open={isSearchOpen}
         onClose={closeSearchDialog}
         currentSessionId={currentSessionId}
+      />
+      <ConfirmActionDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null)
+        }}
+        title={t("chat.actions.delete_confirm_title")}
+        description={t("chat.actions.delete_confirm_description")}
+        confirmLabel={t("chat.actions.delete")}
+        destructive
+        onConfirm={confirmDeleteMessage}
       />
     </div>
   )

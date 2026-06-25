@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/select"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { browser, supportsTabGroups } from "@/lib/browser-api"
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_PROVIDER_ID,
+  DEFAULT_TABS_ACCESS,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { Bot, Globe, Lock, Sparkles } from "@/lib/lucide-icon"
 import {
   hasPermission,
@@ -24,6 +29,7 @@ import {
   removePermission,
   requestPermission
 } from "@/lib/permissions"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   getScheduledJobSettings,
   type ScheduledJobId,
@@ -45,17 +51,15 @@ import {
   setToolMasterEnabled,
   type ToolFamilySettings
 } from "@/lib/tools/tool-settings"
-import { type FeatureFlag, useFeatureFlagsStore } from "@/stores/feature-flags"
 
 /**
  * Shared privacy / permissions surface (v0.11.0 groundwork — FEATURE_ROADMAP §5
  * item 7, C1). Reused in two homes: the Options "Permissions" tab and the chat
  * context popover (pass `compact`). It is the one place users see and revoke
- * optional browser access and toggle preview features.
+ * optional browser access.
  *
- * Scope: optional API permissions + preview flags + a read-only note that host
- * access (`<all_urls>`) is standing and intentionally not revocable here (§0.4).
- * As E2/E3/E5/E9 land they add their own data (vector counts, site rules) here.
+ * Scope: optional API permissions + a read-only note that host access
+ * (`<all_urls>`) is standing and intentionally not revocable here (§0.4).
  */
 
 interface OptionalPermissionMeta {
@@ -83,20 +87,6 @@ const OPTIONAL_PERMISSIONS: OptionalPermissionMeta[] = [
   { perm: "alarms", focusId: "permission-alarms", available: () => true }
 ]
 
-/**
- * Preview-flag labels are developer-facing and stay in code (not i18n) — these
- * are experimental toggles, not polished end-user copy.
- */
-const FLAG_LABELS: Record<FeatureFlag, string> = {
-  omnibox: "Omnibox quick-ask",
-  bookmarksHistoryRag: "Bookmarks & history knowledge",
-  perSiteProfiles: "Per-site context profiles",
-  tabGroups: "Tab-group workflows",
-  templateVariables: "Template variables",
-  downloads: "Save generated artifacts",
-  browserTools: "Browser actions as tools"
-}
-
 const SCHEDULED_JOB_LABELS: Record<
   ScheduledJobId,
   { labelKey: string; descriptionKey: string }
@@ -106,6 +96,41 @@ const SCHEDULED_JOB_LABELS: Record<
     descriptionKey:
       "settings.permissions.scheduled.items.vectorMaintenance.description"
   }
+}
+
+const TabAccessSettings = () => {
+  const { t } = useTranslation()
+  const [tabAccess, setTabAccess] = useState(DEFAULT_TABS_ACCESS)
+
+  useEffect(() => {
+    let active = true
+    plasmoGlobalStorage
+      .get<boolean>(STORAGE_KEYS.BROWSER.TABS_ACCESS)
+      .then((stored) => {
+        if (active) setTabAccess(stored ?? DEFAULT_TABS_ACCESS)
+      })
+      .catch(() => {
+        // Fall back to the default on a storage read error rather than
+        // leaving an unhandled rejection.
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const onCheckedChange = async (next: boolean) => {
+    setTabAccess(next)
+    await plasmoGlobalStorage.set(STORAGE_KEYS.BROWSER.TABS_ACCESS, next)
+  }
+
+  return (
+    <SettingsSwitch
+      id="browser-tab-access"
+      label={t("settings.presets.fields.tab_access")}
+      checked={tabAccess}
+      onCheckedChange={onCheckedChange}
+    />
+  )
 }
 
 const OptionalPermissionRow = ({
@@ -501,18 +526,11 @@ export const PermissionsPanel = ({
   compact = false
 }: PermissionsPanelProps) => {
   const { t } = useTranslation()
-  const flags = useFeatureFlagsStore((s) => s.flags)
-  const setFlag = useFeatureFlagsStore((s) => s.setFlag)
   const [permissionRefreshKey, setPermissionRefreshKey] = useState(0)
 
   const refreshPermissionRows = useCallback(() => {
     setPermissionRefreshKey((value) => value + 1)
   }, [])
-
-  // Preview-flag toggles are a dev/QA control, not end-user UI. Hidden in the
-  // production build; the flag store still gates in-progress code paths. Flags
-  // are disposable — delete each one once its feature ships stable and on.
-  const showPreviewFeatures = process.env.NODE_ENV !== "production"
 
   return (
     <div className="grid gap-4">
@@ -543,8 +561,9 @@ export const PermissionsPanel = ({
           focusId="permissions-host"
           icon={Globe}
           title={t("settings.permissions.host.title")}
-          description={t("settings.permissions.host.description")}
-        />
+          description={t("settings.permissions.host.description")}>
+          <TabAccessSettings />
+        </SettingsCard>
       )}
 
       {!compact && (
@@ -563,24 +582,6 @@ export const PermissionsPanel = ({
               />
             )
           )}
-        </SettingsCard>
-      )}
-
-      {showPreviewFeatures && (
-        <SettingsCard
-          focusId="permissions-preview"
-          icon={Sparkles}
-          title={t("settings.permissions.preview.title")}
-          description={t("settings.permissions.preview.description")}>
-          {(Object.keys(FLAG_LABELS) as FeatureFlag[]).map((flag) => (
-            <SettingsSwitch
-              key={flag}
-              id={`feature-flag-${flag}`}
-              label={FLAG_LABELS[flag]}
-              checked={flags[flag]}
-              onCheckedChange={(next) => setFlag(flag, next)}
-            />
-          ))}
         </SettingsCard>
       )}
     </div>
