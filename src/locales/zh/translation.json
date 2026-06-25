@@ -212,7 +212,9 @@
       "previous_branch": "上一个分支",
       "next_branch": "下一个分支",
       "preview": "预览",
-      "download": "下载"
+      "download": "下载",
+      "delete_confirm_title": "删除此消息？",
+      "delete_confirm_description": "这将从对话中永久删除它。"
     },
     "metrics": {
       "total_time": "总时间",
@@ -263,7 +265,8 @@
         "tabGroups": "列出标签页组",
         "schedule_reminder": "正在安排提醒",
         "save_artifact": "正在保存文件",
-        "capture_screenshot": "正在截屏"
+        "capture_screenshot": "正在截屏",
+        "searches": "{{count}} 次搜索"
       },
       "debug": "调试推理"
     },

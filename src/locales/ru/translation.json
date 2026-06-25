@@ -212,7 +212,9 @@
       "previous_branch": "Предыдущая ветка",
       "next_branch": "Следующая ветка",
       "preview": "Предпросмотр",
-      "download": "Скачать"
+      "download": "Скачать",
+      "delete_confirm_title": "Удалить это сообщение?",
+      "delete_confirm_description": "Оно будет навсегда удалено из беседы."
     },
     "metrics": {
       "total_time": "Общее время",
@@ -263,7 +265,8 @@
         "tabGroups": "Список групп вкладок",
         "schedule_reminder": "Планирование напоминания",
         "save_artifact": "Сохранение файла",
-        "capture_screenshot": "Создание снимка экрана"
+        "capture_screenshot": "Создание снимка экрана",
+        "searches": "{{count}} запросов"
       },
       "debug": "Отладочное рассуждение"
     },

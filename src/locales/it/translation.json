@@ -212,7 +212,9 @@
       "previous_branch": "Branch Precedente",
       "next_branch": "Branch Successivo",
       "preview": "Anteprima",
-      "download": "Scarica"
+      "download": "Scarica",
+      "delete_confirm_title": "Eliminare questo messaggio?",
+      "delete_confirm_description": "Verrà rimosso definitivamente dalla conversazione."
     },
     "metrics": {
       "total_time": "Tempo totale",
@@ -263,7 +265,8 @@
         "tabGroups": "Elenco gruppi di schede",
         "schedule_reminder": "Pianificazione promemoria",
         "save_artifact": "Salvataggio file",
-        "capture_screenshot": "Acquisizione screenshot"
+        "capture_screenshot": "Acquisizione screenshot",
+        "searches": "{{count}} ricerche"
       },
       "debug": "Ragionamento di debug"
     },

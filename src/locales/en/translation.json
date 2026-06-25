@@ -212,7 +212,9 @@
       "previous_branch": "Previous branch",
       "next_branch": "Next branch",
       "preview": "Preview",
-      "download": "Download"
+      "download": "Download",
+      "delete_confirm_title": "Delete this message?",
+      "delete_confirm_description": "This permanently removes it from the conversation."
     },
     "metrics": {
       "total_time": "Total Time",
@@ -264,7 +266,8 @@
         "tabGroups": "Listing tab groups",
         "schedule_reminder": "Scheduling reminder",
         "save_artifact": "Saving file",
-        "capture_screenshot": "Capturing screenshot"
+        "capture_screenshot": "Capturing screenshot",
+        "searches": "{{count}} searches"
       }
     },
     "feedback": {

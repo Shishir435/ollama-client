@@ -212,7 +212,9 @@
       "previous_branch": "前のブランチ",
       "next_branch": "次のブランチ",
       "preview": "プレビュー",
-      "download": "ダウンロード"
+      "download": "ダウンロード",
+      "delete_confirm_title": "このメッセージを削除しますか?",
+      "delete_confirm_description": "会話から完全に削除されます。"
     },
     "metrics": {
       "total_time": "合計時間",
@@ -263,7 +265,8 @@
         "tabGroups": "タブグループを一覧表示中",
         "schedule_reminder": "リマインダーを設定中",
         "save_artifact": "ファイルを保存中",
-        "capture_screenshot": "スクリーンショットを撮影中"
+        "capture_screenshot": "スクリーンショットを撮影中",
+        "searches": "{{count}} 件の検索"
       },
       "debug": "デバッグ推論"
     },

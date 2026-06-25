@@ -127,7 +127,7 @@ const getGroupedToolRunStatus = (runs: ToolRun[]): TraceStatus => {
 
 const buildWebToolTraceStep = (
   runs: ToolRun[],
-  t: (key: string) => string
+  t: (key: string, options?: { count?: number }) => string
 ): TraceStep => {
   const firstRun = runs[0]
   const firstError = runs.find((run) => run.error)?.error
@@ -141,14 +141,14 @@ const buildWebToolTraceStep = (
     detail: firstError,
     preview:
       runs.length > 1
-        ? `${runs.length} search${runs.length === 1 ? "" : "es"}`
+        ? t("chat.reasoning.trace.searches", { count: runs.length })
         : undefined
   }
 }
 
 const buildCompactToolTraceSteps = (
   toolRuns: ToolRun[],
-  t: (key: string) => string
+  t: (key: string, options?: { count?: number }) => string
 ): TraceStep[] => {
   const webRuns: ToolRun[] = []
   const steps: (TraceStep | "web-search-group")[] = []

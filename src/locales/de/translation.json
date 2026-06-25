@@ -212,7 +212,9 @@
       "previous_branch": "Vorheriger Zweig",
       "next_branch": "Nächster Zweig",
       "preview": "Vorschau",
-      "download": "Herunterladen"
+      "download": "Herunterladen",
+      "delete_confirm_title": "Diese Nachricht löschen?",
+      "delete_confirm_description": "Sie wird dauerhaft aus der Unterhaltung entfernt."
     },
     "metrics": {
       "total_time": "Gesamtzeit",
@@ -263,7 +265,8 @@
         "tabGroups": "Tabgruppen auflisten",
         "schedule_reminder": "Erinnerung planen",
         "save_artifact": "Datei speichern",
-        "capture_screenshot": "Screenshot wird aufgenommen"
+        "capture_screenshot": "Screenshot wird aufgenommen",
+        "searches": "{{count}} Suchen"
       },
       "debug": "Debug-Reasoning"
     },
