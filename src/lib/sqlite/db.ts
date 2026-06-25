@@ -209,14 +209,16 @@ export const run = async (
   const commitsTransaction = normalizedSql.startsWith("COMMIT")
   const rollsBackTransaction = normalizedSql.startsWith("ROLLBACK")
 
-  if (startsTransaction) {
-    transactionDepth += 1
-  }
-
   const stmt = database.prepare(sql)
   try {
     stmt.bind(bind)
     stmt.step()
+    // Only count the transaction once BEGIN actually executes. Incrementing
+    // before stmt.step() would skew the depth permanently if BEGIN throws
+    // (e.g. a transaction is already open), silently halting auto-saves.
+    if (startsTransaction) {
+      transactionDepth += 1
+    }
   } finally {
     stmt.free()
   }
