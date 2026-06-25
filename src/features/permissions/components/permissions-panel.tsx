@@ -109,6 +109,10 @@ const TabAccessSettings = () => {
       .then((stored) => {
         if (active) setTabAccess(stored ?? DEFAULT_TABS_ACCESS)
       })
+      .catch(() => {
+        // Fall back to the default on a storage read error rather than
+        // leaving an unhandled rejection.
+      })
     return () => {
       active = false
     }
