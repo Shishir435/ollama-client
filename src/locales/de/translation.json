@@ -1458,10 +1458,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Vorschaufunktionen",
-        "description": "Experimentelle Funktionen in Entwicklung. Standardmäßig deaktiviert; Aktivierung auf eigenes Risiko."
-      },
       "siteProfiles": {
         "title": "Kontextprofile pro Website",
         "description": "Erstelle lokale Regeln für Websites, die Seitenkontext immer, nie oder normal verwenden sollen. „Nie lesen“-Sites sind von Extraktion und Tab-Tools ausgeschlossen.",

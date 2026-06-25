@@ -1458,10 +1458,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Funciones en vista previa",
-        "description": "Funciones experimentales en desarrollo. Desactivadas por defecto; actívalas bajo tu responsabilidad."
-      },
       "siteProfiles": {
         "title": "Perfiles de contexto por sitio",
         "description": "Crea reglas locales para sitios que deben usar el contexto de página siempre, nunca o de forma normal. Los sitios “Nunca leer” se excluyen de la extracción y de las herramientas de pestañas.",

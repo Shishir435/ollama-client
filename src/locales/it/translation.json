@@ -1458,10 +1458,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Funzioni in anteprima",
-        "description": "Funzioni sperimentali in sviluppo. Disattivate per impostazione predefinita; attivale a tuo rischio."
-      },
       "siteProfiles": {
         "title": "Profili di contesto per sito",
         "description": "Crea regole locali per i siti che devono usare il contesto della pagina sempre, mai o normalmente. I siti “Non leggere mai” sono esclusi da estrazione e strumenti delle schede.",

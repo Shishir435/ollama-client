@@ -87,7 +87,6 @@ describe("useResetAppStorage", () => {
     const keys = getAllResetKeys()
 
     expect(keys.LANGUAGE).toEqual(["app-language"])
-    expect(keys.FEATURE_FLAGS).toEqual(["feature-flags"])
     expect(keys.PROVIDER).toContain(ProviderStorageKey.CONFIG)
     expect(keys.PROVIDER).toContain(ProviderStorageKey.MODEL_MAPPINGS)
   })

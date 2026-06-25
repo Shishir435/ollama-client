@@ -1458,10 +1458,6 @@
           }
         }
       },
-      "preview": {
-        "title": "Fonctionnalités en avant-première",
-        "description": "Fonctionnalités expérimentales en cours de développement. Désactivées par défaut ; activez-les à vos risques."
-      },
       "siteProfiles": {
         "title": "Profils de contexte par site",
         "description": "Créez des règles locales pour les sites qui doivent utiliser le contexte de page toujours, jamais ou normalement. Les sites “Ne jamais lire” sont exclus de l’extraction et des outils d’onglets.",

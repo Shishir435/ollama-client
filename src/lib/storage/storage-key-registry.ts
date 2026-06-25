@@ -60,11 +60,6 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "UI preference."
   },
-  [STORAGE_KEYS.FEATURE_FLAGS]: {
-    key: STORAGE_KEYS.FEATURE_FLAGS,
-    scope: "sync-safe",
-    reason: "Dark-ship feature toggles are user preferences; follow the user."
-  },
   [STORAGE_KEYS.BROWSER.TABS_ACCESS]: {
     key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
     scope: "sync-safe",

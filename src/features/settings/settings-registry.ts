@@ -21,13 +21,6 @@ const TAB_GROUPS_AVAILABLE =
   firefoxMajorVersion >= 139
 
 /**
- * Preview-feature toggles are a dev/QA control hidden in the production build
- * (see `permissions-panel.tsx`). Gate the matching search entry the same way so
- * a production search hit can't land on a card that never mounts.
- */
-const PREVIEW_FEATURES_VISIBLE = process.env.NODE_ENV !== "production"
-
-/**
  * Settings registry — the single source of truth for "what settings exist,
  * where they live, and what they're called."
  *
@@ -1417,21 +1410,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     descriptionKey:
       "settings.permissions.scheduled.items.vectorMaintenance.description",
     aliases: ["scheduled jobs", "maintenance", "alarms", "cleanup"]
-  },
-  // Preview-features card is dev-only (hidden in the production build), so only
-  // register its search entry where the focus target actually mounts.
-  ...(PREVIEW_FEATURES_VISIBLE
-    ? [
-        {
-          id: "permissions-preview",
-          tab: "permissions" as const,
-          sectionId: "permissions",
-          labelKey: "settings.permissions.preview.title",
-          descriptionKey: "settings.permissions.preview.description",
-          aliases: ["preview", "experimental", "beta", "feature flags"]
-        }
-      ]
-    : [])
+  }
 ]
 
 const TAB_SET = new Set<string>(SETTINGS_TABS)
