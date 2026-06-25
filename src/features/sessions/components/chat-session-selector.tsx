@@ -53,7 +53,10 @@ export const ChatSessionSelector = ({
         showCloseButton={false}
         className="w-80 border-r border-sidebar-border bg-surface-sidebar p-0 text-sidebar-foreground">
         <div className="flex h-full flex-col">
-          <ChatSessionSidebarHeader onCreateSession={createSession} />
+          <ChatSessionSidebarHeader
+            onCreateSession={createSession}
+            sessionCount={sessions.length}
+          />
 
           <div className="space-y-2 p-2">
             <Button
@@ -74,7 +77,7 @@ export const ChatSessionSelector = ({
             />
           </div>
 
-          <ChatSessionFooter sessionCount={sessions.length} />
+          <ChatSessionFooter />
         </div>
       </SheetContent>
     </Sheet>
