@@ -7,6 +7,38 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.11.20] - 2026-06-26
+
+Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity hardening pass.
+
+### Added
+- Permissions & privacy panel (Options + chat popover) with optional, on-demand browser permissions and feature-flag gating.
+- Global keyboard shortcut and omnibox (`olc`) quick-ask to open and send to the side panel.
+- Notifications and reminders.
+- Page screenshot into vision chats, with optional auto-attach for vision models.
+- Browser knowledge: optional RAG over bookmarks/history that honors exclusion scope.
+- Per-site content-extraction profiles and tab-group workflows.
+- Artifact previews (canvas) with per-artifact downloads.
+- Prompt template variables.
+- Model-callable tools `save_artifact` (write generated text to disk) and `capture_screenshot`, plus a multimodal tool-result path.
+- Per-model and per-family tool governance.
+- Session count badge in the chat-sessions sheet header.
+
+### Changed
+- Long-running model/embedding fetches now time out instead of hanging.
+- RAG and background memory context capped to the configured character budget.
+- Message-router payloads centrally parsed and validated.
+- Alarms permission made optional; removed the unbuilt prompt-chaining flag.
+
+### Fixed
+- SQLite durability hardened: foreign keys on (cascade deletes) and an explicit flush path on unload/restart.
+- HNSW vector index reloads on service-worker restart and tolerates duplicate ids; vector deletes reconciled across stores.
+- "Reset" now wipes provider API keys and no longer skips string-keyed modules.
+- Content extraction restores patched `fetch`/XHR instead of leaving the host page rewrapped.
+- Streaming: error path keeps the message id, and abort is keyed per-stream so concurrent chats don't cancel each other.
+- Scoped the per-token re-render storm to the active session.
+- Message delete now asks for confirmation.
+
 ## [0.10.3] - 2026-06-20
 
 ### Added
