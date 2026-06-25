@@ -225,7 +225,14 @@ export const run = async (
     transactionDepth = Math.max(0, transactionDepth - 1)
   }
 
-  if (startsTransaction || rollsBackTransaction) {
+  if (startsTransaction) {
+    return
+  }
+
+  if (rollsBackTransaction) {
+    // Discard the dirty flag — the rolled-back writes are gone, so a later
+    // no-op COMMIT must not schedule a save for them.
+    dirtyDuringTransaction = false
     return
   }
 
@@ -261,7 +268,7 @@ const persistDatabaseNow = async (): Promise<void> => {
   }
   if (!(await canPersistLoadedDatabase())) return
 
-  saveInFlight = saveInFlight.then(async () => {
+  const pending = saveInFlight.then(async () => {
     if (!db) return
     if (transactionDepth > 0) {
       dirtyDuringTransaction = true
@@ -269,7 +276,12 @@ const persistDatabaseNow = async (): Promise<void> => {
     }
     await saveDatabaseToIndexedDB(db.export())
   })
-  await saveInFlight
+  // Keep the serialization chain alive even if this write rejects. Otherwise
+  // one transient IndexedDB failure leaves `saveInFlight` permanently rejected
+  // and every later save silently chains onto it without running — durability
+  // would stay broken for the rest of the service-worker lifetime.
+  saveInFlight = pending.catch(() => {})
+  await pending
 }
 
 const scheduleAutoSave = () => {

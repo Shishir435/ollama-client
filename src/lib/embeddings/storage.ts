@@ -106,7 +106,17 @@ const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
   for (const id of ids) {
     keywordIndexManager.removeDocument(id)
   }
+  // The HNSW backend has no per-id removal, so we clear and rebuild from the
+  // vectors that remain in Dexie. Without the rebuild, search would fall back
+  // to an empty index and return nothing until some later unrelated rebuild.
   await hnswIndexManager.clearIndex?.()
+  await hnswIndexManager.buildIndex?.().catch((error) => {
+    logger.warn(
+      "Vector index rebuild after deletion failed",
+      "removeVectorIdsFromIndexes",
+      { error }
+    )
+  })
 }
 
 /**

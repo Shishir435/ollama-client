@@ -246,29 +246,27 @@ class TsHnswBackend implements AnnBackend {
         config.hnswEfConstruction,
         this.buildDbName(dimension)
       )
-      const loadIndex = (
-        this.index as unknown as { loadIndex?: () => Promise<void> }
-      ).loadIndex
-      if (typeof loadIndex === "function") {
-        await loadIndex.call(this.index)
-        const loadedCount = Number(
-          (
-            this.index as unknown as {
-              nodes?: { size?: number }
-              elements?: { size?: number }
-              count?: number
-            }
-          ).nodes?.size ??
-            (
-              this.index as unknown as {
-                elements?: { size?: number }
-                count?: number
-              }
-            ).elements?.size ??
-            (this.index as unknown as { count?: number }).count ??
-            0
-        )
-        this.count = Number.isFinite(loadedCount) ? loadedCount : 0
+      const graph = this.index as unknown as {
+        loadIndex?: () => Promise<void>
+        nodes?: Map<number, unknown>
+        elements?: Map<number, unknown>
+        count?: number
+      }
+      if (typeof graph.loadIndex === "function") {
+        await graph.loadIndex.call(this.index)
+        // Repopulate the dedup guard from the reloaded graph. The 'hnsw' lib
+        // keeps a `nodes` Map keyed by vector id; without this `indexedIds`
+        // stays empty after a cold start, so the duplicate-id guard in
+        // addVector never fires and re-adds inflate `count`.
+        const nodeMap = graph.nodes ?? graph.elements
+        if (nodeMap && typeof nodeMap.keys === "function") {
+          this.indexedIds = new Set<number>()
+          for (const id of nodeMap.keys()) this.indexedIds.add(Number(id))
+          this.count = this.indexedIds.size
+        } else {
+          const loadedCount = Number(nodeMap?.size ?? graph.count ?? 0)
+          this.count = Number.isFinite(loadedCount) ? loadedCount : 0
+        }
       }
     } catch (error) {
       logger.debug("Falling back to in-memory index", "HNSWIndex", { error })
