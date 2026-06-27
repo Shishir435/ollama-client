@@ -691,12 +691,6 @@
       "reliable": "{{percent}}% fiable",
       "low_reliability": "Faible fiabilité d'extraction. Essayez: changer de scraper, ajuster la profondeur de défilement ou utiliser un contexte de sélection manuel.",
       "no_content": "(Aucun contenu extrait pour le moment)"
-    },
-    "groups": {
-      "title": "Groupes d’onglets",
-      "enable": "Activer les groupes d’onglets",
-      "refresh": "Actualiser les groupes d’onglets",
-      "empty": "Aucun groupe d’onglets ouvert."
     }
   },
   "settings": {

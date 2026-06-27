@@ -691,12 +691,6 @@
       "reliable": "{{percent}}% reliable",
       "low_reliability": "Low extraction reliability. Try: switch scraper, adjust scroll depth, or use manual selection context.",
       "no_content": "(No extracted content yet)"
-    },
-    "groups": {
-      "title": "Tab groups",
-      "enable": "Enable tab groups",
-      "refresh": "Refresh tab groups",
-      "empty": "No tab groups are open."
     }
   },
   "settings": {

@@ -691,12 +691,6 @@
       "reliable": "{{percent}}% fiable",
       "low_reliability": "Baja fiabilidad de extracción. Prueba: cambiar scraper, ajustar profundidad de desplazamiento o usar contexto de selección manual.",
       "no_content": "(Aún no hay contenido extraído)"
-    },
-    "groups": {
-      "title": "Grupos de pestañas",
-      "enable": "Activar grupos de pestañas",
-      "refresh": "Actualizar grupos de pestañas",
-      "empty": "No hay grupos de pestañas abiertos."
     }
   },
   "settings": {
