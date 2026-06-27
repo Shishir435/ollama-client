@@ -26,7 +26,7 @@ export const EmptyState = ({
     {...props}>
     {Icon && (
       <div className="mb-4 rounded-full bg-muted/30 p-4">
-        <Icon className="size-8 text-muted-foreground/40" />
+        <Icon className="icon-3xl text-muted-foreground/40" />
       </div>
     )}
     <h3 className="mb-1 text-sm font-medium text-foreground">{title}</h3>

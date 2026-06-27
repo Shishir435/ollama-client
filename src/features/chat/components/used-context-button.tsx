@@ -62,7 +62,7 @@ export const UsedContextButton = ({
       title={t("chat.sources.used_context_title", { count: chunks.length })}
       sections={sections}
       preContent={
-        <div className="text-[10px] text-muted-foreground">
+        <div className="text-micro text-muted-foreground">
           {t("chat.sources.char_counts", {
             tab: tabContextLength || 0,
             rag: ragContextLength || 0

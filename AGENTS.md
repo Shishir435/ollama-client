@@ -166,7 +166,8 @@ Uses Biome (not ESLint/Prettier):
 - No trailing commas
 - Bracket-same-line for JSX
 
-`__tests__/` files are allowed `noExplicitAny`. Other vendored shadcn-primitive a11y suppressions live as per-line `// biome-ignore` comments inside the offending file — there is no longer a blanket override for `src/components/ui/**`.
+`__tests__/` files are allowed `noExplicitAny`. Other vendored shadcn-primitive a11y suppressions live as per-line `// 
+` comments inside the offending file — there is no longer a blanket override for `src/components/ui/**`.
 
 ### shadcn primitives
 

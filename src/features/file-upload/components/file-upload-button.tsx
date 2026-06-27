@@ -85,7 +85,7 @@ export const FileUploadButton = ({
             ? "file_upload.button.tooltip_with_images"
             : "file_upload.button.tooltip"
         )}
-        icon={<Paperclip className="icon-lg" />}
+        icon={<Paperclip className="icon-sm" />}
       />
     </>
   )

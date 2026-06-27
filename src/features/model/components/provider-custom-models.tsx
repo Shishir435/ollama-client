@@ -66,7 +66,7 @@ export const ProviderCustomModels = ({
             {activeConfig.customModels.map((model) => (
               <div
                 key={model}
-                className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-sm">
+                className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-control text-sm">
                 <span>{model}</span>
                 <TooltipActionButton
                   type="button"

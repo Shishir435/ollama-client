@@ -204,7 +204,7 @@ export const SemanticChatSearchDialog = ({
           <div className="p-4">
             {isSearching && results.length === 0 ? (
               <div className="flex h-60 flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">
-                <Loader2 className="size-8 animate-spin mb-4 text-primary/40" />
+                <Loader2 className="icon-3xl animate-spin mb-4 text-primary/40" />
                 <p className="text-xs font-medium">
                   {t("chat.search.searching")}
                 </p>

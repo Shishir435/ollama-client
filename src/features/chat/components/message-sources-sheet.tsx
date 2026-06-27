@@ -90,7 +90,7 @@ export function MessageSourcesSheet({
               <div key={section.label ?? i} className="space-y-1">
                 {section.label && (
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-medium text-muted-foreground">
+                    <span className="text-2xs font-medium text-muted-foreground">
                       {section.label}
                     </span>
                     <CopyButton
@@ -110,7 +110,7 @@ export function MessageSourcesSheet({
                         <AccordionTrigger className="min-w-0 pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
                           <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
                             {meta && metadataPosition === "before-title" && (
-                              <span className="block min-w-0 max-w-full truncate text-[10px] text-muted-foreground">
+                              <span className="block min-w-0 max-w-full truncate text-micro text-muted-foreground">
                                 {meta}
                               </span>
                             )}
@@ -118,7 +118,7 @@ export function MessageSourcesSheet({
                               {item.title}
                             </span>
                             {meta && metadataPosition === "after-title" && (
-                              <span className="block min-w-0 max-w-full truncate text-[10px] text-muted-foreground">
+                              <span className="block min-w-0 max-w-full truncate text-micro text-muted-foreground">
                                 {meta}
                               </span>
                             )}
@@ -132,7 +132,7 @@ export function MessageSourcesSheet({
                             {renderContent ? (
                               renderContent(item)
                             ) : (
-                              <div className="whitespace-pre-wrap text-[11px] text-muted-foreground wrap-anywhere">
+                              <div className="whitespace-pre-wrap text-2xs text-muted-foreground wrap-anywhere">
                                 {item.content}
                               </div>
                             )}

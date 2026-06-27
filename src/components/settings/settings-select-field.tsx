@@ -1,14 +1,13 @@
 import React, { useMemo } from "react"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { SettingsFormField } from "./settings-form-field"
 
-interface SelectRowProps {
+export interface SettingsSelectFieldProps {
   label: React.ReactNode
   description?: React.ReactNode
   error?: string
@@ -20,9 +19,12 @@ interface SelectRowProps {
   id?: string
   className?: string
   triggerClassName?: string
+  labelClassName?: string
+  focusId?: string
+  disabled?: boolean
 }
 
-export const SelectRow = ({
+export const SettingsSelectField = ({
   label,
   description,
   error,
@@ -33,14 +35,17 @@ export const SelectRow = ({
   children,
   id,
   className,
-  triggerClassName
-}: SelectRowProps) => {
+  triggerClassName,
+  labelClassName,
+  focusId,
+  disabled
+}: SettingsSelectFieldProps) => {
   const autoValueLabel = useMemo(() => {
     if (valueLabel) return valueLabel
     const map = new Map<string, React.ReactNode>()
     React.Children.forEach(children, (child) => {
       if (React.isValidElement(child)) {
-        // biome-ignore lint/suspicious/noExplicitAny: React element props can be anything
+        // biome-ignore lint/suspicious/noExplicitAny: select item props are external
         const element = child as React.ReactElement<any>
         if (element.props?.value !== undefined) {
           map.set(String(element.props.value), element.props.children)
@@ -51,14 +56,15 @@ export const SelectRow = ({
   }, [children, value, valueLabel])
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm">
-        {label}
-      </Label>
-      {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
-      )}
-      <Select value={value} onValueChange={onValueChange}>
+    <SettingsFormField
+      htmlFor={id}
+      focusId={focusId}
+      label={label}
+      description={description}
+      error={error}
+      className={className}
+      labelClassName={labelClassName}>
+      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder={placeholder}>
             {autoValueLabel ? () => autoValueLabel : undefined}
@@ -66,7 +72,6 @@ export const SelectRow = ({
         </SelectTrigger>
         <SelectContent>{children}</SelectContent>
       </Select>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
+    </SettingsFormField>
   )
 }

@@ -91,7 +91,7 @@ function WebSourceFavicon({ url }: { url?: string }) {
   const [failed, setFailed] = useState(false)
   const faviconUrl = getWebSourceFaviconUrl(url)
   if (!faviconUrl || failed) {
-    return <Globe className="size-3.5 shrink-0" aria-hidden />
+    return <Globe className="icon-sm shrink-0" aria-hidden />
   }
   return (
     <img
@@ -181,7 +181,7 @@ export function WebSearchSourcesButton({
       metadataPosition="before-title"
       preContent={
         unused.length > 0 ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             {t("chat.sources.web_unused_hint")}
           </p>
         ) : undefined
@@ -221,11 +221,11 @@ export function WebSearchSourcesButton({
         return (
           <div className="space-y-2">
             {details.length > 0 && (
-              <p className="text-[10px] text-muted-foreground/75">
+              <p className="text-micro text-muted-foreground/75">
                 {details.join(" · ")}
               </p>
             )}
-            <p className="whitespace-pre-wrap wrap-anywhere text-[11px] text-muted-foreground">
+            <p className="whitespace-pre-wrap wrap-anywhere text-2xs text-muted-foreground">
               {item.content || t("chat.sources.web_no_snippet")}
             </p>
           </div>

@@ -95,15 +95,15 @@ const TabOptionRow = ({
         {isSelected && !isLoading && (
           <CheckIcon className="icon-xs shrink-0 text-app-primary" />
         )}
-        <Button
+        <TooltipActionButton
           type="button"
           variant="ghost"
           size="icon"
           className="size-5 rounded-control text-muted-foreground hover:text-foreground"
           onClick={onPreview}
-          aria-label={t("tabs.select.view_content")}>
-          <Eye className="icon-xs" />
-        </Button>
+          label={t("tabs.select.view_content")}
+          icon={<Eye className="icon-xs" />}
+        />
       </span>
       <Button
         type="button"
@@ -142,17 +142,17 @@ const TabContextPanel = ({
   const { t } = useTranslation()
   return (
     <div className="grid gap-2 border-t border-border/40 pt-2">
-      <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 text-2xs font-medium text-muted-foreground">
         <span>{t("tabs.select.placeholder")}</span>
-        <Button
+        <TooltipActionButton
           type="button"
           variant="ghost"
           size="icon"
           className="size-6 rounded-control"
           onClick={refreshTabs}
-          aria-label={t("tabs.select.refresh_now")}>
-          <RefreshCw className="icon-xs" />
-        </Button>
+          label={t("tabs.select.refresh_now")}
+          icon={<RefreshCw className="icon-xs" />}
+        />
       </div>
       <div className="relative">
         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
@@ -395,7 +395,7 @@ export const ContextSettingsMenu = () => {
           label={t("tabs.context")}
           icon={
             <IconBadge
-              icon={<Layers className="icon-lg" aria-hidden="true" />}
+              icon={<Layers className="icon-sm" aria-hidden="true" />}
               count={selectedTabIds.length}
             />
           }
@@ -405,7 +405,7 @@ export const ContextSettingsMenu = () => {
           sideOffset={8}
           className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(20rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] gap-3 overflow-y-auto rounded-panel p-2.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               <Layers className="icon-xs" />
               {t("tabs.context")}
             </div>

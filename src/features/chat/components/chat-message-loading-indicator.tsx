@@ -26,7 +26,7 @@ export const ChatMessageLoadingIndicator = ({
           />
         </div>
       ) : (
-        <span className="text-[10px] text-muted-foreground">⏳</span>
+        <span className="text-micro text-muted-foreground">⏳</span>
       )}
     </div>
   )

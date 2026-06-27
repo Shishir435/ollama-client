@@ -94,7 +94,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
           className="cursor-pointer gap-1.5 pr-1 transition-colors hover:bg-secondary/80">
           {getFileIcon(file.fileType)}
           <span className="max-w-30 truncate">{file.fileName}</span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-micro text-muted-foreground">
             {formatFileSize(file.fileSize)}
           </span>
         </Badge>
@@ -134,7 +134,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
                 <div className="border-t border-border/35">
                   {isLoading ? (
                     <div className="flex items-center justify-center p-8 text-muted-foreground">
-                      <Loader2 className="mr-2 size-6 animate-spin" />
+                      <Loader2 className="mr-2 icon-xl animate-spin" />
                       <span className="text-sm">{t("common.loading")}</span>
                     </div>
                   ) : (

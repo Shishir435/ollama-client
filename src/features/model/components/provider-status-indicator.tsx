@@ -51,7 +51,7 @@ export const ProviderStatusIndicator = () => {
       variant="secondary"
       size="icon"
       onClick={() => refresh()}
-      className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+      className="m-1 rounded-panel border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
       ariaLabel={getLabelMap()[status]}
       tooltipSide="left"
       icon={iconMap[status]}

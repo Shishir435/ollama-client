@@ -3,6 +3,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import * as React from "react"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -58,18 +59,23 @@ function DialogContent({
         {...props}>
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }>
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          <TooltipActionButton
+            label="Close"
+            trigger={
+              <DialogPrimitive.Close
+                data-slot="dialog-close"
+                render={
+                  <Button
+                    variant="ghost"
+                    className="absolute top-2 right-2"
+                    size="icon-sm"
+                    aria-label="Close"
+                  />
+                }>
+                <XIcon />
+              </DialogPrimitive.Close>
+            }
+          />
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>

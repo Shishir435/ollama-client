@@ -18,7 +18,7 @@ export const LoadingState = ({
       className
     )}
     {...props}>
-    <Loader2 className="mb-3 size-7 animate-spin text-primary/50" />
+    <Loader2 className="mb-3 icon-2xl animate-spin text-primary/50" />
     {label && <p className="text-xs">{label}</p>}
   </div>
 )

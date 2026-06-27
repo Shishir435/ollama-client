@@ -58,10 +58,10 @@ export const FeatureCard = ({
         <Icon className="icon-lg text-background" />
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-[15px] font-semibold leading-tight text-foreground">
+        <p className="text-sm font-semibold leading-tight text-foreground">
           {title}
         </p>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
       </div>

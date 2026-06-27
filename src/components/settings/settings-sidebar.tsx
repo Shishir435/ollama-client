@@ -41,7 +41,7 @@ export const SettingsSidebar = ({
             {sections.map((section, idx) => (
               <div key={section.title}>
                 {idx > 0 && <Separator className="mb-4" />}
-                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                <p className="mb-1.5 px-3 text-2xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {section.title}
                 </p>
                 <div className="space-y-0.5">

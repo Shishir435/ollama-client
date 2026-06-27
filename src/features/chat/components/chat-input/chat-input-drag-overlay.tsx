@@ -14,7 +14,7 @@ export const ChatInputDragOverlay = ({
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-panel bg-background/90">
-      <Upload className="mb-2 size-8 animate-bounce text-primary" />
+      <Upload className="mb-2 icon-3xl animate-bounce text-primary" />
       <p className="text-sm font-medium text-primary">
         {t("chat.input.drop_files_here")}
       </p>

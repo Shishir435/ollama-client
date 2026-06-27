@@ -415,7 +415,7 @@ export const ReasoningTrace = ({
         {activeLabel && (
           <span
             className={cn(
-              "min-w-0 flex-1 truncate pr-1 text-[11px]",
+              "min-w-0 flex-1 truncate pr-1 text-2xs",
               activeStep?.status === "error"
                 ? "text-status-danger"
                 : "text-muted-foreground"
@@ -429,7 +429,7 @@ export const ReasoningTrace = ({
             type="button"
             onClick={toggleDetails}
             aria-expanded={detailsOpen}
-            className="inline-flex h-7 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-control px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
+            className="inline-flex h-7 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-control px-1.5 text-2xs text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
             <ListTree className="icon-sm" />
             {reasoningLabel}
             <ChevronDown
@@ -445,7 +445,7 @@ export const ReasoningTrace = ({
       {hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
-          className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
               {activityEvents.map((event) => (
@@ -466,10 +466,10 @@ export const ReasoningTrace = ({
           )}
           {hasThinking && (
             <details className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
-              <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground/80">
+              <summary className="cursor-pointer text-2xs font-medium text-muted-foreground/80">
                 {t("chat.reasoning.debug")}
               </summary>
-              <div className="mt-1 text-[11px] text-muted-foreground/70">
+              <div className="mt-1 text-2xs text-muted-foreground/70">
                 <MarkdownRenderer content={message.thinking ?? ""} />
               </div>
             </details>
@@ -496,29 +496,27 @@ const ActivityStepRow = ({ event }: { event: ActivityEvent }) => {
           {status === "running" ? "…" : ""}
         </span>
         {event.resultCount !== undefined && (
-          <span className="text-[10.5px] text-muted-foreground/70">
+          <span className="text-micro text-muted-foreground/70">
             · {event.resultCount} result{event.resultCount === 1 ? "" : "s"}
           </span>
         )}
       </div>
       {event.inputPreview && (
-        <div className="mt-0.5 wrap-break-word font-mono text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-muted-foreground/80">
           {event.inputPreview}
         </div>
       )}
       {event.error ? (
-        <div className="mt-0.5 text-[11px] text-status-danger">
-          {event.error}
-        </div>
+        <div className="mt-0.5 text-2xs text-status-danger">{event.error}</div>
       ) : (
         resultPreview && (
-          <div className="mt-0.5 wrap-break-word text-[11px] text-muted-foreground/70">
+          <div className="mt-0.5 wrap-break-word text-2xs text-muted-foreground/70">
             {resultPreview}
           </div>
         )
       )}
       {event.sourceTitles && event.sourceTitles.length > 0 && (
-        <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 text-2xs text-muted-foreground/80">
           {event.sourceTitles.join(", ")}
         </div>
       )}
@@ -548,7 +546,7 @@ const ToolStepRow = ({
           {status === "running" ? "…" : ""}
         </span>
         {run.truncated && (
-          <span className="min-w-0 text-[10.5px] text-muted-foreground/70">
+          <span className="min-w-0 text-micro text-muted-foreground/70">
             · {t("chat.reasoning.trace.trimmed")}{" "}
             <button
               type="button"
@@ -560,21 +558,21 @@ const ToolStepRow = ({
         )}
       </div>
       {argEntries.length > 0 && (
-        <div className="mt-0.5 wrap-break-word font-mono text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-muted-foreground/80">
           {argEntries
             .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
             .join(", ")}
         </div>
       )}
       {run.error ? (
-        <div className="mt-0.5 text-[11px] text-status-danger">{run.error}</div>
+        <div className="mt-0.5 text-2xs text-status-danger">{run.error}</div>
       ) : run.sources?.length ? (
-        <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 text-2xs text-muted-foreground/80">
           {run.sources.map((source) => source.title).join(", ")}
         </div>
       ) : (
         run.resultPreview && (
-          <div className="mt-0.5 wrap-break-word text-[11px] text-muted-foreground/70">
+          <div className="mt-0.5 wrap-break-word text-2xs text-muted-foreground/70">
             {run.resultPreview}
             {run.resultPreview.length >= 240 ? "…" : ""}
           </div>

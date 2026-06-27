@@ -27,7 +27,7 @@ export const SearchResultGroup = ({
         </span>
         <Badge
           variant="secondary"
-          className="text-[10px] h-5 px-1.5 rounded-chip">
+          className="text-micro h-5 px-1.5 rounded-chip">
           {results.length}
         </Badge>
       </div>

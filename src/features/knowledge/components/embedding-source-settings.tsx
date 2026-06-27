@@ -25,7 +25,7 @@ export function EmbeddingSourceSettings() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Default provider info */}
-        <div className="flex items-center space-x-3 rounded-md border p-4 bg-muted/50">
+        <div className="flex items-center space-x-3 rounded-control border p-4 bg-muted/50">
           <ServerIcon className="icon-lg text-primary" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ export function EmbeddingSourceSettings() {
         </Alert>
 
         {/* Performance Info */}
-        <div className="rounded-md bg-muted p-3 space-y-2">
+        <div className="rounded-control bg-muted p-3 space-y-2">
           <div className="text-xs font-medium">
             {t("knowledge.embedding_source.performance_title")}
           </div>

@@ -71,7 +71,7 @@ export function ActionMenuGrid({
                   aria-label={ariaLabel}
                   disabled={action.disabled}
                   className={cn(
-                    "size-8 justify-center rounded-md",
+                    "size-8 justify-center rounded-control",
                     action.destructive
                       ? "text-destructive hover:bg-destructive/10"
                       : "hover:bg-muted/60",

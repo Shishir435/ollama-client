@@ -1,6 +1,7 @@
 import { PanelLeftOpen } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -35,18 +36,22 @@ export const ChatSessionSelector = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="m-1 cursor-pointer rounded-control border border-sidebar-border bg-surface-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
-            aria-label={t("sessions.selector.title")}
-            title={t("sessions.selector.title")}
-          />
-        }>
-        <PanelLeftOpen className="icon-md" />
-      </SheetTrigger>
+      <TooltipActionButton
+        label={t("sessions.selector.title")}
+        trigger={
+          <SheetTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="m-1 cursor-pointer rounded-control border border-sidebar-border bg-surface-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
+                aria-label={t("sessions.selector.title")}
+              />
+            }>
+            <PanelLeftOpen className="icon-md" />
+          </SheetTrigger>
+        }
+      />
 
       <SheetContent
         side="left"

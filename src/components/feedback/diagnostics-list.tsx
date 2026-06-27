@@ -18,7 +18,7 @@ export const DiagnosticsList = ({ items, className }: DiagnosticsListProps) => (
     {items.map((item) => (
       <div
         key={item.id ?? String(item.label)}
-        className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
+        className="flex items-center justify-between gap-3 rounded-control bg-muted/30 px-2 py-1">
         <dt className="text-muted-foreground">{item.label}</dt>
         <dd className="min-w-0 truncate font-medium">{item.value}</dd>
       </div>

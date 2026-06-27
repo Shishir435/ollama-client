@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { Trans, useTranslation } from "react-i18next"
 
-import { SelectRow, SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsSelectField } from "@/components/settings"
 import { SelectItem } from "@/components/ui/select"
 import { LANGUAGES } from "@/i18n/languages"
 import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
@@ -34,7 +34,7 @@ export const LanguageSelector = () => {
           i18n.language as (typeof LANGUAGES)[number]["value"]
         )
         return (
-          <SelectRow
+          <SettingsSelectField
             id="language-select"
             label={t("common.language.select_label")}
             value={i18n.language}
@@ -50,7 +50,7 @@ export const LanguageSelector = () => {
                   : `${lang.label} (${lang.nativeLabel})`}
               </SelectItem>
             ))}
-          </SelectRow>
+          </SettingsSelectField>
         )
       })()}
 

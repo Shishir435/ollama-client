@@ -42,7 +42,7 @@ export const ChatInputToolbar = ({
   const attachmentCount = successfulStates.length + imageCount
 
   return (
-    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 px-2 py-2 backdrop-blur">
+    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 p-1 backdrop-blur">
       <div className="flex min-w-0 items-center gap-0.5">
         <ModelMenu
           showStatusPopup={false}
@@ -58,7 +58,7 @@ export const ChatInputToolbar = ({
           variant="ghost"
           size="icon"
           className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-          iconClassName="icon-lg"
+          iconClassName="icon-sm"
         />
 
         <FileUploadButton
@@ -75,7 +75,7 @@ export const ChatInputToolbar = ({
             onClick={onCaptureScreenshot}
             disabled={isLoading}
             label={t("chat.input.screenshot")}
-            icon={<Camera className="icon-lg" aria-hidden="true" />}
+            icon={<Camera className="icon-sm" aria-hidden="true" />}
           />
         )}
         {attachmentCount > 0 && onAttachmentClick && (
@@ -90,7 +90,7 @@ export const ChatInputToolbar = ({
             })}
             icon={
               <IconBadge
-                icon={<FileText className="icon-lg" aria-hidden="true" />}
+                icon={<FileText className="icon-sm" aria-hidden="true" />}
                 count={attachmentCount}
               />
             }

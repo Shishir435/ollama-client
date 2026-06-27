@@ -237,7 +237,7 @@ export const EmbeddingStatusIndicator = () => {
       variant="secondary"
       size="icon"
       onClick={modelExists === false ? handleDownload : handleRetry}
-      className="m-1 rounded-lg border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+      className="m-1 rounded-panel border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
       ariaLabel={statusText}
       tooltipSide="left"
       tooltipClassName="max-w-62.5"

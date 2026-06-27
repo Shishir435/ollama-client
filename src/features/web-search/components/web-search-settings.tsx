@@ -207,7 +207,7 @@ export const WebSearchSettings = () => {
         <SettingsFormField
           label={t("settings.web_search.base_url.label")}
           description={t("settings.web_search.base_url.description")}>
-          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-muted-foreground">
+          <div className="rounded-control border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-muted-foreground">
             {providerBaseUrl}
           </div>
         </SettingsFormField>

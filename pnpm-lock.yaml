@@ -11,9 +11,6 @@ importers:
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@fontsource-variable/inter':
-        specifier: ^5.2.8
-        version: 5.2.8
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
@@ -913,9 +910,6 @@ packages:
 
   '@fontsource-variable/geist@5.2.9':
     resolution: {integrity: sha512-TP+QSBG3wxKGPE33CbMy/L0Nu3qvJ6Fy81Yc4LnQ95xH+i+cfEp8fyU8/kfV14YwszxIFPhnoMTbjL71waVpyQ==}
-
-  '@fontsource-variable/inter@5.2.8':
-    resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
 
   '@fortawesome/fontawesome-free@6.7.2':
     resolution: {integrity: sha512-JUOtgFW6k9u4Y+xeIaEiLr3+cjoUPiAuLXoyKOJSia6Duzb7pq+A76P9ZdPDoAoxHdHzq6gE9/jKBGXlZT8FbA==}
@@ -7330,8 +7324,6 @@ snapshots:
   '@fontsource-variable/geist-mono@5.2.8': {}
 
   '@fontsource-variable/geist@5.2.9': {}
-
-  '@fontsource-variable/inter@5.2.8': {}
 
   '@fortawesome/fontawesome-free@6.7.2': {}
 

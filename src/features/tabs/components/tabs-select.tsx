@@ -130,7 +130,7 @@ export const TabsSelect = () => {
         statusForValue={getTabStatus}
       />
       {selectedTabIds.length > 0 && (
-        <div className="rounded-lg border bg-background/40 px-3 py-2">
+        <div className="rounded-panel border bg-background/40 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-sm font-medium">
               {t("tabs.select.ready", {
@@ -142,7 +142,7 @@ export const TabsSelect = () => {
               {updatedSelectedCount > 0 && (
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
+                    "shrink-0 rounded-full px-2 py-1 text-micro font-semibold",
                     STATUS_STYLES.warning.bgSoft,
                     STATUS_STYLES.warning.text
                   )}>
@@ -181,7 +181,7 @@ export const TabsSelect = () => {
                       return (
                         <div
                           key={id}
-                          className="overflow-hidden rounded-lg border bg-card">
+                          className="overflow-hidden rounded-panel border bg-card">
                           <div className="flex items-start justify-between border-b px-4 py-3">
                             <div className="min-w-0 flex-1">
                               <div className="truncate font-medium text-foreground">

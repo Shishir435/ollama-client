@@ -1,7 +1,7 @@
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
+import { TooltipActionButton } from "@/components/actions"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
@@ -46,10 +46,10 @@ export function ChunkFeedbackButton({
 
   return (
     <>
-      <span className="flex-1 text-[10px] text-muted-foreground">
+      <span className="flex-1 text-micro text-muted-foreground">
         {t("chat.sources.was_this_helpful")}
       </span>
-      <Button
+      <TooltipActionButton
         size="icon"
         variant={feedback === true ? "default" : "ghost"}
         className={cn(
@@ -59,10 +59,10 @@ export function ChunkFeedbackButton({
         )}
         onClick={() => handleFeedback(true)}
         disabled={submitting}
-        aria-label={t("chat.sources.helpful_aria")}>
-        <ThumbsUp className="icon-xs" />
-      </Button>
-      <Button
+        label={t("chat.sources.helpful_aria")}
+        icon={<ThumbsUp className="icon-xs" />}
+      />
+      <TooltipActionButton
         size="icon"
         variant={feedback === false ? "default" : "ghost"}
         className={cn(
@@ -72,9 +72,9 @@ export function ChunkFeedbackButton({
         )}
         onClick={() => handleFeedback(false)}
         disabled={submitting}
-        aria-label={t("chat.sources.not_helpful_aria")}>
-        <ThumbsDown className="icon-xs" />
-      </Button>
+        label={t("chat.sources.not_helpful_aria")}
+        icon={<ThumbsDown className="icon-xs" />}
+      />
     </>
   )
 }

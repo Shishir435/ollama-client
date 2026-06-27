@@ -5,20 +5,17 @@ import {
   AdvancedSection,
   SettingsCard,
   SettingsFormField,
-  SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import {
+  ScrollDepthField,
+  ScrollStrategyField,
+  TimeoutInputField
+} from "@/features/model/components/content-extraction-fields"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
 import { SELECTION_ACTIONS } from "@/features/selection-actions/actions"
@@ -26,10 +23,7 @@ import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   STORAGE_KEYS
 } from "@/lib/constants"
-import {
-  CONTENT_SCRAPER_OPTIONS,
-  SCROLL_STRATEGY_OPTIONS
-} from "@/lib/constants-ui"
+import { CONTENT_SCRAPER_OPTIONS } from "@/lib/constants-ui"
 import {
   BookOpen,
   Code,
@@ -46,11 +40,7 @@ import {
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
-import type {
-  ContentExtractionConfig,
-  ContentScraper,
-  ScrollStrategy
-} from "@/types"
+import type { ContentExtractionConfig, ContentScraper } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 
 export interface ContentExtractionSettingsFormProps {
@@ -207,42 +197,6 @@ const ContentExtractionSettingsForm = ({
 }: ContentExtractionSettingsFormProps) => {
   const { t } = useTranslation()
 
-  // Render timeout input field
-  const renderTimeoutInput = (
-    field: (typeof TIMEOUT_FIELDS)[number],
-    value: number,
-    onChange: (value: number) => void,
-    className?: string
-  ) => (
-    <SettingsFormField
-      key={field.id}
-      htmlFor={field.id}
-      focusId={field.id}
-      label={
-        <>
-          <field.icon className="icon-xs" />
-          {t(
-            `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
-          )}
-        </>
-      }
-      className={className}>
-      <Input
-        id={field.id}
-        type="number"
-        min={field.min}
-        max={field.max}
-        step={field.step}
-        value={value}
-        onChange={(e) => {
-          const numValue = parseInt(e.target.value, 10) || field.min
-          onChange(Math.max(field.min, Math.min(field.max, numValue)))
-        }}
-        className={className || "text-center"}
-      />
-    </SettingsFormField>
-  )
-
   // Get icon for scraper type
   const getScraperIcon = (scraper: ContentScraper) => {
     switch (scraper) {
@@ -287,7 +241,7 @@ const ContentExtractionSettingsForm = ({
                 )}>
                 <span
                   className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-md transition-colors",
+                    "flex size-10 shrink-0 items-center justify-center rounded-control transition-colors",
                     isSelected
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted group-hover:bg-muted/80"
@@ -304,14 +258,14 @@ const ContentExtractionSettingsForm = ({
                     {option.recommended && (
                       <Badge
                         variant="default"
-                        className="text-[10px] h-5 px-1.5 font-medium">
+                        className="text-micro h-5 px-1.5 font-medium">
                         {t("settings.content_extraction.badges.recommended")}
                       </Badge>
                     )}
                     {isSelected && (
                       <Badge
                         variant="secondary"
-                        className="text-[10px] h-5 px-1.5">
+                        className="text-micro h-5 px-1.5">
                         {t("settings.content_extraction.badges.active")}
                       </Badge>
                     )}
@@ -334,69 +288,6 @@ const ContentExtractionSettingsForm = ({
       </SettingsFormField>
     </div>
   )
-
-  // Render scroll strategy select
-  const renderScrollStrategySelect = (
-    value: ScrollStrategy,
-    onValueChange: (value: ScrollStrategy) => void,
-    id?: string,
-    className?: string
-  ) => (
-    <SettingsFormField
-      htmlFor={id || "scroll-strategy"}
-      focusId="scroll-strategy"
-      label={
-        <>
-          <Target className="icon-md" />
-          {t("settings.content_extraction.scroll_strategy.label")}
-        </>
-      }
-      description={t(`settings.content_extraction.scroll_strategy.${value}`)}>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id={id || "scroll-strategy"} className={className}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {SCROLL_STRATEGY_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {t(
-                `settings.content_extraction.scroll_strategy.options.${option.value}`
-              )}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </SettingsFormField>
-  )
-
-  // Render scroll depth slider
-  const renderScrollDepthSlider = (
-    depth: number,
-    onValueChange: (value: number) => void,
-    _id?: string
-  ) => {
-    const depthPercent = Math.round(depth * 100)
-    return (
-      <SettingsSliderField
-        focusId="scroll-depth"
-        label={
-          <>
-            <Zap className="icon-md" />
-            {t("settings.content_extraction.scroll_depth.label")}
-          </>
-        }
-        description={t("settings.content_extraction.scroll_depth.description")}
-        value={depthPercent}
-        valueLabel={`${depthPercent}%`}
-        min={0}
-        max={100}
-        step={5}
-        onValueChange={(value) => onValueChange(value / 100)}
-        leftLabel="0%"
-        rightLabel="100%"
-      />
-    )
-  }
 
   return (
     <SettingsCard
@@ -469,7 +360,7 @@ const ContentExtractionSettingsForm = ({
             return (
               <label
                 key={action.id}
-                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                className="flex items-center gap-2 rounded-control border border-border px-3 py-2 text-sm">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -500,14 +391,34 @@ const ContentExtractionSettingsForm = ({
       <Separator />
 
       {/* Scroll Strategy */}
-      {renderScrollStrategySelect(config.scrollStrategy, (value) =>
-        onUpdate({ scrollStrategy: value })
-      )}
+      <ScrollStrategyField
+        value={config.scrollStrategy}
+        onValueChange={(value) => onUpdate({ scrollStrategy: value })}
+        focusId="scroll-strategy"
+        label={
+          <>
+            <Target className="icon-md" />
+            {t("settings.content_extraction.scroll_strategy.label")}
+          </>
+        }
+        description={t(
+          `settings.content_extraction.scroll_strategy.${config.scrollStrategy}`
+        )}
+      />
 
       {/* Scroll Depth */}
-      {renderScrollDepthSlider(config.scrollDepth, (value) =>
-        onUpdate({ scrollDepth: value })
-      )}
+      <ScrollDepthField
+        depth={config.scrollDepth}
+        onValueChange={(value) => onUpdate({ scrollDepth: value })}
+        focusId="scroll-depth"
+        label={
+          <>
+            <Zap className="icon-md" />
+            {t("settings.content_extraction.scroll_depth.label")}
+          </>
+        }
+        description={t("settings.content_extraction.scroll_depth.description")}
+      />
 
       {/* Advanced page-load timeouts — collapsed by default with a summary */}
       <AdvancedSection
@@ -517,14 +428,17 @@ const ContentExtractionSettingsForm = ({
         ).join(" · ")}>
         <FormGrid>
           {TIMEOUT_FIELDS.map((field) => (
-            <div key={field.id}>
-              {renderTimeoutInput(
-                field,
-                config[field.name],
-                (value) => onUpdate({ [field.name]: value }),
-                "text-center"
+            <TimeoutInputField
+              key={field.id}
+              field={field}
+              value={config[field.name]}
+              onValueChange={(value) => onUpdate({ [field.name]: value })}
+              focusId={field.id}
+              label={t(
+                `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
               )}
-            </div>
+              inputClassName="text-center"
+            />
           ))}
         </FormGrid>
       </AdvancedSection>

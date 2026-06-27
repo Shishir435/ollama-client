@@ -185,7 +185,7 @@ export const LoadedModelsInfo = () => {
           <div className="border-t border-border px-4 pb-4">
             {models.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Brain className="mb-2 size-8 text-muted-foreground/50" />
+                <Brain className="mb-2 icon-3xl text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
                   {t("settings.loaded_models.no_models_title")}
                 </p>
