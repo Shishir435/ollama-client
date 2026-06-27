@@ -53,13 +53,12 @@ import {
 } from "@/lib/tools/tool-settings"
 
 /**
- * Shared privacy / permissions surface (v0.11.0 groundwork — FEATURE_ROADMAP §5
- * item 7, C1). Reused in two homes: the Options "Permissions" tab and the chat
- * context popover (pass `compact`). It is the one place users see and revoke
- * optional browser access.
+ * Shared privacy / permissions surface. Reused in the Options "Permissions"
+ * tab and chat context popover (pass `compact`). It is the one place users see
+ * and revoke optional browser access.
  *
  * Scope: optional API permissions + a read-only note that host access
- * (`<all_urls>`) is standing and intentionally not revocable here (§0.4).
+ * (`<all_urls>`) is standing and intentionally not revocable here.
  */
 
 interface OptionalPermissionMeta {

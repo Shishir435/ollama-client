@@ -1,8 +1,8 @@
 import {
-  getBrowserKnowledgeSettings,
   getRecentHistoryItems,
   searchBookmarkItems
 } from "@/lib/browser-knowledge"
+import { hasPermission } from "@/lib/permissions"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 
 const clampLimit = (value: unknown, fallback = 10): number => {
@@ -71,11 +71,10 @@ export const runRecentHistory = async (
   _ctx: ToolContext
 ): Promise<ToolResult> => {
   const limit = clampLimit(args.limit)
-  const settings = await getBrowserKnowledgeSettings()
-  if (!settings.sources.history.enabled) {
+  if (!(await hasPermission("history"))) {
     return {
       content:
-        "Browsing history knowledge is disabled. Enable History in Settings > Permissions to let me read recent browser history.",
+        "Browsing history permission is not granted. Enable History in Settings > Permissions.",
       isError: true
     }
   }
@@ -84,8 +83,7 @@ export const runRecentHistory = async (
 
   if (items.length === 0) {
     return {
-      content:
-        "No recent browser history is available. The history permission may be off, or there may be no readable history."
+      content: "No readable browser history was found."
     }
   }
 
@@ -112,11 +110,10 @@ export const runSearchBookmarks = async (
 ): Promise<ToolResult> => {
   const query = typeof args.query === "string" ? args.query.trim() : ""
   const limit = clampLimit(args.limit)
-  const settings = await getBrowserKnowledgeSettings()
-  if (!settings.sources.bookmarks.enabled) {
+  if (!(await hasPermission("bookmarks"))) {
     return {
       content:
-        "Bookmark knowledge is disabled. Enable Bookmarks in Settings > Permissions to let me search saved pages.",
+        "Bookmarks permission is not granted. Enable Bookmarks in Settings > Permissions.",
       isError: true
     }
   }
@@ -124,10 +121,7 @@ export const runSearchBookmarks = async (
   const items = await searchBookmarkItems(query, limit)
 
   if (items.length === 0) {
-    return {
-      content:
-        "No matching bookmarks are available. The bookmarks permission may be off, or no saved pages matched."
-    }
+    return { content: "No matching readable bookmarks were found." }
   }
 
   const lines = items.map((item, index) => {

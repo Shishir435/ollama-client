@@ -1,13 +1,11 @@
 import type { ToolCategory, ToolDefinition } from "./types"
 
 /**
- * Tool families (E10 — FEATURE_ROADMAP §3). A governance grouping layered over
- * the existing per-tool `category`, used only to decide which tools a model may
- * be offered. Families map to risk classes the user controls in the Permissions
- * tab — deliberately coarser than `category`, and distinct from it: history and
- * bookmark tools are `category: "browser"` but live in their own `history`
- * family because they are gated by an extra OS permission and read sensitive
- * data.
+ * Governance grouping layered over per-tool `category`, used to decide which
+ * tools a model may be offered. Families map to risk classes controlled in the
+ * Permissions tab. History and bookmark tools are `category: "browser"` but
+ * live in their own `history` family because they require extra browser
+ * permissions and read sensitive data.
  */
 export type ToolFamily =
   | "browser"
@@ -35,7 +33,7 @@ const FAMILY_BY_TOOL_NAME: Record<string, ToolFamily> = {
   selected_text: "browser",
   rag_search: "knowledge",
   file_search: "knowledge",
-  recent_history: "history",
+  get_recent_history: "history",
   search_bookmarks: "history",
   web_search: "web",
   schedule_reminder: "automation",

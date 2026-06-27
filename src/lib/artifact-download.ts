@@ -1,12 +1,12 @@
 /**
- * Per-artifact download (E9 — FEATURE_ROADMAP §3). Distinct from whole-session
- * export (`use-export-chat.ts`): this saves one generated artifact (HTML, SVG,
- * Mermaid, or a code block) to its own file.
+ * Per-artifact download. Distinct from whole-session export
+ * (`use-export-chat.ts`): this saves one generated artifact (HTML, SVG, Mermaid,
+ * or a code block) to its own file.
  *
  * Save path, in order of preference:
  *   1. `browser.downloads` (optional `downloads` permission) — a real entry in
  *      the browser download manager with a Save-As dialog. Requested on the
- *      click (a user gesture), per the privacy stance (FEATURE_ROADMAP §0.4).
+ *      click (a user gesture).
  *   2. Anchor `<a download>` fallback (`downloadFile`) — no permission needed, so
  *      the action still works if the user declines `downloads`.
  */

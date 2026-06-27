@@ -6,7 +6,7 @@ import {
 import { TOOL_FAMILIES, type ToolFamily } from "./tool-families"
 
 /**
- * User governance over model-callable tools (E10 — FEATURE_ROADMAP §3).
+ * User governance over model-callable tools.
  *
  * `enabled` is the master switch ("let the model use tools at all"); `families`
  * toggles each risk class. Defaults are **all on** so upgrading users keep the

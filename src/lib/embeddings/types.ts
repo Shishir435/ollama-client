@@ -14,11 +14,6 @@ export interface VectorDocument {
     fileId?: string
     url?: string
     title?: string
-    browserSource?: "bookmark" | "history"
-    browserId?: string
-    browserIndexRunId?: string
-    visitCount?: number
-    lastVisitTime?: number
     timestamp: number
     chunkIndex?: number
     totalChunks?: number

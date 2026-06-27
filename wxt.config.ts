@@ -59,12 +59,10 @@ export default defineConfig({
       "declarativeNetRequest",
       "contextMenus"
     ],
-    // Optional API permissions (v0.11.0 groundwork — FEATURE_ROADMAP §5 item 2).
+    // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
     // NOT granted until a feature asks the user. Standing `permissions` stays
-    // minimal. Host access (`<all_urls>`) is intentionally NOT optional — see §0.4.
-    //   bookmarks/history -> E2   notifications -> E5   downloads -> E9
-    //   tabGroups -> E4   alarms -> reminders + scheduled jobs (0.11.15)
+    // minimal. Host access (`<all_urls>`) is intentionally not optional.
     optional_permissions: [
       "bookmarks",
       "history",
@@ -73,7 +71,7 @@ export default defineConfig({
       "tabGroups",
       "alarms"
     ],
-    // Browser-level keyboard command (v0.11.1 / F2). Uses the reserved
+    // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
     // `openPanelOnActionClick`, that TOGGLES the side panel (open and close),
     // which a custom command calling `sidePanel.open()` cannot do. Rebindable at
