@@ -27,10 +27,8 @@ import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selecte
 import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
-import { useTabGroups } from "@/features/tabs/hooks/use-tab-groups"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-import type { BrowserTabGroup } from "@/lib/browser-tab-groups"
 import {
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_TABS_ACCESS,
@@ -97,15 +95,15 @@ const TabOptionRow = ({
         {isSelected && !isLoading && (
           <CheckIcon className="icon-xs shrink-0 text-app-primary" />
         )}
-        <Button
+        <TooltipActionButton
           type="button"
           variant="ghost"
           size="icon"
           className="size-5 rounded-control text-muted-foreground hover:text-foreground"
           onClick={onPreview}
-          aria-label={t("tabs.select.view_content")}>
-          <Eye className="icon-xs" />
-        </Button>
+          label={t("tabs.select.view_content")}
+          icon={<Eye className="icon-xs" />}
+        />
       </span>
       <Button
         type="button"
@@ -130,103 +128,6 @@ interface TabContextPanelProps {
   openPreview: (id: string) => void
 }
 
-interface TabGroupPanelProps {
-  groups: BrowserTabGroup[]
-  availability: "available" | "unsupported" | "permission"
-  loading: boolean
-  selectedTabIds: string[]
-  allowedTabIds: Set<string>
-  onToggleGroup: (ids: string[]) => void
-  onRequestAccess: () => void
-  onRefresh: () => void
-}
-
-const TabGroupPanel = ({
-  groups,
-  availability,
-  loading,
-  selectedTabIds,
-  allowedTabIds,
-  onToggleGroup,
-  onRequestAccess,
-  onRefresh
-}: TabGroupPanelProps) => {
-  const { t } = useTranslation()
-  if (availability === "unsupported") return null
-
-  return (
-    <div className="grid gap-2 border-t border-border/40 pt-2">
-      <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
-        <span>{t("tabs.groups.title")}</span>
-        {availability === "available" && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-6 rounded-control"
-            onClick={onRefresh}
-            disabled={loading}
-            aria-label={t("tabs.groups.refresh")}>
-            <RefreshCw className={cn("icon-xs", loading && "animate-spin")} />
-          </Button>
-        )}
-      </div>
-      {availability === "permission" ? (
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-auto justify-start rounded-control px-2 py-1.5 text-left text-xs"
-          onClick={onRequestAccess}>
-          <Lock className="icon-sm shrink-0" />
-          <span className="min-w-0 flex-1">{t("tabs.groups.enable")}</span>
-        </Button>
-      ) : (
-        <div className="grid gap-1">
-          {groups.map((group) => {
-            const ids = group.tabs
-              .map((tab) => String(tab.id))
-              .filter((id) => allowedTabIds.has(id))
-            const selectedCount = ids.filter((id) =>
-              selectedTabIds.includes(id)
-            ).length
-            const allSelected = ids.length > 0 && selectedCount === ids.length
-            return (
-              <Button
-                key={group.id}
-                type="button"
-                variant="ghost"
-                className={cn(
-                  "h-auto justify-start gap-2 rounded-control px-2 py-1.5 text-xs",
-                  allSelected
-                    ? "bg-muted/55 text-foreground"
-                    : "text-muted-foreground"
-                )}
-                onClick={() => onToggleGroup(ids)}
-                disabled={ids.length === 0}>
-                <Layers className="icon-sm shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {group.title}
-                </span>
-                <span className="shrink-0 text-[11px]">
-                  {selectedCount}/{ids.length}
-                </span>
-                {allSelected && (
-                  <CheckIcon className="icon-sm shrink-0 text-app-primary" />
-                )}
-              </Button>
-            )
-          })}
-          {groups.length === 0 && (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              {t("tabs.groups.empty")}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 const TabContextPanel = ({
   filteredTabOptions,
   tabContents,
@@ -241,17 +142,17 @@ const TabContextPanel = ({
   const { t } = useTranslation()
   return (
     <div className="grid gap-2 border-t border-border/40 pt-2">
-      <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 text-2xs font-medium text-muted-foreground">
         <span>{t("tabs.select.placeholder")}</span>
-        <Button
+        <TooltipActionButton
           type="button"
           variant="ghost"
           size="icon"
           className="size-6 rounded-control"
           onClick={refreshTabs}
-          aria-label={t("tabs.select.refresh_now")}>
-          <RefreshCw className="icon-xs" />
-        </Button>
+          label={t("tabs.select.refresh_now")}
+          icon={<RefreshCw className="icon-xs" />}
+        />
       </div>
       <div className="relative">
         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
@@ -303,13 +204,6 @@ export const ContextSettingsMenu = () => {
     DEFAULT_TABS_ACCESS
   )
   const { tabs: openTabs, refreshTabs } = useOpenTabs(Boolean(tabAccess))
-  const {
-    groups: tabGroups,
-    availability: tabGroupsAvailability,
-    loading: tabGroupsLoading,
-    refreshGroups,
-    requestAccess: requestTabGroupsAccess
-  } = useTabGroups(Boolean(tabAccess))
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
   const { tabContents } = useTabContents()
   const getTabStatus = useTabStatusMap()
@@ -395,11 +289,6 @@ export const ContextSettingsMenu = () => {
     })
   }, [tabContents, tabOptions, tabSearch])
 
-  const allowedTabIds = useMemo(
-    () => new Set(tabOptions.map((option) => option.value)),
-    [tabOptions]
-  )
-
   useEffect(() => {
     const allowedIds = new Set(tabOptions.map((o) => o.value))
     const next = selectedTabIds.filter((id) => allowedIds.has(id))
@@ -438,16 +327,6 @@ export const ContextSettingsMenu = () => {
         ? selectedTabIds.filter((id) => id !== value)
         : [...selectedTabIds, value]
     )
-
-  const toggleGroup = (ids: string[]) => {
-    if (ids.length === 0) return
-    const allSelected = ids.every((id) => selectedTabIds.includes(id))
-    setSelectedTabIds(
-      allSelected
-        ? selectedTabIds.filter((id) => !ids.includes(id))
-        : Array.from(new Set([...selectedTabIds, ...ids]))
-    )
-  }
 
   const openPreview = (value: string) => {
     setPreviewTabId(value)
@@ -516,7 +395,7 @@ export const ContextSettingsMenu = () => {
           label={t("tabs.context")}
           icon={
             <IconBadge
-              icon={<Layers className="icon-lg" aria-hidden="true" />}
+              icon={<Layers className="icon-sm" aria-hidden="true" />}
               count={selectedTabIds.length}
             />
           }
@@ -526,7 +405,7 @@ export const ContextSettingsMenu = () => {
           sideOffset={8}
           className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(20rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] gap-3 overflow-y-auto rounded-panel p-2.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               <Layers className="icon-xs" />
               {t("tabs.context")}
             </div>
@@ -571,29 +450,17 @@ export const ContextSettingsMenu = () => {
             </Button>
           </div>
           {tabAccess && (
-            <>
-              <TabGroupPanel
-                groups={tabGroups}
-                availability={tabGroupsAvailability}
-                loading={tabGroupsLoading}
-                selectedTabIds={selectedTabIds}
-                allowedTabIds={allowedTabIds}
-                onToggleGroup={toggleGroup}
-                onRequestAccess={requestTabGroupsAccess}
-                onRefresh={refreshGroups}
-              />
-              <TabContextPanel
-                filteredTabOptions={filteredTabOptions}
-                tabContents={tabContents}
-                getTabStatus={getTabStatus}
-                selectedTabIds={selectedTabIds}
-                tabSearch={tabSearch}
-                setTabSearch={setTabSearch}
-                refreshTabs={refreshTabs}
-                toggleTab={toggleTab}
-                openPreview={openPreview}
-              />
-            </>
+            <TabContextPanel
+              filteredTabOptions={filteredTabOptions}
+              tabContents={tabContents}
+              getTabStatus={getTabStatus}
+              selectedTabIds={selectedTabIds}
+              tabSearch={tabSearch}
+              setTabSearch={setTabSearch}
+              refreshTabs={refreshTabs}
+              toggleTab={toggleTab}
+              openPreview={openPreview}
+            />
           )}
         </PopoverContent>
       </Popover>

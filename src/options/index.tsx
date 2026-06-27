@@ -13,6 +13,7 @@ import {
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "@/options/components/settings-page"
+import "../extension-fonts.css"
 import "../globals.css"
 import "@/i18n/config"
 

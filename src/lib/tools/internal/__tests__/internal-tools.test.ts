@@ -472,17 +472,6 @@ describe("browser knowledge tools", () => {
 
   it("returns recent browser history with the requested limit", async () => {
     vi.mocked(hasPermission).mockResolvedValue(true)
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-      sources: {
-        history: {
-          enabled: true,
-          maxItems: 10,
-          sinceDays: 30,
-          includeDomains: [],
-          excludeDomains: []
-        }
-      }
-    })
     vi.mocked(browser.history.search).mockResolvedValue([
       {
         id: "1",
@@ -495,13 +484,10 @@ describe("browser knowledge tools", () => {
 
     const result = await runRecentHistory({ limit: 10 }, ctx)
 
-    expect(browser.history.search).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: "",
-        startTime: expect.any(Number),
-        maxResults: 10
-      })
-    )
+    expect(browser.history.search).toHaveBeenCalledWith({
+      text: "",
+      maxResults: 10
+    })
     expect(result.content).toContain("Recent browser history")
     expect(result.content).toContain("Docs")
     expect(result.sources?.[0]).toEqual({
@@ -512,57 +498,16 @@ describe("browser knowledge tools", () => {
 
   it("reports unavailable history when permission is off", async () => {
     vi.mocked(hasPermission).mockResolvedValue(false)
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-      sources: {
-        history: {
-          enabled: true,
-          maxItems: 10,
-          sinceDays: 30,
-          includeDomains: [],
-          excludeDomains: []
-        }
-      }
-    })
-
-    const result = await runRecentHistory({ limit: 10 }, ctx)
-
-    expect(result.content).toContain("permission may be off")
-    expect(browser.history.search).not.toHaveBeenCalled()
-  })
-
-  it("tells the user when history knowledge is disabled", async () => {
-    vi.mocked(hasPermission).mockResolvedValue(true)
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-      sources: {
-        history: {
-          enabled: false,
-          maxItems: 10,
-          sinceDays: 30,
-          includeDomains: [],
-          excludeDomains: []
-        }
-      }
-    })
 
     const result = await runRecentHistory({ limit: 10 }, ctx)
 
     expect(result.isError).toBe(true)
-    expect(result.content).toContain("Browsing history knowledge is disabled")
+    expect(result.content).toContain("permission is not granted")
     expect(browser.history.search).not.toHaveBeenCalled()
   })
 
   it("searches bookmarks by query", async () => {
     vi.mocked(hasPermission).mockResolvedValue(true)
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-      sources: {
-        bookmarks: {
-          enabled: true,
-          maxItems: 10,
-          includeDomains: [],
-          excludeDomains: []
-        }
-      }
-    })
     vi.mocked(browser.bookmarks.search).mockResolvedValue([
       { id: "b1", title: "Saved Docs", url: "https://docs.test" }
     ] as never)
@@ -574,23 +519,13 @@ describe("browser knowledge tools", () => {
     expect(result.content).toContain("Saved Docs")
   })
 
-  it("tells the user when bookmark knowledge is disabled", async () => {
-    vi.mocked(hasPermission).mockResolvedValue(true)
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-      sources: {
-        bookmarks: {
-          enabled: false,
-          maxItems: 10,
-          includeDomains: [],
-          excludeDomains: []
-        }
-      }
-    })
+  it("reports unavailable bookmarks when permission is off", async () => {
+    vi.mocked(hasPermission).mockResolvedValue(false)
 
     const result = await runSearchBookmarks({ query: "docs", limit: 5 }, ctx)
 
     expect(result.isError).toBe(true)
-    expect(result.content).toContain("Bookmark knowledge is disabled")
+    expect(result.content).toContain("permission is not granted")
     expect(browser.bookmarks.search).not.toHaveBeenCalled()
   })
 })

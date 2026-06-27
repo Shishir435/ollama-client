@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
 
 @plugin "@tailwindcss/typography";
 @plugin "tailwind-scrollbar" {
@@ -90,6 +89,18 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-heading: var(--font-sans);
   --font-sans: "Inter Variable", sans-serif;
+  --text-nano: 0.5rem;
+  --text-nano--line-height: 0.625rem;
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 0.875rem;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
   --radius-control: var(--radius-control);
   --radius-panel: var(--radius-panel);
   --radius-chip: var(--radius-chip);
@@ -102,10 +113,14 @@
   --spacing-control-md: var(--control-height-md);
   --spacing-control-lg: var(--control-height-lg);
 
+  --icon-micro: 0.625rem;
   --icon-xs: 0.75rem;
   --icon-sm: 0.875rem;
   --icon-md: 1rem;
   --icon-lg: 1.25rem;
+  --icon-xl: 1.5rem;
+  --icon-2xl: 1.75rem;
+  --icon-3xl: 2rem;
 }
 
 :root {
@@ -471,6 +486,12 @@
 
 }
 
+
+@utility icon-micro {
+  width: var(--icon-micro);
+  height: var(--icon-micro);
+}
+
 @utility icon-xs {
   width: var(--icon-xs);
   height: var(--icon-xs);
@@ -489,6 +510,21 @@
 @utility icon-lg {
   width: var(--icon-lg);
   height: var(--icon-lg);
+}
+
+@utility icon-xl {
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+}
+
+@utility icon-2xl {
+  width: var(--icon-2xl);
+  height: var(--icon-2xl);
+}
+
+@utility icon-3xl {
+  width: var(--icon-3xl);
+  height: var(--icon-3xl);
 }
 
 @keyframes pulse {

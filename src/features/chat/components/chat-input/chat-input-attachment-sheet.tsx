@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
+import { TooltipActionButton } from "@/components/actions"
 import {
   Collapsible,
   CollapsibleContent,
@@ -66,17 +66,17 @@ export function ChatInputAttachmentSheet({
                     className="size-full object-cover"
                   />
                   {onRemoveImage && (
-                    <Button
+                    <TooltipActionButton
                       type="button"
                       variant="ghost"
                       size="icon-sm"
                       className="absolute right-0.5 top-0.5 size-5 rounded-full bg-background/80 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
                       onClick={() => onRemoveImage(image.imageId)}
-                      aria-label={t("chat.input.images.remove", {
+                      label={t("chat.input.images.remove", {
                         name: image.fileName
-                      })}>
-                      <X className="icon-xs" />
-                    </Button>
+                      })}
+                      icon={<X className="icon-xs" />}
+                    />
                   )}
                 </div>
               ))}
@@ -125,15 +125,15 @@ export function ChatInputAttachmentSheet({
                       </span>
                     </CollapsibleTrigger>
                     {previewText && <CopyButton text={previewText} />}
-                    <Button
+                    <TooltipActionButton
                       type="button"
                       variant="ghost"
                       size="icon-sm"
                       className="size-7 shrink-0 rounded-control text-muted-foreground hover:text-foreground"
                       onClick={() => onRemove(state.file)}
-                      aria-label={t("file_upload.preview.remove_aria_label")}>
-                      <X className="icon-xs" />
-                    </Button>
+                      label={t("file_upload.preview.remove_aria_label")}
+                      icon={<X className="icon-xs" />}
+                    />
                   </div>
                   <CollapsibleContent>
                     <div className="border-t border-border/35">

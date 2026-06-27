@@ -22,7 +22,7 @@ export const MetricTile = ({
   <Card size="sm" className={className}>
     <CardContent className="flex items-start gap-3">
       {Icon && (
-        <div className="rounded-md bg-muted/40 p-2 text-muted-foreground">
+        <div className="rounded-control bg-muted/40 p-2 text-muted-foreground">
           <Icon className="icon-md" />
         </div>
       )}

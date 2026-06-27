@@ -36,7 +36,7 @@ export const WebSearchToggle = () => {
       }
       label={t("chat.input.web_search_toggle_tooltip")}
       tooltipSide="top"
-      icon={<Globe className="icon-lg" />}
+      icon={<Globe className="icon-sm" />}
     />
   )
 }

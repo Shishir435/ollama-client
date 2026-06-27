@@ -12,7 +12,7 @@ export const PromptTemplateVariableBadges = ({
   return (
     <div className="flex flex-wrap gap-1">
       {names.map((name) => (
-        <Badge key={name} variant="outline" className="font-mono text-[10px]">
+        <Badge key={name} variant="outline" className="font-mono text-micro">
           {`{{${name}}}`}
         </Badge>
       ))}

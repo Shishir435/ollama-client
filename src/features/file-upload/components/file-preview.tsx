@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
+import { TooltipActionButton } from "@/components/actions"
 import {
   Popover,
   PopoverContent,
@@ -147,7 +147,7 @@ export const FilePreview = ({
               </>
             )}
           </PopoverTrigger>
-          <Button
+          <TooltipActionButton
             type="button"
             variant="ghost"
             size="icon"
@@ -156,9 +156,9 @@ export const FilePreview = ({
               compact && "mr-1 size-6"
             )}
             onClick={onRemove}
-            aria-label={t("file_upload.preview.remove_aria_label")}>
-            <X className="icon-xs" />
-          </Button>
+            label={t("file_upload.preview.remove_aria_label")}
+            icon={<X className="icon-xs" />}
+          />
         </div>
         <PopoverContent
           align="start"

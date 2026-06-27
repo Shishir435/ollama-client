@@ -18,7 +18,7 @@ export const MetadataChip = ({
 }: MetadataChipProps) => (
   <span
     className={cn(
-      "inline-flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/20 px-2 py-1 text-xs text-muted-foreground",
+      "inline-flex min-w-0 items-center gap-1.5 rounded-control border border-border bg-muted/20 px-2 py-1 text-xs text-muted-foreground",
       className
     )}
     {...props}>

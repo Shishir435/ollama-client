@@ -64,7 +64,7 @@ export const AdvancedSection = ({
             type="button"
             aria-expanded={expanded}
             onClick={() => setOpen((v) => !v)}
-            className="flex w-full items-center rounded-md text-left hover:bg-accent/20">
+            className="flex w-full items-center rounded-control text-left hover:bg-accent/20">
             {headerInner}
           </button>
         )}

@@ -33,7 +33,7 @@ export const MessageImageDisplay = ({ images }: MessageImageDisplayProps) => {
             type="button"
             onClick={() => setActive(image)}
             aria-label={t("chat.message.images.view", { name: image.fileName })}
-            className="size-20 overflow-hidden rounded-md border border-border/40 bg-muted/30 transition-opacity hover:opacity-90">
+            className="size-20 overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90">
             <img
               src={toDataUrl(image.mimeType, image.base64)}
               alt={image.fileName}
@@ -53,7 +53,7 @@ export const MessageImageDisplay = ({ images }: MessageImageDisplayProps) => {
               <img
                 src={toDataUrl(active.mimeType, active.base64)}
                 alt={active.fileName}
-                className="max-h-full max-w-full rounded-md object-contain"
+                className="max-h-full max-w-full rounded-control object-contain"
               />
             )}
           </div>

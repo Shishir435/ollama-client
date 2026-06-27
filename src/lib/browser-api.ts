@@ -33,7 +33,7 @@ export const isFirefox = (): boolean => {
 }
 
 /**
- * Capability gates (v0.11.0 groundwork — FEATURE_ROADMAP §5).
+ * Browser capability gates.
  *
  * Feature-detect browser support so each feature can degrade predictably instead
  * of throwing on a browser that lacks the API. These answer "can this browser do
@@ -64,6 +64,7 @@ const getFirefoxMajorVersion = (): number | undefined => {
 
 /** Tab groups — Chromium and Firefox 139+. */
 export const supportsTabGroups = (): boolean =>
+  isChromiumBased() ||
   hasBrowserNamespace("tabGroups") ||
   hasChromeNamespace("tabGroups") ||
   (getFirefoxMajorVersion() ?? 0) >= 139
@@ -91,13 +92,6 @@ export const supportsHistory = (): boolean =>
 export const supportsAlarms = (): boolean =>
   typeof browser.alarms?.create === "function" &&
   typeof browser.alarms?.clear === "function"
-
-/**
- * Offscreen documents are PARKED — the extension CSP blocked the approach for
- * embedding/HNSW work (FEATURE_ROADMAP §7). Always false until that is revisited;
- * callers must not route work through offscreen.
- */
-export const supportsOffscreen = (): boolean => false
 
 export const openOptionsInTab = async (
   targetOptionsUrl?: string

@@ -140,7 +140,7 @@ export const PromptTemplateManager = () => {
         {/* Create Form Collapsible */}
         <Collapsible open={showCreateForm} onOpenChange={setShowCreateForm}>
           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-            <div className="rounded-lg border border-primary/20 bg-accent/5 p-4">
+            <div className="rounded-panel border border-primary/20 bg-accent/5 p-4">
               <CollapsibleTrigger
                 render={
                   <Button

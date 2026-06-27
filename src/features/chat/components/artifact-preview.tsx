@@ -114,7 +114,7 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
         <PreviewTextBlock
           text={`Mermaid render failed:\n\n${error}\n\nSource:\n${artifact.content}`}
           emptyText="No Mermaid content"
-          className="font-mono text-[11px]"
+          className="font-mono text-2xs"
         />
       </ScrollArea>
     )
@@ -160,7 +160,7 @@ export const ArtifactPreview = ({ artifact }: { artifact: ChatArtifact }) => {
       <PreviewTextBlock
         text={artifact.content}
         emptyText="No artifact content"
-        className="font-mono text-[11px]"
+        className="font-mono text-2xs"
       />
     </ScrollArea>
   )

@@ -5,8 +5,7 @@ import { FieldStack, FormGrid } from "@/components/layout"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsFormField,
-  SettingsSliderField
+  SettingsFormField
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,7 +32,11 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { SCROLL_STRATEGY_OPTIONS_SHORT } from "@/lib/constants-ui"
+import {
+  ScrollDepthField,
+  ScrollStrategyField,
+  TimeoutInputField
+} from "@/features/model/components/content-extraction-fields"
 import {
   AlertCircle,
   Check,
@@ -45,11 +48,8 @@ import {
 } from "@/lib/lucide-icon"
 import type { PerSiteProfile, PerSiteRuleMode } from "@/lib/per-site-profiles"
 import { cn } from "@/lib/utils"
-import type { ContentExtractionConfig, ScrollStrategy } from "@/types"
+import type { ContentExtractionConfig } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
-
-// Scroll strategy options (simplified for site-specific)
-const SCROLL_STRATEGY_OPTIONS = SCROLL_STRATEGY_OPTIONS_SHORT
 
 export interface SiteSpecificOverridesProps {
   config: ContentExtractionConfig
@@ -114,86 +114,6 @@ export const SiteSpecificOverrides = ({
       setSelectedSiteOverride(null)
     }
   }, [config.siteOverrides, selectedSiteOverride])
-
-  // Render timeout input field
-  const renderTimeoutInput = (
-    field: (typeof TIMEOUT_FIELDS)[number],
-    value: number,
-    onChange: (value: number) => void,
-    className?: string
-  ) => (
-    <SettingsFormField
-      key={field.id}
-      label={
-        <div className="flex items-center gap-1.5">
-          <field.icon className="icon-xs" />
-          {field.label}
-        </div>
-      }
-      labelClassName="text-xs">
-      <Input
-        type="number"
-        min={field.min}
-        max={field.max}
-        step={field.step}
-        value={value}
-        onChange={(e) => {
-          const numValue = parseInt(e.target.value, 10) || field.min
-          onChange(Math.max(field.min, Math.min(field.max, numValue)))
-        }}
-        className={className || "text-center"}
-      />
-    </SettingsFormField>
-  )
-
-  // Render scroll strategy select
-  const renderScrollStrategySelect = (
-    value: ScrollStrategy,
-    onValueChange: (value: ScrollStrategy) => void,
-    _id?: string,
-    className?: string
-  ) => (
-    <SettingsFormField
-      label={t("model.site_overrides.scroll_strategy_label")}
-      labelClassName="text-xs">
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className={className || "h-9"}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {SCROLL_STRATEGY_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {t(
-                `settings.content_extraction.scroll_strategy.options_short.${option.value}`
-              )}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </SettingsFormField>
-  )
-
-  // Render scroll depth slider
-  const renderScrollDepthSlider = (
-    depth: number,
-    onValueChange: (value: number) => void,
-    _id?: string
-  ) => {
-    const depthPercent = Math.round(depth * 100)
-    return (
-      <SettingsSliderField
-        label={t("model.site_overrides.scroll_depth_label")}
-        value={depthPercent}
-        valueLabel={`${depthPercent}%`}
-        min={0}
-        max={100}
-        step={5}
-        onValueChange={(value) => onValueChange(value / 100)}
-        leftLabel="0%"
-        rightLabel="100%"
-      />
-    )
-  }
 
   const renderContextRuleSelect = (
     value: PerSiteRuleMode,
@@ -387,23 +307,32 @@ export const SiteSpecificOverrides = ({
                     return (
                       <>
                         <FormGrid>
-                          {renderScrollStrategySelect(
-                            override.scrollStrategy || config.scrollStrategy,
-                            (value) =>
+                          <ScrollStrategyField
+                            value={
+                              override.scrollStrategy || config.scrollStrategy
+                            }
+                            onValueChange={(value) =>
                               onUpdateSiteOverride(selectedSiteOverride, {
                                 scrollStrategy: value
-                              }),
-                            `site-${selectedSiteOverride}-strategy`,
-                            "h-9"
-                          )}
-                          {renderScrollDepthSlider(
-                            override.scrollDepth ?? config.scrollDepth,
-                            (value) =>
+                              })
+                            }
+                            id={`site-${selectedSiteOverride}-strategy`}
+                            label={t(
+                              "model.site_overrides.scroll_strategy_label"
+                            )}
+                            labelClassName="text-xs"
+                            compact
+                            triggerClassName="h-9"
+                          />
+                          <ScrollDepthField
+                            depth={override.scrollDepth ?? config.scrollDepth}
+                            onValueChange={(value) =>
                               onUpdateSiteOverride(selectedSiteOverride, {
                                 scrollDepth: value
-                              }),
-                            `site-${selectedSiteOverride}-depth`
-                          )}
+                              })
+                            }
+                            label={t("model.site_overrides.scroll_depth_label")}
+                          />
                         </FormGrid>
                         <Separator />
                         <FormGrid>
@@ -431,17 +360,20 @@ export const SiteSpecificOverrides = ({
                         <Separator />
                         <FormGrid>
                           {TIMEOUT_FIELDS.map((field) => (
-                            <div key={field.id}>
-                              {renderTimeoutInput(
-                                field,
-                                override[field.name] ?? config[field.name],
-                                (value) =>
-                                  onUpdateSiteOverride(selectedSiteOverride, {
-                                    [field.name]: value
-                                  }),
-                                "text-center h-9"
-                              )}
-                            </div>
+                            <TimeoutInputField
+                              key={field.id}
+                              field={field}
+                              value={override[field.name] ?? config[field.name]}
+                              onValueChange={(value) =>
+                                onUpdateSiteOverride(selectedSiteOverride, {
+                                  [field.name]: value
+                                })
+                              }
+                              id={`site-${selectedSiteOverride}-${field.id}`}
+                              label={field.label}
+                              labelClassName="text-xs"
+                              inputClassName="h-9 text-center"
+                            />
                           ))}
                         </FormGrid>
                       </>

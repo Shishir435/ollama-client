@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandGroup,
@@ -83,7 +83,7 @@ export const MultiSelect = ({
         render={
           <div
             className={cn(
-              "flex h-auto w-full items-center justify-between rounded-lg border border-input bg-input/40 px-3 py-2 text-sm",
+              "flex h-auto w-full items-center justify-between rounded-panel border border-input bg-input/40 px-3 py-2 text-sm",
               "cursor-pointer"
             )}
           />
@@ -105,7 +105,7 @@ export const MultiSelect = ({
                   key={value}
                   variant="secondary"
                   className={cn(
-                    "flex items-center gap-1 rounded-md px-2 py-1",
+                    "flex items-center gap-1 rounded-control px-2 py-1",
                     "bg-muted text-muted-foreground"
                   )}>
                   {Icon && <Icon className="icon-md" />}
@@ -149,15 +149,16 @@ export const MultiSelect = ({
         <ChevronsUpDown className="ml-2 icon-md text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="w-75 p-0" align="center">
-        <Command className="rounded-lg border-0">
+        <Command className="rounded-panel border-0">
           <div className="relative w-full">
-            <Button
+            <TooltipActionButton
               variant="ghost"
               size="icon"
               onClick={onRefresh}
-              className="z-2 absolute right-0 rounded-full bg-transparent text-xs hover:bg-transparent">
-              <RefreshCw className="icon-md opacity-50" />
-            </Button>
+              className="z-2 absolute right-0 rounded-full bg-transparent text-xs hover:bg-transparent"
+              label={t("common.actions.refresh")}
+              icon={<RefreshCw className="icon-md opacity-50" />}
+            />
             <CommandInput
               placeholder={placeholder}
               className="border-0 focus:outline-hidden focus:ring-0"
@@ -170,7 +171,7 @@ export const MultiSelect = ({
                 <CommandItem
                   key={option.value}
                   onSelect={() => toggleOption(option.value)}
-                  className="mx-1 my-0.5 rounded-md py-2.5 transition-all aria-selected:bg-accent/50">
+                  className="mx-1 my-0.5 rounded-control py-2.5 transition-all aria-selected:bg-accent/50">
                   <div className="flex items-center gap-3">
                     {option.icon && (
                       <option.icon className="icon-md shrink-0" />

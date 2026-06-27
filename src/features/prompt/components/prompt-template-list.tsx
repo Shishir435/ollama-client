@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { ConfirmActionDialog } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Collapsible,
@@ -80,16 +80,17 @@ export const PromptTemplateList = ({
                     </p>
                     <div className="flex shrink-0 gap-1">
                       <CopyButton text={template.userPrompt} />
-                      <Button
+                      <TooltipActionButton
                         variant="ghost"
                         size="icon"
                         className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        label={t("settings.prompts.delete_dialog.confirm")}
+                        icon={<Trash2 className="icon-md" />}
                         onClick={(e) => {
                           e.stopPropagation()
                           setDeleteConfirmId(template.id)
-                        }}>
-                        <Trash2 className="icon-md" />
-                      </Button>
+                        }}
+                      />
                     </div>
                   </div>
                 </CollapsibleTrigger>

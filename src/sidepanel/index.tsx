@@ -1,3 +1,4 @@
+import "../extension-fonts.css"
 import "../globals.css"
 import "@/i18n/config"
 

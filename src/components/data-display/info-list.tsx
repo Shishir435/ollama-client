@@ -15,7 +15,7 @@ interface InfoListProps extends React.ComponentProps<"dl"> {
 
 export const InfoList = ({ items, className, ...props }: InfoListProps) => (
   <dl
-    className={cn("divide-y divide-border rounded-md border", className)}
+    className={cn("divide-y divide-border rounded-control border", className)}
     {...props}>
     {items.map((item) => (
       <div

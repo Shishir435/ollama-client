@@ -26,13 +26,13 @@ export const ChatSessionSidebarHeader = ({
         <div className="flex size-7 items-center justify-center rounded-control bg-app-primary-soft text-app-agent">
           <MessageSquare className="icon-sm" />
         </div>
-        <SheetTitle className="truncate text-[13px] font-semibold text-sidebar-foreground">
+        <SheetTitle className="truncate text-xs font-semibold text-sidebar-foreground">
           {t("sessions.selector.title")}
         </SheetTitle>
         <Tooltip>
           <TooltipTrigger
             render={
-              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1.5 text-[11px] font-medium tabular-nums text-sidebar-foreground/80" />
+              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1.5 text-2xs font-medium tabular-nums text-sidebar-foreground/80" />
             }>
             {sessionCount}
           </TooltipTrigger>
@@ -57,16 +57,22 @@ export const ChatSessionSidebarHeader = ({
           iconClassName="icon-sm"
           label={t("sessions.selector.create_new")}
         />
-        <SheetClose
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-7 rounded-control bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            />
-          }>
-          <X className="icon-sm" />
-        </SheetClose>
+        <TooltipActionButton
+          label={t("common.close")}
+          trigger={
+            <SheetClose
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-7 rounded-control bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  aria-label={t("common.close")}
+                />
+              }>
+              <X className="icon-sm" />
+            </SheetClose>
+          }
+        />
       </div>
     </SheetHeader>
   )

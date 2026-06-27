@@ -2,6 +2,7 @@ import { Keyboard, RotateCcw, Search, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -200,7 +201,7 @@ export const ShortcutsSettings = () => {
           bindings, so they can't be rebound from this page. */}
       <div
         data-settings-focus-id="browser-shortcuts"
-        className="rounded-md border border-border/60 bg-muted/30 px-3 py-2.5">
+        className="rounded-control border border-border/60 bg-muted/30 px-3 py-2.5">
         <p className="text-sm font-medium">
           {t("settings.shortcuts.browser.title")}
         </p>
@@ -230,7 +231,7 @@ export const ShortcutsSettings = () => {
 
       {/* Conflict warning */}
       {conflictWarning && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {conflictWarning}
         </div>
       )}
@@ -259,7 +260,7 @@ export const ShortcutsSettings = () => {
                       data-settings-focus="true"
                       data-settings-focus-id={shortcutFocusId(shortcut.id)}
                       className={cn(
-                        "group flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/50",
+                        "group flex w-full cursor-pointer items-center justify-between rounded-control px-3 py-2 text-left transition-colors hover:bg-accent/50",
                         isRecording && "bg-accent ring-2 ring-primary"
                       )}
                       onClick={() => {
@@ -284,16 +285,17 @@ export const ShortcutsSettings = () => {
                           renderShortcutKeys(shortcut.key)
                         )}
                         {isModified && !isRecording && (
-                          <Button
+                          <TooltipActionButton
                             variant="ghost"
                             size="icon"
                             className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
+                            label={t("settings.shortcuts.reset_all")}
+                            icon={<X className="icon-xs" />}
                             onClick={(e) => {
                               e.stopPropagation()
                               resetShortcut(shortcut.id)
-                            }}>
-                            <X className="icon-xs" />
-                          </Button>
+                            }}
+                          />
                         )}
                       </div>
                     </button>

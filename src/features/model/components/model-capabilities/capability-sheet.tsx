@@ -135,7 +135,7 @@ export const ModelCapabilitySheet = ({
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4 scrollbar-none">
-          <div className="mb-2 flex items-start gap-2 rounded-md border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs/relaxed text-muted-foreground">
+          <div className="mb-2 flex items-start gap-2 rounded-control border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs/relaxed text-muted-foreground">
             <Info className="icon-sm mt-0.5 shrink-0 text-status-info" />
             <span>
               {canSelfReport
@@ -154,8 +154,8 @@ export const ModelCapabilitySheet = ({
               <label
                 key={flag}
                 htmlFor={switchId}
-                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-accent/50">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                className="flex cursor-pointer items-center gap-3 rounded-control px-2 py-2.5 transition-colors hover:bg-accent/50">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-control bg-muted/50">
                   <Icon className="icon-sm text-muted-foreground" />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">

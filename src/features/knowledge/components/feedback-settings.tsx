@@ -213,7 +213,7 @@ export function FeedbackSettings() {
           </div>
         </div>
         {lastUpdated && (
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-micro text-muted-foreground">
             {t("common.updated_at")}{" "}
             {new Date(lastUpdated).toLocaleTimeString([], {
               hour: "2-digit",

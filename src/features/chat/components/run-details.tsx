@@ -100,7 +100,7 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
           render={
             <button
               type="button"
-              className="inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-control px-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+              className="inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-control px-1 text-micro text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
               aria-label={metricsSummary}
             />
           }>

@@ -1,6 +1,7 @@
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import * as React from "react"
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -56,18 +57,23 @@ function SheetContent({
         {...props}>
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close
-            data-slot="sheet-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-4 right-4"
-                size="icon-sm"
-              />
-            }>
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </SheetPrimitive.Close>
+          <TooltipActionButton
+            label="Close"
+            trigger={
+              <SheetPrimitive.Close
+                data-slot="sheet-close"
+                render={
+                  <Button
+                    variant="ghost"
+                    className="absolute top-4 right-4"
+                    size="icon-sm"
+                    aria-label="Close"
+                  />
+                }>
+                <XIcon />
+              </SheetPrimitive.Close>
+            }
+          />
         )}
       </SheetPrimitive.Popup>
     </SheetPortal>

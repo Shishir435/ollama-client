@@ -2,7 +2,8 @@ import type React from "react"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface SettingsFormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface SettingsFormFieldProps
+  extends React.HTMLAttributes<HTMLDivElement> {
   label: React.ReactNode
   description?: React.ReactNode
   error?: string

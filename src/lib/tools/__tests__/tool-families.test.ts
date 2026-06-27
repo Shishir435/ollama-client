@@ -16,7 +16,7 @@ describe("getToolFamily", () => {
     expect(getToolFamily(def({ name: "selected_text" }))).toBe("browser")
     expect(getToolFamily(def({ name: "rag_search" }))).toBe("knowledge")
     expect(getToolFamily(def({ name: "file_search" }))).toBe("knowledge")
-    expect(getToolFamily(def({ name: "recent_history" }))).toBe("history")
+    expect(getToolFamily(def({ name: "get_recent_history" }))).toBe("history")
     expect(getToolFamily(def({ name: "search_bookmarks" }))).toBe("history")
     expect(getToolFamily(def({ name: "web_search" }))).toBe("web")
     expect(getToolFamily(def({ name: "schedule_reminder" }))).toBe("automation")
@@ -25,7 +25,7 @@ describe("getToolFamily", () => {
 
   it("puts history/bookmark tools in `history`, not `browser`, despite their category", () => {
     expect(
-      getToolFamily(def({ name: "recent_history", category: "browser" }))
+      getToolFamily(def({ name: "get_recent_history", category: "browser" }))
     ).toBe("history")
   })
 
@@ -48,7 +48,7 @@ describe("getToolFamily", () => {
   })
 
   it("every family in the map is a known TOOL_FAMILIES member", () => {
-    for (const name of ["current_tab", "rag_search", "recent_history"]) {
+    for (const name of ["current_tab", "rag_search", "get_recent_history"]) {
       expect(TOOL_FAMILIES).toContain(getToolFamily(def({ name })))
     }
   })

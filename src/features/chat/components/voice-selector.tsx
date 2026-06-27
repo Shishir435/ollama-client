@@ -119,7 +119,7 @@ export const VoiceSelector = ({
               </span>
               <Badge
                 variant="secondary"
-                className="text-[10px] h-5 px-1.5 font-normal shrink-0">
+                className="text-micro h-5 px-1.5 font-normal shrink-0">
                 {selectedVoice.lang}
               </Badge>
             </>
@@ -174,7 +174,7 @@ export const VoiceSelector = ({
                     </span>
                     <Badge
                       variant="secondary"
-                      className="text-[10px] h-4 px-1.5 font-normal">
+                      className="text-micro h-4 px-1.5 font-normal">
                       {group.voices.length}
                     </Badge>
                   </div>
@@ -207,7 +207,7 @@ export const VoiceSelector = ({
                                 {voice.name}
                               </span>
                               {voice.localService === false && (
-                                <span className="text-[10px] text-muted-foreground mt-0.5">
+                                <span className="text-micro text-muted-foreground mt-0.5">
                                   {t("chat.voice_selector.network_voice")}
                                 </span>
                               )}
@@ -216,7 +216,7 @@ export const VoiceSelector = ({
                               {voice.default && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] h-4 px-1.5 font-normal border-muted-foreground/30">
+                                  className="text-micro h-4 px-1.5 font-normal border-muted-foreground/30">
                                   {t("chat.voice_selector.default_badge")}
                                 </Badge>
                               )}

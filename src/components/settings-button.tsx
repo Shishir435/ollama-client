@@ -37,7 +37,7 @@ export const SettingsButton = ({
       tooltip={t("common.settings.tooltip")}
       label={t("common.settings.label")}
       showLabel={showText}
-      icon={<Settings size="16" className={iconClassName || "opacity-80"} />}
+      icon={<Settings className={cn(iconClassName || "icon-xs")} />}
     />
   )
 }

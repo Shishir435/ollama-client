@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { SettingsButton } from "@/components/settings-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -189,7 +190,7 @@ export function PromptSelectorSheet({
         <div className="grid gap-2 p-3">
           {filteredTemplates.length === 0 && (
             <div className="grid justify-items-center gap-2 rounded-panel border border-border/35 bg-background/35 p-8 text-center">
-              <Search className="size-8 text-muted-foreground/50" />
+              <Search className="icon-3xl text-muted-foreground/50" />
               <h3 className="text-sm font-semibold">
                 {t("prompts.selector.no_templates_title")}
               </h3>
@@ -256,30 +257,30 @@ export function PromptSelectorSheet({
                   <div className="flex min-w-0 gap-1">
                     {template.tags?.slice(0, 3).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
-                        <Tag className="mr-1 size-2.5" />
+                        <Tag className="mr-1 icon-micro" />
                         {tag}
                       </Badge>
                     ))}
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <Button
+                    <TooltipActionButton
                       type="button"
                       variant="ghost"
                       size="icon-sm"
                       onClick={() =>
                         setPreviewTemplate(isPreviewed ? null : template)
                       }
-                      aria-label={t("tabs.select.view_content")}>
-                      <Eye className="icon-sm" />
-                    </Button>
-                    <Button
+                      label={t("tabs.select.view_content")}
+                      icon={<Eye className="icon-sm" />}
+                    />
+                    <TooltipActionButton
                       type="button"
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => copyToClipboard(previewPrompt(template))}
-                      aria-label={t("prompts.selector.copy")}>
-                      <Copy className="icon-sm" />
-                    </Button>
+                      label={t("prompts.selector.copy")}
+                      icon={<Copy className="icon-sm" />}
+                    />
                   </div>
                 </div>
                 {isPreviewed && (

@@ -165,7 +165,7 @@ export const ExcludedUrls = ({
         </div>
       ) : (
         <div className="py-6 text-center text-muted-foreground">
-          <Shield className="mx-auto mb-2 size-8 opacity-50" />
+          <Shield className="mx-auto mb-2 icon-3xl opacity-50" />
           <p className="text-sm">{t("model.exclude_urls.no_patterns")}</p>
         </div>
       )}

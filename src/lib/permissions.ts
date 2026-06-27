@@ -1,12 +1,11 @@
 /**
- * Optional API permission helper (v0.11.0 groundwork — FEATURE_ROADMAP §5).
+ * Optional API permission helper.
  *
  * A thin, typed wrapper over `browser.permissions.*` for the discrete API
- * permissions the 0.11.x roadmap may request at runtime. Building it once here
- * means E2 (bookmarks/history), E5 (notifications), E9 (downloads), and any future
- * optional permission share one consent/revoke path and one Permissions-tab surface.
+ * optional permissions share one consent/revoke path and one Permissions-tab
+ * surface.
  *
- * Scope rules (privacy stance, FEATURE_ROADMAP §0.4):
+ * Scope rules:
  *   - This covers OPTIONAL API permissions only. Host access (`<all_urls>`) is
  *     standing and retained — it is intentionally NOT requested/removed here.
  *   - `requestPermission` MUST be called from a user gesture (e.g. a click).
@@ -15,7 +14,7 @@
 
 import { browser } from "@/lib/browser-api"
 
-/** Discrete optional API permissions the roadmap gates behind explicit consent. */
+/** Discrete API permissions gated behind explicit consent. */
 export type OptionalApiPermission =
   | "bookmarks"
   | "history"

@@ -12,7 +12,7 @@ export const MiniBadge = forwardRef<HTMLSpanElement, MiniBadgeProps>(
     <span
       ref={ref}
       className={cn(
-        "text-[10px] font-medium text-muted-foreground/80 border border-border rounded px-1 py-0.5 leading-none",
+        "text-micro font-medium text-muted-foreground/80 border border-border rounded px-1 py-0.5 leading-none",
         className
       )}
       {...props}>

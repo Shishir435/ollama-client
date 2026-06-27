@@ -198,7 +198,7 @@ export const ModelMenu = ({
                     variant="ghost"
                     role="combobox"
                     aria-expanded={open}
-                    className="h-8 justify-between gap-1.5 rounded-lg bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                    className="h-8 justify-between gap-1.5 rounded-panel bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
                   />
                 }
               />
@@ -242,13 +242,13 @@ export const ModelMenu = ({
           <Command className="max-h-100 w-full">
             <div className="flex flex-col justify-between w-full h-full p-1">
               {selectionConflictModel && (
-                <div className="mb-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
+                <div className="mb-2 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
                   Provider selection required for{" "}
                   <strong>{selectionConflictModel}</strong>.
                 </div>
               )}
               <div className="flex items-center justify-between p-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-micro font-semibold text-muted-foreground uppercase tracking-wider">
                   {t("model.menu.models_label")}
                 </span>
                 <TooltipActionButton
@@ -270,13 +270,13 @@ export const ModelMenu = ({
               </div>
               <CommandInput
                 placeholder={t("model.menu.search_placeholder")}
-                className="bg-transparent rounded-md text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="bg-transparent rounded-control text-micro outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 autoFocus
               />
             </div>
             <CommandSeparator className="mt-2" />
             <CommandList className="max-h-75 overflow-y-auto px-0.5 py-1 scrollbar-none">
-              <CommandEmpty className="py-6 text-center text-sm">
+              <CommandEmpty className="py-6 text-center text-micro">
                 {t("model.menu.no_model_found")}
               </CommandEmpty>
 
@@ -301,20 +301,20 @@ export const ModelMenu = ({
                         key={`${providerId}-${model.name}`}
                         value={model.name}
                         onSelect={() => handleSelect(model.name, providerId)}
-                        className="flex items-center gap-2 rounded-md px-1.5 py-1.5 mb-0.5 cursor-pointer aria-selected:bg-accent">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 mb-0.5 cursor-pointer aria-selected:bg-accent">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-control bg-muted/50">
                           <ModelIcon className="icon-sm text-muted-foreground" />
                         </div>
 
                         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-medium text-sm">
+                            <span className="truncate font-medium text-micro">
                               {model.name}
                             </span>
                             {duplicateModelNames.has(model.name) && (
                               <Badge
                                 variant="secondary"
-                                className="h-4 px-1 text-[10px]">
+                                className="h-4 px-1 text-micro">
                                 Conflict
                               </Badge>
                             )}
@@ -330,20 +330,20 @@ export const ModelMenu = ({
                             {model.details?.parameter_size && (
                               <Badge
                                 variant="outline"
-                                className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                                className="h-4 border px-1 text-nano font-mono text-muted-foreground border-border/50">
                                 {model.details.parameter_size}
                               </Badge>
                             )}
                             {model.details?.quantization_level && (
                               <Badge
                                 variant="outline"
-                                className="h-4 px-1 text-[10px] font-mono text-muted-foreground border-border/50">
+                                className="h-4 px-1 text-nano font-mono text-muted-foreground border-border/50">
                                 {model.details.quantization_level}
                               </Badge>
                             )}
                             <ModelCapabilityBadges caps={caps} />
                             {model.size ? (
-                              <span className="text-[10px] text-muted-foreground tabular-nums">
+                              <span className="text-nano text-muted-foreground tabular-nums">
                                 {formatFileSize(model.size, t)}
                               </span>
                             ) : null}

@@ -91,7 +91,7 @@ export const TextSplittingSettings = () => {
         />
 
         {config.useEnhancedChunking && (
-          <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
+          <div className="rounded-control bg-muted p-4 text-sm text-muted-foreground">
             <p>{t("model.embedding_config.enhanced_chunking_info")}</p>
           </div>
         )}

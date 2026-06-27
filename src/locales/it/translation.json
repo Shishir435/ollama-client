@@ -691,12 +691,6 @@
       "reliable": "{{percent}}% affidabile",
       "low_reliability": "Bassa affidabilità di estrazione. Prova: cambia scraper, regola profondità scorrimento o usa contesto di selezione manuale.",
       "no_content": "(Nessun contenuto estratto ancora)"
-    },
-    "groups": {
-      "title": "Gruppi di schede",
-      "enable": "Attiva gruppi di schede",
-      "refresh": "Aggiorna gruppi di schede",
-      "empty": "Nessun gruppo di schede aperto."
     }
   },
   "settings": {

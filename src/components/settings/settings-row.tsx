@@ -21,7 +21,7 @@ export const SettingsRow = ({
 }: SettingsRowProps) => (
   <div
     className={cn(
-      "flex flex-col gap-3 rounded-md border border-border/70 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between",
+      "flex flex-col gap-3 rounded-control border border-border/70 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between",
       className
     )}
     {...props}>

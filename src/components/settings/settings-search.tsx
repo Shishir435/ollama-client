@@ -130,7 +130,7 @@ export const SettingsSearch = ({
       {open && results.length > 0 && (
         <ul
           id={listId}
-          className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
           {results.map((record) => (
             <li
               key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}>

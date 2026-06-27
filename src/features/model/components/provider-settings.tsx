@@ -46,7 +46,7 @@ export const ProviderSettings = () => {
   if (loading) {
     return (
       <div className="flex justify-center p-8">
-        <Loader2 className="animate-spin size-6" />
+        <Loader2 className="animate-spin icon-xl" />
       </div>
     )
   }

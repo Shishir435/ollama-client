@@ -192,7 +192,7 @@ export const ModelInfo = ({
 
   if (loading) {
     return (
-      <div className="rounded-lg border bg-card p-3">
+      <div className="rounded-panel border bg-card p-3">
         <Skeleton className="h-8 w-full" />
       </div>
     )
@@ -200,7 +200,7 @@ export const ModelInfo = ({
 
   if (error) {
     return (
-      <div className="rounded-lg border bg-card p-3">
+      <div className="rounded-panel border bg-card p-3">
         <div className="flex items-center gap-2 text-xs text-destructive">
           <Info className="icon-xs" />
           {error}
@@ -286,7 +286,7 @@ export const ModelInfo = ({
           <div className="border-t border-border px-4 pb-4 pt-4">
             {!modelInfo || error ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Cpu className="mb-2 size-8 text-muted-foreground/50" />
+                <Cpu className="mb-2 icon-3xl text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
                   {error
                     ? t("settings.model_info.error_fetching")

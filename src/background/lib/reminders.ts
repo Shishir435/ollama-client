@@ -88,9 +88,8 @@ export const scheduleReminder = async ({
     throw new Error("Reminder delay must be greater than 0 minutes.")
   }
 
-  // `alarms` is an optional permission (0.11.15). When ungranted the namespace is
-  // absent, so check the permission first to give a clear, actionable error
-  // instead of the generic "unsupported browser" one below.
+  // When ungranted the alarms namespace can be absent, so check permission first
+  // to give a clear error instead of the generic unsupported-browser one below.
   if (!(await hasPermission("alarms"))) {
     throw new Error(
       "Alarms permission is required to schedule reminders. Enable it in Settings → Permissions."

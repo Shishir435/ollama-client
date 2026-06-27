@@ -1,5 +1,5 @@
 import type React from "react"
-import { Button } from "@/components/ui/button"
+import { TooltipActionButton } from "@/components/actions"
 import { Minus, Plus } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { ControlledNumberInput } from "./controlled-number-input"
@@ -34,14 +34,14 @@ export const NumberStepper = ({
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
-      <Button
+      <TooltipActionButton
         type="button"
         variant="outline"
         size="icon-sm"
         onClick={() => onStep(clamp(current - numericStep))}
-        aria-label="Decrease value">
-        <Minus />
-      </Button>
+        label="Decrease value"
+        icon={<Minus />}
+      />
       <ControlledNumberInput
         {...props}
         min={min}
@@ -49,14 +49,14 @@ export const NumberStepper = ({
         step={step}
         className="text-center"
       />
-      <Button
+      <TooltipActionButton
         type="button"
         variant="outline"
         size="icon-sm"
         onClick={() => onStep(clamp(current + numericStep))}
-        aria-label="Increase value">
-        <Plus />
-      </Button>
+        label="Increase value"
+        icon={<Plus />}
+      />
     </div>
   )
 }
