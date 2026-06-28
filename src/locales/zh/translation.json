@@ -317,7 +317,6 @@
       "filter_knowledge": "知识",
       "filter_local": "本地",
       "show_more": "再显示 {{count}} 个",
-      "open_source": "打开来源",
       "disclaimer": "来源为自动检索，可能并非始终 100% 准确。",
       "open_all_tabs": "在标签页中全部打开"
     },

@@ -21,9 +21,6 @@ export interface UnifiedSourcesButtonProps {
   ragQuery?: string
   usedContextChunks?: UsedChunk[]
   toolRuns?: ToolRun[]
-  tabContextLength?: number
-  ragContextLength?: number
-  tabContextTruncated?: boolean
   showRetrievedChunks?: boolean
   feedbackEnabled?: boolean
 }

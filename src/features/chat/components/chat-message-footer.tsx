@@ -159,9 +159,6 @@ export const ChatMessageFooter = ({
           ragQuery={msg.metrics?.ragQuery}
           usedContextChunks={msg.metrics?.usedContextChunks}
           toolRuns={msg.metrics?.toolRuns}
-          tabContextLength={msg.metrics?.tabContextLength}
-          ragContextLength={msg.metrics?.ragContextLength}
-          tabContextTruncated={msg.metrics?.tabContextTruncated}
           showRetrievedChunks={showRetrievedChunks}
           feedbackEnabled={feedbackEnabled}
         />

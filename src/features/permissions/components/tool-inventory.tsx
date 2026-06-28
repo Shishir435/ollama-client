@@ -68,9 +68,13 @@ export const ToolInventory = ({
           permission,
           await hasPermission(permission)
         ])
-      ).then((entries) => {
-        if (active) setPermissionState(Object.fromEntries(entries))
-      })
+      )
+        .then((entries) => {
+          if (active) setPermissionState(Object.fromEntries(entries))
+        })
+        .catch(() => {
+          // Permission API unavailable; leave current state intact.
+        })
     }
     refresh()
     browser.permissions?.onAdded?.addListener(refresh)

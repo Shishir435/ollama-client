@@ -317,7 +317,6 @@
       "filter_knowledge": "Connaissances",
       "filter_local": "Local",
       "show_more": "Afficher {{count}} de plus",
-      "open_source": "Ouvrir la source",
       "disclaimer": "Les sources sont récupérées automatiquement et peuvent ne pas toujours être exactes à 100 %.",
       "open_all_tabs": "Tout ouvrir dans des onglets"
     },
