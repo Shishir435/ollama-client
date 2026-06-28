@@ -22,6 +22,10 @@ export interface SourceItem {
   chunkIndex?: number
   source?: string
   sectionPath?: string
+  kind?: "page" | "knowledge" | "web"
+  url?: string
+  engine?: string
+  publishedAt?: string
 }
 
 export interface MessageSourcesSheetProps {
@@ -40,6 +44,7 @@ export interface MessageSourcesSheetProps {
   feedback?: {
     query: string
     sessionId?: string
+    isEnabled?: (item: SourceItem) => boolean
   }
 }
 
@@ -137,7 +142,7 @@ export function MessageSourcesSheet({
                               </div>
                             )}
                           </div>
-                          {feedback && (
+                          {feedback && (feedback.isEnabled?.(item) ?? true) && (
                             <div className="mt-2 flex items-center gap-1">
                               <ChunkFeedbackButton
                                 chunkId={value}

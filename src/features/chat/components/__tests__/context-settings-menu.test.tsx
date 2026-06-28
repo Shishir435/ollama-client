@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   setSelectedTabIds: vi.fn(),
   refreshSelectedTabContents: vi.fn(),
   refreshTabs: vi.fn(),
+  updateWebSearchConfig: vi.fn(),
   selectedTabIds: ["7"] as string[],
   perSiteProfiles: { profiles: [] as unknown[] }
 }))
@@ -48,6 +49,13 @@ vi.mock("react-i18next", () => ({
         "tabs.inspector.chars": `${values?.count ?? 0} chars`,
         "chat.input.rag_toggle_on": "RAG+",
         "chat.input.rag_toggle_off": "RAG",
+        "chat.context.preview_title": "The model will see",
+        "chat.context.none": "No extra context",
+        "chat.context.page": "Page",
+        "chat.context.tabs": `${values?.count ?? 0} tabs`,
+        "chat.context.files": `${values?.count ?? 0} files`,
+        "chat.context.knowledge": "Knowledge",
+        "chat.context.web": "Web",
         "settings.grounding_mode.label":
           "Answer only from selected page context"
       })[key] ?? key
@@ -109,8 +117,15 @@ vi.mock("@/features/tabs/hooks/use-tab-status-map", () => ({
 
 vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
   useSelectedModelCapabilities: () => ({
-    capabilities: undefined,
+    capabilities: { toolCalling: true, vision: false },
     isResolving: false
+  })
+}))
+
+vi.mock("@/features/web-search/stores/web-search-config-store", () => ({
+  useWebSearchConfig: () => ({
+    config: { enabled: false },
+    updateConfig: mocks.updateWebSearchConfig
   })
 }))
 
@@ -135,6 +150,8 @@ describe("ContextSettingsMenu", () => {
 
     expect(screen.getByText("Tab+")).toBeInTheDocument()
     expect(screen.getByText("RAG+")).toBeInTheDocument()
+    expect(screen.getByText("Web")).toBeInTheDocument()
+    expect(screen.getByText("The model will see")).toBeInTheDocument()
     expect(
       screen.getByText("Answer only from selected page context")
     ).toBeInTheDocument()
@@ -154,6 +171,14 @@ describe("ContextSettingsMenu", () => {
       screen.getAllByText("Extracted text from current page").length
     ).toBeGreaterThan(0)
     expect(screen.getByText("32 chars")).toBeInTheDocument()
+  })
+
+  it("controls web search from the unified context tray", () => {
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: "Web" }))
+
+    expect(mocks.updateWebSearchConfig).toHaveBeenCalledWith({ enabled: true })
   })
 
   it("hides and clears tabs matched by a never-read profile", () => {

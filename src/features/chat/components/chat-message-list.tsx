@@ -50,7 +50,6 @@ export const ChatMessageList = ({
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [userDetachedFromBottom, setUserDetachedFromBottom] = useState(false)
-  const restoreBottomTimeoutRef = useRef<number | null>(null)
   const [embeddingConfig] = useStorage<EmbeddingConfig>(
     {
       key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
@@ -110,33 +109,15 @@ export const ChatMessageList = ({
     internalMessagesRef.current = newMessages
   }, [filteredMessages])
 
-  useEffect(() => {
-    return () => {
-      if (restoreBottomTimeoutRef.current !== null) {
-        window.clearTimeout(restoreBottomTimeoutRef.current)
-        restoreBottomTimeoutRef.current = null
-      }
-    }
-  }, [])
-
   const handleAtBottomStateChange = useCallback((bottom: boolean) => {
-    if (restoreBottomTimeoutRef.current !== null) {
-      window.clearTimeout(restoreBottomTimeoutRef.current)
-      restoreBottomTimeoutRef.current = null
-    }
-
     if (!bottom) {
       setIsAtBottom((prev) => (prev ? false : prev))
       setUserDetachedFromBottom((prev) => (prev ? prev : true))
       return
     }
 
-    // Avoid bottom-edge oscillation by only restoring after stable bottom.
-    restoreBottomTimeoutRef.current = window.setTimeout(() => {
-      setIsAtBottom((prev) => (prev ? prev : true))
-      setUserDetachedFromBottom((prev) => (prev ? false : prev))
-      restoreBottomTimeoutRef.current = null
-    }, 300)
+    setIsAtBottom((prev) => (prev ? prev : true))
+    setUserDetachedFromBottom((prev) => (prev ? false : prev))
   }, [])
 
   return (
@@ -151,7 +132,7 @@ export const ChatMessageList = ({
             onLoadMore()
           }
         }}
-        followOutput={isStreaming && !userDetachedFromBottom ? "smooth" : false}
+        followOutput={isStreaming && !userDetachedFromBottom ? "auto" : false}
         alignToBottom={false}
         className="scrollbar-none"
         atBottomThreshold={24}
@@ -220,10 +201,6 @@ export const ChatMessageList = ({
             variant="secondary"
             className="pointer-events-auto h-8 gap-1 rounded-chip px-3 text-xs shadow-md"
             onClick={() => {
-              if (restoreBottomTimeoutRef.current !== null) {
-                window.clearTimeout(restoreBottomTimeoutRef.current)
-                restoreBottomTimeoutRef.current = null
-              }
               setUserDetachedFromBottom(false)
               setIsAtBottom(true)
               virtuosoRef.current?.scrollToIndex({

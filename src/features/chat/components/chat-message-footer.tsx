@@ -20,12 +20,10 @@ import {
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 import { CopyButton } from "./copy-button"
-import { RAGSourcesButton } from "./rag-sources-button"
 import { RegenerateButton } from "./regenerate-button"
 import { RunDetails } from "./run-details"
 import { SpeechButton } from "./speech-button"
-import { UsedContextButton } from "./used-context-button"
-import { WebSearchSourcesButton } from "./web-search-sources-button"
+import { UnifiedSourcesButton } from "./unified-sources-button"
 
 export const ChatMessageFooter = ({
   msg,
@@ -156,28 +154,17 @@ export const ChatMessageFooter = ({
 
         <SpeechButton text={msg.content} />
 
-        {/* RAG Sources Button - Show for messages with RAG context */}
-        {showRetrievedChunks &&
-          msg.metrics?.ragSources &&
-          msg.metrics.ragSources.length > 0 && (
-            <RAGSourcesButton
-              sources={msg.metrics.ragSources}
-              query={msg.metrics.ragQuery}
-              enableFeedback={feedbackEnabled}
-            />
-          )}
-
-        {msg.metrics?.usedContextChunks &&
-          msg.metrics.usedContextChunks.length > 0 && (
-            <UsedContextButton
-              chunks={msg.metrics.usedContextChunks}
-              tabContextLength={msg.metrics.tabContextLength}
-              ragContextLength={msg.metrics.ragContextLength}
-              tabContextTruncated={msg.metrics.tabContextTruncated}
-            />
-          )}
-
-        <WebSearchSourcesButton toolRuns={msg.metrics?.toolRuns} />
+        <UnifiedSourcesButton
+          ragSources={msg.metrics?.ragSources}
+          ragQuery={msg.metrics?.ragQuery}
+          usedContextChunks={msg.metrics?.usedContextChunks}
+          toolRuns={msg.metrics?.toolRuns}
+          tabContextLength={msg.metrics?.tabContextLength}
+          ragContextLength={msg.metrics?.ragContextLength}
+          tabContextTruncated={msg.metrics?.tabContextTruncated}
+          showRetrievedChunks={showRetrievedChunks}
+          feedbackEnabled={feedbackEnabled}
+        />
 
         {onEdit && isUser && (
           <TooltipActionButton

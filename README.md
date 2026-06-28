@@ -59,11 +59,15 @@ Ollama Client supports two context paths:
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
 
+Before sending, the composer context pill shows what the model can see. After
+an answer, page/tab context, local knowledge, and web results appear in one
+grouped Sources sheet.
+
 Recently closed and synced-session tools are read-only, require optional
 permission, and honor never-read exclusions. Restoring a session is not exposed
 until model actions have a real interactive approval boundary.
 
-Web search is off by default and appears to the model as a single `web_search` tool. Backend choice stays in Settings -> Context, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
+Web search is off by default and appears to the model as a single `web_search` tool. Backend choice stays in Settings -> Knowledge & web, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
 
 For local/private web search:
 
@@ -72,7 +76,7 @@ cd searxng
 docker compose up -d
 ```
 
-Then set the SearXNG endpoint to `http://localhost:8080` in Settings -> Context -> Web Search.
+Then set the SearXNG endpoint to `http://localhost:8080` in Settings -> Knowledge & web -> Web Search.
 
 Image input is available only when the selected model resolves to vision-capable. Images are sent in the provider's native request format and stored locally with the conversation so previews reopen later.
 
