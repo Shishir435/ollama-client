@@ -1,4 +1,3 @@
-import { isFirefox } from "@/lib/browser-api"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -188,7 +187,7 @@ export class OllamaProvider implements LLMProvider {
         retryable: response.status >= 500,
         userMessage:
           response.status === 401 || response.status === 403
-            ? localCorsForbiddenMessage(isFirefox())
+            ? localCorsForbiddenMessage(response.status)
             : providerErrorUserMessage(response.status),
         debug: errorText
       })
