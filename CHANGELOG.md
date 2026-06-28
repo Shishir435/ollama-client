@@ -7,6 +7,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.11.22] - 2026-06-28
+
+### Added
+- Optional, permission-gated tools for recently closed tabs/windows and synced-device sessions. Session reads honor unreadable and never-read URL exclusions.
+- Automated 0.10.3 provider-storage upgrade contracts and a `verify:release` gate.
+- A guarded `tabCapture`/offscreen feasibility contract documenting browser and product blockers before capture UI ships.
+
+### Changed
+- Optional-permission switches now react immediately when access is granted or revoked from browser extension settings.
+- Chrome-only manifest permissions are omitted from Firefox builds at generation time.
+- Chat header, session selector, semantic search, provider status, embedding status, and export controls use a quieter compact icon treatment.
+- The per-session export shortcut no longer occupies the chat header.
+
+### Fixed
+- Browser smoke verification no longer calls the deleted Firefox manifest post-processing script.
+- Browser automation now serializes TSX callbacks safely, waits for fonts before screenshots, and completes live Chromium/Firefox chat checks.
+- Firefox builds declare no extension data collection and no longer emit the missing declaration warning.
+
 ## [0.11.20] - 2026-06-26
 
 Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity hardening pass.

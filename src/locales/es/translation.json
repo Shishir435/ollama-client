@@ -256,6 +256,8 @@
         "selection": "Leyendo selección",
         "history": "Leyendo historial",
         "bookmarks": "Buscando marcadores",
+        "sessions": "Leyendo pestañas cerradas recientemente",
+        "syncedSessions": "Leyendo pestañas sincronizadas",
         "trimmed": "resultado recortado",
         "change_limit": "Cambiar límite",
         "documents": "Buscando archivos",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "Historial de navegación",
           "description": "Permite indexar y recuperar tu historial localmente. Nunca se sube."
+        },
+        "sessions": {
+          "label": "Pestañas cerradas recientemente",
+          "description": "Permite al modelo leer pestañas cerradas recientemente y sesiones de dispositivos sincronizados. No permite restaurarlas."
         },
         "notifications": {
           "label": "Notificaciones",

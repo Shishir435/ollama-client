@@ -93,6 +93,35 @@ export const supportsAlarms = (): boolean =>
   typeof browser.alarms?.create === "function" &&
   typeof browser.alarms?.clear === "function"
 
+/** Recently closed browser sessions (Chrome + Firefox). */
+export const supportsSessions = (): boolean =>
+  isChromiumBased() ||
+  hasBrowserNamespace("sessions") ||
+  hasChromeNamespace("sessions") ||
+  /firefox/i.test(globalThis.navigator?.userAgent ?? "")
+
+/** Synced-device sessions. Chrome supports this; Firefox does not. */
+export const supportsSyncedSessions = (): boolean =>
+  typeof (
+    browser.sessions as unknown as {
+      getDevices?: unknown
+    }
+  )?.getDevices === "function"
+
+/** Tab media capture prototype. Chromium-only; Firefox has no equivalent API. */
+export const supportsTabCapture = (): boolean =>
+  isChromiumBased() &&
+  typeof globalThis.chrome?.tabCapture?.getMediaStreamId === "function"
+
+/** Hidden DOM/media lifecycle documents. Chromium MV3 only. */
+export const supportsOffscreenDocuments = (): boolean =>
+  isChromiumBased() &&
+  typeof (
+    globalThis.chrome as unknown as {
+      offscreen?: { createDocument?: unknown }
+    }
+  )?.offscreen?.createDocument === "function"
+
 export const openOptionsInTab = async (
   targetOptionsUrl?: string
 ): Promise<void> => {

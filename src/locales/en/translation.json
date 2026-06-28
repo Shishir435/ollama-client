@@ -258,6 +258,8 @@
         "selection": "Reading selection",
         "history": "Reading history",
         "bookmarks": "Searching bookmarks",
+        "sessions": "Reading recently closed tabs",
+        "syncedSessions": "Reading synced tabs",
         "trimmed": "result trimmed",
         "change_limit": "Change limit",
         "documents": "Searching files",
@@ -1000,6 +1002,10 @@
         "history": {
           "label": "Browsing history",
           "description": "Let you index and recall your history locally. Never uploaded."
+        },
+        "sessions": {
+          "label": "Recently closed tabs",
+          "description": "Let the model read recently closed tabs and synced-device sessions. Restoring tabs is not allowed."
         },
         "notifications": {
           "label": "Notifications",

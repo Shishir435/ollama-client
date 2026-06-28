@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { supportsTabGroups } from "@/lib/browser-api"
+import {
+  browser,
+  supportsOffscreenDocuments,
+  supportsSessions,
+  supportsSyncedSessions,
+  supportsTabCapture,
+  supportsTabGroups
+} from "@/lib/browser-api"
 
 const originalChrome = globalThis.chrome
 
@@ -16,5 +23,44 @@ describe("browser capability detection", () => {
     } as unknown as typeof chrome
 
     expect(supportsTabGroups()).toBe(true)
+  })
+
+  it("only offers synced sessions when getDevices exists", () => {
+    globalThis.chrome = {
+      declarativeNetRequest: {
+        updateDynamicRules: vi.fn()
+      }
+    } as unknown as typeof chrome
+
+    expect(supportsSessions()).toBe(true)
+    expect(supportsSyncedSessions()).toBe(false)
+  })
+
+  it("detects concrete sessions and Chromium capture methods", () => {
+    const browserRecord = browser as unknown as Record<string, unknown>
+    const previousSessions = browserRecord.sessions
+
+    browserRecord.sessions = {
+      getRecentlyClosed: vi.fn(),
+      getDevices: vi.fn()
+    }
+    globalThis.chrome = {
+      declarativeNetRequest: {
+        updateDynamicRules: vi.fn()
+      },
+      tabCapture: {
+        getMediaStreamId: vi.fn()
+      },
+      offscreen: {
+        createDocument: vi.fn()
+      }
+    } as unknown as typeof chrome
+
+    expect(supportsSessions()).toBe(true)
+    expect(supportsSyncedSessions()).toBe(true)
+    expect(supportsTabCapture()).toBe(true)
+    expect(supportsOffscreenDocuments()).toBe(true)
+
+    browserRecord.sessions = previousSessions
   })
 })

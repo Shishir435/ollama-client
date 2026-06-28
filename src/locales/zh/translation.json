@@ -256,6 +256,8 @@
         "selection": "读取选中文本",
         "history": "读取历史记录",
         "bookmarks": "搜索书签",
+        "sessions": "读取最近关闭的标签页",
+        "syncedSessions": "读取同步标签页",
         "trimmed": "结果已截断",
         "change_limit": "更改限制",
         "documents": "搜索文件",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "浏览历史",
           "description": "允许在本地索引并调用你的历史记录。绝不会上传。"
+        },
+        "sessions": {
+          "label": "最近关闭的标签页",
+          "description": "允许模型读取最近关闭的标签页和同步设备会话。不允许恢复标签页。"
         },
         "notifications": {
           "label": "通知",

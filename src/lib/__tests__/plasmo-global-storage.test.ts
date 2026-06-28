@@ -39,4 +39,20 @@ describe("plasmoGlobalStorage", () => {
       plasmoSyncStorage
     )
   })
+
+  it("moves legacy sync values into local storage on first device-local read", async () => {
+    const { getPlasmoStoredValue, plasmoDeviceStorage, plasmoSyncStorage } =
+      await import("../plasmo-global-storage")
+    const key = STORAGE_KEYS.WEB_SEARCH.CONFIG
+    const config = { backend: "searxng", baseUrl: "http://localhost:8080" }
+
+    vi.spyOn(plasmoDeviceStorage, "get").mockResolvedValueOnce(undefined)
+    vi.spyOn(plasmoDeviceStorage, "set").mockResolvedValueOnce(undefined)
+    vi.spyOn(plasmoSyncStorage, "get").mockResolvedValueOnce(config)
+    vi.spyOn(plasmoSyncStorage, "remove").mockResolvedValueOnce(undefined)
+
+    await expect(getPlasmoStoredValue(key)).resolves.toEqual(config)
+    expect(plasmoDeviceStorage.set).toHaveBeenCalledWith(key, config)
+    expect(plasmoSyncStorage.remove).toHaveBeenCalledWith(key)
+  })
 })

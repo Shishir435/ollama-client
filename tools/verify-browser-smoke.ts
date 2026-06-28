@@ -7,6 +7,7 @@ import { execSync } from "node:child_process"
 interface ExtensionManifest {
   manifest_version?: number
   permissions?: string[]
+  optional_permissions?: string[]
   host_permissions?: string[]
   action?: { default_popup?: string }
   options_ui?: { page?: string }
@@ -22,6 +23,13 @@ interface ExtensionManifest {
     | {
         extension_pages?: string
       }
+  browser_specific_settings?: {
+    gecko?: {
+      data_collection_permissions?: {
+        required?: string[]
+      }
+    }
+  }
 }
 
 const rootDir = process.cwd()
@@ -66,6 +74,18 @@ const expectNoPermission = (
   assert(
     !permissions.includes(permission),
     `${browserName} manifest should not include permission: ${permission}`
+  )
+}
+
+const expectOptionalPermission = (
+  manifest: ExtensionManifest,
+  permission: string,
+  browserName: string
+): void => {
+  const permissions = manifest.optional_permissions || []
+  assert(
+    permissions.includes(permission),
+    `${browserName} manifest missing optional permission: ${permission}`
   )
 }
 
@@ -164,7 +184,6 @@ const expectCspToken = (
 const main = (): void => {
   run("pnpm build")
   run("pnpm build:firefox")
-  run("bash tools/post-firefox-manifest.sh")
 
   const chromeManifest = readManifest("build/chrome-mv3-prod/manifest.json")
   const firefoxManifest = readManifest("build/firefox-mv2-prod/manifest.json")
@@ -208,6 +227,25 @@ const main = (): void => {
   expectPermission(firefoxManifest, "contextMenus", "Firefox")
   expectNoPermission(firefoxManifest, "sidePanel", "Firefox")
   expectNoPermission(firefoxManifest, "declarativeNetRequest", "Firefox")
+  assert(
+    firefoxManifest.browser_specific_settings?.gecko?.data_collection_permissions?.required?.includes(
+      "none"
+    ) === true,
+    'Firefox manifest must declare data_collection_permissions.required: ["none"]'
+  )
+
+  for (const permission of [
+    "bookmarks",
+    "history",
+    "notifications",
+    "downloads",
+    "tabGroups",
+    "alarms",
+    "sessions"
+  ]) {
+    expectOptionalPermission(chromeManifest, permission, "Chrome")
+    expectOptionalPermission(firefoxManifest, permission, "Firefox")
+  }
 
   expectCspToken(chromeManifest, "connect-src 'self'", "Chrome")
   expectCspToken(chromeManifest, "http://*:*", "Chrome")

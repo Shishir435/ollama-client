@@ -1395,6 +1395,20 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ]
   },
   {
+    id: "permission-sessions",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.items.sessions.label",
+    descriptionKey: "settings.permissions.items.sessions.description",
+    aliases: [
+      "recently closed tabs",
+      "closed tabs",
+      "browser sessions",
+      "synced tabs",
+      "permission"
+    ]
+  },
+  {
     id: "permissions-host",
     tab: "permissions",
     sectionId: "permissions",

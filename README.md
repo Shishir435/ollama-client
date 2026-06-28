@@ -55,9 +55,13 @@ Chat/session/message/file history is SQLite-only through `sql.js`, persisted int
 Ollama Client supports two context paths:
 
 - **Manual context**: select tabs, selected text, files, or images before sending.
-- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, search indexed files, search local chat memory, use the most recent selected text, or search the live web when web search is enabled.
+- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, use the most recent selected text, or search the live web when web search is enabled.
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
+
+Recently closed and synced-session tools are read-only, require optional
+permission, and honor never-read exclusions. Restoring a session is not exposed
+until model actions have a real interactive approval boundary.
 
 Web search is off by default and appears to the model as a single `web_search` tool. Backend choice stays in Settings -> Context, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
 

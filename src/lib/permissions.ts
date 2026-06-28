@@ -22,6 +22,7 @@ export type OptionalApiPermission =
   | "downloads"
   | "tabGroups"
   | "alarms"
+  | "sessions"
 
 /**
  * `alarms` is genuinely requestable at runtime in Chrome MV3, but

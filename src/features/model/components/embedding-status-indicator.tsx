@@ -178,7 +178,7 @@ export const EmbeddingStatusIndicator = () => {
     loading: {
       icon: (
         <Loader2
-          className={cn("icon-md animate-spin", STATUS_STYLES.neutral.text)}
+          className={cn("icon-sm animate-spin", STATUS_STYLES.neutral.text)}
         />
       ),
       color: STATUS_STYLES.neutral.text,
@@ -190,24 +190,24 @@ export const EmbeddingStatusIndicator = () => {
         : t("model.embedding_status.checking")
     },
     ready: {
-      icon: <Brain className={cn("icon-md", STATUS_STYLES.success.text)} />,
+      icon: <Brain className={cn("icon-sm", STATUS_STYLES.success.text)} />,
       color: STATUS_STYLES.success.text,
       text: t("model.embedding_status.ready", { model: modelName })
     },
     missing: {
-      icon: <Brain className={cn("icon-md", STATUS_STYLES.warning.text)} />,
+      icon: <Brain className={cn("icon-sm", STATUS_STYLES.warning.text)} />,
       color: STATUS_STYLES.warning.text,
       text: t("model.embedding_status.missing", { model: modelName })
     },
     error: {
       icon: (
-        <AlertTriangle className={cn("icon-md", STATUS_STYLES.danger.text)} />
+        <AlertTriangle className={cn("icon-sm", STATUS_STYLES.danger.text)} />
       ),
       color: STATUS_STYLES.danger.text,
       text: t("model.embedding_status.error")
     },
     default: {
-      icon: <Brain className={cn("icon-md", STATUS_STYLES.neutral.text)} />,
+      icon: <Brain className={cn("icon-sm", STATUS_STYLES.neutral.text)} />,
       color: STATUS_STYLES.neutral.text,
       text: t("model.embedding_status.checking_model")
     }
@@ -234,10 +234,10 @@ export const EmbeddingStatusIndicator = () => {
 
   return (
     <TooltipActionButton
-      variant="secondary"
+      variant="ghost"
       size="icon"
       onClick={modelExists === false ? handleDownload : handleRetry}
-      className="m-1 rounded-panel border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
+      // className="m-1"
       ariaLabel={statusText}
       tooltipSide="left"
       tooltipClassName="max-w-62.5"
@@ -248,7 +248,7 @@ export const EmbeddingStatusIndicator = () => {
             <span className={statusColor}>{statusText}</span>
             {!isChecking && !isDownloading && (
               <RefreshCw
-                className="icon-md cursor-pointer text-muted-foreground hover:text-foreground"
+                className="icon-sm cursor-pointer text-muted-foreground hover:text-foreground"
                 onClick={handleRetry}
               />
             )}

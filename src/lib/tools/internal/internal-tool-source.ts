@@ -1,4 +1,8 @@
-import { supportsTabGroups } from "@/lib/browser-api"
+import {
+  supportsSessions,
+  supportsSyncedSessions,
+  supportsTabGroups
+} from "@/lib/browser-api"
 import type {
   ToolContext,
   ToolDefinition,
@@ -11,6 +15,12 @@ import {
   runSearchBookmarks,
   searchBookmarksDefinition
 } from "./browser-knowledge-tools"
+import {
+  listRecentlyClosedDefinition,
+  listSyncedSessionsDefinition,
+  runListRecentlyClosed,
+  runListSyncedSessions
+} from "./browser-session-tools"
 import {
   captureScreenshotDefinition,
   runCaptureScreenshot
@@ -53,6 +63,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: selectedTextDefinition, run: runSelectedText },
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
+  { definition: listRecentlyClosedDefinition, run: runListRecentlyClosed },
+  { definition: listSyncedSessionsDefinition, run: runListSyncedSessions },
   { definition: scheduleReminderDefinition, run: runScheduleReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
   { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
@@ -64,6 +76,12 @@ const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
     tool.definition.name === "read_tab_group"
   ) {
     return supportsTabGroups()
+  }
+  if (tool.definition.name === "list_recently_closed") {
+    return supportsSessions()
+  }
+  if (tool.definition.name === "list_synced_sessions") {
+    return supportsSyncedSessions()
   }
   return true
 }

@@ -256,6 +256,8 @@
         "selection": "Lettura selezione",
         "history": "Lettura cronologia",
         "bookmarks": "Ricerca segnalibri",
+        "sessions": "Lettura schede chiuse di recente",
+        "syncedSessions": "Lettura schede sincronizzate",
         "trimmed": "risultato troncato",
         "change_limit": "Modifica limite",
         "documents": "Ricerca file",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "Cronologia di navigazione",
           "description": "Consente di indicizzare e richiamare la cronologia in locale. Mai caricata."
+        },
+        "sessions": {
+          "label": "Schede chiuse di recente",
+          "description": "Consente al modello di leggere le schede chiuse di recente e le sessioni dei dispositivi sincronizzati. Il ripristino non è consentito."
         },
         "notifications": {
           "label": "Notifiche",

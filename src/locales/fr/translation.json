@@ -256,6 +256,8 @@
         "selection": "Lecture de la sélection",
         "history": "Lecture de l'historique",
         "bookmarks": "Recherche dans les favoris",
+        "sessions": "Lecture des onglets récemment fermés",
+        "syncedSessions": "Lecture des onglets synchronisés",
         "trimmed": "résultat tronqué",
         "change_limit": "Modifier la limite",
         "documents": "Recherche de fichiers",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "Historique de navigation",
           "description": "Permet d'indexer et de retrouver votre historique localement. Jamais envoyé."
+        },
+        "sessions": {
+          "label": "Onglets récemment fermés",
+          "description": "Permet au modèle de lire les onglets récemment fermés et les sessions des appareils synchronisés. La restauration reste désactivée."
         },
         "notifications": {
           "label": "Notifications",

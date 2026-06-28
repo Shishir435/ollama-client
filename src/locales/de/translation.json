@@ -256,6 +256,8 @@
         "selection": "Auswahl lesen",
         "history": "Verlauf lesen",
         "bookmarks": "Lesezeichen durchsuchen",
+        "sessions": "Kürzlich geschlossene Tabs lesen",
+        "syncedSessions": "Synchronisierte Tabs lesen",
         "trimmed": "Ergebnis gekürzt",
         "change_limit": "Limit ändern",
         "documents": "Dateien durchsuchen",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "Browserverlauf",
           "description": "Ermöglicht das lokale Indexieren und Abrufen deines Verlaufs. Wird nie hochgeladen."
+        },
+        "sessions": {
+          "label": "Kürzlich geschlossene Tabs",
+          "description": "Erlaubt dem Modell, kürzlich geschlossene Tabs und Sitzungen synchronisierter Geräte zu lesen. Tabs können nicht wiederhergestellt werden."
         },
         "notifications": {
           "label": "Benachrichtigungen",

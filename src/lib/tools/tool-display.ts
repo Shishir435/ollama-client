@@ -62,6 +62,16 @@ const LEGACY_TOOL_DISPLAY_META: Record<string, ToolDisplayMeta> = {
     displayNameKey: "chat.reasoning.trace.bookmarks",
     iconKey: "bookmark",
     category: "browser"
+  },
+  list_recently_closed: {
+    displayNameKey: "chat.reasoning.trace.sessions",
+    iconKey: "history",
+    category: "browser"
+  },
+  list_synced_sessions: {
+    displayNameKey: "chat.reasoning.trace.syncedSessions",
+    iconKey: "history",
+    category: "browser"
   }
 }
 
