@@ -1,6 +1,10 @@
+import { isFirefox } from "@/lib/browser-api"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import {
+  localCorsForbiddenMessage,
+  providerErrorUserMessage
+} from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatStreamMessage,
@@ -182,7 +186,10 @@ export class OllamaProvider implements LLMProvider {
         status: response.status,
         providerId: ProviderId.OLLAMA,
         retryable: response.status >= 500,
-        userMessage: providerErrorUserMessage(response.status),
+        userMessage:
+          response.status === 401 || response.status === 403
+            ? localCorsForbiddenMessage(isFirefox())
+            : providerErrorUserMessage(response.status),
         debug: errorText
       })
     }

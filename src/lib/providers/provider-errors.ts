@@ -1,3 +1,18 @@
+import { EXTERNAL_URLS } from "@/lib/constants/urls"
+
+/**
+ * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
+ * rejection, not bad credentials — most often on Firefox, which can't rewrite the
+ * request origin the way Chromium's declarativeNetRequest does. Point the user at
+ * the origins fix and the setup guide instead of a misleading "check your API key".
+ */
+export const localCorsForbiddenMessage = (firefox: boolean): string =>
+  `Your local provider blocked this request (403 Forbidden). This is a CORS / origin block${
+    firefox
+      ? " — most common on Firefox, which can't rewrite the request origin the way Chromium does"
+      : ""
+  }. Allow this extension by setting OLLAMA_ORIGINS on your server (e.g. "chrome-extension://*,moz-extension://*"), then retry. Step-by-step: ${EXTERNAL_URLS.SETUP_GUIDE}`
+
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw
  * provider response bodies (which can be JSON or stack traces) out of the chat
