@@ -100,7 +100,7 @@ export const SessionMetricsBar = ({
             aria-label={`${label}: ${t(summaryItem.labelKey)} ${summaryItem.value}`}
           />
         }>
-        <SummaryIcon className="icon-sm" />
+        <SummaryIcon className="icon-xs" />
         <span className="font-mono tabular-nums">{summaryItem.value}</span>
       </PopoverTrigger>
       <PopoverContent
