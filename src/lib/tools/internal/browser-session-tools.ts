@@ -23,7 +23,7 @@ const availabilityError = async (): Promise<ToolResult | undefined> => {
   }
   return {
     content:
-      "Browser sessions permission is not granted. Enable Recently closed tabs in Settings > Permissions.",
+      "Browser sessions permission is not granted or was disabled. Enable Recently closed tabs in Settings > Permissions.",
     isError: true
   }
 }

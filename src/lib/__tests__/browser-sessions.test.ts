@@ -61,14 +61,15 @@ describe("browser sessions", () => {
     await expect(getBrowserSessionsAvailability()).resolves.toBe("permission")
   })
 
-  it("does not call session APIs without live permission", async () => {
+  it("reports disabled permission without calling session APIs", async () => {
     mocks.hasPermission.mockResolvedValue(false)
 
-    await expect(listRecentlyClosedBrowserSessions()).resolves.toEqual({
-      sessions: [],
-      skipped: 0
-    })
-    await expect(listSyncedBrowserSessions()).resolves.toEqual([])
+    await expect(listRecentlyClosedBrowserSessions()).rejects.toThrow(
+      "Browser sessions permission is not granted or was disabled"
+    )
+    await expect(listSyncedBrowserSessions()).rejects.toThrow(
+      "Browser sessions permission is not granted or was disabled"
+    )
 
     expect(mocks.getRecentlyClosed).not.toHaveBeenCalled()
     expect(mocks.getDevices).not.toHaveBeenCalled()

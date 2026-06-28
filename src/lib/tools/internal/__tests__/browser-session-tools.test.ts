@@ -29,7 +29,9 @@ describe("browser session tools", () => {
     const result = await runListRecentlyClosed({}, {})
 
     expect(result.isError).toBe(true)
-    expect(result.content).toContain("permission")
+    expect(result.content).toContain(
+      "permission is not granted or was disabled"
+    )
     expect(mocks.recentlyClosed).not.toHaveBeenCalled()
   })
 

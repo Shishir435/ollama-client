@@ -137,12 +137,21 @@ export const getBrowserSessionsAvailability = async (): Promise<
   return "available"
 }
 
+const requireBrowserSessionsAccess = async (): Promise<void> => {
+  const availability = await getBrowserSessionsAvailability()
+  if (availability === "available") return
+  if (availability === "unsupported") {
+    throw new Error("Browser sessions are not supported in this browser.")
+  }
+  throw new Error(
+    "Browser sessions permission is not granted or was disabled. Enable it in Settings > Permissions."
+  )
+}
+
 export const listRecentlyClosedBrowserSessions = async (
   limit = 10
 ): Promise<BrowserSessionList> => {
-  if ((await getBrowserSessionsAvailability()) !== "available") {
-    return { sessions: [], skipped: 0 }
-  }
+  await requireBrowserSessionsAccess()
   const api = getSessionsApi()
   if (!api?.getRecentlyClosed) return { sessions: [], skipped: 0 }
   return filterSessions(await api.getRecentlyClosed({ maxResults: limit }))
@@ -151,7 +160,7 @@ export const listRecentlyClosedBrowserSessions = async (
 export const listSyncedBrowserSessions = async (
   limit = 10
 ): Promise<Array<{ deviceName: string; result: BrowserSessionList }>> => {
-  if ((await getBrowserSessionsAvailability()) !== "available") return []
+  await requireBrowserSessionsAccess()
   const api = getSessionsApi()
   if (!supportsSyncedSessions() || !api?.getDevices) return []
   const devices = await api.getDevices({ maxResults: limit })
