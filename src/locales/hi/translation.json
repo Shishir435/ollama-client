@@ -310,7 +310,16 @@
       "unified_title": "स्रोत ({{count}})",
       "unified_page": "पेज और टैब ({{count}})",
       "unified_knowledge": "ज्ञान ({{count}})",
-      "unified_web": "वेब ({{count}})"
+      "unified_web": "वेब ({{count}})",
+      "subtitle": "इस उत्तर में उपयोग किए गए स्रोत",
+      "filter_all": "सभी",
+      "filter_web": "वेब",
+      "filter_knowledge": "ज्ञान",
+      "filter_local": "लोकल",
+      "show_more": "{{count}} और दिखाएँ",
+      "open_source": "स्रोत खोलें",
+      "disclaimer": "स्रोत स्वचालित रूप से प्राप्त किए जाते हैं और हमेशा 100% सटीक नहीं हो सकते।",
+      "open_all_tabs": "सभी टैब में खोलें"
     },
     "search": {
       "button_title": "चैट इतिहास खोजें (सिमेंटिक खोज)",

@@ -310,7 +310,16 @@
       "unified_title": "Sources ({{count}})",
       "unified_page": "Page & tabs ({{count}})",
       "unified_knowledge": "Knowledge ({{count}})",
-      "unified_web": "Web ({{count}})"
+      "unified_web": "Web ({{count}})",
+      "subtitle": "References used in this response",
+      "filter_all": "All",
+      "filter_web": "Web",
+      "filter_knowledge": "Knowledge",
+      "filter_local": "Local",
+      "show_more": "Show {{count}} more",
+      "open_source": "Open source",
+      "disclaimer": "Sources are automatically retrieved and may not always be 100% accurate.",
+      "open_all_tabs": "Open all in tabs"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",

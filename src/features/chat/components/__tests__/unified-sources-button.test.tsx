@@ -21,8 +21,8 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
-vi.mock("@/features/chat/components/message-sources-sheet", () => ({
-  MessageSourcesSheet: ({
+vi.mock("@/features/chat/components/unified-sources-sheet", () => ({
+  UnifiedSourcesSheet: ({
     title,
     sections
   }: {
@@ -41,12 +41,6 @@ vi.mock("@/features/chat/components/message-sources-sheet", () => ({
       ))}
     </div>
   )
-}))
-
-vi.mock("@/features/chat/components/web-search-sources-button", () => ({
-  hostOf: (url: string) => url,
-  SearchEngineBadge: () => null,
-  WebSourceFavicon: () => null
 }))
 
 describe("UnifiedSourcesButton", () => {

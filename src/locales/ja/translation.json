@@ -310,7 +310,16 @@
       "unified_title": "ソース ({{count}})",
       "unified_page": "ページとタブ ({{count}})",
       "unified_knowledge": "ナレッジ ({{count}})",
-      "unified_web": "Web ({{count}})"
+      "unified_web": "Web ({{count}})",
+      "subtitle": "この回答で使用された参照",
+      "filter_all": "すべて",
+      "filter_web": "ウェブ",
+      "filter_knowledge": "ナレッジ",
+      "filter_local": "ローカル",
+      "show_more": "他に{{count}}件を表示",
+      "open_source": "ソースを開く",
+      "disclaimer": "ソースは自動的に取得され、常に100%正確とは限りません。",
+      "open_all_tabs": "すべてタブで開く"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",

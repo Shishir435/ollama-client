@@ -310,7 +310,16 @@
       "unified_title": "Источники ({{count}})",
       "unified_page": "Страница и вкладки ({{count}})",
       "unified_knowledge": "Знания ({{count}})",
-      "unified_web": "Веб ({{count}})"
+      "unified_web": "Веб ({{count}})",
+      "subtitle": "Источники, использованные в этом ответе",
+      "filter_all": "Все",
+      "filter_web": "Веб",
+      "filter_knowledge": "Знания",
+      "filter_local": "Локальные",
+      "show_more": "Показать ещё {{count}}",
+      "open_source": "Открыть источник",
+      "disclaimer": "Источники извлекаются автоматически и могут быть не всегда точны на 100%.",
+      "open_all_tabs": "Открыть всё во вкладках"
     },
     "search": {
       "button_title": "Поиск по истории чатов (семантический)",

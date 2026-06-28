@@ -310,7 +310,16 @@
       "unified_title": "Fonti ({{count}})",
       "unified_page": "Pagina e schede ({{count}})",
       "unified_knowledge": "Conoscenza ({{count}})",
-      "unified_web": "Web ({{count}})"
+      "unified_web": "Web ({{count}})",
+      "subtitle": "Riferimenti usati in questa risposta",
+      "filter_all": "Tutti",
+      "filter_web": "Web",
+      "filter_knowledge": "Conoscenza",
+      "filter_local": "Locale",
+      "show_more": "Mostra altri {{count}}",
+      "open_source": "Apri fonte",
+      "disclaimer": "Le fonti vengono recuperate automaticamente e potrebbero non essere sempre accurate al 100%.",
+      "open_all_tabs": "Apri tutto nelle schede"
     },
     "search": {
       "button_title": "Cerca nella cronologia chat (ricerca semantica)",

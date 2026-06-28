@@ -310,7 +310,16 @@
       "unified_title": "Quellen ({{count}})",
       "unified_page": "Seite & Tabs ({{count}})",
       "unified_knowledge": "Wissen ({{count}})",
-      "unified_web": "Web ({{count}})"
+      "unified_web": "Web ({{count}})",
+      "subtitle": "In dieser Antwort verwendete Quellen",
+      "filter_all": "Alle",
+      "filter_web": "Web",
+      "filter_knowledge": "Wissen",
+      "filter_local": "Lokal",
+      "show_more": "{{count}} weitere anzeigen",
+      "open_source": "Quelle öffnen",
+      "disclaimer": "Quellen werden automatisch abgerufen und sind möglicherweise nicht immer zu 100 % korrekt.",
+      "open_all_tabs": "Alle in Tabs öffnen"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",

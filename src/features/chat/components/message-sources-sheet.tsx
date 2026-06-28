@@ -89,13 +89,13 @@ export function MessageSourcesSheet({
         title={title}
         className="w-[min(28rem,calc(100vw-1rem))]">
         <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
-          <div className="space-y-3 p-3">
+          <div className="space-y-4 px-2.5 py-3">
             {preContent}
             {sections.map((section, i) => (
-              <div key={section.label ?? i} className="space-y-1">
+              <div key={section.label ?? i} className="space-y-1.5">
                 {section.label && (
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-2xs font-medium text-muted-foreground">
+                  <div className="flex items-center justify-between gap-1 px-0.5">
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {section.label}
                     </span>
                     <CopyButton
@@ -103,7 +103,7 @@ export function MessageSourcesSheet({
                     />
                   </div>
                 )}
-                <Accordion className="border-0 rounded-none divide-y-0 space-y-1">
+                <Accordion className="divide-y divide-border/30 overflow-hidden rounded-control border border-border/40">
                   {section.items.map((item) => {
                     const value = getItemValue(item)
                     const meta = renderMetadata(item)
@@ -111,8 +111,8 @@ export function MessageSourcesSheet({
                       <AccordionItem
                         key={value}
                         value={value}
-                        className="relative rounded-control border border-border/35 bg-muted/15 data-open:bg-muted/30">
-                        <AccordionTrigger className="min-w-0 pr-16 px-2 py-1.5 text-xs font-medium hover:no-underline">
+                        className="relative rounded-none border-0 bg-transparent data-open:bg-muted/20">
+                        <AccordionTrigger className="min-w-0 px-2.5 py-2 pr-14 text-xs font-medium hover:no-underline">
                           <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
                             {meta && metadataPosition === "before-title" && (
                               <span className="block min-w-0 max-w-full truncate text-micro text-muted-foreground">
@@ -129,28 +129,31 @@ export function MessageSourcesSheet({
                             )}
                           </div>
                         </AccordionTrigger>
-                        <div className="absolute right-7 top-1.5">
+                        <div className="absolute right-7 top-2">
                           <CopyButton text={item.content} />
                         </div>
                         <AccordionContent>
-                          <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
-                            {renderContent ? (
-                              renderContent(item)
-                            ) : (
-                              <div className="whitespace-pre-wrap text-2xs text-muted-foreground wrap-anywhere">
-                                {item.content}
-                              </div>
-                            )}
-                          </div>
-                          {feedback && (feedback.isEnabled?.(item) ?? true) && (
-                            <div className="mt-2 flex items-center gap-1">
-                              <ChunkFeedbackButton
-                                chunkId={value}
-                                query={feedback.query}
-                                sessionId={feedback.sessionId}
-                              />
+                          <div className="space-y-2 px-2.5 pb-2.5">
+                            <div className="max-h-[min(16rem,40vh)] overflow-y-auto overflow-x-hidden">
+                              {renderContent ? (
+                                renderContent(item)
+                              ) : (
+                                <div className="whitespace-pre-wrap text-2xs text-muted-foreground wrap-anywhere">
+                                  {item.content}
+                                </div>
+                              )}
                             </div>
-                          )}
+                            {feedback &&
+                              (feedback.isEnabled?.(item) ?? true) && (
+                                <div className="flex items-center gap-1">
+                                  <ChunkFeedbackButton
+                                    chunkId={value}
+                                    query={feedback.query}
+                                    sessionId={feedback.sessionId}
+                                  />
+                                </div>
+                              )}
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
                     )

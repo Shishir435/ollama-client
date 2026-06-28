@@ -1,12 +1,10 @@
-import { BookOpen } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import type { RagSource, ToolRun } from "@/types"
-import { MessageSourcesSheet, type SourceItem } from "./message-sources-sheet"
+import type { SourceItem } from "./message-sources-sheet"
 import {
-  hostOf,
-  SearchEngineBadge,
-  WebSourceFavicon
-} from "./web-search-sources-button"
+  type UnifiedSection,
+  UnifiedSourcesSheet
+} from "./unified-sources-sheet"
 
 type UsedChunk = {
   id: string | number
@@ -40,9 +38,6 @@ export function UnifiedSourcesButton({
   ragQuery,
   usedContextChunks = [],
   toolRuns = [],
-  tabContextLength,
-  ragContextLength,
-  tabContextTruncated,
   showRetrievedChunks = true,
   feedbackEnabled = true
 }: UnifiedSourcesButtonProps) {
@@ -99,45 +94,45 @@ export function UnifiedSourcesButton({
     (_, index) => webSources[index]?.used === false
   )
 
-  const sections = [
-    pageItems.length
-      ? {
-          label: t("chat.sources.unified_page", { count: pageItems.length }),
-          items: pageItems
-        }
-      : null,
-    ragItems.length
-      ? {
-          label: t("chat.sources.unified_knowledge", {
-            count: ragItems.length
-          }),
-          items: ragItems
-        }
-      : null,
-    usedWebItems.length
-      ? {
-          label: t("chat.sources.unified_web", {
-            count: usedWebItems.length
-          }),
-          items: usedWebItems
-        }
-      : null,
-    unusedWebItems.length
-      ? {
-          label: t("chat.sources.web_unused_label", {
-            count: unusedWebItems.length
-          }),
-          items: unusedWebItems
-        }
-      : null
-  ].filter(
-    (
-      section
-    ): section is {
-      label: string
-      items: SourceItem[]
-    } => Boolean(section)
-  )
+  const sections: UnifiedSection[] = (
+    [
+      pageItems.length
+        ? {
+            group: "local",
+            label: t("chat.sources.unified_page", { count: pageItems.length }),
+            items: pageItems
+          }
+        : null,
+      ragItems.length
+        ? {
+            group: "knowledge",
+            label: t("chat.sources.unified_knowledge", {
+              count: ragItems.length
+            }),
+            items: ragItems
+          }
+        : null,
+      usedWebItems.length
+        ? {
+            group: "web",
+            label: t("chat.sources.unified_web", {
+              count: usedWebItems.length
+            }),
+            items: usedWebItems
+          }
+        : null,
+      unusedWebItems.length
+        ? {
+            group: "web",
+            label: t("chat.sources.web_unused_label", {
+              count: unusedWebItems.length
+            }),
+            items: unusedWebItems,
+            unused: true
+          }
+        : null
+    ] as (UnifiedSection | null)[]
+  ).filter((section): section is UnifiedSection => Boolean(section))
 
   const total = sections.reduce(
     (count, section) => count + section.items.length,
@@ -146,77 +141,19 @@ export function UnifiedSourcesButton({
   if (total === 0) return null
 
   return (
-    <MessageSourcesSheet
-      icon={<BookOpen className="icon-xs" />}
+    <UnifiedSourcesSheet
       badgeCount={total}
       tooltip={t("chat.sources.unified_tooltip", { count: total })}
       ariaLabel={t("chat.sources.unified_aria", { count: total })}
       title={t("chat.sources.unified_title", { count: total })}
-      sections={sections}
-      metadataPosition="before-title"
-      preContent={
-        <div className="space-y-1 text-micro text-muted-foreground">
-          {(tabContextLength || ragContextLength) && (
-            <p>
-              {t("chat.sources.char_counts", {
-                tab: tabContextLength || 0,
-                rag: ragContextLength || 0
-              })}
-              {tabContextTruncated ? ` · ${t("chat.sources.trimmed")}` : ""}
-            </p>
-          )}
-          {unusedWebItems.length > 0 && (
-            <p>{t("chat.sources.web_unused_hint")}</p>
-          )}
-        </div>
-      }
-      renderMetadata={(item) => {
-        if (item.kind === "web" && item.url) {
-          const host = hostOf(item.url) ?? item.url
-          return (
-            <span className="inline-flex max-w-full items-center gap-1.5">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                title={item.url}
-                onClick={(event) => event.stopPropagation()}
-                className="inline-flex min-w-0 items-center gap-1 text-primary underline-offset-2 hover:underline">
-                <WebSourceFavicon url={item.url} />
-                <span className="min-w-0 truncate">{host}</span>
-              </a>
-              <SearchEngineBadge engine={item.engine} />
-            </span>
-          )
-        }
-        return (
-          <>
-            {item.score > 0 ? `score: ${item.score.toFixed(2)}` : ""}
-            {item.sectionPath ? ` · ${item.sectionPath}` : ""}
-            {item.source && item.source !== "rag" ? ` · ${item.source}` : ""}
-          </>
-        )
-      }}
-      renderContent={(item) => (
-        <div className="space-y-2">
-          {item.publishedAt && (
-            <p className="text-micro text-muted-foreground/75">
-              {t("chat.sources.web_published", { date: item.publishedAt })}
-            </p>
-          )}
-          <p className="whitespace-pre-wrap wrap-anywhere text-2xs text-muted-foreground">
-            {item.content || t("chat.sources.web_no_snippet")}
-          </p>
-        </div>
-      )}
-      feedback={
-        feedbackEnabled
-          ? {
-              query: ragQuery ?? "",
-              isEnabled: (item) => item.kind === "knowledge"
-            }
+      subtitle={t("chat.sources.subtitle")}
+      note={
+        unusedWebItems.length > 0
+          ? t("chat.sources.web_unused_hint")
           : undefined
       }
+      sections={sections}
+      feedback={feedbackEnabled ? { query: ragQuery ?? "" } : undefined}
     />
   )
 }
