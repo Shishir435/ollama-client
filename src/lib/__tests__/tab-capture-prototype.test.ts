@@ -22,10 +22,10 @@ describe("tab capture prototype assessment", () => {
     mocks.offscreen.mockReturnValue(true)
   })
 
-  it("marks Chrome 116+ APIs technically feasible but not shippable yet", () => {
+  it("marks Chrome 116+ browser infrastructure ready but not shippable", () => {
     const result = assessTabCapturePrototype()
 
-    expect(result.feasible).toBe(true)
+    expect(result.browserInfrastructureReady).toBe(true)
     expect(result.blockers).toEqual([
       "transcription-pipeline-missing",
       "interactive-stop-control-missing"
@@ -39,7 +39,7 @@ describe("tab capture prototype assessment", () => {
 
     const result = assessTabCapturePrototype()
 
-    expect(result.feasible).toBe(false)
+    expect(result.browserInfrastructureReady).toBe(false)
     expect(result.blockers).toContain("firefox-unsupported")
     expect(mocks.tabCapture).not.toHaveBeenCalled()
     expect(mocks.offscreen).not.toHaveBeenCalled()
@@ -51,7 +51,7 @@ describe("tab capture prototype assessment", () => {
 
     const result = assessTabCapturePrototype()
 
-    expect(result.feasible).toBe(false)
+    expect(result.browserInfrastructureReady).toBe(false)
     expect(result.blockers).toContain("tab-capture-unavailable")
     expect(result.blockers).toContain("offscreen-unavailable")
   })

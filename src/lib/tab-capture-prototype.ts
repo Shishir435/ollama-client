@@ -12,7 +12,7 @@ export type TabCapturePrototypeBlocker =
   | "interactive-stop-control-missing"
 
 export interface TabCapturePrototypeAssessment {
-  feasible: boolean
+  browserInfrastructureReady: boolean
   blockers: TabCapturePrototypeBlocker[]
   requiredPermissions: ["tabCapture", "offscreen"]
   minimumChromeVersion: 116
@@ -41,7 +41,7 @@ export const assessTabCapturePrototype = (): TabCapturePrototypeAssessment => {
   )
 
   return {
-    feasible:
+    browserInfrastructureReady:
       !blockers.includes("firefox-unsupported") &&
       !blockers.includes("tab-capture-unavailable") &&
       !blockers.includes("offscreen-unavailable"),

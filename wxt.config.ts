@@ -115,5 +115,5 @@ export default defineConfig({
         }),
         visualizer({ open: false, filename: "stats.html" })
       ]
-    }) as unknown as WxtViteConfig
+    }) as WxtViteConfig
 })

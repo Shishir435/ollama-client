@@ -25,7 +25,7 @@ describe("browser capability detection", () => {
     expect(supportsTabGroups()).toBe(true)
   })
 
-  it("offers sessions on Chromium before permission exposes the namespace", () => {
+  it("only offers synced sessions when getDevices exists", () => {
     globalThis.chrome = {
       declarativeNetRequest: {
         updateDynamicRules: vi.fn()
@@ -33,7 +33,7 @@ describe("browser capability detection", () => {
     } as unknown as typeof chrome
 
     expect(supportsSessions()).toBe(true)
-    expect(supportsSyncedSessions()).toBe(true)
+    expect(supportsSyncedSessions()).toBe(false)
   })
 
   it("detects concrete sessions and Chromium capture methods", () => {

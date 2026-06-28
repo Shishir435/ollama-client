@@ -102,7 +102,6 @@ export const supportsSessions = (): boolean =>
 
 /** Synced-device sessions. Chrome supports this; Firefox does not. */
 export const supportsSyncedSessions = (): boolean =>
-  isChromiumBased() ||
   typeof (
     browser.sessions as unknown as {
       getDevices?: unknown

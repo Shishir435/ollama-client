@@ -61,6 +61,19 @@ describe("browser sessions", () => {
     await expect(getBrowserSessionsAvailability()).resolves.toBe("permission")
   })
 
+  it("does not call session APIs without live permission", async () => {
+    mocks.hasPermission.mockResolvedValue(false)
+
+    await expect(listRecentlyClosedBrowserSessions()).resolves.toEqual({
+      sessions: [],
+      skipped: 0
+    })
+    await expect(listSyncedBrowserSessions()).resolves.toEqual([])
+
+    expect(mocks.getRecentlyClosed).not.toHaveBeenCalled()
+    expect(mocks.getDevices).not.toHaveBeenCalled()
+  })
+
   it("filters internal and never-read recently closed tabs", async () => {
     mocks.isNeverReadUrl.mockImplementation(async (url: string) =>
       url.includes("private.test")

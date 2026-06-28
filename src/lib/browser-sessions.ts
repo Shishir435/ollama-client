@@ -140,6 +140,9 @@ export const getBrowserSessionsAvailability = async (): Promise<
 export const listRecentlyClosedBrowserSessions = async (
   limit = 10
 ): Promise<BrowserSessionList> => {
+  if ((await getBrowserSessionsAvailability()) !== "available") {
+    return { sessions: [], skipped: 0 }
+  }
   const api = getSessionsApi()
   if (!api?.getRecentlyClosed) return { sessions: [], skipped: 0 }
   return filterSessions(await api.getRecentlyClosed({ maxResults: limit }))
@@ -148,6 +151,7 @@ export const listRecentlyClosedBrowserSessions = async (
 export const listSyncedBrowserSessions = async (
   limit = 10
 ): Promise<Array<{ deviceName: string; result: BrowserSessionList }>> => {
+  if ((await getBrowserSessionsAvailability()) !== "available") return []
   const api = getSessionsApi()
   if (!supportsSyncedSessions() || !api?.getDevices) return []
   const devices = await api.getDevices({ maxResults: limit })
