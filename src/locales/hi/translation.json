@@ -989,18 +989,18 @@
       "unload_tooltip": "मॉडल अनलोड करें"
     },
     "tabs": {
-      "general": "सामान्य",
-      "prompts": "प्रॉम्प्ट",
-      "models": "मॉडल",
-      "extraction": "निष्कर्षण",
-      "context": "संदर्भ",
-      "embeddings": "एम्बेडिंग",
+      "general": "चैट",
+      "prompts": "प्रॉम्प्ट लाइब्रेरी",
+      "models": "मॉडल व्यवहार",
+      "extraction": "पेज और टैब",
+      "context": "ज्ञान और वेब",
+      "embeddings": "सहेजा गया ज्ञान",
       "providers": "प्रदाता",
-      "voices": "वॉयस",
-      "reset": "रीसेट करें",
+      "voices": "स्पीच",
+      "reset": "डेटा और बैकअप",
       "guides": "सहायता",
       "shortcuts": "शॉर्टकट",
-      "permissions": "अनुमतियाँ"
+      "permissions": "गोपनीयता और अनुमतियाँ"
     },
     "context": {
       "file_upload": {

@@ -989,18 +989,18 @@
       "unload_tooltip": "Modell entladen"
     },
     "tabs": {
-      "general": "Allgemein",
-      "prompts": "Prompts",
-      "models": "Modelle",
-      "extraction": "Extraktion",
-      "context": "Kontext",
-      "embeddings": "Embeddings",
+      "general": "Chat",
+      "prompts": "Prompt-Bibliothek",
+      "models": "Modellverhalten",
+      "extraction": "Seite & Tabs",
+      "context": "Wissen & Web",
+      "embeddings": "Gespeichertes Wissen",
       "providers": "Anbieter",
-      "voices": "Sprachausgaben",
-      "reset": "Zurücksetzen",
+      "voices": "Sprache",
+      "reset": "Daten & Backup",
       "guides": "Hilfe",
       "shortcuts": "Tastaturkürzel",
-      "permissions": "Berechtigungen"
+      "permissions": "Datenschutz & Berechtigungen"
     },
     "context": {
       "file_upload": {

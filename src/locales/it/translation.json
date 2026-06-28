@@ -989,18 +989,18 @@
       "unload_tooltip": "Scarica modello"
     },
     "tabs": {
-      "general": "Generale",
-      "prompts": "Prompt",
-      "models": "Modelli",
-      "extraction": "Estrazione",
-      "context": "Contesto",
-      "embeddings": "Embedding",
+      "general": "Chat",
+      "prompts": "Libreria di prompt",
+      "models": "Comportamento del modello",
+      "extraction": "Pagina e schede",
+      "context": "Conoscenza e web",
+      "embeddings": "Conoscenza salvata",
       "providers": "Provider",
-      "voices": "Voci",
-      "reset": "Reimposta",
+      "voices": "Voce",
+      "reset": "Dati e backup",
       "guides": "Aiuto",
       "shortcuts": "Scorciatoie",
-      "permissions": "Autorizzazioni"
+      "permissions": "Privacy e autorizzazioni"
     },
     "context": {
       "file_upload": {

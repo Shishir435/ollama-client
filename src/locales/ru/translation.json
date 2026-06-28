@@ -989,18 +989,18 @@
       "unload_tooltip": "Выгрузить модель"
     },
     "tabs": {
-      "general": "Общие",
-      "prompts": "Промпты",
-      "models": "Модели",
-      "extraction": "Извлечение",
-      "context": "Контекст",
-      "embeddings": "Эмбеддинги",
+      "general": "Чат",
+      "prompts": "Библиотека промптов",
+      "models": "Поведение модели",
+      "extraction": "Страница и вкладки",
+      "context": "Знания и веб",
+      "embeddings": "Сохранённые знания",
       "providers": "Провайдеры",
-      "voices": "Голоса",
-      "reset": "Сброс",
+      "voices": "Речь",
+      "reset": "Данные и резервная копия",
       "guides": "Справка",
       "shortcuts": "Горячие клавиши",
-      "permissions": "Разрешения"
+      "permissions": "Конфиденциальность и разрешения"
     },
     "context": {
       "file_upload": {

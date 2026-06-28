@@ -989,18 +989,18 @@
       "unload_tooltip": "Descargar modelo"
     },
     "tabs": {
-      "general": "General",
-      "prompts": "Prompts",
-      "models": "Modelos",
-      "extraction": "Extracción",
-      "context": "Contexto",
-      "embeddings": "Incrustaciones",
+      "general": "Chat",
+      "prompts": "Biblioteca de prompts",
+      "models": "Comportamiento del modelo",
+      "extraction": "Página y pestañas",
+      "context": "Conocimiento y web",
+      "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",
-      "voices": "Voces",
-      "reset": "Restablecer",
+      "voices": "Voz",
+      "reset": "Datos y copia de seguridad",
       "guides": "Ayuda",
       "shortcuts": "Atajos",
-      "permissions": "Permisos"
+      "permissions": "Privacidad y permisos"
     },
     "context": {
       "file_upload": {

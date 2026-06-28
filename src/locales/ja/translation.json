@@ -989,18 +989,18 @@
       "unload_tooltip": "モデルをアンロード"
     },
     "tabs": {
-      "general": "一般",
-      "prompts": "プロンプト",
-      "models": "モデル",
-      "extraction": "抽出",
-      "context": "コンテキスト",
-      "embeddings": "エンベディング",
+      "general": "チャット",
+      "prompts": "プロンプトライブラリ",
+      "models": "モデルの挙動",
+      "extraction": "ページとタブ",
+      "context": "ナレッジとウェブ",
+      "embeddings": "保存済みナレッジ",
       "providers": "プロバイダー",
       "voices": "音声",
-      "reset": "リセット",
+      "reset": "データとバックアップ",
       "guides": "ヘルプ",
       "shortcuts": "ショートカット",
-      "permissions": "権限"
+      "permissions": "プライバシーと権限"
     },
     "context": {
       "file_upload": {

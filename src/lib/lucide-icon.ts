@@ -73,6 +73,7 @@ export {
   Server,
   Settings,
   Shield,
+  ShieldCheck,
   Sparkles,
   SquarePen,
   Star,
