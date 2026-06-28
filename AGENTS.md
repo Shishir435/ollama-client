@@ -119,7 +119,7 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 - Runtime code lives under `src/lib/tools/web-search/`.
 - `WebSearchBackend` adapters keep provider-specific wire formats behind one `web_search` tool.
 - Supported backends: SearXNG (`GET /search?q=...&format=json`), Brave Search (`GET https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`), and Tavily (`POST https://api.tavily.com/search` with bearer auth).
-- Settings UI lives under `src/features/web-search/` and mounts in the Context tab. Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`; never log API keys.
+- Settings UI lives under `src/features/web-search/` and mounts in the internal `context` tab, shown to users as Knowledge & web. Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`; never log API keys.
 - SearXNG has `pageno` but no API result-count parameter. Fetch configured pages, de-dupe, then cap output before returning results to the model. Brave uses `count`; Tavily uses `max_results`.
 - Keep snippets/titles untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
 

@@ -16,6 +16,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import {
@@ -100,6 +101,7 @@ export const ResetStorage = () => {
 
   return (
     <SectionStack>
+      <DataMigrationSettings />
       <SettingsCard
         icon={RefreshCcw}
         focusId="reset-settings"

@@ -20,6 +20,11 @@ global.chrome = {
       set: vi.fn(),
       remove: vi.fn(),
       clear: vi.fn()
+    },
+    onChanged: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      hasListener: vi.fn()
     }
   }
 } as unknown as typeof chrome

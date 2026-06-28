@@ -304,7 +304,21 @@
       "web_title": "Sources web ({{count}})",
       "web_unused_hint": "Augmentez le nombre de résultats de recherche web dans les Paramètres pour en transmettre davantage au modèle.",
       "web_unused_label": "Également trouvé — non envoyé ({{count}})",
-      "web_used_label": "Envoyé au modèle ({{count}})"
+      "web_used_label": "Envoyé au modèle ({{count}})",
+      "unified_tooltip": "{{count}} sources",
+      "unified_aria": "Voir {{count}} sources",
+      "unified_title": "Sources ({{count}})",
+      "unified_page": "Page et onglets ({{count}})",
+      "unified_knowledge": "Connaissances ({{count}})",
+      "unified_web": "Web ({{count}})",
+      "subtitle": "Références utilisées dans cette réponse",
+      "filter_all": "Tout",
+      "filter_web": "Web",
+      "filter_knowledge": "Connaissances",
+      "filter_local": "Local",
+      "show_more": "Afficher {{count}} de plus",
+      "disclaimer": "Les sources sont récupérées automatiquement et peuvent ne pas toujours être exactes à 100 %.",
+      "open_all_tabs": "Tout ouvrir dans des onglets"
     },
     "search": {
       "button_title": "Rechercher l'historique de chat (recherche sémantique)",
@@ -383,6 +397,15 @@
     "composer": {
       "rag": "Fichiers",
       "tabs": "Page",
+      "web": "Web"
+    },
+    "context": {
+      "preview_title": "Le modèle verra",
+      "none": "Aucun contexte supplémentaire",
+      "page": "Page",
+      "tabs": "{{count}} onglets",
+      "files": "{{count}} fichiers",
+      "knowledge": "Connaissances",
       "web": "Web"
     }
   },
@@ -974,18 +997,18 @@
       "unload_tooltip": "Décharger le modèle"
     },
     "tabs": {
-      "general": "Général",
-      "prompts": "Prompts",
-      "models": "Modèles",
-      "extraction": "Extraction",
-      "context": "Contexte",
-      "embeddings": "Incrustations",
+      "general": "Chat",
+      "prompts": "Bibliothèque de prompts",
+      "models": "Comportement du modèle",
+      "extraction": "Page et onglets",
+      "context": "Connaissances et web",
+      "embeddings": "Connaissances enregistrées",
       "providers": "Fournisseurs",
       "voices": "Voix",
-      "reset": "Réinitialiser",
-      "guides": "Guides",
+      "reset": "Données et sauvegarde",
+      "guides": "Aide",
       "shortcuts": "Raccourcis",
-      "permissions": "Autorisations"
+      "permissions": "Confidentialité et autorisations"
     },
     "context": {
       "file_upload": {
@@ -1097,13 +1120,19 @@
     },
     "page": {
       "title": "Paramètres d'Ollama Client",
-      "description": "Gérez tous les aspects de votre configuration Ollama en un seul endroit. Pour des conseils et un guide de configuration, visitez l'onglet Guides."
+      "description": "Gérez tous les aspects de votre configuration Ollama en un seul endroit. Pour des conseils et un guide de configuration, visitez l'onglet Aide."
     },
     "sections": {
       "app": "Application",
       "ai_models": "IA et Modèles",
       "customize": "Personnaliser",
-      "system": "Système"
+      "system": "Système",
+      "setup": "Configuration",
+      "chat": "Chat",
+      "knowledge": "Connaissances",
+      "page_tabs": "Page et onglets",
+      "privacy": "Confidentialité",
+      "more": "Plus"
     },
     "speech": {
       "title": "Paramètres de Parole",
@@ -1406,6 +1435,10 @@
     "permissions": {
       "title": "Autorisations et confidentialité",
       "description": "Consultez et contrôlez ce à quoi cette extension peut accéder. Tout reste sur votre appareil.",
+      "overview": {
+        "title": "Local par défaut",
+        "description": "Les conversations, réglages, fichiers et index restent dans ce profil de navigateur. Les accès facultatifs sont visibles, révocables et jamais accordés silencieusement."
+      },
       "optional": {
         "title": "Accès facultatif",
         "description": "Accordé uniquement lorsque vous l'activez, et révocable ici à tout moment. Chaque option active une fonctionnalité locale ; aucune donnée ne quitte votre appareil."
@@ -1518,6 +1551,13 @@
             "description": "Rappels et autres actions planifiées."
           }
         },
+        "inventory": {
+          "title": "Outils disponibles",
+          "description": "Inventaire en direct pour ce navigateur. La disponibilité finale dépend aussi du modèle sélectionné.",
+          "available": "Disponible",
+          "disabled": "Désactivé",
+          "permissionRequired": "Autorisation requise"
+        },
         "perModel": {
           "title": "Réglages par modèle",
           "description": "Remplacez les groupes ci-dessus pour un modèle précis. Les modèles sans réglage utilisent les valeurs par défaut ci-dessus.",
@@ -1625,6 +1665,10 @@
       "body": "Certaines fonctionnalités — favoris et historique, rappels, enregistrement de fichiers et groupes d’onglets — nécessitent des autorisations facultatives du navigateur. Elles restent désactivées tant que vous ne les autorisez pas ; n’accordez que ce que vous voulez.",
       "open": "Ouvrir les autorisations",
       "dismiss": "Plus tard"
+    },
+    "provider": {
+      "title": "Connecter un fournisseur",
+      "open_setup": "Configurer un fournisseur"
     }
   }
 }

@@ -1,5 +1,4 @@
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -36,7 +35,7 @@ export const SettingsSidebar = ({
         className
       )}>
       <nav aria-label="Settings navigation" className="h-full">
-        <ScrollArea className="h-full">
+        <div className="h-full overflow-y-auto scrollbar-none">
           <div className="space-y-5 pr-2">
             {sections.map((section, idx) => (
               <div key={section.title}>
@@ -87,7 +86,7 @@ export const SettingsSidebar = ({
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
       </nav>
     </aside>
   )

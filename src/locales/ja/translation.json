@@ -304,7 +304,21 @@
       "web_title": "ウェブソース ({{count}})",
       "web_unused_hint": "設定でウェブ検索の結果件数を増やすと、より多くの結果をモデルに渡せます。",
       "web_unused_label": "見つかったが未送信 ({{count}})",
-      "web_used_label": "モデルに送信済み ({{count}})"
+      "web_used_label": "モデルに送信済み ({{count}})",
+      "unified_tooltip": "{{count}} 件のソース",
+      "unified_aria": "{{count}} 件のソースを表示",
+      "unified_title": "ソース ({{count}})",
+      "unified_page": "ページとタブ ({{count}})",
+      "unified_knowledge": "ナレッジ ({{count}})",
+      "unified_web": "Web ({{count}})",
+      "subtitle": "この回答で使用された参照",
+      "filter_all": "すべて",
+      "filter_web": "ウェブ",
+      "filter_knowledge": "ナレッジ",
+      "filter_local": "ローカル",
+      "show_more": "他に{{count}}件を表示",
+      "disclaimer": "ソースは自動的に取得され、常に100%正確とは限りません。",
+      "open_all_tabs": "すべてタブで開く"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -383,6 +397,15 @@
     "composer": {
       "rag": "ファイル",
       "tabs": "ページ",
+      "web": "Web"
+    },
+    "context": {
+      "preview_title": "モデルに渡す内容",
+      "none": "追加コンテキストなし",
+      "page": "ページ",
+      "tabs": "{{count}} 個のタブ",
+      "files": "{{count}} 個のファイル",
+      "knowledge": "ナレッジ",
       "web": "Web"
     }
   },
@@ -974,18 +997,18 @@
       "unload_tooltip": "モデルをアンロード"
     },
     "tabs": {
-      "general": "一般",
-      "prompts": "プロンプト",
-      "models": "モデル",
-      "extraction": "抽出",
-      "context": "コンテキスト",
-      "embeddings": "エンベディング",
+      "general": "チャット",
+      "prompts": "プロンプトライブラリ",
+      "models": "モデルの挙動",
+      "extraction": "ページとタブ",
+      "context": "ナレッジとウェブ",
+      "embeddings": "保存済みナレッジ",
       "providers": "プロバイダー",
       "voices": "音声",
-      "reset": "リセット",
-      "guides": "ガイド",
+      "reset": "データとバックアップ",
+      "guides": "ヘルプ",
       "shortcuts": "ショートカット",
-      "permissions": "権限"
+      "permissions": "プライバシーと権限"
     },
     "context": {
       "file_upload": {
@@ -1097,13 +1120,19 @@
     },
     "page": {
       "title": "Ollama Client設定",
-      "description": "Ollamaセットアップのあらゆる側面を1か所で管理します。ヒントやセットアップのガイダンスについては、ガイドタブをご覧ください。"
+      "description": "Ollamaセットアップのあらゆる側面を1か所で管理します。ヒントやセットアップのガイダンスについては、ヘルプタブをご覧ください。"
     },
     "sections": {
       "app": "アプリ",
       "ai_models": "AI・モデル",
       "customize": "カスタマイズ",
-      "system": "システム"
+      "system": "システム",
+      "setup": "セットアップ",
+      "chat": "チャット",
+      "knowledge": "ナレッジ",
+      "page_tabs": "ページとタブ",
+      "privacy": "プライバシー",
+      "more": "その他"
     },
     "speech": {
       "title": "音声設定",
@@ -1406,6 +1435,10 @@
     "permissions": {
       "title": "権限とプライバシー",
       "description": "この拡張機能がアクセスできる範囲を確認・管理できます。すべてのデータはお使いのデバイス内に留まります。",
+      "overview": {
+        "title": "標準でローカル",
+        "description": "チャット、設定、ファイル、インデックスはこのブラウザープロファイル内に保存されます。任意アクセスは表示され、取り消し可能で、無断では付与されません。"
+      },
       "optional": {
         "title": "オプションのアクセス",
         "description": "オンにしたときのみ付与され、ここでいつでも取り消せます。各項目はローカル機能を有効にします。データがデバイス外に出ることはありません。"
@@ -1518,6 +1551,13 @@
             "description": "リマインダーなどの予約された操作。"
           }
         },
+        "inventory": {
+          "title": "利用可能なツール",
+          "description": "このブラウザーでのライブ一覧です。最終的な利用可否は選択モデルにも依存します。",
+          "available": "利用可能",
+          "disabled": "無効",
+          "permissionRequired": "権限が必要"
+        },
         "perModel": {
           "title": "モデルごとの上書き",
           "description": "特定のモデルについて上のグループを上書きします。上書きのないモデルは上の既定値を使います。",
@@ -1625,6 +1665,10 @@
       "body": "一部の機能（ブックマーク・履歴の知識、リマインダー、ファイル保存、タブグループ）には任意のブラウザ権限が必要です。許可するまでオフのままです。必要なものだけ許可してください。",
       "open": "権限を開く",
       "dismiss": "後で"
+    },
+    "provider": {
+      "title": "プロバイダーを接続",
+      "open_setup": "プロバイダーを設定"
     }
   }
 }

@@ -43,7 +43,7 @@ const SEARCH_ENGINE_BADGES: Record<
   }
 }
 
-const hostOf = (url?: string): string | undefined => {
+export const hostOf = (url?: string): string | undefined => {
   if (!url) return undefined
   try {
     return new URL(url).hostname.replace(/^www\./, "")
@@ -87,7 +87,7 @@ const toItem = ({ source, itemId }: IndexedWebSource): SourceItem => ({
   source: source.url
 })
 
-function WebSourceFavicon({ url }: { url?: string }) {
+export function WebSourceFavicon({ url }: { url?: string }) {
   const [failed, setFailed] = useState(false)
   const faviconUrl = getWebSourceFaviconUrl(url)
   if (!faviconUrl || failed) {
@@ -105,7 +105,7 @@ function WebSourceFavicon({ url }: { url?: string }) {
   )
 }
 
-function SearchEngineBadge({ engine }: { engine?: string }) {
+export function SearchEngineBadge({ engine }: { engine?: string }) {
   const badge = SEARCH_ENGINE_BADGES[normalizeSearchEngine(engine) ?? ""]
   if (!badge) return null
   return (

@@ -12,8 +12,8 @@ export const IconBadge = ({ icon, count, showZero }: IconBadgeProps) => {
   return (
     <div className="relative">
       {icon}
-      <span className="absolute -right-1 -top-1 flex size-2.5 items-center justify-center rounded-chip bg-primary text-micro font-bold text-primary-foreground">
-        {count}
+      <span className="absolute -right-1 -top-1 flex h-3 min-w-3 items-center justify-center rounded-chip px-0.5 text-nano font-bold leading-none text-primary-foreground tabular-nums bg-primary">
+        {count > 9 ? "9+" : count}
       </span>
     </div>
   )

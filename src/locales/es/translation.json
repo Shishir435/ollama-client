@@ -304,7 +304,21 @@
       "web_title": "Fuentes web ({{count}})",
       "web_unused_hint": "Aumenta el número de resultados de búsqueda web en Ajustes para enviar más de estos al modelo.",
       "web_unused_label": "También encontrados — no enviados ({{count}})",
-      "web_used_label": "Enviados al modelo ({{count}})"
+      "web_used_label": "Enviados al modelo ({{count}})",
+      "unified_tooltip": "{{count}} fuentes",
+      "unified_aria": "Ver {{count}} fuentes",
+      "unified_title": "Fuentes ({{count}})",
+      "unified_page": "Página y pestañas ({{count}})",
+      "unified_knowledge": "Conocimiento ({{count}})",
+      "unified_web": "Web ({{count}})",
+      "subtitle": "Referencias usadas en esta respuesta",
+      "filter_all": "Todos",
+      "filter_web": "Web",
+      "filter_knowledge": "Conocimiento",
+      "filter_local": "Local",
+      "show_more": "Mostrar {{count}} más",
+      "disclaimer": "Las fuentes se obtienen automáticamente y pueden no ser siempre 100 % precisas.",
+      "open_all_tabs": "Abrir todo en pestañas"
     },
     "search": {
       "button_title": "Buscar historial de chat (búsqueda semántica)",
@@ -383,6 +397,15 @@
     "composer": {
       "rag": "Archivos",
       "tabs": "Página",
+      "web": "Web"
+    },
+    "context": {
+      "preview_title": "El modelo verá",
+      "none": "Sin contexto adicional",
+      "page": "Página",
+      "tabs": "{{count}} pestañas",
+      "files": "{{count}} archivos",
+      "knowledge": "Conocimiento",
       "web": "Web"
     }
   },
@@ -974,18 +997,18 @@
       "unload_tooltip": "Descargar modelo"
     },
     "tabs": {
-      "general": "General",
-      "prompts": "Prompts",
-      "models": "Modelos",
-      "extraction": "Extracción",
-      "context": "Contexto",
-      "embeddings": "Incrustaciones",
+      "general": "Chat",
+      "prompts": "Biblioteca de prompts",
+      "models": "Comportamiento del modelo",
+      "extraction": "Página y pestañas",
+      "context": "Conocimiento y web",
+      "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",
-      "voices": "Voces",
-      "reset": "Restablecer",
-      "guides": "Guías",
+      "voices": "Voz",
+      "reset": "Datos y copia de seguridad",
+      "guides": "Ayuda",
       "shortcuts": "Atajos",
-      "permissions": "Permisos"
+      "permissions": "Privacidad y permisos"
     },
     "context": {
       "file_upload": {
@@ -1097,13 +1120,19 @@
     },
     "page": {
       "title": "Ajustes de Ollama Client",
-      "description": "Gestiona todos los aspectos de tu configuración de Ollama en un solo lugar. Para consejos y guía de configuración, visita la pestaña Guías."
+      "description": "Gestiona todos los aspectos de tu configuración de Ollama en un solo lugar. Para consejos y guía de configuración, visita la pestaña Ayuda."
     },
     "sections": {
       "app": "Aplicación",
       "ai_models": "IA y Modelos",
       "customize": "Personalizar",
-      "system": "Sistema"
+      "system": "Sistema",
+      "setup": "Configuración",
+      "chat": "Chat",
+      "knowledge": "Conocimiento",
+      "page_tabs": "Página y pestañas",
+      "privacy": "Privacidad",
+      "more": "Más"
     },
     "speech": {
       "title": "Ajustes de Voz",
@@ -1406,6 +1435,10 @@
     "permissions": {
       "title": "Permisos y privacidad",
       "description": "Consulta y controla a qué puede acceder esta extensión. Todo permanece en tu dispositivo.",
+      "overview": {
+        "title": "Local por defecto",
+        "description": "Los chats, ajustes, archivos e índices permanecen en este perfil del navegador. El acceso opcional es visible, revocable y nunca se concede en silencio."
+      },
       "optional": {
         "title": "Acceso opcional",
         "description": "Se concede solo cuando lo activas y se puede revocar aquí en cualquier momento. Cada opción habilita una función local; ningún dato sale de tu dispositivo."
@@ -1518,6 +1551,13 @@
             "description": "Recordatorios y otras acciones programadas."
           }
         },
+        "inventory": {
+          "title": "Herramientas disponibles",
+          "description": "Inventario activo para este navegador. La disponibilidad final también depende del modelo seleccionado.",
+          "available": "Disponible",
+          "disabled": "Desactivada",
+          "permissionRequired": "Requiere permiso"
+        },
         "perModel": {
           "title": "Ajustes por modelo",
           "description": "Anula los grupos de arriba para un modelo concreto. Los modelos sin ajuste usan los valores predeterminados de arriba.",
@@ -1625,6 +1665,10 @@
       "body": "Algunas funciones —conocimiento de marcadores e historial, recordatorios, guardar archivos y grupos de pestañas— requieren permisos opcionales del navegador. Permanecen desactivadas hasta que las habilites; concede solo lo que quieras.",
       "open": "Abrir permisos",
       "dismiss": "Quizás más tarde"
+    },
+    "provider": {
+      "title": "Conectar un proveedor",
+      "open_setup": "Configurar proveedor"
     }
   }
 }

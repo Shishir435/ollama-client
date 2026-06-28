@@ -167,6 +167,28 @@ const captureVisualSmoke = async (page: Page, name: string): Promise<void> => {
   console.log(`Visual smoke screenshot: ${target}`)
 }
 
+const prepareSidepanelChatSmoke = async (page: Page): Promise<void> => {
+  const firstRunDialog = page.getByRole("dialog")
+  if (
+    await firstRunDialog
+      .waitFor({ state: "visible", timeout: 1500 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    const dismiss = firstRunDialog.getByRole("button", {
+      name: "Maybe later"
+    })
+    if (await dismiss.isVisible()) await dismiss.click()
+    else await page.keyboard.press("Escape")
+    await firstRunDialog.waitFor({ state: "hidden" })
+  }
+
+  const startChat = page.getByRole("button", { name: "Start Chatting" })
+  if (await startChat.isVisible()) {
+    await startChat.click()
+  }
+}
+
 const captureOptionsTabSmoke = async (
   page: Page,
   tabKey: string,
@@ -264,6 +286,20 @@ const runChromiumExtensionChecks = async (
     )
     await captureOptionsTabSmoke(
       optionsPage,
+      "permissions",
+      "chromium-options-privacy-light",
+      "light",
+      "en"
+    )
+    await optionsPage.goto(
+      `chrome-extension://${extensionId}/options.html?tab=permissions&focus=model-tools`
+    )
+    await checkPageLoaded(optionsPage, "Chromium model tools settings")
+    await prepareVisualSmoke(optionsPage, "light", "en")
+    await optionsPage.waitForTimeout(600)
+    await captureVisualSmoke(optionsPage, "chromium-options-tools-light")
+    await captureOptionsTabSmoke(
+      optionsPage,
       "embeddings",
       "chromium-options-embeddings-dark-long-locale",
       "dark",
@@ -309,7 +345,14 @@ const runChromiumExtensionChecks = async (
     )
     await checkPageLoaded(sidepanelPage, "Chromium sidepanel page")
     await prepareVisualSmoke(sidepanelPage, "light", "en", sidepanelViewport)
+    await prepareSidepanelChatSmoke(sidepanelPage)
     await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-light")
+    const contextButton = sidepanelPage.getByRole("button", { name: "Context" })
+    if (await contextButton.isVisible()) {
+      await contextButton.click()
+      await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-context-light")
+      await sidepanelPage.keyboard.press("Escape")
+    }
     await prepareVisualSmoke(sidepanelPage, "dark", "de", sidepanelViewport)
     await captureVisualSmoke(
       sidepanelPage,

@@ -1,11 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
-import {
-  SettingsCard,
-  SettingsSection,
-  SettingsSwitch
-} from "@/components/settings"
+import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
@@ -17,7 +13,13 @@ import {
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { BookOpen, Globe, Scissors, Upload } from "@/lib/lucide-icon"
+import {
+  BookOpen,
+  Globe,
+  Scissors,
+  ShieldCheck,
+  Upload
+} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 const AutoScreenshotSettings = () => {
@@ -56,33 +58,24 @@ export const ContextSettings = () => {
 
   return (
     <SectionStack>
-      <SettingsSection
-        title={t("settings.context.sections.conversation")}
-        description={t("settings.context.sections.conversation_description")}>
-        <TwoColumnGrid>
-          <MemorySettings />
-          <ChatBackfillPanel />
-        </TwoColumnGrid>
-      </SettingsSection>
+      <TwoColumnGrid>
+        <MemorySettings />
+        <ChatBackfillPanel />
+      </TwoColumnGrid>
 
-      <SettingsSection
-        title={t("settings.context.sections.prompt_budget")}
-        description={t("settings.context.sections.prompt_budget_description")}>
-        <PromptContextLimitsSettings />
-      </SettingsSection>
+      <PromptContextLimitsSettings />
 
-      <SettingsSection
+      <SettingsCard
+        icon={ShieldCheck}
         title={t("settings.context.sections.grounding")}
         description={t("settings.context.sections.grounding_description")}>
-        <TwoColumnGrid>
+        <div className="grid gap-4">
           <GroundingModeSettings />
           <AutoScreenshotSettings />
-        </TwoColumnGrid>
-      </SettingsSection>
+        </div>
+      </SettingsCard>
 
-      <SettingsSection
-        title={t("settings.context.sections.retrieval")}
-        description={t("settings.context.sections.retrieval_description")}>
+      <TwoColumnGrid>
         <SettingsCard
           icon={Globe}
           title={t("settings.web_search.title")}
@@ -97,27 +90,23 @@ export const ContextSettings = () => {
           description={t("model.embedding_config.rag_settings_description")}>
           <RAGSettings />
         </SettingsCard>
-      </SettingsSection>
+      </TwoColumnGrid>
 
-      <SettingsSection
-        title={t("settings.context.sections.files_chunking")}
-        description={t("settings.context.sections.files_chunking_description")}>
-        <TwoColumnGrid>
-          <SettingsCard
-            icon={Upload}
-            title={t("settings.context.file_upload.title")}
-            description={t("settings.context.file_upload.description")}>
-            <FileUploadSettings />
-          </SettingsCard>
+      <TwoColumnGrid>
+        <SettingsCard
+          icon={Upload}
+          title={t("settings.context.file_upload.title")}
+          description={t("settings.context.file_upload.description")}>
+          <FileUploadSettings />
+        </SettingsCard>
 
-          <SettingsCard
-            icon={Scissors}
-            title={t("model.embedding_config.chunking_title")}
-            description={t("model.embedding_config.chunking_description")}>
-            <TextSplittingSettings />
-          </SettingsCard>
-        </TwoColumnGrid>
-      </SettingsSection>
+        <SettingsCard
+          icon={Scissors}
+          title={t("model.embedding_config.chunking_title")}
+          description={t("model.embedding_config.chunking_description")}>
+          <TextSplittingSettings />
+        </SettingsCard>
+      </TwoColumnGrid>
     </SectionStack>
   )
 }

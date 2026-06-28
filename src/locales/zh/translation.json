@@ -304,7 +304,21 @@
       "web_title": "网络来源（{{count}}）",
       "web_unused_hint": "在设置中调高网络搜索结果数量，可向模型提供更多此类内容。",
       "web_unused_label": "也已找到 — 未发送（{{count}}）",
-      "web_used_label": "已发送给模型（{{count}}）"
+      "web_used_label": "已发送给模型（{{count}}）",
+      "unified_tooltip": "{{count}} 个来源",
+      "unified_aria": "查看 {{count}} 个来源",
+      "unified_title": "来源 ({{count}})",
+      "unified_page": "页面和标签页 ({{count}})",
+      "unified_knowledge": "知识 ({{count}})",
+      "unified_web": "网页 ({{count}})",
+      "subtitle": "此回答使用的来源",
+      "filter_all": "全部",
+      "filter_web": "网络",
+      "filter_knowledge": "知识",
+      "filter_local": "本地",
+      "show_more": "再显示 {{count}} 个",
+      "disclaimer": "来源为自动检索，可能并非始终 100% 准确。",
+      "open_all_tabs": "在标签页中全部打开"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -383,6 +397,15 @@
     "composer": {
       "rag": "文件",
       "tabs": "页面",
+      "web": "网页"
+    },
+    "context": {
+      "preview_title": "模型将看到",
+      "none": "无额外上下文",
+      "page": "页面",
+      "tabs": "{{count}} 个标签页",
+      "files": "{{count}} 个文件",
+      "knowledge": "知识",
       "web": "网页"
     }
   },
@@ -974,18 +997,18 @@
       "unload_tooltip": "卸载模型"
     },
     "tabs": {
-      "general": "通用",
-      "prompts": "提示词",
-      "models": "模型",
-      "extraction": "提取",
-      "context": "上下文",
-      "embeddings": "嵌入",
+      "general": "聊天",
+      "prompts": "提示词库",
+      "models": "模型行为",
+      "extraction": "页面和标签页",
+      "context": "知识与网络",
+      "embeddings": "已保存的知识",
       "providers": "服务商",
-      "voices": "声音",
-      "reset": "重置",
-      "guides": "指南",
+      "voices": "语音",
+      "reset": "数据与备份",
+      "guides": "帮助",
       "shortcuts": "快捷键",
-      "permissions": "权限"
+      "permissions": "隐私与权限"
     },
     "context": {
       "file_upload": {
@@ -1097,13 +1120,19 @@
     },
     "page": {
       "title": "Ollama 客户端设置",
-      "description": "在一个地方管理您的 Ollama 设置的所有方面。有关提示和设置指南，请访问“指南”标签页。"
+      "description": "在一个地方管理您的 Ollama 设置的所有方面。有关提示和设置指南，请访问“帮助”标签页。"
     },
     "sections": {
       "app": "应用",
       "ai_models": "AI 和模型",
       "customize": "自定义",
-      "system": "系统"
+      "system": "系统",
+      "setup": "设置",
+      "chat": "聊天",
+      "knowledge": "知识",
+      "page_tabs": "页面和标签页",
+      "privacy": "隐私",
+      "more": "更多"
     },
     "speech": {
       "title": "语音设置",
@@ -1406,6 +1435,10 @@
     "permissions": {
       "title": "权限与隐私",
       "description": "查看并控制此扩展可以访问的内容。所有数据都保留在你的设备上。",
+      "overview": {
+        "title": "默认本地",
+        "description": "聊天、设置、文件和索引保留在此浏览器配置文件中。可选访问权限始终可见、可撤销，且绝不会静默授予。"
+      },
       "optional": {
         "title": "可选访问",
         "description": "仅在你开启时授予，并可随时在此撤销。每一项都会启用一个本地功能；不会有任何数据离开你的设备。"
@@ -1518,6 +1551,13 @@
             "description": "提醒和其他计划操作。"
           }
         },
+        "inventory": {
+          "title": "可用工具",
+          "description": "此浏览器的实时工具列表。最终可用性还取决于所选模型。",
+          "available": "可用",
+          "disabled": "已禁用",
+          "permissionRequired": "需要权限"
+        },
         "perModel": {
           "title": "按模型覆盖",
           "description": "为特定模型覆盖上面的分组。没有覆盖的模型使用上面的默认设置。",
@@ -1625,6 +1665,10 @@
       "body": "部分功能（书签与历史记录知识、提醒、保存文件和标签组）需要可选的浏览器权限。在您允许之前它们保持关闭；只授予您需要的权限。",
       "open": "打开权限",
       "dismiss": "以后再说"
+    },
+    "provider": {
+      "title": "连接提供商",
+      "open_setup": "设置提供商"
     }
   }
 }

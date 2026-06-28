@@ -785,19 +785,19 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "data-migration-export",
-    tab: "embeddings",
-    sectionId: "embeddings-migration",
+    tab: "reset",
+    sectionId: "data-migration",
     labelKey: "settings.migration.export.button",
     descriptionKey: "settings.migration.export.description",
-    keywords: ["export", "backup", "migration"]
+    keywords: ["export", "backup", "migration", "data backup"]
   },
   {
     id: "data-migration-import",
-    tab: "embeddings",
-    sectionId: "embeddings-migration",
+    tab: "reset",
+    sectionId: "data-migration",
     labelKey: "settings.migration.import.button",
     descriptionKey: "settings.migration.import.description",
-    keywords: ["import", "restore", "migration"]
+    keywords: ["import", "restore", "migration", "data backup"]
   },
 
   // ---- Content Extraction ------------------------------------------------
@@ -1290,6 +1290,14 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     aliases: ["permissions", "privacy", "access", "consent", "data"]
   },
   {
+    id: "privacy-overview",
+    tab: "permissions",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.overview.title",
+    descriptionKey: "settings.permissions.overview.description",
+    aliases: ["local data", "data location", "private", "device only"]
+  },
+  {
     id: "browser-tab-access",
     tab: "permissions",
     sectionId: "permissions",
@@ -1314,7 +1322,8 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       "settings.permissions.tools.families.knowledge.label",
       "settings.permissions.tools.families.history.label",
       "settings.permissions.tools.families.web.label",
-      "settings.permissions.tools.families.automation.label"
+      "settings.permissions.tools.families.automation.label",
+      "settings.permissions.tools.inventory.title"
     ],
     aliases: [
       "model tools",
@@ -1322,7 +1331,9 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
       "tool calling",
       "function calling",
       "agent",
-      "browser tools"
+      "browser tools",
+      "available tools",
+      "tool inventory"
     ]
   },
   {

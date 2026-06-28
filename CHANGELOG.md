@@ -7,6 +7,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.11.23] - 2026-06-28
+
+### Added
+- An always-visible context-state pill and pre-send context preview covering page tabs, attached files, local knowledge, and web search.
+- A live model-tools inventory in Privacy & permissions showing family and browser-permission availability.
+- An in-panel provider setup flow for first-run connection failures and empty model lists.
+
+### Changed
+- RAG, page/tab context, and web results now share one grouped Sources sheet per answer.
+- Settings navigation is grouped by user intent while preserving existing tab ids, deep links, and persisted storage keys.
+- Technical labels now use plain-language names such as Knowledge & web, Knowledge storage, Page & tabs, and Data & backup.
+- Privacy is a first-class settings group with an explicit local-storage overview.
+- Streaming follows output without restarting smooth-scroll animations, and returning to the bottom no longer waits 300 ms.
+- Queued assistant replies use a stable message-shaped loading skeleton.
+
 ## [0.11.22] - 2026-06-28
 
 ### Added

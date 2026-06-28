@@ -4,7 +4,6 @@ import { IconBadge } from "@/components/icon-badge"
 import { SettingsButton } from "@/components/settings-button"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
-import { WebSearchToggle } from "@/features/web-search/components/web-search-toggle"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import { Camera, FileText } from "@/lib/lucide-icon"
 import { ContextSettingsMenu } from "./context-settings-menu"
@@ -49,9 +48,7 @@ export const ChatInputToolbar = ({
           tooltipTextContent={t("chat.input.switch_model")}
         />
 
-        <ContextSettingsMenu />
-
-        <WebSearchToggle />
+        <ContextSettingsMenu attachmentCount={attachmentCount} />
 
         <SettingsButton
           showText={false}
