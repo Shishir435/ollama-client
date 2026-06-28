@@ -24,7 +24,7 @@ export const SemanticChatSearchButton = () => {
             className="flex h-9 w-full items-center justify-start rounded-control border-border/50 bg-background/70 shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
           />
         }
-        icon={<Search className="mr-2 icon-md" />}
+        icon={<Search className="mr-2 icon-sm" />}
         label={
           <>
             {t("chat.search.button_label")}

@@ -16,14 +16,14 @@ import { cn } from "@/lib/utils"
 const iconMap = {
   loading: (
     <Loader2
-      className={cn("icon-md animate-spin", STATUS_STYLES.neutral.text)}
+      className={cn("icon-sm animate-spin", STATUS_STYLES.neutral.text)}
     />
   ),
-  error: <XCircle className={cn("icon-md", STATUS_STYLES.danger.text)} />,
+  error: <XCircle className={cn("icon-sm", STATUS_STYLES.danger.text)} />,
   empty: (
-    <AlertTriangle className={cn("icon-md", STATUS_STYLES.warning.text)} />
+    <AlertTriangle className={cn("icon-sm", STATUS_STYLES.warning.text)} />
   ),
-  ready: <Server className={cn("icon-md", STATUS_STYLES.success.text)} />
+  ready: <Server className={cn("icon-sm", STATUS_STYLES.success.text)} />
 }
 
 export const ProviderStatusIndicator = () => {
@@ -48,10 +48,9 @@ export const ProviderStatusIndicator = () => {
 
   return (
     <TooltipActionButton
-      variant="secondary"
+      variant="ghost"
       size="icon"
       onClick={() => refresh()}
-      className="m-1 rounded-panel border border-border/50 bg-card shadow-xs transition-all duration-200 hover:bg-accent/50"
       ariaLabel={getLabelMap()[status]}
       tooltipSide="left"
       icon={iconMap[status]}

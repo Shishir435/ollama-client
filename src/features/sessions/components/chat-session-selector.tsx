@@ -44,11 +44,10 @@ export const ChatSessionSelector = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="m-1 cursor-pointer rounded-control border border-sidebar-border bg-surface-sidebar shadow-xs transition-all duration-200 hover:bg-sidebar-accent"
                 aria-label={t("sessions.selector.title")}
               />
             }>
-            <PanelLeftOpen className="icon-md" />
+            <PanelLeftOpen className="icon-sm" />
           </SheetTrigger>
         }
       />

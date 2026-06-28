@@ -23,7 +23,7 @@ export default defineConfig({
       if (promoIndex !== -1) files.splice(promoIndex, 1)
     }
   },
-  manifest: {
+  manifest: ({ browser }) => ({
     name: "__MSG_extName__",
     short_name: "__MSG_extShortName__",
     description: "__MSG_extDescription__",
@@ -53,11 +53,10 @@ export default defineConfig({
     host_permissions: ["<all_urls>"],
     permissions: [
       "storage",
-      "sidePanel",
       "tabs",
       "scripting",
-      "declarativeNetRequest",
-      "contextMenus"
+      "contextMenus",
+      ...(browser === "firefox" ? [] : ["sidePanel", "declarativeNetRequest"])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
@@ -69,7 +68,8 @@ export default defineConfig({
       "notifications",
       "downloads",
       "tabGroups",
-      "alarms"
+      "alarms",
+      "sessions"
     ],
     // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
@@ -97,10 +97,13 @@ export default defineConfig({
     browser_specific_settings: {
       gecko: {
         id: "shishirchaurasiya435@gmail.com",
-        strict_min_version: "113.0"
+        strict_min_version: "113.0",
+        data_collection_permissions: {
+          required: ["none"]
+        }
       }
     }
-  },
+  }),
 
   vite: () =>
     ({

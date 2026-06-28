@@ -18,6 +18,8 @@ describe("getToolFamily", () => {
     expect(getToolFamily(def({ name: "file_search" }))).toBe("knowledge")
     expect(getToolFamily(def({ name: "get_recent_history" }))).toBe("history")
     expect(getToolFamily(def({ name: "search_bookmarks" }))).toBe("history")
+    expect(getToolFamily(def({ name: "list_recently_closed" }))).toBe("history")
+    expect(getToolFamily(def({ name: "list_synced_sessions" }))).toBe("history")
     expect(getToolFamily(def({ name: "web_search" }))).toBe("web")
     expect(getToolFamily(def({ name: "schedule_reminder" }))).toBe("automation")
     expect(getToolFamily(def({ name: "save_artifact" }))).toBe("automation")

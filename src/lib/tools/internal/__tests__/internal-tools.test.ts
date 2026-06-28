@@ -17,11 +17,14 @@ vi.mock("@/lib/browser-api", () => ({
     tabs: { get: vi.fn(), query: vi.fn(), sendMessage: vi.fn() },
     bookmarks: { search: vi.fn() },
     history: { search: vi.fn() },
+    sessions: { getRecentlyClosed: vi.fn(), getDevices: vi.fn() },
     scripting: { executeScript: vi.fn() }
   },
   supportsAlarms: vi.fn(() => true),
   supportsBookmarks: vi.fn(() => true),
   supportsHistory: vi.fn(() => true),
+  supportsSessions: vi.fn(() => true),
+  supportsSyncedSessions: vi.fn(() => true),
   supportsTabGroups: vi.fn(() => true)
 }))
 

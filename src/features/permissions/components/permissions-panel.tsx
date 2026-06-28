@@ -15,7 +15,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { browser, supportsTabGroups } from "@/lib/browser-api"
+import { browser, supportsSessions, supportsTabGroups } from "@/lib/browser-api"
 import {
   DEFAULT_PROVIDER_ID,
   DEFAULT_TABS_ACCESS,
@@ -83,7 +83,12 @@ const OPTIONAL_PERMISSIONS: OptionalPermissionMeta[] = [
     focusId: "permission-tab-groups",
     available: supportsTabGroups
   },
-  { perm: "alarms", focusId: "permission-alarms", available: () => true }
+  { perm: "alarms", focusId: "permission-alarms", available: () => true },
+  {
+    perm: "sessions",
+    focusId: "permission-sessions",
+    available: supportsSessions
+  }
 ]
 
 const SCHEDULED_JOB_LABELS: Record<
@@ -145,11 +150,22 @@ const OptionalPermissionRow = ({
 
   useEffect(() => {
     let active = true
-    hasPermission(meta.perm).then((value) => {
-      if (active) setGranted(value)
-    })
+    const refresh = () =>
+      hasPermission(meta.perm).then((value) => {
+        if (active) setGranted(value)
+      })
+    const onChanged = (permissions: { permissions?: string[] }) => {
+      if (permissions.permissions?.includes(meta.perm)) void refresh()
+    }
+
+    refresh().catch(() => undefined)
+    browser.permissions?.onAdded?.addListener(onChanged)
+    browser.permissions?.onRemoved?.addListener(onChanged)
+
     return () => {
       active = false
+      browser.permissions?.onAdded?.removeListener(onChanged)
+      browser.permissions?.onRemoved?.removeListener(onChanged)
     }
   }, [meta.perm])
 

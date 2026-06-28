@@ -75,7 +75,7 @@ export const ChatExportButton = ({ sessionId }: { sessionId?: string }) => {
             )}
             ariaLabel={t("sessions.export.aria_label")}
             tooltip={t("sessions.export.tooltip")}
-            icon={<Download className="icon-md" />}
+            icon={<Download className="icon-sm" />}
           />
         }>
         <DropdownMenuContent

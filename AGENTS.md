@@ -123,6 +123,14 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 - SearXNG has `pageno` but no API result-count parameter. Fetch configured pages, de-dupe, then cap output before returning results to the model. Brave uses `count`; Tavily uses `max_results`.
 - Keep snippets/titles untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
 
+### Browser Sessions And Capture
+
+- Read-only session helpers live in `src/lib/browser-sessions.ts`; model tools live in `src/lib/tools/internal/browser-session-tools.ts`.
+- `sessions` is optional. Always check browser support and the live browser permission before reading recently closed or synced-device sessions.
+- Session URLs must pass the same unreadable and never-read filters as other browser tools.
+- Do not expose `sessions.restore()` to a model until tool execution has a real interactive approval boundary.
+- `tabCapture` + `offscreen` remains a Chromium 116+ prototype. Any future capture flow must start from a user gesture, preserve tab audio, show persistent recording state and Stop, stop on permission revoke, and keep capture data ephemeral until explicitly saved.
+
 ## Key Conventions
 
 ### Messaging keys: provider-* vs ollama-*

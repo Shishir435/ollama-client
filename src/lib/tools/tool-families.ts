@@ -35,6 +35,8 @@ const FAMILY_BY_TOOL_NAME: Record<string, ToolFamily> = {
   file_search: "knowledge",
   get_recent_history: "history",
   search_bookmarks: "history",
+  list_recently_closed: "history",
+  list_synced_sessions: "history",
   web_search: "web",
   schedule_reminder: "automation",
   save_artifact: "automation"

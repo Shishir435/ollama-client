@@ -256,6 +256,8 @@
         "selection": "選択範囲を読取中",
         "history": "履歴を読取中",
         "bookmarks": "ブックマークを検索中",
+        "sessions": "最近閉じたタブを読取中",
+        "syncedSessions": "同期タブを読取中",
         "trimmed": "結果を短縮済み",
         "change_limit": "上限を変更",
         "documents": "ファイルを検索中",
@@ -1416,6 +1418,10 @@
         "history": {
           "label": "閲覧履歴",
           "description": "履歴をローカルでインデックス・参照できます。アップロードされることはありません。"
+        },
+        "sessions": {
+          "label": "最近閉じたタブ",
+          "description": "最近閉じたタブと同期デバイスのセッションをモデルが読み取れるようにします。タブの復元は許可されません。"
         },
         "notifications": {
           "label": "通知",

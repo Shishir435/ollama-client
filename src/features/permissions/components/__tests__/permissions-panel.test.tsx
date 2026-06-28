@@ -18,7 +18,14 @@ vi.mock("@/lib/permissions", () => ({
 const browserApi = vi.hoisted(() => ({
   sendMessage: vi.fn(),
   createNotification: vi.fn(),
-  supportsTabGroups: vi.fn()
+  supportsTabGroups: vi.fn(),
+  supportsSessions: vi.fn(),
+  permissionAddedListeners: new Set<
+    (value: { permissions?: string[] }) => void
+  >(),
+  permissionRemovedListeners: new Set<
+    (value: { permissions?: string[] }) => void
+  >()
 }))
 
 vi.mock("@/lib/browser-api", () => ({
@@ -29,9 +36,26 @@ vi.mock("@/lib/browser-api", () => ({
     },
     notifications: {
       create: browserApi.createNotification
+    },
+    permissions: {
+      onAdded: {
+        addListener: (listener: (value: { permissions?: string[] }) => void) =>
+          browserApi.permissionAddedListeners.add(listener),
+        removeListener: (
+          listener: (value: { permissions?: string[] }) => void
+        ) => browserApi.permissionAddedListeners.delete(listener)
+      },
+      onRemoved: {
+        addListener: (listener: (value: { permissions?: string[] }) => void) =>
+          browserApi.permissionRemovedListeners.add(listener),
+        removeListener: (
+          listener: (value: { permissions?: string[] }) => void
+        ) => browserApi.permissionRemovedListeners.delete(listener)
+      }
     }
   },
-  supportsTabGroups: browserApi.supportsTabGroups
+  supportsTabGroups: browserApi.supportsTabGroups,
+  supportsSessions: browserApi.supportsSessions
 }))
 
 vi.mock("@/lib/scheduled-jobs", () => ({
@@ -92,6 +116,9 @@ beforeEach(() => {
   browserApi.sendMessage.mockResolvedValue({ success: true })
   browserApi.createNotification.mockResolvedValue("test-notification")
   browserApi.supportsTabGroups.mockReturnValue(false)
+  browserApi.supportsSessions.mockReturnValue(true)
+  browserApi.permissionAddedListeners.clear()
+  browserApi.permissionRemovedListeners.clear()
   providerModels.models = [{ name: "qwen", providerId: "ollama" }]
 })
 
@@ -144,6 +171,26 @@ describe("PermissionsPanel", () => {
     render(<PermissionsPanel />)
     fireEvent.click(document.getElementById("permission-bookmarks") as Element)
     expect(perm.requestPermission).toHaveBeenCalledWith("bookmarks")
+  })
+
+  it("updates a switch when permission is revoked outside the UI", async () => {
+    let bookmarksGranted = true
+    perm.hasPermission.mockImplementation(async (permission) =>
+      permission === "bookmarks" ? bookmarksGranted : false
+    )
+    render(<PermissionsPanel />)
+
+    const bookmarks = screen.getByRole("switch", {
+      name: "settings.permissions.items.bookmarks.label"
+    })
+    await waitFor(() => expect(bookmarks).toBeChecked())
+
+    bookmarksGranted = false
+    for (const listener of browserApi.permissionRemovedListeners) {
+      listener({ permissions: ["bookmarks"] })
+    }
+
+    await waitFor(() => expect(bookmarks).not.toBeChecked())
   })
 
   it("shows the tab-groups optional permission when supported", async () => {

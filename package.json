@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.11.21",
+  "version": "0.11.22",
   "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -41,6 +41,7 @@
     "build:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt build -b firefox --mv2 --mode production",
     "package:firefox": "pnpm generate:resources && WXT_OUTPUT_DIR=build/firefox-mv2-prod wxt zip -b firefox --mv2 --mode production",
     "verify:browser-smoke": "npx tsx tools/verify-browser-smoke.ts",
+    "verify:release": "pnpm verify && pnpm verify:browser-smoke",
     "verify:local-browsers": "npx tsx tools/verify-local-browsers-sequential.ts",
     "verify:browser-automation": "pnpm verify:browser-smoke && npx tsx tools/verify-browser-automation-local.ts",
     "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",

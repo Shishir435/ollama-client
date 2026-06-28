@@ -98,17 +98,26 @@ const checkPageLoaded = async (
   assert(hasMount, `${label} did not mount expected selector: ${selector}`)
 }
 
+const installPageEvaluationHelpers = async (page: Page): Promise<void> => {
+  const keepNamesShim = "globalThis.__name ??= (target, _value) => target"
+  await page.addInitScript({ content: keepNamesShim })
+  await page.evaluate(keepNamesShim)
+}
+
 const prepareVisualSmoke = async (
   page: Page,
   theme: string,
   locale = "en",
   viewport = optionsViewport
 ): Promise<void> => {
+  // tsx/esbuild can inject its keep-names helper into serialized callbacks,
+  // but Playwright evaluates them in a page where that helper does not exist.
+  await installPageEvaluationHelpers(page)
   await page.evaluate<void, { requestedTheme: string; requestedLocale: string }>(
     ({ requestedTheme, requestedLocale }) => {
-      const setExtensionStorage = (
+      function setExtensionStorage(
         values: Record<string, string>
-      ): Promise<void> => {
+      ): Promise<void> {
         return new Promise<void>((resolve, reject) => {
           if (!globalThis.chrome?.storage?.sync) {
             resolve()
@@ -147,6 +156,8 @@ const prepareVisualSmoke = async (
   await page.setViewportSize(viewport)
   await page.reload({ waitUntil: "domcontentloaded" })
   await checkPageLoaded(page, "visual smoke page")
+  await page.evaluate(() => document.fonts.ready)
+  await page.waitForTimeout(150)
 }
 
 const captureVisualSmoke = async (page: Page, name: string): Promise<void> => {
@@ -577,7 +588,7 @@ const verifyChatConversationFromExtension = async (
         let content = ""
         let finished = false
 
-        const finish = (result: ChatVerificationResult): void => {
+        function finish(result: ChatVerificationResult): void {
           if (finished) return
           finished = true
           try {
@@ -656,6 +667,7 @@ const verifyChatConversationViaHttp = async (
   model: string,
   browserLabel: string
 ): Promise<void> => {
+  await installPageEvaluationHelpers(page)
   const response = await page.evaluate<
     ChatVerificationResult,
     { baseUrl: string; selectedModel: string; prompt: string }
@@ -670,7 +682,7 @@ const verifyChatConversationViaHttp = async (
           })
         }, 90000)
 
-        const finish = (result: ChatVerificationResult): void => {
+        function finish(result: ChatVerificationResult): void {
           clearTimeout(timeout)
           resolve(result)
         }
