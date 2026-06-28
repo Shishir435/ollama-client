@@ -171,9 +171,9 @@ const SourceRow = ({
       </div>
 
       {expanded && feedback && group === "knowledge" && (
-        <div className="flex items-center gap-1 pb-2.5 pl-10 sm:pl-[3.25rem]">
+        <div className="flex items-center gap-1 pb-2.5 pl-10 sm:pl-13">
           <ChunkFeedbackButton
-            chunkId={String(item.id)}
+            chunkId={String(item.chunkId ?? item.id)}
             query={feedback.query}
             sessionId={feedback.sessionId}
           />
@@ -221,7 +221,8 @@ const SourceSection = ({
             <button
               type="button"
               onClick={() => {
-                for (const url of urls) window.open(url, "_blank", "noopener")
+                for (const url of urls)
+                  window.open(url, "_blank", "noopener,noreferrer")
               }}
               title={t("chat.sources.open_all_tabs")}
               aria-label={t("chat.sources.open_all_tabs")}

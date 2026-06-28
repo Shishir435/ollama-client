@@ -57,12 +57,14 @@ export function UnifiedSourcesButton({
       ? ragSources.map((source, index) => ({
           ...source,
           id: `knowledge-${source.id}-${index}`,
+          chunkId: source.id,
           kind: "knowledge"
         }))
       : usedContextChunks
           .filter((chunk) => chunk.source === "rag")
           .map((chunk) => ({
             id: `knowledge-${chunk.id}-${chunk.chunkIndex ?? 0}`,
+            chunkId: chunk.id,
             title: chunk.title,
             content: chunk.excerpt,
             score: chunk.score,
