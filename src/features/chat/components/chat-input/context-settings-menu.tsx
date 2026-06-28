@@ -405,7 +405,7 @@ export const ContextSettingsMenu = ({
       : useRAG
         ? t("chat.context.knowledge")
         : null,
-    webSearchConfig.enabled ? t("chat.context.web") : null
+    showWebSearch && webSearchConfig.enabled ? t("chat.context.web") : null
   ].filter((label): label is string => Boolean(label))
   const contextSummary =
     contextState.length > 0 ? contextState.join(" · ") : t("chat.context.none")
