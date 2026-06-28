@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import { ConfirmActionDialog, StatusAlert } from "@/components/settings"
-import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
 import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { useEmbeddingDimensionStats } from "@/features/model/hooks/use-embedding-dimension-stats"
 import { useEmbeddingModelCheck } from "@/features/model/hooks/use-embedding-model-check"
@@ -424,7 +423,6 @@ export const EmbeddingSettings = () => {
       </TwoColumnGrid>
       <EmbeddingIndexControls />
       <FeedbackSettings />
-      <DataMigrationSettings />
       <ConfirmActionDialog
         open={confirmDialog.open}
         onOpenChange={(next) => {

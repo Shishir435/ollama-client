@@ -14,7 +14,6 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
-import { IconBadge } from "@/components/icon-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -29,6 +28,7 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
+import { useWebSearchConfig } from "@/features/web-search/stores/web-search-config-store"
 import {
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_TABS_ACCESS,
@@ -193,7 +193,11 @@ const TabContextPanel = ({
   )
 }
 
-export const ContextSettingsMenu = () => {
+export const ContextSettingsMenu = ({
+  attachmentCount = 0
+}: {
+  attachmentCount?: number
+}) => {
   const { t } = useTranslation()
   const [useRAG, setUseRAG] = useStorage<boolean>(
     { key: STORAGE_KEYS.EMBEDDINGS.USE_RAG, instance: plasmoGlobalStorage },
@@ -249,8 +253,11 @@ export const ContextSettingsMenu = () => {
       },
       false
     )
-  const { capabilities } = useSelectedModelCapabilities()
+  const { capabilities, isResolving } = useSelectedModelCapabilities()
+  const { config: webSearchConfig, updateConfig: updateWebSearchConfig } =
+    useWebSearchConfig()
   const showAutoScreenshot = capabilities?.vision ?? false
+  const showWebSearch = Boolean(capabilities?.toolCalling) || isResolving
 
   const excludedPatterns =
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS
@@ -350,6 +357,18 @@ export const ContextSettingsMenu = () => {
         ? t("chat.input.rag_toggle_on")
         : t("chat.input.rag_toggle_off")
     },
+    ...(showWebSearch
+      ? [
+          {
+            key: "web",
+            checked: webSearchConfig.enabled,
+            onClick: () =>
+              updateWebSearchConfig({ enabled: !webSearchConfig.enabled }),
+            icon: Search,
+            label: t("chat.context.web")
+          }
+        ]
+      : []),
     {
       key: "grounded",
       checked: groundedOnlyMode,
@@ -375,6 +394,21 @@ export const ContextSettingsMenu = () => {
     : null
   const previewContent = previewTab?.html?.trim()
   const previewCharCount = previewContent?.length ?? 0
+  const contextState = [
+    tabAccess
+      ? selectedTabIds.length > 0
+        ? t("chat.context.tabs", { count: selectedTabIds.length })
+        : t("chat.context.page")
+      : null,
+    attachmentCount > 0
+      ? t("chat.context.files", { count: attachmentCount })
+      : useRAG
+        ? t("chat.context.knowledge")
+        : null,
+    webSearchConfig.enabled ? t("chat.context.web") : null
+  ].filter((label): label is string => Boolean(label))
+  const contextSummary =
+    contextState.length > 0 ? contextState.join(" · ") : t("chat.context.none")
 
   return (
     <>
@@ -386,19 +420,14 @@ export const ContextSettingsMenu = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
                   aria-label={t("tabs.context")}
                 />
               }
             />
           }
           label={t("tabs.context")}
-          icon={
-            <IconBadge
-              icon={<Layers className="icon-sm" aria-hidden="true" />}
-              count={selectedTabIds.length}
-            />
-          }
+          icon={<Layers className="icon-sm" aria-hidden="true" />}
         />
         <PopoverContent
           align="end"
@@ -409,6 +438,12 @@ export const ContextSettingsMenu = () => {
               <Layers className="icon-xs" />
               {t("tabs.context")}
             </div>
+          </div>
+          <div className="rounded-control border border-border/40 bg-muted/25 px-2.5 py-2">
+            <p className="text-micro font-medium uppercase text-muted-foreground">
+              {t("chat.context.preview_title")}
+            </p>
+            <p className="mt-1 text-xs text-foreground">{contextSummary}</p>
           </div>
           <div className="grid gap-1">
             {toggleActions.map((action) => {

@@ -304,7 +304,13 @@
       "web_published": "Published: {{date}}",
       "web_engine": "via {{engine}}",
       "web_score": "score {{score}}",
-      "web_no_snippet": "No preview available."
+      "web_no_snippet": "No preview available.",
+      "unified_tooltip": "{{count}} sources",
+      "unified_aria": "View {{count}} sources",
+      "unified_title": "Sources ({{count}})",
+      "unified_page": "Page & tabs ({{count}})",
+      "unified_knowledge": "Knowledge ({{count}})",
+      "unified_web": "Web ({{count}})"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
@@ -383,6 +389,15 @@
     "composer": {
       "rag": "Files",
       "tabs": "Page",
+      "web": "Web"
+    },
+    "context": {
+      "preview_title": "The model will see",
+      "none": "No extra context",
+      "page": "Page",
+      "tabs": "{{count}} tabs",
+      "files": "{{count}} files",
+      "knowledge": "Knowledge",
       "web": "Web"
     }
   },
@@ -974,22 +989,26 @@
       "unload_tooltip": "Unload model"
     },
     "tabs": {
-      "general": "General",
-      "prompts": "Prompts",
-      "models": "Models",
-      "extraction": "Extraction",
-      "context": "Context",
-      "embeddings": "Embeddings",
+      "general": "Chat",
+      "prompts": "Prompt library",
+      "models": "Model behavior",
+      "extraction": "Page & tabs",
+      "context": "Knowledge & web",
+      "embeddings": "Saved knowledge",
       "providers": "Providers",
-      "voices": "Voices",
-      "permissions": "Permissions",
-      "reset": "Reset",
-      "guides": "Guides",
+      "voices": "Speech",
+      "permissions": "Privacy & permissions",
+      "reset": "Data & backup",
+      "guides": "Help",
       "shortcuts": "Shortcuts"
     },
     "permissions": {
       "title": "Permissions & privacy",
       "description": "See and control what this extension can access. Everything stays on your device.",
+      "overview": {
+        "title": "Local by default",
+        "description": "Chats, settings, files, and indexes stay in this browser profile. Optional access is visible, revocable, and never granted silently."
+      },
       "optional": {
         "title": "Optional access",
         "description": "Granted only when you turn it on, and revocable here at any time. Each unlocks a local feature; no data leaves your device."
@@ -1101,6 +1120,13 @@
             "label": "Automation",
             "description": "Reminders and other scheduled actions."
           }
+        },
+        "inventory": {
+          "title": "Available tools",
+          "description": "Live inventory for this browser. Final availability also depends on the selected model.",
+          "available": "Available",
+          "disabled": "Disabled",
+          "permissionRequired": "Permission needed"
         },
         "perModel": {
           "title": "Per-model overrides",
@@ -1222,7 +1248,7 @@
     },
     "page": {
       "title": "Ollama Client Settings",
-      "description": "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Guides tab."
+      "description": "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Help tab."
     },
     "search": {
       "placeholder": "Search settings…"
@@ -1283,7 +1309,13 @@
       "app": "App",
       "ai_models": "AI & Models",
       "customize": "Customize",
-      "system": "System"
+      "system": "System",
+      "setup": "Setup",
+      "chat": "Chat",
+      "knowledge": "Knowledge",
+      "page_tabs": "Page & tabs",
+      "privacy": "Privacy",
+      "more": "More"
     },
     "speech": {
       "title": "Speech Settings",
@@ -1625,6 +1657,10 @@
       "body": "Some features — bookmarks & history knowledge, reminders, saving files, and tab groups — need optional browser permissions. They stay off until you allow them, so grant only what you want.",
       "open": "Open Permissions",
       "dismiss": "Maybe later"
+    },
+    "provider": {
+      "title": "Connect a provider",
+      "open_setup": "Set up provider"
     }
   }
 }

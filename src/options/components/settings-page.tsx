@@ -46,15 +46,16 @@ import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
   BookOpen,
+  Bot,
   Brain,
   Database,
   FileText,
   Github,
+  HardDrive,
+  Library,
   Lock,
-  RefreshCcw,
+  MessageSquare,
   Server,
-  Settings,
-  Sparkles,
   Volume2,
   Zap
 } from "@/lib/lucide-icon"
@@ -80,21 +81,32 @@ export const SettingsPage = () => {
 
   const navSections: NavSection[] = [
     {
-      title: t("settings.sections.app"),
+      title: t("settings.sections.setup"),
       items: [
-        { key: "general", label: t("settings.tabs.general"), icon: Settings }
-      ]
-    },
-    {
-      title: t("settings.sections.ai_models"),
-      items: [
-        { key: "models", label: t("settings.tabs.models"), icon: Sparkles },
         {
           key: "providers",
           label: t("settings.tabs.providers"),
           icon: Server,
           badge: "New"
         },
+        { key: "models", label: t("settings.tabs.models"), icon: Bot }
+      ]
+    },
+    {
+      title: t("settings.sections.chat"),
+      items: [
+        {
+          key: "general",
+          label: t("settings.tabs.general"),
+          icon: MessageSquare
+        },
+        { key: "prompts", label: t("settings.tabs.prompts"), icon: Library },
+        { key: "voices", label: t("settings.tabs.voices"), icon: Volume2 }
+      ]
+    },
+    {
+      title: t("settings.sections.knowledge"),
+      items: [
         {
           key: "context",
           label: t("settings.tabs.context"),
@@ -106,31 +118,34 @@ export const SettingsPage = () => {
           label: t("settings.tabs.embeddings"),
           icon: Database,
           badge: "Beta"
-        },
-        {
-          key: "contentExtraction",
-          label: t("settings.tabs.extraction"),
-          icon: Sparkles
         }
       ]
     },
     {
-      title: t("settings.sections.customize"),
+      title: t("settings.sections.page_tabs"),
       items: [
-        { key: "prompts", label: t("settings.tabs.prompts"), icon: FileText },
-        { key: "shortcuts", label: t("settings.tabs.shortcuts"), icon: Zap },
-        { key: "voices", label: t("settings.tabs.voices"), icon: Volume2 }
+        {
+          key: "contentExtraction",
+          label: t("settings.tabs.extraction"),
+          icon: FileText
+        }
       ]
     },
     {
-      title: t("settings.sections.system"),
+      title: t("settings.sections.privacy"),
       items: [
         {
           key: "permissions",
           label: t("settings.tabs.permissions"),
           icon: Lock
         },
-        { key: "reset", label: t("settings.tabs.reset"), icon: RefreshCcw },
+        { key: "reset", label: t("settings.tabs.reset"), icon: HardDrive }
+      ]
+    },
+    {
+      title: t("settings.sections.more"),
+      items: [
+        { key: "shortcuts", label: t("settings.tabs.shortcuts"), icon: Zap },
         { key: "guides", label: t("settings.tabs.guides"), icon: BookOpen }
       ]
     }
@@ -391,7 +406,7 @@ export const SettingsPage = () => {
             sections={navSections}
             activeTab={activeTab}
             onTabChange={handleTabChange}
-            className="w-full p-4 pt-2"
+            className="w-full min-h-0 flex-1 p-4 pt-2"
           />
         </div>
         <div className="flex flex-col flex-1 overflow-hidden">

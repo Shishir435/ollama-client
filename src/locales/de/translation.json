@@ -304,7 +304,13 @@
       "web_title": "Web-Quellen ({{count}})",
       "web_unused_hint": "Erhöhe die Anzahl der Web-Suchergebnisse in den Einstellungen, um dem Modell mehr davon bereitzustellen.",
       "web_unused_label": "Ebenfalls gefunden – nicht gesendet ({{count}})",
-      "web_used_label": "An das Modell gesendet ({{count}})"
+      "web_used_label": "An das Modell gesendet ({{count}})",
+      "unified_tooltip": "{{count}} Quellen",
+      "unified_aria": "{{count}} Quellen anzeigen",
+      "unified_title": "Quellen ({{count}})",
+      "unified_page": "Seite & Tabs ({{count}})",
+      "unified_knowledge": "Wissen ({{count}})",
+      "unified_web": "Web ({{count}})"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -383,6 +389,15 @@
     "composer": {
       "rag": "Dateien",
       "tabs": "Seite",
+      "web": "Web"
+    },
+    "context": {
+      "preview_title": "Das Modell sieht",
+      "none": "Kein zusätzlicher Kontext",
+      "page": "Seite",
+      "tabs": "{{count}} Tabs",
+      "files": "{{count}} Dateien",
+      "knowledge": "Wissen",
       "web": "Web"
     }
   },
@@ -983,7 +998,7 @@
       "providers": "Anbieter",
       "voices": "Sprachausgaben",
       "reset": "Zurücksetzen",
-      "guides": "Anleitungen",
+      "guides": "Hilfe",
       "shortcuts": "Tastaturkürzel",
       "permissions": "Berechtigungen"
     },
@@ -1097,13 +1112,19 @@
     },
     "page": {
       "title": "Ollama Client Einstellungen",
-      "description": "Verwalten Sie alle Aspekte Ihres Ollama-Setups an einem Ort. Für Tipps und Einrichtungshinweise besuchen Sie den Tab 'Anleitungen'."
+      "description": "Verwalten Sie alle Aspekte Ihres Ollama-Setups an einem Ort. Für Tipps und Einrichtungshinweise besuchen Sie den Tab 'Hilfe'."
     },
     "sections": {
       "app": "App",
       "ai_models": "KI & Modelle",
       "customize": "Anpassen",
-      "system": "System"
+      "system": "System",
+      "setup": "Einrichtung",
+      "chat": "Chat",
+      "knowledge": "Wissen",
+      "page_tabs": "Seite & Tabs",
+      "privacy": "Datenschutz",
+      "more": "Mehr"
     },
     "speech": {
       "title": "Spracheinstellungen",
@@ -1406,6 +1427,10 @@
     "permissions": {
       "title": "Berechtigungen & Datenschutz",
       "description": "Sieh und steuere, worauf diese Erweiterung zugreifen darf. Alles bleibt auf deinem Gerät.",
+      "overview": {
+        "title": "Standardmäßig lokal",
+        "description": "Chats, Einstellungen, Dateien und Indizes bleiben in diesem Browserprofil. Optionaler Zugriff ist sichtbar, widerrufbar und wird nie still gewährt."
+      },
       "optional": {
         "title": "Optionaler Zugriff",
         "description": "Wird nur erteilt, wenn du ihn aktivierst, und ist hier jederzeit widerrufbar. Jede Option schaltet eine lokale Funktion frei; keine Daten verlassen dein Gerät."
@@ -1518,6 +1543,13 @@
             "description": "Erinnerungen und andere geplante Aktionen."
           }
         },
+        "inventory": {
+          "title": "Verfügbare Tools",
+          "description": "Live-Inventar für diesen Browser. Die endgültige Verfügbarkeit hängt auch vom gewählten Modell ab.",
+          "available": "Verfügbar",
+          "disabled": "Deaktiviert",
+          "permissionRequired": "Berechtigung nötig"
+        },
         "perModel": {
           "title": "Modellspezifische Ausnahmen",
           "description": "Überschreibe die obigen Gruppen für ein bestimmtes Modell. Modelle ohne Ausnahme nutzen die Standardwerte oben.",
@@ -1625,6 +1657,10 @@
       "body": "Einige Funktionen – Lesezeichen- & Verlaufswissen, Erinnerungen, Dateien speichern und Tab-Gruppen – benötigen optionale Browser-Berechtigungen. Sie bleiben aus, bis du sie erlaubst. Gewähre nur, was du möchtest.",
       "open": "Berechtigungen öffnen",
       "dismiss": "Später"
+    },
+    "provider": {
+      "title": "Anbieter verbinden",
+      "open_setup": "Anbieter einrichten"
     }
   }
 }

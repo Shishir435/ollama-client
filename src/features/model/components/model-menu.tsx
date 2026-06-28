@@ -198,7 +198,7 @@ export const ModelMenu = ({
                     variant="ghost"
                     role="combobox"
                     aria-expanded={open}
-                    className="h-8 justify-between gap-1.5 rounded-panel bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                    className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
                   />
                 }
               />
@@ -209,11 +209,11 @@ export const ModelMenu = ({
             trigger ? null : (
               <>
                 {selectedModel ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
                     {(() => {
                       const SelectedModelIcon = getModelIcon(selectedModel)
                       return (
-                        <SelectedModelIcon className="icon-md text-muted-foreground" />
+                        <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
                       )
                     })()}
                     <span className="truncate font-medium">
@@ -232,7 +232,7 @@ export const ModelMenu = ({
                     {t("model.menu.select_placeholder")}
                   </span>
                 )}
-                <ChevronDown className="icon-md opacity-50" />
+                <ChevronDown className="icon-md shrink-0 opacity-50" />
               </>
             )
           }
