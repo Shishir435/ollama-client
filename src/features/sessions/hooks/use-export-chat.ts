@@ -1,9 +1,5 @@
 import { useTranslation } from "react-i18next"
 import { splitStoredFiles } from "@/features/sessions/lib/message-tree"
-import { jsonExporter } from "@/lib/exporters/json-exporter"
-import { markdownExporter } from "@/lib/exporters/markdown-exporter"
-import { pdfExporter } from "@/lib/exporters/pdf-exporter"
-import { textExporter } from "@/lib/exporters/text-exporter"
 import {
   getFilesByMessageIds,
   getMessagesBySessionOrderedByTimestamp
@@ -45,6 +41,7 @@ export const useChatExport = () => {
     fileName?: string
   ) => {
     const fullSession = await getFullSession(session)
+    const { jsonExporter } = await import("@/lib/exporters/json-exporter")
     jsonExporter.exportSession(fullSession, t, { fileName })
   }
 
@@ -53,6 +50,7 @@ export const useChatExport = () => {
     fileName?: string
   ) => {
     const fullSession = await getFullSession(session)
+    const { pdfExporter } = await import("@/lib/exporters/pdf-exporter")
     pdfExporter.exportSession(fullSession, t, { fileName })
   }
 
@@ -61,6 +59,9 @@ export const useChatExport = () => {
     fileName?: string
   ) => {
     const fullSession = await getFullSession(session)
+    const { markdownExporter } = await import(
+      "@/lib/exporters/markdown-exporter"
+    )
     markdownExporter.exportSession(fullSession, t, { fileName })
   }
 
@@ -69,6 +70,7 @@ export const useChatExport = () => {
     fileName?: string
   ) => {
     const fullSession = await getFullSession(session)
+    const { textExporter } = await import("@/lib/exporters/text-exporter")
     textExporter.exportSession(fullSession, t, { fileName })
   }
 
