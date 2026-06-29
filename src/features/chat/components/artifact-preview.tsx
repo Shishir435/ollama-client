@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ChatArtifact } from "@/lib/artifacts"
+import { TriangleAlert } from "@/lib/lucide-icon"
 import { PreviewTextBlock } from "./preview-sheet"
 
 const PREVIEW_RESET_STYLE =
@@ -111,11 +112,32 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
   if (error) {
     return (
       <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
-        <PreviewTextBlock
-          text={`Mermaid render failed:\n\n${error}\n\nSource:\n${artifact.content}`}
-          emptyText="No Mermaid content"
-          className="font-mono text-2xs"
-        />
+        <div className="space-y-3 p-4">
+          <div className="flex items-start gap-2 rounded-control border border-status-warning/40 bg-status-warning/10 p-3">
+            <TriangleAlert className="icon-sm mt-0.5 shrink-0 text-status-warning" />
+            <div className="min-w-0 text-xs">
+              <p className="font-medium text-status-warning">
+                Couldn't render this diagram
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                The Mermaid syntax is invalid — the raw source is shown below.
+              </p>
+            </div>
+          </div>
+          <PreviewTextBlock
+            text={artifact.content}
+            emptyText="No Mermaid content"
+            className="rounded-control bg-muted/40 font-mono text-2xs"
+          />
+          <details className="px-1 text-2xs text-muted-foreground">
+            <summary className="cursor-pointer select-none">
+              Error details
+            </summary>
+            <pre className="mt-1 whitespace-pre-wrap wrap-anywhere">
+              {error}
+            </pre>
+          </details>
+        </div>
       </ScrollArea>
     )
   }
