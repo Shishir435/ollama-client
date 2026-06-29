@@ -219,7 +219,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         status: response.status,
         providerId: this.id,
         retryable: response.status >= 500,
-        userMessage: providerErrorUserMessage(response.status),
+        userMessage: providerErrorUserMessage(response.status, { baseUrl }),
         debug: errorText
       })
     }
@@ -432,6 +432,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           status: response.status,
           providerId: this.id,
           retryable: response.status >= 500,
+          userMessage: providerErrorUserMessage(response.status, { baseUrl }),
           debug: errorText
         }
       )
@@ -467,6 +468,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           status: response.status,
           providerId: this.id,
           retryable: response.status >= 500,
+          userMessage: providerErrorUserMessage(response.status, { baseUrl }),
           debug: errorText
         }
       )

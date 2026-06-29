@@ -10,23 +10,62 @@ import {
 const title = LANDING_TITLE
 const description = LANDING_DESCRIPTION
 
+const homepageFaq = [
+  {
+    question: "Does Ollama Client send chats to a cloud service?",
+    answer:
+      "No. Ollama Client stores chats and knowledge locally and sends model requests only to the provider endpoint you configure, such as Ollama, LM Studio, llama.cpp, vLLM, LocalAI, or KoboldCPP."
+  },
+  {
+    question: "Can I use Ollama Client with LM Studio or llama.cpp?",
+    answer:
+      "Yes. Ollama Client supports Ollama plus local OpenAI-compatible servers including LM Studio, llama.cpp, vLLM, LocalAI, and KoboldCPP."
+  },
+  {
+    question: "Is Ollama Client an Open WebUI alternative?",
+    answer:
+      "It can be, if you want a browser extension instead of a self-hosted web app. Ollama Client focuses on local-first chat, page context, files, web search, and browser tools inside Chrome or Firefox."
+  }
+]
+
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: SITE_TITLE,
-  description,
-  applicationCategory: "BrowserApplication",
-  operatingSystem: "Chrome",
-  author: {
-    "@type": "Person",
-    name: "Shishir Chaurasiya",
-    url: "https://www.shishirchaurasiya.in/"
-  },
-  url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-  downloadUrl:
-    "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-  codeRepository: "https://github.com/Shishir435/ollama-client",
-  softwareVersion: APP_VERSION
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: SITE_TITLE,
+      description,
+      applicationCategory: "BrowserApplication",
+      operatingSystem: "Chrome, Firefox",
+      browserRequirements: "Chrome MV3 or Firefox MV2 compatible browser",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD"
+      },
+      author: {
+        "@type": "Person",
+        name: "Shishir Chaurasiya",
+        url: "https://www.shishirchaurasiya.in/"
+      },
+      url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
+      downloadUrl:
+        "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
+      codeRepository: "https://github.com/Shishir435/ollama-client",
+      softwareVersion: APP_VERSION
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: homepageFaq.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer
+        }
+      }))
+    }
+  ]
 }
 
 const features = [
@@ -104,9 +143,11 @@ const stack = [
       Chat with local LLMs, right in your browser.
     </h1>
     <p class="mt-5 max-w-2xl text-balance text-[15px] leading-relaxed text-foreground/70">
-      Connect Ollama, LM Studio, llama.cpp, or any OpenAI-compatible server.
-      Provider-aware routing, streaming responses, local retrieval — all without
-      a mandatory cloud API.
+      Ollama Client is an open-source browser extension for Ollama, LM Studio,
+      llama.cpp, vLLM, LocalAI, KoboldCPP, and other OpenAI-compatible servers.
+      Chat with local AI models inside Chrome and Firefox with RAG, file upload,
+      web search, tool calling, and page context — all without a mandatory cloud
+      API.
     </p>
     <div class="mt-8 flex flex-wrap items-center gap-3">
       <a

@@ -1,0 +1,96 @@
+---
+title: Ollama Client FAQ
+description: Common questions about Ollama Client, local LLM providers, privacy, browser support, RAG, web search, and CORS setup.
+---
+
+import FAQPageJsonLd from "../../../components/seo/FAQPageJsonLd.astro"
+
+export const faqItems = [
+  {
+    question: "What is Ollama Client?",
+    answer:
+      "Ollama Client is an open-source browser extension for private, local-first AI chat with Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, and other OpenAI-compatible servers."
+  },
+  {
+    question: "Does Ollama Client require OpenAI?",
+    answer:
+      "No. Ollama Client is designed for local and self-hosted providers. You can use Ollama, LM Studio, llama.cpp, vLLM, LocalAI, or KoboldCPP without any OpenAI account."
+  },
+  {
+    question: "Where is my chat history stored?",
+    answer:
+      "Chat history is stored locally in the browser extension using SQLite in IndexedDB. Uploaded-file vectors and knowledge sets also stay in local browser storage."
+  },
+  {
+    question: "Can Ollama Client read the current web page?",
+    answer:
+      "Yes, when tab access and page context are enabled. The extension can add selected text, current page content, tab context, uploaded files, and optional web search results to a chat."
+  },
+  {
+    question: "Why do I see a 403 or CORS error with Ollama?",
+    answer:
+      "Firefox and strict local servers may block extension origins. For Ollama, allow browser-extension origins with OLLAMA_ORIGINS, then restart Ollama and retry."
+  }
+]
+
+<FAQPageJsonLd items={faqItems} />
+
+Ollama Client is a local-first browser extension for chatting with local and
+self-hosted AI models. It runs in Chrome and Firefox and connects to providers
+you control: Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, or another
+OpenAI-compatible server.
+
+## Does Ollama Client send my data to a cloud service?
+
+No cloud service is required by Ollama Client. Chat history, settings, uploaded
+files, and knowledge indexes are stored locally in the browser extension. Model
+requests go to the provider endpoint you configure.
+
+If you configure a remote provider, the prompt data needed for that request goes
+to that remote endpoint. If you configure a local provider such as Ollama or LM
+Studio on `localhost`, requests stay on your machine.
+
+## Which providers work with Ollama Client?
+
+Ollama Client supports:
+
+- Ollama
+- LM Studio
+- llama.cpp server
+- vLLM
+- LocalAI
+- KoboldCPP
+- Other OpenAI-compatible servers through the shared OpenAI-compatible adapter
+
+See [Provider Setup](/guides/provider-setup/) for endpoints and setup steps.
+
+## Is Ollama Client an Open WebUI alternative?
+
+Yes, for users who want a browser extension instead of a self-hosted web
+application. Open WebUI is a server-hosted interface. Ollama Client lives in the
+browser side panel and focuses on page context, local storage, RAG, web search,
+and browser-aware tools.
+
+## Can I use files and RAG locally?
+
+Yes. Ollama Client can process uploaded files and store local vector indexes for
+retrieval-augmented generation. File retrieval is local-first: uploaded content
+and embeddings are stored in browser storage, not in a hosted service.
+
+## Can models search the web?
+
+Yes, if you enable web search and configure a backend. Supported backends include
+SearXNG, Brave Search, and Tavily. Web search is optional, and API keys stay in
+local extension storage.
+
+## How do I fix a 403 or CORS error?
+
+For Ollama, set `OLLAMA_ORIGINS` so the local server accepts requests from
+browser-extension origins:
+
+```bash
+OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve
+```
+
+For persistent setup and platform-specific steps, see
+[Fix Ollama CORS errors](/guides/troubleshooting/ollama-cors-error/).

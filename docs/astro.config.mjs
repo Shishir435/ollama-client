@@ -1,4 +1,5 @@
 import mdx from "@astrojs/mdx"
+import { unified } from "@astrojs/markdown-remark"
 import sitemap from "@astrojs/sitemap"
 import starlight from "@astrojs/starlight"
 import { defineConfig } from "astro/config"
@@ -66,7 +67,9 @@ export default defineConfig({
      * architecture page is the only one with diagrams; load is lazy
      * via dynamic import in the init script below.
      */
-    rehypePlugins: [[rehypeMermaid, { strategy: "pre-mermaid" }]]
+    processor: unified({
+      rehypePlugins: [[rehypeMermaid, { strategy: "pre-mermaid" }]]
+    })
   },
   integrations: [
     starlight({
@@ -155,16 +158,22 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { label: "Quick Start", slug: "guides/quick-start" },
             { label: "Provider Setup", slug: "guides/provider-setup" },
             {
               label: "Context, Images, and Tools",
               slug: "guides/context-and-tools"
+            },
+            {
+              label: "Fix Ollama CORS errors",
+              slug: "guides/troubleshooting/ollama-cors-error"
             }
           ]
         },
         {
           label: "Concepts",
           items: [
+            { label: "Privacy", slug: "concepts/privacy" },
             { label: "Architecture", slug: "concepts/architecture" },
             {
               label: "Provider capabilities",
@@ -190,6 +199,7 @@ export default defineConfig({
         {
           label: "About",
           items: [
+            { label: "FAQ", slug: "about/faq" },
             { label: "Changelog", slug: "about/changelog" },
             { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
           ]

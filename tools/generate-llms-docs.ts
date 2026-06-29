@@ -42,7 +42,11 @@ type DocPage = {
 }
 
 const DOC_ORDER = [
+  "about/faq",
+  "guides/quick-start",
   "guides/provider-setup",
+  "guides/troubleshooting/ollama-cors-error",
+  "concepts/privacy",
   "concepts/architecture",
   "concepts/provider-matrix",
   "internal/frontend-design-system",

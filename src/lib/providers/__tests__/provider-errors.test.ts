@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
-import { providerErrorUserMessage } from "../provider-errors"
+import {
+  isLocalProviderBaseUrl,
+  providerErrorUserMessage
+} from "../provider-errors"
 import { type ProviderConfig, ProviderType } from "../types"
 
 describe("providerErrorUserMessage", () => {
@@ -17,6 +20,34 @@ describe("providerErrorUserMessage", () => {
 
   it("explains the vision case on 400", () => {
     expect(providerErrorUserMessage(400).toLowerCase()).toContain("vision")
+  })
+
+  it("points local 401/403 responses at CORS setup instead of credentials", () => {
+    const msg = providerErrorUserMessage(403, {
+      baseUrl: "http://localhost:1234/v1"
+    })
+
+    expect(msg).toContain("CORS")
+    expect(msg).toContain("OLLAMA_ORIGINS")
+    expect(msg).not.toContain("Check the API key")
+  })
+
+  it("keeps credential guidance for remote 401/403 responses", () => {
+    const msg = providerErrorUserMessage(401, {
+      baseUrl: "https://api.example.com/v1"
+    })
+
+    expect(msg).toContain("credentials")
+    expect(msg).not.toContain("OLLAMA_ORIGINS")
+  })
+})
+
+describe("isLocalProviderBaseUrl", () => {
+  it("detects local provider URLs", () => {
+    expect(isLocalProviderBaseUrl("http://localhost:11434/v1")).toBe(true)
+    expect(isLocalProviderBaseUrl("http://127.0.0.1:1234/v1")).toBe(true)
+    expect(isLocalProviderBaseUrl("http://studio.localhost:1234/v1")).toBe(true)
+    expect(isLocalProviderBaseUrl("https://api.example.com/v1")).toBe(false)
   })
 })
 
