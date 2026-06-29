@@ -120,7 +120,7 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
                 Couldn't render this diagram
               </p>
               <p className="mt-0.5 text-muted-foreground">
-                The Mermaid syntax is invalid — the raw source is shown below.
+                The raw source is shown below — expand details for the error.
               </p>
             </div>
           </div>
