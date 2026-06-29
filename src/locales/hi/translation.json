@@ -407,6 +407,14 @@
       "files": "{{count}} फ़ाइलें",
       "knowledge": "ज्ञान",
       "web": "वेब"
+    },
+    "artifacts": {
+      "render_failed_title": "यह आरेख रेंडर नहीं हो सका",
+      "render_failed_desc": "कच्चा स्रोत नीचे दिखाया गया है — त्रुटि के लिए विवरण खोलें।",
+      "error_details": "त्रुटि विवरण",
+      "mermaid_empty": "कोई Mermaid सामग्री नहीं",
+      "rendering_mermaid": "Mermaid आरेख रेंडर हो रहा है…",
+      "empty": "कोई आर्टिफ़ैक्ट सामग्री नहीं"
     }
   },
   "file_upload": {

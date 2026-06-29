@@ -1,28 +1,52 @@
 import { useTranslation } from "react-i18next"
-import { jsonExporter } from "@/lib/exporters/json-exporter"
-import { markdownExporter } from "@/lib/exporters/markdown-exporter"
-import { pdfExporter } from "@/lib/exporters/pdf-exporter"
-import { textExporter } from "@/lib/exporters/text-exporter"
+import { toast } from "@/hooks/use-toast"
+import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
 
+// Exporters pull in heavy deps (markdown-it + highlight.js, jsPDF, jszip).
+// Load them on demand so they stay out of the eager side-panel bundle.
 export const useMessageExport = () => {
   const { t } = useTranslation()
 
-  const exportMessageAsJson = (message: ChatMessage, fileName?: string) => {
-    jsonExporter.exportMessage(message, t, { fileName })
+  // Exporters load lazily, so a chunk-load failure would otherwise be swallowed
+  // by the fire-and-forget call sites. Surface it instead of failing silently.
+  const guard = async (run: () => Promise<void>) => {
+    try {
+      await run()
+    } catch (error) {
+      logger.error("Message export failed", "useMessageExport", { error })
+      toast({
+        variant: "destructive",
+        title: t("settings.migration.export.error_title")
+      })
+    }
   }
 
-  const exportMessageAsPdf = (message: ChatMessage, fileName?: string) => {
-    pdfExporter.exportMessage(message, t, { fileName })
-  }
+  const exportMessageAsJson = (message: ChatMessage, fileName?: string) =>
+    guard(async () => {
+      const { jsonExporter } = await import("@/lib/exporters/json-exporter")
+      jsonExporter.exportMessage(message, t, { fileName })
+    })
 
-  const exportMessageAsMarkdown = (message: ChatMessage, fileName?: string) => {
-    markdownExporter.exportMessage(message, t, { fileName })
-  }
+  const exportMessageAsPdf = (message: ChatMessage, fileName?: string) =>
+    guard(async () => {
+      const { pdfExporter } = await import("@/lib/exporters/pdf-exporter")
+      pdfExporter.exportMessage(message, t, { fileName })
+    })
 
-  const exportMessageAsText = (message: ChatMessage, fileName?: string) => {
-    textExporter.exportMessage(message, t, { fileName })
-  }
+  const exportMessageAsMarkdown = (message: ChatMessage, fileName?: string) =>
+    guard(async () => {
+      const { markdownExporter } = await import(
+        "@/lib/exporters/markdown-exporter"
+      )
+      markdownExporter.exportMessage(message, t, { fileName })
+    })
+
+  const exportMessageAsText = (message: ChatMessage, fileName?: string) =>
+    guard(async () => {
+      const { textExporter } = await import("@/lib/exporters/text-exporter")
+      textExporter.exportMessage(message, t, { fileName })
+    })
 
   return {
     exportMessageAsJson,
