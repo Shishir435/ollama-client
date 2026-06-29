@@ -18,9 +18,15 @@ let hljsLoading: Promise<void> | null = null
 const ensureHljs = (): Promise<void> => {
   if (hljsModule) return Promise.resolve()
   if (!hljsLoading) {
-    hljsLoading = import("@/lib/hljs").then((mod) => {
-      hljsModule = mod
-    })
+    hljsLoading = import("@/lib/hljs")
+      .then((mod) => {
+        hljsModule = mod
+      })
+      .catch((error) => {
+        // Let a later code-fence render retry instead of caching the rejection.
+        hljsLoading = null
+        throw error
+      })
   }
   return hljsLoading
 }
@@ -87,9 +93,13 @@ export const useMarkdownParser = (markdown: string) => {
   useEffect(() => {
     if (hljsReady || !CODE_FENCE.test(markdown)) return
     let cancelled = false
-    ensureHljs().then(() => {
-      if (!cancelled) setHljsReady(true)
-    })
+    ensureHljs()
+      .then(() => {
+        if (!cancelled) setHljsReady(true)
+      })
+      .catch(() => {
+        // Highlighting stays off; a later render can retry.
+      })
     return () => {
       cancelled = true
     }
