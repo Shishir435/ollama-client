@@ -407,6 +407,14 @@
       "files": "{{count}} файлов",
       "knowledge": "Знания",
       "web": "Веб"
+    },
+    "artifacts": {
+      "render_failed_title": "Не удалось отобразить эту диаграмму",
+      "render_failed_desc": "Исходный код показан ниже — разверните подробности, чтобы увидеть ошибку.",
+      "error_details": "Подробности ошибки",
+      "mermaid_empty": "Нет содержимого Mermaid",
+      "rendering_mermaid": "Отрисовка диаграммы Mermaid…",
+      "empty": "Нет содержимого артефакта"
     }
   },
   "file_upload": {

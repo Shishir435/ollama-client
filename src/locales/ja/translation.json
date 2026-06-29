@@ -407,6 +407,14 @@
       "files": "{{count}} 個のファイル",
       "knowledge": "ナレッジ",
       "web": "Web"
+    },
+    "artifacts": {
+      "render_failed_title": "この図を表示できませんでした",
+      "render_failed_desc": "ソースを以下に表示しています。詳細を開いてエラーを確認してください。",
+      "error_details": "エラーの詳細",
+      "mermaid_empty": "Mermaid コンテンツがありません",
+      "rendering_mermaid": "Mermaid 図をレンダリング中…",
+      "empty": "アーティファクトの内容がありません"
     }
   },
   "file_upload": {

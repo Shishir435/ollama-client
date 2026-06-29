@@ -407,6 +407,14 @@
       "files": "{{count}} 个文件",
       "knowledge": "知识",
       "web": "网页"
+    },
+    "artifacts": {
+      "render_failed_title": "无法渲染此图表",
+      "render_failed_desc": "下方显示原始源代码——展开详情查看错误。",
+      "error_details": "错误详情",
+      "mermaid_empty": "没有 Mermaid 内容",
+      "rendering_mermaid": "正在渲染 Mermaid 图表…",
+      "empty": "没有工件内容"
     }
   },
   "file_upload": {

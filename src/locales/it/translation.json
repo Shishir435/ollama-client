@@ -407,6 +407,14 @@
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
       "web": "Web"
+    },
+    "artifacts": {
+      "render_failed_title": "Impossibile renderizzare questo diagramma",
+      "render_failed_desc": "Il codice sorgente è mostrato sotto — espandi i dettagli per vedere l'errore.",
+      "error_details": "Dettagli dell'errore",
+      "mermaid_empty": "Nessun contenuto Mermaid",
+      "rendering_mermaid": "Rendering del diagramma Mermaid…",
+      "empty": "Nessun contenuto dell'artefatto"
     }
   },
   "file_upload": {

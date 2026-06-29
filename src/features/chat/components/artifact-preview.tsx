@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { TriangleAlert } from "@/lib/lucide-icon"
@@ -60,6 +61,7 @@ const svgPreviewSrcDoc = (svg: string): string => {
 }
 
 const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
+  const { t } = useTranslation()
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const renderId = useMemo(
@@ -117,21 +119,21 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
             <TriangleAlert className="icon-sm mt-0.5 shrink-0 text-status-warning" />
             <div className="min-w-0 text-xs">
               <p className="font-medium text-status-warning">
-                Couldn't render this diagram
+                {t("chat.artifacts.render_failed_title")}
               </p>
               <p className="mt-0.5 text-muted-foreground">
-                The raw source is shown below — expand details for the error.
+                {t("chat.artifacts.render_failed_desc")}
               </p>
             </div>
           </div>
           <PreviewTextBlock
             text={artifact.content}
-            emptyText="No Mermaid content"
+            emptyText={t("chat.artifacts.mermaid_empty")}
             className="rounded-control bg-muted/40 font-mono text-2xs"
           />
           <details className="px-1 text-2xs text-muted-foreground">
             <summary className="cursor-pointer select-none">
-              Error details
+              {t("chat.artifacts.error_details")}
             </summary>
             <pre className="mt-1 whitespace-pre-wrap wrap-anywhere">
               {error}
@@ -145,7 +147,7 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
   if (!svg) {
     return (
       <div className="grid min-h-96 flex-1 place-items-center text-sm text-muted-foreground">
-        Rendering Mermaid diagram...
+        {t("chat.artifacts.rendering_mermaid")}
       </div>
     )
   }
@@ -162,6 +164,8 @@ const MermaidPreview = ({ artifact }: { artifact: ChatArtifact }) => {
 }
 
 export const ArtifactPreview = ({ artifact }: { artifact: ChatArtifact }) => {
+  const { t } = useTranslation()
+
   if (artifact.kind === "mermaid") {
     return <MermaidPreview artifact={artifact} />
   }
@@ -181,7 +185,7 @@ export const ArtifactPreview = ({ artifact }: { artifact: ChatArtifact }) => {
     <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
       <PreviewTextBlock
         text={artifact.content}
-        emptyText="No artifact content"
+        emptyText={t("chat.artifacts.empty")}
         className="font-mono text-2xs"
       />
     </ScrollArea>
