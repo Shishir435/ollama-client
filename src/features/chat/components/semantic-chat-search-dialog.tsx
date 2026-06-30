@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import {
   type ChatSearchResult,
   useSemanticChatSearch
@@ -17,6 +16,7 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
 import { logger } from "@/lib/logger"
 import { Loader2 } from "@/lib/lucide-icon"
+import { useSearchDialogStore } from "@/stores/search-dialog-store"
 
 import { SearchEmptyState } from "./search/search-empty-state"
 import { SearchInput } from "./search/search-input"
@@ -37,10 +37,17 @@ export const SemanticChatSearchDialog = ({
   currentSessionId
 }: SemanticChatSearchDialogProps) => {
   const { t } = useTranslation()
+  const initialQuery = useSearchDialogStore((s) => s.initialQuery)
   const [searchQuery, setSearchQuery] = useState("")
   const [results, setResults] = useState<ChatSearchResult[]>([])
   const [searchScope, setSearchScope] = useState<"all" | "current">("all")
   const debouncedQuery = useDebounce(searchQuery, 500)
+
+  // Seed the query when the dialog opens — e.g. escalated from the sidebar
+  // title filter via Enter. Cold opens (keyboard shortcut) seed an empty string.
+  useEffect(() => {
+    if (open) setSearchQuery(initialQuery)
+  }, [open, initialQuery])
   const { search, isSearching, error } = useSemanticChatSearch()
   const {
     sessions,
@@ -165,15 +172,9 @@ export const SemanticChatSearchDialog = ({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 border-border/60 shadow-md">
         <DialogHeader className="px-5 py-4 border-b shrink-0 bg-background">
-          <div className="flex items-center gap-2">
-            <DialogTitle className="text-base font-bold tracking-tight">
-              {t("chat.search.dialog_title")}
-            </DialogTitle>
-            <MiniBadge
-              text={t("chat.search.beta_badge")}
-              className="bg-primary/10 text-primary border-primary/20"
-            />
-          </div>
+          <DialogTitle className="text-base font-bold tracking-tight">
+            {t("chat.search.dialog_title")}
+          </DialogTitle>
           <DialogDescription className="hidden">
             {t("chat.search.dialog_description")}
           </DialogDescription>
