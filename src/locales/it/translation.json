@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Scorri in fondo",
     "input": {
       "placeholder": "Digita un messaggio o ctrl + /",
       "switch_model": "Cambia modello",

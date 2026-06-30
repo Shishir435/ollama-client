@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Прокрутить вниз",
     "input": {
       "placeholder": "Введите сообщение или ctrl + /",
       "switch_model": "Сменить модель",

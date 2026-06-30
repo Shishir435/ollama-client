@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "一番下までスクロール",
     "input": {
       "placeholder": "メッセージを入力 または ctrl + /",
       "switch_model": "モデルを切り替え",
