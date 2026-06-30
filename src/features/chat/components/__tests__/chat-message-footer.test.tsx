@@ -51,10 +51,13 @@ describe("ChatMessageFooter", () => {
       />
     )
 
-    expect(screen.getByRole("button", { name: /More/i })).toBeInTheDocument()
     expect(
-      screen.queryByRole("button", { name: /Delete Message/i })
+      screen.queryByRole("button", { name: /More/i })
     ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Export/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /Delete Message/i })
+    ).toBeInTheDocument()
     expect(screen.getByText("deepseek-r1:8b")).toBeInTheDocument()
   })
 })

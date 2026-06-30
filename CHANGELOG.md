@@ -22,6 +22,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   while preserving the rendered documentation prose.
 - Bumped package version to `0.11.25`.
 
+### Fixed
+- Selection Actions now preserve configured model system instructions and
+  requested output language instead of biasing extraction results toward English.
+- Message footers use explicit export and delete actions instead of ambiguous
+  ellipsis menus, and chat-memory sources use a primary-colored user icon.
+
 ## [0.11.24] - 2026-06-29
 
 ### Added

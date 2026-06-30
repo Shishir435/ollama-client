@@ -54,7 +54,7 @@ export const handleSelectionAction = async (
       model,
       providerId
     )
-    const prompt = buildSelectionActionPrompt(msg.payload)
+    const prompt = buildSelectionActionPrompt(msg.payload, modelParams.system)
 
     await provider.streamChat(
       {

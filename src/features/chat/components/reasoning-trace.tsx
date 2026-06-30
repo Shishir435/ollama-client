@@ -41,8 +41,7 @@ const statusClass = (status: TraceStatus) =>
     error: "text-status-danger"
   })[status]
 
-const getDisplayLabel = (label: string, status: TraceStatus) =>
-  status === "running" ? `${label}...` : label
+const getDisplayLabel = (label: string) => label
 
 const getToolRunStatus = (run: ToolRun): TraceStatus =>
   run.status === "running"
@@ -369,8 +368,8 @@ export const ReasoningTrace = ({
     ? activeStep.status === "error" && activeStep.detail
       ? `${activeStep.label}: ${activeStep.detail}`
       : activeStep.preview
-        ? `${getDisplayLabel(activeStep.label, activeStep.status)}: ${activeStep.preview}`
-        : getDisplayLabel(activeStep.label, activeStep.status)
+        ? `${getDisplayLabel(activeStep.label)}: ${activeStep.preview}`
+        : getDisplayLabel(activeStep.label)
     : undefined
 
   const reasoningLabel = t("chat.reasoning.title")
@@ -382,7 +381,7 @@ export const ReasoningTrace = ({
           <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
           {steps.map((step) => {
             const Icon = step.icon ?? Circle
-            const label = getDisplayLabel(step.label, step.status)
+            const label = getDisplayLabel(step.label)
             const tooltip = step.detail ? `${label}: ${step.detail}` : label
             return (
               <TooltipActionButton
@@ -494,7 +493,6 @@ const ActivityStepRow = ({ event }: { event: ActivityEvent }) => {
             statusClass(status)
           )}>
           {event.label}
-          {status === "running" ? "…" : ""}
         </span>
         {event.resultCount !== undefined && (
           <span className="text-micro text-muted-foreground/70">

@@ -14,7 +14,8 @@ import {
   FileText,
   Globe,
   Info,
-  type LucideIcon
+  type LucideIcon,
+  User
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { ChunkFeedbackButton } from "./chunk-feedback-button"
@@ -82,8 +83,12 @@ const SourceRow = ({
 }) => {
   const { t } = useTranslation()
   const isWeb = group === "web"
+  const isUserMessage =
+    group === "knowledge" &&
+    item.source === "chat" &&
+    item.title === "User message"
   const host = isWeb && item.url ? (hostOf(item.url) ?? item.url) : undefined
-  const Icon = GROUP_META[group].icon
+  const Icon = isUserMessage ? User : GROUP_META[group].icon
 
   return (
     <div className="group/row">
@@ -93,7 +98,9 @@ const SourceRow = ({
             "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-control",
             isWeb
               ? "border border-border/50 bg-background"
-              : GROUP_META[group].chip
+              : isUserMessage
+                ? "bg-primary/10 text-primary"
+                : GROUP_META[group].chip
           )}>
           {isWeb && item.url ? (
             <WebSourceFavicon url={item.url} />

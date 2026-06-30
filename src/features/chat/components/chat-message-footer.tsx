@@ -63,7 +63,7 @@ export const ChatMessageFooter = ({
     onNavigate?.(targetNodeId)
   }
 
-  const actionItems: ActionMenuItemConfig[] = [
+  const exportItems: ActionMenuItemConfig[] = [
     onExport
       ? {
           key: "markdown",
@@ -94,15 +94,6 @@ export const ChatMessageFooter = ({
           label: "Text",
           onClick: () => onExport("text"),
           icon: <FileText className="icon-xs" />
-        }
-      : null,
-    onDelete
-      ? {
-          key: "delete",
-          label: t("chat.actions.delete"),
-          onClick: () => onDelete(),
-          icon: <Trash2 className="icon-xs" />,
-          destructive: true
         }
       : null
   ].filter(Boolean) as ActionMenuItemConfig[]
@@ -187,7 +178,28 @@ export const ChatMessageFooter = ({
           />
         )}
 
-        {actionItems.length > 0 && <ChatSessionActions actions={actionItems} />}
+        {exportItems.length > 0 && (
+          <ChatSessionActions
+            actions={exportItems}
+            trigger={{
+              ariaLabel: t("chat.actions.export"),
+              tooltip: t("chat.actions.export"),
+              icon: <FileDown className="icon-xs" />,
+              className: footerButtonClass
+            }}
+          />
+        )}
+
+        {onDelete && (
+          <TooltipActionButton
+            variant="ghost"
+            label={t("chat.actions.delete")}
+            size="icon"
+            className={footerButtonClass}
+            onClick={onDelete}
+            icon={<Trash2 className="icon-xs" />}
+          />
+        )}
       </div>
 
       {isUser ? (

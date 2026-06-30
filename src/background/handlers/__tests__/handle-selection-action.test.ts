@@ -98,6 +98,32 @@ describe("handleSelectionAction", () => {
     })
   })
 
+  it("passes the configured model system prompt into the selection action", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
+        return { modelId: "llama3:latest", providerId: "ollama" }
+      }
+      if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+        return {
+          "llama3:latest": { system: "Antworte immer auf Deutsch." }
+        }
+      }
+      return undefined
+    })
+
+    const port = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
+    await handleSelectionAction(message, port, createMockIsPortClosed(false))
+
+    const request = mockStreamChat.mock.calls[0][0]
+    expect(request.messages[0]).toEqual(
+      expect.objectContaining({
+        role: "system",
+        content: expect.stringContaining("Antworte immer auf Deutsch.")
+      })
+    )
+  })
+
   it("returns friendly error when no model is selected", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
