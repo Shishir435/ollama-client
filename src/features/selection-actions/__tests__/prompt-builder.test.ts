@@ -54,6 +54,37 @@ describe("selection action prompt builder", () => {
     expect(prompt.messages[1].content).toContain("Make this more polite.")
   })
 
+  it("preserves configured language instructions", () => {
+    const prompt = buildSelectionActionPrompt(
+      {
+        actionId: "custom",
+        selection: {
+          ...selection,
+          selectedText: "Das ist ein deutscher Text."
+        },
+        customInstruction: "Fasse den Text kurz zusammen."
+      },
+      "Antworte immer auf Deutsch."
+    )
+
+    expect(prompt.messages[0].content).toContain("Antworte immer auf Deutsch.")
+    expect(prompt.messages[1].content).toContain(
+      "Follow any output language requested"
+    )
+    expect(prompt.messages[1].content).toContain(
+      "Fasse den Text kurz zusammen."
+    )
+  })
+
+  it("keeps translate-to-English explicit", () => {
+    const prompt = buildSelectionActionPrompt({
+      actionId: "translate-english",
+      selection: { ...selection, selectedText: "Guten Morgen." }
+    })
+
+    expect(prompt.messages[1].content).toContain("Output in English.")
+  })
+
   it("ignores customInstruction for non-custom actions", () => {
     const prompt = buildSelectionActionPrompt({
       actionId: "shorten",

@@ -19,7 +19,7 @@ export const SettingsMobileNav = ({
     <nav
       className={cn("mb-6 lg:hidden", className)}
       aria-label="Settings navigation">
-      <div className="flex gap-0.5 overflow-x-auto rounded-panel bg-muted/60 p-1 scrollbar-none">
+      <div className="scroll-fade-x flex gap-0.5 overflow-x-auto rounded-panel bg-muted/60 p-1 scrollbar-none">
         {items.map((item) => {
           const Icon = item.icon
           const isActive = activeTab === item.key

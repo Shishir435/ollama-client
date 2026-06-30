@@ -51,6 +51,8 @@ describe("ChatMessageFooter", () => {
       />
     )
 
+    // Export + delete now collapse into a single "..." overflow trigger
+    // (closed by default), so neither is rendered inline.
     expect(screen.getByRole("button", { name: /More/i })).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /Delete Message/i })

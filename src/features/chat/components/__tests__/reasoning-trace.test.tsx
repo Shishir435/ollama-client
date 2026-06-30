@@ -156,9 +156,7 @@ describe("ReasoningTrace", () => {
       />
     )
 
-    expect(
-      screen.getByText(/Searching memory...: 2 results/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Searching memory: 2 results/)).toBeInTheDocument()
     expect(screen.getByText("What about it?")).toBeInTheDocument()
     expect(screen.getByText("What about tool calling?")).toBeInTheDocument()
     expect(screen.getByText("PR notes, Tool docs")).toBeInTheDocument()
@@ -336,10 +334,8 @@ describe("ReasoningTrace", () => {
       <ReasoningTrace message={{ role: "assistant", content: "" }} isLoading />
     )
 
-    expect(screen.getAllByText("Preparing context...").length).toBeGreaterThan(
-      0
-    )
-    expect(screen.queryByText("Answering...")).not.toBeInTheDocument()
+    expect(screen.getAllByText("Preparing context").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Answering")).not.toBeInTheDocument()
   })
 
   it("shows answering while visible text is streaming", () => {
@@ -350,8 +346,8 @@ describe("ReasoningTrace", () => {
       />
     )
 
-    expect(screen.getAllByText("Answering...").length).toBeGreaterThan(0)
-    expect(screen.queryByText("Preparing context...")).not.toBeInTheDocument()
+    expect(screen.getAllByText("Answering").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Preparing context")).not.toBeInTheDocument()
   })
 
   it("shows provider-agnostic tool labels and error detail", () => {

@@ -54,7 +54,16 @@ export const handleSelectionAction = async (
       model,
       providerId
     )
-    const prompt = buildSelectionActionPrompt(msg.payload)
+    // Use the user's explicitly configured system prompt, not the
+    // default-merged one. DEFAULT_MODEL_CONFIG.system ("...format with
+    // markdown...") conflicts with the selection action's "Return plain text
+    // only" instruction, so only forward a system prompt the user actually set.
+    const configuredSystemPrompt =
+      modelConfigMap[model]?.system?.trim() || undefined
+    const prompt = buildSelectionActionPrompt(
+      msg.payload,
+      configuredSystemPrompt
+    )
 
     await provider.streamChat(
       {

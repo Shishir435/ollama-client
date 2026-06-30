@@ -1,20 +1,15 @@
 import { useTranslation } from "react-i18next"
 
-import {
-  type ActionMenuItemConfig,
-  TooltipActionButton
-} from "@/components/actions"
+import { TooltipActionButton } from "@/components/actions"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
+import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import {
-  BookOpen,
   Bot,
   ChevronLeft,
   ChevronRight,
-  Code,
-  FileDown,
-  FileText,
   GitFork,
+  MoreHorizontal,
   Trash2
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -63,49 +58,14 @@ export const ChatMessageFooter = ({
     onNavigate?.(targetNodeId)
   }
 
-  const actionItems: ActionMenuItemConfig[] = [
-    onExport
-      ? {
-          key: "markdown",
-          label: "Markdown",
-          onClick: () => onExport("markdown"),
-          icon: <BookOpen className="icon-xs" />
-        }
-      : null,
-    onExport
-      ? {
-          key: "pdf",
-          label: "PDF",
-          onClick: () => onExport("pdf"),
-          icon: <FileDown className="icon-xs" />
-        }
-      : null,
-    onExport
-      ? {
-          key: "json",
-          label: "JSON",
-          onClick: () => onExport("json"),
-          icon: <Code className="icon-xs" />
-        }
-      : null,
-    onExport
-      ? {
-          key: "text",
-          label: "Text",
-          onClick: () => onExport("text"),
-          icon: <FileText className="icon-xs" />
-        }
-      : null,
-    onDelete
-      ? {
-          key: "delete",
-          label: t("chat.actions.delete"),
-          onClick: () => onDelete(),
-          icon: <Trash2 className="icon-xs" />,
-          destructive: true
-        }
-      : null
-  ].filter(Boolean) as ActionMenuItemConfig[]
+  const exportItems = onExport
+    ? buildExportActionItems(t, {
+        onMarkdown: () => onExport("markdown"),
+        onPdf: () => onExport("pdf"),
+        onJson: () => onExport("json"),
+        onText: () => onExport("text")
+      })
+    : []
   const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")
 
   return (
@@ -187,7 +147,27 @@ export const ChatMessageFooter = ({
           />
         )}
 
-        {actionItems.length > 0 && <ChatSessionActions actions={actionItems} />}
+        {(exportItems.length > 0 || onDelete) && (
+          <ChatSessionActions
+            actions={exportItems}
+            destructiveAction={
+              onDelete
+                ? {
+                    label: t("chat.actions.delete"),
+                    ariaLabel: t("chat.actions.delete"),
+                    icon: <Trash2 className="icon-sm" />,
+                    onClick: onDelete
+                  }
+                : undefined
+            }
+            trigger={{
+              ariaLabel: t("chat.actions.more"),
+              tooltip: t("chat.actions.more"),
+              icon: <MoreHorizontal className="icon-xs" />,
+              className: footerButtonClass
+            }}
+          />
+        )}
       </div>
 
       {isUser ? (

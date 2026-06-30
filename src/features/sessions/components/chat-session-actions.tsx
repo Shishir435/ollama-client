@@ -8,13 +8,23 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
+export interface ChatSessionDestructiveAction {
+  label: React.ReactNode
+  ariaLabel?: string
+  icon: React.ReactNode
+  onClick: () => void
+}
+
 export interface ChatSessionActionsProps {
   actions: ActionMenuItemConfig[]
+  destructiveAction?: ChatSessionDestructiveAction
   trigger?: {
     ariaLabel?: string
     tooltip?: string
@@ -35,17 +45,20 @@ export interface ChatSessionActionsProps {
 
 export const ChatSessionActions = ({
   actions,
+  destructiveAction,
   trigger = {}
 }: ChatSessionActionsProps) => {
   const { t } = useTranslation()
   const {
     ariaLabel = t("sessions.actions.more_default"),
     tooltip = t("sessions.actions.tooltip"),
-    icon = <MoreHorizontal className="icon-md" />,
+    icon = <MoreHorizontal className="icon-xs" />,
     className = "",
     variant = "ghost",
     size = "icon"
   } = trigger
+
+  const hasGridActions = actions.some((action) => !action.hidden)
 
   const triggerClassName = cn(
     "size-7 shrink-0 rounded-control transition-all duration-200",
@@ -72,9 +85,23 @@ export const ChatSessionActions = ({
         align="end"
         sideOffset={6}
         className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md data-open:animate-none data-closed:animate-none">
-        <DropdownMenuGroup>
-          <ActionMenuGrid actions={actions} />
-        </DropdownMenuGroup>
+        {hasGridActions && (
+          <DropdownMenuGroup>
+            <ActionMenuGrid actions={actions} />
+          </DropdownMenuGroup>
+        )}
+        {destructiveAction && (
+          <>
+            {hasGridActions && <DropdownMenuSeparator />}
+            <DropdownMenuItem
+              onClick={destructiveAction.onClick}
+              aria-label={destructiveAction.ariaLabel}
+              className="gap-2 rounded-control text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive">
+              {destructiveAction.icon}
+              <span>{destructiveAction.label}</span>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

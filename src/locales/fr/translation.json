@@ -675,8 +675,12 @@
       "create_new": "Créer un Nouveau Chat",
       "create_new_aria": "Créer un Nouveau Chat",
       "start_new": "Démarrer un Nouveau Chat",
+      "search_placeholder": "Rechercher les chats par titre...",
+      "clear_search": "Effacer la recherche",
       "no_sessions": "Aucune session de chat pour l'instant",
       "no_sessions_hint": "Créez votre premier chat pour commencer",
+      "no_matches": "Aucun chat correspondant",
+      "no_matches_hint": "Essayez un autre titre.",
       "session_count": "{{count}} session",
       "session_count_plural": "{{count}} sessions"
     },

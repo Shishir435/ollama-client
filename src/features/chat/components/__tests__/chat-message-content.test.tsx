@@ -41,9 +41,7 @@ describe("ChatMessageContent", () => {
       />
     )
 
-    expect(screen.getAllByText("Preparing context...").length).toBeGreaterThan(
-      0
-    )
+    expect(screen.getAllByText("Preparing context").length).toBeGreaterThan(0)
     expect(screen.queryByText("Typing")).not.toBeInTheDocument()
   })
 

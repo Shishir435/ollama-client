@@ -17,7 +17,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { dirname, join, relative } from "node:path"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 import {
   SITE_DESCRIPTION,
@@ -89,9 +89,54 @@ function routeFromSource(path: string) {
     : withoutExt
 }
 
-function cleanMarkdown(body: string) {
-  return body
+function stripMdxExportDeclarations(body: string) {
+  const lines = body.split("\n")
+  const cleaned: string[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/^\s*export\s+(?:const|let|var)\s+/.test(lines[index])) {
+      cleaned.push(lines[index])
+      continue
+    }
+
+    let depth = 0
+    let quote: '"' | "'" | "`" | null = null
+    let escaped = false
+
+    do {
+      const line = lines[index]
+      for (const char of line) {
+        if (escaped) {
+          escaped = false
+          continue
+        }
+        if (quote) {
+          if (char === "\\") escaped = true
+          else if (char === quote) quote = null
+          continue
+        }
+        if (char === '"' || char === "'" || char === "`") {
+          quote = char
+        } else if (char === "{" || char === "[" || char === "(") {
+          depth += 1
+        } else if (char === "}" || char === "]" || char === ")") {
+          depth -= 1
+        }
+      }
+      index += 1
+    } while (index < lines.length && (depth > 0 || quote))
+
+    index -= 1
+  }
+
+  return cleaned.join("\n")
+}
+
+export function cleanMarkdown(body: string) {
+  return stripMdxExportDeclarations(body)
     .replace(/^import\s+.*$/gm, "")
+    .replace(/<FAQPageJsonLd\b[^>]*\/>/g, "")
+    .replace(/<FAQPageJsonLd\b[^>]*>[\s\S]*?<\/FAQPageJsonLd>/g, "")
     .replace(
       /<([A-Z][A-Za-z0-9.]*)\b[^>]*>([\s\S]*?)<\/\1>/g,
       "\n\n$2\n\n"
@@ -252,4 +297,9 @@ function main() {
   console.log(`Generated llms.txt, llms-full.txt, ai.txt, and ${pages.length} page markdown files`)
 }
 
-main()
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main()
+}
