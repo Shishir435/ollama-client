@@ -10,7 +10,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [0.11.24] - 2026-06-29
 
 ### Added
-- S3 provider round-trip smoke coverage for a mock OpenAI-compatible provider:
+- OpenAI-compatible provider round-trip smoke coverage:
   stream a response, persist the assistant reply, reload the SQLite facade, and
   assert the reply survives.
 - SEO foundation docs: quick start, privacy, FAQ, and Ollama CORS troubleshooting

@@ -231,7 +231,6 @@ function cleanOldMarkdown() {
   rmSync(join(PUBLIC_DIR, "llms.txt"), { force: true })
   rmSync(join(PUBLIC_DIR, "llms-full.txt"), { force: true })
   rmSync(join(PUBLIC_DIR, "ai.txt"), { force: true })
-  rmSync(join(PUBLIC_DIR, "robots.txt"), { force: true })
 
   for (const path of walk(PUBLIC_DIR)) {
     if (path.endsWith(".md")) {

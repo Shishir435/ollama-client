@@ -28,7 +28,8 @@ describe("providerErrorUserMessage", () => {
     })
 
     expect(msg).toContain("CORS")
-    expect(msg).toContain("OLLAMA_ORIGINS")
+    expect(msg).toContain("provider's CORS or origin settings")
+    expect(msg).not.toContain("OLLAMA_ORIGINS")
     expect(msg).not.toContain("Check the API key")
   })
 

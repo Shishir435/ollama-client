@@ -9,7 +9,7 @@ import { EXTERNAL_URLS } from "@/lib/constants/urls"
 export const localCorsForbiddenMessage = (status = 403): string =>
   `Your local provider blocked this request (${status} ${
     status === 401 ? "Unauthorized" : "Forbidden"
-  }). This is a CORS / origin block — most common on Firefox, which can't rewrite the request origin the way Chromium does. Allow this extension by setting OLLAMA_ORIGINS on your server (e.g. "chrome-extension://*,moz-extension://*"), then retry. Step-by-step: ${EXTERNAL_URLS.SETUP_GUIDE}`
+  }). This is likely a CORS / origin block — most common on Firefox, which can't rewrite the request origin the way Chromium does. Allow chrome-extension://* and moz-extension://* in your provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
 
 export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
   if (!baseUrl) return true
