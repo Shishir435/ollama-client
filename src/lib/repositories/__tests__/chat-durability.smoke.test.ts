@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import {
-  afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -56,6 +56,9 @@ beforeAll(() => {
     wasm.byteOffset,
     wasm.byteOffset + wasm.byteLength
   )
+})
+
+const stubWasmFetch = () => {
   // db.ts fetches the wasm via chrome.runtime.getURL(...) then .arrayBuffer().
   // Serve the real binary so the engine boots without a network/extension host.
   vi.stubGlobal(
@@ -65,7 +68,7 @@ beforeAll(() => {
       arrayBuffer: async () => wasmBuffer
     }))
   )
-})
+}
 
 const streamResponse = (chunks: string[]) =>
   new Response(
@@ -81,7 +84,7 @@ const streamResponse = (chunks: string[]) =>
     { headers: { "Content-Type": "text/event-stream" } }
   )
 
-afterAll(() => {
+afterEach(() => {
   vi.unstubAllGlobals()
 })
 
@@ -119,6 +122,7 @@ const clearSqliteStore = (): Promise<void> =>
 
 beforeEach(async () => {
   await clearSqliteStore()
+  stubWasmFetch()
 }, TIMEOUT)
 
 // Re-import the facade + db module fresh. After `vi.resetModules()` this
