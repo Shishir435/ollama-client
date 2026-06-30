@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority"
-import * as React from "react"
+import type * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: styling wrapper; role="group" is intentional for a shadcn primitive
     <div
       data-slot="input-group"
       role="group"
@@ -46,6 +47,8 @@ function InputGroupAddon({
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: addon is a styling slot; role="group" is intentional
+    // biome-ignore lint/a11y/useKeyWithClickEvents: click only focuses the sibling input; not an interactive control itself
     <div
       role="group"
       data-slot="input-group-addon"

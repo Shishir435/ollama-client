@@ -12,7 +12,8 @@ import { logger } from "@/lib/logger"
  *
  * Pipeline stages:
  * 1. Hybrid Search (Recall) - Over-retrieve candidates
- * 2. Cross-Encoder Re-Ranking (Precision) - Score relevance
+ * 2. Cosine Re-Scoring (Precision) - Re-score relevance by embedding cosine
+ *    similarity (not a cross-encoder; MV3 CSP blocks one)
  * 3. MMR Diversity Filtering - Remove redundancy
  */
 
@@ -42,7 +43,7 @@ export interface EnhancedSearchResult {
  * Retrieve context with a multi-stage RAG pipeline.
  * Stages:
  * 1. Hybrid Search: Recall-optimized retrieval of candidates (5x topK).
- * 2. Cross-Encoder Re-Ranking: (Optional) Re-scores candidates for high precision.
+ * 2. Cosine Re-Scoring: (Optional) Re-scores candidates by embedding cosine similarity.
  * 3. Temporal Boosting: Boosts scores for more recent documents.
  * 4. Feedback Blending: Adjusts scores based on historical user feedback.
  * 5. MMR Diversity Filtering: Selects final subset while minimizing structural redundancy.

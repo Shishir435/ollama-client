@@ -50,12 +50,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["src/components/ui/**", "!src/components/ui/__tests__/**"],
-      "linter": {
-        "enabled": false
-      }
     }
   ]
 }
