@@ -81,7 +81,7 @@ export const ChatSessionItem = ({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium leading-tight">
+            <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:[mask-image:linear-gradient(to_right,black_calc(100%_-_2rem),transparent)]">
               {session.title}
             </div>
             <div className="mt-0.5 truncate text-micro text-sidebar-foreground/45">
@@ -90,7 +90,7 @@ export const ChatSessionItem = ({
           </div>
         </div>
       </button>
-      <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
         <ChatSessionActions
           actions={actionItems}
           destructiveAction={

@@ -29,7 +29,10 @@ export const useChatSessionLifecycle = ({
     // default "New Chat", so renaming is safe. This is the omnibox path, where
     // a fresh session is created and sent to in the same turn.
     if (currentTitle === "New Chat" || currentTitle === undefined) {
-      const firstLine = content.split("\n")[0].slice(0, 40)
+      // Store a generous, mostly-untrimmed title and let CSS handle the visible
+      // truncation in the sidebar (see chat-session-item). The 100-char cap only
+      // bounds DB/search size; it is not the display width.
+      const firstLine = content.split("\n")[0].trim().slice(0, 100)
       if (firstLine) await renameSessionTitle(sessionId, firstLine)
     }
   }
