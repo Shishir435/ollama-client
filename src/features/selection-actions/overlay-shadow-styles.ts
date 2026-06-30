@@ -31,6 +31,15 @@ export const buildShadowStyles = (appStyles: string): string => `
     --radius-md: 8px;
     --radius-lg: 10px;
     --radius-xl: 14px;
+    /*
+     * Custom radius tokens used by shared primitives (Card -> rounded-panel,
+     * buttons -> rounded-control). Defined in globals.css :root, but that
+     * sheet isn't loaded in this shadow root, so pin them here or rounded-*
+     * collapses to 0 and the panel renders square corners.
+     */
+    --radius-control: calc(var(--radius) - 1px);
+    --radius-panel: calc(var(--radius) + 1px);
+    --radius-chip: 999rem;
 
     /* Light mode tokens */
     --background: oklch(1 0 0);
