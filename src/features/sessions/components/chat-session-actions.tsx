@@ -58,6 +58,8 @@ export const ChatSessionActions = ({
     size = "icon"
   } = trigger
 
+  const hasGridActions = actions.some((action) => !action.hidden)
+
   const triggerClassName = cn(
     "size-7 shrink-0 rounded-control transition-all duration-200",
     "hover:bg-muted hover:text-foreground",
@@ -83,12 +85,14 @@ export const ChatSessionActions = ({
         align="end"
         sideOffset={6}
         className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md data-open:animate-none data-closed:animate-none">
-        <DropdownMenuGroup>
-          <ActionMenuGrid actions={actions} />
-        </DropdownMenuGroup>
+        {hasGridActions && (
+          <DropdownMenuGroup>
+            <ActionMenuGrid actions={actions} />
+          </DropdownMenuGroup>
+        )}
         {destructiveAction && (
           <>
-            <DropdownMenuSeparator />
+            {hasGridActions && <DropdownMenuSeparator />}
             <DropdownMenuItem
               onClick={destructiveAction.onClick}
               aria-label={destructiveAction.ariaLabel}
