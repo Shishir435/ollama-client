@@ -78,9 +78,11 @@ export const SITE_TITLE = "Ollama Client"
 export const SITE_DESCRIPTION =
   "Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers."
 
-export const LANDING_TITLE = "Ollama Client — Local AI chat in your browser"
+export const LANDING_TITLE =
+  "Ollama Client — Ollama browser extension for local AI"
 
-export const LANDING_DESCRIPTION = `${SITE_DESCRIPTION} Local-first by design.`
+export const LANDING_DESCRIPTION =
+  "Use Ollama, LM Studio, llama.cpp, vLLM, LocalAI, or KoboldCPP inside Chrome and Firefox with local-first RAG, files, tools, and page context."
 
 export const KEYWORDS =
-  "ollama, local llm, browser extension, chrome extension, firefox extension, side panel, rag, embeddings, local-first, privacy, lm studio, llama.cpp, openai compatible, open source"
+  "ollama browser extension, local llm browser extension, chrome extension for ollama, lm studio browser extension, open webui alternative, local ai assistant, offline ai browser, private ai chat, local rag, browser ai agent, self-hosted ai, firefox extension, llama.cpp, vllm, localai, koboldcpp, openai compatible, open source"

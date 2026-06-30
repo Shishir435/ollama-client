@@ -9,18 +9,40 @@ import { EXTERNAL_URLS } from "@/lib/constants/urls"
 export const localCorsForbiddenMessage = (status = 403): string =>
   `Your local provider blocked this request (${status} ${
     status === 401 ? "Unauthorized" : "Forbidden"
-  }). This is a CORS / origin block — most common on Firefox, which can't rewrite the request origin the way Chromium does. Allow this extension by setting OLLAMA_ORIGINS on your server (e.g. "chrome-extension://*,moz-extension://*"), then retry. Step-by-step: ${EXTERNAL_URLS.SETUP_GUIDE}`
+  }). This is likely a CORS / origin block — most common on Firefox, which can't rewrite the request origin the way Chromium does. Allow chrome-extension://* and moz-extension://* in your provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
+
+export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
+  if (!baseUrl) return true
+
+  try {
+    const { hostname } = new URL(baseUrl)
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname.endsWith(".localhost")
+    )
+  } catch {
+    return false
+  }
+}
 
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw
  * provider response bodies (which can be JSON or stack traces) out of the chat
  * UI — those stay in the error's `debug` field for diagnostics.
  */
-export const providerErrorUserMessage = (status: number): string => {
+export const providerErrorUserMessage = (
+  status: number,
+  options: { baseUrl?: string } = {}
+): string => {
   if (status === 400) {
     return "The provider rejected the request. The selected model may not support this input — for example, images on a model without vision support."
   }
   if (status === 401 || status === 403) {
+    if (isLocalProviderBaseUrl(options.baseUrl)) {
+      return localCorsForbiddenMessage(status)
+    }
     return "The provider rejected your credentials. Check the API key or access for this provider."
   }
   if (status === 404) {

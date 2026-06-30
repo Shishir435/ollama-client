@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import {
-  afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -10,7 +10,12 @@ import {
   vi
 } from "vitest"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
-import { ProviderStorageKey } from "@/lib/providers/types"
+import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
+import {
+  ProviderId,
+  ProviderStorageKey,
+  ProviderType
+} from "@/lib/providers/types"
 
 /**
  * Functional durability smoke (PROJECT_PLAN S1/S2).
@@ -43,13 +48,17 @@ const TIMEOUT = 25_000
 
 const require = createRequire(import.meta.url)
 const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm")
+let wasmBuffer: ArrayBuffer
 
 beforeAll(() => {
   const wasm = readFileSync(wasmPath)
-  const wasmBuffer = wasm.buffer.slice(
+  wasmBuffer = wasm.buffer.slice(
     wasm.byteOffset,
     wasm.byteOffset + wasm.byteLength
   )
+})
+
+const stubWasmFetch = () => {
   // db.ts fetches the wasm via chrome.runtime.getURL(...) then .arrayBuffer().
   // Serve the real binary so the engine boots without a network/extension host.
   vi.stubGlobal(
@@ -59,9 +68,23 @@ beforeAll(() => {
       arrayBuffer: async () => wasmBuffer
     }))
   )
-})
+}
 
-afterAll(() => {
+const streamResponse = (chunks: string[]) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder()
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk))
+        }
+        controller.close()
+      }
+    }),
+    { headers: { "Content-Type": "text/event-stream" } }
+  )
+
+afterEach(() => {
   vi.unstubAllGlobals()
 })
 
@@ -99,6 +122,7 @@ const clearSqliteStore = (): Promise<void> =>
 
 beforeEach(async () => {
   await clearSqliteStore()
+  stubWasmFetch()
 }, TIMEOUT)
 
 // Re-import the facade + db module fresh. After `vi.resetModules()` this
@@ -223,4 +247,83 @@ describe("S2 — reset actually wipes data", () => {
       allKeys.every((key) => typeof key === "string" && key.length > 1)
     ).toBe(true)
   })
+})
+
+describe("S3 — provider round-trip persists after reload", () => {
+  it(
+    "streams from a mock OpenAI-compatible provider and persists the reply",
+    async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = input.toString()
+          if (url.includes("/chat/completions")) {
+            return streamResponse([
+              `data: ${JSON.stringify({
+                choices: [{ delta: { content: "hello " } }]
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [{ delta: { content: "from mock" } }]
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ])
+          }
+
+          return {
+            ok: true,
+            arrayBuffer: async () => wasmBuffer
+          }
+        })
+      )
+
+      const first = await bootFreshContext()
+      await first.facade.addSession(makeSession("s-provider-round-trip"))
+      await first.facade.addMessage({
+        sessionId: "s-provider-round-trip",
+        role: "user",
+        content: "say hello",
+        timestamp: 1_700_000_000_004
+      })
+
+      const provider = new OpenAICompatibleProvider({
+        id: ProviderId.OPENAI,
+        name: "Mock local OpenAI-compatible",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://localhost:3210/v1"
+      })
+
+      let content = ""
+      await provider.streamChat(
+        {
+          model: "mock-model",
+          messages: [{ role: "user", content: "say hello" }]
+        },
+        (chunk) => {
+          content += chunk.delta ?? ""
+        }
+      )
+
+      expect(content).toBe("hello from mock")
+
+      await first.facade.addMessage({
+        sessionId: "s-provider-round-trip",
+        role: "assistant",
+        content,
+        timestamp: 1_700_000_000_005,
+        done: true
+      })
+      await first.db.flushSave()
+
+      const second = await bootFreshContext()
+      const messages = await second.facade.getMessagesBySession(
+        "s-provider-round-trip"
+      )
+      expect(messages.map((m) => m.content)).toEqual([
+        "say hello",
+        "hello from mock"
+      ])
+    },
+    TIMEOUT
+  )
 })
