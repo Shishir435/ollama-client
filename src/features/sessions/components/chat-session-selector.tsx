@@ -8,18 +8,14 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { Search, X } from "@/lib/lucide-icon"
+import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
 
-export interface ChatSessionSelectorProps {
-  searchTrigger?: React.ReactNode
-}
-
-export const ChatSessionSelector = ({
-  searchTrigger
-}: ChatSessionSelectorProps) => {
+export const ChatSessionSelector = () => {
   const { t } = useTranslation()
+  const openSearchDialog = useSearchDialogStore((s) => s.openSearchDialog)
   const [isOpen, setIsOpen] = useState(false)
   const [sessionQuery, setSessionQuery] = useState("")
   const {
@@ -83,6 +79,16 @@ export const ChatSessionSelector = ({
                 type="search"
                 value={sessionQuery}
                 onChange={(event) => setSessionQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return
+                  event.preventDefault()
+                  const query = sessionQuery.trim()
+                  if (!query) return
+                  // Escalate the title filter to full semantic search over
+                  // message content, then close the sidebar so the dialog is clear.
+                  openSearchDialog(query)
+                  handleOpenChange(false)
+                }}
                 placeholder={t("sessions.selector.search_placeholder")}
                 aria-label={t("sessions.selector.search_placeholder")}
                 className="h-9 bg-background/70 pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
@@ -100,7 +106,6 @@ export const ChatSessionSelector = ({
                 />
               )}
             </div>
-            {searchTrigger}
           </div>
 
           <div className="h-full flex-1 px-2">
