@@ -14,9 +14,9 @@ export const useSearchDialogStore = create<SearchDialogState>((set) => ({
   isOpen: false,
   initialQuery: "",
   openSearchDialog: (query = "") => set({ isOpen: true, initialQuery: query }),
-  closeSearchDialog: () => set({ isOpen: false }),
-  // Reset initialQuery too so a toggle-open is always a cold open and never
-  // inherits a query seeded by a prior sidebar escalation.
+  // Clear initialQuery on every close/toggle so the next open never inherits a
+  // query seeded by a prior sidebar escalation; openSearchDialog re-seeds it.
+  closeSearchDialog: () => set({ isOpen: false, initialQuery: "" }),
   toggleSearchDialog: () =>
     set((state) => ({ isOpen: !state.isOpen, initialQuery: "" }))
 }))
