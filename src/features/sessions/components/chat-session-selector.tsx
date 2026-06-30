@@ -30,15 +30,20 @@ export const ChatSessionSelector = ({
     deleteSession
   } = useChatSessions()
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) setSessionQuery("")
+  }
+
   useKeyboardShortcuts({
     closeSidebar: (e) => {
       e.preventDefault()
-      setIsOpen((prev) => !prev)
+      handleOpenChange(!isOpen)
     }
   })
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <TooltipActionButton
         label={t("sessions.selector.title")}
         trigger={

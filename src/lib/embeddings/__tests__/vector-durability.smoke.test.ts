@@ -11,23 +11,26 @@ const bootFreshVectorContext = async () => {
   return { ...vectorStore, hnswIndexManager }
 }
 
-const clearVectorDatabase = async () => {
-  const context = await bootFreshVectorContext()
-  await context.vectorDb.delete()
-  context.vectorDb.close()
+const dropVectorDatabase = async () => {
+  vi.resetModules()
+  const vectorStore = await import("@/lib/embeddings/vector-store")
+  await vectorStore.vectorDb.delete()
+  vectorStore.vectorDb.close()
+}
+
+const closeTrackedDatabases = () => {
+  for (const database of openDatabases) database.close()
   openDatabases.length = 0
 }
 
-beforeEach(clearVectorDatabase)
+beforeEach(async () => {
+  closeTrackedDatabases()
+  await dropVectorDatabase()
+})
 
 afterEach(async () => {
-  for (const database of openDatabases) database.close()
-  openDatabases.length = 0
-
-  const cleanup = await bootFreshVectorContext()
-  await cleanup.vectorDb.delete()
-  cleanup.vectorDb.close()
-  openDatabases.length = 0
+  closeTrackedDatabases()
+  await dropVectorDatabase()
 })
 
 describe("S4 - vector search survives a service-worker restart", () => {

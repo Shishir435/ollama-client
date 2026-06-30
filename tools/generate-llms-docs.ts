@@ -136,6 +136,7 @@ export function cleanMarkdown(body: string) {
   return stripMdxExportDeclarations(body)
     .replace(/^import\s+.*$/gm, "")
     .replace(/<FAQPageJsonLd\b[^>]*\/>/g, "")
+    .replace(/<FAQPageJsonLd\b[^>]*>[\s\S]*?<\/FAQPageJsonLd>/g, "")
     .replace(
       /<([A-Z][A-Za-z0-9.]*)\b[^>]*>([\s\S]*?)<\/\1>/g,
       "\n\n$2\n\n"

@@ -33,4 +33,14 @@ Yes.`
       "# Public"
     )
   })
+
+  it("removes paired-tag FAQPageJsonLd without a placeholder", () => {
+    const cleaned = cleanMarkdown(
+      "<FAQPageJsonLd items={faqItems}>\n  child\n</FAQPageJsonLd>\n\n# Public"
+    )
+
+    expect(cleaned).not.toContain("FAQPageJsonLd")
+    expect(cleaned).not.toContain("Rendered component")
+    expect(cleaned).toContain("# Public")
+  })
 })
