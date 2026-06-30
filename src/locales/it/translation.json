@@ -345,7 +345,8 @@
       "time_day": "giorno",
       "time_days": "giorni",
       "time_ago": "fa",
-      "time_unknown": "Ora sconosciuta"
+      "time_unknown": "Ora sconosciuta",
+      "matching_titles": "Titoli corrispondenti"
     },
     "backfill": {
       "title": "Riempi Cronologia Chat",

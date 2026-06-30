@@ -345,7 +345,8 @@
       "time_day": "día",
       "time_days": "días",
       "time_ago": "hace",
-      "time_unknown": "Hora desconocida"
+      "time_unknown": "Hora desconocida",
+      "matching_titles": "Títulos coincidentes"
     },
     "backfill": {
       "title": "Rellenar Historial de Chat",

@@ -345,7 +345,8 @@
       "time_day": "दिन",
       "time_days": "दिन",
       "time_ago": "पहले",
-      "time_unknown": "अज्ञात समय"
+      "time_unknown": "अज्ञात समय",
+      "matching_titles": "मिलते-जुलते शीर्षक"
     },
     "backfill": {
       "title": "चैट इतिहास बैकफ़िल करें",

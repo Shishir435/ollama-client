@@ -345,7 +345,8 @@
       "time_day": "日",
       "time_days": "日",
       "time_ago": "前",
-      "time_unknown": "不明な時間"
+      "time_unknown": "不明な時間",
+      "matching_titles": "一致するタイトル"
     },
     "backfill": {
       "title": "チャット履歴のバックフィル",

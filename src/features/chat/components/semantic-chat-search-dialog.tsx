@@ -15,7 +15,7 @@ import {
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
 import { logger } from "@/lib/logger"
-import { Loader2 } from "@/lib/lucide-icon"
+import { Loader2, MessageSquare } from "@/lib/lucide-icon"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 
 import { SearchEmptyState } from "./search/search-empty-state"
@@ -93,6 +93,23 @@ export const SemanticChatSearchDialog = ({
       return acc
     }, [])
   }, [results, sessions])
+
+  // Title matches — instant, client-side, independent of message embeddings.
+  // Ensures searching always surfaces sessions by title even when message
+  // content isn't embedded yet. Cross-session, so only in "all" scope.
+  const titleMatches = useMemo(() => {
+    const q = debouncedQuery.trim().toLocaleLowerCase()
+    if (!q || searchScope === "current") return []
+    return sessions.filter((s) => s.title?.toLocaleLowerCase().includes(q))
+  }, [debouncedQuery, sessions, searchScope])
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      if (sessionId !== currentSessionId) setCurrentSessionId(sessionId)
+      onClose()
+    },
+    [currentSessionId, setCurrentSessionId, onClose]
+  )
 
   useEffect(() => {
     // Clear previous results if query is empty
@@ -202,7 +219,25 @@ export const SemanticChatSearchDialog = ({
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 bg-background">
-          <div className="p-4">
+          <div className="space-y-8 p-4 pb-4">
+            {titleMatches.length > 0 && (
+              <section className="space-y-1">
+                <h3 className="px-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("chat.search.matching_titles")}
+                </h3>
+                {titleMatches.map((session) => (
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={() => handleSelectSession(session.id)}
+                    className="flex w-full items-center gap-2 rounded-control p-2 text-left text-xs transition-colors hover:bg-muted/60">
+                    <MessageSquare className="icon-xs shrink-0 text-muted-foreground" />
+                    <span className="truncate">{session.title}</span>
+                  </button>
+                ))}
+              </section>
+            )}
+
             {isSearching && results.length === 0 ? (
               <div className="flex h-60 flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">
                 <Loader2 className="icon-3xl animate-spin mb-4 text-primary/40" />
@@ -211,7 +246,7 @@ export const SemanticChatSearchDialog = ({
                 </p>
               </div>
             ) : groupedResults.length > 0 ? (
-              <div className="space-y-8 pb-4">
+              <div className="space-y-8">
                 {groupedResults.map((group) => (
                   <SearchResultGroup
                     key={group.sessionId}
@@ -222,12 +257,12 @@ export const SemanticChatSearchDialog = ({
                   />
                 ))}
               </div>
-            ) : (
+            ) : titleMatches.length === 0 ? (
               <SearchEmptyState
                 hasQuery={!!debouncedQuery.trim()}
                 hasResults={results.length > 0}
               />
-            )}
+            ) : null}
           </div>
         </div>
       </DialogContent>
