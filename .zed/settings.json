@@ -58,9 +58,7 @@
     "**/.DS_Store",
     "**/Thumbs.db",
     "**/.classpath",
-    "**/.settings",
-    "node_modules",
-    ".git"
+    "**/.settings"
   ],
   "format_on_save": "on"
 }
