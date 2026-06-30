@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Scroll to bottom",
     "input": {
       "placeholder": "Type a message or ctrl + /",
       "images": {
