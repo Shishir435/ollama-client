@@ -3,9 +3,11 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { Search, X } from "@/lib/lucide-icon"
 import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
@@ -19,6 +21,7 @@ export const ChatSessionSelector = ({
 }: ChatSessionSelectorProps) => {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
+  const [sessionQuery, setSessionQuery] = useState("")
   const {
     sessions,
     currentSessionId,
@@ -69,12 +72,36 @@ export const ChatSessionSelector = ({
               aria-label={t("sessions.selector.create_new_aria")}>
               {t("sessions.selector.start_new")}
             </Button>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 icon-sm -translate-y-1/2 text-sidebar-foreground/50" />
+              <Input
+                type="search"
+                value={sessionQuery}
+                onChange={(event) => setSessionQuery(event.target.value)}
+                placeholder={t("sessions.selector.search_placeholder")}
+                aria-label={t("sessions.selector.search_placeholder")}
+                className="h-9 bg-background/70 pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
+              />
+              {sessionQuery && (
+                <TooltipActionButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  label={t("sessions.selector.clear_search")}
+                  onClick={() => setSessionQuery("")}
+                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-sidebar-foreground/60"
+                  icon={X}
+                  iconClassName="icon-xs"
+                />
+              )}
+            </div>
             {searchTrigger}
           </div>
 
           <div className="h-full flex-1 px-2">
             <ChatSessionList
               sessions={sessions}
+              query={sessionQuery}
               currentSessionId={currentSessionId}
               onSelect={setCurrentSessionId}
               onDelete={deleteSession}

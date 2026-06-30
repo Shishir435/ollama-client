@@ -162,7 +162,7 @@ export function PromptSelectorSheet({
         </div>
 
         {categories.length > 0 && (
-          <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          <div className="scroll-fade-x flex gap-1 overflow-x-auto scrollbar-none">
             <Button
               type="button"
               variant={selectedCategory === null ? "secondary" : "ghost"}

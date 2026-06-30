@@ -675,8 +675,12 @@
       "create_new": "Создать новый чат",
       "create_new_aria": "Создать новый чат",
       "start_new": "Начать новый чат",
+      "search_placeholder": "Искать чаты по названию...",
+      "clear_search": "Очистить поиск чатов",
       "no_sessions": "Нет сессий чата",
       "no_sessions_hint": "Создайте свой первый чат, чтобы начать",
+      "no_matches": "Подходящих чатов нет",
+      "no_matches_hint": "Попробуйте другое название.",
       "session_count": "{{count}} сессия",
       "session_count_plural": "{{count}} сессий"
     },

@@ -675,8 +675,12 @@
       "create_new": "Create New Chat",
       "create_new_aria": "Create New Chat",
       "start_new": "Start New Chat",
+      "search_placeholder": "Search chats by title...",
+      "clear_search": "Clear chat search",
       "no_sessions": "No chat sessions yet",
       "no_sessions_hint": "Create your first chat to get started",
+      "no_matches": "No matching chats",
+      "no_matches_hint": "Try a different title.",
       "session_count": "{{count}} session",
       "session_count_plural": "{{count}} sessions"
     },

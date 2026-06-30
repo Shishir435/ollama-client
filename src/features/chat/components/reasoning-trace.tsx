@@ -418,7 +418,8 @@ export const ReasoningTrace = ({
               "min-w-0 flex-1 truncate pr-1 text-2xs",
               activeStep?.status === "error"
                 ? "text-status-danger"
-                : "text-muted-foreground"
+                : "text-muted-foreground",
+              activeStep?.status === "running" && "shimmer"
             )}>
             {activeLabel}
           </span>
@@ -445,7 +446,7 @@ export const ReasoningTrace = ({
       {hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
-          className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
               {activityEvents.map((event) => (

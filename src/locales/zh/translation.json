@@ -675,8 +675,12 @@
       "create_new": "创建新聊天",
       "create_new_aria": "创建新聊天",
       "start_new": "开始新聊天",
+      "search_placeholder": "按标题搜索聊天...",
+      "clear_search": "清除聊天搜索",
       "no_sessions": "暂无聊天会话",
       "no_sessions_hint": "创建您的第一个聊天即可开始",
+      "no_matches": "没有匹配的聊天",
+      "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
       "session_count_plural": "{{count}} 个会话"
     },

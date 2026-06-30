@@ -12,6 +12,7 @@ type SessionListRow =
 
 export interface ChatSessionListProps {
   sessions: ChatSession[]
+  query?: string
   currentSessionId: string | null
   onSelect: (id: string) => void
   onDelete: (id: string) => void
@@ -19,22 +20,33 @@ export interface ChatSessionListProps {
 
 export const ChatSessionList = ({
   sessions,
+  query = "",
   currentSessionId,
   onSelect,
   onDelete
 }: ChatSessionListProps) => {
+  const filteredSessions = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase()
+    if (!normalizedQuery) return sessions
+    return sessions.filter((session) =>
+      session.title.toLocaleLowerCase().includes(normalizedQuery)
+    )
+  }, [query, sessions])
   const rows = useMemo<SessionListRow[]>(
     () =>
-      groupChatSessions(sessions).flatMap((group) => [
+      groupChatSessions(filteredSessions).flatMap((group) => [
         { type: "group", id: group.id },
         ...group.sessions.map(
           (session): SessionListRow => ({ type: "session", session })
         )
       ]),
-    [sessions]
+    [filteredSessions]
   )
 
   if (sessions.length === 0) return <ChatSessionEmpty />
+  if (filteredSessions.length === 0) {
+    return <ChatSessionEmpty variant="search" />
+  }
 
   return (
     <Virtuoso

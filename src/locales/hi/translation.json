@@ -675,8 +675,12 @@
       "create_new": "नई चैट बनाएँ",
       "create_new_aria": "नई चैट बनाएँ",
       "start_new": "नई चैट शुरू करें",
+      "search_placeholder": "शीर्षक से चैट खोजें...",
+      "clear_search": "चैट खोज साफ़ करें",
       "no_sessions": "अभी तक कोई चैट सेशन नहीं है",
       "no_sessions_hint": "शुरू करने के लिए अपनी पहली चैट बनाएँ",
+      "no_matches": "कोई मेल खाती चैट नहीं",
+      "no_matches_hint": "कोई दूसरा शीर्षक आज़माएँ।",
       "session_count": "{{count}} सेशन",
       "session_count_plural": "{{count}} सेशन"
     },

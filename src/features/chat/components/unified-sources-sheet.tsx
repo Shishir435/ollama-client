@@ -343,7 +343,7 @@ export function UnifiedSourcesSheet({
         meta={subtitle}
         className="w-[min(32rem,calc(100vw-1rem))]">
         {tabs.length > 2 && (
-          <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border/35 px-1.5 scrollbar-none sm:gap-1 sm:px-3">
+          <div className="scroll-fade-x flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border/35 px-1.5 scrollbar-none sm:gap-1 sm:px-3">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeGroup === tab.key

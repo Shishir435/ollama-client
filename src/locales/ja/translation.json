@@ -675,8 +675,12 @@
       "create_new": "新しいチャットを作成",
       "create_new_aria": "新しいチャットを作成",
       "start_new": "新しいチャットを開始",
+      "search_placeholder": "タイトルでチャットを検索...",
+      "clear_search": "チャット検索をクリア",
       "no_sessions": "チャットセッションはまだありません",
       "no_sessions_hint": "最初のチャットを作成して始めましょう",
+      "no_matches": "一致するチャットはありません",
+      "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
       "session_count_plural": "{{count}} セッション"
     },

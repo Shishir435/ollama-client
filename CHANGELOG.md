@@ -7,6 +7,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.11.25] - 2026-06-30
+
+### Added
+- Session-title filtering in the chat-session sidebar, with localized empty and
+  clear-search states.
+- S4 vector durability smoke coverage: persist a chunk, reload the module graph,
+  and verify similarity search still finds it.
+
+### Changed
+- Updated shadcn tooling and added restrained scroll fades plus live-status
+  shimmer to existing chat and settings surfaces.
+- AI-readable docs now remove MDX `export const` data and SEO-only FAQ markup
+  while preserving the rendered documentation prose.
+- Bumped package version to `0.11.25`.
+
 ## [0.11.24] - 2026-06-29
 
 ### Added
@@ -397,7 +412,8 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.11.24...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.11.25...HEAD
+[0.11.25]: https://github.com/Shishir435/ollama-client/compare/v0.11.24...v0.11.25
 [0.11.24]: https://github.com/Shishir435/ollama-client/compare/v0.11.23...v0.11.24
 [0.11.23]: https://github.com/Shishir435/ollama-client/compare/v0.11.22...v0.11.23
 [0.11.22]: https://github.com/Shishir435/ollama-client/compare/v0.11.20...v0.11.22

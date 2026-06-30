@@ -102,4 +102,25 @@ describe("ChatSessionList", () => {
     expect(onDelete).toHaveBeenCalledWith("today")
     vi.useRealTimers()
   })
+
+  it("filters sessions by title and shows a no-match state", () => {
+    vi.useFakeTimers({ now })
+    const props = {
+      sessions: [
+        session("Release notes", now),
+        session("Provider setup", now - day)
+      ],
+      currentSessionId: null,
+      onSelect: vi.fn(),
+      onDelete: vi.fn()
+    }
+    const { rerender } = render(<ChatSessionList {...props} query="provider" />)
+
+    expect(screen.getByText("Provider setup")).toBeInTheDocument()
+    expect(screen.queryByText("Release notes")).not.toBeInTheDocument()
+
+    rerender(<ChatSessionList {...props} query="missing" />)
+    expect(screen.getByText("sessions.selector.no_matches")).toBeInTheDocument()
+    vi.useRealTimers()
+  })
 })
