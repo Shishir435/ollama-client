@@ -137,7 +137,9 @@ export const ChatMessageList = ({
         followOutput={isStreaming && !userDetachedFromBottom ? "auto" : false}
         alignToBottom={false}
         className="scrollbar-none"
-        atBottomThreshold={24}
+        // Treat "within ~a few lines of the end" as at-bottom so the
+        // scroll-to-bottom button doesn't show when a small gap remains.
+        atBottomThreshold={120}
         atBottomStateChange={handleAtBottomStateChange}
         computeItemKey={(index, msg) =>
           msg.id !== undefined
