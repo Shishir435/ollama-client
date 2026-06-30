@@ -124,6 +124,26 @@ describe("handleSelectionAction", () => {
     )
   })
 
+  it("does not inject the default model system prompt when none is configured", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
+        return { modelId: "llama3:latest", providerId: "ollama" }
+      }
+      // No MODEL_CONFIGS entry: resolveModelConfig would merge the default
+      // "format with markdown" system prompt, which must not leak into the
+      // selection action (it conflicts with "Return plain text only").
+      return undefined
+    })
+
+    const port = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
+    await handleSelectionAction(message, port, createMockIsPortClosed(false))
+
+    const request = mockStreamChat.mock.calls[0][0]
+    expect(request.messages[0].content).not.toContain("markdown")
+    expect(request.messages[0].content).not.toContain("helpful, honest")
+  })
+
   it("returns friendly error when no model is selected", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
