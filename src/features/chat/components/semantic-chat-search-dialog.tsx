@@ -219,7 +219,7 @@ export const SemanticChatSearchDialog = ({
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 bg-background">
-          <div className="space-y-8 p-4 pb-4">
+          <div className="space-y-8 p-4">
             {titleMatches.length > 0 && (
               <section className="space-y-1">
                 <h3 className="px-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
