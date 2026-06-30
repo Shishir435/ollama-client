@@ -34,6 +34,28 @@ Yes.`
     )
   })
 
+  it("strips an export whose value contains brace-bearing comments", () => {
+    const markdown = `export const data = {
+  // a comment with an unbalanced brace } and a quote "
+  items: [
+    /* block comment with { and ] */
+    { q: "Q?", a: "A." }
+  ]
+}
+
+# Public heading
+
+Body text.`
+
+    const cleaned = cleanMarkdown(markdown)
+
+    expect(cleaned).not.toContain("export const")
+    expect(cleaned).not.toContain("items:")
+    expect(cleaned).not.toContain("block comment")
+    expect(cleaned).toContain("# Public heading")
+    expect(cleaned).toContain("Body text.")
+  })
+
   it("removes paired-tag FAQPageJsonLd without a placeholder", () => {
     const cleaned = cleanMarkdown(
       "<FAQPageJsonLd items={faqItems}>\n  child\n</FAQPageJsonLd>\n\n# Public"

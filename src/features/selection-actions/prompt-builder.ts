@@ -18,7 +18,7 @@ export const buildSelectionActionPrompt = (
   const configuredSystemPrompt = modelSystemPrompt?.trim()
   const languageRequirement =
     request.actionId === "translate-english"
-      ? "Output in English."
+      ? "Output in English. This overrides any other language requested by the configured system prompt or custom instruction."
       : "Follow any output language requested by the configured system prompt or custom instruction. Otherwise, use the same language as the selected text."
 
   return {

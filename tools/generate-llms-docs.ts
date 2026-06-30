@@ -102,10 +102,24 @@ function stripMdxExportDeclarations(body: string) {
     let depth = 0
     let quote: '"' | "'" | "`" | null = null
     let escaped = false
+    let inBlockComment = false
 
     do {
       const line = lines[index]
-      for (const char of line) {
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i]
+        const next = line[i + 1]
+
+        // Comments must not feed the bracket/quote counter — a `{` or unbalanced
+        // quote inside `// ...` or `/* ... */` would otherwise corrupt depth and
+        // swallow following prose (or stop swallowing too early).
+        if (inBlockComment) {
+          if (char === "*" && next === "/") {
+            inBlockComment = false
+            i += 1
+          }
+          continue
+        }
         if (escaped) {
           escaped = false
           continue
@@ -113,6 +127,12 @@ function stripMdxExportDeclarations(body: string) {
         if (quote) {
           if (char === "\\") escaped = true
           else if (char === quote) quote = null
+          continue
+        }
+        if (char === "/" && next === "/") break // line comment: ignore rest of line
+        if (char === "/" && next === "*") {
+          inBlockComment = true
+          i += 1
           continue
         }
         if (char === '"' || char === "'" || char === "`") {
@@ -124,7 +144,7 @@ function stripMdxExportDeclarations(body: string) {
         }
       }
       index += 1
-    } while (index < lines.length && (depth > 0 || quote))
+    } while (index < lines.length && (depth > 0 || quote || inBlockComment))
 
     index -= 1
   }
