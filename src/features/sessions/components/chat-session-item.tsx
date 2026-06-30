@@ -58,7 +58,7 @@ export const ChatSessionItem = ({
       )}
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
         onClick={() => onClick(session.id)}
         aria-label={t("sessions.selector.select_session", {
           title: session.title
