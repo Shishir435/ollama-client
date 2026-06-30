@@ -30,6 +30,14 @@ interface ActionMenuGridProps extends React.ComponentProps<"div"> {
   tooltipSideOffset?: React.ComponentProps<typeof TooltipContent>["sideOffset"]
 }
 
+const GRID_COLUMNS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5"
+}
+
 export function ActionMenuGrid({
   actions,
   className,
@@ -42,10 +50,17 @@ export function ActionMenuGrid({
 
   if (visibleActions.length === 0) return null
 
+  // Columns track the item count (capped at 5) so a 4-item menu doesn't
+  // leave a trailing empty cell from a fixed 5-column track. Full class
+  // literals so Tailwind's JIT can see them (no dynamic interpolation).
+  const columnClass =
+    GRID_COLUMNS[Math.min(visibleActions.length, 5)] ?? "grid-cols-5"
+
   return (
     <div
       className={cn(
-        "grid grid-cols-5 justify-items-center gap-0.5 px-1 py-1",
+        "grid justify-items-center gap-0.5 px-1 py-1",
+        columnClass,
         className
       )}
       {...props}>

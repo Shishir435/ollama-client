@@ -23,21 +23,18 @@ vi.mock("react-virtuoso", () => ({
 
 vi.mock("@/features/sessions/components/chat-session-actions", () => ({
   ChatSessionActions: ({
-    actions
+    destructiveAction
   }: {
-    actions: { key: string; onClick: () => void }[]
-  }) => {
-    const deleteAction = actions.find((a) => a.key === "delete")
-    return (
-      <div>
-        {deleteAction && (
-          <button type="button" onClick={deleteAction.onClick}>
-            delete
-          </button>
-        )}
-      </div>
-    )
-  }
+    destructiveAction?: { onClick: () => void }
+  }) => (
+    <div>
+      {destructiveAction && (
+        <button type="button" onClick={destructiveAction.onClick}>
+          delete
+        </button>
+      )}
+    </div>
+  )
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => {
