@@ -1,5 +1,6 @@
 import { MessageSquare } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -38,26 +39,12 @@ export const ChatSessionItem = ({
   })
 
   const actionItems = current
-    ? [
-        {
-          key: "pin",
-          label: isPinned
-            ? t("sessions.actions.unpin")
-            : t("sessions.actions.pin"),
-          icon: isPinned ? (
-            <PinOff className="icon-sm" />
-          ) : (
-            <Pin className="icon-sm" />
-          ),
-          onClick: () => togglePinSession(session.id)
-        },
-        ...buildExportActionItems(t, {
-          onMarkdown: () => exportSessionAsMarkdown(current),
-          onPdf: () => exportSessionAsPdf(current),
-          onJson: () => exportSessionAsJson(current),
-          onText: () => exportSessionAsText(current)
-        })
-      ]
+    ? buildExportActionItems(t, {
+        onMarkdown: () => exportSessionAsMarkdown(current),
+        onPdf: () => exportSessionAsPdf(current),
+        onJson: () => exportSessionAsJson(current),
+        onText: () => exportSessionAsText(current)
+      })
     : []
 
   return (
@@ -111,6 +98,28 @@ export const ChatSessionItem = ({
         </div>
       </button>
       <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+        {current && (
+          <TooltipActionButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 rounded-control transition-all duration-200 hover:bg-muted hover:text-foreground focus:bg-muted focus:text-foreground focus:opacity-100"
+            onClick={() => togglePinSession(session.id)}
+            ariaLabel={
+              isPinned ? t("sessions.actions.unpin") : t("sessions.actions.pin")
+            }
+            tooltip={
+              isPinned ? t("sessions.actions.unpin") : t("sessions.actions.pin")
+            }
+            icon={
+              isPinned ? (
+                <PinOff className="icon-xs" />
+              ) : (
+                <Pin className="icon-xs" />
+              )
+            }
+          />
+        )}
         <ChatSessionActions
           actions={actionItems}
           destructiveAction={
