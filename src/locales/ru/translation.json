@@ -269,7 +269,8 @@
         "schedule_reminder": "Планирование напоминания",
         "save_artifact": "Сохранение файла",
         "capture_screenshot": "Создание снимка экрана",
-        "searches": "{{count}} запросов"
+        "searches": "{{count}} запросов",
+        "restoreSession": "Открываю закрытую вкладку"
       },
       "debug": "Отладочное рассуждение"
     },

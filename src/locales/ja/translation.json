@@ -269,7 +269,8 @@
         "schedule_reminder": "リマインダーを設定中",
         "save_artifact": "ファイルを保存中",
         "capture_screenshot": "スクリーンショットを撮影中",
-        "searches": "{{count}} 件の検索"
+        "searches": "{{count}} 件の検索",
+        "restoreSession": "閉じたタブを再度開いています"
       },
       "debug": "デバッグ推論"
     },

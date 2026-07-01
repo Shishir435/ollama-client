@@ -13,6 +13,7 @@ const PERMISSION_BY_TOOL: Partial<
   get_recent_history: "history",
   search_bookmarks: "bookmarks",
   list_recently_closed: "sessions",
+  restore_session: "sessions",
   list_synced_sessions: "sessions",
   list_tab_groups: "tabGroups",
   read_tab_group: "tabGroups",

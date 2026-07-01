@@ -2,7 +2,8 @@ import {
   getBrowserSessionsAvailability,
   listRecentlyClosedBrowserSessions,
   listSyncedBrowserSessions,
-  type ReadableBrowserSession
+  type ReadableBrowserSession,
+  restoreBrowserSession
 } from "@/lib/browser-sessions"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 
@@ -35,11 +36,13 @@ const formatSession = (
   const when = session.lastModified
     ? new Date(session.lastModified).toLocaleString()
     : "unknown time"
+  // Surface the restore id so the model can pass it to restore_session.
+  const id = session.sessionId ? ` [id: ${session.sessionId}]` : ""
   if (session.kind === "tab") {
-    return `${index + 1}. ${session.title} — ${session.url} (closed ${when})`
+    return `${index + 1}. ${session.title} — ${session.url} (closed ${when})${id}`
   }
   const tabs = session.tabs.map((tab) => `${tab.title} — ${tab.url}`).join("; ")
-  return `${index + 1}. Window: ${tabs} (closed ${when})`
+  return `${index + 1}. Window: ${tabs} (closed ${when})${id}`
 }
 
 const toSources = (sessions: ReadableBrowserSession[]) =>
@@ -50,7 +53,7 @@ const toSources = (sessions: ReadableBrowserSession[]) =>
 export const listRecentlyClosedDefinition: ToolDefinition = {
   name: "list_recently_closed",
   description:
-    "List recently closed readable browser tabs and windows. Use when the user asks what they closed or wants to find a recently closed page. Requires optional browser sessions permission. This tool only reads; it cannot restore sessions.",
+    "List recently closed readable browser tabs and windows. Use when the user asks what they closed or wants to find a recently closed page. Each entry includes an [id: ...]; pass that id to restore_session to reopen it. Requires optional browser sessions permission.",
   displayNameKey: "chat.reasoning.trace.sessions",
   category: "browser",
   iconKey: "history",
@@ -110,6 +113,59 @@ export const runListRecentlyClosed = async (
       .map(formatSession)
       .join("\n")}${skipped}`,
     sources: toSources(result.sessions)
+  }
+}
+
+export const restoreSessionDefinition: ToolDefinition = {
+  name: "restore_session",
+  description:
+    "Reopen a recently closed browser tab or window that the user closed. Pass the [id: ...] from list_recently_closed; omit it to reopen the most recently closed session. Requires optional browser sessions permission.",
+  displayNameKey: "chat.reasoning.trace.restoreSession",
+  category: "browser",
+  iconKey: "history",
+  // Low risk: it only reopens the user's own closed tab in their browser and
+  // never returns page content to the model.
+  risk: "low",
+  cacheable: false,
+  requires: ["tabs"],
+  runtime: { timeoutMs: 10_000, maxResultChars: 2000 },
+  parameters: {
+    type: "object",
+    properties: {
+      sessionId: {
+        type: "string",
+        description:
+          "The [id: ...] of the session to reopen. Omit to reopen the most recently closed session."
+      }
+    }
+  }
+}
+
+export const runRestoreSession = async (
+  args: Record<string, unknown>,
+  _ctx: ToolContext
+): Promise<ToolResult> => {
+  const unavailable = await availabilityError()
+  if (unavailable) return unavailable
+
+  const sessionId =
+    typeof args.sessionId === "string" && args.sessionId.trim()
+      ? args.sessionId.trim()
+      : undefined
+
+  try {
+    await restoreBrowserSession(sessionId)
+    return {
+      content: sessionId
+        ? `Reopened the closed session (id: ${sessionId}).`
+        : "Reopened the most recently closed session."
+    }
+  } catch (error) {
+    return {
+      content:
+        error instanceof Error ? error.message : "Failed to restore session.",
+      isError: true
+    }
   }
 }
 

@@ -269,7 +269,8 @@
         "schedule_reminder": "正在安排提醒",
         "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏",
-        "searches": "{{count}} 次搜索"
+        "searches": "{{count}} 次搜索",
+        "restoreSession": "重新打开已关闭的标签页"
       },
       "debug": "调试推理"
     },

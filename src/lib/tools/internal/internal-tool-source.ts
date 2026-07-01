@@ -18,8 +18,10 @@ import {
 import {
   listRecentlyClosedDefinition,
   listSyncedSessionsDefinition,
+  restoreSessionDefinition,
   runListRecentlyClosed,
-  runListSyncedSessions
+  runListSyncedSessions,
+  runRestoreSession
 } from "./browser-session-tools"
 import {
   captureScreenshotDefinition,
@@ -64,6 +66,7 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
   { definition: listRecentlyClosedDefinition, run: runListRecentlyClosed },
+  { definition: restoreSessionDefinition, run: runRestoreSession },
   { definition: listSyncedSessionsDefinition, run: runListSyncedSessions },
   { definition: scheduleReminderDefinition, run: runScheduleReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
@@ -77,7 +80,10 @@ const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   ) {
     return supportsTabGroups()
   }
-  if (tool.definition.name === "list_recently_closed") {
+  if (
+    tool.definition.name === "list_recently_closed" ||
+    tool.definition.name === "restore_session"
+  ) {
     return supportsSessions()
   }
   if (tool.definition.name === "list_synced_sessions") {

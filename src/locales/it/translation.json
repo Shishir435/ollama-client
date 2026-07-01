@@ -269,7 +269,8 @@
         "schedule_reminder": "Pianificazione promemoria",
         "save_artifact": "Salvataggio file",
         "capture_screenshot": "Acquisizione screenshot",
-        "searches": "{{count}} ricerche"
+        "searches": "{{count}} ricerche",
+        "restoreSession": "Riapertura di una scheda chiusa"
       },
       "debug": "Ragionamento di debug"
     },

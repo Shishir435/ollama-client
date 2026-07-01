@@ -269,7 +269,8 @@
         "schedule_reminder": "Planification du rappel",
         "save_artifact": "Enregistrement du fichier",
         "capture_screenshot": "Capture d'écran",
-        "searches": "{{count}} recherches"
+        "searches": "{{count}} recherches",
+        "restoreSession": "Réouverture d’un onglet fermé"
       },
       "debug": "Raisonnement de débogage"
     },

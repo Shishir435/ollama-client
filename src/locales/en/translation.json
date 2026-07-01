@@ -273,6 +273,7 @@
         "bookmarks": "Searching bookmarks",
         "sessions": "Reading recently closed tabs",
         "syncedSessions": "Reading synced tabs",
+        "restoreSession": "Reopening a closed tab",
         "trimmed": "result trimmed",
         "change_limit": "Change limit",
         "documents": "Searching files",

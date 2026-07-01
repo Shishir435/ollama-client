@@ -269,7 +269,8 @@
         "schedule_reminder": "Programando recordatorio",
         "save_artifact": "Guardando archivo",
         "capture_screenshot": "Capturando pantalla",
-        "searches": "{{count}} búsquedas"
+        "searches": "{{count}} búsquedas",
+        "restoreSession": "Reabriendo una pestaña cerrada"
       },
       "debug": "Razonamiento de depuración"
     },
