@@ -18,6 +18,7 @@ const PERMISSION_BY_TOOL: Partial<
   list_tab_groups: "tabGroups",
   read_tab_group: "tabGroups",
   schedule_reminder: ["notifications", "alarms"],
+  cancel_reminder: "alarms",
   save_artifact: "downloads"
 }
 

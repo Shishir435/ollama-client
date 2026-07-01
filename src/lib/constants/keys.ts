@@ -17,7 +17,8 @@ export const PROVIDER_MESSAGE_KEYS = {
   PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
   EMBED_FILE_CHUNKS: "embed-file-chunks",
   START_SELECTION_ACTION: "start-selection-action",
-  CANCEL_SELECTION_ACTION: "cancel-selection-action"
+  CANCEL_SELECTION_ACTION: "cancel-selection-action",
+  CONFIRM_TOOL: "confirm-tool"
 } as const
 
 /**

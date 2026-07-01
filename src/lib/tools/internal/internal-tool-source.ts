@@ -34,6 +34,10 @@ import { ragSearchDefinition, runRagSearch } from "./rag-search-tool"
 import { readTabDefinition, runReadTab } from "./read-tab-tool"
 import { runSaveArtifact, saveArtifactDefinition } from "./save-artifact-tool"
 import {
+  cancelReminderDefinition,
+  listRemindersDefinition,
+  runCancelReminder,
+  runListReminders,
   runScheduleReminder,
   scheduleReminderDefinition
 } from "./schedule-reminder-tool"
@@ -69,6 +73,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: restoreSessionDefinition, run: runRestoreSession },
   { definition: listSyncedSessionsDefinition, run: runListSyncedSessions },
   { definition: scheduleReminderDefinition, run: runScheduleReminder },
+  { definition: listRemindersDefinition, run: runListReminders },
+  { definition: cancelReminderDefinition, run: runCancelReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
   { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
 ]

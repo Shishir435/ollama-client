@@ -270,7 +270,9 @@
         "save_artifact": "Enregistrement du fichier",
         "capture_screenshot": "Capture d'écran",
         "searches": "{{count}} recherches",
-        "restoreSession": "Réouverture d’un onglet fermé"
+        "restoreSession": "Réouverture d’un onglet fermé",
+        "list_reminders": "Liste des rappels",
+        "cancel_reminder": "Annulation du rappel"
       },
       "debug": "Raisonnement de débogage"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "Dicter à la voix",
       "stop": "Arrêter la dictée"
+    },
+    "tool_confirmation": {
+      "title": "Confirmer l’action",
+      "body": "L’assistant veut : {{action}}. Autoriser ?",
+      "allow": "Autoriser",
+      "deny": "Refuser"
     }
   },
   "file_upload": {

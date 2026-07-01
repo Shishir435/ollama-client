@@ -270,7 +270,9 @@
         "save_artifact": "Salvataggio file",
         "capture_screenshot": "Acquisizione screenshot",
         "searches": "{{count}} ricerche",
-        "restoreSession": "Riapertura di una scheda chiusa"
+        "restoreSession": "Riapertura di una scheda chiusa",
+        "list_reminders": "Elenco promemoria",
+        "cancel_reminder": "Annullamento promemoria"
       },
       "debug": "Ragionamento di debug"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "Detta con la voce",
       "stop": "Interrompi dettatura"
+    },
+    "tool_confirmation": {
+      "title": "Conferma azione",
+      "body": "L’assistente vuole: {{action}}. Consentire?",
+      "allow": "Consenti",
+      "deny": "Rifiuta"
     }
   },
   "file_upload": {

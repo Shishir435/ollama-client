@@ -11,6 +11,7 @@ import {
   ListTree,
   PanelsTopLeft,
   Search,
+  ShieldAlert,
   Sparkles,
   TextSelect
 } from "lucide-react"
@@ -18,7 +19,9 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { Button } from "@/components/ui/button"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
 import { cn } from "@/lib/utils"
 import type { ActivityEvent, ChatMessage, ToolRun } from "@/types"
@@ -244,6 +247,20 @@ export const ReasoningTrace = ({
   const autoOpenedRef = useRef(false)
   const autoCollapsedRef = useRef(false)
   const reasoningBodyRef = useRef<HTMLDivElement>(null)
+  // Tool-call ids the user has already answered, so the prompt hides instantly
+  // (the loop also updates the run status, but this avoids a double-click).
+  const [respondedConfirmIds, setRespondedConfirmIds] = useState<Set<string>>(
+    new Set()
+  )
+
+  const respondToConfirmation = (callId: string, approved: boolean) => {
+    setRespondedConfirmIds((prev) => new Set(prev).add(callId))
+    runtime.sendMessage({
+      type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
+      payload: { callId, approved }
+    })
+  }
+
   const hasThinking = Boolean(message.thinking?.trim())
   const activityEvents = message.metrics?.activityEvents ?? []
   const toolRuns = message.metrics?.toolRuns ?? []
@@ -374,8 +391,49 @@ export const ReasoningTrace = ({
 
   const reasoningLabel = t("chat.reasoning.title")
 
+  const pendingConfirmations = toolRuns.filter(
+    (run) =>
+      run.status === "awaiting-confirmation" &&
+      run.callId !== undefined &&
+      !respondedConfirmIds.has(run.callId)
+  )
+
   return (
     <section className="mb-2 flex max-w-full flex-col gap-1 text-xs">
+      {pendingConfirmations.map((run) => (
+        <div
+          key={run.callId}
+          className="flex flex-col gap-2 rounded-panel border border-status-warning/40 bg-status-warning/5 p-2">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="icon-sm mt-0.5 shrink-0 text-status-warning" />
+            <div className="min-w-0 text-2xs text-foreground">
+              <div className="font-medium">
+                {t("chat.tool_confirmation.title")}
+              </div>
+              <div className="mt-0.5 text-muted-foreground">
+                {t("chat.tool_confirmation.body", {
+                  action: getToolRunLabel(run, t)
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              // biome-ignore lint/style/noNonNullAssertion: filtered on callId above
+              onClick={() => respondToConfirmation(run.callId!, false)}>
+              {t("chat.tool_confirmation.deny")}
+            </Button>
+            <Button
+              size="sm"
+              // biome-ignore lint/style/noNonNullAssertion: filtered on callId above
+              onClick={() => respondToConfirmation(run.callId!, true)}>
+              {t("chat.tool_confirmation.allow")}
+            </Button>
+          </div>
+        </div>
+      ))}
       <div className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-chip bg-background/35 px-1 py-0.5">
         <div className="flex shrink-0 items-center gap-0.5">
           <span className="sr-only">{t("chat.reasoning.aria_label")}</span>

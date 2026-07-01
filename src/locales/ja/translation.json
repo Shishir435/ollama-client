@@ -270,7 +270,9 @@
         "save_artifact": "ファイルを保存中",
         "capture_screenshot": "スクリーンショットを撮影中",
         "searches": "{{count}} 件の検索",
-        "restoreSession": "閉じたタブを再度開いています"
+        "restoreSession": "閉じたタブを再度開いています",
+        "list_reminders": "リマインダーを一覧表示",
+        "cancel_reminder": "リマインダーをキャンセル中"
       },
       "debug": "デバッグ推論"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "音声で入力",
       "stop": "音声入力を停止"
+    },
+    "tool_confirmation": {
+      "title": "操作の確認",
+      "body": "アシスタントが次を実行しようとしています: {{action}}。許可しますか？",
+      "allow": "許可",
+      "deny": "拒否"
     }
   },
   "file_upload": {

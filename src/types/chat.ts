@@ -137,7 +137,12 @@ export interface ToolRun {
   iconKey?: string
   category?: import("@/lib/tools/types").ToolCategory
   risk?: import("@/lib/tools/types").ToolRiskLevel
-  status: "pending" | "running" | "done" | "error"
+  status: "pending" | "running" | "done" | "error" | "awaiting-confirmation"
+  /**
+   * The tool-call id, echoed back in a CONFIRM_TOOL message when the run is
+   * awaiting confirmation so the background can resolve the right pending call.
+   */
+  callId?: string
   startedAt: number
   completedAt?: number
   sources?: Array<{

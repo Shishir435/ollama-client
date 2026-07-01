@@ -5,6 +5,7 @@ import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
 import { streamChatWithTools } from "../stream-chat-with-tools"
+import { resolveToolConfirmation } from "../tool-confirmation-registry"
 
 /** Build a provider whose streamChat replays a scripted chunk list per call. */
 const scriptedProvider = (scripts: ChatStreamMessage[][]): LLMProvider => {
@@ -604,5 +605,87 @@ describe("streamChatWithTools", () => {
 
     expect(provider.streamChat).toHaveBeenCalledTimes(1)
     expect(chunks.find((c) => c.error)?.error?.message).toBe("boom")
+  })
+
+  const gatedDef: ToolDefinition = {
+    name: "danger",
+    description: "",
+    parameters: { type: "object", properties: {} },
+    requiresConfirmation: true
+  }
+
+  it("pauses a confirmation-gated tool and runs it once approved", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c1", name: "danger", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "done" }, { done: true }]
+    ])
+    const run = vi.fn(async () => ({ content: "ran" }))
+    const registry = registryWith(run, gatedDef)
+
+    const chunks: ChatStreamMessage[] = []
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry,
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    await vi.waitFor(() =>
+      expect(
+        chunks.some((c) =>
+          c.toolRuns?.some((r) => r.status === "awaiting-confirmation")
+        )
+      ).toBe(true)
+    )
+    // Tool must not have run while awaiting approval.
+    expect(run).not.toHaveBeenCalled()
+
+    resolveToolConfirmation("c1", true)
+    await promise
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(chunks.find((c) => c.delta)?.delta).toBe("done")
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]).toMatchObject({ toolId: "danger", status: "done" })
+  })
+
+  it("skips a gated tool when the user denies it", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c2", name: "danger", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "acknowledged" }, { done: true }]
+    ])
+    const run = vi.fn(async () => ({ content: "ran" }))
+    const registry = registryWith(run, gatedDef)
+
+    const chunks: ChatStreamMessage[] = []
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry,
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    await vi.waitFor(() =>
+      expect(
+        chunks.some((c) =>
+          c.toolRuns?.some((r) => r.status === "awaiting-confirmation")
+        )
+      ).toBe(true)
+    )
+    resolveToolConfirmation("c2", false)
+    await promise
+
+    // Denied: the tool never ran, and the run is finalized as an error.
+    expect(run).not.toHaveBeenCalled()
+    const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+    expect(trace?.[0]).toMatchObject({ toolId: "danger", status: "error" })
   })
 })

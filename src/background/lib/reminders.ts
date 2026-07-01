@@ -152,6 +152,34 @@ export const scheduleReminder = async ({
   return reminder
 }
 
+/** Pending reminders, soonest first. Reads local storage; no permission gate. */
+export const listReminders = async (): Promise<Reminder[]> => {
+  const store = await getReminderStore()
+  return [...store.reminders].sort((a, b) => a.dueAt - b.dueAt)
+}
+
+/**
+ * Cancel a pending reminder: remove it from the store and clear its alarm.
+ * Returns false when no reminder with that id exists.
+ */
+export const cancelReminder = async (id: string): Promise<boolean> => {
+  const removed = await withReminderStoreLock(async () => {
+    const store = await getReminderStore()
+    if (!store.reminders.some((item) => item.id === id)) return false
+    await setReminderStore({
+      reminders: store.reminders.filter((item) => item.id !== id)
+    })
+    return true
+  })
+
+  if (removed) {
+    await getAlarmsApi()
+      ?.clear(alarmNameForReminder(id))
+      .catch(() => undefined)
+  }
+  return removed
+}
+
 export const fireReminder = async (id: string): Promise<void> => {
   const reminder = await withReminderStoreLock(async () => {
     const store = await getReminderStore()

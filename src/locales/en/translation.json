@@ -166,6 +166,12 @@
   },
   "chat": {
     "scroll_to_bottom": "Scroll to bottom",
+    "tool_confirmation": {
+      "title": "Confirm action",
+      "body": "The assistant wants to: {{action}}. Allow it?",
+      "allow": "Allow",
+      "deny": "Deny"
+    },
     "voice_input": {
       "start": "Dictate with your voice",
       "stop": "Stop dictation"
@@ -281,6 +287,8 @@
         "tabGroup": "Reading tab group",
         "tabGroups": "Listing tab groups",
         "schedule_reminder": "Scheduling reminder",
+        "list_reminders": "Listing reminders",
+        "cancel_reminder": "Cancelling reminder",
         "save_artifact": "Saving file",
         "capture_screenshot": "Capturing screenshot",
         "searches": "{{count}} searches"

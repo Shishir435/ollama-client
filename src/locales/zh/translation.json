@@ -270,7 +270,9 @@
         "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏",
         "searches": "{{count}} 次搜索",
-        "restoreSession": "重新打开已关闭的标签页"
+        "restoreSession": "重新打开已关闭的标签页",
+        "list_reminders": "列出提醒",
+        "cancel_reminder": "正在取消提醒"
       },
       "debug": "调试推理"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "用语音输入",
       "stop": "停止语音输入"
+    },
+    "tool_confirmation": {
+      "title": "确认操作",
+      "body": "助手想要执行：{{action}}。是否允许？",
+      "allow": "允许",
+      "deny": "拒绝"
     }
   },
   "file_upload": {

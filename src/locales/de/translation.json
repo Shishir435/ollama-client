@@ -270,7 +270,9 @@
         "save_artifact": "Datei speichern",
         "capture_screenshot": "Screenshot wird aufgenommen",
         "searches": "{{count}} Suchen",
-        "restoreSession": "Geschlossenen Tab wieder öffnen"
+        "restoreSession": "Geschlossenen Tab wieder öffnen",
+        "list_reminders": "Erinnerungen auflisten",
+        "cancel_reminder": "Erinnerung wird abgebrochen"
       },
       "debug": "Debug-Reasoning"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "Mit deiner Stimme diktieren",
       "stop": "Diktat beenden"
+    },
+    "tool_confirmation": {
+      "title": "Aktion bestätigen",
+      "body": "Der Assistent möchte: {{action}}. Zulassen?",
+      "allow": "Zulassen",
+      "deny": "Ablehnen"
     }
   },
   "file_upload": {

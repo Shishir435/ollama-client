@@ -127,7 +127,8 @@ export const streamChatWithTools = async ({
         prepared,
         registry,
         ctx,
-        signal
+        signal,
+        () => onChunk({ toolRuns: [...toolRuns] })
       )
       onChunk({ toolRuns: [...toolRuns] })
 

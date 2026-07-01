@@ -63,6 +63,13 @@ export interface ToolDefinition {
   cacheable?: boolean
   requires?: ToolRequirement[]
   runtime?: ToolRuntimePolicyOverrides
+  /**
+   * Require an explicit per-call user approval before this tool runs. Set on
+   * destructive/irreversible actions (deletes, cancels). The tool loop pauses
+   * and surfaces an inline Allow/Deny prompt; a denial returns a declined result
+   * to the model instead of executing.
+   */
+  requiresConfirmation?: boolean
 }
 
 /** A model's request to invoke a tool, normalized across providers. */

@@ -194,7 +194,13 @@ export const streamChatWithNonNativeTools = async ({
     const responseParts: string[] = []
 
     const runAndFormat = async (item: PreparedToolCall): Promise<string> => {
-      const { content } = await runPreparedToolCall(item, registry, ctx, signal)
+      const { content } = await runPreparedToolCall(
+        item,
+        registry,
+        ctx,
+        signal,
+        () => onChunk({ toolRuns: [...toolRuns] })
+      )
       onChunk({ toolRuns: [...toolRuns] })
       return formatNonNativeToolResult(item.call.name, content)
     }

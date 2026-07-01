@@ -270,7 +270,9 @@
         "save_artifact": "Guardando archivo",
         "capture_screenshot": "Capturando pantalla",
         "searches": "{{count}} búsquedas",
-        "restoreSession": "Reabriendo una pestaña cerrada"
+        "restoreSession": "Reabriendo una pestaña cerrada",
+        "list_reminders": "Listando recordatorios",
+        "cancel_reminder": "Cancelando recordatorio"
       },
       "debug": "Razonamiento de depuración"
     },
@@ -430,6 +432,12 @@
     "voice_input": {
       "start": "Dictar con tu voz",
       "stop": "Detener el dictado"
+    },
+    "tool_confirmation": {
+      "title": "Confirmar acción",
+      "body": "El asistente quiere: {{action}}. ¿Permitir?",
+      "allow": "Permitir",
+      "deny": "Denegar"
     }
   },
   "file_upload": {

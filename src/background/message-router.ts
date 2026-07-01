@@ -22,6 +22,7 @@ import {
 } from "@/background/lib/message-payloads"
 import { notifyJobComplete } from "@/background/lib/notify"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
+import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
 import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
@@ -328,6 +329,16 @@ export const registerMessageRouter = () => {
 
       case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
         return handleSelectionMessage(message, sender.tab, response)
+      }
+
+      case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {
+        const payload = message.payload as
+          | { callId?: unknown; approved?: unknown }
+          | undefined
+        if (typeof payload?.callId === "string") {
+          resolveToolConfirmation(payload.callId, payload.approved === true)
+        }
+        return true
       }
     }
   }) as Runtime.OnMessageListener)

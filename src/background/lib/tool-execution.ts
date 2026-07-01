@@ -19,11 +19,14 @@ import type {
 } from "@/lib/tools"
 import { resolveToolRuntimePolicy } from "@/lib/tools"
 import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
+import { awaitToolConfirmation } from "./tool-confirmation-registry"
 
 export interface PreparedToolCall {
   call: ToolCall
   run: ToolRun
   policy: ToolRuntimePolicy
+  /** Require explicit user approval before running (destructive tools). */
+  requiresConfirmation: boolean
 }
 
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
@@ -125,8 +128,10 @@ export const prepareToolCall = async (
   return {
     call,
     policy,
+    requiresConfirmation: definition?.requiresConfirmation ?? false,
     run: {
       toolId: call.name,
+      callId: call.id,
       label: labelForTool(call.name),
       displayNameKey: definition?.displayNameKey,
       iconKey: definition?.iconKey,
@@ -154,9 +159,31 @@ export const runPreparedToolCall = async (
   prepared: PreparedToolCall,
   registry: ToolRegistry,
   ctx: ToolContext,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** Re-emit the trace so the UI reflects awaiting/running transitions live. */
+  emitTrace?: () => void
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
+
+  // Destructive tools pause for explicit user approval before running. A denial
+  // (or an abort while waiting) returns a declined result to the model instead
+  // of executing — the tool never runs without a yes.
+  if (prepared.requiresConfirmation) {
+    run.status = "awaiting-confirmation"
+    emitTrace?.()
+    const approved = await awaitToolConfirmation(call.id, signal)
+    if (!approved) {
+      run.status = "error"
+      run.completedAt = Date.now()
+      run.error = "Declined by the user."
+      emitTrace?.()
+      const declined = "The user declined this action, so it was not performed."
+      return { result: { content: declined, isError: true }, content: declined }
+    }
+    run.status = "running"
+    emitTrace?.()
+  }
+
   const result = policy.enabled
     ? await callWithTimeout(
         registry.call(call.name, call.arguments, ctx),
