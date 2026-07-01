@@ -705,7 +705,12 @@
     "actions": {
       "more": "Más acciones para {{title}}",
       "more_default": "Acciones de la sesión de chat",
-      "tooltip": "Más acciones"
+      "tooltip": "Más acciones",
+      "pin": "Fijar chat",
+      "unpin": "Dejar de fijar chat"
+    },
+    "groups": {
+      "pinned": "Fijados"
     }
   },
   "tabs": {

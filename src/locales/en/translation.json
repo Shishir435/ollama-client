@@ -705,7 +705,12 @@
     "actions": {
       "more": "More actions for {{title}}",
       "more_default": "Chat session actions",
-      "tooltip": "More actions"
+      "tooltip": "More actions",
+      "pin": "Pin chat",
+      "unpin": "Unpin chat"
+    },
+    "groups": {
+      "pinned": "Pinned"
     }
   },
   "tabs": {

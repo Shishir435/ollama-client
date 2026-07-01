@@ -17,6 +17,7 @@ export const createChatSessionListActions = (
   | "createSession"
   | "deleteSession"
   | "renameSessionTitle"
+  | "togglePinSession"
 > => ({
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
@@ -102,6 +103,16 @@ export const createChatSessionListActions = (
     await repo.updateSession(id, { title })
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
+    }))
+  },
+
+  togglePinSession: async (id: string) => {
+    const current = get().sessions.find((s) => s.id === id)
+    if (!current) return
+    const pinned = !current.pinned
+    await repo.updateSession(id, { pinned })
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === id ? { ...s, pinned } : s))
     }))
   }
 })

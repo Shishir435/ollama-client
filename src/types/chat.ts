@@ -173,6 +173,8 @@ export interface ChatSession {
   modelId?: string
   messages?: ChatMessage[]
   currentLeafId?: number | string
+  /** Pinned sessions are grouped at the top of the list, above the date groups. */
+  pinned?: boolean
 }
 
 export interface ChatStreamMessage {
@@ -259,6 +261,8 @@ export interface ChatSessionState {
   createSession: () => Promise<string>
   deleteSession: (id: string) => Promise<void>
   renameSessionTitle: (id: string, title: string) => Promise<void>
+  /** Toggle a session's pinned state and persist it. */
+  togglePinSession: (id: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   /**

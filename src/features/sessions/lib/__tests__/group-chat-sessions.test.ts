@@ -24,6 +24,25 @@ describe("groupChatSessions", () => {
     expect(getSessionGroupId(now - 8 * day, now)).toBe("older")
   })
 
+  it("surfaces pinned sessions in a leading group, out of their date bucket", () => {
+    const pinnedOld: ChatSession = {
+      ...session("pinned-old", now - 30 * day),
+      pinned: true
+    }
+    const groups = groupChatSessions(
+      [session("today-a", now), pinnedOld, session("old", now - 10 * day)],
+      now
+    )
+
+    // Pinned group comes first; the pinned session is NOT in "older".
+    expect(groups[0]).toEqual({
+      id: "pinned",
+      sessions: [expect.objectContaining({ id: "pinned-old" })]
+    })
+    const older = groups.find((g) => g.id === "older")
+    expect(older?.sessions.map((s) => s.id)).toEqual(["old"])
+  })
+
   it("preserves session order inside visible groups", () => {
     const groups = groupChatSessions(
       [

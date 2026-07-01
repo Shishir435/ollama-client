@@ -705,7 +705,12 @@
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
       "more_default": "Chat-Sitzungsaktionen",
-      "tooltip": "Weitere Aktionen"
+      "tooltip": "Weitere Aktionen",
+      "pin": "Chat anheften",
+      "unpin": "Chat lösen"
+    },
+    "groups": {
+      "pinned": "Angeheftet"
     }
   },
   "tabs": {

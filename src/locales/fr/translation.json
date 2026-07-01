@@ -705,7 +705,12 @@
     "actions": {
       "more": "Plus d'actions pour {{title}}",
       "more_default": "Actions de la session de chat",
-      "tooltip": "Plus d'actions"
+      "tooltip": "Plus d'actions",
+      "pin": "Épingler le chat",
+      "unpin": "Désépingler le chat"
+    },
+    "groups": {
+      "pinned": "Épinglés"
     }
   },
   "tabs": {

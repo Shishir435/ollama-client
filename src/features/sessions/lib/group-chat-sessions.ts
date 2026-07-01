@@ -1,6 +1,11 @@
 import type { ChatSession } from "@/types"
 
-export type SessionGroupId = "today" | "yesterday" | "last7Days" | "older"
+export type SessionGroupId =
+  | "pinned"
+  | "today"
+  | "yesterday"
+  | "last7Days"
+  | "older"
 
 export interface GroupedChatSessions {
   id: SessionGroupId
@@ -33,17 +38,24 @@ export const groupChatSessions = (
   sessions: ChatSession[],
   now = Date.now()
 ): GroupedChatSessions[] => {
-  const groups: GroupedChatSessions[] = [
+  const pinned: GroupedChatSessions = { id: "pinned", sessions: [] }
+  const dateGroups: GroupedChatSessions[] = [
     { id: "today", sessions: [] },
     { id: "yesterday", sessions: [] },
     { id: "last7Days", sessions: [] },
     { id: "older", sessions: [] }
   ]
-  const byId = new Map(groups.map((group) => [group.id, group]))
+  const byId = new Map(dateGroups.map((group) => [group.id, group]))
 
   for (const session of sessions) {
+    // Pinned sessions surface in their own group at the top, out of the date
+    // buckets, so they stay reachable no matter how old they are.
+    if (session.pinned) {
+      pinned.sessions.push(session)
+      continue
+    }
     byId.get(getSessionGroupId(session.updatedAt, now))?.sessions.push(session)
   }
 
-  return groups.filter((group) => group.sessions.length > 0)
+  return [pinned, ...dateGroups].filter((group) => group.sessions.length > 0)
 }

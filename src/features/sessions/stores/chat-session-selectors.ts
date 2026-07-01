@@ -11,6 +11,7 @@ export const useChatSessions = () => {
       createSession: s.createSession,
       deleteSession: s.deleteSession,
       renameSessionTitle: s.renameSessionTitle,
+      togglePinSession: s.togglePinSession,
       setCurrentSessionId: s.setCurrentSessionId,
       loadSessions: s.loadSessions,
       refreshSessions: s.refreshSessions,

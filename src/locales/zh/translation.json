@@ -705,7 +705,12 @@
     "actions": {
       "more": "{{title}} 的更多操作",
       "more_default": "聊天会话操作",
-      "tooltip": "更多操作"
+      "tooltip": "更多操作",
+      "pin": "置顶对话",
+      "unpin": "取消置顶"
+    },
+    "groups": {
+      "pinned": "已置顶"
     }
   },
   "tabs": {

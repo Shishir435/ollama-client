@@ -123,6 +123,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
     loadMoreMessages: vi.fn().mockResolvedValue(undefined),
     hasMoreMessages: false,
     forkMessage: vi.fn().mockResolvedValue(undefined),
+    togglePinSession: vi.fn().mockResolvedValue(undefined),
     navigateToNode: vi.fn().mockResolvedValue(undefined)
   }))
 }))
@@ -214,6 +215,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -295,6 +297,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -383,6 +386,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -429,6 +433,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -476,6 +481,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -525,6 +531,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 
@@ -696,6 +703,7 @@ describe("useChat", () => {
       loadMoreMessages: vi.fn().mockResolvedValue(undefined),
       hasMoreMessages: false,
       forkMessage: vi.fn().mockResolvedValue(undefined),
+      togglePinSession: vi.fn().mockResolvedValue(undefined),
       navigateToNode: vi.fn().mockResolvedValue(undefined)
     })
 

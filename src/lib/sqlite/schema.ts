@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   modelId TEXT,
   currentLeafId INTEGER,
   createdAt INTEGER,
-  updatedAt INTEGER
+  updatedAt INTEGER,
+  pinned INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS messages (

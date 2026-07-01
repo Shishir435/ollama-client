@@ -25,6 +25,7 @@ const sessionFromRow = (row: Row): ChatSession => ({
   currentLeafId: (row.currentLeafId as number | null) ?? undefined,
   createdAt: row.createdAt as number,
   updatedAt: row.updatedAt as number,
+  pinned: row.pinned === 1,
   messages: []
 })
 
@@ -120,15 +121,16 @@ const withTransaction = async (work: () => Promise<void>): Promise<void> => {
 
 const putSessionRow = async (session: ChatSession): Promise<void> => {
   await run(
-    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
       session.modelId ?? null,
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
-      session.updatedAt
+      session.updatedAt,
+      session.pinned ? 1 : 0
     ]
   )
 }
@@ -163,15 +165,16 @@ export const getLatestSession = async (): Promise<ChatSession | undefined> => {
 
 export const addSession = async (session: ChatSession): Promise<string> => {
   await run(
-    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
       session.modelId ?? null,
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
-      session.updatedAt
+      session.updatedAt,
+      session.pinned ? 1 : 0
     ]
   )
   return session.id
@@ -269,6 +272,10 @@ export const updateSession = async (
     values.push(
       typeof updates.currentLeafId === "number" ? updates.currentLeafId : null
     )
+  }
+  if (Object.hasOwn(updates, "pinned")) {
+    fields.push("pinned = ?")
+    values.push(updates.pinned ? 1 : 0)
   }
   if (Object.hasOwn(updates, "updatedAt")) {
     fields.push("updatedAt = ?")

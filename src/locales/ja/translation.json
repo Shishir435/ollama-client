@@ -705,7 +705,12 @@
     "actions": {
       "more": "{{title}} のその他のアクション",
       "more_default": "チャットセッションのアクション",
-      "tooltip": "その他のアクション"
+      "tooltip": "その他のアクション",
+      "pin": "チャットをピン留め",
+      "unpin": "ピン留めを解除"
+    },
+    "groups": {
+      "pinned": "ピン留め"
     }
   },
   "tabs": {
