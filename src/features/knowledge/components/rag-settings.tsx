@@ -360,7 +360,7 @@ export const RAGSettings = () => {
                   <Textarea
                     value={knowledgePrompt}
                     onChange={handleKnowledgePromptChange}
-                    className="min-h-[160px]"
+                    className="min-h-40"
                   />
                 </SettingsFormField>
 
@@ -370,7 +370,7 @@ export const RAGSettings = () => {
                   <Textarea
                     value={knowledgeQuestionPrompt}
                     onChange={handleKnowledgeQuestionPromptChange}
-                    className="min-h-[140px]"
+                    className="min-h-40"
                   />
                 </SettingsFormField>
 

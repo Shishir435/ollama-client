@@ -2,7 +2,11 @@ import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { ensureMessagesThinkingColumn } from "./migrations/add-thinking-column"
+import {
+  LATEST_SCHEMA_VERSION,
+  runMigrations,
+  setSchemaVersion
+} from "./migrations/migration-runner"
 import { SCHEMA_SQL } from "./schema"
 
 // Dynamic type for Database
@@ -141,9 +145,10 @@ export const initSQLite = async (): Promise<Database> => {
         logger.info("Creating new database", "SQLite")
         db = new SQL.Database()
 
-        // Run schema migrations
-        logger.info("Running Migrations...", "SQLite")
+        // SCHEMA_SQL is the latest schema, so stamp the new database at the
+        // latest version and skip the migration runner below.
         db.run(SCHEMA_SQL)
+        setSchemaVersion(db, LATEST_SCHEMA_VERSION)
 
         // Save initial database
         await saveDatabaseToIndexedDB(db.export())
@@ -151,10 +156,13 @@ export const initSQLite = async (): Promise<Database> => {
 
       db.run("PRAGMA foreign_keys=ON")
 
-      // Idempotent per-column migrations. New databases get all columns
-      // from SCHEMA_SQL above; databases created before a column was
-      // added get the ALTER TABLE on the next open.
-      ensureMessagesThinkingColumn(db)
+      // Version-gated forward migrations. Fresh databases were stamped at the
+      // latest version above (no-op here); databases loaded from IndexedDB are
+      // upgraded from their recorded `user_version` and persisted if changed.
+      const appliedMigrations = runMigrations(db)
+      if (appliedMigrations > 0) {
+        await saveDatabaseToIndexedDB(db.export())
+      }
 
       logger.info("SQLite initialized successfully", "SQLite")
       return db
