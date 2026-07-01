@@ -49,9 +49,9 @@ export const PendingToolConfirmation = ({
       {pending.map((run) => (
         <div
           key={run.callId}
-          className="flex flex-col gap-2 rounded-panel border border-status-warning/40 bg-status-warning/5 p-2 text-xs">
+          className="flex flex-col gap-2 rounded-panel border border-app-primary/30 bg-app-primary-soft/50 p-2.5 text-xs shadow-xs">
           <div className="flex items-start gap-2">
-            <ShieldAlert className="icon-sm mt-0.5 shrink-0 text-status-warning" />
+            <ShieldAlert className="icon-sm mt-0.5 shrink-0 text-app-primary" />
             <div className="min-w-0">
               <div className="font-medium">
                 {t("chat.tool_confirmation.title")}
