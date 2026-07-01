@@ -1,0 +1,86 @@
+---
+title: LM Studio vs Ollama Client
+description: How LM Studio and Ollama Client relate — a desktop model runner versus a browser extension — and how to use them together for private local AI.
+---
+
+import FAQPageJsonLd from "../../../components/seo/FAQPageJsonLd.astro"
+
+export const faqItems = [
+  {
+    question: "Is Ollama Client a replacement for LM Studio?",
+    answer:
+      "Not exactly — they solve different halves. LM Studio is a desktop app that downloads and serves local models; Ollama Client is a browser extension that connects to a running server (including LM Studio's) and adds page context, RAG, web search, and tools."
+  },
+  {
+    question: "Can Ollama Client connect to LM Studio?",
+    answer:
+      "Yes. Enable LM Studio's local server and point Ollama Client at its OpenAI-compatible endpoint (for example http://localhost:1234). You can then chat with LM Studio models from any browser tab."
+  },
+  {
+    question: "Do I still need Ollama to use Ollama Client?",
+    answer:
+      "No. Despite the name, Ollama Client works with any supported local provider — LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, or any OpenAI-compatible server — not just Ollama."
+  }
+]
+
+<FAQPageJsonLd items={faqItems} />
+
+**LM Studio and Ollama Client are complementary, not competitors.** LM Studio is
+a desktop application that discovers, downloads, and serves local models with a
+built-in chat window. Ollama Client is a browser extension that connects to a
+running model server — including LM Studio's — and adds browser-native grounding
+like page context, file RAG, web search, and tool calling. Many users run both.
+
+## Who each is for
+
+- **LM Studio** — you want a polished desktop app to browse, download, quantize,
+  and serve local models, with a local API server for other apps to use.
+- **Ollama Client** — you want to use those models *while you browse*: summarize
+  the current page, chat with a PDF, or search the web, without leaving the tab.
+
+## Feature comparison
+
+| | LM Studio | Ollama Client |
+|---|---|---|
+| Form factor | Desktop app + local server | Browser extension (Chrome, Firefox) |
+| Primary job | Download & serve local models | Chat with a running provider in-browser |
+| Model management | Yes — browse/download/quantize | Uses models exposed by your provider |
+| Page / tab context | No | Yes — selection, page, tabs |
+| Local RAG over files | Basic | Yes — hybrid keyword + vector search |
+| Web search | — | Yes (SearXNG, Brave, Tavily) |
+| Other providers | Serves its own | Ollama, llama.cpp, vLLM, LocalAI, KoboldCPP, OpenAI-compatible |
+| Telemetry | Configurable | None |
+
+## Using them together
+
+1. In LM Studio, load a model and start the local server.
+2. In Ollama Client, add LM Studio as a provider and set its endpoint (commonly
+   `http://localhost:1234`). See [Provider Setup](/guides/provider-setup/).
+3. Chat with LM Studio models from any tab, with page context and files.
+
+## When to choose each
+
+- Choose **LM Studio** to manage and serve local models on your desktop.
+- Choose **Ollama Client** to put those models to work in the browser — and to
+  connect several providers from one private, no-telemetry extension.
+
+## FAQ
+
+### Is Ollama Client a replacement for LM Studio?
+
+Not exactly — they solve different halves. LM Studio is a desktop app that
+downloads and serves local models; Ollama Client is a browser extension that
+connects to a running server (including LM Studio's) and adds page context, RAG,
+web search, and tools.
+
+### Can Ollama Client connect to LM Studio?
+
+Yes. Enable LM Studio's local server and point Ollama Client at its
+OpenAI-compatible endpoint (for example `http://localhost:1234`). You can then
+chat with LM Studio models from any browser tab.
+
+### Do I still need Ollama to use Ollama Client?
+
+No. Despite the name, Ollama Client works with any supported local provider — LM
+Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, or any OpenAI-compatible server —
+not just Ollama.

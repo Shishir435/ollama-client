@@ -1,0 +1,86 @@
+---
+title: Page Assist vs Ollama Client
+description: A factual comparison of Page Assist and Ollama Client — two browser extensions for Ollama and local LLMs, their grounding, providers, and privacy.
+---
+
+import FAQPageJsonLd from "../../../components/seo/FAQPageJsonLd.astro"
+
+export const faqItems = [
+  {
+    question: "How is Ollama Client different from Page Assist?",
+    answer:
+      "Both are browser extensions for chatting with Ollama and local models. Ollama Client focuses on deep grounding — page and tab context, uploaded-file RAG, web search, and tool calling — across many providers, with a no-telemetry, local-first design."
+  },
+  {
+    question: "Do both extensions work with Ollama?",
+    answer:
+      "Yes. Both connect to a local Ollama server. Ollama Client also supports LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, and other OpenAI-compatible endpoints."
+  },
+  {
+    question: "Can these extensions chat with the current web page?",
+    answer:
+      "Yes — reading page content is a shared strength. Ollama Client extends this with tab context, text selection actions, uploaded-file RAG, and optional provider-backed web search."
+  }
+]
+
+<FAQPageJsonLd items={faqItems} />
+
+**Page Assist and Ollama Client are both browser extensions for chatting with
+Ollama and other local models — no server required.** They overlap on the core
+idea (private, in-browser AI) and differ mostly in breadth of grounding and
+provider support. This page sticks to what each does; both are good tools.
+
+## Who each is for
+
+- **Page Assist** — you want a lightweight in-browser UI for Ollama and local
+  models with page-chat.
+- **Ollama Client** — you want the same in-browser convenience plus deeper
+  grounding (files/RAG, tabs, web search, tools) and a wider set of local
+  providers, with an explicitly no-telemetry design.
+
+## Feature comparison
+
+| | Page Assist | Ollama Client |
+|---|---|---|
+| Form factor | Browser extension | Browser extension (Chrome, Firefox) |
+| Providers | Ollama + OpenAI-compatible | Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, OpenAI-compatible |
+| Page / tab context | Page chat | Selection, page, and multi-tab context |
+| Local RAG over files | Yes | Yes — hybrid keyword + vector search |
+| Web search | Yes | Yes (SearXNG, Brave, Tavily) |
+| Tool calling | Varies | Yes (for tool-capable models) |
+| Text-selection actions | — | Summarize, translate, and custom actions on selected text |
+| Telemetry | — | None |
+
+## Privacy
+
+Both run inference on your local provider and avoid the cloud by default.
+Ollama Client adds no analytics and has no backend; prompts go only to the
+endpoint you configure and history stays in [browser storage](/concepts/privacy/).
+
+## When to choose each
+
+- Choose **Page Assist** for a focused, lightweight Ollama-in-browser
+  experience.
+- Choose **Ollama Client** when you want richer grounding (files, tabs, web,
+  tools), more local providers, and a no-telemetry stance in one extension.
+
+## FAQ
+
+### How is Ollama Client different from Page Assist?
+
+Both are browser extensions for chatting with Ollama and local models. Ollama
+Client focuses on deep grounding — page and tab context, uploaded-file RAG, web
+search, and tool calling — across many providers, with a no-telemetry,
+local-first design.
+
+### Do both extensions work with Ollama?
+
+Yes. Both connect to a local Ollama server. Ollama Client also supports LM
+Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, and other OpenAI-compatible
+endpoints.
+
+### Can these extensions chat with the current web page?
+
+Yes — reading page content is a shared strength. Ollama Client extends this with
+tab context, text selection actions, uploaded-file RAG, and optional
+provider-backed web search.

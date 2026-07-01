@@ -1,0 +1,110 @@
+---
+title: Open WebUI vs Ollama Client
+description: A factual comparison of Open WebUI and Ollama Client for local LLM chat — hosting model, privacy, page context, RAG, and when to choose each.
+---
+
+import FAQPageJsonLd from "../../../components/seo/FAQPageJsonLd.astro"
+
+export const faqItems = [
+  {
+    question: "Is Ollama Client an alternative to Open WebUI?",
+    answer:
+      "Yes. Both give you a private chat interface for Ollama and other local models. Open WebUI is a self-hosted server you run (usually via Docker); Ollama Client is a browser extension that needs no server and can read the page or tab you are on."
+  },
+  {
+    question: "Do I need Docker for Ollama Client?",
+    answer:
+      "No. Ollama Client installs from the Chrome or Firefox store and talks directly to your local provider endpoint (for example http://localhost:11434 for Ollama). There is no server or container to run."
+  },
+  {
+    question: "Which is more private, Open WebUI or Ollama Client?",
+    answer:
+      "Both keep inference local. Ollama Client is local-first by construction: it has no backend, no accounts, and no telemetry — prompts go only to the provider endpoint you configure, and history stays in browser storage."
+  },
+  {
+    question: "Can Open WebUI read the current browser tab?",
+    answer:
+      "No. Open WebUI is a standalone web app. Reading the page, tab, or selected text you are viewing is the core wedge of Ollama Client, which runs inside the browser."
+  }
+]
+
+<FAQPageJsonLd items={faqItems} />
+
+**Open WebUI and Ollama Client both give you a private chat interface for local
+LLMs like Ollama, but they are shaped differently.** Open WebUI is a
+self-hosted web application you run as a server; Ollama Client is a Chrome and
+Firefox extension that needs no server and can reason over the page, tab, or
+text you are currently looking at.
+
+## Who each is for
+
+- **Open WebUI** — you want a full multi-user chat *server* on your own machine
+  or homelab, are comfortable running Docker, and want a ChatGPT-style web app
+  with accounts, model management, and admin controls.
+- **Ollama Client** — you want private AI *in the browser* with zero server
+  setup, and you value page/tab context (summarize this page, chat with this
+  PDF) more than a hosted multi-user app.
+
+## Feature comparison
+
+| | Open WebUI | Ollama Client |
+|---|---|---|
+| Form factor | Self-hosted web server (Docker/pip) | Browser extension (Chrome, Firefox) |
+| Setup | Run a container/service | Install from the store |
+| Providers | Ollama + OpenAI-compatible | Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP, OpenAI-compatible |
+| Page / tab context | No | Yes — selection, page, tabs |
+| Local RAG over files | Yes | Yes |
+| Web search | Yes | Yes (SearXNG, Brave, Tavily) |
+| Tool calling | Yes | Yes (for tool-capable models) |
+| Accounts / multi-user | Yes | No — single local user |
+| Runs offline | Yes (self-hosted) | Yes (local providers) |
+| Telemetry | Configurable | None |
+
+## Privacy
+
+Both keep model inference on hardware you control. The difference is the trust
+surface: Open WebUI is a server with user accounts and its own storage, while
+Ollama Client has no backend at all — no accounts, no analytics, and prompts are
+sent only to the provider endpoint you configure. Chat history and file vectors
+stay in [local browser storage](/concepts/privacy/).
+
+## Setup complexity
+
+Open WebUI expects you to run and maintain a service (commonly a Docker
+container) and open its web app. Ollama Client is a store install; point it at
+your provider URL and start chatting. See the [Quick Start](/guides/quick-start/)
+and [Provider Setup](/guides/provider-setup/) guides.
+
+## When to choose each
+
+- Choose **Open WebUI** for a shared, always-on chat server with user
+  management and admin features.
+- Choose **Ollama Client** for zero-server, private, page-aware AI that lives
+  where you browse — and for connecting several local providers from one place.
+
+## FAQ
+
+### Is Ollama Client an alternative to Open WebUI?
+
+Yes. Both give you a private chat interface for Ollama and other local models.
+Open WebUI is a self-hosted server you run (usually via Docker); Ollama Client
+is a browser extension that needs no server and can read the page or tab you are
+on.
+
+### Do I need Docker for Ollama Client?
+
+No. Ollama Client installs from the Chrome or Firefox store and talks directly
+to your local provider endpoint (for example `http://localhost:11434` for
+Ollama). There is no server or container to run.
+
+### Which is more private, Open WebUI or Ollama Client?
+
+Both keep inference local. Ollama Client is local-first by construction: it has
+no backend, no accounts, and no telemetry — prompts go only to the provider
+endpoint you configure, and history stays in browser storage.
+
+### Can Open WebUI read the current browser tab?
+
+No. Open WebUI is a standalone web app. Reading the page, tab, or selected text
+you are viewing is the core wedge of Ollama Client, which runs inside the
+browser.

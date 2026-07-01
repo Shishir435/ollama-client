@@ -182,6 +182,23 @@ export default defineConfig({
           ]
         },
         {
+          label: "Compare",
+          items: [
+            {
+              label: "vs Open WebUI",
+              slug: "compare/open-webui-vs-ollama-client"
+            },
+            {
+              label: "vs Page Assist",
+              slug: "compare/page-assist-vs-ollama-client"
+            },
+            {
+              label: "vs LM Studio",
+              slug: "compare/lm-studio-vs-ollama-client"
+            }
+          ]
+        },
+        {
           label: "Internal",
           items: [
             {
