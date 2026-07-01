@@ -186,7 +186,7 @@ export function PromptSelectorSheet({
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+      <ScrollArea hideScrollbar className="min-h-0 flex-1 overflow-x-hidden">
         <div className="grid gap-2 p-3">
           {filteredTemplates.length === 0 && (
             <div className="grid justify-items-center gap-2 rounded-panel border border-border/35 bg-background/35 p-8 text-center">
@@ -254,10 +254,13 @@ export function PromptSelectorSheet({
                   </span>
                 </button>
                 <div className="flex items-center justify-between border-t border-border/35 px-3 py-2">
-                  <div className="flex min-w-0 gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1">
                     {template.tags?.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        <Tag className="mr-1 icon-micro" />
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="max-w-full truncate text-xs">
+                        <Tag className="mr-1 icon-micro shrink-0" />
                         {tag}
                       </Badge>
                     ))}

@@ -69,14 +69,14 @@ export const SettingsPage = () => {
   const mobileSearchRef = useRef<HTMLInputElement>(null)
   const highlightTimersRef = useRef<Set<number>>(new Set())
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    if (typeof window === "undefined") return "general"
+    if (typeof window === "undefined") return "chat"
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
     // Honor the registry's tab for a deep-linked focus id so links survive a
     // control moving tabs. The focus id's home tab wins over a stale `tab`.
     const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
     const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-    return entryTab || (requestedTab as SettingsTab) || "general"
+    return entryTab || (requestedTab as SettingsTab) || "chat"
   })
 
   const navSections: NavSection[] = [
@@ -89,32 +89,36 @@ export const SettingsPage = () => {
           icon: Server,
           badge: "New"
         },
-        { key: "models", label: t("settings.tabs.models"), icon: Bot }
+        { key: "model-behavior", label: t("settings.tabs.models"), icon: Bot }
       ]
     },
     {
       title: t("settings.sections.chat"),
       items: [
         {
-          key: "general",
+          key: "chat",
           label: t("settings.tabs.general"),
           icon: MessageSquare
         },
-        { key: "prompts", label: t("settings.tabs.prompts"), icon: Library },
-        { key: "voices", label: t("settings.tabs.voices"), icon: Volume2 }
+        {
+          key: "prompt-library",
+          label: t("settings.tabs.prompts"),
+          icon: Library
+        },
+        { key: "speech", label: t("settings.tabs.voices"), icon: Volume2 }
       ]
     },
     {
       title: t("settings.sections.knowledge"),
       items: [
         {
-          key: "context",
+          key: "knowledge-web",
           label: t("settings.tabs.context"),
           icon: Brain,
           badge: "Beta"
         },
         {
-          key: "embeddings",
+          key: "saved-knowledge",
           label: t("settings.tabs.embeddings"),
           icon: Database,
           badge: "Beta"
@@ -125,7 +129,7 @@ export const SettingsPage = () => {
       title: t("settings.sections.page_tabs"),
       items: [
         {
-          key: "contentExtraction",
+          key: "page-tabs",
           label: t("settings.tabs.extraction"),
           icon: FileText
         }
@@ -135,24 +139,24 @@ export const SettingsPage = () => {
       title: t("settings.sections.privacy"),
       items: [
         {
-          key: "permissions",
+          key: "privacy",
           label: t("settings.tabs.permissions"),
           icon: Lock
         },
-        { key: "reset", label: t("settings.tabs.reset"), icon: HardDrive }
+        { key: "data-backup", label: t("settings.tabs.reset"), icon: HardDrive }
       ]
     },
     {
       title: t("settings.sections.more"),
       items: [
         { key: "shortcuts", label: t("settings.tabs.shortcuts"), icon: Zap },
-        { key: "guides", label: t("settings.tabs.guides"), icon: BookOpen }
+        { key: "help", label: t("settings.tabs.guides"), icon: BookOpen }
       ]
     }
   ]
 
   const tabContent: Record<string, ReactNode> = {
-    general: (
+    chat: (
       <SectionStack>
         <PerformanceWarning />
         <TwoColumnGrid>
@@ -162,7 +166,7 @@ export const SettingsPage = () => {
         <PresetPicker />
       </SectionStack>
     ),
-    models: (
+    "model-behavior": (
       <SectionStack>
         <ModelSettingsForm />
       </SectionStack>
@@ -177,42 +181,42 @@ export const SettingsPage = () => {
         <ShortcutsSettings />
       </SectionStack>
     ),
-    prompts: (
+    "prompt-library": (
       <SectionStack>
         <PromptTemplateManager />
       </SectionStack>
     ),
-    contentExtraction: (
+    "page-tabs": (
       <SectionStack>
         <ContentExtractionSettings />
       </SectionStack>
     ),
-    context: (
+    "knowledge-web": (
       <SectionStack>
         <ContextSettings />
       </SectionStack>
     ),
-    embeddings: (
+    "saved-knowledge": (
       <SectionStack>
         <EmbeddingSettings />
       </SectionStack>
     ),
-    voices: (
+    speech: (
       <SectionStack>
         <SpeechSettings />
       </SectionStack>
     ),
-    permissions: (
+    privacy: (
       <SectionStack>
         <PermissionsPanel />
       </SectionStack>
     ),
-    reset: (
+    "data-backup": (
       <SectionStack>
         <ResetStorage />
       </SectionStack>
     ),
-    guides: (
+    help: (
       <SectionStack>
         <Guides />
         <SocialHandles />
@@ -228,7 +232,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (!validTabKeys.has(activeTab)) {
-      setActiveTab("general")
+      setActiveTab("chat")
     }
   }, [activeTab, validTabKeys])
 

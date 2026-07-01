@@ -37,18 +37,18 @@ const TAB_GROUPS_AVAILABLE =
 
 /** Real options-page tab keys (see `settings-page.tsx` navSections). */
 export const SETTINGS_TABS = [
-  "general",
-  "models",
+  "chat",
+  "model-behavior",
   "providers",
-  "context",
-  "embeddings",
-  "contentExtraction",
-  "prompts",
+  "knowledge-web",
+  "saved-knowledge",
+  "page-tabs",
+  "prompt-library",
   "shortcuts",
-  "voices",
-  "permissions",
-  "reset",
-  "guides"
+  "speech",
+  "privacy",
+  "data-backup",
+  "help"
 ] as const
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
@@ -82,23 +82,22 @@ export interface SettingsEntry {
  * The registry. Grouped by tab for readability; order here is not significant.
  *
  * The vector-DB / embedding-store entries (embedding limits + the destructive
- * database actions) live on the Embeddings tab as of Phase 5 #7. Old deep links
- * that still point at `?tab=context` for these ids are redirected to the
- * embeddings tab by `settings-page.tsx` (it resolves the focus id's tab through
- * this registry).
+ * database actions) live on the "saved-knowledge" tab. `settings-page.tsx`
+ * resolves a deep-linked focus id's home tab through this registry, so a link
+ * only needs the correct `focus` id even if its `tab` is stale.
  */
 export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- General -----------------------------------------------------------
   {
     id: "language-select",
-    tab: "general",
+    tab: "chat",
     sectionId: "general",
     labelKey: "common.language.select_label",
     aliases: ["language", "locale", "translation"]
   },
   {
     id: "show-session-metrics",
-    tab: "general",
+    tab: "chat",
     sectionId: "general",
     labelKey: "settings.chat_display.session_metrics_label",
     descriptionKey: "settings.chat_display.session_metrics_description",
@@ -106,7 +105,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "settings-presets",
-    tab: "general",
+    tab: "chat",
     sectionId: "presets",
     labelKey: "settings.presets.title",
     descriptionKey: "settings.presets.description",
@@ -126,14 +125,14 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Models: system ----------------------------------------------------
   {
     id: "system-prompt",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-system",
     labelKey: "settings.model.system.prompt_label",
     keywords: ["system", "persona", "instructions"]
   },
   {
     id: "stop-sequences",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-system",
     labelKey: "settings.model.system.stop_sequences_label",
     keywords: ["stop", "sequences"]
@@ -142,7 +141,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Models: sampling parameters (advanced) ----------------------------
   {
     id: "temperature",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.temperature.label",
     advanced: true,
@@ -150,7 +149,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "top-p",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.top_p.label",
     advanced: true,
@@ -158,7 +157,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "top-k",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.top_k.label",
     advanced: true,
@@ -166,7 +165,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "min-p",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.min_p.label",
     advanced: true,
@@ -174,7 +173,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "seed",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.seed.label",
     advanced: true,
@@ -182,7 +181,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "num-ctx",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.num_ctx.label",
     advanced: true,
@@ -190,7 +189,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "num-predict",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.num_predict.label",
     advanced: true,
@@ -198,7 +197,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "repeat-penalty",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.repeat_penalty.label",
     advanced: true,
@@ -206,7 +205,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "repeat-last-n",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.repeat_last_n.label",
     advanced: true,
@@ -216,7 +215,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Models: runtime ---------------------------------------------------
   {
     id: "keep-alive",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.keep_alive_label",
     descriptionKey: "settings.model.runtime.keep_alive_description",
@@ -224,7 +223,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "warm-on-select",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.warm_on_select_label",
     descriptionKey: "settings.model.runtime.warm_on_select_description",
@@ -232,7 +231,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "unload-on-switch",
-    tab: "models",
+    tab: "model-behavior",
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.unload_on_switch_label",
     descriptionKey: "settings.model.runtime.unload_on_switch_description",
@@ -317,7 +316,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Conversation Context -------------------------------------
   {
     id: "memory-enabled",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "conversation-context",
     labelKey: "settings.memory.enable.label",
     descriptionKey: "settings.memory.enable.description",
@@ -325,7 +324,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "clear-memory",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "conversation-context",
     labelKey: "settings.memory.clear.label",
     descriptionKey: "settings.memory.clear.description",
@@ -334,7 +333,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "backfill-embeddings",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "conversation-context",
     labelKey: "chat.backfill.title",
     descriptionKey: "chat.backfill.description",
@@ -344,21 +343,21 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Prompt Budget --------------------------------------------
   {
     id: "max-tab-context-chars",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_tab_context_chars",
     keywords: ["tab context", "characters", "limit", "budget"]
   },
   {
     id: "max-rag-context-chars",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_rag_context_chars",
     keywords: ["rag context", "characters", "limit", "budget"]
   },
   {
     id: "max-tool-result-chars",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_tool_result_chars",
     descriptionKey: "settings.prompt_context_limits.max_tool_result_chars_hint",
@@ -366,7 +365,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "auto-refresh-tab-context",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.auto_refresh_label",
     descriptionKey: "settings.prompt_context_limits.auto_refresh_description",
@@ -376,7 +375,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Grounding ------------------------------------------------
   {
     id: "grounded-only-mode",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "grounding",
     labelKey: "settings.grounding_mode.label",
     descriptionKey: "settings.grounding_mode.description",
@@ -384,7 +383,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "auto-screenshot-on-vision",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "grounding",
     labelKey: "chat.input.auto_screenshot",
     aliases: [
@@ -398,7 +397,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Web Search -----------------------------------------------
   {
     id: "web-search-enabled",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.enable.label",
     descriptionKey: "settings.web_search.enable.description",
@@ -406,7 +405,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "web-search-provider",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.provider.label",
     descriptionKey: "settings.web_search.provider.description",
@@ -414,7 +413,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "web-search-safe-search",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.safe_search.label",
     descriptionKey: "settings.web_search.safe_search.description",
@@ -422,7 +421,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "web-search-endpoint",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.endpoint.label",
     descriptionKey: "settings.web_search.endpoint.description",
@@ -430,7 +429,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "web-search-api-key",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.api_key.label",
     descriptionKey: "settings.web_search.api_key.description",
@@ -438,7 +437,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "web-search-result-count",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "web-search",
     labelKey: "settings.web_search.result_count.label",
     descriptionKey: "settings.web_search.result_count.description",
@@ -448,7 +447,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Retrieval ------------------------------------------------
   {
     id: "rag-enabled",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "retrieval",
     labelKey: "model.embedding_config.rag_enable_label",
     descriptionKey: "model.embedding_config.rag_enable_description",
@@ -457,7 +456,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "use-reranking",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "retrieval",
     labelKey: "model.embedding_config.reranking_label",
     descriptionKey: "model.embedding_config.reranking_description",
@@ -466,7 +465,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "search-limit-topk",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "retrieval",
     labelKey: "model.embedding_config.search_limit_label",
     descriptionKey: "model.embedding_config.search_limit_description",
@@ -475,7 +474,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "min-rerank-score",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "retrieval",
     labelKey: "knowledge_sets.min_rerank_label",
     descriptionKey: "knowledge_sets.min_rerank_description",
@@ -484,7 +483,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "active-knowledge-set",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "retrieval",
     labelKey: "knowledge_sets.active_label",
     descriptionKey: "knowledge_sets.active_description",
@@ -494,7 +493,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Files ----------------------------------------------------
   {
     id: "max-file-size-mb",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "files",
     labelKey: "file_upload.settings.max_file_size_label",
     descriptionKey: "file_upload.settings.max_file_size_description",
@@ -502,7 +501,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "max-image-size-mb",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "files",
     labelKey: "file_upload.settings.max_image_size_label",
     descriptionKey: "file_upload.settings.max_image_size_description",
@@ -512,7 +511,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Context: Chunking (advanced) --------------------------------------
   {
     id: "enhanced-chunking",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "chunking",
     labelKey: "model.embedding_config.enhanced_chunking_label",
     descriptionKey: "model.embedding_config.enhanced_chunking_description",
@@ -521,7 +520,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "chunk-size",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "chunking",
     labelKey: "model.embedding_config.chunk_size_label",
     descriptionKey: "model.embedding_config.chunk_size_description",
@@ -530,7 +529,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "chunk-overlap",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "chunking",
     labelKey: "model.embedding_config.chunk_overlap_label",
     descriptionKey: "model.embedding_config.chunk_overlap_description",
@@ -539,7 +538,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "chunking-strategy",
-    tab: "context",
+    tab: "knowledge-web",
     sectionId: "chunking",
     labelKey: "model.embedding_config.chunking_strategy_label",
     advanced: true,
@@ -549,7 +548,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Embeddings: vector-DB (relocated from Context, Phase 5 #7) --------
   {
     id: "max-embeddings-per-file",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.max_embeddings_label",
     descriptionKey: "model.embedding_config.max_embeddings_description",
@@ -558,7 +557,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "max-storage-size",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.max_storage_label",
     descriptionKey: "model.embedding_config.max_storage_description",
@@ -567,7 +566,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "auto-cleanup",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.auto_cleanup_label",
     descriptionKey: "model.embedding_config.auto_cleanup_description",
@@ -576,7 +575,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "cleanup-days-old",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embedding-limits",
     labelKey: "model.embedding_config.cleanup_age_label",
     descriptionKey: "model.embedding_config.cleanup_age_description",
@@ -585,7 +584,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "remove-duplicate-vectors",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.remove_duplicates_button",
     descriptionKey: "model.embedding_config.remove_duplicates_description",
@@ -594,7 +593,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "clear-chat-vectors",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.clear_chat_button",
     descriptionKey: "model.embedding_config.clear_chat_description",
@@ -603,7 +602,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "clear-all-vectors",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.clear_all_button",
     descriptionKey: "model.embedding_config.clear_all_description",
@@ -613,14 +612,14 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   {
     id: "rebuild-embeddings",
     focusId: "embeddings-model-select",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "settings.context.embedding_health.action",
     keywords: ["rebuild", "reindex", "embeddings", "health"]
   },
   {
     id: "rebuild-keyword-index",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "settings.embeddings.rebuild_index.button",
     descriptionKey: "settings.embeddings.rebuild_index.description",
@@ -629,7 +628,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-storage-stats",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "vector-db",
     labelKey: "model.embedding_config.storage_stats_title",
     searchKeys: [
@@ -643,7 +642,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Embeddings: model selection ---------------------------------------
   {
     id: "embeddings-model-select",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-model",
     labelKey: "settings.embeddings.model_select.label",
     descriptionKey: "settings.embeddings.model_select.description",
@@ -651,7 +650,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-show-advanced-models",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-model",
     labelKey: "settings.embeddings.model_select.show_advanced_label",
     descriptionKey:
@@ -663,7 +662,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Embeddings: generation --------------------------------------------
   {
     id: "embeddings-batch-size",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-generation",
     labelKey: "model.embedding_config.batch_size_label",
     descriptionKey: "model.embedding_config.batch_size_description",
@@ -671,7 +670,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-enable-caching",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-generation",
     labelKey: "model.embedding_config.enable_caching_label",
     descriptionKey: "model.embedding_config.enable_caching_description",
@@ -681,7 +680,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Embeddings: feedback ----------------------------------------------
   {
     id: "embeddings-feedback-enabled",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-feedback",
     labelKey: "model.embedding_config.feedback_enable_label",
     descriptionKey: "model.embedding_config.feedback_enable_description",
@@ -689,7 +688,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-show-retrieved-chunks",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-feedback",
     labelKey: "model.embedding_config.feedback_show_chunks_label",
     descriptionKey: "model.embedding_config.feedback_show_chunks_description",
@@ -697,7 +696,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-feedback-clear",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-feedback",
     labelKey: "model.embedding_config.feedback_clear_button",
     destructive: true,
@@ -707,7 +706,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Embeddings: test / migration --------------------------------------
   {
     id: "embeddings-test-generation",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-test",
     labelKey: "settings.embeddings.test_generation.button",
     descriptionKey: "settings.embeddings.test_generation.description",
@@ -715,7 +714,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-test-search",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-test",
     labelKey: "settings.embeddings.test_search.title",
     descriptionKey: "settings.embeddings.test_search.description",
@@ -725,7 +724,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-search-limit-topk",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.search_limit_label",
     descriptionKey: "model.embedding_config.search_limit_description",
@@ -734,7 +733,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-min-similarity",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.min_similarity_label",
     descriptionKey: "model.embedding_config.min_similarity_description",
@@ -743,7 +742,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-cache-ttl",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.cache_ttl_label",
     descriptionKey: "model.embedding_config.cache_ttl_description",
@@ -752,7 +751,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-cache-max-size",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.cache_max_size_label",
     descriptionKey: "model.embedding_config.cache_max_size_description",
@@ -761,7 +760,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-ann-backend",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.ann_backend_label",
     descriptionKey: "model.embedding_config.ann_backend_description",
@@ -776,7 +775,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "embeddings-ann-min-vectors",
-    tab: "embeddings",
+    tab: "saved-knowledge",
     sectionId: "embeddings-search",
     labelKey: "model.embedding_config.ann_min_vectors_label",
     descriptionKey: "model.embedding_config.ann_min_vectors_description",
@@ -785,7 +784,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "data-migration-export",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "data-migration",
     labelKey: "settings.migration.export.button",
     descriptionKey: "settings.migration.export.description",
@@ -793,7 +792,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "data-migration-import",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "data-migration",
     labelKey: "settings.migration.import.button",
     descriptionKey: "settings.migration.import.description",
@@ -803,7 +802,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Content Extraction ------------------------------------------------
   {
     id: "content-extraction-enabled",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.enable.label",
     descriptionKey: "settings.content_extraction.enable.description",
@@ -812,21 +811,21 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "content-scraper",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scraper.label",
     keywords: ["scraper", "extraction", "engine"]
   },
   {
     id: "scroll-strategy",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scroll_strategy.label",
     keywords: ["scroll", "strategy"]
   },
   {
     id: "scroll-depth",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scroll_depth.label",
     descriptionKey: "settings.content_extraction.scroll_depth.description",
@@ -834,7 +833,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "site-overrides",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "site-overrides",
     labelKey: "model.site_overrides.title",
     descriptionKey: "model.site_overrides.description",
@@ -857,7 +856,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // here so search + focus light up the moment those keys land.
   {
     id: "selection-actions-enabled",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "selection-actions",
     labelKey: "settings.content_extraction.selection_actions.label",
     descriptionKey: "settings.content_extraction.selection_actions.description",
@@ -865,7 +864,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "selection-actions-min-chars",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "selection-actions",
     labelKey: "settings.content_extraction.selection_actions_min_chars.label",
     descriptionKey:
@@ -874,7 +873,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "scroll-delay",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction-timeouts",
     labelKey: "settings.content_extraction.timeout.scroll_delay",
     advanced: true,
@@ -882,7 +881,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "mutation-timeout",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction-timeouts",
     labelKey: "settings.content_extraction.timeout.mutation_timeout",
     advanced: true,
@@ -890,7 +889,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "network-timeout",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction-timeouts",
     labelKey: "settings.content_extraction.timeout.network_timeout",
     advanced: true,
@@ -898,7 +897,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "max-wait",
-    tab: "contentExtraction",
+    tab: "page-tabs",
     sectionId: "content-extraction-timeouts",
     labelKey: "settings.content_extraction.timeout.max_wait",
     advanced: true,
@@ -908,21 +907,21 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Voices ------------------------------------------------------------
   {
     id: "voice-selection",
-    tab: "voices",
+    tab: "speech",
     sectionId: "voices",
     labelKey: "settings.speech.voice_label",
     keywords: ["voice", "tts", "speech"]
   },
   {
     id: "speech-rate",
-    tab: "voices",
+    tab: "speech",
     sectionId: "voices",
     labelKey: "settings.speech.rate_label",
     keywords: ["rate", "speed", "tts", "speech"]
   },
   {
     id: "speech-pitch",
-    tab: "voices",
+    tab: "speech",
     sectionId: "voices",
     labelKey: "settings.speech.pitch_label",
     keywords: ["pitch", "tone", "tts", "speech"]
@@ -931,7 +930,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Prompts -----------------------------------------------------------
   {
     id: "prompt-templates",
-    tab: "prompts",
+    tab: "prompt-library",
     sectionId: "prompts",
     labelKey: "settings.prompts.title",
     searchKeys: [
@@ -1160,7 +1159,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Reset -------------------------------------------------------------
   {
     id: "reset-settings",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.title",
     descriptionKey: "settings.reset.description",
@@ -1168,7 +1167,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-provider",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.provider.title",
     descriptionKey: "settings.reset.modules.provider.description",
@@ -1176,7 +1175,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-theme",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.theme.title",
     descriptionKey: "settings.reset.modules.theme.description",
@@ -1184,7 +1183,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-browser",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.browser.title",
     descriptionKey: "settings.reset.modules.browser.description",
@@ -1192,7 +1191,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-tts",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.tts.title",
     descriptionKey: "settings.reset.modules.tts.description",
@@ -1200,7 +1199,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-chat-sessions",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.chat_sessions.title",
     descriptionKey: "settings.reset.modules.chat_sessions.description",
@@ -1208,7 +1207,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-feedback",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.modules.feedback.title",
     descriptionKey: "settings.reset.modules.feedback.description",
@@ -1216,7 +1215,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "reset-danger-zone",
-    tab: "reset",
+    tab: "data-backup",
     sectionId: "reset-modules",
     labelKey: "settings.reset.danger_zone.title",
     descriptionKey: "settings.reset.danger_zone.description",
@@ -1229,7 +1228,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   {
     id: "guides-overview",
     focusId: "guides-card",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.title",
     descriptionKey: "guides.description",
@@ -1237,7 +1236,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "guide-setup",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.items.setup.label",
     descriptionKey: "guides.items.setup.description",
@@ -1246,7 +1245,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "guide-library",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.items.library.label",
     descriptionKey: "guides.items.library.description",
@@ -1255,7 +1254,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "guide-github",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.items.github.label",
     descriptionKey: "guides.items.github.description",
@@ -1264,7 +1263,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "guide-faq",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.items.faq.label",
     descriptionKey: "guides.items.faq.description",
@@ -1273,7 +1272,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "guide-support",
-    tab: "guides",
+    tab: "help",
     sectionId: "guides",
     labelKey: "guides.support.title",
     descriptionKey: "guides.support.description",
@@ -1283,7 +1282,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   // ---- Permissions & Privacy ---------------------------------------------
   {
     id: "permissions",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.title",
     descriptionKey: "settings.permissions.description",
@@ -1291,7 +1290,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "privacy-overview",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.overview.title",
     descriptionKey: "settings.permissions.overview.description",
@@ -1299,7 +1298,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "browser-tab-access",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.presets.fields.tab_access",
     aliases: [
@@ -1312,7 +1311,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "model-tools",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.tools.title",
     descriptionKey: "settings.permissions.tools.description",
@@ -1340,7 +1339,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     // Routes per-model search hits to the model picker in the Model tools card.
     // focusId must equal the Select's data-settings-focus-id.
     id: "model-tools-per-model",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.tools.perModel.title",
     descriptionKey: "settings.permissions.tools.perModel.description",
@@ -1348,7 +1347,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permission-bookmarks",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.bookmarks.label",
     descriptionKey: "settings.permissions.items.bookmarks.description",
@@ -1356,7 +1355,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permission-history",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.history.label",
     descriptionKey: "settings.permissions.items.history.description",
@@ -1364,7 +1363,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permission-notifications",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.notifications.label",
     descriptionKey: "settings.permissions.items.notifications.description",
@@ -1372,7 +1371,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permission-downloads",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.downloads.label",
     descriptionKey: "settings.permissions.items.downloads.description",
@@ -1383,7 +1382,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ? [
         {
           id: "permission-tab-groups",
-          tab: "permissions" as const,
+          tab: "privacy" as const,
           sectionId: "permissions",
           labelKey: "settings.permissions.items.tabGroups.label",
           descriptionKey: "settings.permissions.items.tabGroups.description",
@@ -1393,7 +1392,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     : []),
   {
     id: "permission-alarms",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.alarms.label",
     descriptionKey: "settings.permissions.items.alarms.description",
@@ -1407,7 +1406,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permission-sessions",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.items.sessions.label",
     descriptionKey: "settings.permissions.items.sessions.description",
@@ -1421,7 +1420,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "permissions-host",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.host.title",
     descriptionKey: "settings.permissions.host.description",
@@ -1429,7 +1428,7 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   },
   {
     id: "scheduled-job-vector-maintenance",
-    tab: "permissions",
+    tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.scheduled.items.vectorMaintenance.label",
     descriptionKey:

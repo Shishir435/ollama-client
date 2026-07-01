@@ -38,7 +38,7 @@ describe("FirstRunPermissionsDialog", () => {
 
     expect(store.set).toHaveBeenCalledWith("onboarding-permissions-seen", true)
     expect(api.openOptionsInTab).toHaveBeenCalledWith(
-      "chrome-extension://test/options.html?tab=permissions"
+      "chrome-extension://test/options.html?tab=privacy"
     )
   })
 
