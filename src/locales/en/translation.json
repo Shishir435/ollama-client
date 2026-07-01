@@ -1173,7 +1173,11 @@
           "selectPlaceholder": "Choose a model…",
           "customBadge": "custom",
           "reset": "Reset to defaults",
-          "empty": "No models available yet."
+          "empty": "No models available yet.",
+          "nonNativeFallback": {
+            "label": "Prompt-based tools (no native tool-calling)",
+            "description": "For models that can't call tools natively, describe tools in the prompt and parse the calls back. Experimental; less reliable than native tool-calling."
+          }
         }
       }
     },

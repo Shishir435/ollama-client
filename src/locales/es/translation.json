@@ -1595,7 +1595,11 @@
           "selectPlaceholder": "Elige un modelo…",
           "customBadge": "personalizado",
           "reset": "Restablecer valores",
-          "empty": "Aún no hay modelos disponibles."
+          "empty": "Aún no hay modelos disponibles.",
+          "nonNativeFallback": {
+            "label": "Herramientas por prompt (sin tool-calling nativo)",
+            "description": "Para modelos sin tool-calling nativo: describe las herramientas en el prompt y analiza las llamadas. Experimental; menos fiable que el tool-calling nativo."
+          }
         }
       }
     },

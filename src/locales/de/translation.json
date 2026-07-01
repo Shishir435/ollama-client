@@ -1595,7 +1595,11 @@
           "selectPlaceholder": "Modell auswählen…",
           "customBadge": "angepasst",
           "reset": "Auf Standard zurücksetzen",
-          "empty": "Noch keine Modelle verfügbar."
+          "empty": "Noch keine Modelle verfügbar.",
+          "nonNativeFallback": {
+            "label": "Prompt-basierte Tools (kein natives Tool-Calling)",
+            "description": "Für Modelle ohne natives Tool-Calling: Tools im Prompt beschreiben und die Aufrufe zurückparsen. Experimentell; weniger zuverlässig als natives Tool-Calling."
+          }
         }
       }
     },

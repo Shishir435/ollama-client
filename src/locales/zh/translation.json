@@ -1595,7 +1595,11 @@
           "selectPlaceholder": "选择一个模型…",
           "customBadge": "自定义",
           "reset": "重置为默认",
-          "empty": "暂无可用模型。"
+          "empty": "暂无可用模型。",
+          "nonNativeFallback": {
+            "label": "基于提示词的工具（无原生工具调用）",
+            "description": "对于无法原生调用工具的模型，在提示词中描述工具并解析其调用。实验性功能，可靠性低于原生工具调用。"
+          }
         }
       }
     },
