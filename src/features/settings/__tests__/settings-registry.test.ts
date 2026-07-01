@@ -56,7 +56,7 @@ describe("settings-registry", () => {
   })
 
   it("getSettingsEntry finds by id", () => {
-    expect(getSettingsEntry("grounded-only-mode")?.tab).toBe("context")
+    expect(getSettingsEntry("grounded-only-mode")?.tab).toBe("knowledge-web")
     expect(getSettingsEntry("does-not-exist")).toBeUndefined()
   })
 
@@ -70,7 +70,7 @@ describe("settings-registry", () => {
       const results = searchSettings("tool result")
       const hit = results.find((e) => e.id === "max-tool-result-chars")
       expect(hit).toBeDefined()
-      expect(hit?.tab).toBe("context")
+      expect(hit?.tab).toBe("knowledge-web")
     })
 
     it("matches by id words", () => {
@@ -87,13 +87,13 @@ describe("settings-registry", () => {
     it("matches selection actions to the content extraction tab", () => {
       const results = searchSettings("selection actions")
       const hit = results.find((e) => e.id === "selection-actions-enabled")
-      expect(hit?.tab).toBe("contentExtraction")
+      expect(hit?.tab).toBe("page-tabs")
     })
 
     it("matches reset module rows", () => {
       const results = searchSettings("browser settings")
       const hit = results.find((e) => e.id === "reset-browser")
-      expect(hit?.tab).toBe("reset")
+      expect(hit?.tab).toBe("data-backup")
     })
 
     it("matches non-model tabs that were easy to miss", () => {
@@ -139,7 +139,7 @@ describe("settings-registry", () => {
       const hit = searchSettings("danger zone").find(
         (e) => e.id === "reset-danger-zone"
       )
-      expect(hit?.tab).toBe("reset")
+      expect(hit?.tab).toBe("data-backup")
       expect(hit?.destructive).toBe(true)
     })
 

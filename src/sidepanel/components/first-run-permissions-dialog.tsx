@@ -56,7 +56,7 @@ export const FirstRunPermissionsDialog = () => {
   const openPermissions = () => {
     markSeen()
     setOpen(false)
-    void openOptionsInTab(runtime.getURL("options.html?tab=permissions"))
+    void openOptionsInTab(runtime.getURL("options.html?tab=privacy"))
   }
 
   return (

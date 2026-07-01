@@ -115,7 +115,7 @@ describe("SettingsSearch", () => {
       expect.objectContaining({
         entryId: "grounded-only-mode",
         focusId: "grounded-only-mode",
-        tab: "context"
+        tab: "knowledge-web"
       })
     )
     expect(input.value).toBe("")
@@ -130,7 +130,7 @@ describe("SettingsSearch", () => {
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onSelect.mock.calls[0][0]).toMatchObject({
       entryId: "selection-actions-enabled",
-      tab: "contentExtraction"
+      tab: "page-tabs"
     })
   })
 

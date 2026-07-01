@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import {
   BookOpen,
+  Bot,
   Brain,
   ChevronDown,
   Database,
@@ -83,12 +84,16 @@ const SourceRow = ({
 }) => {
   const { t } = useTranslation()
   const isWeb = group === "web"
-  const isUserMessage =
-    group === "knowledge" &&
-    item.source === "chat" &&
-    item.title === "User message"
+  const isChatSource = group === "knowledge" && item.source === "chat"
+  const isUserMessage = isChatSource && item.title === "User message"
+  const isAssistantMessage = isChatSource && item.title === "Assistant response"
+  const isChatMessage = isUserMessage || isAssistantMessage
   const host = isWeb && item.url ? (hostOf(item.url) ?? item.url) : undefined
-  const Icon = isUserMessage ? User : GROUP_META[group].icon
+  const Icon = isUserMessage
+    ? User
+    : isAssistantMessage
+      ? Bot
+      : GROUP_META[group].icon
 
   return (
     <div className="group/row">
@@ -98,7 +103,7 @@ const SourceRow = ({
             "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-control",
             isWeb
               ? "border border-border/50 bg-background"
-              : isUserMessage
+              : isChatMessage
                 ? "bg-primary/10 text-primary"
                 : GROUP_META[group].chip
           )}>

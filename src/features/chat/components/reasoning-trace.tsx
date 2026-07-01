@@ -86,7 +86,7 @@ const ACTIVITY_ICONS: Record<
 }
 
 const TOOL_RESULT_LIMIT_SETTINGS_PATH =
-  "options.html?tab=context&focus=max-tool-result-chars"
+  "options.html?tab=knowledge-web&focus=max-tool-result-chars"
 
 const openToolResultLimitSettings = () => {
   void openOptionsInTab(runtime.getURL(TOOL_RESULT_LIMIT_SETTINGS_PATH))
