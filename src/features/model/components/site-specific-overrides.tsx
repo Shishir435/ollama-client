@@ -121,7 +121,11 @@ export const SiteSpecificOverrides = ({
     label: string
   ) => (
     <SettingsFormField label={label} labelClassName="text-xs">
-      <Select value={value} onValueChange={onValueChange}>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (next !== null) onValueChange(next as PerSiteRuleMode)
+        }}>
         <SelectTrigger className="h-9">
           <SelectValue />
         </SelectTrigger>

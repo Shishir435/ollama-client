@@ -47,7 +47,7 @@ describe("plasmoGlobalStorage", () => {
     const config = { backend: "searxng", baseUrl: "http://localhost:8080" }
 
     vi.spyOn(plasmoDeviceStorage, "get").mockResolvedValueOnce(undefined)
-    vi.spyOn(plasmoDeviceStorage, "set").mockResolvedValueOnce(undefined)
+    vi.spyOn(plasmoDeviceStorage, "set").mockResolvedValueOnce(null)
     vi.spyOn(plasmoSyncStorage, "get").mockResolvedValueOnce(config)
     vi.spyOn(plasmoSyncStorage, "remove").mockResolvedValueOnce(undefined)
 

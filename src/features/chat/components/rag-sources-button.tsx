@@ -43,7 +43,7 @@ export function RAGSourcesButton({
           </>
         )
       }}
-      feedback={enableFeedback ? { query, sessionId } : undefined}
+      feedback={enableFeedback && query ? { query, sessionId } : undefined}
     />
   )
 }

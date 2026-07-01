@@ -163,10 +163,13 @@ export const waitForNetworkIdle = (
     }
 
     // Monitor XMLHttpRequest
-    XMLHttpRequest.prototype.open = function (...args) {
+    XMLHttpRequest.prototype.open = function (
+      this: XMLHttpRequest,
+      ...args: Parameters<typeof XMLHttpRequest.prototype.open>
+    ) {
       resetIdleTimer()
       return originalOpen.apply(this, args)
-    }
+    } as typeof XMLHttpRequest.prototype.open
 
     // Start idle timer
     resetIdleTimer()

@@ -37,7 +37,7 @@ const makeCapture = (): SelectionCapture => ({
     width: 200,
     height: 20
   } as DOMRect,
-  range: null,
+  range: undefined,
   canReplace: false,
   canInsert: false,
   selectionType: "plain-text"

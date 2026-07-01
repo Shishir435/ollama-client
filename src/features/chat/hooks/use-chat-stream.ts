@@ -127,7 +127,8 @@ export const useChatStream = ({
       }
     }
 
-    const listener = (msg: StreamMessage) => {
+    const listener = (rawMsg: unknown) => {
+      const msg = rawMsg as StreamMessage
       if (streamSettled) return
       if (DEBUG_THINKING_STREAM) {
         logger.debug("Stream msg", "useChatStream", {

@@ -173,7 +173,11 @@ export const PromptTemplateManager = () => {
             />
           </div>
 
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select
+            value={selectedCategory}
+            onValueChange={(value) => {
+              if (value !== null) setSelectedCategory(value)
+            }}>
             <SelectTrigger className="w-40">
               <SelectValue
                 placeholder={t("settings.prompts.category_placeholder")}
@@ -193,9 +197,10 @@ export const PromptTemplateManager = () => {
 
           <Select
             value={sortBy}
-            onValueChange={(value: "recent" | "popular" | "alphabetical") =>
-              setSortBy(value)
-            }>
+            onValueChange={(value) => {
+              if (value !== null)
+                setSortBy(value as "recent" | "popular" | "alphabetical")
+            }}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>

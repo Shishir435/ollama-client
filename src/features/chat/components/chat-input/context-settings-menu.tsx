@@ -30,6 +30,7 @@ import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useWebSearchConfig } from "@/features/web-search/stores/web-search-config-store"
 import {
+  DEFAULT_CONTENT_EXTRACTION_CONFIG,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_TABS_ACCESS,
   STORAGE_KEYS
@@ -220,7 +221,7 @@ export const ContextSettingsMenu = ({
       key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
       instance: plasmoGlobalStorage
     },
-    null
+    DEFAULT_CONTENT_EXTRACTION_CONFIG
   )
   const [oldPatterns] = useStorage<string[]>(
     {

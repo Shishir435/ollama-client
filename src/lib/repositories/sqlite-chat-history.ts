@@ -187,6 +187,7 @@ export const bulkPutSessions = async (
     }
 
     await withTransaction(async () => {
+      const messages = session.messages ?? []
       await putSessionRow(session)
       await run("DELETE FROM files WHERE sessionId = ?", [session.id])
       await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
@@ -194,7 +195,7 @@ export const bulkPutSessions = async (
       // Pass 1: insert each message with a fresh id, record old→new, and
       // persist its files (which need the new message id).
       const idMap = new Map<number, number>()
-      for (const message of session.messages) {
+      for (const message of messages) {
         const oldId = typeof message.id === "number" ? message.id : undefined
         const messageId = await insertImportedMessage(session.id, message)
         if (oldId !== undefined) idMap.set(oldId, messageId)
@@ -214,7 +215,7 @@ export const bulkPutSessions = async (
       }
 
       // Pass 2: remap parentId links to the freshly-allocated ids.
-      for (const message of session.messages) {
+      for (const message of messages) {
         const oldId = typeof message.id === "number" ? message.id : undefined
         const oldParentId =
           typeof message.parentId === "number" ? message.parentId : undefined

@@ -44,7 +44,9 @@ export const resolvePromptTemplateVariables = (
   }
 
   return template.replace(TEMPLATE_VARIABLE_RE, (token, name: string) => {
-    const value = context.variables?.[name] ?? builtIns[name]
+    const value =
+      context.variables?.[name] ??
+      builtIns[name as BuiltInPromptTemplateVariable]
     return value == null ? token : value
   })
 }

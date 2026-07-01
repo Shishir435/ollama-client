@@ -15,6 +15,7 @@ import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import {
+  DEFAULT_CONTENT_EXTRACTION_CONFIG,
   DEFAULT_EXCLUDE_URLS,
   DEFAULT_TABS_ACCESS,
   STORAGE_KEYS
@@ -54,7 +55,7 @@ export const TabsSelect = () => {
       key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
       instance: plasmoGlobalStorage
     },
-    null
+    DEFAULT_CONTENT_EXTRACTION_CONFIG
   )
   const [oldPatterns] = useStorage<string[]>(
     {
@@ -90,7 +91,7 @@ export const TabsSelect = () => {
   const tabOptions = openTabs
     .filter((tab) => tab.id !== undefined && isAccessibleTab(tab.url))
     .map((tab) => ({
-      label: trimTitle(tab.title),
+      label: trimTitle(tab.title ?? ""),
       value: String(tab.id)
     }))
 

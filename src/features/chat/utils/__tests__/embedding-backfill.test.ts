@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import type { ChatMessage } from "@/types/chat"
 import {
   getEmbeddableMessagesBySession,
   isEmbeddableChatMessage
@@ -18,9 +19,12 @@ describe("isEmbeddableChatMessage", () => {
   })
 
   it("rejects messages with no content", () => {
-    expect(isEmbeddableChatMessage({ role: "user", content: undefined })).toBe(
-      false
-    )
+    expect(
+      isEmbeddableChatMessage({
+        role: "user",
+        content: undefined
+      } as unknown as ChatMessage)
+    ).toBe(false)
   })
 
   it("rejects messages with content shorter than 10 chars", () => {

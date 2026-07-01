@@ -37,7 +37,11 @@ export interface ChromeMessage {
   }
 }
 
-export interface ChromePort extends browser.Runtime.Port {
+// Omit the members we deliberately narrow: the base `postMessage`/`onMessage`
+// are typed with `unknown`/`any` payloads, so re-declaring them with our
+// message union would otherwise be an incompatible override (TS2430).
+export interface ChromePort
+  extends Omit<browser.Runtime.Port, "postMessage" | "onMessage"> {
   postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
   onMessage: browser.Events.Event<
     (message: ChromeMessage | EmbeddingStatusMessage) => void

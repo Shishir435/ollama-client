@@ -35,7 +35,7 @@ export const pdfExporter: Exporter = {
       ${getPdfStyles()}
       <div class="chat-container">
         <h1 class="chat-title">${session.title || t("sessions.export.default_title")}</h1>
-        ${session.messages
+        ${(session.messages ?? [])
           .map(
             (msg) => `
             <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
@@ -68,7 +68,7 @@ export const pdfExporter: Exporter = {
             (session, index) => `
             ${index > 0 ? '<hr class="session-separator" />' : ""}
             <h2 class="chat-title">${session.title || `Chat Session ${index + 1}`}</h2>
-            ${session.messages
+            ${(session.messages ?? [])
               .map(
                 (msg) => `
                 <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">

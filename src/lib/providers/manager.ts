@@ -120,8 +120,9 @@ export const ProviderManager = {
     }
 
     // Merge new defaults if they are missing from stored config
+    const currentStored = stored ?? []
     const missing = DEFAULT_PROVIDERS.filter(
-      (d) => !stored.find((s) => s.id === d.id)
+      (d) => !currentStored.find((s) => s.id === d.id)
     )
 
     // Sync legacy provider URL if present (default provider legacy key)

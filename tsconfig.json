@@ -18,6 +18,7 @@
       "@/*": ["./src/*"]
     },
     "types": ["chrome"],
+    "strict": true,
     "skipLibCheck": true
   }
 }

@@ -20,7 +20,8 @@ import type {
 } from "@/types"
 
 export const registerPortRouter = () => {
-  browser.runtime.onConnect.addListener((port: ChromePort) => {
+  browser.runtime.onConnect.addListener((rawPort) => {
+    const port = rawPort as unknown as ChromePort
     let isPortClosed = false
     let currentAbortKey: string | undefined
     const isSelectionBridgePort = registerSelectionBridgePort(port)
@@ -35,7 +36,8 @@ export const registerPortRouter = () => {
       abortAndClearController(currentAbortKey ?? port.name)
     })
 
-    port.onMessage.addListener(async (msg: ChromeMessage) => {
+    port.onMessage.addListener(async (message) => {
+      const msg = message as ChromeMessage
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
         currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
@@ -68,7 +70,8 @@ export const registerPortRouter = () => {
       port.name === MESSAGE_KEYS.PROVIDER.PULL_MODEL ||
       port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
     ) {
-      port.onMessage.addListener(async (msg: ChromeMessage) => {
+      port.onMessage.addListener(async (message) => {
+        const msg = message as ChromeMessage
         await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
       })
     }

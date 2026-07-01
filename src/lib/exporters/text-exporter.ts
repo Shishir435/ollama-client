@@ -7,7 +7,7 @@ import { downloadFile } from "./utils"
 
 const formatSession = (session: ChatSession, t: TFunction): string => {
   const title = `${session.title || t("sessions.export.default_title")}\n${"=".repeat(20)}\n\n`
-  const messages = session.messages
+  const messages = (session.messages ?? [])
     .map((msg) => {
       const role =
         msg.role === "user"

@@ -64,7 +64,12 @@ export const SettingsSelectField = ({
       error={error}
       className={className}
       labelClassName={labelClassName}>
-      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <Select
+        value={value}
+        onValueChange={(v) => {
+          if (v !== null) onValueChange(v)
+        }}
+        disabled={disabled}>
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder={placeholder}>
             {autoValueLabel ? () => autoValueLabel : undefined}

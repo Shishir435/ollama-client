@@ -115,7 +115,7 @@ const expectExtensionPage = (
     manifest.options_ui?.page,
     manifest.options_page,
     manifest.side_panel?.default_path
-  ].filter(Boolean)
+  ].filter((page): page is string => Boolean(page))
 
   assert(
     pages.some((page) => matcher.test(page)),
@@ -142,7 +142,9 @@ const expectBackgroundScript = (
 ): void => {
   const serviceWorker = manifest.background?.service_worker
   const scripts = manifest.background?.scripts || []
-  const backgroundEntries = [serviceWorker, ...scripts].filter(Boolean)
+  const backgroundEntries = [serviceWorker, ...scripts].filter(
+    (entry): entry is string => Boolean(entry)
+  )
 
   assert(
     backgroundEntries.some((entry) => matcher.test(entry)),

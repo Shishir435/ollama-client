@@ -34,7 +34,7 @@ export const FileUploadSettings = () => {
     const mb = Number.parseFloat(e.target.value)
     if (!Number.isNaN(mb) && mb > 0) {
       setConfig((prev) => ({
-        ...prev,
+        ...(prev ?? DEFAULT_FILE_UPLOAD_CONFIG),
         maxFileSize: mb * 1024 * 1024
       }))
     }

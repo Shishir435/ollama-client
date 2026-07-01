@@ -404,7 +404,11 @@ const ModelToolOverridesSection = () => {
         </span>
       </div>
 
-      <Select value={targetKey} onValueChange={setTargetKey}>
+      <Select
+        value={targetKey}
+        onValueChange={(value) => {
+          if (value !== null) setTargetKey(value)
+        }}>
         <SelectTrigger
           data-settings-focus-id="model-tools-per-model"
           className="w-full">

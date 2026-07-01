@@ -55,7 +55,7 @@ export function formatSources(sources: RetrievedContext["sources"]): Array<{
 }> {
   return sources.map((source) => ({
     name: source.title,
-    type: source.type,
+    type: source.type ?? "document",
     mode: "rag",
     url: source.fileId ? `#file:${source.fileId}` : undefined
   }))

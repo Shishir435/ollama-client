@@ -60,21 +60,33 @@ export const TextSplittingSettings = () => {
   const handleChunkSizeChange = (value: number[]) => {
     const size = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkSize
     setChunkSize(size)
-    setConfig((prev) => ({ ...prev, chunkSize: size }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+      chunkSize: size
+    }))
   }
 
   const handleChunkOverlapChange = (value: number[]) => {
     const overlap = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkOverlap
     setChunkOverlap(overlap)
-    setConfig((prev) => ({ ...prev, chunkOverlap: overlap }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+      chunkOverlap: overlap
+    }))
   }
 
   const handleStrategyChange = (value: ChunkingStrategy) => {
-    setConfig((prev) => ({ ...prev, chunkingStrategy: value }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+      chunkingStrategy: value
+    }))
   }
 
   const handleEnhancedChunkingChange = (checked: boolean) => {
-    setConfig((prev) => ({ ...prev, useEnhancedChunking: checked }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+      useEnhancedChunking: checked
+    }))
   }
 
   return (
@@ -127,7 +139,10 @@ export const TextSplittingSettings = () => {
           label={t("model.embedding_config.chunking_strategy_label")}>
           <Select
             value={config.chunkingStrategy}
-            onValueChange={handleStrategyChange}>
+            onValueChange={(value) => {
+              if (value !== null)
+                handleStrategyChange(value as ChunkingStrategy)
+            }}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

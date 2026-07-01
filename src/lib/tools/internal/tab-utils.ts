@@ -80,7 +80,7 @@ export const readTabContent = async (
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
   const cached = tabContentCache.get(tabId)
-  if (!force && cacheMatches(cached, signature)) {
+  if (!force && cached && cacheMatches(cached, signature)) {
     return cached.response
   }
 
