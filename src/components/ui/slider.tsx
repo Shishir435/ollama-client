@@ -38,6 +38,7 @@ function Slider({
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
+            // biome-ignore lint/suspicious/noArrayIndexKey: thumbs are positional and fixed-count; index is a stable key here
             key={index}
             className="relative block size-3 shrink-0 cursor-pointer rounded-control border border-ring bg-white ring-ring/30 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-2 focus-visible:ring-2 focus-visible:outline-hidden active:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
           />

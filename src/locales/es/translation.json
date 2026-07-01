@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Desplazarse al final",
     "input": {
       "placeholder": "Escribe un mensaje o ctrl + /",
       "switch_model": "Cambiar modelo",
@@ -344,7 +345,8 @@
       "time_day": "día",
       "time_days": "días",
       "time_ago": "hace",
-      "time_unknown": "Hora desconocida"
+      "time_unknown": "Hora desconocida",
+      "matching_titles": "Títulos coincidentes"
     },
     "backfill": {
       "title": "Rellenar Historial de Chat",

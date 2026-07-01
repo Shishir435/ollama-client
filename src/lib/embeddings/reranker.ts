@@ -11,7 +11,7 @@ export type RerankerBackend = "none" | "cosine"
  * ordering independent of the keyword weight used in stage 1 retrieval.
  * Score range: [0, 1] via (cosine + 1) / 2.
  */
-class RerankerService {
+class CosineRescorer {
   private enabled: boolean = false
   private backend: RerankerBackend = "none"
 
@@ -29,7 +29,7 @@ class RerankerService {
   }
 
   async dispose() {
-    logger.info("Reranker disposed", "RerankerService")
+    logger.info("Reranker disposed", "CosineRescorer")
   }
 
   async rerank(
@@ -57,7 +57,7 @@ class RerankerService {
       if (!queryEmbedding || queryEmbedding.length === 0) {
         logger.verbose(
           "No query embedding available, using uniform scores",
-          "RerankerService"
+          "CosineRescorer"
         )
         return documents.map((d) => ({ ...d, score: 0.5 }))
       }
@@ -70,7 +70,7 @@ class RerankerService {
       if (!hasAnyEmbedding) {
         logger.verbose(
           "No embeddings in documents, using uniform scores",
-          "RerankerService"
+          "CosineRescorer"
         )
         return documents.map((d) => ({ ...d, score: 0.5 }))
       }
@@ -97,12 +97,12 @@ class RerankerService {
 
       logger.info(
         `Cosine reranking complete: top score = ${ranked[0]?.score.toFixed(3)}`,
-        "RerankerService"
+        "CosineRescorer"
       )
 
       return ranked
     } catch (error) {
-      logger.error("Reranking failed, using fallback", "RerankerService", {
+      logger.error("Reranking failed, using fallback", "CosineRescorer", {
         error: getErrorMessage(error)
       })
       return documents.map((d) => ({ ...d, score: 0.5 }))
@@ -113,14 +113,14 @@ class RerankerService {
     this.enabled = enabled
     logger.info(
       `Reranker ${enabled ? "enabled" : "disabled"}`,
-      "RerankerService"
+      "CosineRescorer"
     )
   }
 
   setBackend(backend: RerankerBackend) {
     if (this.backend === backend) return
     this.backend = backend
-    logger.info(`Reranker backend set to ${backend}`, "RerankerService")
+    logger.info(`Reranker backend set to ${backend}`, "CosineRescorer")
   }
 
   setModelName(_modelName: string) {
@@ -136,4 +136,4 @@ class RerankerService {
   }
 }
 
-export const rerankerService = new RerankerService()
+export const rerankerService = new CosineRescorer()

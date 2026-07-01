@@ -1,7 +1,8 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
-import { Button } from "@/components/ui/button"
+import { TooltipActionButton } from "@/components/actions"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   type EmbeddingConfig,
@@ -46,6 +47,7 @@ export const ChatMessageList = ({
   onDeleteMessage,
   onNavigate
 }: ChatMessageListProps) => {
+  const { t } = useTranslation()
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -135,7 +137,9 @@ export const ChatMessageList = ({
         followOutput={isStreaming && !userDetachedFromBottom ? "auto" : false}
         alignToBottom={false}
         className="scrollbar-none"
-        atBottomThreshold={24}
+        // Treat "within ~a few lines of the end" as at-bottom so the
+        // scroll-to-bottom button doesn't show when a small gap remains.
+        atBottomThreshold={120}
         atBottomStateChange={handleAtBottomStateChange}
         computeItemKey={(index, msg) =>
           msg.id !== undefined
@@ -195,11 +199,13 @@ export const ChatMessageList = ({
       />
       {userDetachedFromBottom && !isAtBottom && filteredMessages.length > 0 && (
         <div className="pointer-events-none absolute bottom-4 right-4">
-          <Button
+          <TooltipActionButton
             type="button"
-            size="sm"
+            size="icon"
             variant="secondary"
-            className="pointer-events-auto h-8 gap-1 rounded-chip px-3 text-xs shadow-md"
+            label={t("chat.scroll_to_bottom")}
+            className="pointer-events-auto size-8 rounded-full border border-border/60 shadow-md"
+            icon={<ChevronDown className="icon-sm" />}
             onClick={() => {
               setUserDetachedFromBottom(false)
               setIsAtBottom(true)
@@ -208,10 +214,8 @@ export const ChatMessageList = ({
                 align: "end",
                 behavior: "smooth"
               })
-            }}>
-            <ChevronDown className="icon-sm" />
-            Bottom
-          </Button>
+            }}
+          />
         </div>
       )}
     </div>

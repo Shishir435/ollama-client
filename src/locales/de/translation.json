@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Nach unten scrollen",
     "input": {
       "placeholder": "Nachricht eingeben oder ctrl + /",
       "switch_model": "Modell wechseln",
@@ -344,7 +345,8 @@
       "time_day": "Tag",
       "time_days": "Tage",
       "time_ago": "vor",
-      "time_unknown": "Unbekannte Zeit"
+      "time_unknown": "Unbekannte Zeit",
+      "matching_titles": "Passende Titel"
     },
     "backfill": {
       "title": "Chat-Verlauf nachfüllen",

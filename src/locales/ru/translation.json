@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "Прокрутить вниз",
     "input": {
       "placeholder": "Введите сообщение или ctrl + /",
       "switch_model": "Сменить модель",
@@ -344,7 +345,8 @@
       "time_day": "день",
       "time_days": "дней",
       "time_ago": "назад",
-      "time_unknown": "Неизвестное время"
+      "time_unknown": "Неизвестное время",
+      "matching_titles": "Совпадающие заголовки"
     },
     "backfill": {
       "title": "Индексация истории чатов",

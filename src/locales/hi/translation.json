@@ -165,6 +165,7 @@
     }
   },
   "chat": {
+    "scroll_to_bottom": "नीचे स्क्रॉल करें",
     "input": {
       "placeholder": "एक संदेश टाइप करें... (ctrl + /)",
       "switch_model": "मॉडल बदलें",
@@ -344,7 +345,8 @@
       "time_day": "दिन",
       "time_days": "दिन",
       "time_ago": "पहले",
-      "time_unknown": "अज्ञात समय"
+      "time_unknown": "अज्ञात समय",
+      "matching_titles": "मिलते-जुलते शीर्षक"
     },
     "backfill": {
       "title": "चैट इतिहास बैकफ़िल करें",
