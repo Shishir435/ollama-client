@@ -166,6 +166,10 @@
   },
   "chat": {
     "scroll_to_bottom": "Scroll to bottom",
+    "voice_input": {
+      "start": "Dictate with your voice",
+      "stop": "Stop dictation"
+    },
     "system_prompt": {
       "button": "Chat instructions",
       "title": "Chat instructions",

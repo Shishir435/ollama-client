@@ -425,6 +425,10 @@
       "placeholder": "ex. Tu es un assistant concis qui répond par points.",
       "save": "Enregistrer",
       "clear": "Effacer"
+    },
+    "voice_input": {
+      "start": "Dicter à la voix",
+      "stop": "Arrêter la dictée"
     }
   },
   "file_upload": {

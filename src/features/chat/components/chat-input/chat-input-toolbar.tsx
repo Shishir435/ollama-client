@@ -8,6 +8,7 @@ import type { FileProcessingState } from "@/lib/file-processors/types"
 import { Camera, FileText } from "@/lib/lucide-icon"
 import { ContextSettingsMenu } from "./context-settings-menu"
 import { InputMetrics } from "./input-metrics"
+import { VoiceInputButton } from "./voice-input-button"
 
 export interface ChatInputToolbarProps {
   inputLength: number
@@ -63,6 +64,8 @@ export const ChatInputToolbar = ({
           disabled={isLoading}
           acceptImages={acceptImages}
         />
+
+        <VoiceInputButton disabled={isLoading} />
         {showScreenshot && onCaptureScreenshot && (
           <TooltipActionButton
             type="button"

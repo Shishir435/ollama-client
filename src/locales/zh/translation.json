@@ -425,6 +425,10 @@
       "placeholder": "例如：你是一个用要点简洁作答的助手。",
       "save": "保存",
       "clear": "清除"
+    },
+    "voice_input": {
+      "start": "用语音输入",
+      "stop": "停止语音输入"
     }
   },
   "file_upload": {

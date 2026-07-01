@@ -425,6 +425,10 @@
       "placeholder": "例: 箇条書きで簡潔に答えるアシスタントです。",
       "save": "保存",
       "clear": "クリア"
+    },
+    "voice_input": {
+      "start": "音声で入力",
+      "stop": "音声入力を停止"
     }
   },
   "file_upload": {

@@ -425,6 +425,10 @@
       "placeholder": "es. Sei un assistente conciso che risponde con elenchi puntati.",
       "save": "Salva",
       "clear": "Cancella"
+    },
+    "voice_input": {
+      "start": "Detta con la voce",
+      "stop": "Interrompi dettatura"
     }
   },
   "file_upload": {

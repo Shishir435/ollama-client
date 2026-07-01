@@ -425,6 +425,10 @@
       "placeholder": "p. ej. Eres un asistente conciso que responde con viñetas.",
       "save": "Guardar",
       "clear": "Borrar"
+    },
+    "voice_input": {
+      "start": "Dictar con tu voz",
+      "stop": "Detener el dictado"
     }
   },
   "file_upload": {

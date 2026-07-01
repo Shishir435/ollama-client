@@ -425,6 +425,10 @@
       "placeholder": "z. B. Du bist ein präziser Assistent, der in Stichpunkten antwortet.",
       "save": "Speichern",
       "clear": "Löschen"
+    },
+    "voice_input": {
+      "start": "Mit deiner Stimme diktieren",
+      "stop": "Diktat beenden"
     }
   },
   "file_upload": {
