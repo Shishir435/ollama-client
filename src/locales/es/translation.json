@@ -417,6 +417,14 @@
       "mermaid_empty": "Sin contenido Mermaid",
       "rendering_mermaid": "Renderizando diagrama Mermaid…",
       "empty": "Sin contenido de artefacto"
+    },
+    "system_prompt": {
+      "button": "Instrucciones del chat",
+      "title": "Instrucciones del chat",
+      "description": "Un prompt de sistema solo para este chat. Anula el prompt predeterminado del modelo.",
+      "placeholder": "p. ej. Eres un asistente conciso que responde con viñetas.",
+      "save": "Guardar",
+      "clear": "Borrar"
     }
   },
   "file_upload": {

@@ -166,6 +166,14 @@
   },
   "chat": {
     "scroll_to_bottom": "Scroll to bottom",
+    "system_prompt": {
+      "button": "Chat instructions",
+      "title": "Chat instructions",
+      "description": "A system prompt for this chat only. It overrides the model's default prompt.",
+      "placeholder": "e.g. You are a concise assistant that answers in bullet points.",
+      "save": "Save",
+      "clear": "Clear"
+    },
     "input": {
       "placeholder": "Type a message or ctrl + /",
       "images": {

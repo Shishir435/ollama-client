@@ -81,7 +81,7 @@ describe("sessions", () => {
     expect(mockedRun).toHaveBeenCalledTimes(1)
     const [sql, params] = mockedRun.mock.calls[0]
     expect(sql).toContain("INSERT INTO sessions")
-    expect(params).toEqual(["s9", "Hi", "m", 4, 100, 200, 0])
+    expect(params).toEqual(["s9", "Hi", "m", 4, 100, 200, 0, null])
   })
 
   it("bulkPutSessions runs INSERT OR REPLACE for each row", async () => {

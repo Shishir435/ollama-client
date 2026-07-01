@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { getSession } from "@/lib/repositories/chat-history"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -72,7 +73,26 @@ export const handleChatWithModel = withErrorContext(
     const isMemoryEnabled =
       (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
       true
-    const systemPrompt = modelParams.system || "You are a helpful AI assistant."
+    // A per-chat system prompt override, when set, replaces the model's
+    // configured prompt for this session only. Empty/whitespace is ignored, and
+    // a failed read degrades to the model default rather than breaking the turn.
+    let sessionSystemPrompt: string | undefined
+    if (msg.payload.sessionId) {
+      try {
+        const session = await getSession(msg.payload.sessionId)
+        sessionSystemPrompt = session?.systemPrompt?.trim() || undefined
+      } catch (error) {
+        logger.debug(
+          "Failed to read per-chat system prompt",
+          "handleChatWithModel",
+          { error }
+        )
+      }
+    }
+    const systemPrompt =
+      sessionSystemPrompt ||
+      modelParams.system ||
+      "You are a helpful AI assistant."
     let contextHeader = ""
 
     if (isMemoryEnabled && messages.length > 0) {

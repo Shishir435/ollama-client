@@ -417,6 +417,14 @@
       "mermaid_empty": "Mermaid コンテンツがありません",
       "rendering_mermaid": "Mermaid 図をレンダリング中…",
       "empty": "アーティファクトの内容がありません"
+    },
+    "system_prompt": {
+      "button": "チャットの指示",
+      "title": "チャットの指示",
+      "description": "このチャットのみのシステムプロンプト。モデルの既定プロンプトを上書きします。",
+      "placeholder": "例: 箇条書きで簡潔に答えるアシスタントです。",
+      "save": "保存",
+      "clear": "クリア"
     }
   },
   "file_upload": {

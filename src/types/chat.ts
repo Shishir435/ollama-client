@@ -175,6 +175,11 @@ export interface ChatSession {
   currentLeafId?: number | string
   /** Pinned sessions are grouped at the top of the list, above the date groups. */
   pinned?: boolean
+  /**
+   * Per-chat system prompt override. When set, it replaces the model's
+   * configured system prompt for this session only.
+   */
+  systemPrompt?: string
 }
 
 export interface ChatStreamMessage {
@@ -263,6 +268,8 @@ export interface ChatSessionState {
   renameSessionTitle: (id: string, title: string) => Promise<void>
   /** Toggle a session's pinned state and persist it. */
   togglePinSession: (id: string) => Promise<void>
+  /** Set (or clear, with an empty string) a session's system-prompt override. */
+  setSessionSystemPrompt: (id: string, systemPrompt: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   /**

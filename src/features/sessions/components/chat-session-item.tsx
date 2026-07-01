@@ -100,7 +100,7 @@ export const ChatSessionItem = ({
               {isPinned && (
                 <Pin className="icon-xs shrink-0 text-sidebar-foreground/45" />
               )}
-              <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:[mask-image:linear-gradient(to_right,black_calc(100%_-_2rem),transparent)]">
+              <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
                 {session.title}
               </div>
             </div>

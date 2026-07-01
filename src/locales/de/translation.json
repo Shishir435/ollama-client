@@ -417,6 +417,14 @@
       "mermaid_empty": "Kein Mermaid-Inhalt",
       "rendering_mermaid": "Mermaid-Diagramm wird gerendert …",
       "empty": "Kein Artefakt-Inhalt"
+    },
+    "system_prompt": {
+      "button": "Chat-Anweisungen",
+      "title": "Chat-Anweisungen",
+      "description": "Ein System-Prompt nur für diesen Chat. Er überschreibt den Standard-Prompt des Modells.",
+      "placeholder": "z. B. Du bist ein präziser Assistent, der in Stichpunkten antwortet.",
+      "save": "Speichern",
+      "clear": "Löschen"
     }
   },
   "file_upload": {

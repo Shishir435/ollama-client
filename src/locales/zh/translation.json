@@ -417,6 +417,14 @@
       "mermaid_empty": "没有 Mermaid 内容",
       "rendering_mermaid": "正在渲染 Mermaid 图表…",
       "empty": "没有工件内容"
+    },
+    "system_prompt": {
+      "button": "对话指令",
+      "title": "对话指令",
+      "description": "仅用于此对话的系统提示词，会覆盖模型的默认提示词。",
+      "placeholder": "例如：你是一个用要点简洁作答的助手。",
+      "save": "保存",
+      "clear": "清除"
     }
   },
   "file_upload": {

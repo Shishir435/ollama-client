@@ -551,3 +551,69 @@ describe("loadSessions when hydrated=true", () => {
     expect(mockRepo.getAllSessionsOrderedByRecency).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// togglePinSession / setSessionSystemPrompt
+// ---------------------------------------------------------------------------
+
+const seedSession = (extra: Record<string, unknown> = {}) => {
+  chatSessionStore.setState({
+    sessions: [
+      {
+        id: SESSION_ID,
+        title: "T",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: [],
+        ...extra
+      }
+    ],
+    currentSessionId: SESSION_ID,
+    hasSession: true,
+    hydrated: true
+  })
+}
+
+describe("togglePinSession", () => {
+  it("flips and persists the pinned flag", async () => {
+    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    seedSession({ pinned: false })
+
+    await chatSessionStore.getState().togglePinSession(SESSION_ID)
+
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      pinned: true
+    })
+    expect(chatSessionStore.getState().sessions[0].pinned).toBe(true)
+  })
+})
+
+describe("setSessionSystemPrompt", () => {
+  it("persists a trimmed prompt", async () => {
+    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    seedSession()
+
+    await chatSessionStore
+      .getState()
+      .setSessionSystemPrompt(SESSION_ID, "  Be concise  ")
+
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      systemPrompt: "Be concise"
+    })
+    expect(chatSessionStore.getState().sessions[0].systemPrompt).toBe(
+      "Be concise"
+    )
+  })
+
+  it("clears the override when given only whitespace", async () => {
+    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    seedSession({ systemPrompt: "old" })
+
+    await chatSessionStore.getState().setSessionSystemPrompt(SESSION_ID, "   ")
+
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      systemPrompt: undefined
+    })
+    expect(chatSessionStore.getState().sessions[0].systemPrompt).toBeUndefined()
+  })
+})

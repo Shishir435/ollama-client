@@ -2,6 +2,7 @@ import type { Database } from "sql.js"
 
 import { logger } from "@/lib/logger"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
+import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 
 /**
@@ -37,6 +38,11 @@ export const MIGRATIONS: Migration[] = [
     version: 2,
     name: "add-session-pinned-column",
     up: ensureSessionsPinnedColumn
+  },
+  {
+    version: 3,
+    name: "add-session-system-prompt-column",
+    up: ensureSessionsSystemPromptColumn
   }
 ]
 

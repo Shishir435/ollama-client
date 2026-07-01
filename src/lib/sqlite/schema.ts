@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   currentLeafId INTEGER,
   createdAt INTEGER,
   updatedAt INTEGER,
-  pinned INTEGER DEFAULT 0
+  pinned INTEGER DEFAULT 0,
+  systemPrompt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (

@@ -26,6 +26,7 @@ const sessionFromRow = (row: Row): ChatSession => ({
   createdAt: row.createdAt as number,
   updatedAt: row.updatedAt as number,
   pinned: row.pinned === 1,
+  systemPrompt: (row.systemPrompt as string | null) ?? undefined,
   messages: []
 })
 
@@ -121,8 +122,8 @@ const withTransaction = async (work: () => Promise<void>): Promise<void> => {
 
 const putSessionRow = async (session: ChatSession): Promise<void> => {
   await run(
-    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -130,7 +131,8 @@ const putSessionRow = async (session: ChatSession): Promise<void> => {
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
       session.updatedAt,
-      session.pinned ? 1 : 0
+      session.pinned ? 1 : 0,
+      session.systemPrompt ?? null
     ]
   )
 }
@@ -165,8 +167,8 @@ export const getLatestSession = async (): Promise<ChatSession | undefined> => {
 
 export const addSession = async (session: ChatSession): Promise<string> => {
   await run(
-    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -174,7 +176,8 @@ export const addSession = async (session: ChatSession): Promise<string> => {
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
       session.updatedAt,
-      session.pinned ? 1 : 0
+      session.pinned ? 1 : 0,
+      session.systemPrompt ?? null
     ]
   )
   return session.id
@@ -276,6 +279,10 @@ export const updateSession = async (
   if (Object.hasOwn(updates, "pinned")) {
     fields.push("pinned = ?")
     values.push(updates.pinned ? 1 : 0)
+  }
+  if (Object.hasOwn(updates, "systemPrompt")) {
+    fields.push("systemPrompt = ?")
+    values.push(updates.systemPrompt ?? null)
   }
   if (Object.hasOwn(updates, "updatedAt")) {
     fields.push("updatedAt = ?")

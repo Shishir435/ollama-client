@@ -15,6 +15,12 @@ vi.mock("../add-session-pinned-column", () => ({
   ensureSessionsPinnedColumn: (db: unknown) => ensureSessionsPinnedColumn(db)
 }))
 
+const ensureSessionsSystemPromptColumn = vi.fn()
+vi.mock("../add-session-system-prompt-column", () => ({
+  ensureSessionsSystemPromptColumn: (db: unknown) =>
+    ensureSessionsSystemPromptColumn(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -44,6 +50,7 @@ const makeDb = (initialVersion = 0) => {
 beforeEach(() => {
   ensureMessagesThinkingColumn.mockClear()
   ensureSessionsPinnedColumn.mockClear()
+  ensureSessionsSystemPromptColumn.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -78,16 +85,18 @@ describe("migration-runner", () => {
     expect(applied).toBe(MIGRATIONS.length)
     expect(ensureMessagesThinkingColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
   it("only runs migrations above the current version", () => {
-    // A database already at v1 should skip v1 and run only v2.
+    // A database already at v1 should skip v1 and run the later migrations.
     const db = makeDb(1)
     const applied = runMigrations(db as never)
     expect(applied).toBe(LATEST_SCHEMA_VERSION - 1)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
