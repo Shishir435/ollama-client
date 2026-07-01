@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.11.27",
+  "version": "0.12.0",
   "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -161,5 +161,12 @@
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "linkify-it@<5.0.1": ">=5.0.1",
+      "vite@>=8.0.0 <8.0.16": ">=8.0.16"
+    }
   }
 }

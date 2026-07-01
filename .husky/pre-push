@@ -1,1 +1,1 @@
-pnpm check:i18n && pnpm test:run && pnpm build && pnpm docs:build
+pnpm audit --prod --audit-level high && pnpm check:i18n && pnpm test:run && pnpm build && pnpm docs:build
