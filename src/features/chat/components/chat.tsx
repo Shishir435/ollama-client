@@ -13,6 +13,7 @@ import type { ChatMessage } from "@/types"
 import { ChatHeader } from "./chat-header"
 import { ChatInputBox } from "./chat-input-box"
 import { ChatMessageList } from "./chat-message-list"
+import { PendingToolConfirmation } from "./pending-tool-confirmation"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
 export const Chat = () => {
@@ -191,6 +192,7 @@ export const Chat = () => {
           />
 
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+            <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
                 onSend={sendMessage}
