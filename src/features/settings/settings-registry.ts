@@ -1364,6 +1364,20 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ]
   },
   {
+    id: "max-restore-sessions",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.restore_sessions.max_label",
+    descriptionKey: "settings.restore_sessions.description",
+    aliases: [
+      "reopen tabs",
+      "restore session limit",
+      "reopen closed tabs",
+      "restore_session",
+      "max tabs to reopen"
+    ]
+  },
+  {
     id: "permission-bookmarks",
     tab: "privacy",
     sectionId: "permissions",

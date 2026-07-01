@@ -5,7 +5,28 @@ import {
   type ReadableBrowserSession,
   restoreBrowserSession
 } from "@/lib/browser-sessions"
+import {
+  DEFAULT_MAX_RESTORE_SESSIONS,
+  MAX_MAX_RESTORE_SESSIONS,
+  MIN_MAX_RESTORE_SESSIONS
+} from "@/lib/constants/config"
+import { STORAGE_KEYS } from "@/lib/constants/keys"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
+
+/** Read the user-configured cap on how many tabs restore_session reopens. */
+const getMaxRestoreSessions = async (): Promise<number> => {
+  const stored = await plasmoGlobalStorage.get<number>(
+    STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS
+  )
+  if (typeof stored !== "number" || !Number.isFinite(stored)) {
+    return DEFAULT_MAX_RESTORE_SESSIONS
+  }
+  return Math.max(
+    MIN_MAX_RESTORE_SESSIONS,
+    Math.min(MAX_MAX_RESTORE_SESSIONS, Math.floor(stored))
+  )
+}
 
 const clampLimit = (value: unknown, fallback = 10): number => {
   const parsed = typeof value === "number" ? value : Number(value)
@@ -119,7 +140,7 @@ export const runListRecentlyClosed = async (
 export const restoreSessionDefinition: ToolDefinition = {
   name: "restore_session",
   description:
-    "Reopen a recently closed browser tab or window that the user closed. Pass the [id: ...] from list_recently_closed; omit it to reopen the most recently closed session. Requires optional browser sessions permission.",
+    'Reopen one or more recently closed browser tabs/windows the user closed. To reopen several at once (e.g. "open them all"), pass every [id: ...] from list_recently_closed in `sessionIds` in a single call — the ids stay valid, so restoring one does not consume the others. Pass a single id in `sessionId`, or omit both to reopen just the most recently closed. Requires optional browser sessions permission.',
   displayNameKey: "chat.reasoning.trace.restoreSession",
   category: "browser",
   iconKey: "history",
@@ -128,17 +149,37 @@ export const restoreSessionDefinition: ToolDefinition = {
   risk: "low",
   cacheable: false,
   requires: ["tabs"],
-  runtime: { timeoutMs: 10_000, maxResultChars: 2000 },
+  runtime: { timeoutMs: 15_000, maxResultChars: 2000 },
   parameters: {
     type: "object",
     properties: {
+      sessionIds: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The [id: ...] values to reopen, in order. Use this to reopen multiple sessions in one call."
+      },
       sessionId: {
         type: "string",
         description:
-          "The [id: ...] of the session to reopen. Omit to reopen the most recently closed session."
+          "A single [id: ...] to reopen. Omit both fields to reopen the most recently closed session."
       }
     }
   }
+}
+
+const collectSessionIds = (args: Record<string, unknown>): string[] => {
+  const ids: string[] = []
+  if (Array.isArray(args.sessionIds)) {
+    for (const value of args.sessionIds) {
+      if (typeof value === "string" && value.trim()) ids.push(value.trim())
+    }
+  }
+  if (typeof args.sessionId === "string" && args.sessionId.trim()) {
+    ids.push(args.sessionId.trim())
+  }
+  // De-dupe so a doubled id doesn't try to restore an already-consumed session.
+  return [...new Set(ids)]
 }
 
 export const runRestoreSession = async (
@@ -148,25 +189,56 @@ export const runRestoreSession = async (
   const unavailable = await availabilityError()
   if (unavailable) return unavailable
 
-  const sessionId =
-    typeof args.sessionId === "string" && args.sessionId.trim()
-      ? args.sessionId.trim()
-      : undefined
+  const requestedIds = collectSessionIds(args)
+  // Bound how many tabs one model action can spawn (user-configurable).
+  const cap = await getMaxRestoreSessions()
+  const ids = requestedIds.slice(0, cap)
+  const overCap = requestedIds.length - ids.length
 
-  try {
-    await restoreBrowserSession(sessionId)
-    return {
-      content: sessionId
-        ? `Reopened the closed session (id: ${sessionId}).`
-        : "Reopened the most recently closed session."
-    }
-  } catch (error) {
-    return {
-      content:
-        error instanceof Error ? error.message : "Failed to restore session.",
-      isError: true
+  // No ids → reopen just the most recently closed session.
+  if (ids.length === 0) {
+    try {
+      await restoreBrowserSession(undefined)
+      return { content: "Reopened the most recently closed session." }
+    } catch (error) {
+      return {
+        content:
+          error instanceof Error ? error.message : "Failed to restore session.",
+        isError: true
+      }
     }
   }
+
+  // Restore each requested session in order, collecting per-id outcomes so a
+  // single failure doesn't hide the ones that succeeded.
+  const restored: string[] = []
+  const failed: string[] = []
+  for (const id of ids) {
+    try {
+      await restoreBrowserSession(id)
+      restored.push(id)
+    } catch {
+      failed.push(id)
+    }
+  }
+
+  const parts: string[] = []
+  if (restored.length > 0) {
+    parts.push(
+      `Reopened ${restored.length} session(s): ${restored.join(", ")}.`
+    )
+  }
+  if (failed.length > 0) {
+    parts.push(
+      `Could not reopen ${failed.length}: ${failed.join(", ")} (no longer available).`
+    )
+  }
+  if (overCap > 0) {
+    parts.push(
+      `${overCap} more not reopened — the per-call limit is ${cap} (change it in Settings > Privacy & permissions).`
+    )
+  }
+  return { content: parts.join(" "), isError: restored.length === 0 }
 }
 
 export const runListSyncedSessions = async (

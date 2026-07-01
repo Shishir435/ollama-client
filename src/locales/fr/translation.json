@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres…"
+    },
+    "restore_sessions": {
+      "title": "Rouvrir les onglets fermés",
+      "description": "Contrôle l’outil restore_session, qui rouvre les onglets récemment fermés.",
+      "max_label": "Onglets max. à rouvrir d’un coup",
+      "max_hint": "Le nombre maximal d’onglets que l’assistant peut rouvrir en une action (1–25). Évite qu’un « tout rouvrir » ne crée trop d’onglets."
     }
   },
   "guides": {

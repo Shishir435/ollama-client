@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "Einstellungen durchsuchen…"
+    },
+    "restore_sessions": {
+      "title": "Geschlossene Tabs wieder öffnen",
+      "description": "Steuert das restore_session-Tool, das kürzlich geschlossene Tabs wieder öffnet.",
+      "max_label": "Max. Tabs auf einmal öffnen",
+      "max_hint": "Die maximale Anzahl an Tabs, die der Assistent in einer Aktion wieder öffnen darf (1–25). Verhindert, dass „alle öffnen“ zu viele Tabs erzeugt."
     }
   },
   "guides": {

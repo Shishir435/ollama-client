@@ -35,6 +35,7 @@ import { EmbeddingSettings } from "@/features/model/components/embedding-setting
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
+import { RestoreSessionsLimitSettings } from "@/features/permissions/components/restore-sessions-limit-settings"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
@@ -209,6 +210,7 @@ export const SettingsPage = () => {
     privacy: (
       <SectionStack>
         <PermissionsPanel />
+        <RestoreSessionsLimitSettings />
       </SectionStack>
     ),
     "data-backup": (

@@ -95,7 +95,9 @@ export const STORAGE_KEYS = {
     CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
     PER_SITE_PROFILES: "browser-per-site-profiles",
     PENDING_SELECTION_TEXT: "pending-selection-text",
-    PENDING_OMNIBOX_QUERY: "pending-omnibox-query"
+    PENDING_OMNIBOX_QUERY: "pending-omnibox-query",
+    // Max tabs restore_session will reopen in one call. Configurable.
+    MAX_RESTORE_SESSIONS: "browser-max-restore-sessions"
   },
   TTS: {
     RATE: "tts-rate",

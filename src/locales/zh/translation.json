@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "搜索设置…"
+    },
+    "restore_sessions": {
+      "title": "重新打开已关闭的标签页",
+      "description": "控制 restore_session 工具，用于重新打开最近关闭的标签页。",
+      "max_label": "单次最多重开标签数",
+      "max_hint": "助手在一次操作中可重新打开的最大标签数（1–25），避免“全部打开”生成过多标签页。"
     }
   },
   "guides": {

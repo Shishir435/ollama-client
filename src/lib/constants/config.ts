@@ -190,6 +190,11 @@ export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000
 // fed back to the model as a new turn, so an unbounded result balloons the
 // prompt and slows generation. Kept modest for laptop use; user-configurable.
 export const DEFAULT_MAX_TOOL_RESULT_CHARS = 10000
+// Max tabs `restore_session` reopens in one call. Bounds how many tabs a single
+// model action can spawn; user-configurable in Privacy & permissions.
+export const DEFAULT_MAX_RESTORE_SESSIONS = 10
+export const MIN_MAX_RESTORE_SESSIONS = 1
+export const MAX_MAX_RESTORE_SESSIONS = 25
 // Answering-mode + tab-context refresh defaults. Centralized here (instead of
 // inline `false` at each useStorage call site) so the section-defaults manifest
 // has a single source to import.

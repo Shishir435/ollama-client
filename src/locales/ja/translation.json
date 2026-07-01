@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "設定を検索…"
+    },
+    "restore_sessions": {
+      "title": "閉じたタブを再度開く",
+      "description": "最近閉じたタブを再度開く restore_session ツールを制御します。",
+      "max_label": "一度に開く最大タブ数",
+      "max_hint": "アシスタントが1回の操作で再度開けるタブの上限（1〜25）。「すべて開く」で大量のタブが開くのを防ぎます。"
     }
   },
   "guides": {

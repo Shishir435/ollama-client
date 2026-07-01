@@ -99,6 +99,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Ephemeral omnibox-to-chat handoff; should not sync to another device."
   },
+  [STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS]: {
+    key: STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
+    scope: "sync-safe",
+    reason: "Per-call reopen cap; a user tool-behavior preference."
+  },
   [STORAGE_KEYS.TTS.RATE]: {
     key: STORAGE_KEYS.TTS.RATE,
     scope: "sync-safe",

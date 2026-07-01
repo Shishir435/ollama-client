@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "Cerca nelle impostazioni…"
+    },
+    "restore_sessions": {
+      "title": "Riapri schede chiuse",
+      "description": "Controlla lo strumento restore_session, che riapre le schede chiuse di recente.",
+      "max_label": "Max schede da riaprire insieme",
+      "max_hint": "Il numero massimo di schede che l’assistente può riaprire in una singola azione (1–25). Evita che «apri tutte» generi troppe schede."
     }
   },
   "guides": {

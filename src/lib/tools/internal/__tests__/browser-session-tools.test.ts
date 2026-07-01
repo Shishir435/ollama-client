@@ -4,7 +4,8 @@ const mocks = vi.hoisted(() => ({
   availability: vi.fn(),
   recentlyClosed: vi.fn(),
   synced: vi.fn(),
-  restore: vi.fn()
+  restore: vi.fn(),
+  storageGet: vi.fn()
 }))
 
 vi.mock("@/lib/browser-sessions", () => ({
@@ -12,6 +13,10 @@ vi.mock("@/lib/browser-sessions", () => ({
   listRecentlyClosedBrowserSessions: mocks.recentlyClosed,
   listSyncedBrowserSessions: mocks.synced,
   restoreBrowserSession: mocks.restore
+}))
+
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  plasmoGlobalStorage: { get: mocks.storageGet }
 }))
 
 import {
@@ -24,6 +29,8 @@ describe("browser session tools", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.availability.mockResolvedValue("available")
+    // Default: no stored cap → tool falls back to DEFAULT_MAX_RESTORE_SESSIONS.
+    mocks.storageGet.mockResolvedValue(undefined)
   })
 
   it("does not query sessions without permission", async () => {
@@ -81,6 +88,45 @@ describe("browser session tools", () => {
     expect(mocks.restore).toHaveBeenCalledWith(undefined)
   })
 
+  it("reopens multiple sessions in one call", async () => {
+    mocks.restore.mockResolvedValue(undefined)
+
+    const result = await runRestoreSession({ sessionIds: ["a", "b", "c"] }, {})
+
+    expect(mocks.restore).toHaveBeenCalledTimes(3)
+    expect(mocks.restore).toHaveBeenNthCalledWith(1, "a")
+    expect(mocks.restore).toHaveBeenNthCalledWith(3, "c")
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain("3 session(s)")
+  })
+
+  it("reports partial failure without hiding the successes", async () => {
+    mocks.restore
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("gone"))
+
+    const result = await runRestoreSession({ sessionIds: ["a", "b"] }, {})
+
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain("Reopened 1")
+    expect(result.content).toContain("Could not reopen 1")
+  })
+
+  it("caps the number reopened at the configured limit", async () => {
+    mocks.storageGet.mockResolvedValue(2)
+    mocks.restore.mockResolvedValue(undefined)
+
+    const result = await runRestoreSession(
+      { sessionIds: ["a", "b", "c", "d"] },
+      {}
+    )
+
+    expect(mocks.restore).toHaveBeenCalledTimes(2)
+    expect(result.content).toContain("Reopened 2")
+    expect(result.content).toContain("2 more not reopened")
+    expect(result.content).toContain("limit is 2")
+  })
+
   it("does not restore without permission", async () => {
     mocks.availability.mockResolvedValue("permission")
 
@@ -96,7 +142,7 @@ describe("browser session tools", () => {
     const result = await runRestoreSession({ sessionId: "x" }, {})
 
     expect(result.isError).toBe(true)
-    expect(result.content).toBe("boom")
+    expect(result.content).toContain("Could not reopen 1")
   })
 
   it("groups synced sessions by device", async () => {

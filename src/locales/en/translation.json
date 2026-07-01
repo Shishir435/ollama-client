@@ -767,6 +767,12 @@
       "auto_refresh_label": "Auto-refresh selected tab context",
       "auto_refresh_description": "When enabled, selected tabs are re-checked periodically for changes."
     },
+    "restore_sessions": {
+      "title": "Reopen closed tabs",
+      "description": "Controls the restore_session tool, which reopens tabs you recently closed.",
+      "max_label": "Max tabs to reopen at once",
+      "max_hint": "The most tabs the assistant may reopen in a single action (1–25). Keeps an 'open them all' request from spawning too many tabs."
+    },
     "grounding_mode": {
       "label": "Answer only from selected page context",
       "description": "If relevant page context is missing, the assistant returns an insufficient-context message instead of guessing."

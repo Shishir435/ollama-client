@@ -1606,6 +1606,12 @@
     },
     "search": {
       "placeholder": "Buscar ajustes…"
+    },
+    "restore_sessions": {
+      "title": "Reabrir pestañas cerradas",
+      "description": "Controla la herramienta restore_session, que reabre pestañas cerradas recientemente.",
+      "max_label": "Máx. pestañas a reabrir a la vez",
+      "max_hint": "El máximo de pestañas que el asistente puede reabrir en una sola acción (1–25). Evita que «abrir todas» genere demasiadas pestañas."
     }
   },
   "guides": {
