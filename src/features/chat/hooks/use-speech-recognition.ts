@@ -62,34 +62,71 @@ const getRecognitionCtor = (): SpeechRecognitionConstructor | undefined => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/** How often to re-poll `available()` while a language pack downloads. */
+export const PREPARE_POLL_MS = 1500
+/** Give up waiting on a language-pack download after this long. */
+export const PREPARE_TIMEOUT_MS = 5 * 60_000
+
 /**
  * Decide whether this session can run on-device (Chrome 139+ `processLocally`).
  *
  * On-device is strongly preferred: it is the private option, and the cloud
  * recognizer rejects extension pages with a "network" error in many Chrome
  * builds, so it is often the only working option. First use may need a
- * one-time language-pack download — `onNotice("local-model-downloading")`
- * fires so the UI can explain the wait.
+ * one-time language-pack download. `install()` exposes no progress events, so
+ * the best trackable signal is phase, not percent: `onPreparing` marks the
+ * download window (indeterminate spinner), and `available()` is re-polled
+ * until the pack lands — the caller then starts dictation automatically.
  */
 const resolveLocalProcessing = async (
   Ctor: SpeechRecognitionConstructor,
   lang: string,
-  onNotice?: (code: string) => void
+  onNotice: ((code: string) => void) | undefined,
+  onPreparing: (preparing: boolean) => void,
+  isDisposed: () => boolean
 ): Promise<"local" | "cloud" | "wait"> => {
   if (!Ctor.available) return "cloud"
   try {
     const options = { langs: [lang], processLocally: true }
-    const status = await Ctor.available(options)
+    let status = await Ctor.available(options)
     if (status === "available") return "local"
+
     if (status === "downloadable" && Ctor.install) {
       onNotice?.("local-model-downloading")
-      return (await Ctor.install(options)) ? "local" : "cloud"
+      onPreparing(true)
+      try {
+        const installed = await Promise.race([
+          Ctor.install(options),
+          sleep(PREPARE_TIMEOUT_MS).then(() => "timeout" as const)
+        ])
+        if (installed === true) return "local"
+        if (installed === false) return "cloud"
+        return "wait"
+      } finally {
+        onPreparing(false)
+      }
     }
+
     if (status === "downloading") {
-      // A previous click already kicked off the download — don't start a
-      // cloud session that will just fail with "network"; ask for patience.
+      // A download is already in flight (earlier click, other window). No
+      // progress API exists — poll availability and start once it lands.
       onNotice?.("local-model-downloading")
-      return "wait"
+      onPreparing(true)
+      try {
+        const deadline = Date.now() + PREPARE_TIMEOUT_MS
+        while (Date.now() < deadline && !isDisposed()) {
+          await sleep(PREPARE_POLL_MS)
+          status = await Ctor.available(options)
+          if (status === "available") return "local"
+          if (status !== "downloading") return "cloud"
+        }
+        return "wait"
+      } finally {
+        onPreparing(false)
+      }
     }
   } catch {
     // Fall through to cloud recognition.
@@ -178,8 +215,12 @@ export const useSpeechRecognition = ({
 }: UseSpeechRecognitionCallbacks) => {
   const [supported, setSupported] = useState(isSpeechRecognitionSupported())
   const [listening, setListening] = useState(false)
+  // True while a language-pack download is pending. The API has no percent
+  // progress, so this drives an indeterminate spinner.
+  const [preparing, setPreparing] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const disposedRef = useRef(false)
   const callbacksRef = useRef({
     onLiveTranscript,
     onFinalTranscript,
@@ -220,10 +261,14 @@ export const useSpeechRecognition = ({
 
     const lang =
       typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"
-    const mode = await resolveLocalProcessing(Ctor, lang, (code) =>
-      callbacksRef.current.onNotice?.(code)
+    const mode = await resolveLocalProcessing(
+      Ctor,
+      lang,
+      (code) => callbacksRef.current.onNotice?.(code),
+      setPreparing,
+      () => disposedRef.current
     )
-    if (mode === "wait") return
+    if (mode === "wait" || disposedRef.current) return
     // A second click while the permission prompt or language-pack download
     // was pending could have started another session in the meantime.
     if (recognitionRef.current) return
@@ -291,11 +336,12 @@ export const useSpeechRecognition = ({
   // Abort any in-flight session on unmount so the mic is released.
   useEffect(
     () => () => {
+      disposedRef.current = true
       clearSilenceTimer(silenceTimerRef)
       recognitionRef.current?.abort()
     },
     []
   )
 
-  return { supported, listening, toggle }
+  return { supported, listening, preparing, toggle }
 }

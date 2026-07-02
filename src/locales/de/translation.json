@@ -443,7 +443,8 @@
       "page_denied": "Mikrofonzugriff wurde verweigert. Klicke auf das Mikrofon-Symbol in der Adressleiste (oder öffne die Website-Einstellungen der Erweiterung), erlaube den Zugriff und versuche es erneut.",
       "page_retry": "Erneut versuchen",
       "local_downloading_title": "On-Device-Sprache wird vorbereitet",
-      "local_downloading_description": "Das Sprachmodell für private Diktate direkt auf dem Gerät wird heruntergeladen. Versuche das Mikrofon danach erneut."
+      "local_downloading_description": "Das Sprachmodell für private Diktate direkt auf dem Gerät wird heruntergeladen. Das Zuhören startet automatisch, sobald es bereit ist.",
+      "preparing": "On-Device-Sprache wird vorbereitet …"
     },
     "tool_confirmation": {
       "title": "Aktion bestätigen",

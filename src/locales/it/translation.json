@@ -443,7 +443,8 @@
       "page_denied": "L'accesso al microfono è stato negato. Fai clic sull'icona del microfono nella barra degli indirizzi (o apri le impostazioni dei siti dell'estensione) per consentirlo, poi riprova.",
       "page_retry": "Riprova",
       "local_downloading_title": "Preparazione voce sul dispositivo",
-      "local_downloading_description": "Download del modello vocale per la dettatura privata sul dispositivo. Riprova il microfono al termine."
+      "local_downloading_description": "Download del modello vocale per la dettatura privata sul dispositivo. L'ascolto inizierà automaticamente quando sarà pronto.",
+      "preparing": "Preparazione voce sul dispositivo…"
     },
     "tool_confirmation": {
       "title": "Conferma azione",

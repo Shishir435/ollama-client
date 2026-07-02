@@ -185,7 +185,8 @@
       "page_denied": "Microphone access was denied. Click the mic icon in your browser's address bar (or open the extension's site settings) to allow it, then try again.",
       "page_retry": "Try again",
       "local_downloading_title": "Preparing on-device speech",
-      "local_downloading_description": "Downloading the speech model for private, on-device dictation. Try the mic again once it finishes."
+      "local_downloading_description": "Downloading the speech model for private, on-device dictation. It will start listening automatically when ready.",
+      "preparing": "Preparing on-device speech…"
     },
     "system_prompt": {
       "button": "Chat instructions",

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   INITIAL_SILENCE_MS,
   isSpeechRecognitionSupported,
+  PREPARE_POLL_MS,
   SILENCE_STOP_MS,
   useSpeechRecognition
 } from "../use-speech-recognition"
@@ -255,18 +256,75 @@ describe("useSpeechRecognition", () => {
     expect(result.current.listening).toBe(true)
   })
 
-  it("waits instead of starting a doomed cloud session while downloading", async () => {
+  it("exposes preparing while the language pack installs", async () => {
+    const instances: FakeRecognition[] = []
+    let resolveInstall: (v: boolean) => void = () => {}
     const ctor = class extends FakeRecognition {
-      static available = vi.fn().mockResolvedValue("downloading")
+      constructor() {
+        super()
+        instances.push(this)
+      }
+      static available = vi.fn().mockResolvedValue("downloadable")
+      static install = vi.fn(
+        () =>
+          new Promise<boolean>((resolve) => {
+            resolveInstall = resolve
+          })
+      )
+    }
+    ;(window as any).SpeechRecognition = ctor
+
+    const { result } = renderHook(() => useSpeechRecognition({}))
+    let togglePromise: unknown
+    await act(async () => {
+      togglePromise = result.current.toggle()
+    })
+    expect(result.current.preparing).toBe(true)
+    expect(result.current.listening).toBe(false)
+
+    await act(async () => {
+      resolveInstall(true)
+      await togglePromise
+    })
+    expect(result.current.preparing).toBe(false)
+    expect(instances[0].processLocally).toBe(true)
+    expect(result.current.listening).toBe(true)
+  })
+
+  it("polls availability during an in-flight download and auto-starts", async () => {
+    vi.useFakeTimers()
+    const instances: FakeRecognition[] = []
+    const available = vi
+      .fn()
+      .mockResolvedValueOnce("downloading")
+      .mockResolvedValueOnce("downloading")
+      .mockResolvedValue("available")
+    const ctor = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+      static available = available
     }
     ;(window as any).SpeechRecognition = ctor
     const onNotice = vi.fn()
 
     const { result } = renderHook(() => useSpeechRecognition({ onNotice }))
-    await act(async () => result.current.toggle())
-
+    let togglePromise: Promise<unknown> | undefined
+    await act(async () => {
+      togglePromise = result.current.toggle() as unknown as Promise<unknown>
+      await Promise.resolve()
+    })
     expect(onNotice).toHaveBeenCalledWith("local-model-downloading")
-    expect(result.current.listening).toBe(false)
+    expect(result.current.preparing).toBe(true)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREPARE_POLL_MS * 3)
+      await togglePromise
+    })
+    expect(result.current.preparing).toBe(false)
+    expect(instances[0]?.processLocally).toBe(true)
+    expect(result.current.listening).toBe(true)
   })
 
   it("falls back to cloud when on-device is unavailable", async () => {

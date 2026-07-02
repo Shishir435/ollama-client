@@ -7,7 +7,7 @@ import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
-import { Mic } from "@/lib/lucide-icon"
+import { Loader2, Mic } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface VoiceInputButtonProps {
@@ -93,7 +93,7 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
     [t, toast]
   )
 
-  const { supported, listening, toggle } = useSpeechRecognition({
+  const { supported, listening, preparing, toggle } = useSpeechRecognition({
     onLiveTranscript: handleLiveTranscript,
     onFinalTranscript: handleFinalTranscript,
     onError: handleError,
@@ -102,9 +102,11 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
 
   if (!supported) return null
 
-  const label = listening
-    ? t("chat.voice_input.stop")
-    : t("chat.voice_input.start")
+  const label = preparing
+    ? t("chat.voice_input.preparing")
+    : listening
+      ? t("chat.voice_input.stop")
+      : t("chat.voice_input.start")
 
   const handleClick = () => {
     if (!listening) {
@@ -124,11 +126,15 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
           "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
       )}
       onClick={handleClick}
-      disabled={disabled}
+      disabled={disabled || preparing}
       label={label}
       aria-pressed={listening}
       icon={
-        listening ? (
+        preparing ? (
+          // The download API exposes no percent — indeterminate spinner;
+          // dictation starts automatically when the model is ready.
+          <Loader2 className="icon-sm animate-spin" aria-hidden="true" />
+        ) : listening ? (
           <span className="relative flex items-center justify-center">
             <span
               aria-hidden="true"

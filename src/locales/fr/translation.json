@@ -443,7 +443,8 @@
       "page_denied": "L'accès au microphone a été refusé. Cliquez sur l'icône du micro dans la barre d'adresse (ou ouvrez les paramètres de site de l'extension) pour l'autoriser, puis réessayez.",
       "page_retry": "Réessayer",
       "local_downloading_title": "Préparation de la reconnaissance locale",
-      "local_downloading_description": "Téléchargement du modèle vocal pour une dictée privée sur l'appareil. Réessayez le micro une fois terminé."
+      "local_downloading_description": "Téléchargement du modèle vocal pour une dictée privée sur l'appareil. L'écoute démarrera automatiquement dès qu'il sera prêt.",
+      "preparing": "Préparation de la reconnaissance locale…"
     },
     "tool_confirmation": {
       "title": "Confirmer l’action",

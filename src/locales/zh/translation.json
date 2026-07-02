@@ -443,7 +443,8 @@
       "page_denied": "麦克风访问被拒绝。请点击地址栏中的麦克风图标（或打开扩展的网站设置）允许访问，然后重试。",
       "page_retry": "重试",
       "local_downloading_title": "正在准备设备端语音识别",
-      "local_downloading_description": "正在下载语音模型，以实现私密的设备端听写。下载完成后请再次尝试麦克风。"
+      "local_downloading_description": "正在下载语音模型，以实现私密的设备端听写。准备就绪后将自动开始聆听。",
+      "preparing": "正在准备设备端语音识别…"
     },
     "tool_confirmation": {
       "title": "确认操作",
