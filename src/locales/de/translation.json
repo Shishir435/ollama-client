@@ -659,7 +659,13 @@
         "note_self_report": "{{provider}} meldet die Fähigkeiten dieses Modells automatisch. Änderungen hier überschreiben die erkannten Werte.",
         "reset": "Auf erkannt zurücksetzen",
         "save": "Speichern",
-        "save_error": "Fähigkeiten konnten nicht gespeichert werden. Bitte versuche es erneut."
+        "save_error": "Fähigkeiten konnten nicht gespeichert werden. Bitte versuche es erneut.",
+        "probe_title": "Tool-Unterstützung erkennen",
+        "probe_description": "Sendet eine kleine Testanfrage, um zu prüfen, ob dieses Modell Tools aufrufen kann.",
+        "probe_button": "Erkennen",
+        "probe_success": "Das Modell hat das Test-Tool aufgerufen — Tool-Aufrufe sind aktiviert.",
+        "probe_no_support": "Das Modell hat das Test-Tool nicht aufgerufen. Du kannst Tool-Aufrufe weiterhin manuell aktivieren.",
+        "probe_failed": "Erkennung fehlgeschlagen. Prüfe die Verbindung zum Anbieter und versuche es erneut."
       },
       "flags": {
         "text": {

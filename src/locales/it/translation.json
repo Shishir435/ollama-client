@@ -659,7 +659,13 @@
         "note_self_report": "{{provider}} segnala automaticamente le capacità di questo modello. Le modifiche qui sovrascrivono ciò che è stato rilevato.",
         "reset": "Ripristina ai valori rilevati",
         "save": "Salva",
-        "save_error": "Impossibile salvare le capacità. Riprova."
+        "save_error": "Impossibile salvare le capacità. Riprova.",
+        "probe_title": "Rileva supporto strumenti",
+        "probe_description": "Invia una piccola richiesta di prova per verificare se questo modello può chiamare strumenti.",
+        "probe_button": "Rileva",
+        "probe_success": "Il modello ha chiamato lo strumento di prova — la chiamata di strumenti è attiva.",
+        "probe_no_support": "Il modello non ha chiamato lo strumento di prova. Puoi comunque attivare gli strumenti manualmente.",
+        "probe_failed": "Rilevamento non riuscito. Controlla la connessione al provider e riprova."
       },
       "flags": {
         "text": {

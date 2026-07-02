@@ -6,6 +6,7 @@ import {
 
 export type ModelCapabilitySource =
   | "user-override"
+  | "probed"
   | "model-metadata"
   | "provider-default"
 
@@ -13,6 +14,7 @@ export type ModelCapabilitySource =
  * How much to trust a resolved capability set:
  * - "high":   read from real model metadata (e.g. Ollama /api/show tags)
  * - "medium": inferred from partial model metadata (e.g. LM Studio model type)
+ *             or confirmed empirically by a capability probe
  * - "low":    provider-default fallback only; the model itself was not inspected
  */
 export type ModelCapabilityConfidence = "high" | "medium" | "low"
@@ -69,6 +71,12 @@ export interface ModelCapabilityInput {
   contextLength?: number
   /** User-set capability override for this model, if any. */
   override?: ModelCapabilityOverride | null
+  /**
+   * Empirical probe result for this model, if any (see `capability-probe.ts`).
+   * Applied between the user override and detection: a probe is evidence from
+   * the actual server, so it beats static metadata — but never a user's word.
+   */
+  probed?: { toolCalling?: boolean } | null
 }
 
 // LM Studio /api/v0/models model `type` values.
@@ -153,24 +161,31 @@ const detectModelCapabilities = (
 
 /**
  * Resolve normalized, model-level capabilities, applying any user override on
- * top of detection. Resolution order: user override → model metadata →
- * provider default.
+ * top of detection. Resolution order: user override → probe result → model
+ * metadata → provider default.
  *
  * An override wins per-field: fields the user set are taken verbatim (the user
- * has asserted them), fields they left unset fall back to detection. When any
- * flag is overridden the result is marked `source: "user-override"` /
- * `confidence: "high"`, because the user-asserted facts now lead the set.
+ * has asserted them), fields they left unset fall back to the probe/detection.
+ * When any flag is overridden the result is marked `source: "user-override"` /
+ * `confidence: "high"`, because the user-asserted facts now lead the set. A
+ * probe result without an override marks the set `probed`/`medium`.
  */
 export const getModelCapabilities = (
   input: ModelCapabilityInput
 ): ModelCapabilities => {
   const detected = detectModelCapabilities(input)
-  const override = input.override
-  if (!override) return detected
-
   const merged: ModelCapabilities = { ...detected }
-  let overrodeFlag = false
+  const override = input.override
 
+  if (typeof input.probed?.toolCalling === "boolean") {
+    merged.toolCalling = input.probed.toolCalling
+    merged.source = "probed"
+    merged.confidence = "medium"
+  }
+
+  if (!override) return merged
+
+  let overrodeFlag = false
   for (const flag of OVERRIDABLE_FLAGS) {
     const value = override[flag]
     if (typeof value === "boolean") {

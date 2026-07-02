@@ -29,6 +29,11 @@ import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { Check, ChevronDown, RotateCcw, Settings } from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
+import {
+  probeToolCalling,
+  setCapabilityProbe
+} from "@/lib/providers/capability-probe"
+import { ProviderFactory } from "@/lib/providers/factory"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 import {
@@ -68,6 +73,7 @@ export const ModelMenu = ({
   const {
     resolve,
     getOverride,
+    getProbe,
     canSelfReportCapabilities,
     setOverride,
     clearOverride
@@ -156,13 +162,14 @@ export const ModelMenu = ({
         modelTagsKey(capabilityTarget.providerId, capabilityTarget.model)
       ]
     : undefined
-  // Detection only (no override) — the "reset to detected" target.
+  // Detection + probe (no override) — the "reset to detected" target.
   const targetDetected = capabilityTarget
     ? getModelCapabilities({
         providerId: capabilityTarget.providerId,
         ollamaCapabilities: targetTags,
         lmStudioModelType: targetModelData?.capabilityHints?.modelType,
-        contextLength: targetModelData?.capabilityHints?.contextLength
+        contextLength: targetModelData?.capabilityHints?.contextLength,
+        probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
       })
     : null
   // Effective capabilities (override applied) — seeds the sheet toggles so they
@@ -176,7 +183,8 @@ export const ModelMenu = ({
         override: getOverride(
           capabilityTarget.providerId,
           capabilityTarget.model
-        )
+        ),
+        probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
       })
     : null
 
@@ -402,6 +410,21 @@ export const ModelMenu = ({
           onReset={() =>
             clearOverride(capabilityTarget.providerId, capabilityTarget.model)
           }
+          onProbe={async () => {
+            const provider = await ProviderFactory.getProvider(
+              capabilityTarget.providerId
+            )
+            const result = await probeToolCalling(
+              provider,
+              capabilityTarget.model
+            )
+            await setCapabilityProbe(
+              capabilityTarget.providerId,
+              capabilityTarget.model,
+              result
+            )
+            return result
+          }}
         />
       )}
     </>

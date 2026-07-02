@@ -509,7 +509,13 @@
         "note_self_report": "{{provider}} reports this model's capabilities automatically. Changes here override what was detected.",
         "reset": "Reset to detected",
         "save": "Save",
-        "save_error": "Couldn't save capabilities. Please try again."
+        "save_error": "Couldn't save capabilities. Please try again.",
+        "probe_title": "Detect tool support",
+        "probe_description": "Sends one tiny test request to check if this model can call tools.",
+        "probe_button": "Detect",
+        "probe_success": "The model called the test tool — tool calling is on.",
+        "probe_no_support": "The model didn't call the test tool. You can still enable tool calling manually.",
+        "probe_failed": "Detection failed. Check the provider connection and try again."
       },
       "flags": {
         "text": {

@@ -81,8 +81,12 @@ export const STORAGE_KEYS = {
     MODEL_CONFIGS: "provider-model-config",
     // User-set per-model capability overrides, used when a provider cannot
     // report a model's capabilities (anything other than Ollama). Resolution
-    // order is: user override → model metadata → provider default.
-    MODEL_CAPABILITY_OVERRIDES: "provider-model-capability-overrides"
+    // order is: user override → probe result → model metadata → provider default.
+    MODEL_CAPABILITY_OVERRIDES: "provider-model-capability-overrides",
+    // Empirical capability probe results (one-shot trivial tool-call request),
+    // keyed `providerId::model`. Device-local: results are tied to whatever
+    // server this device's base URL points at.
+    MODEL_CAPABILITY_PROBES: "provider-model-capability-probes"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"

@@ -2,6 +2,8 @@ import { LEGACY_STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { clearCapabilityProbesForProvider } from "./capability-probe"
+import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import {
   type CustomProviderWire,
   isCustomProviderId,
@@ -241,9 +243,23 @@ export const ProviderManager = {
       if (updates.baseUrl !== undefined) {
         validateProviderBaseUrl(updates.baseUrl)
       }
+      const previousBaseUrl = providers[index].baseUrl
       const updatedConfig = { ...providers[index], ...updates }
       providers[index] = updatedConfig
       await ProviderManager.saveProviders(providers)
+
+      // A different endpoint may be a different server — probe results no
+      // longer describe it.
+      if (
+        updates.baseUrl !== undefined &&
+        updates.baseUrl !== previousBaseUrl
+      ) {
+        await clearCapabilityProbesForProvider(id).catch((e) => {
+          logger.warn("Failed to clear capability probes", "ProviderManager", {
+            error: e
+          })
+        })
+      }
 
       if (id === ProviderId.OLLAMA && updates.baseUrl) {
         try {
@@ -381,6 +397,8 @@ export const ProviderManager = {
       providers.filter((p) => String(p.id) !== id)
     )
     await ProviderManager.removeModelMappingsForProvider(id)
+    await clearCapabilityProbesForProvider(id).catch(() => undefined)
+    await clearModelCapabilityOverridesForProvider(id).catch(() => undefined)
   },
 
   async getEnabledProviders(): Promise<ProviderConfig[]> {

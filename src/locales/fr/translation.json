@@ -659,7 +659,13 @@
         "note_self_report": "{{provider}} signale automatiquement les capacités de ce modèle. Les modifications ici remplacent ce qui a été détecté.",
         "reset": "Réinitialiser aux valeurs détectées",
         "save": "Enregistrer",
-        "save_error": "Impossible d'enregistrer les capacités. Veuillez réessayer."
+        "save_error": "Impossible d'enregistrer les capacités. Veuillez réessayer.",
+        "probe_title": "Détecter la prise en charge des outils",
+        "probe_description": "Envoie une petite requête de test pour vérifier si ce modèle peut appeler des outils.",
+        "probe_button": "Détecter",
+        "probe_success": "Le modèle a appelé l'outil de test — l'appel d'outils est activé.",
+        "probe_no_support": "Le modèle n'a pas appelé l'outil de test. Vous pouvez tout de même activer les outils manuellement.",
+        "probe_failed": "La détection a échoué. Vérifiez la connexion au fournisseur et réessayez."
       },
       "flags": {
         "text": {

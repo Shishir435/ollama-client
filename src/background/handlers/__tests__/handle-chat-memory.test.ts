@@ -36,7 +36,9 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn(),
     set: vi.fn().mockResolvedValue(undefined)
-  }
+  },
+  getPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
+  setPlasmoStoredValue: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/background/lib/abort-controller-registry", () => ({

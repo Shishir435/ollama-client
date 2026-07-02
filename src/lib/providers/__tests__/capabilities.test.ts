@@ -167,4 +167,50 @@ describe("getModelCapabilities", () => {
     expect(caps.source).toBe("model-metadata")
     expect(caps.confidence).toBe("high")
   })
+
+  it("applies a probe result over detection (probed, medium confidence)", () => {
+    // llama.cpp default would be provider-level toolCalling; probe is
+    // empirical evidence from the actual server and wins.
+    const caps = getModelCapabilities({
+      providerId: ProviderId.LLAMA_CPP,
+      probed: { toolCalling: false }
+    })
+
+    expect(caps.toolCalling).toBe(false)
+    expect(caps.source).toBe("probed")
+    expect(caps.confidence).toBe("medium")
+  })
+
+  it("lets a probe turn tool calling on for a provider-default model", () => {
+    const caps = getModelCapabilities({
+      providerId: "custom:openai:abc123",
+      probed: { toolCalling: true }
+    })
+
+    expect(caps.toolCalling).toBe(true)
+    expect(caps.source).toBe("probed")
+  })
+
+  it("keeps the user override above the probe", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.LLAMA_CPP,
+      probed: { toolCalling: false },
+      override: { toolCalling: true }
+    })
+
+    expect(caps.toolCalling).toBe(true)
+    expect(caps.source).toBe("user-override")
+    expect(caps.confidence).toBe("high")
+  })
+
+  it("resolves custom provider ids by wire protocol", () => {
+    expect(getProviderCapabilities("custom:ollama:x")).toMatchObject({
+      modelDetails: true,
+      toolCalling: true
+    })
+    expect(getProviderCapabilities("custom:openai:x")).toMatchObject({
+      modelDetails: false,
+      toolCalling: true
+    })
+  })
 })

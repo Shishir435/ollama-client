@@ -659,7 +659,13 @@
         "note_self_report": "{{provider}} informa automáticamente las capacidades de este modelo. Los cambios aquí anulan lo detectado.",
         "reset": "Restablecer a lo detectado",
         "save": "Guardar",
-        "save_error": "No se pudieron guardar las capacidades. Inténtalo de nuevo."
+        "save_error": "No se pudieron guardar las capacidades. Inténtalo de nuevo.",
+        "probe_title": "Detectar compatibilidad con herramientas",
+        "probe_description": "Envía una pequeña solicitud de prueba para comprobar si este modelo puede llamar herramientas.",
+        "probe_button": "Detectar",
+        "probe_success": "El modelo llamó a la herramienta de prueba: las herramientas están activadas.",
+        "probe_no_support": "El modelo no llamó a la herramienta de prueba. Aún puedes activar las herramientas manualmente.",
+        "probe_failed": "La detección falló. Comprueba la conexión del proveedor e inténtalo de nuevo."
       },
       "flags": {
         "text": {

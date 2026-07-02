@@ -2,7 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback } from "react"
 
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStorageForKey,
+  plasmoGlobalStorage
+} from "@/lib/plasmo-global-storage"
 import {
   getModelCapabilities,
   getProviderCapabilities,
@@ -10,12 +13,21 @@ import {
   type ModelCapabilityOverride
 } from "@/lib/providers/capabilities"
 import {
+  type CapabilityProbeMap,
+  type CapabilityProbeResult,
+  capabilityProbeKey
+} from "@/lib/providers/capability-probe"
+import {
   clearModelCapabilityOverride,
   type ModelCapabilityOverrideMap,
   modelCapabilityOverrideKey,
   setModelCapabilityOverride
 } from "@/lib/providers/model-capability-overrides"
 import type { ProviderModel } from "@/types"
+
+const probeStorage = getPlasmoStorageForKey(
+  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
+)
 
 /**
  * Reactive access to per-model capability overrides plus a resolver that layers
@@ -31,11 +43,24 @@ export const useModelCapabilityOverrides = () => {
     },
     {}
   )
+  const [probes] = useStorage<CapabilityProbeMap>(
+    {
+      key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
+      instance: probeStorage
+    },
+    {}
+  )
 
   const getOverride = useCallback(
     (providerId: string, modelName: string): ModelCapabilityOverride | null =>
       overrides?.[modelCapabilityOverrideKey(providerId, modelName)] ?? null,
     [overrides]
+  )
+
+  const getProbe = useCallback(
+    (providerId: string, modelName: string): CapabilityProbeResult | null =>
+      probes?.[capabilityProbeKey(providerId, modelName)] ?? null,
+    [probes]
   )
 
   const resolve = useCallback(
@@ -49,10 +74,11 @@ export const useModelCapabilityOverrides = () => {
         ollamaCapabilities,
         lmStudioModelType: model.capabilityHints?.modelType,
         contextLength: model.capabilityHints?.contextLength,
-        override: getOverride(providerId, model.name)
+        override: getOverride(providerId, model.name),
+        probed: getProbe(providerId, model.name)
       })
     },
-    [getOverride]
+    [getOverride, getProbe]
   )
 
   /**
@@ -68,6 +94,7 @@ export const useModelCapabilityOverrides = () => {
   return {
     overrides: overrides ?? {},
     getOverride,
+    getProbe,
     resolve,
     canSelfReportCapabilities,
     setOverride: setModelCapabilityOverride,
