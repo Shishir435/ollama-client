@@ -200,8 +200,10 @@ export const runPreparedToolCall = async (
 
   run.status = result.isError ? "error" : "done"
   run.completedAt = Date.now()
-  if (result.isError) run.error = result.content
-  else run.resultPreview = result.content.slice(0, 240)
+  // Use the trimmed content for the trace too, so the UI and the model see
+  // the same capped payload.
+  if (result.isError) run.error = content
+  else run.resultPreview = content.slice(0, 240)
   if (result.sources?.length) {
     run.sources = result.sources.map((source, index) => ({
       ...source,

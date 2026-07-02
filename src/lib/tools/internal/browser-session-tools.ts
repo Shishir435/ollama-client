@@ -140,7 +140,7 @@ export const runListRecentlyClosed = async (
 export const restoreSessionDefinition: ToolDefinition = {
   name: "restore_session",
   description:
-    'Reopen one or more recently closed browser tabs/windows the user closed. To reopen several at once (e.g. "open them all"), pass every [id: ...] from list_recently_closed in `sessionIds` in a single call — the ids stay valid, so restoring one does not consume the others. Pass a single id in `sessionId`, or omit both to reopen just the most recently closed. Requires optional browser sessions permission.',
+    'Reopen one or more recently closed browser tabs/windows the user closed. To reopen several at once (e.g. "open them all"), pass every [id: ...] from list_recently_closed in `sessionIds` in a single call — restoring one session does not affect the IDs of the others (each id is single-use: once restored, it leaves the closed list). Pass a single id in `sessionId`, or omit both to reopen just the most recently closed. Requires optional browser sessions permission.',
   displayNameKey: "chat.reasoning.trace.restoreSession",
   category: "browser",
   iconKey: "history",

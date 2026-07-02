@@ -178,7 +178,7 @@ export const streamChatWithNonNativeTools = async ({
 
     if (toolCalls.length === 0) {
       gate.flushTail()
-      onChunk({ done: true, metrics, toolRuns })
+      onChunk({ done: true, metrics, toolRuns: [...toolRuns] })
       return
     }
 
@@ -278,5 +278,5 @@ export const streamChatWithNonNativeTools = async ({
   if (finalGate.text.trim().length === 0) {
     onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
   }
-  onChunk({ done: true, metrics: synthesisMetrics, toolRuns })
+  onChunk({ done: true, metrics: synthesisMetrics, toolRuns: [...toolRuns] })
 }

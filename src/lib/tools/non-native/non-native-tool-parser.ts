@@ -12,7 +12,9 @@
 import type { ToolCall } from "../types"
 
 // Non-greedy so adjacent blocks don't merge; `[\s\S]` to span newlines.
-const TOOL_CALL_PATTERN = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
+// Built fresh per use: a shared `g`-flagged regex carries mutable `lastIndex`
+// state across calls, which is easy to break when extending these functions.
+const toolCallPattern = () => /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
 const CODE_FENCE_PATTERN = /^```(?:json)?\s*([\s\S]*?)\s*```$/
 
 export interface NonNativeParseResult {
@@ -47,16 +49,14 @@ const toArguments = (value: unknown): Record<string, unknown> =>
  * Returns true if the text contains at least one complete `<tool_call>` block —
  * a cheap pre-check so the loop can decide whether to parse.
  */
-export const hasNonNativeToolCall = (text: string): boolean => {
-  TOOL_CALL_PATTERN.lastIndex = 0
-  return TOOL_CALL_PATTERN.test(text)
-}
+export const hasNonNativeToolCall = (text: string): boolean =>
+  toolCallPattern().test(text)
 
 export const parseNonNativeToolCalls = (text: string): NonNativeParseResult => {
   const toolCalls: ToolCall[] = []
   let index = 0
 
-  for (const match of text.matchAll(TOOL_CALL_PATTERN)) {
+  for (const match of text.matchAll(toolCallPattern())) {
     const parsed = parseBlockBody(match[1] ?? "")
     if (
       !parsed ||
@@ -73,6 +73,6 @@ export const parseNonNativeToolCalls = (text: string): NonNativeParseResult => {
     index++
   }
 
-  const cleanedText = text.replace(TOOL_CALL_PATTERN, "").trim()
+  const cleanedText = text.replace(toolCallPattern(), "").trim()
   return { toolCalls, cleanedText }
 }
