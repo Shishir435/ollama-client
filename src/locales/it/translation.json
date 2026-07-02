@@ -450,7 +450,10 @@
       "title": "Conferma azione",
       "body": "L’assistente vuole: {{action}}. Consentire?",
       "allow": "Consenti",
-      "deny": "Rifiuta"
+      "deny": "Rifiuta",
+      "allow_once": "Consenti una volta",
+      "allow_session": "Consenti per questa chat",
+      "allow_always": "Consenti sempre"
     }
   },
   "file_upload": {
@@ -1649,6 +1652,15 @@
             "description": "Per i modelli senza tool-calling nativo: descrivi gli strumenti nel prompt e analizza le chiamate. Sperimentale; meno affidabile del tool-calling nativo."
           }
         }
+      },
+      "approvals": {
+        "title": "Approvazioni",
+        "description": "Gli strumenti contrassegnati come «Consenti sempre» vengono eseguiti senza chiedere di nuovo su questo dispositivo. Revoca un permesso per ricevere di nuovo la richiesta.",
+        "empty": "Nessuna approvazione permanente. Gli strumenti che richiedono un permesso lo chiederanno nella chat.",
+        "granted_on": "Concessa il {{date}}",
+        "revoke": "Revoca",
+        "clear_all": "Revoca tutto",
+        "origin_any": "Ovunque"
       }
     },
     "search": {

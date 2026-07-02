@@ -170,7 +170,10 @@
       "title": "Confirm action",
       "body": "The assistant wants to: {{action}}. Allow it?",
       "allow": "Allow",
-      "deny": "Deny"
+      "deny": "Deny",
+      "allow_once": "Allow once",
+      "allow_session": "Allow for this chat",
+      "allow_always": "Always allow"
     },
     "voice_input": {
       "start": "Dictate with your voice",
@@ -1213,6 +1216,15 @@
             "description": "For models that can't call tools natively, describe tools in the prompt and parse the calls back. Experimental; less reliable than native tool-calling."
           }
         }
+      },
+      "approvals": {
+        "title": "Approvals",
+        "description": "Tools you've marked \"Always allow\" run without asking again on this device. Revoke a grant to be asked next time.",
+        "empty": "No standing approvals. Tools that need permission will ask in the chat.",
+        "granted_on": "Granted {{date}}",
+        "revoke": "Revoke",
+        "clear_all": "Revoke all",
+        "origin_any": "Anywhere"
       }
     },
     "context": {

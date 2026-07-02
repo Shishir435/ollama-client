@@ -199,7 +199,7 @@ export const streamChatWithNonNativeTools = async ({
 
     const prepared = await Promise.all(
       toolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars)
+        prepareToolCall(registry, call, toolResultMaxChars, ctx)
       )
     )
     const responseParts: string[] = []

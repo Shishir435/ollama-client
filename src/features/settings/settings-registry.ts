@@ -1357,6 +1357,25 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ]
   },
   {
+    id: "tool-approvals",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.approvals.title",
+    descriptionKey: "settings.permissions.approvals.description",
+    searchKeys: [
+      "settings.permissions.approvals.empty",
+      "settings.permissions.approvals.clear_all"
+    ],
+    aliases: [
+      "approvals",
+      "always allow",
+      "tool permissions",
+      "grants",
+      "revoke",
+      "confirmation"
+    ]
+  },
+  {
     // Routes per-model search hits to the model picker in the Model tools card.
     // focusId must equal the Select's data-settings-focus-id.
     id: "model-tools-per-model",

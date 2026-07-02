@@ -124,7 +124,11 @@ export const STORAGE_KEYS = {
     // E10: per-family governance over model-callable tools (master + families).
     FAMILIES: "tools-families-config",
     // 0.11.18: per-model overrides layered over the global family settings.
-    MODEL_OVERRIDES: "tools-model-overrides"
+    MODEL_OVERRIDES: "tools-model-overrides",
+    // 0.12.x approval boundary: persisted "Always allow" grants, keyed
+    // `${toolName}::${origin}` ("*" when a tool has no origin). Device-local:
+    // an approval to act on this machine should not follow the account.
+    APPROVAL_GRANTS: "tools-approval-grants"
   },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",

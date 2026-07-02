@@ -450,7 +450,10 @@
       "title": "确认操作",
       "body": "助手想要执行：{{action}}。是否允许？",
       "allow": "允许",
-      "deny": "拒绝"
+      "deny": "拒绝",
+      "allow_once": "允许一次",
+      "allow_session": "在此对话中允许",
+      "allow_always": "始终允许"
     }
   },
   "file_upload": {
@@ -1649,6 +1652,15 @@
             "description": "对于无法原生调用工具的模型，在提示词中描述工具并解析其调用。实验性功能，可靠性低于原生工具调用。"
           }
         }
+      },
+      "approvals": {
+        "title": "审批",
+        "description": "标记为“始终允许”的工具在此设备上运行时不再询问。撤销授权后，下次会再次询问。",
+        "empty": "没有长期授权。需要权限的工具会在对话中询问。",
+        "granted_on": "授权于 {{date}}",
+        "revoke": "撤销",
+        "clear_all": "全部撤销",
+        "origin_any": "任意位置"
       }
     },
     "search": {

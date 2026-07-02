@@ -450,7 +450,10 @@
       "title": "Aktion bestätigen",
       "body": "Der Assistent möchte: {{action}}. Zulassen?",
       "allow": "Zulassen",
-      "deny": "Ablehnen"
+      "deny": "Ablehnen",
+      "allow_once": "Einmal zulassen",
+      "allow_session": "Für diesen Chat zulassen",
+      "allow_always": "Immer zulassen"
     }
   },
   "file_upload": {
@@ -1649,6 +1652,15 @@
             "description": "Für Modelle ohne natives Tool-Calling: Tools im Prompt beschreiben und die Aufrufe zurückparsen. Experimentell; weniger zuverlässig als natives Tool-Calling."
           }
         }
+      },
+      "approvals": {
+        "title": "Freigaben",
+        "description": "Tools mit „Immer zulassen“ laufen auf diesem Gerät ohne erneute Nachfrage. Widerrufe eine Freigabe, um wieder gefragt zu werden.",
+        "empty": "Keine dauerhaften Freigaben. Tools, die eine Erlaubnis brauchen, fragen im Chat nach.",
+        "granted_on": "Erteilt am {{date}}",
+        "revoke": "Widerrufen",
+        "clear_all": "Alle widerrufen",
+        "origin_any": "Überall"
       }
     },
     "search": {

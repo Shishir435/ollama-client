@@ -450,7 +450,10 @@
       "title": "Confirmer l’action",
       "body": "L’assistant veut : {{action}}. Autoriser ?",
       "allow": "Autoriser",
-      "deny": "Refuser"
+      "deny": "Refuser",
+      "allow_once": "Autoriser une fois",
+      "allow_session": "Autoriser pour cette discussion",
+      "allow_always": "Toujours autoriser"
     }
   },
   "file_upload": {
@@ -1649,6 +1652,15 @@
             "description": "Pour les modèles sans tool-calling natif : décrit les outils dans le prompt et analyse les appels. Expérimental ; moins fiable que le tool-calling natif."
           }
         }
+      },
+      "approvals": {
+        "title": "Autorisations",
+        "description": "Les outils marqués « Toujours autoriser » s'exécutent sans redemander sur cet appareil. Révoquez une autorisation pour être interrogé la prochaine fois.",
+        "empty": "Aucune autorisation permanente. Les outils qui ont besoin d'une permission la demanderont dans la discussion.",
+        "granted_on": "Accordée le {{date}}",
+        "revoke": "Révoquer",
+        "clear_all": "Tout révoquer",
+        "origin_any": "Partout"
       }
     },
     "search": {

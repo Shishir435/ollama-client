@@ -50,6 +50,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Probe results reflect the server this device's base URL points at."
   },
+  [STORAGE_KEYS.TOOLS.APPROVAL_GRANTS]: {
+    key: STORAGE_KEYS.TOOLS.APPROVAL_GRANTS,
+    scope: "device-local",
+    reason:
+      "An approval to act on this machine should not follow the account to other devices."
+  },
   [STORAGE_KEYS.IMAGES.MAX_SIZE_MB]: {
     key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
     scope: "sync-safe",

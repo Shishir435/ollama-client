@@ -25,7 +25,14 @@ export type ToolCategory =
   | "system"
   | "external"
 
-export type ToolRiskLevel = "low" | "medium" | "high"
+/**
+ * Drives the approval policy (see `approval/approval-policy.ts`):
+ * - low:      read-only — runs automatically
+ * - medium:   leaves a trace (opens tabs, schedules) — confirm once per chat
+ * - high:     mutates data — confirm each call, "always allow" available
+ * - critical: submit/purchase/auth-adjacent — always confirm, never grantable
+ */
+export type ToolRiskLevel = "low" | "medium" | "high" | "critical"
 
 export type ToolRequirement =
   | "tabs"

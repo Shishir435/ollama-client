@@ -450,7 +450,10 @@
       "title": "Confirmar acción",
       "body": "El asistente quiere: {{action}}. ¿Permitir?",
       "allow": "Permitir",
-      "deny": "Denegar"
+      "deny": "Denegar",
+      "allow_once": "Permitir una vez",
+      "allow_session": "Permitir en este chat",
+      "allow_always": "Permitir siempre"
     }
   },
   "file_upload": {
@@ -1649,6 +1652,15 @@
             "description": "Para modelos sin tool-calling nativo: describe las herramientas en el prompt y analiza las llamadas. Experimental; menos fiable que el tool-calling nativo."
           }
         }
+      },
+      "approvals": {
+        "title": "Aprobaciones",
+        "description": "Las herramientas marcadas como «Permitir siempre» se ejecutan sin volver a preguntar en este dispositivo. Revoca un permiso para que se te pregunte la próxima vez.",
+        "empty": "No hay aprobaciones permanentes. Las herramientas que necesiten permiso lo pedirán en el chat.",
+        "granted_on": "Concedido el {{date}}",
+        "revoke": "Revocar",
+        "clear_all": "Revocar todo",
+        "origin_any": "En cualquier sitio"
       }
     },
     "search": {

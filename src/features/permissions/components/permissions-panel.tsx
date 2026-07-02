@@ -15,6 +15,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { ApprovalsCard } from "@/features/permissions/components/approvals-card"
 import { browser, supportsSessions, supportsTabGroups } from "@/lib/browser-api"
 import {
   DEFAULT_PROVIDER_ID,
@@ -587,6 +588,8 @@ export const PermissionsPanel = ({
       </SettingsCard>
 
       <ModelToolsCard compact={compact} />
+
+      {!compact && <ApprovalsCard />}
 
       {!compact && (
         <SettingsCard

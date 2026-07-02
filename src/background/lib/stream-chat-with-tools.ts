@@ -145,7 +145,7 @@ export const streamChatWithTools = async ({
 
     const preparedCalls = await Promise.all(
       pendingToolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars)
+        prepareToolCall(registry, call, toolResultMaxChars, ctx)
       )
     )
     const toolResultMessages: ChatMessage[] = []
