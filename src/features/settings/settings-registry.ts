@@ -269,6 +269,27 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     ]
   },
   {
+    id: "provider-add",
+    tab: "providers",
+    sectionId: "providers",
+    labelKey: "settings.providers.add.button",
+    descriptionKey: "settings.providers.add.description",
+    searchKeys: [
+      "settings.providers.add.title",
+      "settings.providers.add.wire_openai",
+      "settings.providers.add.wire_ollama"
+    ],
+    aliases: [
+      "provider",
+      "add provider",
+      "custom provider",
+      "openai compatible",
+      "second ollama",
+      "remote server",
+      "lan"
+    ]
+  },
+  {
     id: "provider-enabled",
     tab: "providers",
     sectionId: "providers",

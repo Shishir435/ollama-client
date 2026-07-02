@@ -1395,6 +1395,26 @@
         "default_url": "डिफ़ॉल्ट URL",
         "api_key_required_title": "API कुंजी आवश्यक है",
         "api_key_required": "कनेक्शन का परीक्षण करने से पहले {{name}} के लिए API कुंजी जोड़ें।"
+      },
+      "add": {
+        "button": "प्रोवाइडर जोड़ें",
+        "title": "कस्टम प्रोवाइडर जोड़ें",
+        "description": "कोई भी OpenAI-संगत सर्वर या दूसरा Ollama इंस्टेंस कनेक्ट करें।",
+        "name_label": "नाम",
+        "name_placeholder": "मेरा होम सर्वर",
+        "wire_label": "API प्रकार",
+        "wire_openai": "OpenAI-संगत",
+        "wire_ollama": "Ollama",
+        "api_key_label": "API कुंजी (वैकल्पिक)",
+        "submit": "प्रोवाइडर जोड़ें",
+        "added_title": "प्रोवाइडर जोड़ा गया",
+        "added_description": "{{name}} जोड़ा गया। मॉडल खोजने के लिए कनेक्शन जांचें।",
+        "failed_title": "प्रोवाइडर जोड़ा नहीं जा सका",
+        "remove": "हटाएं",
+        "remove_failed_title": "प्रोवाइडर हटाया नहीं जा सका",
+        "remove_confirm_title": "{{name}} हटाएं?",
+        "remove_confirm_description": "इसकी कनेक्शन सेटिंग्स और मॉडल मैपिंग हटा दी जाएंगी। आपकी चैट सुरक्षित रहेंगी।",
+        "custom_badge": "कस्टम"
       }
     },
     "migration": {

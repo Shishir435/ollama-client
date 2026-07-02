@@ -1,8 +1,19 @@
-import { CheckCircle2, Info, Loader2, XCircle, Zap } from "lucide-react"
+import { CheckCircle2, Info, Loader2, Trash2, XCircle, Zap } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,6 +25,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
+import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
 import { ProviderConnectionPanel } from "@/features/model/components/provider-connection-panel"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
@@ -31,6 +43,7 @@ export const ProviderSettings = () => {
     activeConfig,
     cspCompatibilityHint,
     isLocalProvider,
+    isCustomProvider,
     isRemoteEndpoint,
     testingConnection,
     connectionStatus,
@@ -40,8 +53,12 @@ export const ProviderSettings = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
-    setProviderEnabled
+    setProviderEnabled,
+    addProvider,
+    removeProvider
   } = useProviderSettingsState()
+  const [addOpen, setAddOpen] = useState(false)
+  const [removeOpen, setRemoveOpen] = useState(false)
 
   if (loading) {
     return (
@@ -60,8 +77,15 @@ export const ProviderSettings = () => {
           providerHealth={providerHealth}
           manualTestStatus={connectionStatus}
           onSelect={setSelectedId}
+          onAdd={() => setAddOpen(true)}
         />
       </div>
+
+      <AddProviderDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onAdd={addProvider}
+      />
 
       {/* Configuration Panel */}
       {activeConfig && (
@@ -129,6 +153,17 @@ export const ProviderSettings = () => {
                 )}
                 {t("settings.providers.test")}
               </Button>
+
+              {isCustomProvider && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-status-danger hover:text-status-danger"
+                  onClick={() => setRemoveOpen(true)}>
+                  <Trash2 className="icon-md mr-2" />
+                  {t("settings.providers.add.remove")}
+                </Button>
+              )}
             </InlineActions>
           </CardHeader>
 
@@ -168,6 +203,30 @@ export const ProviderSettings = () => {
             </FieldStack>
           </CardContent>
         </Card>
+      )}
+
+      {activeConfig && (
+        <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("settings.providers.add.remove_confirm_title", {
+                  name: activeConfig.name
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("settings.providers.add.remove_confirm_description")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => removeProvider(String(activeConfig.id))}>
+                {t("settings.providers.add.remove")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </SectionStack>
   )

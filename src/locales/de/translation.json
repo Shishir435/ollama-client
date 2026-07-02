@@ -1395,6 +1395,26 @@
         "default_url": "Standard-URL",
         "api_key_required_title": "API-Schlüssel erforderlich",
         "api_key_required": "Füge einen API-Schlüssel für {{name}} hinzu, bevor du die Verbindung testest."
+      },
+      "add": {
+        "button": "Anbieter hinzufügen",
+        "title": "Eigenen Anbieter hinzufügen",
+        "description": "Beliebigen OpenAI-kompatiblen Server oder eine weitere Ollama-Instanz verbinden.",
+        "name_label": "Name",
+        "name_placeholder": "Mein Heimserver",
+        "wire_label": "API-Typ",
+        "wire_openai": "OpenAI-kompatibel",
+        "wire_ollama": "Ollama",
+        "api_key_label": "API-Schlüssel (optional)",
+        "submit": "Anbieter hinzufügen",
+        "added_title": "Anbieter hinzugefügt",
+        "added_description": "{{name}} wurde hinzugefügt. Teste die Verbindung, um Modelle zu finden.",
+        "failed_title": "Anbieter konnte nicht hinzugefügt werden",
+        "remove": "Entfernen",
+        "remove_failed_title": "Anbieter konnte nicht entfernt werden",
+        "remove_confirm_title": "{{name}} entfernen?",
+        "remove_confirm_description": "Verbindungseinstellungen und Modellzuordnungen werden gelöscht. Deine Chats bleiben erhalten.",
+        "custom_badge": "Eigener"
       }
     },
     "migration": {

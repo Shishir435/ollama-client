@@ -6,7 +6,12 @@ import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
-import { type ProviderConfig, ProviderId } from "@/lib/providers/types"
+import {
+  type CustomProviderWire,
+  isCustomProviderId,
+  type ProviderConfig,
+  ProviderId
+} from "@/lib/providers/types"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
@@ -88,6 +93,9 @@ export const useProviderSettingsState = () => {
   const cspCompatibilityHint = getCspCompatibilityHint(activeConfig?.baseUrl)
   const displayUrl =
     activeConfig?.baseUrl || t("settings.providers.test_connection.default_url")
+  const isCustomProvider = activeConfig
+    ? isCustomProviderId(String(activeConfig.id))
+    : false
   const isLocalProvider = LOCAL_PROVIDER_IDS.includes(
     activeConfig?.id as ProviderId
   )
@@ -108,7 +116,9 @@ export const useProviderSettingsState = () => {
     setTestingConnection(true)
     setConnectionStatus(null)
 
-    if (!isLocalProvider && !activeConfig.apiKey?.trim()) {
+    // Custom endpoints may be keyless local/LAN servers — never require a key
+    // for them; a real 401 from the test surfaces its own error.
+    if (!isLocalProvider && !isCustomProvider && !activeConfig.apiKey?.trim()) {
       const message = t("settings.providers.test_connection.api_key_required", {
         name: activeConfig.name
       })
@@ -224,6 +234,55 @@ export const useProviderSettingsState = () => {
     }
   }
 
+  const addProvider = async (input: {
+    name: string
+    baseUrl: string
+    wire: CustomProviderWire
+    apiKey?: string
+  }): Promise<boolean> => {
+    try {
+      const config = await ProviderManager.addCustomProvider(input)
+      await loadProviders()
+      setSelectedId(String(config.id))
+      toast({
+        title: t("settings.providers.add.added_title"),
+        description: t("settings.providers.add.added_description", {
+          name: config.name
+        })
+      })
+      return true
+    } catch (error) {
+      logger.error("Failed to add provider", "ProviderSettings", { error })
+      toast({
+        variant: "destructive",
+        title: t("settings.providers.add.failed_title"),
+        description: getDisplayErrorMessage(
+          error,
+          t("settings.providers.add.failed_title")
+        )
+      })
+      return false
+    }
+  }
+
+  const removeProvider = async (id: string) => {
+    try {
+      await ProviderManager.removeCustomProvider(id)
+      await loadProviders()
+      if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
+    } catch (error) {
+      logger.error("Failed to remove provider", "ProviderSettings", { error })
+      toast({
+        variant: "destructive",
+        title: t("settings.providers.add.remove_failed_title"),
+        description: getDisplayErrorMessage(
+          error,
+          t("settings.providers.add.remove_failed_title")
+        )
+      })
+    }
+  }
+
   const updateConfig = (updates: Partial<ProviderConfig>) => {
     if (!activeConfig) return
     const updated = { ...activeConfig, ...updates }
@@ -309,6 +368,7 @@ export const useProviderSettingsState = () => {
     activeConfig,
     cspCompatibilityHint,
     isLocalProvider,
+    isCustomProvider,
     isRemoteEndpoint,
     testingConnection,
     connectionStatus,
@@ -318,6 +378,8 @@ export const useProviderSettingsState = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
-    setProviderEnabled
+    setProviderEnabled,
+    addProvider,
+    removeProvider
   }
 }

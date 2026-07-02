@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { Info } from "@/lib/lucide-icon"
+import { Info, Plus } from "@/lib/lucide-icon"
 import { isBetaProvider } from "@/lib/providers/registry"
-import type { ProviderConfig } from "@/lib/providers/types"
+import { isCustomProviderId, type ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
 // Status dot color is picked by the first rule that matches.
@@ -41,6 +41,7 @@ export interface ProviderGridProps {
   providerHealth: ProviderHealthMap
   manualTestStatus: { success: boolean; message: string } | null
   onSelect: (id: string) => void
+  onAdd: () => void
 }
 
 /**
@@ -56,7 +57,8 @@ export const ProviderGrid = ({
   selectedId,
   providerHealth,
   manualTestStatus,
-  onSelect
+  onSelect,
+  onAdd
 }: ProviderGridProps) => {
   const { t } = useTranslation()
 
@@ -113,11 +115,29 @@ export const ProviderGrid = ({
                 {provider.id === DEFAULT_PROVIDER_ID && (
                   <MiniBadge text={t("settings.providers.default")} />
                 )}
+
+                {isCustomProviderId(String(provider.id)) && (
+                  <MiniBadge text={t("settings.providers.add.custom_badge")} />
+                )}
               </span>
             </span>
           </Button>
         )
       })}
+
+      <Button
+        type="button"
+        onClick={onAdd}
+        data-settings-focus="true"
+        data-settings-focus-id="provider-add"
+        className="h-11 justify-start border-dashed px-3 text-muted-foreground transition-colors hover:text-foreground border-border bg-card hover:bg-accent/10">
+        <span className="flex items-center gap-2">
+          <Plus className="icon-sm" />
+          <span className="font-medium">
+            {t("settings.providers.add.button")}
+          </span>
+        </span>
+      </Button>
     </div>
   )
 }

@@ -1,4 +1,8 @@
-import { type ProviderCapabilities, ProviderId } from "./types"
+import {
+  customProviderWireFromId,
+  type ProviderCapabilities,
+  ProviderId
+} from "./types"
 
 export type ModelCapabilitySource =
   | "user-override"
@@ -129,7 +133,9 @@ const detectModelCapabilities = (
     }
   }
 
-  const isOllama = input.providerId === ProviderId.OLLAMA
+  const isOllama =
+    input.providerId === ProviderId.OLLAMA ||
+    customProviderWireFromId(String(input.providerId)) === "ollama"
 
   return {
     text: providerCaps?.chat ?? true,
@@ -239,5 +245,17 @@ export const getProviderCapabilities = (
   providerId: string | ProviderId
 ): ProviderCapabilities | null => {
   const capabilities = PROVIDER_CAPABILITIES[providerId as ProviderId]
-  return capabilities ? { ...capabilities } : null
+  if (capabilities) return { ...capabilities }
+
+  // Custom providers carry their wire protocol in the id; resolve provider-level
+  // defaults from it. Tool calling stays off at the provider level — the
+  // per-model resolution chain (override → probe → metadata) turns it on.
+  const wire = customProviderWireFromId(String(providerId))
+  if (wire === "ollama") {
+    return { ...PROVIDER_CAPABILITIES[ProviderId.OLLAMA], toolCalling: true }
+  }
+  if (wire === "openai") {
+    return { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES, toolCalling: true }
+  }
+  return null
 }

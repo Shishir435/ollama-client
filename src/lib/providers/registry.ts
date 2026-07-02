@@ -1,7 +1,7 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import type { LucideIcon } from "@/lib/lucide-icon"
 import { Bot, Cpu, Server, Shield, Sparkles } from "@/lib/lucide-icon"
-import { ProviderId } from "./types"
+import { isCustomProviderId, ProviderId } from "./types"
 
 export type ProviderIcon =
   | { kind: "lucide"; icon: LucideIcon }
@@ -62,16 +62,36 @@ export const PROVIDER_REGISTRY: Record<string, ProviderMeta> = {
   }
 }
 
-export const getProviderMeta = (id?: string): ProviderMeta => {
+/**
+ * Static meta for built-ins; custom providers fall back to a generic Server
+ * entry. Pass `fallbackName` (the stored config's display name) where you have
+ * it so custom providers show their user-given name instead of "Local
+ * Provider".
+ */
+export const getProviderMeta = (
+  id?: string,
+  fallbackName?: string
+): ProviderMeta => {
   if (!id) {
     return PROVIDER_REGISTRY[DEFAULT_PROVIDER_ID] || FALLBACK_PROVIDER_META
   }
 
-  return PROVIDER_REGISTRY[id] || FALLBACK_PROVIDER_META
+  const meta = PROVIDER_REGISTRY[id]
+  if (meta) return meta
+  if (isCustomProviderId(id)) {
+    return {
+      id,
+      displayName: fallbackName || FALLBACK_PROVIDER_META.displayName,
+      icon: { kind: "lucide", icon: Server }
+    }
+  }
+  return FALLBACK_PROVIDER_META
 }
 
-export const getProviderDisplayName = (id?: string): string =>
-  getProviderMeta(id).displayName
+export const getProviderDisplayName = (
+  id?: string,
+  fallbackName?: string
+): string => getProviderMeta(id, fallbackName).displayName
 
 export const getProviderIcon = (id?: string): ProviderIcon =>
   getProviderMeta(id).icon

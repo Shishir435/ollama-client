@@ -1395,6 +1395,26 @@
         "default_url": "URL по умолчанию",
         "api_key_required_title": "Требуется API-ключ",
         "api_key_required": "Добавьте API-ключ для {{name}}, прежде чем проверять подключение."
+      },
+      "add": {
+        "button": "Добавить провайдера",
+        "title": "Добавить свой провайдер",
+        "description": "Подключите любой OpenAI-совместимый сервер или ещё один экземпляр Ollama.",
+        "name_label": "Название",
+        "name_placeholder": "Мой домашний сервер",
+        "wire_label": "Тип API",
+        "wire_openai": "OpenAI-совместимый",
+        "wire_ollama": "Ollama",
+        "api_key_label": "Ключ API (необязательно)",
+        "submit": "Добавить провайдера",
+        "added_title": "Провайдер добавлен",
+        "added_description": "{{name}} добавлен. Проверьте подключение, чтобы обнаружить модели.",
+        "failed_title": "Не удалось добавить провайдера",
+        "remove": "Удалить",
+        "remove_failed_title": "Не удалось удалить провайдера",
+        "remove_confirm_title": "Удалить {{name}}?",
+        "remove_confirm_description": "Настройки подключения и сопоставления моделей будут удалены. Ваши чаты сохранятся.",
+        "custom_badge": "Свой"
       }
     },
     "migration": {

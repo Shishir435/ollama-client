@@ -64,9 +64,22 @@ export const migrateLegacyProviderStorage = async (
     const modelMappings = await storage.get<Record<string, string>>(
       ProviderStorageKey.MODEL_MAPPINGS
     )
-    if (selectedModel && modelMappings?.[selectedModel]) {
+    // The flat map may already have been migrated to scoped keys
+    // (`providerId::modelName`) — check both shapes.
+    const scopedMappings = await storage.get<Record<string, string>>(
+      ProviderStorageKey.MODEL_MAPPINGS_V2
+    )
+    const scopedProviderId = selectedModel
+      ? Object.entries(scopedMappings ?? {}).find(
+          ([key, providerId]) => key === `${providerId}::${selectedModel}`
+        )?.[1]
+      : undefined
+    const mappedProviderId =
+      (selectedModel ? modelMappings?.[selectedModel] : undefined) ??
+      scopedProviderId
+    if (selectedModel && mappedProviderId) {
       await storage.set(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF, {
-        providerId: modelMappings[selectedModel],
+        providerId: mappedProviderId,
         modelId: selectedModel
       })
       await storage.remove(STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL)

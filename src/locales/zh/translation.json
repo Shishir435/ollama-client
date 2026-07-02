@@ -1395,6 +1395,26 @@
         "default_url": "默认 URL",
         "api_key_required_title": "需要 API 密钥",
         "api_key_required": "请先为 {{name}} 添加 API 密钥，然后再测试连接。"
+      },
+      "add": {
+        "button": "添加提供商",
+        "title": "添加自定义提供商",
+        "description": "连接任何兼容 OpenAI 的服务器或另一个 Ollama 实例。",
+        "name_label": "名称",
+        "name_placeholder": "我的家庭服务器",
+        "wire_label": "API 类型",
+        "wire_openai": "OpenAI 兼容",
+        "wire_ollama": "Ollama",
+        "api_key_label": "API 密钥（可选）",
+        "submit": "添加提供商",
+        "added_title": "提供商已添加",
+        "added_description": "已添加 {{name}}。测试连接以发现模型。",
+        "failed_title": "无法添加提供商",
+        "remove": "移除",
+        "remove_failed_title": "无法移除提供商",
+        "remove_confirm_title": "移除 {{name}}？",
+        "remove_confirm_description": "其连接设置和模型映射将被删除。你的聊天记录会保留。",
+        "custom_badge": "自定义"
       }
     },
     "migration": {

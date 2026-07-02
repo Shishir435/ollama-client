@@ -384,6 +384,7 @@ export const ModelMenu = ({
             if (!next) setCapabilityTarget(null)
           }}
           providerId={capabilityTarget.providerId}
+          providerDisplayName={targetModelData?.providerName}
           modelName={capabilityTarget.model}
           current={targetCurrent}
           detected={targetDetected}

@@ -26,6 +26,8 @@ interface ModelCapabilitySheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   providerId: string
+  /** Stored config name — used for custom providers, which have no static meta. */
+  providerDisplayName?: string
   modelName: string
   /**
    * Effective capabilities (detection with any saved override applied). Seeds
@@ -62,6 +64,7 @@ export const ModelCapabilitySheet = ({
   open,
   onOpenChange,
   providerId,
+  providerDisplayName,
   modelName,
   current,
   detected,
@@ -88,7 +91,7 @@ export const ModelCapabilitySheet = ({
     if (open && !isDirty) setDraft(toDraft(current))
   }, [open, current, isDirty])
 
-  const providerName = getProviderDisplayName(providerId)
+  const providerName = getProviderDisplayName(providerId, providerDisplayName)
 
   // Reset is meaningful when there is a saved override to clear, or when the
   // user has edited the toggles in this open session.

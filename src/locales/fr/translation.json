@@ -1395,6 +1395,26 @@
         "default_url": "URL par défaut",
         "api_key_required_title": "Clé API requise",
         "api_key_required": "Ajoutez une clé API pour {{name}} avant de tester la connexion."
+      },
+      "add": {
+        "button": "Ajouter un fournisseur",
+        "title": "Ajouter un fournisseur personnalisé",
+        "description": "Connectez n'importe quel serveur compatible OpenAI ou une autre instance Ollama.",
+        "name_label": "Nom",
+        "name_placeholder": "Mon serveur maison",
+        "wire_label": "Type d'API",
+        "wire_openai": "Compatible OpenAI",
+        "wire_ollama": "Ollama",
+        "api_key_label": "Clé API (facultative)",
+        "submit": "Ajouter le fournisseur",
+        "added_title": "Fournisseur ajouté",
+        "added_description": "{{name}} a été ajouté. Testez la connexion pour découvrir les modèles.",
+        "failed_title": "Impossible d'ajouter le fournisseur",
+        "remove": "Supprimer",
+        "remove_failed_title": "Impossible de supprimer le fournisseur",
+        "remove_confirm_title": "Supprimer {{name}} ?",
+        "remove_confirm_description": "Ses paramètres de connexion et ses associations de modèles seront supprimés. Vos conversations sont conservées.",
+        "custom_badge": "Personnalisé"
       }
     },
     "migration": {

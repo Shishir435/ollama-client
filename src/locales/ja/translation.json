@@ -1395,6 +1395,26 @@
         "default_url": "デフォルト URL",
         "api_key_required_title": "APIキーが必要です",
         "api_key_required": "接続をテストする前に、{{name}} のAPIキーを追加してください。"
+      },
+      "add": {
+        "button": "プロバイダーを追加",
+        "title": "カスタムプロバイダーを追加",
+        "description": "OpenAI互換サーバーや別のOllamaインスタンスを接続できます。",
+        "name_label": "名前",
+        "name_placeholder": "自宅サーバー",
+        "wire_label": "APIタイプ",
+        "wire_openai": "OpenAI互換",
+        "wire_ollama": "Ollama",
+        "api_key_label": "APIキー（任意）",
+        "submit": "プロバイダーを追加",
+        "added_title": "プロバイダーを追加しました",
+        "added_description": "{{name}} を追加しました。接続をテストしてモデルを検出してください。",
+        "failed_title": "プロバイダーを追加できませんでした",
+        "remove": "削除",
+        "remove_failed_title": "プロバイダーを削除できませんでした",
+        "remove_confirm_title": "{{name}} を削除しますか？",
+        "remove_confirm_description": "接続設定とモデルの割り当てが削除されます。チャットは保持されます。",
+        "custom_badge": "カスタム"
       }
     },
     "migration": {

@@ -33,6 +33,7 @@ describe("ProviderGrid", () => {
         providerHealth={{}}
         manualTestStatus={null}
         onSelect={onSelect}
+        onAdd={vi.fn()}
       />
     )
 
@@ -43,6 +44,51 @@ describe("ProviderGrid", () => {
     expect(onSelect).toHaveBeenCalledWith("openai")
   })
 
+  it("renders an add-provider tile and fires onAdd", () => {
+    const onAdd = vi.fn()
+    render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="ollama"
+        providerHealth={{}}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /settings.providers.add.button/ })
+    )
+    expect(onAdd).toHaveBeenCalled()
+  })
+
+  it("badges custom providers", () => {
+    render(
+      <ProviderGrid
+        providers={[
+          ...providers,
+          {
+            id: "custom:openai:abc123",
+            name: "Home box",
+            type: ProviderType.OPENAI,
+            enabled: true
+          }
+        ]}
+        selectedId="ollama"
+        providerHealth={{}}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText("Home box")).toBeInTheDocument()
+    expect(
+      screen.getByText("settings.providers.add.custom_badge")
+    ).toBeInTheDocument()
+  })
+
   it("lets manual status override selected provider health", () => {
     const { container } = render(
       <ProviderGrid
@@ -51,6 +97,7 @@ describe("ProviderGrid", () => {
         providerHealth={{ ollama: { success: false, lastChecked: 1 } }}
         manualTestStatus={{ success: true, message: "manual ok" }}
         onSelect={vi.fn()}
+        onAdd={vi.fn()}
       />
     )
 

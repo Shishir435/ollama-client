@@ -23,11 +23,40 @@ export enum ProviderId {
 }
 
 /**
+ * User-added providers get ids of the form `custom:<wire>:<random>`, where
+ * `<wire>` is the wire protocol ("openai" | "ollama"). Encoding the protocol in
+ * the id lets synchronous call sites (capability defaults, factory) resolve it
+ * without an async config lookup. The protocol is immutable per provider — a
+ * different protocol is a different provider.
+ */
+export const CUSTOM_PROVIDER_PREFIX = "custom:"
+
+export type CustomProviderWire = "openai" | "ollama"
+
+export const isCustomProviderId = (id: string): boolean =>
+  id.startsWith(CUSTOM_PROVIDER_PREFIX)
+
+export const makeCustomProviderId = (wire: CustomProviderWire): string =>
+  `${CUSTOM_PROVIDER_PREFIX}${wire}:${crypto.randomUUID().slice(0, 8)}`
+
+/** Wire protocol for a custom provider id; null when not a custom id. */
+export const customProviderWireFromId = (
+  id: string
+): CustomProviderWire | null => {
+  if (!isCustomProviderId(id)) return null
+  const wire = id.slice(CUSTOM_PROVIDER_PREFIX.length).split(":")[0]
+  return wire === "ollama" ? "ollama" : "openai"
+}
+
+/**
  * Storage keys used specifically for provider configurations and mappings.
  */
 export enum ProviderStorageKey {
   CONFIG = "llm_providers_config_v1",
-  MODEL_MAPPINGS = "model_provider_mappings"
+  /** Legacy flat map `modelName → providerId` (collision-lossy). Migrated to V2. */
+  MODEL_MAPPINGS = "model_provider_mappings",
+  /** Scoped map keyed `providerId::modelName` → providerId; collision-safe. */
+  MODEL_MAPPINGS_V2 = "model_provider_mappings_v2"
 }
 
 export interface ProviderConfig {

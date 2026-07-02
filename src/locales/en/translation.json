@@ -1596,6 +1596,26 @@
         "default_url": "default URL",
         "api_key_required_title": "API key required",
         "api_key_required": "Add an API key for {{name}} before testing the connection."
+      },
+      "add": {
+        "button": "Add provider",
+        "title": "Add a custom provider",
+        "description": "Connect any OpenAI-compatible server or another Ollama instance.",
+        "name_label": "Name",
+        "name_placeholder": "My home server",
+        "wire_label": "API type",
+        "wire_openai": "OpenAI-compatible",
+        "wire_ollama": "Ollama",
+        "api_key_label": "API key (optional)",
+        "submit": "Add provider",
+        "added_title": "Provider added",
+        "added_description": "{{name}} was added. Test the connection to discover models.",
+        "failed_title": "Could not add provider",
+        "remove": "Remove",
+        "remove_failed_title": "Could not remove provider",
+        "remove_confirm_title": "Remove {{name}}?",
+        "remove_confirm_description": "Its connection settings and model mappings will be deleted. Your chats are kept.",
+        "custom_badge": "Custom"
       }
     },
     "migration": {
