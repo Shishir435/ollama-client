@@ -1,10 +1,30 @@
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { matchesUserPattern } from "@/lib/url-pattern"
 import type {
   ContentExtractionConfig,
   ExtractionLogEntry,
   ExtractionMetrics
 } from "@/types"
+
+/**
+ * Recent extraction logs, module-local to the content-script world.
+ * Previously stashed on `window.__providerExtractionLogs`; kept off the
+ * window so nothing about extraction behavior is discoverable from page
+ * context and the global namespace stays clean.
+ */
+const MAX_EXTRACTION_LOGS = 50
+const extractionLogs: ExtractionLogEntry[] = []
+
+const recordExtractionLog = (entry: ExtractionLogEntry): void => {
+  extractionLogs.push(entry)
+  if (extractionLogs.length > MAX_EXTRACTION_LOGS) {
+    extractionLogs.shift()
+  }
+}
+
+/** Read-only snapshot of recent extraction logs (debug tooling). */
+export const getExtractionLogs = (): ExtractionLogEntry[] => [...extractionLogs]
 
 /**
  * Extract domain from URL for site matching
@@ -32,19 +52,13 @@ export const findMatchingSiteOverride = (
     return siteOverrides[domain]
   }
 
-  // Pattern matching (regex or wildcard)
+  // Pattern matching (regex or substring, guarded against unsafe patterns)
   for (const [pattern, config] of Object.entries(siteOverrides)) {
-    try {
-      // Try regex first
-      const regex = new RegExp(pattern)
-      if (regex.test(url) || regex.test(domain)) {
-        return config
-      }
-    } catch {
-      // Fallback to simple string matching
-      if (url.includes(pattern) || domain.includes(pattern)) {
-        return config
-      }
+    if (
+      matchesUserPattern(url, pattern) ||
+      matchesUserPattern(domain, pattern)
+    ) {
+      return config
     }
   }
 
@@ -450,31 +464,7 @@ export const extractContentWithLoading = async (
       }
     })
 
-    // Store log entry for feedback (can be accessed via window.__providerExtractionLogs)
-    if (typeof window !== "undefined") {
-      const logs =
-        (
-          window as unknown as {
-            __providerExtractionLogs?: ExtractionLogEntry[]
-            __ollamaExtractionLogs?: ExtractionLogEntry[]
-          }
-        ).__providerExtractionLogs ||
-        (
-          window as unknown as {
-            __providerExtractionLogs?: ExtractionLogEntry[]
-            __ollamaExtractionLogs?: ExtractionLogEntry[]
-          }
-        ).__ollamaExtractionLogs ||
-        []
-      logs.push(logEntry)
-      // Keep only last 50 entries //page 2 make this configurable
-      if (logs.length > 50) {
-        logs.shift()
-      }
-      ;(
-        window as unknown as { __providerExtractionLogs?: ExtractionLogEntry[] }
-      ).__providerExtractionLogs = logs
-    }
+    recordExtractionLog(logEntry)
 
     return {
       content: "", // Will be filled by Readability in index.ts
@@ -500,6 +490,8 @@ export const extractContentWithLoading = async (
       detectedPatterns,
       errors
     }
+
+    recordExtractionLog(logEntry)
 
     throw {
       error,

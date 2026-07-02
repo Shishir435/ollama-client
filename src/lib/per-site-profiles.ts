@@ -3,6 +3,7 @@ import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { compileSafePattern } from "@/lib/url-pattern"
 
 export type PerSiteRuleMode = "inherit" | "always" | "never"
 
@@ -110,11 +111,7 @@ export const profilePatternMatchesUrl = (
   }
 
   if (looksLikeExplicitRegExp(trimmed)) {
-    try {
-      return new RegExp(trimmed, "i").test(url)
-    } catch {
-      return false
-    }
+    return compileSafePattern(trimmed, "i")?.test(url) ?? false
   }
 
   return false
