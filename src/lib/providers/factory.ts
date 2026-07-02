@@ -43,8 +43,6 @@ function instantiate(config: ProviderConfig): LLMProvider {
   }
 }
 
-const instances: Map<string, LLMProvider> = new Map()
-
 export const ProviderFactory = {
   async getProviderForModel(
     modelId: string,
@@ -70,9 +68,7 @@ export const ProviderFactory = {
       })
     }
 
-    const provider = instantiate(config)
-    instances.set(providerId, provider)
-    return provider
+    return instantiate(config)
   },
 
   async getProviderWithConfig(config: ProviderConfig): Promise<LLMProvider> {

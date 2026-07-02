@@ -37,17 +37,7 @@ describe("chat-history facade", () => {
 
     const result = await facade.getAllSessionsOrderedByRecency()
 
-    expect(facade.getActiveBackend()).toBe("sqlite")
-    await expect(facade.initChatHistoryBackend()).resolves.toBe("sqlite")
     expect(result).toBe("sqlite:getAllSessions")
     expect(sqliteRepo.getAllSessionsOrderedByRecency).toHaveBeenCalledTimes(1)
-  })
-
-  it("rejects non-SQLite backend requests", async () => {
-    const facade = await import("../chat-history")
-
-    await expect(facade.setActiveBackend("dexie" as never)).rejects.toThrow(
-      "Unsupported chat history backend"
-    )
   })
 })

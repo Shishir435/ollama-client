@@ -536,34 +536,6 @@ export const deleteFilesByMessageIds = async (
   return (before[0]?.count as number) ?? 0
 }
 
-// ----- Health cookie -------------------------------------------------------
-
-/**
- * Key stored in `kv_store` once SQLite has been initialized as the
- * confirmed chat-history source of truth.
- */
-const SQLITE_HEALTHY_KEY = "chat-history-sqlite-healthy-v1"
-
-export const isSqliteHealthy = async (): Promise<boolean> => {
-  try {
-    const rows = await query("SELECT value FROM kv_store WHERE key = ?", [
-      SQLITE_HEALTHY_KEY
-    ])
-    return rows.length > 0
-  } catch {
-    // Table might not exist yet on a fresh init. Treat as not-healthy
-    // and let the migration write the cookie when it finishes.
-    return false
-  }
-}
-
-export const markSqliteHealthy = async (): Promise<void> => {
-  await run("INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)", [
-    SQLITE_HEALTHY_KEY,
-    "1"
-  ])
-}
-
 // ----- Database-level operations ------------------------------------------
 
 /**
