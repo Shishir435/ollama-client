@@ -335,10 +335,18 @@ export const registerMessageRouter = () => {
         const payload = message.payload as
           | { callId?: unknown; approved?: unknown }
           | undefined
-        if (typeof payload?.callId === "string") {
-          resolveToolConfirmation(payload.callId, payload.approved === true)
+        const valid = typeof payload?.callId === "string"
+        if (valid) {
+          resolveToolConfirmation(
+            payload.callId as string,
+            payload?.approved === true
+          )
         }
-        return true
+        // Respond synchronously — returning true without ever calling
+        // sendResponse makes the sender's promise reject with "The message
+        // port closed before a response was received."
+        safeSendResponse(response, { success: valid })
+        return
       }
     }
   }) as Runtime.OnMessageListener)

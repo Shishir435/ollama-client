@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { runtime } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import type { ChatMessage, ToolRun } from "@/types"
 
 const runLabel = (run: ToolRun, t: (key: string) => string): string =>
@@ -27,10 +28,18 @@ export const PendingToolConfirmation = ({
 
   const respond = (callId: string, approved: boolean) => {
     setResponded((prev) => new Set(prev).add(callId))
-    runtime.sendMessage({
-      type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
-      payload: { callId, approved }
-    })
+    void runtime
+      .sendMessage({
+        type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
+        payload: { callId, approved }
+      })
+      .catch((error: unknown) => {
+        // If the service worker was reaped, the pending confirmation is gone
+        // with it — the stream ended too, so there is nothing to recover.
+        logger.warn("Tool confirmation reply failed", "PendingToolConfirm", {
+          error
+        })
+      })
   }
 
   const pending = messages
