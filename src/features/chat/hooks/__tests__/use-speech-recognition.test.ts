@@ -146,6 +146,87 @@ describe("useSpeechRecognition", () => {
     expect(instances).toHaveLength(0)
   })
 
+  it("prefers on-device recognition when available", async () => {
+    const instances: FakeRecognition[] = []
+    const ctor = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+      static available = vi.fn().mockResolvedValue("available")
+      static install = vi.fn()
+    }
+    ;(window as any).SpeechRecognition = ctor
+
+    const { result } = renderHook(() => useSpeechRecognition(vi.fn()))
+    await act(async () => result.current.toggle())
+
+    expect(ctor.available).toHaveBeenCalledWith(
+      expect.objectContaining({ processLocally: true })
+    )
+    expect((instances[0] as any).processLocally).toBe(true)
+    expect(ctor.install).not.toHaveBeenCalled()
+    expect(result.current.listening).toBe(true)
+  })
+
+  it("installs the language pack once, notifies, then starts locally", async () => {
+    const instances: FakeRecognition[] = []
+    const ctor = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+      static available = vi.fn().mockResolvedValue("downloadable")
+      static install = vi.fn().mockResolvedValue(true)
+    }
+    ;(window as any).SpeechRecognition = ctor
+    const onNotice = vi.fn()
+
+    const { result } = renderHook(() =>
+      useSpeechRecognition(vi.fn(), undefined, onNotice)
+    )
+    await act(async () => result.current.toggle())
+
+    expect(onNotice).toHaveBeenCalledWith("local-model-downloading")
+    expect(ctor.install).toHaveBeenCalled()
+    expect((instances[0] as any).processLocally).toBe(true)
+    expect(result.current.listening).toBe(true)
+  })
+
+  it("waits instead of starting a doomed cloud session while downloading", async () => {
+    const ctor = class extends FakeRecognition {
+      static available = vi.fn().mockResolvedValue("downloading")
+    }
+    ;(window as any).SpeechRecognition = ctor
+    const onNotice = vi.fn()
+
+    const { result } = renderHook(() =>
+      useSpeechRecognition(vi.fn(), undefined, onNotice)
+    )
+    await act(async () => result.current.toggle())
+
+    expect(onNotice).toHaveBeenCalledWith("local-model-downloading")
+    expect(result.current.listening).toBe(false)
+  })
+
+  it("falls back to cloud when on-device is unavailable", async () => {
+    const instances: FakeRecognition[] = []
+    const ctor = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+      static available = vi.fn().mockResolvedValue("unavailable")
+    }
+    ;(window as any).SpeechRecognition = ctor
+
+    const { result } = renderHook(() => useSpeechRecognition(vi.fn()))
+    await act(async () => result.current.toggle())
+
+    expect((instances[0] as any).processLocally).toBeUndefined()
+    expect(result.current.listening).toBe(true)
+  })
+
   it("surfaces recognition errors except aborted and no-speech", async () => {
     const instances: FakeRecognition[] = []
     ;(window as any).SpeechRecognition = class extends FakeRecognition {

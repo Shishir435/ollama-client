@@ -441,7 +441,9 @@
       "page_requesting": "浏览器将请求麦克风访问权限。选择“允许”以启用语音输入。",
       "page_granted": "麦克风已启用。你可以关闭此标签页，在侧边栏中使用语音输入。",
       "page_denied": "麦克风访问被拒绝。请点击地址栏中的麦克风图标（或打开扩展的网站设置）允许访问，然后重试。",
-      "page_retry": "重试"
+      "page_retry": "重试",
+      "local_downloading_title": "正在准备设备端语音识别",
+      "local_downloading_description": "正在下载语音模型，以实现私密的设备端听写。下载完成后请再次尝试麦克风。"
     },
     "tool_confirmation": {
       "title": "确认操作",

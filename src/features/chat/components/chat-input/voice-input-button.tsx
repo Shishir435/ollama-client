@@ -60,9 +60,22 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
     [t, toast]
   )
 
+  const handleNotice = useCallback(
+    (code: string) => {
+      if (code === "local-model-downloading") {
+        toast({
+          title: t("chat.voice_input.local_downloading_title"),
+          description: t("chat.voice_input.local_downloading_description")
+        })
+      }
+    },
+    [t, toast]
+  )
+
   const { supported, listening, toggle } = useSpeechRecognition(
     handleTranscript,
-    handleError
+    handleError,
+    handleNotice
   )
 
   if (!supported) return null

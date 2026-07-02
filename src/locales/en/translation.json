@@ -183,7 +183,9 @@
       "page_requesting": "Your browser will ask for microphone access. Choose Allow to enable voice input.",
       "page_granted": "Microphone enabled. You can close this tab and use voice input in the side panel.",
       "page_denied": "Microphone access was denied. Click the mic icon in your browser's address bar (or open the extension's site settings) to allow it, then try again.",
-      "page_retry": "Try again"
+      "page_retry": "Try again",
+      "local_downloading_title": "Preparing on-device speech",
+      "local_downloading_description": "Downloading the speech model for private, on-device dictation. Try the mic again once it finishes."
     },
     "system_prompt": {
       "button": "Chat instructions",

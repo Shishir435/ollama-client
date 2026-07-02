@@ -25,6 +25,8 @@ interface SpeechRecognitionLike {
   lang: string
   continuous: boolean
   interimResults: boolean
+  /** Chrome 139+: force on-device recognition (no audio leaves the machine). */
+  processLocally?: boolean
   start(): void
   stop(): void
   abort(): void
@@ -32,7 +34,22 @@ interface SpeechRecognitionLike {
   onerror: ((event: { error: string }) => void) | null
   onend: (() => void) | null
 }
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
+interface SpeechRecognitionAvailabilityOptions {
+  langs: string[]
+  processLocally?: boolean
+}
+
+/** Chrome 139+ static methods for on-device recognition. */
+interface SpeechRecognitionStatics {
+  available?: (
+    options: SpeechRecognitionAvailabilityOptions
+  ) => Promise<"available" | "downloadable" | "downloading" | "unavailable">
+  install?: (options: SpeechRecognitionAvailabilityOptions) => Promise<boolean>
+}
+
+type SpeechRecognitionConstructor = (new () => SpeechRecognitionLike) &
+  SpeechRecognitionStatics
 
 interface SpeechCapableWindow {
   SpeechRecognition?: SpeechRecognitionConstructor
@@ -43,6 +60,41 @@ const getRecognitionCtor = (): SpeechRecognitionConstructor | undefined => {
   if (typeof window === "undefined") return undefined
   const w = window as unknown as SpeechCapableWindow
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
+}
+
+/**
+ * Decide whether this session can run on-device (Chrome 139+ `processLocally`).
+ *
+ * On-device is strongly preferred: it is the private option, and the cloud
+ * recognizer rejects extension pages with a "network" error in many Chrome
+ * builds, so it is often the only working option. First use may need a
+ * one-time language-pack download — `onNotice("local-model-downloading")`
+ * fires so the UI can explain the wait.
+ */
+const resolveLocalProcessing = async (
+  Ctor: SpeechRecognitionConstructor,
+  lang: string,
+  onNotice?: (code: string) => void
+): Promise<"local" | "cloud" | "wait"> => {
+  if (!Ctor.available) return "cloud"
+  try {
+    const options = { langs: [lang], processLocally: true }
+    const status = await Ctor.available(options)
+    if (status === "available") return "local"
+    if (status === "downloadable" && Ctor.install) {
+      onNotice?.("local-model-downloading")
+      return (await Ctor.install(options)) ? "local" : "cloud"
+    }
+    if (status === "downloading") {
+      // A previous click already kicked off the download — don't start a
+      // cloud session that will just fail with "network"; ask for patience.
+      onNotice?.("local-model-downloading")
+      return "wait"
+    }
+  } catch {
+    // Fall through to cloud recognition.
+  }
+  return "cloud"
 }
 
 /** True when the browser exposes Web Speech recognition (Chromium; not Firefox). */
@@ -80,7 +132,8 @@ const ensureMicPermission = async (): Promise<boolean> => {
  */
 export const useSpeechRecognition = (
   onTranscript: (text: string) => void,
-  onError?: (code: string) => void
+  onError?: (code: string) => void,
+  onNotice?: (code: string) => void
 ) => {
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
@@ -88,6 +141,8 @@ export const useSpeechRecognition = (
   onTranscriptRef.current = onTranscript
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+  const onNoticeRef = useRef(onNotice)
+  onNoticeRef.current = onNotice
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop()
@@ -101,15 +156,22 @@ export const useSpeechRecognition = (
       onErrorRef.current?.("not-allowed")
       return
     }
-    // A second click while the permission prompt was open could have started
-    // another session in the meantime.
+
+    const lang =
+      typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"
+    const mode = await resolveLocalProcessing(Ctor, lang, (code) =>
+      onNoticeRef.current?.(code)
+    )
+    if (mode === "wait") return
+    // A second click while the permission prompt or language-pack download
+    // was pending could have started another session in the meantime.
     if (recognitionRef.current) return
 
     const recognition = new Ctor()
-    recognition.lang =
-      typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"
+    recognition.lang = lang
     recognition.continuous = false
     recognition.interimResults = false
+    if (mode === "local") recognition.processLocally = true
 
     recognition.onresult = (event) => {
       let finalText = ""

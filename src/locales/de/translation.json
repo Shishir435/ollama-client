@@ -441,7 +441,9 @@
       "page_requesting": "Dein Browser fragt nach Mikrofonzugriff. Wähle „Zulassen“, um die Spracheingabe zu aktivieren.",
       "page_granted": "Mikrofon aktiviert. Du kannst diesen Tab schließen und die Spracheingabe im Seitenpanel nutzen.",
       "page_denied": "Mikrofonzugriff wurde verweigert. Klicke auf das Mikrofon-Symbol in der Adressleiste (oder öffne die Website-Einstellungen der Erweiterung), erlaube den Zugriff und versuche es erneut.",
-      "page_retry": "Erneut versuchen"
+      "page_retry": "Erneut versuchen",
+      "local_downloading_title": "On-Device-Sprache wird vorbereitet",
+      "local_downloading_description": "Das Sprachmodell für private Diktate direkt auf dem Gerät wird heruntergeladen. Versuche das Mikrofon danach erneut."
     },
     "tool_confirmation": {
       "title": "Aktion bestätigen",

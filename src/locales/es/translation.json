@@ -441,7 +441,9 @@
       "page_requesting": "Tu navegador pedirá acceso al micrófono. Elige Permitir para activar la entrada de voz.",
       "page_granted": "Micrófono activado. Puedes cerrar esta pestaña y usar la entrada de voz en el panel lateral.",
       "page_denied": "Se denegó el acceso al micrófono. Haz clic en el icono del micrófono en la barra de direcciones (o abre la configuración de sitios de la extensión) para permitirlo e inténtalo de nuevo.",
-      "page_retry": "Reintentar"
+      "page_retry": "Reintentar",
+      "local_downloading_title": "Preparando voz en el dispositivo",
+      "local_downloading_description": "Descargando el modelo de voz para dictado privado en el dispositivo. Vuelve a probar el micrófono cuando termine."
     },
     "tool_confirmation": {
       "title": "Confirmar acción",
