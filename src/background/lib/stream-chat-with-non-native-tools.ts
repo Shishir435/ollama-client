@@ -29,6 +29,12 @@ interface StreamChatWithNonNativeToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
+// Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
+// sequence keeps callIds unique across turns and concurrent streams — the
+// confirmation registry and the UI's answered-set are both keyed by callId, so
+// a repeat would silently suppress the second confirmation prompt.
+let streamSeq = 0
+
 const TOOL_LIMIT_FALLBACK_MESSAGE =
   "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 
@@ -138,6 +144,7 @@ export const streamChatWithNonNativeTools = async ({
   const baseRequest: ChatRequest = { ...request, tools: undefined }
   const toolRuns: ToolRun[] = []
   let lastMetrics: ChatStreamMessage["metrics"] | undefined
+  const streamId = ++streamSeq
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     if (signal?.aborted) {
@@ -174,7 +181,11 @@ export const streamChatWithNonNativeTools = async ({
     if (stopped) return
     if (metrics) lastMetrics = metrics
 
-    const { toolCalls } = parseNonNativeToolCalls(gate.text)
+    const { toolCalls: parsedCalls } = parseNonNativeToolCalls(gate.text)
+    const toolCalls = parsedCalls.map((call) => ({
+      ...call,
+      id: `s${streamId}_i${iteration}_${call.id}`
+    }))
 
     if (toolCalls.length === 0) {
       gate.flushTail()

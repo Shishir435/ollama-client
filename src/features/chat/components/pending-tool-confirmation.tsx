@@ -23,11 +23,14 @@ export const PendingToolConfirmation = ({
   messages: ChatMessage[]
 }) => {
   const { t } = useTranslation()
-  // Locally answered ids hide instantly; the loop also updates the run status.
+  // Locally answered prompts hide instantly; the loop also updates the run
+  // status. Keys are scoped to the owning message — callIds alone can repeat
+  // across turns, and a bare-callId set would silently swallow the second
+  // prompt while the background waits forever.
   const [responded, setResponded] = useState<Set<string>>(new Set())
 
-  const respond = (callId: string, approved: boolean) => {
-    setResponded((prev) => new Set(prev).add(callId))
+  const respond = (key: string, callId: string, approved: boolean) => {
+    setResponded((prev) => new Set(prev).add(key))
     void runtime
       .sendMessage({
         type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
@@ -42,22 +45,26 @@ export const PendingToolConfirmation = ({
       })
   }
 
-  const pending = messages
-    .flatMap((message) => message.metrics?.toolRuns ?? [])
-    .filter(
-      (run): run is ToolRun & { callId: string } =>
-        run.status === "awaiting-confirmation" &&
-        run.callId !== undefined &&
-        !responded.has(run.callId)
-    )
+  const pending = messages.flatMap((message, messageIndex) =>
+    (message.metrics?.toolRuns ?? [])
+      .filter(
+        (run): run is ToolRun & { callId: string } =>
+          run.status === "awaiting-confirmation" && run.callId !== undefined
+      )
+      .map((run) => ({
+        run,
+        key: `${message.id ?? messageIndex}:${run.callId}`
+      }))
+      .filter(({ key }) => !responded.has(key))
+  )
 
   if (pending.length === 0) return null
 
   return (
     <div className="mx-auto mb-2 max-w-4xl px-2">
-      {pending.map((run) => (
+      {pending.map(({ run, key }) => (
         <div
-          key={run.callId}
+          key={key}
           className="flex flex-col gap-2 rounded-panel border border-app-primary/30 bg-app-primary-soft/50 p-2.5 text-xs shadow-xs">
           <div className="flex items-start gap-2">
             <ShieldAlert className="icon-sm mt-0.5 shrink-0 text-app-primary" />
@@ -74,10 +81,10 @@ export const PendingToolConfirmation = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => respond(run.callId, false)}>
+              onClick={() => respond(key, run.callId, false)}>
               {t("chat.tool_confirmation.deny")}
             </Button>
-            <Button size="sm" onClick={() => respond(run.callId, true)}>
+            <Button size="sm" onClick={() => respond(key, run.callId, true)}>
               {t("chat.tool_confirmation.allow")}
             </Button>
           </div>

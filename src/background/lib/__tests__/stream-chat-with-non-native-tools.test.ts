@@ -169,6 +169,38 @@ describe("streamChatWithNonNativeTools", () => {
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
   })
 
+  it("assigns unique callIds across turns and separate invocations", async () => {
+    const toolTurn = (): ChatStreamMessage[] => [
+      { delta: '<tool_call>{"name":"echo","arguments":{}}</tool_call>' },
+      { done: true }
+    ]
+    const runOnce = async () => {
+      const provider = scriptedProvider([
+        toolTurn(),
+        toolTurn(),
+        [{ delta: "done" }, { done: true }]
+      ])
+      const chunks: ChatStreamMessage[] = []
+      await streamChatWithNonNativeTools({
+        provider,
+        request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+        tools: [echoDef],
+        registry: registryWith(async () => ({ content: "r" })),
+        onChunk: (c) => chunks.push(c),
+        ctx: {}
+      })
+      const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
+      return (trace ?? []).map((run) => run.callId)
+    }
+
+    // Two turns in one invocation, then a second invocation — the same tool at
+    // parser index 0 each time. Repeats would collide in the confirmation
+    // registry and silently suppress the UI prompt.
+    const ids = [...(await runOnce()), ...(await runOnce())]
+    expect(ids).toHaveLength(4)
+    expect(new Set(ids).size).toBe(4)
+  })
+
   it("aborts immediately when the signal is already aborted", async () => {
     const provider = scriptedProvider([[{ delta: "x" }, { done: true }]])
     const chunks: ChatStreamMessage[] = []
