@@ -347,6 +347,43 @@ describe("useChatStream", () => {
     })
   })
 
+  it("marks the final assistant message with error metadata for retry", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: {
+          status: 503,
+          message: "connection refused",
+          kind: "provider-unavailable",
+          retryable: true
+        }
+      })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      role: "assistant",
+      done: true,
+      error: { status: 503, retryable: true }
+    })
+  })
+
   it("should show typed provider errors with guidance", () => {
     const { result } = renderHook(() =>
       useChatStream({

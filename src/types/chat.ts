@@ -102,6 +102,15 @@ export interface ChatMessage {
   toolName?: string
   /** For `role: "tool"` result messages — the originating tool call id. */
   toolCallId?: string
+  /**
+   * Terminal error for this assistant turn. Set when the stream ends in an
+   * error so the UI can offer an inline retry for retryable failures.
+   */
+  error?: {
+    status?: number
+    kind?: import("./errors").AppErrorKind
+    retryable?: boolean
+  }
   timestamp?: number
   metrics?: {
     total_duration?: number

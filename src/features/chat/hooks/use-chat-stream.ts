@@ -243,7 +243,16 @@ export const useChatStream = ({
             })
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
-            { ...assistantMessage, content: errMsg, done: true }
+            {
+              ...assistantMessage,
+              content: errMsg,
+              done: true,
+              error: {
+                status: msg.error.status,
+                kind: msg.error.kind,
+                retryable: msg.error.retryable
+              }
+            }
           ]
           toast({
             variant: "destructive",
