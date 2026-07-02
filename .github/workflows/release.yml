@@ -1,19 +1,27 @@
 name: Release
 
-# Pushing a version tag builds both store packages and publishes a GitHub
-# release with the zips attached. Store submission stays manual.
+# Two ways to cut a release (store submission stays manual either way):
 #
-#   git tag 0.12.0            # this repo's convention (bare, no v prefix)
-#   git push origin 0.12.0
+# 1. Push a version tag (this repo's convention is bare, no v prefix):
+#      git tag 0.12.0 && git push origin 0.12.0
+#    A prerelease suffix publishes as a GitHub prerelease automatically:
+#      git tag 0.13.0-rc.1 && git push origin 0.13.0-rc.1
 #
-# Tags with a prerelease suffix (0.13.0-rc.1, 0.13.0-beta.2) are published
-# as GitHub prereleases automatically.
+# 2. Manual: Actions → Release → Run workflow. Enter the version (e.g.
+#    0.12.0 or 0.13.0-rc.1) and pick the branch/commit to release from —
+#    the workflow creates the tag for you and publishes the release.
 
 on:
   push:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
       - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.12.0, or 0.13.0-rc.1 for a prerelease)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -35,14 +43,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify tag matches package.json version
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.version }}"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          VERSION="${TAG#v}"
+          # Hyphen in the version = semver prerelease (0.13.0-rc.1).
+          case "$VERSION" in
+            *-*) PRERELEASE="true" ;;
+            *)   PRERELEASE="false" ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version matches package.json
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          # Prerelease tags (0.12.0-rc.1) only need to match the base version.
+          TAG_VERSION="${{ steps.meta.outputs.version }}"
+          # Prerelease versions only need to match the base version.
           TAG_BASE="${TAG_VERSION%%-*}"
           if [ "$PKG_VERSION" != "$TAG_VERSION" ] && [ "$PKG_VERSION" != "$TAG_BASE" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            echo "Version ${{ steps.meta.outputs.tag }} does not match package.json version $PKG_VERSION"
             exit 1
           fi
 
@@ -56,14 +82,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Hyphen in the version = semver prerelease (0.13.0-rc.1) → mark it.
           PRERELEASE_FLAG=""
-          case "$GITHUB_REF_NAME" in
-            *-*) PRERELEASE_FLAG="--prerelease" ;;
-          esac
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          if [ "${{ steps.meta.outputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          # On workflow_dispatch the tag doesn't exist yet — --target makes
+          # gh create it at the checked-out commit. On tag push, the existing
+          # tag is used as-is.
+          TARGET_FLAG=""
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TARGET_FLAG="--target $GITHUB_SHA"
+          fi
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            --title "${{ steps.meta.outputs.tag }}" \
             --generate-notes \
             $PRERELEASE_FLAG \
+            $TARGET_FLAG \
             build/chrome-mv3-prod/*.zip \
             build/firefox-mv2-prod/*.zip
