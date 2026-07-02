@@ -52,3 +52,20 @@ export const setWebSearchConfig = async (
 ): Promise<void> => {
   await setPlasmoStoredValue(STORAGE_KEYS.WEB_SEARCH.CONFIG, config)
 }
+
+/**
+ * Per-device "use web search in this chat" flag, separate from
+ * `config.enabled` (which means "configured/available" and lives in
+ * settings). Defaults to true so enabling web search in settings keeps
+ * working with no extra step — the composer toggle then opts out per device.
+ */
+export const getWebSearchActive = async (): Promise<boolean> => {
+  const stored = await getPlasmoStoredValue<boolean>(
+    STORAGE_KEYS.WEB_SEARCH.ACTIVE
+  )
+  return stored ?? true
+}
+
+export const setWebSearchActive = async (active: boolean): Promise<void> => {
+  await setPlasmoStoredValue(STORAGE_KEYS.WEB_SEARCH.ACTIVE, active)
+}

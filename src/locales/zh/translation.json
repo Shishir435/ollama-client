@@ -176,6 +176,7 @@
       "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "网页搜索需要工具调用，而此模型不支持。请在模型设置中启用工具回退以使用该功能。",
       "drop_files_here": "将文件拖到此处",
       "attachments": "{{count}} 个附件",
       "images": {

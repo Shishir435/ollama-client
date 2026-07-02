@@ -4,37 +4,50 @@ import { Toggle } from "@/components/ui/toggle"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { Globe } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
-import { useWebSearchConfig } from "../stores/web-search-config-store"
+import {
+  useWebSearchActive,
+  useWebSearchConfig
+} from "../stores/web-search-config-store"
 
 export const WebSearchToggle = () => {
   const { t } = useTranslation()
-  const { config, updateConfig } = useWebSearchConfig()
+  const { config } = useWebSearchConfig()
+  const { active, setActive } = useWebSearchActive()
   const { capabilities, isResolving } = useSelectedModelCapabilities()
-  const enabled = !!config.enabled
 
-  // web_search is a tool: a model that can't tool-call can never run it, so
-  // don't offer the toggle. Mirror the vision gating in the composer — keep it
-  // shown while capabilities are still resolving to avoid a show-then-hide
-  // flicker, and only hide once the model is definitively non-tool-calling.
+  // config.enabled means "configured in settings"; the toggle only controls
+  // the per-device active flag so it never silently flips the settings switch.
+  const configured = !!config.enabled
+  if (!configured) return null
+
+  // web_search is a tool: a model that can't tool-call can never run it.
+  // Show the toggle disabled with an explanation instead of hiding it, so
+  // users learn *why* web search is unavailable for this model.
   const toolCallingSupported = capabilities?.toolCalling ?? false
-  if (!toolCallingSupported && !isResolving) return null
+  const blockedByModel = !toolCallingSupported && !isResolving
+  const label = blockedByModel
+    ? t("chat.input.web_search_requires_tools")
+    : t("chat.input.web_search_toggle_tooltip")
 
   return (
     <TooltipActionButton
       trigger={
         <Toggle
-          pressed={enabled}
-          onPressedChange={(next) => updateConfig({ enabled: next })}
-          aria-label={t("chat.input.web_search_toggle_tooltip")}
+          pressed={active && !blockedByModel}
+          disabled={blockedByModel}
+          onPressedChange={(next) => setActive(next)}
+          aria-label={label}
           className={cn(
             "size-7 p-0",
-            enabled
-              ? "bg-transparent text-foreground hover:bg-muted/55 aria-pressed:bg-transparent data-[state=on]:bg-transparent"
-              : "text-muted-foreground hover:bg-muted/55"
+            blockedByModel
+              ? "text-muted-foreground/50"
+              : active
+                ? "bg-transparent text-foreground hover:bg-muted/55 aria-pressed:bg-transparent data-[state=on]:bg-transparent"
+                : "text-muted-foreground hover:bg-muted/55"
           )}
         />
       }
-      label={t("chat.input.web_search_toggle_tooltip")}
+      label={label}
       tooltipSide="top"
       icon={<Globe className="icon-sm" />}
     />

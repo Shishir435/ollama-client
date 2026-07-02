@@ -176,6 +176,7 @@
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "Websuche benötigt Tool-Aufrufe, die dieses Modell nicht unterstützt. Aktiviere den Tool-Fallback in den Modelleinstellungen.",
       "drop_files_here": "Dateien hier ablegen",
       "attachments": "{{count}} Anhänge",
       "images": {

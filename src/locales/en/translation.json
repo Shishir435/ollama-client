@@ -202,6 +202,7 @@
       "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "Web search needs tool calling, which this model doesn't support. Enable tool fallback in model settings to use it.",
       "drop_files_here": "Drop files here",
       "attachments": "{{count}} attachments",
       "screenshot": "Capture screenshot",

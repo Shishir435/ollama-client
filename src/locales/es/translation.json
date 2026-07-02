@@ -176,6 +176,7 @@
       "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "La búsqueda web requiere llamadas a herramientas, que este modelo no admite. Activa el fallback de herramientas en la configuración del modelo.",
       "drop_files_here": "Soltar archivos aquí",
       "attachments": "{{count}} adjuntos",
       "images": {

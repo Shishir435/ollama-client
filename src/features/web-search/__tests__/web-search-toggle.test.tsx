@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { WebSearchToggle } from "../components/web-search-toggle"
 
 const updateConfig = vi.fn()
+const setActive = vi.fn()
 let enabled = false
+let active = true
 let toolCalling = true
 
 vi.mock("react-i18next", () => ({
@@ -21,7 +23,8 @@ vi.mock("../stores/web-search-config-store", () => ({
       safeSearch: "moderate"
     },
     updateConfig
-  })
+  }),
+  useWebSearchActive: () => ({ active, setActive })
 }))
 
 vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
@@ -34,11 +37,20 @@ vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
 describe("WebSearchToggle", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    enabled = false
+    enabled = true
+    active = true
     toolCalling = true
   })
 
-  it("toggles web search config from the chat toolbar", () => {
+  it("renders nothing when web search is not configured in settings", () => {
+    enabled = false
+
+    const { container } = render(<WebSearchToggle />)
+
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it("toggles the per-device active flag, never the settings enable", () => {
     render(<WebSearchToggle />)
 
     fireEvent.click(
@@ -47,12 +59,11 @@ describe("WebSearchToggle", () => {
       })
     )
 
-    expect(updateConfig).toHaveBeenCalledWith({ enabled: true })
+    expect(setActive).toHaveBeenCalledWith(false)
+    expect(updateConfig).not.toHaveBeenCalled()
   })
 
-  it("reflects enabled state", () => {
-    enabled = true
-
+  it("reflects active state", () => {
     render(<WebSearchToggle />)
 
     expect(
@@ -62,11 +73,15 @@ describe("WebSearchToggle", () => {
     ).toHaveAttribute("aria-pressed", "true")
   })
 
-  it("renders nothing when the model can't tool-call", () => {
+  it("shows a disabled toggle with an explanation when the model can't tool-call", () => {
     toolCalling = false
 
-    const { container } = render(<WebSearchToggle />)
+    render(<WebSearchToggle />)
 
-    expect(container).toBeEmptyDOMElement()
+    const toggle = screen.getByRole("button", {
+      name: "chat.input.web_search_requires_tools"
+    })
+    expect(toggle).toBeDisabled()
+    expect(toggle).toHaveAttribute("aria-pressed", "false")
   })
 })

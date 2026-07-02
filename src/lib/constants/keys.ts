@@ -111,7 +111,10 @@ export const STORAGE_KEYS = {
     MAX_SIZE_MB: "image-max-size-mb"
   },
   WEB_SEARCH: {
-    CONFIG: "web-search-config"
+    CONFIG: "web-search-config",
+    // Per-device "use web search in this chat" toggle. Split from CONFIG so
+    // the composer toggle doesn't silently flip the settings-level enable.
+    ACTIVE: "web-search-active"
   },
   TOOLS: {
     // E10: per-family governance over model-callable tools (master + families).

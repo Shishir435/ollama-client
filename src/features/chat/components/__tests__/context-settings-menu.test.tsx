@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   refreshSelectedTabContents: vi.fn(),
   refreshTabs: vi.fn(),
   updateWebSearchConfig: vi.fn(),
+  setWebSearchActive: vi.fn(),
+  webSearchActive: true,
   selectedTabIds: ["7"] as string[],
   perSiteProfiles: { profiles: [] as unknown[] }
 }))
@@ -124,8 +126,12 @@ vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
 
 vi.mock("@/features/web-search/stores/web-search-config-store", () => ({
   useWebSearchConfig: () => ({
-    config: { enabled: false },
+    config: { enabled: true },
     updateConfig: mocks.updateWebSearchConfig
+  }),
+  useWebSearchActive: () => ({
+    active: mocks.webSearchActive,
+    setActive: mocks.setWebSearchActive
   })
 }))
 
@@ -173,12 +179,15 @@ describe("ContextSettingsMenu", () => {
     expect(screen.getByText("32 chars")).toBeInTheDocument()
   })
 
-  it("controls web search from the unified context tray", () => {
+  it("controls the per-device web-search flag from the unified context tray", () => {
     render(<ContextSettingsMenu />)
     fireEvent.click(screen.getByRole("button", { name: "Context" }))
     fireEvent.click(screen.getByRole("button", { name: "Web" }))
 
-    expect(mocks.updateWebSearchConfig).toHaveBeenCalledWith({ enabled: true })
+    // Only the device-local active flag flips; the settings-level enable
+    // (config.enabled) is never written from the chat tray.
+    expect(mocks.setWebSearchActive).toHaveBeenCalledWith(false)
+    expect(mocks.updateWebSearchConfig).not.toHaveBeenCalled()
   })
 
   it("hides and clears tabs matched by a never-read profile", () => {

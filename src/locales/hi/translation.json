@@ -176,6 +176,7 @@
       "rag_toggle_off": "स्मार्ट संदर्भ बंद है",
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "वेब खोज के लिए टूल कॉलिंग चाहिए, जो यह मॉडल समर्थित नहीं करता। इसे उपयोग करने के लिए मॉडल सेटिंग्स में टूल फ़ॉलबैक सक्षम करें।",
       "drop_files_here": "फ़ाइलें यहाँ छोड़ें",
       "attachments": "{{count}} अनुलग्नक",
       "images": {

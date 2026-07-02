@@ -176,6 +176,7 @@
       "rag_toggle_off": "Умный контекст выключен",
       "rag_toggle_tooltip": "Smart Context (Бета): Использовать контекст файлов и чата",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "Веб-поиску нужен вызов инструментов, который эта модель не поддерживает. Включите резервный режим инструментов в настройках модели.",
       "drop_files_here": "Перетащите файлы сюда",
       "attachments": "{{count}} вложений",
       "images": {

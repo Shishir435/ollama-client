@@ -176,6 +176,7 @@
       "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "ウェブ検索にはツール呼び出しが必要ですが、このモデルは対応していません。モデル設定でツールフォールバックを有効にしてください。",
       "drop_files_here": "ここにファイルをドロップ",
       "attachments": "添付 {{count}} 件",
       "images": {

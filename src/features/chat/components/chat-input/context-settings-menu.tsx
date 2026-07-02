@@ -28,7 +28,10 @@ import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-import { useWebSearchConfig } from "@/features/web-search/stores/web-search-config-store"
+import {
+  useWebSearchActive,
+  useWebSearchConfig
+} from "@/features/web-search/stores/web-search-config-store"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   DEFAULT_EXCLUDE_URLS,
@@ -42,6 +45,7 @@ import {
   type PerSiteProfileSettings
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { matchesUserPattern } from "@/lib/url-pattern"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
 import { CopyButton } from "../copy-button"
@@ -255,10 +259,15 @@ export const ContextSettingsMenu = ({
       false
     )
   const { capabilities, isResolving } = useSelectedModelCapabilities()
-  const { config: webSearchConfig, updateConfig: updateWebSearchConfig } =
-    useWebSearchConfig()
+  const { config: webSearchConfig } = useWebSearchConfig()
+  const { active: webSearchActive, setActive: setWebSearchActive } =
+    useWebSearchActive()
   const showAutoScreenshot = capabilities?.vision ?? false
-  const showWebSearch = Boolean(capabilities?.toolCalling) || isResolving
+  // Row appears only when web search is configured in settings; the row's
+  // check controls the per-device active flag, never the settings switch.
+  const showWebSearch =
+    (Boolean(capabilities?.toolCalling) || isResolving) &&
+    Boolean(webSearchConfig.enabled)
 
   const excludedPatterns =
     config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS
@@ -270,13 +279,7 @@ export const ContextSettingsMenu = ({
         profiles: perSiteProfileList
       })
       if (matchingProfile?.tabContext === "never") return false
-      return !excludedPatterns.some((p) => {
-        try {
-          return new RegExp(p).test(url)
-        } catch {
-          return url.includes(p)
-        }
-      })
+      return !excludedPatterns.some((p) => matchesUserPattern(url, p))
     }
     return openTabs
       .filter((tab) => tab.id !== undefined && isAccessible(tab.url))
@@ -362,9 +365,8 @@ export const ContextSettingsMenu = ({
       ? [
           {
             key: "web",
-            checked: webSearchConfig.enabled,
-            onClick: () =>
-              updateWebSearchConfig({ enabled: !webSearchConfig.enabled }),
+            checked: webSearchActive,
+            onClick: () => setWebSearchActive(!webSearchActive),
             icon: Search,
             label: t("chat.context.web")
           }
@@ -406,7 +408,7 @@ export const ContextSettingsMenu = ({
       : useRAG
         ? t("chat.context.knowledge")
         : null,
-    showWebSearch && webSearchConfig.enabled ? t("chat.context.web") : null
+    showWebSearch && webSearchActive ? t("chat.context.web") : null
   ].filter((label): label is string => Boolean(label))
   const contextSummary =
     contextState.length > 0 ? contextState.join(" · ") : t("chat.context.none")
