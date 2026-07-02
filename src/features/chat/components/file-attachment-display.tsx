@@ -2,7 +2,6 @@ import { FileIcon, FileText, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { getAllDocuments } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import type { FileAttachment } from "@/types"
@@ -35,7 +34,6 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
   const [open, setOpen] = useState(false)
   const [fullText, setFullText] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
-  const [expanded, setExpanded] = useState(true)
 
   useEffect(() => {
     if (!open) return
@@ -108,48 +106,26 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
             <span className="truncate">{file.fileName}</span>
           </span>
         }
-        meta={meta}>
-        <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
-          <div className="p-3">
-            <div className="overflow-hidden rounded-panel border border-border/35 bg-background/35">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => setExpanded(!expanded)}>
-                  {getFileIcon(file.fileType)}
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {file.fileName}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatFileSize(file.fileSize)}
-                  </span>
-                  <span className="hidden shrink-0 text-xs text-muted-foreground min-[24rem]:inline">
-                    {t("tabs.inspector.chars", { count: fullText.length })}
-                  </span>
-                </button>
-                {fullText && <CopyButton text={fullText} />}
-              </div>
-              {expanded && (
-                <div className="border-t border-border/35">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center p-8 text-muted-foreground">
-                      <Loader2 className="mr-2 icon-xl animate-spin" />
-                      <span className="text-sm">{t("common.loading")}</span>
-                    </div>
-                  ) : (
-                    <div className="max-h-[min(32rem,65vh)] overflow-y-auto overflow-x-hidden">
-                      <PreviewTextBlock
-                        text={fullText}
-                        emptyText="No text content available"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+        meta={
+          <>
+            {meta}
+            {!isLoading && fullText && (
+              <> • {t("tabs.inspector.chars", { count: fullText.length })}</>
+            )}
+          </>
+        }
+        actions={fullText ? <CopyButton text={fullText} /> : undefined}>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8 text-muted-foreground">
+            <Loader2 className="mr-2 icon-xl animate-spin" />
+            <span className="text-sm">{t("common.loading")}</span>
           </div>
-        </ScrollArea>
+        ) : (
+          <PreviewTextBlock
+            text={fullText}
+            emptyText={t("tabs.inspector.no_content")}
+          />
+        )}
       </PreviewSheet>
     </>
   )
