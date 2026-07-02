@@ -90,7 +90,7 @@ const MAX_CONTENT_CHARS = 25_000_000
 export const saveArtifactDefinition: ToolDefinition = {
   name: "save_artifact",
   description:
-    "Save text content you generated (code, markdown, HTML, SVG, JSON, a Mermaid diagram, etc.) to a file on the user's device. The user gets a Save dialog to choose where it goes. Use only when the user asks to save, download, or export generated content. Provide a filename with an appropriate extension (e.g. 'report.md', 'snippet.ts', 'diagram.svg') and the full file content.",
+    "Save text content you generated (code, markdown, HTML, SVG, JSON, a Mermaid diagram, etc.) to a file on the user's device. The user gets a Save dialog to choose where it goes. ONLY call this when the user's most recent request explicitly asks to save, download, or export a file. Do NOT call it proactively or as a side effect of another task — for example, do not save a note when the user only asked to set a reminder, summarize, or answer a question. When in doubt, don't save. Provide a filename with an appropriate extension (e.g. 'report.md', 'snippet.ts', 'diagram.svg') and the full file content.",
   displayNameKey: "chat.reasoning.trace.save_artifact",
   category: "system",
   iconKey: "download",

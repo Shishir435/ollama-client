@@ -70,21 +70,28 @@ export const ContentExtractionSettings = () => {
   }
 
   const handleUpdate = (updates: Partial<ContentExtractionConfig>) => {
-    setConfig((prev) => ({ ...prev, ...updates }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG),
+      ...updates
+    }))
   }
 
   // Handler for adding site-specific override
   const handleAddSiteOverride = (pattern: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      siteOverrides: {
-        ...prev.siteOverrides,
-        [pattern]: {}
+    setConfig((prev) => {
+      const base = prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG
+      return {
+        ...base,
+        siteOverrides: {
+          ...base.siteOverrides,
+          [pattern]: {}
+        }
       }
-    }))
+    })
     setPerSiteProfileSettings((prev) => {
       const profiles = prev?.profiles ?? []
-      if (profiles.some((profile) => profile.pattern === pattern)) return prev
+      if (profiles.some((profile) => profile.pattern === pattern))
+        return prev ?? DEFAULT_PER_SITE_PROFILE_SETTINGS
       return {
         profiles: [
           ...profiles,
@@ -100,8 +107,9 @@ export const ContentExtractionSettings = () => {
   // Handler for removing site-specific override
   const handleRemoveSiteOverride = (pattern: string) => {
     setConfig((prev) => {
-      const { [pattern]: _, ...remaining } = prev.siteOverrides
-      return { ...prev, siteOverrides: remaining }
+      const base = prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG
+      const { [pattern]: _, ...remaining } = base.siteOverrides
+      return { ...base, siteOverrides: remaining }
     })
     setPerSiteProfileSettings((prev) => ({
       profiles: (prev?.profiles ?? []).filter(
@@ -115,16 +123,19 @@ export const ContentExtractionSettings = () => {
     pattern: string,
     updates: Partial<ContentExtractionConfig>
   ) => {
-    setConfig((prev) => ({
-      ...prev,
-      siteOverrides: {
-        ...prev.siteOverrides,
-        [pattern]: {
-          ...prev.siteOverrides[pattern],
-          ...updates
+    setConfig((prev) => {
+      const base = prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG
+      return {
+        ...base,
+        siteOverrides: {
+          ...base.siteOverrides,
+          [pattern]: {
+            ...base.siteOverrides[pattern],
+            ...updates
+          }
         }
       }
-    }))
+    })
   }
 
   const handleUpdateSiteProfile = (
@@ -153,20 +164,26 @@ export const ContentExtractionSettings = () => {
 
   // Handler for adding excluded URL pattern
   const handleAddExcludedUrl = (pattern: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      excludedUrlPatterns: [...(prev.excludedUrlPatterns || []), pattern]
-    }))
+    setConfig((prev) => {
+      const base = prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG
+      return {
+        ...base,
+        excludedUrlPatterns: [...(base.excludedUrlPatterns || []), pattern]
+      }
+    })
   }
 
   // Handler for removing excluded URL pattern
   const handleRemoveExcludedUrl = (pattern: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      excludedUrlPatterns: (prev.excludedUrlPatterns || []).filter(
-        (p) => p !== pattern
-      )
-    }))
+    setConfig((prev) => {
+      const base = prev ?? DEFAULT_CONTENT_EXTRACTION_CONFIG
+      return {
+        ...base,
+        excludedUrlPatterns: (base.excludedUrlPatterns || []).filter(
+          (p) => p !== pattern
+        )
+      }
+    })
   }
 
   return (

@@ -108,8 +108,8 @@ export const checkEmbeddingModelExists = async (
           }
           return ""
         })
-        .filter((name) => name.length > 0)
-        .some((name) => {
+        .filter((name: string) => name.length > 0)
+        .some((name: string) => {
           const normalizedCandidate = normalizeModelName(name)
           return (
             name === normalizedModelName ||
@@ -138,7 +138,7 @@ export const checkEmbeddingModelExists = async (
                 }
                 return ""
               })
-              .filter((name) => name.length > 0),
+              .filter((name: string) => name.length > 0),
             method: "fallback"
           }
         }
@@ -301,6 +301,12 @@ export const checkEmbeddingModelExists = async (
       exists: false,
       debug: { ...providerDebug, fallbackError: error }
     }
+  }
+
+  // All checks exhausted without a match.
+  return {
+    exists: false,
+    debug: { ...providerDebug, method: "not-found" }
   }
 }
 

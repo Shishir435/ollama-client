@@ -4,6 +4,7 @@ import {
 } from "@/lib/constants"
 import { isNeverReadUrl } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { matchesUserPattern } from "@/lib/url-pattern"
 import type { ContentExtractionConfig } from "@/types"
 
 /**
@@ -33,16 +34,11 @@ export const resolveExcludedUrlPatterns = async (): Promise<string[]> => {
 
 /**
  * Test a URL against a list of patterns. Each pattern is tried as a regex
- * first; if invalid, falls back to a substring match. Match-any semantics.
+ * first; if invalid or unsafe, falls back to a substring match. Match-any
+ * semantics — see `matchesUserPattern` for the guarding rules.
  */
 export const urlMatchesAny = (url: string, patterns: string[]): boolean => {
-  return patterns.some((pattern) => {
-    try {
-      return new RegExp(pattern).test(url)
-    } catch {
-      return url.includes(pattern)
-    }
-  })
+  return patterns.some((pattern) => matchesUserPattern(url, pattern))
 }
 
 /** True if `url` should be excluded from content extraction. */

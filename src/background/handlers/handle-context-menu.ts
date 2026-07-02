@@ -15,7 +15,8 @@ let isContextMenuListenerRegistered = false
 
 const getSidePanel = () => {
   const rawSidePanel = globalThis.chrome?.sidePanel
-  if (rawSidePanel?.open) return rawSidePanel as ChromeSidePanel
+  if (typeof rawSidePanel?.open === "function")
+    return rawSidePanel as ChromeSidePanel
 
   if ("sidePanel" in browser) {
     const sidePanel = (browser as unknown as { sidePanel?: ChromeSidePanel })

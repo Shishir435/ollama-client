@@ -76,8 +76,9 @@ export const sendTranscriptOnlyResponse = ({
   metadata?: string
   allowMissing?: boolean
 }): boolean => {
-  const hasTranscript = !!transcript?.trim()
-  const body = hasTranscript ? transcript.trim() : missingMessage
+  const trimmedTranscript = transcript?.trim() ?? ""
+  const hasTranscript = trimmedTranscript.length > 0
+  const body = hasTranscript ? trimmedTranscript : missingMessage
   const finalContent = metadata ? `${metadata.trim()}\n\n${body}` : body
 
   if (!hasTranscript && !allowMissing) return false
@@ -86,7 +87,7 @@ export const sendTranscriptOnlyResponse = ({
     currentUrl,
     pageTitle,
     scraper: `${platform}-transcript`,
-    transcript: hasTranscript ? transcript.trim() : null,
+    transcript: hasTranscript ? trimmedTranscript : null,
     finalContent,
     extractionResult: null,
     selectedExtractor: `${platform}-transcript`,

@@ -9,6 +9,7 @@ import { vectorDb } from "./db"
 import { generateEmbedding } from "./embedding-client"
 import { normalizeVector } from "./math"
 import type { VectorDocument } from "./types"
+import { matchesVectorType } from "./types"
 
 /**
  * Estimates storage size in bytes for a vector document
@@ -254,7 +255,7 @@ export const deleteVectors = async (filters: {
   let query = vectorDb.vectors.toCollection()
 
   if (type) {
-    query = query.filter((v) => v.metadata.type === type)
+    query = query.filter((v) => matchesVectorType(v.metadata.type, type))
   }
   if (source) {
     query = query.filter((v) => v.metadata.source === source)
@@ -359,7 +360,7 @@ export const getVectorsByContext = async (filters: {
   let query = vectorDb.vectors.toCollection()
 
   if (type) {
-    query = query.filter((v) => v.metadata.type === type)
+    query = query.filter((v) => matchesVectorType(v.metadata.type, type))
   }
   if (sessionId) {
     query = query.filter((v) => v.metadata.sessionId === sessionId)
@@ -445,7 +446,7 @@ export const getAllDocuments = async (params: {
   // or use Dexie's collection filtering
   const documents = await collection
     .filter((doc) => {
-      if (doc.metadata.type !== type) return false
+      if (!matchesVectorType(doc.metadata.type, type)) return false
       if (fileId && doc.metadata.fileId !== fileId) return false
       return true
     })

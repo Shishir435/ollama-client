@@ -17,7 +17,8 @@ export const PROVIDER_MESSAGE_KEYS = {
   PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
   EMBED_FILE_CHUNKS: "embed-file-chunks",
   START_SELECTION_ACTION: "start-selection-action",
-  CANCEL_SELECTION_ACTION: "cancel-selection-action"
+  CANCEL_SELECTION_ACTION: "cancel-selection-action",
+  CONFIRM_TOOL: "confirm-tool"
 } as const
 
 /**
@@ -95,7 +96,9 @@ export const STORAGE_KEYS = {
     CONTENT_EXTRACTION_CONFIG: "content-extraction-config",
     PER_SITE_PROFILES: "browser-per-site-profiles",
     PENDING_SELECTION_TEXT: "pending-selection-text",
-    PENDING_OMNIBOX_QUERY: "pending-omnibox-query"
+    PENDING_OMNIBOX_QUERY: "pending-omnibox-query",
+    // Max tabs restore_session will reopen in one call. Configurable.
+    MAX_RESTORE_SESSIONS: "browser-max-restore-sessions"
   },
   TTS: {
     RATE: "tts-rate",
@@ -108,7 +111,10 @@ export const STORAGE_KEYS = {
     MAX_SIZE_MB: "image-max-size-mb"
   },
   WEB_SEARCH: {
-    CONFIG: "web-search-config"
+    CONFIG: "web-search-config",
+    // Per-device "use web search in this chat" toggle. Split from CONFIG so
+    // the composer toggle doesn't silently flip the settings-level enable.
+    ACTIVE: "web-search-active"
   },
   TOOLS: {
     // E10: per-family governance over model-callable tools (master + families).

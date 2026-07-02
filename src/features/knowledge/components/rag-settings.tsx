@@ -162,7 +162,10 @@ export const RAGSettings = () => {
   const handleTopKChange = (value: number[]) => {
     const k = value[0]
     setTopK(k)
-    setConfig((prev) => ({ ...prev, defaultSearchLimit: k }))
+    setConfig((prev) => ({
+      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+      defaultSearchLimit: k
+    }))
     knowledgeConfig.setRetrievalTopK(k)
   }
 
@@ -232,7 +235,7 @@ export const RAGSettings = () => {
           checked={config.useReranking ?? false}
           onCheckedChange={(checked) =>
             setConfig((prev) => ({
-              ...prev,
+              ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
               useReranking: checked,
               rerankerBackend: checked ? "cosine" : "none"
             }))
@@ -264,7 +267,7 @@ export const RAGSettings = () => {
         onValueChange={(next) => {
           setMinRerankScore(next)
           setConfig((prev) => ({
-            ...prev,
+            ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
             minRerankScore: next
           }))
         }}
@@ -280,7 +283,9 @@ export const RAGSettings = () => {
               description={t("knowledge_sets.active_description")}>
               <Select
                 value={activeKnowledgeSetId}
-                onValueChange={handleKnowledgeSetChange}>
+                onValueChange={(value) => {
+                  if (value !== null) void handleKnowledgeSetChange(value)
+                }}>
                 <SelectTrigger>
                   <SelectValue
                     placeholder={t("knowledge_sets.active_placeholder")}
@@ -355,7 +360,7 @@ export const RAGSettings = () => {
                   <Textarea
                     value={knowledgePrompt}
                     onChange={handleKnowledgePromptChange}
-                    className="min-h-[160px]"
+                    className="min-h-40"
                   />
                 </SettingsFormField>
 
@@ -365,7 +370,7 @@ export const RAGSettings = () => {
                   <Textarea
                     value={knowledgeQuestionPrompt}
                     onChange={handleKnowledgeQuestionPromptChange}
-                    className="min-h-[140px]"
+                    className="min-h-40"
                   />
                 </SettingsFormField>
 

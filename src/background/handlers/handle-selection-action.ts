@@ -42,7 +42,10 @@ export const handleSelectionAction = async (
   }
 
   const ac = new AbortController()
-  setAbortController(port.name, ac)
+  // Scope key is per-connection; port.name is a shared constant that would
+  // collide when two windows run selection actions concurrently.
+  const abortKey = port.abortScopeKey ?? port.name
+  setAbortController(abortKey, ac)
 
   try {
     const modelConfigMap =
@@ -120,6 +123,6 @@ export const handleSelectionAction = async (
       }
     })
   } finally {
-    setAbortController(port.name, null)
+    setAbortController(abortKey, null)
   }
 }

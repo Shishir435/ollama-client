@@ -16,6 +16,12 @@ import { getToolFamilySettings, type ToolFamilySettings } from "./tool-settings"
 export interface ToolFamilyOverride {
   enabled?: boolean
   families?: Partial<Record<ToolFamily, boolean>>
+  /**
+   * Opt in to the prompt-based tool fallback for a model whose resolved
+   * `toolCalling` capability is false. Off by default, so non-tool-calling
+   * models keep their pre-fallback behavior until the user turns this on.
+   */
+  nonNativeToolFallback?: boolean
 }
 
 export type ToolModelOverrideMap = Record<string, ToolFamilyOverride>
@@ -75,6 +81,9 @@ const pruneEmptyOverride = (
 ): ToolFamilyOverride | null => {
   const cleaned: ToolFamilyOverride = {}
   if (typeof override.enabled === "boolean") cleaned.enabled = override.enabled
+  if (typeof override.nonNativeToolFallback === "boolean") {
+    cleaned.nonNativeToolFallback = override.nonNativeToolFallback
+  }
   if (override.families) {
     const families = Object.fromEntries(
       Object.entries(override.families).filter(
@@ -83,7 +92,11 @@ const pruneEmptyOverride = (
     ) as Partial<Record<ToolFamily, boolean>>
     if (Object.keys(families).length > 0) cleaned.families = families
   }
-  return cleaned.enabled !== undefined || cleaned.families ? cleaned : null
+  return cleaned.enabled !== undefined ||
+    cleaned.nonNativeToolFallback !== undefined ||
+    cleaned.families
+    ? cleaned
+    : null
 }
 
 /**
@@ -138,6 +151,9 @@ export const patchToolModelOverride = (
     const merged: ToolFamilyOverride = {
       ...existing,
       ...("enabled" in patch ? { enabled: patch.enabled } : {}),
+      ...("nonNativeToolFallback" in patch
+        ? { nonNativeToolFallback: patch.nonNativeToolFallback }
+        : {}),
       ...(patch.families
         ? { families: { ...existing.families, ...patch.families } }
         : {})

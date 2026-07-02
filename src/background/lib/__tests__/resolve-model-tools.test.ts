@@ -56,10 +56,14 @@ const allOn = {
   }
 }
 let toolSettings: typeof allOn = allOn
+// Per-model raw override; only the `nonNativeToolFallback` flag is read directly
+// (the family settings come pre-merged via getEffectiveToolFamilySettings).
+let modelOverride: { nonNativeToolFallback?: boolean } | null = null
 // resolve-model-tools reads the per-model effective settings, which already
 // fold the global family settings in; mocking it covers both layers.
 vi.mock("@/lib/tools/tool-model-overrides", () => ({
-  getEffectiveToolFamilySettings: () => Promise.resolve(toolSettings)
+  getEffectiveToolFamilySettings: () => Promise.resolve(toolSettings),
+  getToolModelOverride: () => Promise.resolve(modelOverride)
 }))
 
 const toolModel = (): LLMProvider =>
@@ -94,6 +98,7 @@ describe("resolveModelTools", () => {
     clearModelToolCapabilityCache()
     toolSettings = allOn
     definitions = baseDefinitions
+    modelOverride = null
   })
 
   it("re-reads cached model capability tags after the short TTL expires", async () => {
@@ -118,14 +123,14 @@ describe("resolveModelTools", () => {
 
     await expect(
       resolveModelTools("qwen", "ollama", provider)
-    ).resolves.toEqual(definitions)
+    ).resolves.toEqual({ tools: definitions, mode: "native" })
     expect(getModelDetails).toHaveBeenCalledTimes(2)
   })
 
   it("offers all tools when every family is enabled (default)", async () => {
     await expect(
       resolveModelTools("qwen", "ollama", toolModel())
-    ).resolves.toEqual(definitions)
+    ).resolves.toEqual({ tools: definitions, mode: "native" })
   })
 
   it("offers no tools when the master switch is off", async () => {
@@ -140,15 +145,17 @@ describe("resolveModelTools", () => {
       enabled: true,
       families: { ...allOn.families, browser: false, web: false }
     }
-    const tools = await resolveModelTools("qwen", "ollama", toolModel())
-    expect(tools?.map((t) => t.name)).toEqual(["rag_search"])
+    const resolved = await resolveModelTools("qwen", "ollama", toolModel())
+    expect(resolved?.tools.map((t) => t.name)).toEqual(["rag_search"])
   })
 
   it("hides vision-only tools from a non-vision model", async () => {
     definitions = [...baseDefinitions, captureScreenshotTool]
-    const tools = await resolveModelTools("qwen", "ollama", toolModel())
-    expect(tools?.map((t) => t.name)).not.toContain("capture_screenshot")
-    expect(tools?.map((t) => t.name)).toEqual([
+    const resolved = await resolveModelTools("qwen", "ollama", toolModel())
+    expect(resolved?.tools.map((t) => t.name)).not.toContain(
+      "capture_screenshot"
+    )
+    expect(resolved?.tools.map((t) => t.name)).toEqual([
       "current_tab",
       "rag_search",
       "web_search"
@@ -157,12 +164,42 @@ describe("resolveModelTools", () => {
 
   it("offers vision-only tools to a vision-capable model", async () => {
     definitions = [...baseDefinitions, captureScreenshotTool]
-    const tools = await resolveModelTools(
+    const resolved = await resolveModelTools(
       "qwen-vl",
       "ollama",
       visionToolModel()
     )
-    expect(tools?.map((t) => t.name)).toContain("capture_screenshot")
+    expect(resolved?.tools.map((t) => t.name)).toContain("capture_screenshot")
+  })
+
+  it("returns no tools for a non-tool-calling model without the fallback opt-in", async () => {
+    const nonToolModel = providerWithDetails(
+      vi.fn(async () => ({ capabilities: ["completion"] }))
+    )
+    await expect(
+      resolveModelTools("plain", "ollama", nonToolModel)
+    ).resolves.toBeUndefined()
+  })
+
+  it("offers tools in non-native mode when the model opts into the fallback", async () => {
+    modelOverride = { nonNativeToolFallback: true }
+    const nonToolModel = providerWithDetails(
+      vi.fn(async () => ({ capabilities: ["completion"] }))
+    )
+    await expect(
+      resolveModelTools("plain", "ollama", nonToolModel)
+    ).resolves.toEqual({ tools: definitions, mode: "non-native" })
+  })
+
+  it("still honors family governance in non-native mode", async () => {
+    modelOverride = { nonNativeToolFallback: true }
+    toolSettings = { ...allOn, enabled: false }
+    const nonToolModel = providerWithDetails(
+      vi.fn(async () => ({ capabilities: ["completion"] }))
+    )
+    await expect(
+      resolveModelTools("plain", "ollama", nonToolModel)
+    ).resolves.toBeUndefined()
   })
 
   it("returns undefined when all families are disabled", async () => {

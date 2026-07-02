@@ -176,6 +176,7 @@
       "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "ウェブ検索にはツール呼び出しが必要ですが、このモデルは対応していません。モデル設定でツールフォールバックを有効にしてください。",
       "drop_files_here": "ここにファイルをドロップ",
       "attachments": "添付 {{count}} 件",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "リマインダーを設定中",
         "save_artifact": "ファイルを保存中",
         "capture_screenshot": "スクリーンショットを撮影中",
-        "searches": "{{count}} 件の検索"
+        "searches": "{{count}} 件の検索",
+        "restoreSession": "閉じたタブを再度開いています",
+        "list_reminders": "リマインダーを一覧表示",
+        "cancel_reminder": "リマインダーをキャンセル中"
       },
       "debug": "デバッグ推論"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "Mermaid コンテンツがありません",
       "rendering_mermaid": "Mermaid 図をレンダリング中…",
       "empty": "アーティファクトの内容がありません"
+    },
+    "system_prompt": {
+      "button": "チャットの指示",
+      "title": "チャットの指示",
+      "description": "このチャットのみのシステムプロンプト。モデルの既定プロンプトを上書きします。",
+      "placeholder": "例: 箇条書きで簡潔に答えるアシスタントです。",
+      "save": "保存",
+      "clear": "クリア"
+    },
+    "voice_input": {
+      "start": "音声で入力",
+      "stop": "音声入力を停止",
+      "mic_blocked_title": "マイクがブロックされています",
+      "mic_blocked_description": "ブラウザのサイト設定でこの拡張機能にマイクへのアクセスを許可してから、もう一度お試しください。",
+      "error_title": "音声入力に失敗しました",
+      "error_description": "音声認識に失敗しました（{{code}}）。接続を確認してもう一度お試しください。",
+      "page_title": "マイクへのアクセス",
+      "page_requesting": "ブラウザがマイクへのアクセスを求めます。音声入力を有効にするには「許可」を選択してください。",
+      "page_granted": "マイクが有効になりました。このタブを閉じて、サイドパネルで音声入力をご利用ください。",
+      "page_denied": "マイクへのアクセスが拒否されました。アドレスバーのマイクアイコンをクリック（または拡張機能のサイト設定を開いて）許可してから、もう一度お試しください。",
+      "page_retry": "再試行",
+      "local_downloading_title": "オンデバイス音声認識を準備中",
+      "local_downloading_description": "端末内で完結するプライベートな音声入力のためのモデルをダウンロードしています。準備が整うと自動的に聞き取りを開始します。",
+      "preparing": "オンデバイス音声認識を準備中…"
+    },
+    "tool_confirmation": {
+      "title": "操作の確認",
+      "body": "アシスタントが次を実行しようとしています: {{action}}。許可しますか？",
+      "allow": "許可",
+      "deny": "拒否"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "{{title}} のその他のアクション",
       "more_default": "チャットセッションのアクション",
-      "tooltip": "その他のアクション"
+      "tooltip": "その他のアクション",
+      "pin": "チャットをピン留め",
+      "unpin": "ピン留めを解除"
+    },
+    "groups": {
+      "pinned": "ピン留め"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "モデルを選択…",
           "customBadge": "カスタム",
           "reset": "既定に戻す",
-          "empty": "利用可能なモデルがまだありません。"
+          "empty": "利用可能なモデルがまだありません。",
+          "nonNativeFallback": {
+            "label": "プロンプトベースのツール（ネイティブのツール呼び出しなし）",
+            "description": "ネイティブにツールを呼び出せないモデル向けに、プロンプトでツールを説明し呼び出しを解析します。実験的で、ネイティブのツール呼び出しより信頼性は低めです。"
+          }
         }
       }
     },
     "search": {
       "placeholder": "設定を検索…"
+    },
+    "restore_sessions": {
+      "title": "閉じたタブを再度開く",
+      "description": "最近閉じたタブを再度開く restore_session ツールを制御します。",
+      "max_label": "一度に開く最大タブ数",
+      "max_hint": "アシスタントが1回の操作で再度開けるタブの上限（1〜25）。「すべて開く」で大量のタブが開くのを防ぎます。"
     }
   },
   "guides": {

@@ -37,12 +37,23 @@ export interface ChromeMessage {
   }
 }
 
-export interface ChromePort extends browser.Runtime.Port {
+// Omit the members we deliberately narrow: the base `postMessage`/`onMessage`
+// are typed with `unknown`/`any` payloads, so re-declaring them with our
+// message union would otherwise be an incompatible override (TS2430).
+export interface ChromePort
+  extends Omit<browser.Runtime.Port, "postMessage" | "onMessage"> {
   postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
   onMessage: browser.Events.Event<
     (message: ChromeMessage | EmbeddingStatusMessage) => void
   >
   onDisconnect: browser.Events.Event<() => void>
+  /**
+   * Unique per-connection abort key, assigned by the port router. Port names
+   * are shared constants, so two live ports with the same name (e.g. two
+   * windows running selection actions) would collide in the abort registry
+   * if keyed by name alone.
+   */
+  abortScopeKey?: string
 }
 
 export interface ChromeSidePanel {

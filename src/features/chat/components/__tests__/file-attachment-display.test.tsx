@@ -26,7 +26,7 @@ vi.mock("@/components/ui/scroll-area", () => ({
 }))
 
 describe("FileAttachmentDisplay", () => {
-  it("opens message attachment in a sheet with expandable extracted text", async () => {
+  it("opens message attachment in a standardized preview sheet", async () => {
     render(
       <FileAttachmentDisplay
         attachments={[
@@ -54,6 +54,6 @@ describe("FileAttachmentDisplay", () => {
       expect(screen.getByText("full extracted text")).toBeInTheDocument()
     })
 
-    expect(screen.getByText("19 chars")).toBeInTheDocument()
+    expect(screen.getByRole("dialog").textContent).toContain("19 chars")
   })
 })

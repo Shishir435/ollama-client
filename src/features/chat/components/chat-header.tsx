@@ -5,6 +5,7 @@ import { ChatSessionSelector } from "@/features/sessions/components/chat-session
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
 import { SessionMetricsBar } from "./session-metrics-bar"
+import { SessionSystemPromptButton } from "./session-system-prompt-button"
 
 /**
  * ChatHeader - Top bar with session selector and status indicators
@@ -22,6 +23,7 @@ export const ChatHeader = ({ messages }: { messages: ChatMessage[] }) => {
           <SessionMetricsBar messages={messages} />
         )}
         <div className="flex items-center gap-2">
+          <SessionSystemPromptButton />
           <EmbeddingStatusIndicator />
           <ProviderStatusIndicator />
         </div>

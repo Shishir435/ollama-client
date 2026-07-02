@@ -28,7 +28,8 @@ const iconMap = {
 
 export const ProviderStatusIndicator = () => {
   const { t } = useTranslation()
-  const { status, refresh, error } = useProviderModels()
+  const { status: rawStatus, refresh, error } = useProviderModels()
+  const status = rawStatus as keyof typeof iconMap
 
   const getLabelMap = () => ({
     loading: t("model.provider_status.checking"),

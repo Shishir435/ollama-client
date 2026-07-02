@@ -13,10 +13,8 @@ interface ContentScriptWindow extends Window {
   __ollamaContentScript?: boolean
   __testTranscript?: () => Promise<void>
   __testExtraction?: () => Promise<void>
-  __getExtractionLogs?: () => unknown[]
+  __getExtractionLogs?: () => Promise<unknown[]>
   __lastProviderExtractionResult?: unknown
-  __providerExtractionLogs?: unknown[]
-  __ollamaExtractionLogs?: unknown[]
 }
 
 const w = () => window as unknown as ContentScriptWindow
@@ -104,9 +102,9 @@ const installDebugHelpers = (): void => {
     }
   }
 
-  w().__getExtractionLogs = () => {
-    const logs =
-      w().__providerExtractionLogs || w().__ollamaExtractionLogs || []
+  w().__getExtractionLogs = async () => {
+    const { getExtractionLogs } = await import("@/lib/content-extractor")
+    const logs = getExtractionLogs()
     contentDebugLog("[Content Script] Extraction logs:", logs)
     return logs
   }

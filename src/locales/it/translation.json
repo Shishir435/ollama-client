@@ -176,6 +176,7 @@
       "rag_toggle_off": "Contesto intelligente disattivato",
       "rag_toggle_tooltip": "Smart Context (Beta): Usa contesto file e chat",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "La ricerca web richiede le chiamate agli strumenti, che questo modello non supporta. Attiva il fallback degli strumenti nelle impostazioni del modello.",
       "drop_files_here": "Trascina i file qui",
       "attachments": "{{count}} allegati",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "Pianificazione promemoria",
         "save_artifact": "Salvataggio file",
         "capture_screenshot": "Acquisizione screenshot",
-        "searches": "{{count}} ricerche"
+        "searches": "{{count}} ricerche",
+        "restoreSession": "Riapertura di una scheda chiusa",
+        "list_reminders": "Elenco promemoria",
+        "cancel_reminder": "Annullamento promemoria"
       },
       "debug": "Ragionamento di debug"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "Nessun contenuto Mermaid",
       "rendering_mermaid": "Rendering del diagramma Mermaid…",
       "empty": "Nessun contenuto dell'artefatto"
+    },
+    "system_prompt": {
+      "button": "Istruzioni chat",
+      "title": "Istruzioni chat",
+      "description": "Un prompt di sistema solo per questa chat. Sostituisce il prompt predefinito del modello.",
+      "placeholder": "es. Sei un assistente conciso che risponde con elenchi puntati.",
+      "save": "Salva",
+      "clear": "Cancella"
+    },
+    "voice_input": {
+      "start": "Detta con la voce",
+      "stop": "Interrompi dettatura",
+      "mic_blocked_title": "Microfono bloccato",
+      "mic_blocked_description": "Consenti l'accesso al microfono per questa estensione nelle impostazioni dei siti del browser, poi riprova.",
+      "error_title": "Input vocale non riuscito",
+      "error_description": "Riconoscimento vocale non riuscito ({{code}}). Controlla la connessione e riprova.",
+      "page_title": "Accesso al microfono",
+      "page_requesting": "Il browser chiederà l'accesso al microfono. Scegli Consenti per attivare l'input vocale.",
+      "page_granted": "Microfono attivato. Puoi chiudere questa scheda e usare l'input vocale nel pannello laterale.",
+      "page_denied": "L'accesso al microfono è stato negato. Fai clic sull'icona del microfono nella barra degli indirizzi (o apri le impostazioni dei siti dell'estensione) per consentirlo, poi riprova.",
+      "page_retry": "Riprova",
+      "local_downloading_title": "Preparazione voce sul dispositivo",
+      "local_downloading_description": "Download del modello vocale per la dettatura privata sul dispositivo. L'ascolto inizierà automaticamente quando sarà pronto.",
+      "preparing": "Preparazione voce sul dispositivo…"
+    },
+    "tool_confirmation": {
+      "title": "Conferma azione",
+      "body": "L’assistente vuole: {{action}}. Consentire?",
+      "allow": "Consenti",
+      "deny": "Rifiuta"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "Altre azioni per {{title}}",
       "more_default": "Azioni della sessione di chat",
-      "tooltip": "Altre azioni"
+      "tooltip": "Altre azioni",
+      "pin": "Fissa chat",
+      "unpin": "Rimuovi chat fissata"
+    },
+    "groups": {
+      "pinned": "Fissati"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "Scegli un modello…",
           "customBadge": "personalizzato",
           "reset": "Ripristina predefiniti",
-          "empty": "Nessun modello ancora disponibile."
+          "empty": "Nessun modello ancora disponibile.",
+          "nonNativeFallback": {
+            "label": "Strumenti via prompt (senza tool-calling nativo)",
+            "description": "Per i modelli senza tool-calling nativo: descrivi gli strumenti nel prompt e analizza le chiamate. Sperimentale; meno affidabile del tool-calling nativo."
+          }
         }
       }
     },
     "search": {
       "placeholder": "Cerca nelle impostazioni…"
+    },
+    "restore_sessions": {
+      "title": "Riapri schede chiuse",
+      "description": "Controlla lo strumento restore_session, che riapre le schede chiuse di recente.",
+      "max_label": "Max schede da riaprire insieme",
+      "max_hint": "Il numero massimo di schede che l’assistente può riaprire in una singola azione (1–25). Evita che «apri tutte» generi troppe schede."
     }
   },
   "guides": {

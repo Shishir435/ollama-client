@@ -35,11 +35,11 @@ export const ModelParametersSection = () => {
         icon={Target}>
         <SectionStack>
           {sliderConfigs.map((slider) => (
-            <ControlledSlider key={slider.name} {...slider} />
+            <ControlledSlider {...slider} key={slider.name} />
           ))}
           <DenseFormGrid>
             {samplingNumberInputs.map((input) => (
-              <ControlledNumberInput key={input.name} {...input} />
+              <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
         </SectionStack>
@@ -52,16 +52,16 @@ export const ModelParametersSection = () => {
         <SectionStack className="space-y-4">
           <DenseFormGrid>
             {contextNumberInputsRow1.map((input) => (
-              <ControlledNumberInput key={input.name} {...input} />
+              <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
           <DenseFormGrid>
             {contextNumberInputsRow2.map((input) => (
-              <ControlledNumberInput key={input.name} {...input} />
+              <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
           {contextNumberInputsRow3.map((input) => (
-            <ControlledNumberInput key={input.name} {...input} />
+            <ControlledNumberInput {...input} key={input.name} />
           ))}
         </SectionStack>
       </SettingsCard>

@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 import type { EmbeddingConfig } from "@/lib/constants"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_EMBEDDING_CONFIG, STORAGE_KEYS } from "@/lib/constants"
 import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
@@ -34,7 +34,7 @@ export const useSemanticChatSearch = () => {
       key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
       instance: plasmoGlobalStorage
     },
-    undefined
+    DEFAULT_EMBEDDING_CONFIG
   )
 
   const search = useCallback(

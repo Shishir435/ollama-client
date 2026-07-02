@@ -9,6 +9,7 @@ import {
   getDisplayErrorMessage
 } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import {
   makeThinkingParserState,
   splitThinkingDelta,
@@ -127,7 +128,8 @@ export const useChatStream = ({
       }
     }
 
-    const listener = (msg: StreamMessage) => {
+    const listener = (rawMsg: unknown) => {
+      const msg = rawMsg as StreamMessage
       if (streamSettled) return
       if (DEBUG_THINKING_STREAM) {
         logger.debug("Stream msg", "useChatStream", {
@@ -236,13 +238,27 @@ export const useChatStream = ({
           const errMsg =
             msg.error.userMessage ??
             ERROR_MESSAGES[msg.error.status] ??
-            t("chat.errors.unknown_error", {
-              message:
-                getDisplayErrorMessage(msg.error) || t("chat.errors.no_message")
-            })
+            // Any provider error with a real HTTP status gets the clean
+            // per-status copy — raw response bodies never render in chat.
+            (msg.error.status > 0
+              ? providerErrorUserMessage(msg.error.status)
+              : t("chat.errors.unknown_error", {
+                  message:
+                    getDisplayErrorMessage(msg.error) ||
+                    t("chat.errors.no_message")
+                }))
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
-            { ...assistantMessage, content: errMsg, done: true }
+            {
+              ...assistantMessage,
+              content: errMsg,
+              done: true,
+              error: {
+                status: msg.error.status,
+                kind: msg.error.kind,
+                retryable: msg.error.retryable
+              }
+            }
           ]
           toast({
             variant: "destructive",

@@ -25,6 +25,8 @@ const sessionFromRow = (row: Row): ChatSession => ({
   currentLeafId: (row.currentLeafId as number | null) ?? undefined,
   createdAt: row.createdAt as number,
   updatedAt: row.updatedAt as number,
+  pinned: row.pinned === 1,
+  systemPrompt: (row.systemPrompt as string | null) ?? undefined,
   messages: []
 })
 
@@ -120,15 +122,17 @@ const withTransaction = async (work: () => Promise<void>): Promise<void> => {
 
 const putSessionRow = async (session: ChatSession): Promise<void> => {
   await run(
-    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
       session.modelId ?? null,
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
-      session.updatedAt
+      session.updatedAt,
+      session.pinned ? 1 : 0,
+      session.systemPrompt ?? null
     ]
   )
 }
@@ -163,15 +167,17 @@ export const getLatestSession = async (): Promise<ChatSession | undefined> => {
 
 export const addSession = async (session: ChatSession): Promise<string> => {
   await run(
-    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
       session.modelId ?? null,
       typeof session.currentLeafId === "number" ? session.currentLeafId : null,
       session.createdAt,
-      session.updatedAt
+      session.updatedAt,
+      session.pinned ? 1 : 0,
+      session.systemPrompt ?? null
     ]
   )
   return session.id
@@ -187,6 +193,7 @@ export const bulkPutSessions = async (
     }
 
     await withTransaction(async () => {
+      const messages = session.messages ?? []
       await putSessionRow(session)
       await run("DELETE FROM files WHERE sessionId = ?", [session.id])
       await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
@@ -194,7 +201,7 @@ export const bulkPutSessions = async (
       // Pass 1: insert each message with a fresh id, record old→new, and
       // persist its files (which need the new message id).
       const idMap = new Map<number, number>()
-      for (const message of session.messages) {
+      for (const message of messages) {
         const oldId = typeof message.id === "number" ? message.id : undefined
         const messageId = await insertImportedMessage(session.id, message)
         if (oldId !== undefined) idMap.set(oldId, messageId)
@@ -214,7 +221,7 @@ export const bulkPutSessions = async (
       }
 
       // Pass 2: remap parentId links to the freshly-allocated ids.
-      for (const message of session.messages) {
+      for (const message of messages) {
         const oldId = typeof message.id === "number" ? message.id : undefined
         const oldParentId =
           typeof message.parentId === "number" ? message.parentId : undefined
@@ -268,6 +275,14 @@ export const updateSession = async (
     values.push(
       typeof updates.currentLeafId === "number" ? updates.currentLeafId : null
     )
+  }
+  if (Object.hasOwn(updates, "pinned")) {
+    fields.push("pinned = ?")
+    values.push(updates.pinned ? 1 : 0)
+  }
+  if (Object.hasOwn(updates, "systemPrompt")) {
+    fields.push("systemPrompt = ?")
+    values.push(updates.systemPrompt ?? null)
   }
   if (Object.hasOwn(updates, "updatedAt")) {
     fields.push("updatedAt = ?")
@@ -519,34 +534,6 @@ export const deleteFilesByMessageIds = async (
     messageIds
   )
   return (before[0]?.count as number) ?? 0
-}
-
-// ----- Health cookie -------------------------------------------------------
-
-/**
- * Key stored in `kv_store` once SQLite has been initialized as the
- * confirmed chat-history source of truth.
- */
-const SQLITE_HEALTHY_KEY = "chat-history-sqlite-healthy-v1"
-
-export const isSqliteHealthy = async (): Promise<boolean> => {
-  try {
-    const rows = await query("SELECT value FROM kv_store WHERE key = ?", [
-      SQLITE_HEALTHY_KEY
-    ])
-    return rows.length > 0
-  } catch {
-    // Table might not exist yet on a fresh init. Treat as not-healthy
-    // and let the migration write the cookie when it finishes.
-    return false
-  }
-}
-
-export const markSqliteHealthy = async (): Promise<void> => {
-  await run("INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)", [
-    SQLITE_HEALTHY_KEY,
-    "1"
-  ])
 }
 
 // ----- Database-level operations ------------------------------------------

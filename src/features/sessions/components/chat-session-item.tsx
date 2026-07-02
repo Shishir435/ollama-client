@@ -1,9 +1,10 @@
 import { MessageSquare } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { MoreHorizontal, Trash2 } from "@/lib/lucide-icon"
+import { MoreHorizontal, Pin, PinOff, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChatSession } from "@/types"
 import { ChatSessionActions } from "./chat-session-actions"
@@ -22,7 +23,7 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
-  const { sessions } = useChatSessions()
+  const { sessions, togglePinSession } = useChatSessions()
   const {
     exportSessionAsPdf,
     exportSessionAsJson,
@@ -31,6 +32,7 @@ export const ChatSessionItem = ({
   } = useChatExport()
 
   const current = sessions.find((s) => s.id === session.id)
+  const isPinned = current?.pinned ?? session.pinned ?? false
   const updatedTime = new Date(session.updatedAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
@@ -81,8 +83,13 @@ export const ChatSessionItem = ({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:[mask-image:linear-gradient(to_right,black_calc(100%_-_2rem),transparent)]">
-              {session.title}
+            <div className="flex items-center gap-1">
+              {isPinned && (
+                <Pin className="icon-xs shrink-0 text-sidebar-foreground/45" />
+              )}
+              <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+                {session.title}
+              </div>
             </div>
             <div className="mt-0.5 truncate text-micro text-sidebar-foreground/45">
               {session.modelId || updatedTime}
@@ -91,6 +98,28 @@ export const ChatSessionItem = ({
         </div>
       </button>
       <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+        {current && (
+          <TooltipActionButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 rounded-control transition-all duration-200 hover:bg-muted hover:text-foreground focus:bg-muted focus:text-foreground focus:opacity-100"
+            onClick={() => togglePinSession(session.id)}
+            ariaLabel={
+              isPinned ? t("sessions.actions.unpin") : t("sessions.actions.pin")
+            }
+            tooltip={
+              isPinned ? t("sessions.actions.unpin") : t("sessions.actions.pin")
+            }
+            icon={
+              isPinned ? (
+                <PinOff className="icon-xs" />
+              ) : (
+                <Pin className="icon-xs" />
+              )
+            }
+          />
+        )}
         <ChatSessionActions
           actions={actionItems}
           destructiveAction={

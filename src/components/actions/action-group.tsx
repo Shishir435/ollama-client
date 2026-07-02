@@ -36,12 +36,12 @@ export function ActionGroup({
     <>
       {visibleActions.map(({ key, hidden: _hidden, ...action }) => (
         <TooltipActionButton
-          key={key}
           type={action.type ?? "button"}
           variant={action.variant ?? defaultVariant}
           size={action.size ?? defaultSize}
           tooltipContainer={action.tooltipContainer ?? tooltipContainer}
           {...action}
+          key={key}
         />
       ))}
     </>

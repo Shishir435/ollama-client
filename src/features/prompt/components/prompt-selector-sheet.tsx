@@ -178,7 +178,7 @@ export function PromptSelectorSheet({
                 variant={selectedCategory === category ? "secondary" : "ghost"}
                 size="sm"
                 className="h-7 shrink-0 rounded-control px-2 text-xs"
-                onClick={() => setSelectedCategory(category)}>
+                onClick={() => setSelectedCategory(category ?? null)}>
                 {category}
               </Button>
             ))}

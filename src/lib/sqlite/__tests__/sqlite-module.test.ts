@@ -133,9 +133,22 @@ function buildSQLMocks() {
     free: vi.fn(),
     reset: vi.fn()
   }
+  // Track user_version so the migration runner (getSchemaVersion via exec,
+  // setSchemaVersion via run) behaves faithfully against the fake DB.
+  let userVersion = 0
   const mockDb = {
     prepare: vi.fn().mockReturnValue(mockStmt),
-    run: vi.fn(),
+    run: vi.fn((sql?: string) => {
+      if (typeof sql === "string") {
+        const match = /PRAGMA user_version = (\d+)/.exec(sql)
+        if (match) userVersion = Number(match[1])
+      }
+    }),
+    exec: vi.fn((sql: string) =>
+      typeof sql === "string" && sql.includes("user_version")
+        ? [{ columns: ["user_version"], values: [[userVersion]] }]
+        : []
+    ),
     export: vi.fn().mockReturnValue(new Uint8Array([1, 2, 3])),
     close: vi.fn()
   }

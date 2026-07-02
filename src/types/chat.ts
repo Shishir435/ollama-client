@@ -102,6 +102,15 @@ export interface ChatMessage {
   toolName?: string
   /** For `role: "tool"` result messages — the originating tool call id. */
   toolCallId?: string
+  /**
+   * Terminal error for this assistant turn. Set when the stream ends in an
+   * error so the UI can offer an inline retry for retryable failures.
+   */
+  error?: {
+    status?: number
+    kind?: import("./errors").AppErrorKind
+    retryable?: boolean
+  }
   timestamp?: number
   metrics?: {
     total_duration?: number
@@ -137,7 +146,12 @@ export interface ToolRun {
   iconKey?: string
   category?: import("@/lib/tools/types").ToolCategory
   risk?: import("@/lib/tools/types").ToolRiskLevel
-  status: "pending" | "running" | "done" | "error"
+  status: "pending" | "running" | "done" | "error" | "awaiting-confirmation"
+  /**
+   * The tool-call id, echoed back in a CONFIRM_TOOL message when the run is
+   * awaiting confirmation so the background can resolve the right pending call.
+   */
+  callId?: string
   startedAt: number
   completedAt?: number
   sources?: Array<{
@@ -173,6 +187,13 @@ export interface ChatSession {
   modelId?: string
   messages?: ChatMessage[]
   currentLeafId?: number | string
+  /** Pinned sessions are grouped at the top of the list, above the date groups. */
+  pinned?: boolean
+  /**
+   * Per-chat system prompt override. When set, it replaces the model's
+   * configured system prompt for this session only.
+   */
+  systemPrompt?: string
 }
 
 export interface ChatStreamMessage {
@@ -259,6 +280,10 @@ export interface ChatSessionState {
   createSession: () => Promise<string>
   deleteSession: (id: string) => Promise<void>
   renameSessionTitle: (id: string, title: string) => Promise<void>
+  /** Toggle a session's pinned state and persist it. */
+  togglePinSession: (id: string) => Promise<void>
+  /** Set (or clear, with an empty string) a session's system-prompt override. */
+  setSessionSystemPrompt: (id: string, systemPrompt: string) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   /**

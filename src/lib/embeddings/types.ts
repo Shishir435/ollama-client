@@ -1,3 +1,17 @@
+/**
+ * Type-category match with legacy tolerance: a processor bug used to write
+ * the file's MIME type (e.g. "text/html") into `metadata.type`, so when
+ * querying for "file", any row that isn't a known non-file category counts
+ * as a file. Keeps pre-fix rows visible without a data migration.
+ */
+export const matchesVectorType = (
+  docType: string | undefined,
+  wanted: string
+): boolean => {
+  if (docType === wanted) return true
+  return wanted === "file" && docType !== "chat" && docType !== "webpage"
+}
+
 export interface VectorDocument {
   id?: number
   content: string
@@ -10,6 +24,8 @@ export interface VectorDocument {
   metadata: {
     source: string
     type: "chat" | "file" | "webpage"
+    /** Original MIME type of the source file (e.g. "text/html"). */
+    contentType?: string
     sessionId?: string
     fileId?: string
     url?: string

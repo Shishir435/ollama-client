@@ -1,5 +1,5 @@
 import DOMPurify from "dompurify"
-import MarkdownIt from "markdown-it"
+import MarkdownIt, { type PluginWithParams } from "markdown-it"
 import container from "markdown-it-container"
 import MarkdownItCopyCode from "markdown-it-copy-code"
 import deflist from "markdown-it-deflist"
@@ -18,11 +18,11 @@ import { logger } from "@/lib/logger"
  * Reused for consistency across exports
  */
 export const createMarkdownParser = () => {
-  const md = new MarkdownIt({
+  const md: MarkdownIt = new MarkdownIt({
     html: true,
     linkify: true,
     typographer: true,
-    highlight: (str, lang) => {
+    highlight: (str: string, lang: string): string => {
       if (lang && hljs.getLanguage(lang)) {
         try {
           return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`
@@ -40,8 +40,10 @@ export const createMarkdownParser = () => {
 
   md.use(taskLists, { enabled: true })
     .use(footnote)
-    .use(container, "info")
-    .use(container, "warning")
+    // markdown-it-container ships @types/markdown-it v13, incompatible with our
+    // v14 MarkdownIt type; the plugin is valid at runtime, so cast to v14 shape.
+    .use(container as unknown as PluginWithParams, "info")
+    .use(container as unknown as PluginWithParams, "warning")
     .use(emoji)
     .use(MarkdownItCopyCode)
     .use(markdownItMark)

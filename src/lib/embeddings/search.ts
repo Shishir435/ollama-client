@@ -17,6 +17,7 @@ import { vectorDb } from "./db"
 import { generateEmbedding } from "./embedding-client"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
 import type { SearchResult, VectorDocument } from "./types"
+import { matchesVectorType } from "./types"
 
 const HNSW_REBUILD_COOLDOWN_MS = 30000
 let lastHnswRebuildAttempt: { dimension: number; timestamp: number } | null =
@@ -165,14 +166,23 @@ export const searchSimilarVectors = async (
   } else if (fileId && !Array.isArray(fileId)) {
     vectorQuery = vectorDb.vectors.where("metadata.fileId").equals(fileId)
   } else if (type) {
-    vectorQuery = vectorDb.vectors.where("metadata.type").equals(type)
+    // "file" needs a scan, not the index: legacy rows carry MIME strings in
+    // metadata.type (see matchesVectorType) and would be skipped by equals().
+    vectorQuery =
+      type === "file"
+        ? vectorDb.vectors.filter((doc) =>
+            matchesVectorType(doc.metadata.type, type)
+          )
+        : vectorDb.vectors.where("metadata.type").equals(type)
   } else {
     vectorQuery = vectorDb.vectors.toCollection()
   }
 
   // Apply remaining filters manually
   if (type && sessionId) {
-    vectorQuery = vectorQuery.filter((doc) => doc.metadata.type === type)
+    vectorQuery = vectorQuery.filter((doc) =>
+      matchesVectorType(doc.metadata.type, type)
+    )
   }
 
   if (fileId) {
@@ -388,7 +398,7 @@ export const searchHybrid = async (
   const filteredKeywordResults = keywordResults.filter((result) => {
     if (
       searchOptions.type &&
-      result.document.metadata.type !== searchOptions.type
+      !matchesVectorType(result.document.metadata.type, searchOptions.type)
     ) {
       return false
     }

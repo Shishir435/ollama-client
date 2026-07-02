@@ -166,6 +166,36 @@
   },
   "chat": {
     "scroll_to_bottom": "Scroll to bottom",
+    "tool_confirmation": {
+      "title": "Confirm action",
+      "body": "The assistant wants to: {{action}}. Allow it?",
+      "allow": "Allow",
+      "deny": "Deny"
+    },
+    "voice_input": {
+      "start": "Dictate with your voice",
+      "stop": "Stop dictation",
+      "mic_blocked_title": "Microphone blocked",
+      "mic_blocked_description": "Allow microphone access for this extension in your browser's site settings, then try again.",
+      "error_title": "Voice input failed",
+      "error_description": "Speech recognition failed ({{code}}). Check your connection and try again.",
+      "page_title": "Microphone access",
+      "page_requesting": "Your browser will ask for microphone access. Choose Allow to enable voice input.",
+      "page_granted": "Microphone enabled. You can close this tab and use voice input in the side panel.",
+      "page_denied": "Microphone access was denied. Click the mic icon in your browser's address bar (or open the extension's site settings) to allow it, then try again.",
+      "page_retry": "Try again",
+      "local_downloading_title": "Preparing on-device speech",
+      "local_downloading_description": "Downloading the speech model for private, on-device dictation. It will start listening automatically when ready.",
+      "preparing": "Preparing on-device speech…"
+    },
+    "system_prompt": {
+      "button": "Chat instructions",
+      "title": "Chat instructions",
+      "description": "A system prompt for this chat only. It overrides the model's default prompt.",
+      "placeholder": "e.g. You are a concise assistant that answers in bullet points.",
+      "save": "Save",
+      "clear": "Clear"
+    },
     "input": {
       "placeholder": "Type a message or ctrl + /",
       "images": {
@@ -184,6 +214,7 @@
       "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "Web search needs tool calling, which this model doesn't support. Enable tool fallback in model settings to use it.",
       "drop_files_here": "Drop files here",
       "attachments": "{{count}} attachments",
       "screenshot": "Capture screenshot",
@@ -261,6 +292,7 @@
         "bookmarks": "Searching bookmarks",
         "sessions": "Reading recently closed tabs",
         "syncedSessions": "Reading synced tabs",
+        "restoreSession": "Reopening a closed tab",
         "trimmed": "result trimmed",
         "change_limit": "Change limit",
         "documents": "Searching files",
@@ -268,6 +300,8 @@
         "tabGroup": "Reading tab group",
         "tabGroups": "Listing tab groups",
         "schedule_reminder": "Scheduling reminder",
+        "list_reminders": "Listing reminders",
+        "cancel_reminder": "Cancelling reminder",
         "save_artifact": "Saving file",
         "capture_screenshot": "Capturing screenshot",
         "searches": "{{count}} searches"
@@ -705,7 +739,12 @@
     "actions": {
       "more": "More actions for {{title}}",
       "more_default": "Chat session actions",
-      "tooltip": "More actions"
+      "tooltip": "More actions",
+      "pin": "Pin chat",
+      "unpin": "Unpin chat"
+    },
+    "groups": {
+      "pinned": "Pinned"
     }
   },
   "tabs": {
@@ -748,6 +787,12 @@
       "max_tool_result_chars_hint": "Each tool result (page text, transcripts, document search) is trimmed to this many characters before the model reads it. Lower is faster on a laptop; raise it if answers miss detail.",
       "auto_refresh_label": "Auto-refresh selected tab context",
       "auto_refresh_description": "When enabled, selected tabs are re-checked periodically for changes."
+    },
+    "restore_sessions": {
+      "title": "Reopen closed tabs",
+      "description": "Controls the restore_session tool, which reopens tabs you recently closed.",
+      "max_label": "Max tabs to reopen at once",
+      "max_hint": "The most tabs the assistant may reopen in a single action (1–25). Keeps an 'open them all' request from spawning too many tabs."
     },
     "grounding_mode": {
       "label": "Answer only from selected page context",
@@ -1156,7 +1201,11 @@
           "selectPlaceholder": "Choose a model…",
           "customBadge": "custom",
           "reset": "Reset to defaults",
-          "empty": "No models available yet."
+          "empty": "No models available yet.",
+          "nonNativeFallback": {
+            "label": "Prompt-based tools (no native tool-calling)",
+            "description": "For models that can't call tools natively, describe tools in the prompt and parse the calls back. Experimental; less reliable than native tool-calling."
+          }
         }
       }
     },

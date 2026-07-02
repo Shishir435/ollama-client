@@ -1346,6 +1346,38 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     aliases: ["per model tools", "per-model", "model specific tools"]
   },
   {
+    // The non-native fallback toggle mounts under the per-model card once a
+    // model is selected; focusId matches its SettingsSwitch id.
+    id: "model-tools-nonnative-fallback",
+    focusId: "model-tools-override-nonnative-fallback",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.permissions.tools.perModel.nonNativeFallback.label",
+    descriptionKey:
+      "settings.permissions.tools.perModel.nonNativeFallback.description",
+    aliases: [
+      "non-native tools",
+      "prompt-based tools",
+      "tool fallback",
+      "react tools",
+      "tools without native tool calling"
+    ]
+  },
+  {
+    id: "max-restore-sessions",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.restore_sessions.max_label",
+    descriptionKey: "settings.restore_sessions.description",
+    aliases: [
+      "reopen tabs",
+      "restore session limit",
+      "reopen closed tabs",
+      "restore_session",
+      "max tabs to reopen"
+    ]
+  },
+  {
     id: "permission-bookmarks",
     tab: "privacy",
     sectionId: "permissions",

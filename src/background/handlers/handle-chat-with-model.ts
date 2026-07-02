@@ -5,6 +5,7 @@ import {
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostMessage } from "@/background/lib/utils"
 import { DEFAULT_MAX_RAG_CONTEXT_CHARS, STORAGE_KEYS } from "@/lib/constants"
@@ -12,6 +13,7 @@ import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { getSession } from "@/lib/repositories/chat-history"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -53,7 +55,7 @@ const limitMessagesForModel = (
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
     const { model, providerId, messages } = msg.payload
-    const abortKey = msg.payload.requestId || port.name
+    const abortKey = msg.payload.requestId || port.abortScopeKey || port.name
 
     const ac = new AbortController()
     setAbortController(abortKey, ac)
@@ -71,7 +73,26 @@ export const handleChatWithModel = withErrorContext(
     const isMemoryEnabled =
       (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
       true
-    const systemPrompt = modelParams.system || "You are a helpful AI assistant."
+    // A per-chat system prompt override, when set, replaces the model's
+    // configured prompt for this session only. Empty/whitespace is ignored, and
+    // a failed read degrades to the model default rather than breaking the turn.
+    let sessionSystemPrompt: string | undefined
+    if (msg.payload.sessionId) {
+      try {
+        const session = await getSession(msg.payload.sessionId)
+        sessionSystemPrompt = session?.systemPrompt?.trim() || undefined
+      } catch (error) {
+        logger.debug(
+          "Failed to read per-chat system prompt",
+          "handleChatWithModel",
+          { error }
+        )
+      }
+    }
+    const systemPrompt =
+      sessionSystemPrompt ||
+      modelParams.system ||
+      "You are a helpful AI assistant."
     let contextHeader = ""
 
     if (isMemoryEnabled && messages.length > 0) {
@@ -136,15 +157,20 @@ export const handleChatWithModel = withErrorContext(
       providerId
     )
 
-    // Offer tools only to models that resolve `toolCalling` true; otherwise the
-    // request is unchanged and the old context-injection path is used as-is.
-    const tools = await resolveModelTools(model, providerId, provider)
+    // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
+    // array; models opted into the prompt-based fallback get a non-native loop;
+    // everything else gets no tools and the old context-injection path as-is.
+    const resolvedTools = await resolveModelTools(model, providerId, provider)
+    // Only the native path sends a tools array + the native system guidance; the
+    // non-native path injects its own protocol prompt inside its streamer.
+    const nativeTools =
+      resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
 
     // Tell the model the tools exist and when to use them. Without this, weaker
     // and reasoning-tuned models (e.g. deepseek-r1) ignore the offered tools and
     // hallucinate "I can't access your tabs" instead of calling current_tab.
-    // Empty when no tools are offered.
-    const guidance = buildToolSystemGuidance(tools)
+    // Empty when no tools are offered natively.
+    const guidance = buildToolSystemGuidance(nativeTools)
 
     // Build the system message in one place: append the RAG context header and
     // tool guidance to an existing system message, or prepend one from the
@@ -184,7 +210,7 @@ export const handleChatWithModel = withErrorContext(
       num_gpu: modelParams.num_gpu,
       num_batch: modelParams.num_batch,
       keep_alive: modelParams.keep_alive,
-      tools
+      tools: nativeTools
       // provider handles system prompt if needed, but we already injected it into messages
       // so we pass the prepared messages
     }
@@ -210,21 +236,39 @@ export const handleChatWithModel = withErrorContext(
     }
 
     try {
-      if (tools && tools.length > 0) {
+      if (resolvedTools && resolvedTools.tools.length > 0) {
         const { getToolRegistry } = await import("@/lib/tools")
         const toolResultMaxChars =
           (await plasmoGlobalStorage.get<number>(
             STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS
           )) ?? undefined
-        await streamChatWithTools({
-          provider,
-          request,
-          registry: getToolRegistry(),
-          onChunk,
+        const ctx = {
           signal: ac.signal,
-          ctx: { signal: ac.signal, sessionId: msg.payload.sessionId, model },
-          toolResultMaxChars
-        })
+          sessionId: msg.payload.sessionId,
+          model
+        }
+        if (resolvedTools.mode === "non-native") {
+          await streamChatWithNonNativeTools({
+            provider,
+            request,
+            tools: resolvedTools.tools,
+            registry: getToolRegistry(),
+            onChunk,
+            signal: ac.signal,
+            ctx,
+            toolResultMaxChars
+          })
+        } else {
+          await streamChatWithTools({
+            provider,
+            request,
+            registry: getToolRegistry(),
+            onChunk,
+            signal: ac.signal,
+            ctx,
+            toolResultMaxChars
+          })
+        }
       } else {
         await provider.streamChat(request, onChunk, ac.signal)
       }

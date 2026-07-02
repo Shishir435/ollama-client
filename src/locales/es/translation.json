@@ -176,6 +176,7 @@
       "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "La búsqueda web requiere llamadas a herramientas, que este modelo no admite. Activa el fallback de herramientas en la configuración del modelo.",
       "drop_files_here": "Soltar archivos aquí",
       "attachments": "{{count}} adjuntos",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "Programando recordatorio",
         "save_artifact": "Guardando archivo",
         "capture_screenshot": "Capturando pantalla",
-        "searches": "{{count}} búsquedas"
+        "searches": "{{count}} búsquedas",
+        "restoreSession": "Reabriendo una pestaña cerrada",
+        "list_reminders": "Listando recordatorios",
+        "cancel_reminder": "Cancelando recordatorio"
       },
       "debug": "Razonamiento de depuración"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "Sin contenido Mermaid",
       "rendering_mermaid": "Renderizando diagrama Mermaid…",
       "empty": "Sin contenido de artefacto"
+    },
+    "system_prompt": {
+      "button": "Instrucciones del chat",
+      "title": "Instrucciones del chat",
+      "description": "Un prompt de sistema solo para este chat. Anula el prompt predeterminado del modelo.",
+      "placeholder": "p. ej. Eres un asistente conciso que responde con viñetas.",
+      "save": "Guardar",
+      "clear": "Borrar"
+    },
+    "voice_input": {
+      "start": "Dictar con tu voz",
+      "stop": "Detener el dictado",
+      "mic_blocked_title": "Micrófono bloqueado",
+      "mic_blocked_description": "Permite el acceso al micrófono para esta extensión en la configuración de sitios de tu navegador e inténtalo de nuevo.",
+      "error_title": "Falló la entrada de voz",
+      "error_description": "El reconocimiento de voz falló ({{code}}). Comprueba tu conexión e inténtalo de nuevo.",
+      "page_title": "Acceso al micrófono",
+      "page_requesting": "Tu navegador pedirá acceso al micrófono. Elige Permitir para activar la entrada de voz.",
+      "page_granted": "Micrófono activado. Puedes cerrar esta pestaña y usar la entrada de voz en el panel lateral.",
+      "page_denied": "Se denegó el acceso al micrófono. Haz clic en el icono del micrófono en la barra de direcciones (o abre la configuración de sitios de la extensión) para permitirlo e inténtalo de nuevo.",
+      "page_retry": "Reintentar",
+      "local_downloading_title": "Preparando voz en el dispositivo",
+      "local_downloading_description": "Descargando el modelo de voz para dictado privado en el dispositivo. Empezará a escuchar automáticamente cuando esté listo.",
+      "preparing": "Preparando voz en el dispositivo…"
+    },
+    "tool_confirmation": {
+      "title": "Confirmar acción",
+      "body": "El asistente quiere: {{action}}. ¿Permitir?",
+      "allow": "Permitir",
+      "deny": "Denegar"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "Más acciones para {{title}}",
       "more_default": "Acciones de la sesión de chat",
-      "tooltip": "Más acciones"
+      "tooltip": "Más acciones",
+      "pin": "Fijar chat",
+      "unpin": "Dejar de fijar chat"
+    },
+    "groups": {
+      "pinned": "Fijados"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "Elige un modelo…",
           "customBadge": "personalizado",
           "reset": "Restablecer valores",
-          "empty": "Aún no hay modelos disponibles."
+          "empty": "Aún no hay modelos disponibles.",
+          "nonNativeFallback": {
+            "label": "Herramientas por prompt (sin tool-calling nativo)",
+            "description": "Para modelos sin tool-calling nativo: describe las herramientas en el prompt y analiza las llamadas. Experimental; menos fiable que el tool-calling nativo."
+          }
         }
       }
     },
     "search": {
       "placeholder": "Buscar ajustes…"
+    },
+    "restore_sessions": {
+      "title": "Reabrir pestañas cerradas",
+      "description": "Controla la herramienta restore_session, que reabre pestañas cerradas recientemente.",
+      "max_label": "Máx. pestañas a reabrir a la vez",
+      "max_hint": "El máximo de pestañas que el asistente puede reabrir en una sola acción (1–25). Evita que «abrir todas» genere demasiadas pestañas."
     }
   },
   "guides": {

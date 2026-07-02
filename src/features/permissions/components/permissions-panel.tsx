@@ -404,7 +404,11 @@ const ModelToolOverridesSection = () => {
         </span>
       </div>
 
-      <Select value={targetKey} onValueChange={setTargetKey}>
+      <Select
+        value={targetKey}
+        onValueChange={(value) => {
+          if (value !== null) setTargetKey(value)
+        }}>
         <SelectTrigger
           data-settings-focus-id="model-tools-per-model"
           className="w-full">
@@ -453,6 +457,19 @@ const ModelToolOverridesSection = () => {
               ))}
             </div>
           </div>
+          <SettingsSwitch
+            id="model-tools-override-nonnative-fallback"
+            label={t(
+              "settings.permissions.tools.perModel.nonNativeFallback.label"
+            )}
+            description={t(
+              "settings.permissions.tools.perModel.nonNativeFallback.description"
+            )}
+            checked={Boolean(overrides[target.key]?.nonNativeToolFallback)}
+            onCheckedChange={(next) =>
+              applyChange({ nonNativeToolFallback: next })
+            }
+          />
           {hasOverride && (
             <SettingsActionRow>
               <Button variant="ghost" size="sm" onClick={onReset}>

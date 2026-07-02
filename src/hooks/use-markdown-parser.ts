@@ -1,5 +1,5 @@
 import DOMPurify from "dompurify"
-import MarkdownIt from "markdown-it"
+import MarkdownIt, { type PluginWithParams } from "markdown-it"
 import container from "markdown-it-container"
 import deflist from "markdown-it-deflist"
 import { full as emoji } from "markdown-it-emoji"
@@ -35,13 +35,15 @@ const CODE_FENCE = /(^|\n)\s*(```|~~~)/
 
 export const useMarkdownParser = (markdown: string) => {
   const md = useMemo(() => {
-    const instance = new MarkdownIt({
+    const instance: MarkdownIt = new MarkdownIt({
       html: true,
       linkify: true,
       typographer: true,
-      highlight(str, lang) {
-        const safeLang = instance.utils.escapeHtml(lang || "")
-        const langAttrs = safeLang ? ` data-code-language="${safeLang}"` : ""
+      highlight(str: string, lang: string): string {
+        const safeLang: string = instance.utils.escapeHtml(lang || "")
+        const langAttrs: string = safeLang
+          ? ` data-code-language="${safeLang}"`
+          : ""
         const hljs = hljsModule?.hljs
         if (hljs && lang && hljs.getLanguage(lang)) {
           try {
@@ -60,8 +62,11 @@ export const useMarkdownParser = (markdown: string) => {
     instance
       .use(taskLists, { enabled: true })
       .use(footnote)
-      .use(container, "info")
-      .use(container, "warning")
+      // markdown-it-container ships @types/markdown-it v13, whose MarkdownIt type
+      // is structurally incompatible with our v14; the plugin is valid at runtime,
+      // so cast to the v14 params-plugin shape.
+      .use(container as unknown as PluginWithParams, "info")
+      .use(container as unknown as PluginWithParams, "warning")
       .use(emoji)
       .use(markdownItMark)
       .use(deflist)

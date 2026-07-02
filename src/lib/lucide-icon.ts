@@ -62,6 +62,7 @@ export {
   Package,
   Paperclip,
   Pin,
+  PinOff,
   Plus,
   Quote,
   RefreshCcw,

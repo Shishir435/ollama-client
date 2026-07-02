@@ -26,14 +26,6 @@ vi.mock("@/features/chat/components/regenerate-button", () => ({
   RegenerateButton: () => <button type="button">Regenerate</button>
 }))
 
-vi.mock("@/features/chat/components/rag-sources-button", () => ({
-  RAGSourcesButton: () => <button type="button">Sources</button>
-}))
-
-vi.mock("@/features/chat/components/used-context-button", () => ({
-  UsedContextButton: () => <button type="button">Context</button>
-}))
-
 describe("ChatMessageFooter", () => {
   it("renders connected actions and compact model chip", () => {
     render(

@@ -1,0 +1,216 @@
+/**
+ * Shared tool-execution primitives used by both the native tool loop
+ * (`stream-chat-with-tools.ts`) and the non-native prompt-based fallback
+ * (`stream-chat-with-non-native-tools.ts`).
+ *
+ * These cover the parts that must behave identically regardless of how the model
+ * requested the tool: timeout/abort racing, result trimming, image extraction,
+ * and finalizing the `ToolRun` trace entry. Message formatting differs between
+ * the two paths (native `tool`-role replies vs `<tool_response>` user turns), so
+ * that is intentionally left to each caller.
+ */
+
+import type {
+  ToolCall,
+  ToolContext,
+  ToolRegistry,
+  ToolResult,
+  ToolRuntimePolicy
+} from "@/lib/tools"
+import { resolveToolRuntimePolicy } from "@/lib/tools"
+import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
+import { awaitToolConfirmation } from "./tool-confirmation-registry"
+
+export interface PreparedToolCall {
+  call: ToolCall
+  run: ToolRun
+  policy: ToolRuntimePolicy
+  /** Require explicit user approval before running (destructive tools). */
+  requiresConfirmation: boolean
+}
+
+// The reasoning-trace component translates known tool ids (rag_search, etc.);
+// the raw name is the fallback label for any tool it doesn't special-case.
+export const labelForTool = (name: string): string => name
+
+/** Race a tool call against a timeout so a hung tool can't stall the stream. */
+export const callWithTimeout = (
+  run: Promise<ToolResult>,
+  name: string,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<ToolResult> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let abortHandler: (() => void) | undefined
+
+  const timeoutPromise = new Promise<ToolResult>((resolve) => {
+    timeoutId = setTimeout(
+      () =>
+        resolve({
+          content: `Tool "${name}" timed out after ${timeoutMs / 1000}s.`,
+          isError: true
+        }),
+      timeoutMs
+    )
+  })
+
+  const abortPromise = new Promise<ToolResult>((resolve) => {
+    abortHandler = () =>
+      resolve({
+        content: `Tool "${name}" was stopped by the user.`,
+        isError: true
+      })
+    if (signal?.aborted) abortHandler()
+    else signal?.addEventListener("abort", abortHandler, { once: true })
+  })
+
+  return Promise.race([run, timeoutPromise, abortPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId)
+    if (abortHandler) signal?.removeEventListener("abort", abortHandler)
+  })
+}
+
+/** Trim a tool result to the char cap, appending a model-visible note. */
+const trimToolResult = (
+  content: string,
+  maxChars: number
+): { content: string; truncated: boolean } => {
+  if (content.length <= maxChars) return { content, truncated: false }
+  const note = `\n\n[Tool result trimmed to ${maxChars} characters to keep responses fast. The user can change this limit in Settings → Context.]`
+  return { content: content.slice(0, maxChars) + note, truncated: true }
+}
+
+/** Decoded byte size of a base64 string (no decoding), accounting for padding. */
+const base64ByteSize = (base64: string): number => {
+  if (!base64) return 0
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0
+  return Math.floor((base64.length * 3) / 4) - padding
+}
+
+/**
+ * Turn a tool result's images into a follow-up user message, the only role that
+ * carries images on Ollama / OpenAI-compatible providers. Returns undefined when
+ * the tool produced no images.
+ */
+export const buildImageMessage = (
+  call: ToolCall,
+  result: ToolResult
+): ChatMessage | undefined => {
+  if (!result.images?.length) return undefined
+  const images: ImageAttachment[] = result.images.map((image, index) => ({
+    imageId: `${call.id}:image:${index}`,
+    fileName: `${call.name}-${index}.${image.mimeType === "image/png" ? "png" : "jpg"}`,
+    mimeType: image.mimeType,
+    // Decoded byte size — `base64.length` would overstate it by ~33%.
+    size: base64ByteSize(image.base64),
+    base64: image.base64
+  }))
+  return {
+    role: "user",
+    content: `Image result from the "${call.name}" tool:`,
+    images
+  }
+}
+
+/** Build a running trace entry + resolved policy for a requested tool call. */
+export const prepareToolCall = async (
+  registry: ToolRegistry,
+  call: ToolCall,
+  toolResultMaxChars?: number
+): Promise<PreparedToolCall> => {
+  const definition = await registry.getDefinition(call.name)
+  const policy = resolveToolRuntimePolicy(
+    definition,
+    toolResultMaxChars !== undefined
+      ? { maxResultChars: toolResultMaxChars }
+      : undefined
+  )
+  return {
+    call,
+    policy,
+    requiresConfirmation: definition?.requiresConfirmation ?? false,
+    run: {
+      toolId: call.name,
+      callId: call.id,
+      label: labelForTool(call.name),
+      displayNameKey: definition?.displayNameKey,
+      iconKey: definition?.iconKey,
+      category: definition?.category,
+      risk: definition?.risk,
+      status: "running",
+      startedAt: Date.now(),
+      args:
+        call.arguments && Object.keys(call.arguments).length > 0
+          ? call.arguments
+          : undefined
+    }
+  }
+}
+
+/**
+ * Execute a prepared tool call and finalize its trace entry. Runs the tool with
+ * a timeout/abort race (or short-circuits when the policy disables it), trims
+ * the result to the policy cap, and mutates `prepared.run` with the outcome
+ * (status, preview, sources, truncation). Returns the raw result plus the
+ * trimmed, model-visible content; the caller decides how to format it back into
+ * the conversation.
+ */
+export const runPreparedToolCall = async (
+  prepared: PreparedToolCall,
+  registry: ToolRegistry,
+  ctx: ToolContext,
+  signal?: AbortSignal,
+  /** Re-emit the trace so the UI reflects awaiting/running transitions live. */
+  emitTrace?: () => void
+): Promise<{ result: ToolResult; content: string }> => {
+  const { call, policy, run } = prepared
+
+  // Destructive tools pause for explicit user approval before running. A denial
+  // (or an abort while waiting) returns a declined result to the model instead
+  // of executing — the tool never runs without a yes.
+  if (prepared.requiresConfirmation) {
+    run.status = "awaiting-confirmation"
+    emitTrace?.()
+    const approved = await awaitToolConfirmation(call.id, signal)
+    if (!approved) {
+      run.status = "error"
+      run.completedAt = Date.now()
+      run.error = "Declined by the user."
+      emitTrace?.()
+      const declined = "The user declined this action, so it was not performed."
+      return { result: { content: declined, isError: true }, content: declined }
+    }
+    run.status = "running"
+    emitTrace?.()
+  }
+
+  const result = policy.enabled
+    ? await callWithTimeout(
+        registry.call(call.name, call.arguments, ctx),
+        call.name,
+        policy.timeoutMs,
+        signal
+      )
+    : { content: `Tool "${call.name}" is disabled.`, isError: true }
+
+  const { content, truncated } = trimToolResult(
+    result.content,
+    policy.maxResultChars
+  )
+
+  run.status = result.isError ? "error" : "done"
+  run.completedAt = Date.now()
+  // Use the trimmed content for the trace too, so the UI and the model see
+  // the same capped payload.
+  if (result.isError) run.error = content
+  else run.resultPreview = content.slice(0, 240)
+  if (result.sources?.length) {
+    run.sources = result.sources.map((source, index) => ({
+      ...source,
+      id: `${call.id}:${source.id ?? index}`
+    }))
+  }
+  if (truncated) run.truncated = true
+
+  return { result, content }
+}

@@ -137,7 +137,11 @@ export const EmbeddingModelSelector = ({
           <SettingsFormField
             label={t("settings.embeddings.model_select.label")}
             description={t("settings.embeddings.model_select.description")}>
-            <Select value={selectedModel} onValueChange={handleValueChange}>
+            <Select
+              value={selectedModel}
+              onValueChange={(value) => {
+                if (value !== null) handleValueChange(value)
+              }}>
               <SelectTrigger>
                 <SelectValue
                   placeholder={t(

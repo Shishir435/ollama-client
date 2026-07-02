@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import type { SessionGroupId } from "@/features/sessions/lib/group-chat-sessions"
 
 const LABEL_KEYS: Record<SessionGroupId, string> = {
+  pinned: "sessions.groups.pinned",
   today: "sessions.groups.today",
   yesterday: "sessions.groups.yesterday",
   last7Days: "sessions.groups.last7Days",
@@ -9,6 +10,7 @@ const LABEL_KEYS: Record<SessionGroupId, string> = {
 }
 
 const FALLBACK_LABELS: Record<SessionGroupId, string> = {
+  pinned: "Pinned",
   today: "Today",
   yesterday: "Yesterday",
   last7Days: "Last 7 days",

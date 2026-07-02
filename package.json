@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.11.27",
+  "version": "0.12.0",
   "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -58,6 +58,7 @@
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:dead": "knip --no-config-hints",
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
     "prepare": "husky && pnpm generate:resources",
@@ -82,7 +83,6 @@
     "hnsw": "^1.1.1",
     "i18next": "^26.3.0",
     "i18next-browser-languagedetector": "^8.2.1",
-    "i18next-resources-to-backend": "^1.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "0.474.0",
     "mammoth": "^1.12.0",
@@ -129,6 +129,7 @@
     "@types/node": "^22.19.19",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
+    "@types/sql.js": "^1.4.11",
     "@types/turndown": "^5.0.6",
     "@types/webextension-polyfill": "^0.12.5",
     "@vitejs/plugin-react": "^5.2.0",
@@ -138,6 +139,7 @@
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.9.0",
     "husky": "^9.1.7",
+    "knip": "^6.24.0",
     "lint-staged": "^16.4.0",
     "playwright": "^1.60.0",
     "postcss": "8.5.10",
@@ -161,5 +163,12 @@
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "linkify-it@<5.0.1": ">=5.0.1",
+      "vite@>=8.0.0 <8.0.16": ">=8.0.16"
+    }
   }
 }

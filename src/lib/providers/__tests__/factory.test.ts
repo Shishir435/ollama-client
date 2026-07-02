@@ -103,7 +103,7 @@ describe("ProviderFactory", () => {
 
   describe("getProvider", () => {
     it("should throw error if provider config not found", async () => {
-      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(null)
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(undefined)
       await expect(ProviderFactory.getProvider("unknown")).rejects.toThrow(
         "Provider unknown not found"
       )

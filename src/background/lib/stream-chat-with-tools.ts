@@ -1,19 +1,13 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
-import type {
-  ToolCall,
-  ToolContext,
-  ToolRegistry,
-  ToolResult,
-  ToolRuntimePolicy
-} from "@/lib/tools"
-import { resolveToolRuntimePolicy } from "@/lib/tools"
-import type {
-  ChatMessage,
-  ChatStreamMessage,
-  ImageAttachment,
-  ToolRun
-} from "@/types"
+import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
+import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
+import {
+  buildImageMessage,
+  type PreparedToolCall,
+  prepareToolCall,
+  runPreparedToolCall
+} from "./tool-execution"
 
 interface StreamChatWithToolsOptions {
   provider: LLMProvider
@@ -30,103 +24,14 @@ interface StreamChatWithToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-// The reasoning-trace component translates known tool ids (rag_search, etc.);
-// the raw name is the fallback label for any tool it doesn't special-case.
-const labelForTool = (name: string): string => name
-
-/** Race a tool call against a timeout so a hung tool can't stall the stream. */
-const callWithTimeout = (
-  run: Promise<ToolResult>,
-  name: string,
-  timeoutMs: number,
-  signal?: AbortSignal
-): Promise<ToolResult> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let abortHandler: (() => void) | undefined
-
-  const timeoutPromise = new Promise<ToolResult>((resolve) => {
-    timeoutId = setTimeout(
-      () =>
-        resolve({
-          content: `Tool "${name}" timed out after ${timeoutMs / 1000}s.`,
-          isError: true
-        }),
-      timeoutMs
-    )
-  })
-
-  const abortPromise = new Promise<ToolResult>((resolve) => {
-    abortHandler = () =>
-      resolve({
-        content: `Tool "${name}" was stopped by the user.`,
-        isError: true
-      })
-    if (signal?.aborted) abortHandler()
-    else signal?.addEventListener("abort", abortHandler, { once: true })
-  })
-
-  return Promise.race([run, timeoutPromise, abortPromise]).finally(() => {
-    if (timeoutId) clearTimeout(timeoutId)
-    if (abortHandler) signal?.removeEventListener("abort", abortHandler)
-  })
-}
-
-/** Trim a tool result to the char cap, appending a model-visible note. */
-const trimToolResult = (
-  content: string,
-  maxChars: number
-): { content: string; truncated: boolean } => {
-  if (content.length <= maxChars) return { content, truncated: false }
-  const note = `\n\n[Tool result trimmed to ${maxChars} characters to keep responses fast. The user can change this limit in Settings → Context.]`
-  return { content: content.slice(0, maxChars) + note, truncated: true }
-}
-
 const TOOL_LIMIT_FALLBACK_MESSAGE =
   "I reached the tool-call limit while gathering context. Please try again with a narrower request."
-
-interface PreparedToolCall {
-  call: ToolCall
-  run: ToolRun
-  policy: ToolRuntimePolicy
-}
 
 interface ExecutedToolCall {
   /** The `tool`-role reply fed back for this call. */
   toolMessage: ChatMessage
   /** A follow-up `user` message carrying any images the tool returned. */
   imageMessage?: ChatMessage
-}
-
-/** Decoded byte size of a base64 string (no decoding), accounting for padding. */
-const base64ByteSize = (base64: string): number => {
-  if (!base64) return 0
-  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0
-  return Math.floor((base64.length * 3) / 4) - padding
-}
-
-/**
- * Turn a tool result's images into a follow-up user message, the only role that
- * carries images on Ollama / OpenAI-compatible providers. Returns undefined when
- * the tool produced no images.
- */
-const buildImageMessage = (
-  call: ToolCall,
-  result: ToolResult
-): ChatMessage | undefined => {
-  if (!result.images?.length) return undefined
-  const images: ImageAttachment[] = result.images.map((image, index) => ({
-    imageId: `${call.id}:image:${index}`,
-    fileName: `${call.name}-${index}.${image.mimeType === "image/png" ? "png" : "jpg"}`,
-    mimeType: image.mimeType,
-    // Decoded byte size — `base64.length` would overstate it by ~33%.
-    size: base64ByteSize(image.base64),
-    base64: image.base64
-  }))
-  return {
-    role: "user",
-    content: `Image result from the "${call.name}" tool:`,
-    images
-  }
 }
 
 /**
@@ -210,36 +115,6 @@ export const streamChatWithTools = async ({
       toolCalls: pendingToolCalls
     })
 
-    const prepareToolCall = async (
-      call: ToolCall
-    ): Promise<PreparedToolCall> => {
-      const definition = await registry.getDefinition(call.name)
-      const policy = resolveToolRuntimePolicy(
-        definition,
-        toolResultMaxChars !== undefined
-          ? { maxResultChars: toolResultMaxChars }
-          : undefined
-      )
-      return {
-        call,
-        policy,
-        run: {
-          toolId: call.name,
-          label: labelForTool(call.name),
-          displayNameKey: definition?.displayNameKey,
-          iconKey: definition?.iconKey,
-          category: definition?.category,
-          risk: definition?.risk,
-          status: "running",
-          startedAt: Date.now(),
-          args:
-            call.arguments && Object.keys(call.arguments).length > 0
-              ? call.arguments
-              : undefined
-        }
-      }
-    }
-
     const startToolRun = (prepared: PreparedToolCall) => {
       toolRuns.push(prepared.run)
       onChunk({ toolRuns: [...toolRuns] })
@@ -248,52 +123,30 @@ export const streamChatWithTools = async ({
     const executeToolCall = async (
       prepared: PreparedToolCall
     ): Promise<ExecutedToolCall> => {
-      const { call, policy, run } = prepared
-      const result = policy.enabled
-        ? await callWithTimeout(
-            registry.call(call.name, call.arguments, ctx),
-            call.name,
-            policy.timeoutMs,
-            signal
-          )
-        : {
-            content: `Tool "${call.name}" is disabled.`,
-            isError: true
-          }
-
-      // Budget the result so a large page/transcript/RAG dump doesn't balloon
-      // the next prompt; the trim is surfaced to the user via the trace.
-      const { content: trimmedContent, truncated } = trimToolResult(
-        result.content,
-        policy.maxResultChars
+      const { result, content } = await runPreparedToolCall(
+        prepared,
+        registry,
+        ctx,
+        signal,
+        () => onChunk({ toolRuns: [...toolRuns] })
       )
-
-      run.status = result.isError ? "error" : "done"
-      run.completedAt = Date.now()
-      if (result.isError) run.error = result.content
-      else run.resultPreview = result.content.slice(0, 240)
-      if (result.sources?.length) {
-        run.sources = result.sources.map((source, index) => ({
-          ...source,
-          id: `${call.id}:${source.id ?? index}`
-        }))
-      }
-      if (truncated) run.truncated = true
       onChunk({ toolRuns: [...toolRuns] })
 
       return {
         toolMessage: {
           role: "tool",
-          content: trimmedContent,
-          toolName: call.name,
-          toolCallId: call.id
+          content,
+          toolName: prepared.call.name,
+          toolCallId: prepared.call.id
         },
-        imageMessage: buildImageMessage(call, result)
+        imageMessage: buildImageMessage(prepared.call, result)
       }
     }
 
     const preparedCalls = await Promise.all(
-      pendingToolCalls.map(prepareToolCall)
+      pendingToolCalls.map((call) =>
+        prepareToolCall(registry, call, toolResultMaxChars)
+      )
     )
     const toolResultMessages: ChatMessage[] = []
     // `tool`-role messages can't carry images on Ollama / OpenAI-compatible

@@ -17,6 +17,8 @@ export const createChatSessionListActions = (
   | "createSession"
   | "deleteSession"
   | "renameSessionTitle"
+  | "togglePinSession"
+  | "setSessionSystemPrompt"
 > => ({
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
@@ -102,6 +104,28 @@ export const createChatSessionListActions = (
     await repo.updateSession(id, { title })
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
+    }))
+  },
+
+  togglePinSession: async (id: string) => {
+    const current = get().sessions.find((s) => s.id === id)
+    if (!current) return
+    const pinned = !current.pinned
+    await repo.updateSession(id, { pinned })
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === id ? { ...s, pinned } : s))
+    }))
+  },
+
+  setSessionSystemPrompt: async (id: string, systemPrompt: string) => {
+    // Empty string clears the override (falls back to the model's prompt).
+    const trimmed = systemPrompt.trim()
+    const value = trimmed.length > 0 ? trimmed : undefined
+    await repo.updateSession(id, { systemPrompt: value })
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === id ? { ...s, systemPrompt: value } : s
+      )
     }))
   }
 })

@@ -36,6 +36,7 @@ interface SessionDevice {
 interface SessionsApi {
   getRecentlyClosed(filter?: { maxResults?: number }): Promise<BrowserSession[]>
   getDevices?(filter?: { maxResults?: number }): Promise<SessionDevice[]>
+  restore?(sessionId?: string): Promise<BrowserSession>
 }
 
 export interface ReadableBrowserSession {
@@ -155,6 +156,24 @@ export const listRecentlyClosedBrowserSessions = async (
   const api = getSessionsApi()
   if (!api?.getRecentlyClosed) return { sessions: [], skipped: 0 }
   return filterSessions(await api.getRecentlyClosed({ maxResults: limit }))
+}
+
+/**
+ * Reopen a recently closed tab/window. With no id, restores the most recently
+ * closed session; with an id, the specific one. `chrome.sessions.restore` only
+ * acts on sessions the user themselves closed and reopens them in the user's own
+ * browser — it never exposes page content to the model — so it ships without a
+ * per-call confirmation gate (unlike other write/action tools).
+ */
+export const restoreBrowserSession = async (
+  sessionId?: string
+): Promise<void> => {
+  await requireBrowserSessionsAccess()
+  const api = getSessionsApi()
+  if (!api?.restore) {
+    throw new Error("Restoring sessions is not supported in this browser.")
+  }
+  await api.restore(sessionId)
 }
 
 export const listSyncedBrowserSessions = async (

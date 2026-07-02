@@ -206,7 +206,7 @@ export const ModelMenu = ({
           }
           tooltip={tooltipTextContent}
           icon={
-            trigger ? null : (
+            trigger ? undefined : (
               <>
                 {selectedModel ? (
                   <div className="flex min-w-0 items-center gap-1.5">

@@ -176,6 +176,7 @@
       "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "网页搜索需要工具调用，而此模型不支持。请在模型设置中启用工具回退以使用该功能。",
       "drop_files_here": "将文件拖到此处",
       "attachments": "{{count}} 个附件",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "正在安排提醒",
         "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏",
-        "searches": "{{count}} 次搜索"
+        "searches": "{{count}} 次搜索",
+        "restoreSession": "重新打开已关闭的标签页",
+        "list_reminders": "列出提醒",
+        "cancel_reminder": "正在取消提醒"
       },
       "debug": "调试推理"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "没有 Mermaid 内容",
       "rendering_mermaid": "正在渲染 Mermaid 图表…",
       "empty": "没有工件内容"
+    },
+    "system_prompt": {
+      "button": "对话指令",
+      "title": "对话指令",
+      "description": "仅用于此对话的系统提示词，会覆盖模型的默认提示词。",
+      "placeholder": "例如：你是一个用要点简洁作答的助手。",
+      "save": "保存",
+      "clear": "清除"
+    },
+    "voice_input": {
+      "start": "用语音输入",
+      "stop": "停止语音输入",
+      "mic_blocked_title": "麦克风被阻止",
+      "mic_blocked_description": "请在浏览器的网站设置中允许此扩展访问麦克风，然后重试。",
+      "error_title": "语音输入失败",
+      "error_description": "语音识别失败（{{code}}）。请检查网络连接后重试。",
+      "page_title": "麦克风访问",
+      "page_requesting": "浏览器将请求麦克风访问权限。选择“允许”以启用语音输入。",
+      "page_granted": "麦克风已启用。你可以关闭此标签页，在侧边栏中使用语音输入。",
+      "page_denied": "麦克风访问被拒绝。请点击地址栏中的麦克风图标（或打开扩展的网站设置）允许访问，然后重试。",
+      "page_retry": "重试",
+      "local_downloading_title": "正在准备设备端语音识别",
+      "local_downloading_description": "正在下载语音模型，以实现私密的设备端听写。准备就绪后将自动开始聆听。",
+      "preparing": "正在准备设备端语音识别…"
+    },
+    "tool_confirmation": {
+      "title": "确认操作",
+      "body": "助手想要执行：{{action}}。是否允许？",
+      "allow": "允许",
+      "deny": "拒绝"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "{{title}} 的更多操作",
       "more_default": "聊天会话操作",
-      "tooltip": "更多操作"
+      "tooltip": "更多操作",
+      "pin": "置顶对话",
+      "unpin": "取消置顶"
+    },
+    "groups": {
+      "pinned": "已置顶"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "选择一个模型…",
           "customBadge": "自定义",
           "reset": "重置为默认",
-          "empty": "暂无可用模型。"
+          "empty": "暂无可用模型。",
+          "nonNativeFallback": {
+            "label": "基于提示词的工具（无原生工具调用）",
+            "description": "对于无法原生调用工具的模型，在提示词中描述工具并解析其调用。实验性功能，可靠性低于原生工具调用。"
+          }
         }
       }
     },
     "search": {
       "placeholder": "搜索设置…"
+    },
+    "restore_sessions": {
+      "title": "重新打开已关闭的标签页",
+      "description": "控制 restore_session 工具，用于重新打开最近关闭的标签页。",
+      "max_label": "单次最多重开标签数",
+      "max_hint": "助手在一次操作中可重新打开的最大标签数（1–25），避免“全部打开”生成过多标签页。"
     }
   },
   "guides": {

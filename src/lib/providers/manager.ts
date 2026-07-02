@@ -120,40 +120,39 @@ export const ProviderManager = {
     }
 
     // Merge new defaults if they are missing from stored config
+    const currentStored = stored ?? []
     const missing = DEFAULT_PROVIDERS.filter(
-      (d) => !stored.find((s) => s.id === d.id)
+      (d) => !currentStored.find((s) => s.id === d.id)
     )
 
-    // Sync legacy provider URL if present (default provider legacy key)
+    // One-time migration of the pre-provider-config Ollama base URL: adopt
+    // it into the stored config, persist, and delete the legacy key so this
+    // read stops happening on every getProviders call.
     try {
       const legacyUrl = await plasmoGlobalStorage.get<string>(
         LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
       )
 
-      const defaultProviderIndex = stored.findIndex(
-        (p) => p.id === ProviderId.OLLAMA
-      )
-      if (
-        defaultProviderIndex !== -1 &&
-        legacyUrl &&
-        legacyUrl !== stored[defaultProviderIndex].baseUrl
-      ) {
-        // Create a new array to avoid mutating the original if we are just reading
-        stored = [...stored]
-        stored[defaultProviderIndex] = {
-          ...stored[defaultProviderIndex],
-          baseUrl: legacyUrl
+      if (legacyUrl) {
+        const defaultProviderIndex = stored.findIndex(
+          (p) => p.id === ProviderId.OLLAMA
+        )
+        if (
+          defaultProviderIndex !== -1 &&
+          legacyUrl !== stored[defaultProviderIndex].baseUrl
+        ) {
+          stored = [...stored]
+          stored[defaultProviderIndex] = {
+            ...stored[defaultProviderIndex],
+            baseUrl: legacyUrl
+          }
+          await ProviderManager.saveProviders(stored)
         }
-        // We could save it back here, but maybe better to just use it in memory for now
-        // to avoid side effects during read? No, syncing IS a side effect we want.
-        // But let's keep getProviders pure-ish regarding persistence for now
-        // and let updateProviderConfig handle writes.
-        // Actually, if we Don't save it, the setting UI will show the old URL until saved.
-        // But if we return the legacy URL, the UI will show it, and if user saves, it updates.
+        await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
       }
     } catch (e) {
       logger.warn(
-        "Failed to check legacy provider URL in getProviders",
+        "Failed to migrate legacy provider URL in getProviders",
         "ProviderManager",
         { error: e }
       )

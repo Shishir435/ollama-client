@@ -53,7 +53,7 @@ export function SelectionOverlayApp({
 }: OverlayAppProps) {
   const [state, dispatch] = useReducer(
     reduceSelectionOverlayState,
-    null,
+    undefined,
     createSelectionOverlayState
   )
   const stateRef = useRef(state)

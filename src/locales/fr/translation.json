@@ -176,6 +176,7 @@
       "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "La recherche web nécessite l'appel d'outils, que ce modèle ne prend pas en charge. Activez le fallback d'outils dans les paramètres du modèle.",
       "drop_files_here": "Déposer des fichiers ici",
       "attachments": "{{count}} pièces jointes",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "Planification du rappel",
         "save_artifact": "Enregistrement du fichier",
         "capture_screenshot": "Capture d'écran",
-        "searches": "{{count}} recherches"
+        "searches": "{{count}} recherches",
+        "restoreSession": "Réouverture d’un onglet fermé",
+        "list_reminders": "Liste des rappels",
+        "cancel_reminder": "Annulation du rappel"
       },
       "debug": "Raisonnement de débogage"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "Aucun contenu Mermaid",
       "rendering_mermaid": "Rendu du diagramme Mermaid…",
       "empty": "Aucun contenu d'artefact"
+    },
+    "system_prompt": {
+      "button": "Instructions du chat",
+      "title": "Instructions du chat",
+      "description": "Un prompt système pour ce chat uniquement. Il remplace le prompt par défaut du modèle.",
+      "placeholder": "ex. Tu es un assistant concis qui répond par points.",
+      "save": "Enregistrer",
+      "clear": "Effacer"
+    },
+    "voice_input": {
+      "start": "Dicter à la voix",
+      "stop": "Arrêter la dictée",
+      "mic_blocked_title": "Microphone bloqué",
+      "mic_blocked_description": "Autorisez l'accès au microphone pour cette extension dans les paramètres de site de votre navigateur, puis réessayez.",
+      "error_title": "Échec de la saisie vocale",
+      "error_description": "La reconnaissance vocale a échoué ({{code}}). Vérifiez votre connexion et réessayez.",
+      "page_title": "Accès au microphone",
+      "page_requesting": "Votre navigateur va demander l'accès au microphone. Choisissez Autoriser pour activer la saisie vocale.",
+      "page_granted": "Microphone activé. Vous pouvez fermer cet onglet et utiliser la saisie vocale dans le panneau latéral.",
+      "page_denied": "L'accès au microphone a été refusé. Cliquez sur l'icône du micro dans la barre d'adresse (ou ouvrez les paramètres de site de l'extension) pour l'autoriser, puis réessayez.",
+      "page_retry": "Réessayer",
+      "local_downloading_title": "Préparation de la reconnaissance locale",
+      "local_downloading_description": "Téléchargement du modèle vocal pour une dictée privée sur l'appareil. L'écoute démarrera automatiquement dès qu'il sera prêt.",
+      "preparing": "Préparation de la reconnaissance locale…"
+    },
+    "tool_confirmation": {
+      "title": "Confirmer l’action",
+      "body": "L’assistant veut : {{action}}. Autoriser ?",
+      "allow": "Autoriser",
+      "deny": "Refuser"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "Plus d'actions pour {{title}}",
       "more_default": "Actions de la session de chat",
-      "tooltip": "Plus d'actions"
+      "tooltip": "Plus d'actions",
+      "pin": "Épingler le chat",
+      "unpin": "Désépingler le chat"
+    },
+    "groups": {
+      "pinned": "Épinglés"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "Choisir un modèle…",
           "customBadge": "personnalisé",
           "reset": "Réinitialiser",
-          "empty": "Aucun modèle disponible pour l'instant."
+          "empty": "Aucun modèle disponible pour l'instant.",
+          "nonNativeFallback": {
+            "label": "Outils par prompt (sans tool-calling natif)",
+            "description": "Pour les modèles sans tool-calling natif : décrit les outils dans le prompt et analyse les appels. Expérimental ; moins fiable que le tool-calling natif."
+          }
         }
       }
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres…"
+    },
+    "restore_sessions": {
+      "title": "Rouvrir les onglets fermés",
+      "description": "Contrôle l’outil restore_session, qui rouvre les onglets récemment fermés.",
+      "max_label": "Onglets max. à rouvrir d’un coup",
+      "max_hint": "Le nombre maximal d’onglets que l’assistant peut rouvrir en une action (1–25). Évite qu’un « tout rouvrir » ne crée trop d’onglets."
     }
   },
   "guides": {

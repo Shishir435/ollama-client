@@ -1,5 +1,8 @@
 import { memo, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import { RefreshCcw } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
 import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
@@ -19,7 +22,7 @@ export const ChatMessageBubble = memo(
     onNavigate
   }: {
     msg: ChatMessage
-    onRegenerate?: (model: string) => void
+    onRegenerate?: (model?: string) => void
     isLoading?: boolean
     isStreaming?: boolean
     showRetrievedChunks?: boolean
@@ -28,8 +31,15 @@ export const ChatMessageBubble = memo(
     onDelete?: () => void
     onNavigate?: (nodeId: number | string) => void
   }) => {
+    const { t } = useTranslation()
     const [isEditing, setIsEditing] = useState(false)
     const isUser = msg.role === "user"
+    const canRetry =
+      !isUser &&
+      Boolean(msg.error?.retryable) &&
+      Boolean(onRegenerate) &&
+      !isLoading &&
+      !isStreaming
 
     const handleSave = (newContent: string) => {
       onUpdate?.(newContent)
@@ -78,6 +88,18 @@ export const ChatMessageBubble = memo(
               isLoading={isLoading}
               isStreaming={isStreaming}
             />
+            {canRetry && (
+              <div className="mt-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  onClick={() => onRegenerate?.()}>
+                  <RefreshCcw className="icon-xs" />
+                  {t("common.actions.retry")}
+                </Button>
+              </div>
+            )}
             <ChatMessageFooter
               isUser={isUser}
               msg={msg}

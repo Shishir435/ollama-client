@@ -8,22 +8,6 @@ import * as sqliteRepo from "./sqlite-chat-history"
  * route only through SQLite now.
  */
 
-export type ChatHistoryBackend = "sqlite"
-
-export const getActiveBackend = (): ChatHistoryBackend => "sqlite"
-
-export const initChatHistoryBackend = async (): Promise<ChatHistoryBackend> =>
-  "sqlite"
-
-export const setActiveBackend = async (
-  backend: ChatHistoryBackend,
-  _options?: { persist?: boolean }
-): Promise<void> => {
-  if (backend !== "sqlite") {
-    throw new Error(`Unsupported chat history backend: ${backend}`)
-  }
-}
-
 export const getAllSessionsOrderedByRecency =
   sqliteRepo.getAllSessionsOrderedByRecency
 export const getAllSessions = sqliteRepo.getAllSessions

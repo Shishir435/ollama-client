@@ -6,7 +6,6 @@ import type {
   NetworkError,
   PortStatusFunction
 } from "@/types"
-import { clearAbortController } from "./abort-controller-registry"
 import { safePostMessage } from "./utils"
 
 type HandlerFunction<T> = (
@@ -76,9 +75,10 @@ export const createErrorResponse = (
  * 2. Port closed checks
  * 3. Contextual error logging
  *
- * Each handler manages its own AbortController lifecycle.
- * The finally block here clears any leftover registration as a
- * safety net.
+ * Each handler manages its own AbortController lifecycle (register + clear
+ * in its own finally, under its own key). No cleanup happens here: this
+ * wrapper doesn't know the handler's abort key, and clearing by `port.name`
+ * used to delete the wrong entry while leaking the real one.
  */
 export const withErrorContext = <T>(
   handler: HandlerFunction<T>,
@@ -119,9 +119,6 @@ export const withErrorContext = <T>(
         })
         safePostMessage(port, { error: response.error })
       }
-    } finally {
-      // 5. Cleanup
-      clearAbortController(port.name)
     }
   }
 }

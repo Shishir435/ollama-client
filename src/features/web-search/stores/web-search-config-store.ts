@@ -11,6 +11,25 @@ import {
 } from "@/lib/tools/web-search"
 
 const webSearchStorage = getPlasmoStorageForKey(STORAGE_KEYS.WEB_SEARCH.CONFIG)
+const webSearchActiveStorage = getPlasmoStorageForKey(
+  STORAGE_KEYS.WEB_SEARCH.ACTIVE
+)
+
+/**
+ * Per-device "use web search in this chat" flag. Separate from
+ * `config.enabled` (settings-level "configured/available") so the composer
+ * toggle doesn't silently flip the settings switch.
+ */
+export const useWebSearchActive = () => {
+  const [active, setActive] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.WEB_SEARCH.ACTIVE,
+      instance: webSearchActiveStorage
+    },
+    true
+  )
+  return { active: active !== false, setActive }
+}
 
 export const useWebSearchConfig = () => {
   const [config, setConfig] = useStorage<WebSearchProviderConfig>(

@@ -19,10 +19,16 @@ import type {
   PortStatusFunction
 } from "@/types"
 
+let portConnectionSeq = 0
+
 export const registerPortRouter = () => {
-  browser.runtime.onConnect.addListener((port: ChromePort) => {
+  browser.runtime.onConnect.addListener((rawPort) => {
+    const port = rawPort as unknown as ChromePort
     let isPortClosed = false
     let currentAbortKey: string | undefined
+    // Port names are shared constants; give each live connection its own
+    // abort key so same-named ports (e.g. two windows) never collide.
+    port.abortScopeKey = `${port.name}#${++portConnectionSeq}`
     const isSelectionBridgePort = registerSelectionBridgePort(port)
 
     const getPortStatus: PortStatusFunction = () => isPortClosed
@@ -32,10 +38,14 @@ export const registerPortRouter = () => {
       if (isSelectionBridgePort) {
         unregisterSelectionBridgePort(port)
       }
-      abortAndClearController(currentAbortKey ?? port.name)
+      // Abort whatever this connection may have registered: a chat stream
+      // (keyed by requestId) and/or a selection action (keyed by scope key).
+      if (currentAbortKey) abortAndClearController(currentAbortKey)
+      if (port.abortScopeKey) abortAndClearController(port.abortScopeKey)
     })
 
-    port.onMessage.addListener(async (msg: ChromeMessage) => {
+    port.onMessage.addListener(async (message) => {
+      const msg = message as ChromeMessage
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
         currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
@@ -47,7 +57,10 @@ export const registerPortRouter = () => {
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
         logger.info("Stop generation requested", "BackgroundSW")
-        abortAndClearController(currentAbortKey ?? port.name)
+        const requestedKey = (msg as ChatWithModelMessage).payload?.requestId
+        abortAndClearController(
+          requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
+        )
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {
@@ -60,7 +73,7 @@ export const registerPortRouter = () => {
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION) {
         logger.info("Selection action cancel requested", "BackgroundSW")
-        abortAndClearController(port.name)
+        abortAndClearController(port.abortScopeKey ?? port.name)
       }
     })
 
@@ -68,7 +81,8 @@ export const registerPortRouter = () => {
       port.name === MESSAGE_KEYS.PROVIDER.PULL_MODEL ||
       port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
     ) {
-      port.onMessage.addListener(async (msg: ChromeMessage) => {
+      port.onMessage.addListener(async (message) => {
+        const msg = message as ChromeMessage
         await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
       })
     }

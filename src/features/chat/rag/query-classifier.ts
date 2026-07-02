@@ -115,7 +115,7 @@ export function classifyQuery(
 
   if (isConversational) {
     // Check if there's recent context
-    const hasRecentContext = chatHistory && chatHistory.length > 0
+    const hasRecentContext = Boolean(chatHistory && chatHistory.length > 0)
 
     return {
       intent: "conversational",

@@ -1,5 +1,5 @@
 import type { ToolSource } from "../types"
-import { getWebSearchConfig } from "./config"
+import { getWebSearchActive, getWebSearchConfig } from "./config"
 import { getWebSearchBackend } from "./registry"
 import { runWebSearch, webSearchDefinition } from "./web-search-tool"
 
@@ -7,9 +7,11 @@ export const createWebSearchToolSource = (): ToolSource => ({
   id: "web-search",
   listTools: async () => {
     const config = await getWebSearchConfig()
-    const backend = config.enabled
-      ? getWebSearchBackend(config.provider)
-      : undefined
+    // Two gates: configured in settings (config.enabled) AND switched on for
+    // this device's chats (the composer toggle).
+    if (!config.enabled) return []
+    if (!(await getWebSearchActive())) return []
+    const backend = getWebSearchBackend(config.provider)
     if (!backend) return []
     if (!backend.validateConfig(config).ok) return []
     return [webSearchDefinition]

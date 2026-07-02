@@ -176,6 +176,7 @@
       "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "web_search_toggle_tooltip": "Web search",
+      "web_search_requires_tools": "Websuche benötigt Tool-Aufrufe, die dieses Modell nicht unterstützt. Aktiviere den Tool-Fallback in den Modelleinstellungen.",
       "drop_files_here": "Dateien hier ablegen",
       "attachments": "{{count}} Anhänge",
       "images": {
@@ -269,7 +270,10 @@
         "schedule_reminder": "Erinnerung planen",
         "save_artifact": "Datei speichern",
         "capture_screenshot": "Screenshot wird aufgenommen",
-        "searches": "{{count}} Suchen"
+        "searches": "{{count}} Suchen",
+        "restoreSession": "Geschlossenen Tab wieder öffnen",
+        "list_reminders": "Erinnerungen auflisten",
+        "cancel_reminder": "Erinnerung wird abgebrochen"
       },
       "debug": "Debug-Reasoning"
     },
@@ -417,6 +421,36 @@
       "mermaid_empty": "Kein Mermaid-Inhalt",
       "rendering_mermaid": "Mermaid-Diagramm wird gerendert …",
       "empty": "Kein Artefakt-Inhalt"
+    },
+    "system_prompt": {
+      "button": "Chat-Anweisungen",
+      "title": "Chat-Anweisungen",
+      "description": "Ein System-Prompt nur für diesen Chat. Er überschreibt den Standard-Prompt des Modells.",
+      "placeholder": "z. B. Du bist ein präziser Assistent, der in Stichpunkten antwortet.",
+      "save": "Speichern",
+      "clear": "Löschen"
+    },
+    "voice_input": {
+      "start": "Mit deiner Stimme diktieren",
+      "stop": "Diktat beenden",
+      "mic_blocked_title": "Mikrofon blockiert",
+      "mic_blocked_description": "Erlaube dieser Erweiterung den Mikrofonzugriff in den Website-Einstellungen deines Browsers und versuche es erneut.",
+      "error_title": "Spracheingabe fehlgeschlagen",
+      "error_description": "Spracherkennung fehlgeschlagen ({{code}}). Prüfe deine Verbindung und versuche es erneut.",
+      "page_title": "Mikrofonzugriff",
+      "page_requesting": "Dein Browser fragt nach Mikrofonzugriff. Wähle „Zulassen“, um die Spracheingabe zu aktivieren.",
+      "page_granted": "Mikrofon aktiviert. Du kannst diesen Tab schließen und die Spracheingabe im Seitenpanel nutzen.",
+      "page_denied": "Mikrofonzugriff wurde verweigert. Klicke auf das Mikrofon-Symbol in der Adressleiste (oder öffne die Website-Einstellungen der Erweiterung), erlaube den Zugriff und versuche es erneut.",
+      "page_retry": "Erneut versuchen",
+      "local_downloading_title": "On-Device-Sprache wird vorbereitet",
+      "local_downloading_description": "Das Sprachmodell für private Diktate direkt auf dem Gerät wird heruntergeladen. Das Zuhören startet automatisch, sobald es bereit ist.",
+      "preparing": "On-Device-Sprache wird vorbereitet …"
+    },
+    "tool_confirmation": {
+      "title": "Aktion bestätigen",
+      "body": "Der Assistent möchte: {{action}}. Zulassen?",
+      "allow": "Zulassen",
+      "deny": "Ablehnen"
     }
   },
   "file_upload": {
@@ -705,7 +739,12 @@
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
       "more_default": "Chat-Sitzungsaktionen",
-      "tooltip": "Weitere Aktionen"
+      "tooltip": "Weitere Aktionen",
+      "pin": "Chat anheften",
+      "unpin": "Chat lösen"
+    },
+    "groups": {
+      "pinned": "Angeheftet"
     }
   },
   "tabs": {
@@ -1578,12 +1617,22 @@
           "selectPlaceholder": "Modell auswählen…",
           "customBadge": "angepasst",
           "reset": "Auf Standard zurücksetzen",
-          "empty": "Noch keine Modelle verfügbar."
+          "empty": "Noch keine Modelle verfügbar.",
+          "nonNativeFallback": {
+            "label": "Prompt-basierte Tools (kein natives Tool-Calling)",
+            "description": "Für Modelle ohne natives Tool-Calling: Tools im Prompt beschreiben und die Aufrufe zurückparsen. Experimentell; weniger zuverlässig als natives Tool-Calling."
+          }
         }
       }
     },
     "search": {
       "placeholder": "Einstellungen durchsuchen…"
+    },
+    "restore_sessions": {
+      "title": "Geschlossene Tabs wieder öffnen",
+      "description": "Steuert das restore_session-Tool, das kürzlich geschlossene Tabs wieder öffnet.",
+      "max_label": "Max. Tabs auf einmal öffnen",
+      "max_hint": "Die maximale Anzahl an Tabs, die der Assistent in einer Aktion wieder öffnen darf (1–25). Verhindert, dass „alle öffnen“ zu viele Tabs erzeugt."
     }
   },
   "guides": {

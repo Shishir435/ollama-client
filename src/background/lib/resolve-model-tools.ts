@@ -6,7 +6,10 @@ import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
 import { getToolFamily } from "@/lib/tools/tool-families"
-import { getEffectiveToolFamilySettings } from "@/lib/tools/tool-model-overrides"
+import {
+  getEffectiveToolFamilySettings,
+  getToolModelOverride
+} from "@/lib/tools/tool-model-overrides"
 
 /**
  * Caches a model's `/api/show` capability tags briefly, keyed by the provider
@@ -26,18 +29,31 @@ export const clearModelToolCapabilityCache = () => {
   capabilityTagsCache.clear()
 }
 
+/** How the resolved tools should be driven for this turn. */
+export type ToolCallingMode = "native" | "non-native"
+
+export interface ResolvedModelTools {
+  tools: ToolDefinition[]
+  mode: ToolCallingMode
+}
+
 /**
- * Resolve the tools to offer a model for one chat turn, gated on the model's
- * resolved `toolCalling` capability (override → metadata → provider default —
- * the same chain the UI uses). Returns `undefined` when the model can't call
- * tools or no tools are registered, so the request stays byte-identical to the
- * pre-tool-calling shape and non-tool models are unaffected.
+ * Resolve the tools to offer a model for one chat turn.
+ *
+ * When the model's resolved `toolCalling` capability is true (override →
+ * metadata → provider default — the same chain the UI uses), tools are driven
+ * natively. When it is false, tools are offered only if the user opted this
+ * model into the prompt-based `nonNativeToolFallback`; otherwise the model gets
+ * no tools and the request stays byte-identical to the pre-tool-calling shape.
+ *
+ * Returns `undefined` when no tools should be offered (governance off, none
+ * registered, or non-tool-calling model without the fallback opt-in).
  */
 export const resolveModelTools = async (
   model: string,
   providerId: string | undefined,
   provider: LLMProvider
-): Promise<ToolDefinition[] | undefined> => {
+): Promise<ResolvedModelTools | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const providerUrl = provider.config.baseUrl || ""
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
@@ -73,7 +89,17 @@ export const resolveModelTools = async (
     override
   })
 
-  if (!capabilities.toolCalling) return undefined
+  // Native when the model supports tool-calling; otherwise fall back to the
+  // prompt-based path only if the user opted this model in. Off by default, so a
+  // non-tool-calling model without the opt-in gets no tools (unchanged behavior).
+  let mode: ToolCallingMode
+  if (capabilities.toolCalling) {
+    mode = "native"
+  } else {
+    const override = await getToolModelOverride(resolvedProviderId, model)
+    if (!override?.nonNativeToolFallback) return undefined
+    mode = "non-native"
+  }
 
   // Governance: the user gates which tool families a model may be offered.
   // Master off → no tools at all; otherwise drop tools whose family is disabled.
@@ -97,5 +123,5 @@ export const resolveModelTools = async (
     }
     return true
   })
-  return allowed.length > 0 ? allowed : undefined
+  return allowed.length > 0 ? { tools: allowed, mode } : undefined
 }

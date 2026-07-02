@@ -3,6 +3,11 @@ import {
   getErrorMessage,
   isAppError
 } from "@/lib/error-utils"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+
+/** Raw provider bodies look like `Ollama Error (404): {"error":…}` — never UI copy. */
+const looksLikeRawProviderError = (message: string): boolean =>
+  /error \(\d{3}\)|\{"error"/i.test(message)
 
 type ErrorEnvelope = {
   status?: number
@@ -49,14 +54,42 @@ export const getDisplayErrorMessage = (
 ) => {
   if (typeof error === "string") return error || fallbackMessage
   if (isAppError(error)) {
-    return error.userMessage || error.message || fallbackMessage
+    return (
+      error.userMessage ||
+      sanitizeErrorMessage(error.message, error.status) ||
+      fallbackMessage
+    )
   }
   if (error && typeof error === "object") {
     const envelope = error as ErrorEnvelope
-    return envelope.userMessage || envelope.message || fallbackMessage
+    return (
+      envelope.userMessage ||
+      sanitizeErrorMessage(envelope.message, envelope.status) ||
+      fallbackMessage
+    )
   }
 
   return getErrorMessage(error, fallbackMessage)
+}
+
+/**
+ * Last line of defense: if a raw provider response (status codes, JSON error
+ * bodies) reaches the display layer without a `userMessage`, swap it for the
+ * clean per-status copy. The raw text stays in logs/debug, not in the chat.
+ */
+const sanitizeErrorMessage = (
+  message: string | undefined,
+  status: number | undefined
+): string | undefined => {
+  if (!message) return message
+  if (
+    typeof status === "number" &&
+    status > 0 &&
+    looksLikeRawProviderError(message)
+  ) {
+    return providerErrorUserMessage(status)
+  }
+  return message
 }
 
 export const formatErrorForDisplay = (

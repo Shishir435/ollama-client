@@ -13,7 +13,11 @@ export const TAVILY_SEARCH_ENDPOINT = "https://api.tavily.com/search"
 export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   provider: "searxng",
   endpoint: DEFAULT_SEARXNG_ENDPOINT,
-  enabled: false,
+  // On by default so the web toggle and web_search tool are discoverable out
+  // of the box. The default SearXNG endpoint may not be running — a failed
+  // search returns an actionable error to the model/user rather than the
+  // feature being invisible.
+  enabled: true,
   count: 5,
   searxngPages: 1,
   safeSearch: "moderate"
@@ -51,4 +55,21 @@ export const setWebSearchConfig = async (
   config: WebSearchProviderConfig
 ): Promise<void> => {
   await setPlasmoStoredValue(STORAGE_KEYS.WEB_SEARCH.CONFIG, config)
+}
+
+/**
+ * Per-device "use web search in this chat" flag, separate from
+ * `config.enabled` (which means "configured/available" and lives in
+ * settings). Defaults to true so enabling web search in settings keeps
+ * working with no extra step — the composer toggle then opts out per device.
+ */
+export const getWebSearchActive = async (): Promise<boolean> => {
+  const stored = await getPlasmoStoredValue<boolean>(
+    STORAGE_KEYS.WEB_SEARCH.ACTIVE
+  )
+  return stored ?? true
+}
+
+export const setWebSearchActive = async (active: boolean): Promise<void> => {
+  await setPlasmoStoredValue(STORAGE_KEYS.WEB_SEARCH.ACTIVE, active)
 }
