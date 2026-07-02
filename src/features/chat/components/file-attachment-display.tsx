@@ -101,9 +101,12 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
         open={open}
         onOpenChange={setOpen}
         title={
-          <span className="inline-flex min-w-0 items-center gap-2">
-            {getFileIcon(file.fileType)}
-            <span className="truncate">{file.fileName}</span>
+          // Block-level flex, not inline-flex: an inline-flex box grows past
+          // the header instead of shrinking, so the inner truncate never kicks
+          // in and long names run under the close button.
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0">{getFileIcon(file.fileType)}</span>
+            <span className="min-w-0 flex-1 truncate">{file.fileName}</span>
           </span>
         }
         meta={
