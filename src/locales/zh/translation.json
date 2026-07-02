@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "用语音输入",
-      "stop": "停止语音输入"
+      "stop": "停止语音输入",
+      "mic_blocked_title": "麦克风被阻止",
+      "mic_blocked_description": "请在浏览器的网站设置中允许此扩展访问麦克风，然后重试。",
+      "error_title": "语音输入失败",
+      "error_description": "语音识别失败（{{code}}）。请检查网络连接后重试。"
     },
     "tool_confirmation": {
       "title": "确认操作",

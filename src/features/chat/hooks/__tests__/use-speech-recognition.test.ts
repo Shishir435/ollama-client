@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   isSpeechRecognitionSupported,
   useSpeechRecognition
@@ -24,9 +24,36 @@ class FakeRecognition {
   }
 }
 
+// happy-dom exposes navigator.permissions/mediaDevices as getter-only —
+// override via defineProperty and restore by redefining as undefined.
+const defineNav = (prop: string, value: unknown) => {
+  Object.defineProperty(navigator, prop, { value, configurable: true })
+}
+
+const grantMic = () => {
+  defineNav("permissions", {
+    query: vi.fn().mockResolvedValue({ state: "granted" })
+  })
+}
+
+const denyMic = () => {
+  defineNav("permissions", {
+    query: vi.fn().mockResolvedValue({ state: "prompt" })
+  })
+  defineNav("mediaDevices", {
+    getUserMedia: vi.fn().mockRejectedValue(new Error("NotAllowedError"))
+  })
+}
+
+beforeEach(() => {
+  grantMic()
+})
+
 afterEach(() => {
   delete (window as any).SpeechRecognition
   delete (window as any).webkitSpeechRecognition
+  defineNav("permissions", undefined)
+  defineNav("mediaDevices", undefined)
   vi.restoreAllMocks()
 })
 
@@ -37,7 +64,7 @@ describe("useSpeechRecognition", () => {
     expect(result.current.supported).toBe(false)
   })
 
-  it("starts listening and forwards the final transcript", () => {
+  it("starts listening and forwards the final transcript", async () => {
     const instances: FakeRecognition[] = []
     ;(window as any).SpeechRecognition = class extends FakeRecognition {
       constructor() {
@@ -49,7 +76,7 @@ describe("useSpeechRecognition", () => {
     const { result } = renderHook(() => useSpeechRecognition(onTranscript))
 
     expect(result.current.supported).toBe(true)
-    act(() => result.current.toggle())
+    await act(async () => result.current.toggle())
     expect(result.current.listening).toBe(true)
     expect(instances[0].start).toHaveBeenCalled()
 
@@ -57,7 +84,7 @@ describe("useSpeechRecognition", () => {
     expect(onTranscript).toHaveBeenCalledWith("hello world")
   })
 
-  it("stops when toggled while listening", () => {
+  it("stops when toggled while listening", async () => {
     const instances: FakeRecognition[] = []
     ;(window as any).webkitSpeechRecognition = class extends FakeRecognition {
       constructor() {
@@ -67,10 +94,80 @@ describe("useSpeechRecognition", () => {
     }
     const { result } = renderHook(() => useSpeechRecognition(vi.fn()))
 
-    act(() => result.current.toggle())
+    await act(async () => result.current.toggle())
     expect(result.current.listening).toBe(true)
-    act(() => result.current.toggle())
+    await act(async () => result.current.toggle())
     expect(instances[0].stop).toHaveBeenCalled()
     expect(result.current.listening).toBe(false)
+  })
+
+  it("requests mic permission via getUserMedia when not yet granted", async () => {
+    const stop = vi.fn()
+    defineNav("permissions", {
+      query: vi.fn().mockResolvedValue({ state: "prompt" })
+    })
+    const getUserMedia = vi
+      .fn()
+      .mockResolvedValue({ getTracks: () => [{ stop }] })
+    defineNav("mediaDevices", { getUserMedia })
+
+    const instances: FakeRecognition[] = []
+    ;(window as any).SpeechRecognition = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+    }
+    const { result } = renderHook(() => useSpeechRecognition(vi.fn()))
+
+    await act(async () => result.current.toggle())
+
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: true })
+    expect(stop).toHaveBeenCalled()
+    expect(result.current.listening).toBe(true)
+  })
+
+  it("reports not-allowed instead of starting when mic access is denied", async () => {
+    denyMic()
+    const instances: FakeRecognition[] = []
+    ;(window as any).SpeechRecognition = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+    }
+    const onError = vi.fn()
+    const { result } = renderHook(() => useSpeechRecognition(vi.fn(), onError))
+
+    await act(async () => result.current.toggle())
+
+    expect(onError).toHaveBeenCalledWith("not-allowed")
+    expect(result.current.listening).toBe(false)
+    expect(instances).toHaveLength(0)
+  })
+
+  it("surfaces recognition errors except aborted and no-speech", async () => {
+    const instances: FakeRecognition[] = []
+    ;(window as any).SpeechRecognition = class extends FakeRecognition {
+      constructor() {
+        super()
+        instances.push(this)
+      }
+    }
+    const onError = vi.fn()
+    const { result } = renderHook(() => useSpeechRecognition(vi.fn(), onError))
+
+    await act(async () => result.current.toggle())
+    act(() => instances[0].onerror?.({ error: "network" }))
+    expect(onError).toHaveBeenCalledWith("network")
+
+    onError.mockClear()
+    await act(async () => {
+      instances[0].onend?.()
+    })
+    await act(async () => result.current.toggle())
+    act(() => instances[1].onerror?.({ error: "no-speech" }))
+    act(() => instances[1].onerror?.({ error: "aborted" }))
+    expect(onError).not.toHaveBeenCalled()
   })
 })

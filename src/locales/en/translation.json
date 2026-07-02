@@ -174,7 +174,11 @@
     },
     "voice_input": {
       "start": "Dictate with your voice",
-      "stop": "Stop dictation"
+      "stop": "Stop dictation",
+      "mic_blocked_title": "Microphone blocked",
+      "mic_blocked_description": "Allow microphone access for this extension in your browser's site settings, then try again.",
+      "error_title": "Voice input failed",
+      "error_description": "Speech recognition failed ({{code}}). Check your connection and try again."
     },
     "system_prompt": {
       "button": "Chat instructions",

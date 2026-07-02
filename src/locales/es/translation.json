@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "Dictar con tu voz",
-      "stop": "Detener el dictado"
+      "stop": "Detener el dictado",
+      "mic_blocked_title": "Micrófono bloqueado",
+      "mic_blocked_description": "Permite el acceso al micrófono para esta extensión en la configuración de sitios de tu navegador e inténtalo de nuevo.",
+      "error_title": "Falló la entrada de voz",
+      "error_description": "El reconocimiento de voz falló ({{code}}). Comprueba tu conexión e inténtalo de nuevo."
     },
     "tool_confirmation": {
       "title": "Confirmar acción",

@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "Detta con la voce",
-      "stop": "Interrompi dettatura"
+      "stop": "Interrompi dettatura",
+      "mic_blocked_title": "Microfono bloccato",
+      "mic_blocked_description": "Consenti l'accesso al microfono per questa estensione nelle impostazioni dei siti del browser, poi riprova.",
+      "error_title": "Input vocale non riuscito",
+      "error_description": "Riconoscimento vocale non riuscito ({{code}}). Controlla la connessione e riprova."
     },
     "tool_confirmation": {
       "title": "Conferma azione",

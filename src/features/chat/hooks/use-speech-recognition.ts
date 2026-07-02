@@ -50,23 +50,60 @@ export const isSpeechRecognitionSupported = (): boolean =>
   getRecognitionCtor() !== undefined
 
 /**
+ * Ensure the extension origin has microphone access before starting
+ * recognition. `SpeechRecognition.start()` fails with "not-allowed" without
+ * ever showing a permission prompt — only `getUserMedia` triggers the prompt
+ * on a chrome-extension page. The acquired tracks are released immediately;
+ * this is purely a permission handshake.
+ */
+const ensureMicPermission = async (): Promise<boolean> => {
+  try {
+    const status = await navigator.permissions
+      ?.query({ name: "microphone" as PermissionName })
+      .catch(() => undefined)
+    if (status?.state === "granted") return true
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    for (const track of stream.getTracks()) track.stop()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Voice-to-text for the composer. Toggles a one-shot recognition session and
  * calls `onTranscript` with the final text. Degrades to `supported: false` where
- * the API is missing so the caller can hide the control.
+ * the API is missing so the caller can hide the control. Failures are reported
+ * through `onError` with the Web Speech error code ("not-allowed", "network",
+ * "no-speech", …) so the UI can explain instead of silently resetting.
  */
-export const useSpeechRecognition = (onTranscript: (text: string) => void) => {
+export const useSpeechRecognition = (
+  onTranscript: (text: string) => void,
+  onError?: (code: string) => void
+) => {
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop()
   }, [])
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     const Ctor = getRecognitionCtor()
     if (!Ctor || recognitionRef.current) return
+
+    if (!(await ensureMicPermission())) {
+      onErrorRef.current?.("not-allowed")
+      return
+    }
+    // A second click while the permission prompt was open could have started
+    // another session in the meantime.
+    if (recognitionRef.current) return
 
     const recognition = new Ctor()
     recognition.lang =
@@ -83,7 +120,14 @@ export const useSpeechRecognition = (onTranscript: (text: string) => void) => {
       const trimmed = finalText.trim()
       if (trimmed) onTranscriptRef.current(trimmed)
     }
-    recognition.onerror = () => setListening(false)
+    recognition.onerror = (event) => {
+      setListening(false)
+      // "aborted" is the user/unmount cancelling; "no-speech" self-explains
+      // by the session just ending — neither warrants an error surface.
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        onErrorRef.current?.(event.error)
+      }
+    }
     recognition.onend = () => {
       setListening(false)
       recognitionRef.current = null

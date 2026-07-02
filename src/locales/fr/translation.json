@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "Dicter à la voix",
-      "stop": "Arrêter la dictée"
+      "stop": "Arrêter la dictée",
+      "mic_blocked_title": "Microphone bloqué",
+      "mic_blocked_description": "Autorisez l'accès au microphone pour cette extension dans les paramètres de site de votre navigateur, puis réessayez.",
+      "error_title": "Échec de la saisie vocale",
+      "error_description": "La reconnaissance vocale a échoué ({{code}}). Vérifiez votre connexion et réessayez."
     },
     "tool_confirmation": {
       "title": "Confirmer l’action",

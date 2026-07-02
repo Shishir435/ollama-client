@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "Mit deiner Stimme diktieren",
-      "stop": "Diktat beenden"
+      "stop": "Diktat beenden",
+      "mic_blocked_title": "Mikrofon blockiert",
+      "mic_blocked_description": "Erlaube dieser Erweiterung den Mikrofonzugriff in den Website-Einstellungen deines Browsers und versuche es erneut.",
+      "error_title": "Spracheingabe fehlgeschlagen",
+      "error_description": "Spracherkennung fehlgeschlagen ({{code}}). Prüfe deine Verbindung und versuche es erneut."
     },
     "tool_confirmation": {
       "title": "Aktion bestätigen",

@@ -432,7 +432,11 @@
     },
     "voice_input": {
       "start": "音声で入力",
-      "stop": "音声入力を停止"
+      "stop": "音声入力を停止",
+      "mic_blocked_title": "マイクがブロックされています",
+      "mic_blocked_description": "ブラウザのサイト設定でこの拡張機能にマイクへのアクセスを許可してから、もう一度お試しください。",
+      "error_title": "音声入力に失敗しました",
+      "error_description": "音声認識に失敗しました（{{code}}）。接続を確認してもう一度お試しください。"
     },
     "tool_confirmation": {
       "title": "操作の確認",
