@@ -129,20 +129,81 @@ const ensureMicPermission = async (): Promise<boolean> => {
  * the API is missing so the caller can hide the control. Failures are reported
  * through `onError` with the Web Speech error code ("not-allowed", "network",
  * "no-speech", …) so the UI can explain instead of silently resetting.
+ *
+ * Dictation model (chat-app style): a session is continuous with interim
+ * results streamed through `onLiveTranscript(finalText, interimText)`; it
+ * ends on mic toggle, on any keydown (the user resumed typing), or after a
+ * silence window — `INITIAL_SILENCE_MS` before the first speech,
+ * `SILENCE_STOP_MS` after it. The full final transcript arrives once via
+ * `onFinalTranscript` when the session ends.
  */
-export const useSpeechRecognition = (
-  onTranscript: (text: string) => void,
-  onError?: (code: string) => void,
+export const INITIAL_SILENCE_MS = 7000
+export const SILENCE_STOP_MS = 2500
+
+export interface UseSpeechRecognitionCallbacks {
+  /** Streaming update: committed text so far + current interim hypothesis. */
+  onLiveTranscript?: (finalText: string, interimText: string) => void
+  /** Fires once when the session ends, with the committed transcript. */
+  onFinalTranscript?: (text: string) => void
+  onError?: (code: string) => void
   onNotice?: (code: string) => void
-) => {
+}
+
+type TimerRef = { current: ReturnType<typeof setTimeout> | null }
+
+const clearSilenceTimer = (ref: TimerRef) => {
+  if (ref.current) {
+    clearTimeout(ref.current)
+    ref.current = null
+  }
+}
+
+/** Brave disables the cloud recognizer and its on-device install hangs. */
+const isBraveBrowser = async (): Promise<boolean> => {
+  const brave = (
+    navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
+  ).brave
+  try {
+    return (await brave?.isBrave?.()) ?? false
+  } catch {
+    return false
+  }
+}
+
+export const useSpeechRecognition = ({
+  onLiveTranscript,
+  onFinalTranscript,
+  onError,
+  onNotice
+}: UseSpeechRecognitionCallbacks) => {
+  const [supported, setSupported] = useState(isSpeechRecognitionSupported())
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
-  const onTranscriptRef = useRef(onTranscript)
-  onTranscriptRef.current = onTranscript
-  const onErrorRef = useRef(onError)
-  onErrorRef.current = onError
-  const onNoticeRef = useRef(onNotice)
-  onNoticeRef.current = onNotice
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const callbacksRef = useRef({
+    onLiveTranscript,
+    onFinalTranscript,
+    onError,
+    onNotice
+  })
+  callbacksRef.current = {
+    onLiveTranscript,
+    onFinalTranscript,
+    onError,
+    onNotice
+  }
+
+  // Web Speech never works in Brave (cloud keys stripped, on-device install
+  // hangs) — hide the control there instead of failing on click.
+  useEffect(() => {
+    let cancelled = false
+    void isBraveBrowser().then((brave) => {
+      if (brave && !cancelled) setSupported(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop()
@@ -153,14 +214,14 @@ export const useSpeechRecognition = (
     if (!Ctor || recognitionRef.current) return
 
     if (!(await ensureMicPermission())) {
-      onErrorRef.current?.("not-allowed")
+      callbacksRef.current.onError?.("not-allowed")
       return
     }
 
     const lang =
       typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"
     const mode = await resolveLocalProcessing(Ctor, lang, (code) =>
-      onNoticeRef.current?.(code)
+      callbacksRef.current.onNotice?.(code)
     )
     if (mode === "wait") return
     // A second click while the permission prompt or language-pack download
@@ -169,35 +230,57 @@ export const useSpeechRecognition = (
 
     const recognition = new Ctor()
     recognition.lang = lang
-    recognition.continuous = false
-    recognition.interimResults = false
+    recognition.continuous = true
+    recognition.interimResults = true
     if (mode === "local") recognition.processLocally = true
 
+    let committed = ""
+
+    const armSilenceTimer = (ms: number) => {
+      clearSilenceTimer(silenceTimerRef)
+      silenceTimerRef.current = setTimeout(() => recognition.stop(), ms)
+    }
+
     recognition.onresult = (event) => {
-      let finalText = ""
+      let interim = ""
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
-        if (result?.isFinal) finalText += result[0]?.transcript ?? ""
+        const transcript = result?.[0]?.transcript ?? ""
+        if (result?.isFinal) {
+          const trimmed = transcript.trim()
+          if (trimmed)
+            committed = committed ? `${committed} ${trimmed}` : trimmed
+        } else {
+          interim += transcript
+        }
       }
-      const trimmed = finalText.trim()
-      if (trimmed) onTranscriptRef.current(trimmed)
+      callbacksRef.current.onLiveTranscript?.(committed, interim.trim())
+      armSilenceTimer(SILENCE_STOP_MS)
     }
     recognition.onerror = (event) => {
       setListening(false)
       // "aborted" is the user/unmount cancelling; "no-speech" self-explains
       // by the session just ending — neither warrants an error surface.
       if (event.error !== "aborted" && event.error !== "no-speech") {
-        onErrorRef.current?.(event.error)
+        callbacksRef.current.onError?.(event.error)
       }
     }
     recognition.onend = () => {
+      clearSilenceTimer(silenceTimerRef)
+      document.removeEventListener("keydown", stopOnKeydown, true)
       setListening(false)
       recognitionRef.current = null
+      callbacksRef.current.onFinalTranscript?.(committed)
     }
+
+    // The user going back to the keyboard ends dictation (chat-app behavior).
+    const stopOnKeydown = () => recognition.stop()
+    document.addEventListener("keydown", stopOnKeydown, true)
 
     recognitionRef.current = recognition
     recognition.start()
     setListening(true)
+    armSilenceTimer(INITIAL_SILENCE_MS)
   }, [])
 
   const toggle = useCallback(() => {
@@ -206,7 +289,13 @@ export const useSpeechRecognition = (
   }, [listening, start, stop])
 
   // Abort any in-flight session on unmount so the mic is released.
-  useEffect(() => () => recognitionRef.current?.abort(), [])
+  useEffect(
+    () => () => {
+      clearSilenceTimer(silenceTimerRef)
+      recognitionRef.current?.abort()
+    },
+    []
+  )
 
-  return { supported: isSpeechRecognitionSupported(), listening, toggle }
+  return { supported, listening, toggle }
 }
