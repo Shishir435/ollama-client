@@ -47,11 +47,15 @@ export async function processKnowledge(
     })
 
     // 1. Create documents from content (preserve page metadata when available)
+    // `type` is the vector-store category ("file"), NOT the MIME type — a
+    // MIME string here makes the chunks invisible to every type:"file" query
+    // (attachment preview, file search). The MIME goes in `contentType`.
     const baseMetadata = {
       fileId,
       source: fileName,
       title: fileName,
-      type: contentType
+      contentType,
+      type: "file" as const
     }
 
     const pageDocuments = (pages || [])
@@ -104,10 +108,13 @@ export async function processKnowledge(
       chunks.map((chunk) => ({
         pageContent: chunk.pageContent,
         metadata: {
+          ...chunk.metadata,
           fileId: (chunk.metadata.fileId as string) || fileId,
           source: (chunk.metadata.source as string) || fileName,
           title: (chunk.metadata.title as string) || fileName,
-          ...chunk.metadata
+          // Force the store category last so nothing in chunk.metadata (e.g.
+          // a legacy MIME `type`) can override it.
+          type: "file" as const
         }
       })),
       fileId
