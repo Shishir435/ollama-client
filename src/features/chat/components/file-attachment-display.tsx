@@ -125,6 +125,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
           </div>
         ) : (
           <PreviewTextBlock
+            className="p-2"
             text={fullText}
             emptyText={t("tabs.inspector.no_content")}
           />
