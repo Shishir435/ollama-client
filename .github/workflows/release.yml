@@ -3,13 +3,17 @@ name: Release
 # Pushing a version tag builds both store packages and publishes a GitHub
 # release with the zips attached. Store submission stays manual.
 #
-#   git tag v0.12.0
-#   git push origin v0.12.0
+#   git tag 0.12.0            # this repo's convention (bare, no v prefix)
+#   git push origin 0.12.0
+#
+# Tags with a prerelease suffix (0.13.0-rc.1, 0.13.0-beta.2) are published
+# as GitHub prereleases automatically.
 
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*.[0-9]*.[0-9]*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: write
@@ -35,7 +39,9 @@ jobs:
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+          # Prerelease tags (0.12.0-rc.1) only need to match the base version.
+          TAG_BASE="${TAG_VERSION%%-*}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ] && [ "$PKG_VERSION" != "$TAG_BASE" ]; then
             echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
             exit 1
           fi
@@ -50,8 +56,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Hyphen in the version = semver prerelease (0.13.0-rc.1) → mark it.
+          PRERELEASE_FLAG=""
+          case "$GITHUB_REF_NAME" in
+            *-*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
+            $PRERELEASE_FLAG \
             build/chrome-mv3-prod/*.zip \
             build/firefox-mv2-prod/*.zip
