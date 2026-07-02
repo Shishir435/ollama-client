@@ -55,7 +55,7 @@ const limitMessagesForModel = (
 export const handleChatWithModel = withErrorContext(
   async (msg: ChatWithModelMessage, port, isPortClosed) => {
     const { model, providerId, messages } = msg.payload
-    const abortKey = msg.payload.requestId || port.name
+    const abortKey = msg.payload.requestId || port.abortScopeKey || port.name
 
     const ac = new AbortController()
     setAbortController(abortKey, ac)

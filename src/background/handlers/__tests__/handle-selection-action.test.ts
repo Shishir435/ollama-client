@@ -159,4 +159,33 @@ describe("handleSelectionAction", () => {
       }
     })
   })
+
+  it("registers the abort controller under the per-connection scope key", async () => {
+    const { setAbortController } = await import(
+      "@/background/lib/abort-controller-registry"
+    )
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
+        return { modelId: "llama3:latest", providerId: "ollama" }
+      }
+      return undefined
+    })
+
+    // Two connections share the same port name; scope keys must keep their
+    // abort registrations separate.
+    const portA = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
+    const portB = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
+    portA.abortScopeKey = `${portA.name}#1`
+    portB.abortScopeKey = `${portB.name}#2`
+
+    await handleSelectionAction(message, portA, createMockIsPortClosed(false))
+    await handleSelectionAction(message, portB, createMockIsPortClosed(false))
+
+    const registeredKeys = vi
+      .mocked(setAbortController)
+      .mock.calls.filter(([, controller]) => controller !== null)
+      .map(([key]) => key)
+    expect(registeredKeys).toEqual([`${portA.name}#1`, `${portB.name}#2`])
+  })
 })

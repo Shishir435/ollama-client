@@ -47,6 +47,13 @@ export interface ChromePort
     (message: ChromeMessage | EmbeddingStatusMessage) => void
   >
   onDisconnect: browser.Events.Event<() => void>
+  /**
+   * Unique per-connection abort key, assigned by the port router. Port names
+   * are shared constants, so two live ports with the same name (e.g. two
+   * windows running selection actions) would collide in the abort registry
+   * if keyed by name alone.
+   */
+  abortScopeKey?: string
 }
 
 export interface ChromeSidePanel {
