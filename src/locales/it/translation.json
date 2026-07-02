@@ -436,7 +436,12 @@
       "mic_blocked_title": "Microfono bloccato",
       "mic_blocked_description": "Consenti l'accesso al microfono per questa estensione nelle impostazioni dei siti del browser, poi riprova.",
       "error_title": "Input vocale non riuscito",
-      "error_description": "Riconoscimento vocale non riuscito ({{code}}). Controlla la connessione e riprova."
+      "error_description": "Riconoscimento vocale non riuscito ({{code}}). Controlla la connessione e riprova.",
+      "page_title": "Accesso al microfono",
+      "page_requesting": "Il browser chiederà l'accesso al microfono. Scegli Consenti per attivare l'input vocale.",
+      "page_granted": "Microfono attivato. Puoi chiudere questa scheda e usare l'input vocale nel pannello laterale.",
+      "page_denied": "L'accesso al microfono è stato negato. Fai clic sull'icona del microfono nella barra degli indirizzi (o apri le impostazioni dei siti dell'estensione) per consentirlo, poi riprova.",
+      "page_retry": "Riprova"
     },
     "tool_confirmation": {
       "title": "Conferma azione",

@@ -178,7 +178,12 @@
       "mic_blocked_title": "Microphone blocked",
       "mic_blocked_description": "Allow microphone access for this extension in your browser's site settings, then try again.",
       "error_title": "Voice input failed",
-      "error_description": "Speech recognition failed ({{code}}). Check your connection and try again."
+      "error_description": "Speech recognition failed ({{code}}). Check your connection and try again.",
+      "page_title": "Microphone access",
+      "page_requesting": "Your browser will ask for microphone access. Choose Allow to enable voice input.",
+      "page_granted": "Microphone enabled. You can close this tab and use voice input in the side panel.",
+      "page_denied": "Microphone access was denied. Click the mic icon in your browser's address bar (or open the extension's site settings) to allow it, then try again.",
+      "page_retry": "Try again"
     },
     "system_prompt": {
       "button": "Chat instructions",

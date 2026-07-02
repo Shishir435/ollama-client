@@ -436,7 +436,12 @@
       "mic_blocked_title": "麦克风被阻止",
       "mic_blocked_description": "请在浏览器的网站设置中允许此扩展访问麦克风，然后重试。",
       "error_title": "语音输入失败",
-      "error_description": "语音识别失败（{{code}}）。请检查网络连接后重试。"
+      "error_description": "语音识别失败（{{code}}）。请检查网络连接后重试。",
+      "page_title": "麦克风访问",
+      "page_requesting": "浏览器将请求麦克风访问权限。选择“允许”以启用语音输入。",
+      "page_granted": "麦克风已启用。你可以关闭此标签页，在侧边栏中使用语音输入。",
+      "page_denied": "麦克风访问被拒绝。请点击地址栏中的麦克风图标（或打开扩展的网站设置）允许访问，然后重试。",
+      "page_retry": "重试"
     },
     "tool_confirmation": {
       "title": "确认操作",

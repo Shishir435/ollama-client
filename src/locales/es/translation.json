@@ -436,7 +436,12 @@
       "mic_blocked_title": "Micrófono bloqueado",
       "mic_blocked_description": "Permite el acceso al micrófono para esta extensión en la configuración de sitios de tu navegador e inténtalo de nuevo.",
       "error_title": "Falló la entrada de voz",
-      "error_description": "El reconocimiento de voz falló ({{code}}). Comprueba tu conexión e inténtalo de nuevo."
+      "error_description": "El reconocimiento de voz falló ({{code}}). Comprueba tu conexión e inténtalo de nuevo.",
+      "page_title": "Acceso al micrófono",
+      "page_requesting": "Tu navegador pedirá acceso al micrófono. Elige Permitir para activar la entrada de voz.",
+      "page_granted": "Micrófono activado. Puedes cerrar esta pestaña y usar la entrada de voz en el panel lateral.",
+      "page_denied": "Se denegó el acceso al micrófono. Haz clic en el icono del micrófono en la barra de direcciones (o abre la configuración de sitios de la extensión) para permitirlo e inténtalo de nuevo.",
+      "page_retry": "Reintentar"
     },
     "tool_confirmation": {
       "title": "Confirmar acción",

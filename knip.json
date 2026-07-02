@@ -7,6 +7,7 @@
     "src/entrypoints/sidepanel/index.tsx",
     "src/entrypoints/options/index.tsx",
     "src/entrypoints/print/main.ts",
+    "src/entrypoints/mic-permission/main.ts",
     "tools/*.ts",
     "wxt.config.ts",
     "vitest.config.ts"

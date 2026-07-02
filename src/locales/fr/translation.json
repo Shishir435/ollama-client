@@ -436,7 +436,12 @@
       "mic_blocked_title": "Microphone bloqué",
       "mic_blocked_description": "Autorisez l'accès au microphone pour cette extension dans les paramètres de site de votre navigateur, puis réessayez.",
       "error_title": "Échec de la saisie vocale",
-      "error_description": "La reconnaissance vocale a échoué ({{code}}). Vérifiez votre connexion et réessayez."
+      "error_description": "La reconnaissance vocale a échoué ({{code}}). Vérifiez votre connexion et réessayez.",
+      "page_title": "Accès au microphone",
+      "page_requesting": "Votre navigateur va demander l'accès au microphone. Choisissez Autoriser pour activer la saisie vocale.",
+      "page_granted": "Microphone activé. Vous pouvez fermer cet onglet et utiliser la saisie vocale dans le panneau latéral.",
+      "page_denied": "L'accès au microphone a été refusé. Cliquez sur l'icône du micro dans la barre d'adresse (ou ouvrez les paramètres de site de l'extension) pour l'autoriser, puis réessayez.",
+      "page_retry": "Réessayer"
     },
     "tool_confirmation": {
       "title": "Confirmer l’action",

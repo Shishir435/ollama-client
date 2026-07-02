@@ -436,7 +436,12 @@
       "mic_blocked_title": "Mikrofon blockiert",
       "mic_blocked_description": "Erlaube dieser Erweiterung den Mikrofonzugriff in den Website-Einstellungen deines Browsers und versuche es erneut.",
       "error_title": "Spracheingabe fehlgeschlagen",
-      "error_description": "Spracherkennung fehlgeschlagen ({{code}}). Prüfe deine Verbindung und versuche es erneut."
+      "error_description": "Spracherkennung fehlgeschlagen ({{code}}). Prüfe deine Verbindung und versuche es erneut.",
+      "page_title": "Mikrofonzugriff",
+      "page_requesting": "Dein Browser fragt nach Mikrofonzugriff. Wähle „Zulassen“, um die Spracheingabe zu aktivieren.",
+      "page_granted": "Mikrofon aktiviert. Du kannst diesen Tab schließen und die Spracheingabe im Seitenpanel nutzen.",
+      "page_denied": "Mikrofonzugriff wurde verweigert. Klicke auf das Mikrofon-Symbol in der Adressleiste (oder öffne die Website-Einstellungen der Erweiterung), erlaube den Zugriff und versuche es erneut.",
+      "page_retry": "Erneut versuchen"
     },
     "tool_confirmation": {
       "title": "Aktion bestätigen",
