@@ -200,6 +200,10 @@ export const MAX_MAX_RESTORE_SESSIONS = 25
 // has a single source to import.
 export const DEFAULT_GROUNDED_ONLY_MODE = false
 export const DEFAULT_AUTO_REFRESH_TAB_CONTEXT = false
+// Chat memory (auto-embedding past messages for recall) ships on: it is the
+// feature reviewers expect from "memory", stays fully local, and users can
+// still switch it off in Settings → Knowledge.
+export const DEFAULT_MEMORY_ENABLED = true
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000
 

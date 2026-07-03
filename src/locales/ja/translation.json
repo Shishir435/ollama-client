@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "再試行",
-      "refresh": "更新"
+      "refresh": "更新",
+      "back": "戻る"
     },
     "updated_at": "更新済み",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ 不明なエラー: {{message}}",
       "no_message": "メッセージなし",
       "response_failed_title": "応答の生成に失敗しました",
-      "unknown_error_description": "不明なエラーが発生しました"
+      "unknown_error_description": "不明なエラーが発生しました",
+      "report_issue": "問題を報告"
     },
     "composer": {
       "rag": "ファイル",
@@ -450,7 +452,10 @@
       "title": "操作の確認",
       "body": "アシスタントが次を実行しようとしています: {{action}}。許可しますか？",
       "allow": "許可",
-      "deny": "拒否"
+      "deny": "拒否",
+      "allow_once": "今回のみ許可",
+      "allow_session": "このチャットで許可",
+      "allow_always": "常に許可"
     }
   },
   "file_upload": {
@@ -458,7 +463,9 @@
       "aria_label": "ファイルをアップロード",
       "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)",
       "aria_label_with_images": "ファイルまたは画像をアップロード",
-      "tooltip_with_images": "ファイルまたは画像をアップロード (PDF, DOCX, CSV, HTML, テキスト, 画像)"
+      "tooltip_with_images": "ファイルまたは画像をアップロード (PDF, DOCX, CSV, HTML, テキスト, 画像)",
+      "formats": "PDF、DOCX、CSV、HTML、テキスト",
+      "formats_with_images": "PDF、DOCX、CSV、HTML、テキスト、画像"
     },
     "preview": {
       "remove_aria_label": "ファイルを削除",
@@ -541,6 +548,7 @@
       "add_button": "追加"
     },
     "embedding_config": {
+      "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
       "total_vectors": "総ベクトル数",
       "storage_used": "使用ストレージ",
@@ -574,7 +582,8 @@
       "chunking_strategy_label": "チャンク戦略",
       "strategy_fixed": "固定サイズ",
       "strategy_semantic": "セマンティック境界",
-      "strategy_hybrid": "ハイブリッド (推奨)",
+      "strategy_hybrid": "ハイブリッド",
+      "strategy_markdown": "Markdown 構造",
       "embedding_gen_title": "エンベディング生成",
       "embedding_gen_description": "エンベディング生成のパフォーマンスを設定します",
       "batch_size_label": "バッチサイズ",
@@ -659,7 +668,13 @@
         "note_self_report": "{{provider}} はこのモデルの機能を自動的に報告します。ここでの変更は検出結果を上書きします。",
         "reset": "検出値にリセット",
         "save": "保存",
-        "save_error": "機能を保存できませんでした。もう一度お試しください。"
+        "save_error": "機能を保存できませんでした。もう一度お試しください。",
+        "probe_title": "ツール対応を検出",
+        "probe_description": "小さなテストリクエストを送信して、このモデルがツールを呼び出せるか確認します。",
+        "probe_button": "検出",
+        "probe_success": "モデルがテストツールを呼び出しました — ツール呼び出しが有効です。",
+        "probe_no_support": "モデルはテストツールを呼び出しませんでした。手動でツール呼び出しを有効にすることもできます。",
+        "probe_failed": "検出に失敗しました。プロバイダーの接続を確認して、もう一度お試しください。"
       },
       "flags": {
         "text": {
@@ -743,6 +758,12 @@
       "pin": "チャットをピン留め",
       "unpin": "ピン留めを解除"
     },
+    "tags": {
+      "title": "チャットタグ",
+      "description": "カンマ区切りのラベルでこのチャットを整理します。",
+      "placeholder": "仕事, 調査, 個人",
+      "action": "タグを編集"
+    },
     "groups": {
       "pinned": "ピン留め"
     }
@@ -772,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "ローカル",
+      "header_tooltip": "ローカルデータとプライバシー設定を確認",
+      "device_local": "このデバイス",
+      "synced": "同期済み",
+      "inventory": {
+        "title": "あなたのデータ",
+        "description": "バックアップまたは消去する前に保存データをすべて確認できます。",
+        "chat": "チャット",
+        "chat_count": "{{sessions}} セッション · {{messages}} メッセージ",
+        "knowledge": "ナレッジとメモリ",
+        "knowledge_count": "{{files}} ファイル · {{vectors}} ベクトル",
+        "settings": "ローカル設定とプロバイダーの秘密情報",
+        "settings_description": "エンドポイント、APIキー、権限、デバイス状態",
+        "preferences": "同期可能な設定",
+        "preferences_description": "ブラウザー同期に保存される表示と動作の設定"
+      }
+    },
     "chat_display": {
       "title": "チャット表示",
       "description": "チャット情報の表示方法を設定",
@@ -1395,6 +1434,39 @@
         "default_url": "デフォルト URL",
         "api_key_required_title": "APIキーが必要です",
         "api_key_required": "接続をテストする前に、{{name}} のAPIキーを追加してください。"
+      },
+      "add": {
+        "button": "プロバイダーを追加",
+        "title": "カスタムプロバイダーを追加",
+        "description": "Ollama、OpenAI互換サーバー、またはAnthropicを接続します。",
+        "name_label": "名前",
+        "name_placeholder": "自宅サーバー",
+        "wire_label": "APIタイプ",
+        "wire_openai": "OpenAI互換",
+        "wire_openai_description": "vLLM、LocalAI、KoboldCPP、その他の互換エンドポイント",
+        "wire_ollama": "Ollama",
+        "wire_ollama_description": "別のローカルまたはリモートOllamaサーバー",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "ネイティブClaude Messages API",
+        "api_key_label": "APIキー（任意）",
+        "api_key_required_label": "APIキー",
+        "remote_notice": "リモートプロバイダー：ここへ送信したプロンプト、ファイル、ツールコンテキストはデバイス外へ送られます。",
+        "submit": "プロバイダーを追加",
+        "added_title": "プロバイダーを追加しました",
+        "added_description": "{{name}} を追加しました。接続をテストしてモデルを検出してください。",
+        "failed_title": "プロバイダーを追加できませんでした",
+        "remove": "削除",
+        "remove_failed_title": "プロバイダーを削除できませんでした",
+        "remove_confirm_title": "{{name}} を削除しますか？",
+        "remove_confirm_description": "接続設定とモデルの割り当てが削除されます。チャットは保持されます。",
+        "custom_badge": "カスタム"
+      },
+      "models": {
+        "title": "モデルID（任意）",
+        "description": "プロバイダーの検出エンドポイントから返らないモデルを手動で追加します。",
+        "add": "追加",
+        "remove": "削除",
+        "placeholder": "例：モデル名またはID"
       }
     },
     "migration": {
@@ -1623,6 +1695,15 @@
             "description": "ネイティブにツールを呼び出せないモデル向けに、プロンプトでツールを説明し呼び出しを解析します。実験的で、ネイティブのツール呼び出しより信頼性は低めです。"
           }
         }
+      },
+      "approvals": {
+        "title": "承認",
+        "description": "「常に許可」にしたツールは、このデバイスでは再確認なしで実行されます。取り消すと次回から確認されます。",
+        "empty": "永続的な承認はありません。許可が必要なツールはチャット内で確認します。",
+        "granted_on": "{{date}} に許可",
+        "revoke": "取り消す",
+        "clear_all": "すべて取り消す",
+        "origin_any": "すべての場所"
       }
     },
     "search": {
@@ -1722,16 +1803,33 @@
     "failed_to_fetch_models": "モデルの取得に失敗しました"
   },
   "onboarding": {
+    "step": "{{total}} ステップ中 {{current}}",
+    "continue": "続ける",
+    "privacy": {
+      "host_access": "ページアクセスにより、依頼したサイトを拡張機能が読み取れます。リモートプロバイダーを設定しない限り、外部には送信されません。"
+    },
     "permissions": {
       "title": "Ollama Client へようこそ",
-      "privacy": "すべてがお使いのデバイス上で動作します。チャットやデータが外部に送信されることはありません。",
+      "privacy": "ローカルプロバイダーでは、チャットはこのデバイス内に保持されます。リモートプロバイダーには送信を選んだ内容だけが渡ります。",
       "body": "一部の機能（ブックマーク・履歴の知識、リマインダー、ファイル保存、タブグループ）には任意のブラウザ権限が必要です。許可するまでオフのままです。必要なものだけ許可してください。",
+      "optional_title": "任意アクセスを選択",
       "open": "権限を開く",
       "dismiss": "後で"
     },
     "provider": {
       "title": "プロバイダーを接続",
-      "open_setup": "プロバイダーを設定"
+      "description": "既定の Ollama エンドポイントを確認します。後で変更したり、別のプロバイダーを設定したりできます。",
+      "connected": "接続しました。{{count}} 個のモデルが見つかりました。",
+      "skip": "今はスキップ",
+      "open_setup": "プロバイダーを設定",
+      "errors": {
+        "cors": "Ollama は動作していますが、この拡張機能を拒否しました。以下のコマンドで再起動してください。",
+        "auth": "プロバイダーが API キーまたはアクセス設定を拒否しました。",
+        "not-found": "サーバーは応答しましたが、有効なエンドポイントではありません。ポートとベース URL を確認してください。",
+        "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
+        "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
+        "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。"
+      }
     }
   }
 }

@@ -108,7 +108,9 @@ describe("useTabContentStore", () => {
 
     const { result } = renderHook(() => useTabContent())
 
-    expect(result.current.builtContent).toContain("❌ Error: Failed to load")
+    expect(result.current.builtContent).toContain(
+      "(This tab could not be read: Failed to load)"
+    )
     expect(result.current.documents).toEqual([])
   })
 

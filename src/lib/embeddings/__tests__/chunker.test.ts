@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   type ChunkOptions,
+  chunkDocuments,
   chunkText,
   chunkTextAsync,
   estimateTokens,
@@ -397,5 +398,26 @@ describe("getChunkStats", () => {
   it("returns correct minChunkSize and maxChunkSize", () => {
     expect(getChunkStats(chunks).minChunkSize).toBe(5)
     expect(getChunkStats(chunks).maxChunkSize).toBe(8)
+  })
+})
+
+describe("chunkDocuments", () => {
+  it("preserves metadata and assigns stable global chunk indexes", async () => {
+    const chunks = await chunkDocuments(
+      [
+        { pageContent: "A".repeat(24), metadata: { page: 1 } },
+        { pageContent: "B".repeat(24), metadata: { page: 2 } }
+      ],
+      { chunkSize: 4, chunkOverlap: 0, strategy: "fixed" }
+    )
+
+    expect(chunks.length).toBeGreaterThan(2)
+    expect(chunks.map((chunk) => chunk.metadata.chunkIndex)).toEqual(
+      chunks.map((_, index) => index)
+    )
+    expect(
+      chunks.every((chunk) => chunk.metadata.totalChunks === chunks.length)
+    ).toBe(true)
+    expect(chunks.some((chunk) => chunk.metadata.page === 2)).toBe(true)
   })
 })

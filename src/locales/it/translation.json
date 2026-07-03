@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Riprova",
-      "refresh": "Aggiorna"
+      "refresh": "Aggiorna",
+      "back": "Indietro"
     },
     "updated_at": "Aggiornato",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
       "no_message": "Nessun messaggio",
       "response_failed_title": "Generazione della risposta fallita",
-      "unknown_error_description": "Si è verificato un errore sconosciuto"
+      "unknown_error_description": "Si è verificato un errore sconosciuto",
+      "report_issue": "Segnala un problema"
     },
     "composer": {
       "rag": "File",
@@ -450,7 +452,10 @@
       "title": "Conferma azione",
       "body": "L’assistente vuole: {{action}}. Consentire?",
       "allow": "Consenti",
-      "deny": "Rifiuta"
+      "deny": "Rifiuta",
+      "allow_once": "Consenti una volta",
+      "allow_session": "Consenti per questa chat",
+      "allow_always": "Consenti sempre"
     }
   },
   "file_upload": {
@@ -458,7 +463,9 @@
       "aria_label": "Carica file",
       "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo)",
       "aria_label_with_images": "Carica file o immagine",
-      "tooltip_with_images": "Carica file o immagine (PDF, DOCX, CSV, HTML, Testo, Immagini)"
+      "tooltip_with_images": "Carica file o immagine (PDF, DOCX, CSV, HTML, Testo, Immagini)",
+      "formats": "PDF, DOCX, CSV, HTML, Testo",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Testo, Immagini"
     },
     "preview": {
       "remove_aria_label": "Rimuovi file",
@@ -541,6 +548,7 @@
       "add_button": "Aggiungi"
     },
     "embedding_config": {
+      "title": "Modello di embedding, suddivisione, ricerca e archiviazione",
       "storage_stats_title": "Statistiche di Archiviazione",
       "total_vectors": "Vettori Totali",
       "storage_used": "Spazio Utilizzato",
@@ -574,7 +582,8 @@
       "chunking_strategy_label": "Strategia di Suddivisione",
       "strategy_fixed": "Dimensione Fissa",
       "strategy_semantic": "Confini Semantici",
-      "strategy_hybrid": "Ibrido (Raccomandato)",
+      "strategy_hybrid": "Ibrido",
+      "strategy_markdown": "Struttura Markdown",
       "embedding_gen_title": "Generazione Embedding",
       "embedding_gen_description": "Configura le prestazioni di generazione degli embedding",
       "batch_size_label": "Dimensione del Batch",
@@ -659,7 +668,13 @@
         "note_self_report": "{{provider}} segnala automaticamente le capacità di questo modello. Le modifiche qui sovrascrivono ciò che è stato rilevato.",
         "reset": "Ripristina ai valori rilevati",
         "save": "Salva",
-        "save_error": "Impossibile salvare le capacità. Riprova."
+        "save_error": "Impossibile salvare le capacità. Riprova.",
+        "probe_title": "Rileva supporto strumenti",
+        "probe_description": "Invia una piccola richiesta di prova per verificare se questo modello può chiamare strumenti.",
+        "probe_button": "Rileva",
+        "probe_success": "Il modello ha chiamato lo strumento di prova — la chiamata di strumenti è attiva.",
+        "probe_no_support": "Il modello non ha chiamato lo strumento di prova. Puoi comunque attivare gli strumenti manualmente.",
+        "probe_failed": "Rilevamento non riuscito. Controlla la connessione al provider e riprova."
       },
       "flags": {
         "text": {
@@ -743,6 +758,12 @@
       "pin": "Fissa chat",
       "unpin": "Rimuovi chat fissata"
     },
+    "tags": {
+      "title": "Tag della chat",
+      "description": "Aggiungi etichette separate da virgole per organizzare questa chat.",
+      "placeholder": "lavoro, ricerca, personale",
+      "action": "Modifica tag"
+    },
     "groups": {
       "pinned": "Fissati"
     }
@@ -772,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Locale",
+      "header_tooltip": "Controlla dati locali e privacy",
+      "device_local": "Questo dispositivo",
+      "synced": "Sincronizzato",
+      "inventory": {
+        "title": "I tuoi dati",
+        "description": "Visualizza tutti i dati salvati prima del backup o della cancellazione.",
+        "chat": "Chat",
+        "chat_count": "{{sessions}} sessioni · {{messages}} messaggi",
+        "knowledge": "Conoscenza e memoria",
+        "knowledge_count": "{{files}} file · {{vectors}} vettori",
+        "settings": "Impostazioni locali e segreti dei provider",
+        "settings_description": "Endpoint, chiavi API, permessi e stato del dispositivo",
+        "preferences": "Preferenze portabili",
+        "preferences_description": "Impostazioni di visualizzazione e comportamento sincronizzate dal browser"
+      }
+    },
     "chat_display": {
       "title": "Visualizzazione Chat",
       "description": "Configura come vengono visualizzate le informazioni della chat",
@@ -1395,6 +1434,39 @@
         "default_url": "URL predefinito",
         "api_key_required_title": "Chiave API richiesta",
         "api_key_required": "Aggiungi una chiave API per {{name}} prima di testare la connessione."
+      },
+      "add": {
+        "button": "Aggiungi provider",
+        "title": "Aggiungi un provider personalizzato",
+        "description": "Collega Ollama, un server compatibile OpenAI o Anthropic.",
+        "name_label": "Nome",
+        "name_placeholder": "Il mio server di casa",
+        "wire_label": "Tipo di API",
+        "wire_openai": "Compatibile OpenAI",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP o un altro endpoint compatibile",
+        "wire_ollama": "Ollama",
+        "wire_ollama_description": "Un altro server Ollama locale o remoto",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "API Messages nativa di Claude",
+        "api_key_label": "Chiave API (facoltativa)",
+        "api_key_required_label": "Chiave API",
+        "remote_notice": "Provider remoto: prompt, file e contesto degli strumenti inviati qui lasciano il dispositivo.",
+        "submit": "Aggiungi provider",
+        "added_title": "Provider aggiunto",
+        "added_description": "{{name}} è stato aggiunto. Prova la connessione per scoprire i modelli.",
+        "failed_title": "Impossibile aggiungere il provider",
+        "remove": "Rimuovi",
+        "remove_failed_title": "Impossibile rimuovere il provider",
+        "remove_confirm_title": "Rimuovere {{name}}?",
+        "remove_confirm_description": "Le impostazioni di connessione e le mappature dei modelli verranno eliminate. Le tue chat vengono conservate.",
+        "custom_badge": "Personalizzato"
+      },
+      "models": {
+        "title": "ID modelli (facoltativo)",
+        "description": "Aggiungi manualmente i modelli quando il provider non li restituisce dall’endpoint di rilevamento.",
+        "add": "Aggiungi",
+        "remove": "Rimuovi",
+        "placeholder": "es. nome o ID del modello"
       }
     },
     "migration": {
@@ -1623,6 +1695,15 @@
             "description": "Per i modelli senza tool-calling nativo: descrivi gli strumenti nel prompt e analizza le chiamate. Sperimentale; meno affidabile del tool-calling nativo."
           }
         }
+      },
+      "approvals": {
+        "title": "Approvazioni",
+        "description": "Gli strumenti contrassegnati come «Consenti sempre» vengono eseguiti senza chiedere di nuovo su questo dispositivo. Revoca un permesso per ricevere di nuovo la richiesta.",
+        "empty": "Nessuna approvazione permanente. Gli strumenti che richiedono un permesso lo chiederanno nella chat.",
+        "granted_on": "Concessa il {{date}}",
+        "revoke": "Revoca",
+        "clear_all": "Revoca tutto",
+        "origin_any": "Ovunque"
       }
     },
     "search": {
@@ -1722,16 +1803,33 @@
     "failed_to_fetch_models": "Impossibile recuperare i modelli"
   },
   "onboarding": {
+    "step": "Passaggio {{current}} di {{total}}",
+    "continue": "Continua",
+    "privacy": {
+      "host_access": "L’accesso alle pagine consente all’estensione di leggere i siti richiesti. Nulla viene inviato a meno che non configuri un provider remoto."
+    },
     "permissions": {
       "title": "Benvenuto in Ollama Client",
-      "privacy": "Tutto viene eseguito sul tuo dispositivo. Le tue chat e i tuoi dati non lo lasciano mai.",
+      "privacy": "Con un provider locale, le chat restano su questo dispositivo. Un provider remoto riceve solo ciò che scegli di inviare.",
       "body": "Alcune funzioni — conoscenza di segnalibri e cronologia, promemoria, salvataggio file e gruppi di schede — richiedono autorizzazioni facoltative del browser. Restano disattivate finché non le abiliti; concedi solo ciò che vuoi.",
+      "optional_title": "Scegli gli accessi facoltativi",
       "open": "Apri autorizzazioni",
       "dismiss": "Più tardi"
     },
     "provider": {
       "title": "Connetti un provider",
-      "open_setup": "Configura provider"
+      "description": "Verifica ora l’endpoint Ollama predefinito. Puoi cambiarlo o configurare un altro provider in seguito.",
+      "connected": "Connesso. Trovati {{count}} modelli.",
+      "skip": "Salta per ora",
+      "open_setup": "Configura provider",
+      "errors": {
+        "cors": "Ollama è in esecuzione ma blocca questa estensione. Riavvialo con il comando seguente.",
+        "auth": "Il provider ha rifiutato la chiave API o le impostazioni di accesso.",
+        "not-found": "Il server risponde, ma l’endpoint non è valido. Controlla porta e URL di base.",
+        "timeout": "Il provider impiega troppo tempo. Controlla che sia attivo e che la porta sia corretta.",
+        "unavailable": "Ollama non è raggiungibile. Potrebbe essere fermo, su un’altra porta o bloccare le origini dell’estensione.",
+        "server-error": "Il provider ha restituito un errore server. Controlla i log e riprova."
+      }
     }
   }
 }

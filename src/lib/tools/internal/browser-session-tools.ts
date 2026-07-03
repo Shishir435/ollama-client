@@ -144,9 +144,10 @@ export const restoreSessionDefinition: ToolDefinition = {
   displayNameKey: "chat.reasoning.trace.restoreSession",
   category: "browser",
   iconKey: "history",
-  // Low risk: it only reopens the user's own closed tab in their browser and
-  // never returns page content to the model.
-  risk: "low",
+  // Medium: it never returns page content to the model, but it does act on the
+  // browser (opens tabs/windows) — that leaves a visible trace, so the approval
+  // policy confirms it once per chat.
+  risk: "medium",
   cacheable: false,
   requires: ["tabs"],
   runtime: { timeoutMs: 15_000, maxResultChars: 2000 },

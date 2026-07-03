@@ -4,7 +4,9 @@ import {
   BrainCircuit,
   Camera,
   CheckIcon,
+  ChevronLeft,
   Eye,
+  FileText,
   Loader2,
   Lock,
   RefreshCw,
@@ -16,12 +18,16 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger
+} from "@/components/ui/sheet"
+import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
@@ -38,6 +44,7 @@ import {
   DEFAULT_TABS_ACCESS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import type { FileProcessingState } from "@/lib/file-processors/types"
 import { Layers } from "@/lib/lucide-icon"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
@@ -47,9 +54,10 @@ import {
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { matchesUserPattern } from "@/lib/url-pattern"
 import { cn } from "@/lib/utils"
-import type { ContentExtractionConfig } from "@/types"
+import type { ContentExtractionConfig, ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
-import { PreviewSheet, PreviewTextBlock } from "../preview-sheet"
+import { PreviewTextBlock } from "../preview-sheet"
+import { AttachmentList } from "./attachment-list"
 
 const trimTitle = (title: string, max = 38) =>
   title ? (title.length > max ? `${title.slice(0, max)}...` : title) : ""
@@ -60,6 +68,8 @@ const trimPreview = (text: string, max = 140) => {
 }
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
+const EMPTY_PROCESSING_STATES: FileProcessingState[] = []
+const EMPTY_IMAGES: ImageAttachment[] = []
 
 interface TabOptionRowProps {
   option: { value: string; label: string }
@@ -82,7 +92,7 @@ const TabOptionRow = ({
   return (
     <div
       className={cn(
-        "grid min-w-0 gap-1 rounded-control px-2 py-1.5 text-left text-xs transition-colors",
+        "grid min-w-0 gap-0.5 rounded-control px-1.5 py-1 text-left text-xs transition-colors",
         isSelected
           ? "bg-muted/55 text-foreground"
           : "text-muted-foreground hover:bg-muted/35 hover:text-foreground"
@@ -110,13 +120,17 @@ const TabOptionRow = ({
           icon={<Eye className="icon-xs" />}
         />
       </span>
-      <Button
+      <button
         type="button"
-        variant="secondary"
-        className="overflow-hidden text-start"
+        className={cn(
+          "w-full truncate rounded-control px-2 py-1 text-left text-2xs transition-colors",
+          content
+            ? "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            : "text-muted-foreground/70 italic hover:text-muted-foreground"
+        )}
         onClick={onPreview}>
-        {content ? trimPreview(content) : t("tabs.inspector.no_content")}
-      </Button>
+        {content ? trimPreview(content, 90) : t("tabs.inspector.no_content")}
+      </button>
     </div>
   )
 }
@@ -146,7 +160,7 @@ const TabContextPanel = ({
 }: TabContextPanelProps) => {
   const { t } = useTranslation()
   return (
-    <div className="grid gap-2 border-t border-border/40 pt-2">
+    <div className="grid gap-1.5 border-t border-border/40 pt-1.5">
       <div className="flex items-center justify-between gap-2 text-2xs font-medium text-muted-foreground">
         <span>{t("tabs.select.placeholder")}</span>
         <TooltipActionButton
@@ -199,9 +213,27 @@ const TabContextPanel = ({
 }
 
 export const ContextSettingsMenu = ({
-  attachmentCount = 0
+  attachmentCount = 0,
+  onFilesSelected,
+  disabled = false,
+  acceptImages = false,
+  processingStates = EMPTY_PROCESSING_STATES,
+  onRemoveFile,
+  images = EMPTY_IMAGES,
+  onRemoveImage,
+  onCaptureScreenshot,
+  showScreenshot = false
 }: {
   attachmentCount?: number
+  onFilesSelected?: (files: FileList) => void
+  disabled?: boolean
+  acceptImages?: boolean
+  processingStates?: FileProcessingState[]
+  onRemoveFile?: (file: File) => void
+  images?: ImageAttachment[]
+  onRemoveImage?: (imageId: string) => void
+  onCaptureScreenshot?: () => void
+  showScreenshot?: boolean
 }) => {
   const { t } = useTranslation()
   const [useRAG, setUseRAG] = useStorage<boolean>(
@@ -218,6 +250,10 @@ export const ContextSettingsMenu = ({
   const getTabStatus = useTabStatusMap()
   const [open, setOpen] = useState(false)
   const [permsOpen, setPermsOpen] = useState(false)
+  // In-sheet sub-views: a tab preview (previewTabId set) or the attachment
+  // list ("attachments") replace the main panel instead of opening a second
+  // sheet, so the user never loses their place in the Context sheet.
+  const [view, setView] = useState<"main" | "attachments">("main")
   const [previewTabId, setPreviewTabId] = useState<string | null>(null)
   const [tabSearch, setTabSearch] = useState("")
   const [config] = useStorage<ContentExtractionConfig>(
@@ -307,6 +343,12 @@ export const ContextSettingsMenu = ({
     if (previewTabId && !allowedIds.has(previewTabId)) setPreviewTabId(null)
   }, [previewTabId, selectedTabIds, setSelectedTabIds, tabOptions])
 
+  // The attachments view empties out when the user removes the last item —
+  // fall back to the main panel instead of stranding them on a blank list.
+  useEffect(() => {
+    if (view === "attachments" && attachmentCount === 0) setView("main")
+  }, [view, attachmentCount])
+
   useEffect(() => {
     if (!tabAccess) return
     const alwaysIds = openTabs
@@ -339,9 +381,14 @@ export const ContextSettingsMenu = ({
         : [...selectedTabIds, value]
     )
 
-  const openPreview = (value: string) => {
-    setPreviewTabId(value)
-    setOpen(false)
+  const openPreview = (value: string) => setPreviewTabId(value)
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      setView("main")
+      setPreviewTabId(null)
+    }
   }
 
   const toggleActions = [
@@ -415,10 +462,10 @@ export const ContextSettingsMenu = ({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={handleOpenChange}>
         <TooltipActionButton
           trigger={
-            <PopoverTrigger
+            <SheetTrigger
               render={
                 <Button
                   variant="ghost"
@@ -432,94 +479,190 @@ export const ContextSettingsMenu = ({
           label={t("tabs.context")}
           icon={<Layers className="icon-sm" aria-hidden="true" />}
         />
-        <PopoverContent
-          align="end"
-          sideOffset={8}
-          className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(20rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] gap-3 overflow-y-auto rounded-panel p-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wide text-muted-foreground">
-              <Layers className="icon-xs" />
+        <SheetContent
+          side="right"
+          className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-y-auto p-2 sm:max-w-md"
+          closeButtonClassName="top-2 right-2">
+          <SheetHeader className="p-0 pr-10">
+            <SheetTitle className="flex items-center gap-2">
+              <Layers className="icon-sm" />
               {t("tabs.context")}
-            </div>
-          </div>
-          <div className="rounded-control border border-border/40 bg-muted/25 px-2.5 py-2">
-            <p className="text-micro font-medium uppercase text-muted-foreground">
-              {t("chat.context.preview_title")}
-            </p>
-            <p className="mt-1 text-xs text-foreground">{contextSummary}</p>
-          </div>
-          <div className="grid gap-1">
-            {toggleActions.map((action) => {
-              const Icon = action.icon
-              return (
-                <Button
-                  key={action.key}
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              {t("tabs.inspector.description")}
+            </SheetDescription>
+          </SheetHeader>
+          {previewTabId ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <TooltipActionButton
                   type="button"
                   variant="ghost"
-                  className={cn(
-                    "h-8 justify-start gap-2 rounded-control px-2 text-xs",
-                    action.checked
-                      ? "bg-muted/55 text-foreground"
-                      : "text-muted-foreground"
+                  size="icon-sm"
+                  className="shrink-0 rounded-control text-muted-foreground hover:text-foreground"
+                  onClick={() => setPreviewTabId(null)}
+                  label={t("common.actions.back")}
+                  icon={<ChevronLeft className="icon-sm" />}
+                />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {previewTab?.title || t("tabs.inspector.untitled")}
+                </span>
+                <span className="shrink-0 text-2xs text-muted-foreground">
+                  {t("tabs.inspector.chars", { count: previewCharCount })}
+                </span>
+                {previewContent && <CopyButton text={previewContent} />}
+              </div>
+              <ScrollArea className="min-h-0 flex-1 rounded-control border border-border/35 bg-background/35">
+                <PreviewTextBlock
+                  text={previewContent || ""}
+                  emptyText={t("tabs.inspector.no_content")}
+                />
+              </ScrollArea>
+            </div>
+          ) : view === "attachments" ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <TooltipActionButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 rounded-control text-muted-foreground hover:text-foreground"
+                  onClick={() => setView("main")}
+                  label={t("common.actions.back")}
+                  icon={<ChevronLeft className="icon-sm" />}
+                />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {t("chat.input.attachments", { count: attachmentCount })}
+                </span>
+              </div>
+              <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+                <AttachmentList
+                  processingStates={processingStates}
+                  onRemove={onRemoveFile ?? (() => undefined)}
+                  images={images}
+                  onRemoveImage={onRemoveImage}
+                />
+              </ScrollArea>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-control border border-border/40 bg-muted/25 px-2.5 py-1.5">
+                <p className="text-micro font-medium uppercase text-muted-foreground">
+                  {t("chat.context.preview_title")}
+                </p>
+                <p className="mt-0.5 text-xs text-foreground">
+                  {contextSummary}
+                </p>
+              </div>
+              {(onFilesSelected ||
+                attachmentCount > 0 ||
+                (showScreenshot && onCaptureScreenshot)) && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {onFilesSelected && (
+                    <div className="col-span-2 flex items-center justify-between gap-2 rounded-control border border-border/40 px-2.5 py-1.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-foreground">
+                          {t(
+                            acceptImages
+                              ? "file_upload.button.aria_label_with_images"
+                              : "file_upload.button.aria_label"
+                          )}
+                        </p>
+                        <p className="truncate text-2xs text-muted-foreground">
+                          {t(
+                            acceptImages
+                              ? "file_upload.button.formats_with_images"
+                              : "file_upload.button.formats"
+                          )}
+                        </p>
+                      </div>
+                      <FileUploadButton
+                        onFilesSelected={onFilesSelected}
+                        disabled={disabled}
+                        acceptImages={acceptImages}
+                      />
+                    </div>
                   )}
-                  onClick={action.onClick}>
-                  <Icon className="icon-sm shrink-0" />
+                  {attachmentCount > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto justify-start gap-2 px-2.5 py-2 text-xs"
+                      onClick={() => setView("attachments")}>
+                      <FileText className="icon-sm" />
+                      {t("chat.input.attachments", { count: attachmentCount })}
+                    </Button>
+                  )}
+                  {showScreenshot && onCaptureScreenshot && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto justify-start gap-2 px-2.5 py-2 text-xs"
+                      disabled={disabled}
+                      onClick={onCaptureScreenshot}>
+                      <Camera className="icon-sm" />
+                      {t("chat.input.screenshot")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              <div className="grid gap-0.5">
+                {toggleActions.map((action) => {
+                  const Icon = action.icon
+                  return (
+                    <Button
+                      key={action.key}
+                      type="button"
+                      variant="ghost"
+                      className={cn(
+                        "h-7 justify-start gap-2 rounded-control px-2 text-xs",
+                        action.checked
+                          ? "bg-muted/55 text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                      onClick={action.onClick}>
+                      <Icon className="icon-sm shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-left">
+                        {action.label}
+                      </span>
+                      {action.checked && (
+                        <CheckIcon className="icon-sm shrink-0 text-app-primary" />
+                      )}
+                    </Button>
+                  )
+                })}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-7 justify-start gap-2 rounded-control px-2 text-xs text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  onClick={() => {
+                    setOpen(false)
+                    setPermsOpen(true)
+                  }}>
+                  <Lock className="icon-sm shrink-0" />
                   <span className="min-w-0 flex-1 truncate text-left">
-                    {action.label}
+                    {t("settings.permissions.title")}
                   </span>
-                  {action.checked && (
-                    <CheckIcon className="icon-sm shrink-0 text-app-primary" />
-                  )}
                 </Button>
-              )
-            })}
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 justify-start gap-2 rounded-control px-2 text-xs text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-              onClick={() => {
-                setOpen(false)
-                setPermsOpen(true)
-              }}>
-              <Lock className="icon-sm shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-left">
-                {t("settings.permissions.title")}
-              </span>
-            </Button>
-          </div>
-          {tabAccess && (
-            <TabContextPanel
-              filteredTabOptions={filteredTabOptions}
-              tabContents={tabContents}
-              getTabStatus={getTabStatus}
-              selectedTabIds={selectedTabIds}
-              tabSearch={tabSearch}
-              setTabSearch={setTabSearch}
-              refreshTabs={refreshTabs}
-              toggleTab={toggleTab}
-              openPreview={openPreview}
-            />
+              </div>
+              {tabAccess && (
+                <TabContextPanel
+                  filteredTabOptions={filteredTabOptions}
+                  tabContents={tabContents}
+                  getTabStatus={getTabStatus}
+                  selectedTabIds={selectedTabIds}
+                  tabSearch={tabSearch}
+                  setTabSearch={setTabSearch}
+                  refreshTabs={refreshTabs}
+                  toggleTab={toggleTab}
+                  openPreview={openPreview}
+                />
+              )}
+            </>
           )}
-        </PopoverContent>
-      </Popover>
+        </SheetContent>
+      </Sheet>
       <PermissionsSheet open={permsOpen} onOpenChange={setPermsOpen} />
-      <PreviewSheet
-        open={Boolean(previewTabId)}
-        onOpenChange={(next) => {
-          if (!next) setPreviewTabId(null)
-        }}
-        title={previewTab?.title || t("tabs.inspector.untitled")}
-        meta={t("tabs.inspector.chars", { count: previewCharCount })}
-        actions={
-          previewContent ? <CopyButton text={previewContent} /> : undefined
-        }>
-        <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
-          <PreviewTextBlock
-            text={previewContent || ""}
-            emptyText={t("tabs.inspector.no_content")}
-          />
-        </ScrollArea>
-      </PreviewSheet>
     </>
   )
 }

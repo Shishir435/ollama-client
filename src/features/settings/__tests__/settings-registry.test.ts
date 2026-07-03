@@ -5,12 +5,20 @@ import {
   getSettingsForTab,
   isSettingsTab,
   rankSettings,
+  resolveSettingsTab,
   SETTINGS_REGISTRY,
   SETTINGS_TABS,
   searchSettings
 } from "../settings-registry"
 
 describe("settings-registry", () => {
+  it("uses six intent tabs and redirects legacy deep links", () => {
+    expect(SETTINGS_TABS).toHaveLength(6)
+    expect(resolveSettingsTab("providers")).toBe("models")
+    expect(resolveSettingsTab("saved-knowledge")).toBe("knowledge")
+    expect(resolveSettingsTab("data-backup")).toBe("privacy")
+  })
+
   it("has no duplicate ids", () => {
     const ids = SETTINGS_REGISTRY.map((entry) => entry.id)
     const unique = new Set(ids)
@@ -56,7 +64,7 @@ describe("settings-registry", () => {
   })
 
   it("getSettingsEntry finds by id", () => {
-    expect(getSettingsEntry("grounded-only-mode")?.tab).toBe("knowledge-web")
+    expect(getSettingsEntry("grounded-only-mode")?.tab).toBe("knowledge")
     expect(getSettingsEntry("does-not-exist")).toBeUndefined()
   })
 
@@ -70,7 +78,7 @@ describe("settings-registry", () => {
       const results = searchSettings("tool result")
       const hit = results.find((e) => e.id === "max-tool-result-chars")
       expect(hit).toBeDefined()
-      expect(hit?.tab).toBe("knowledge-web")
+      expect(hit?.tab).toBe("knowledge")
     })
 
     it("matches by id words", () => {
@@ -87,13 +95,13 @@ describe("settings-registry", () => {
     it("matches selection actions to the content extraction tab", () => {
       const results = searchSettings("selection actions")
       const hit = results.find((e) => e.id === "selection-actions-enabled")
-      expect(hit?.tab).toBe("page-tabs")
+      expect(hit?.tab).toBe("browser")
     })
 
     it("matches reset module rows", () => {
       const results = searchSettings("browser settings")
       const hit = results.find((e) => e.id === "reset-browser")
-      expect(hit?.tab).toBe("data-backup")
+      expect(hit?.tab).toBe("privacy")
     })
 
     it("matches non-model tabs that were easy to miss", () => {
@@ -112,10 +120,12 @@ describe("settings-registry", () => {
       expect(searchSettings("semantic search").map((e) => e.id)).toContain(
         "embeddings-test-search"
       )
-      expect(searchSettings("search cache ttl").map((e) => e.id)).toContain(
+      // The old "embeddings-search" advanced card is gone; its registry
+      // entries were removed so search never points at unmounted controls.
+      expect(searchSettings("search cache ttl").map((e) => e.id)).not.toContain(
         "embeddings-cache-ttl"
       )
-      expect(searchSettings("ann backend").map((e) => e.id)).toContain(
+      expect(searchSettings("ann backend").map((e) => e.id)).not.toContain(
         "embeddings-ann-backend"
       )
     })
@@ -139,7 +149,7 @@ describe("settings-registry", () => {
       const hit = searchSettings("danger zone").find(
         (e) => e.id === "reset-danger-zone"
       )
-      expect(hit?.tab).toBe("data-backup")
+      expect(hit?.tab).toBe("privacy")
       expect(hit?.destructive).toBe(true)
     })
 

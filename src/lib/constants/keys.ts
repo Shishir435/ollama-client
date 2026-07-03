@@ -15,7 +15,6 @@ export const PROVIDER_MESSAGE_KEYS = {
   GET_PROVIDER_VERSION: "get-provider-version",
   CHECK_EMBEDDING_MODEL: "check-embedding-model",
   PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
-  EMBED_FILE_CHUNKS: "embed-file-chunks",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action",
   CONFIRM_TOOL: "confirm-tool"
@@ -58,7 +57,8 @@ export const MESSAGE_KEYS = {
   APP: {
     RELOAD: "app-reload",
     FLUSH_SQLITE: "app-flush-sqlite",
-    NOTIFY_JOB_COMPLETE: "app-notify-job-complete"
+    NOTIFY_JOB_COMPLETE: "app-notify-job-complete",
+    KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive"
   }
 } as const
 
@@ -81,8 +81,12 @@ export const STORAGE_KEYS = {
     MODEL_CONFIGS: "provider-model-config",
     // User-set per-model capability overrides, used when a provider cannot
     // report a model's capabilities (anything other than Ollama). Resolution
-    // order is: user override → model metadata → provider default.
-    MODEL_CAPABILITY_OVERRIDES: "provider-model-capability-overrides"
+    // order is: user override → probe result → model metadata → provider default.
+    MODEL_CAPABILITY_OVERRIDES: "provider-model-capability-overrides",
+    // Empirical capability probe results (one-shot trivial tool-call request),
+    // keyed `providerId::model`. Device-local: results are tied to whatever
+    // server this device's base URL points at.
+    MODEL_CAPABILITY_PROBES: "provider-model-capability-probes"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"
@@ -120,7 +124,11 @@ export const STORAGE_KEYS = {
     // E10: per-family governance over model-callable tools (master + families).
     FAMILIES: "tools-families-config",
     // 0.11.18: per-model overrides layered over the global family settings.
-    MODEL_OVERRIDES: "tools-model-overrides"
+    MODEL_OVERRIDES: "tools-model-overrides",
+    // 0.12.x approval boundary: persisted "Always allow" grants, keyed
+    // `${toolName}::${origin}` ("*" when a tool has no origin). Device-local:
+    // an approval to act on this machine should not follow the account.
+    APPROVAL_GRANTS: "tools-approval-grants"
   },
   EMBEDDINGS: {
     SELECTED_MODEL: "embeddings-selected-model",

@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Wiederholen",
-      "refresh": "Aktualisieren"
+      "refresh": "Aktualisieren",
+      "back": "Zurück"
     },
     "updated_at": "Aktualisiert",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
       "no_message": "Keine Nachricht",
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
-      "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten"
+      "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
+      "report_issue": "Problem melden"
     },
     "composer": {
       "rag": "Dateien",
@@ -450,7 +452,10 @@
       "title": "Aktion bestätigen",
       "body": "Der Assistent möchte: {{action}}. Zulassen?",
       "allow": "Zulassen",
-      "deny": "Ablehnen"
+      "deny": "Ablehnen",
+      "allow_once": "Einmal zulassen",
+      "allow_session": "Für diesen Chat zulassen",
+      "allow_always": "Immer zulassen"
     }
   },
   "file_upload": {
@@ -458,7 +463,9 @@
       "aria_label": "Datei hochladen",
       "tooltip": "Datei hochladen (PDF, DOCX, CSV, HTML, Text)",
       "aria_label_with_images": "Datei oder Bild hochladen",
-      "tooltip_with_images": "Datei oder Bild hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)"
+      "tooltip_with_images": "Datei oder Bild hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)",
+      "formats": "PDF, DOCX, CSV, HTML, Text",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Text, Bilder"
     },
     "preview": {
       "remove_aria_label": "Datei entfernen",
@@ -541,6 +548,7 @@
       "add_button": "Hinzufügen"
     },
     "embedding_config": {
+      "title": "Embedding-Modell, Chunking, Suche und Speicher",
       "storage_stats_title": "Speicherstatistiken",
       "total_vectors": "Gesamtvektoren",
       "storage_used": "Verwendeter Speicher",
@@ -574,7 +582,8 @@
       "chunking_strategy_label": "Chunking-Strategie",
       "strategy_fixed": "Feste Größe",
       "strategy_semantic": "Semantische Grenzen",
-      "strategy_hybrid": "Hybrid (Empfohlen)",
+      "strategy_hybrid": "Hybrid",
+      "strategy_markdown": "Markdown-Struktur",
       "embedding_gen_title": "Embedding-Generierung",
       "embedding_gen_description": "Konfigurieren Sie die Leistung der Embedding-Generierung",
       "batch_size_label": "Batch-Größe",
@@ -659,7 +668,13 @@
         "note_self_report": "{{provider}} meldet die Fähigkeiten dieses Modells automatisch. Änderungen hier überschreiben die erkannten Werte.",
         "reset": "Auf erkannt zurücksetzen",
         "save": "Speichern",
-        "save_error": "Fähigkeiten konnten nicht gespeichert werden. Bitte versuche es erneut."
+        "save_error": "Fähigkeiten konnten nicht gespeichert werden. Bitte versuche es erneut.",
+        "probe_title": "Tool-Unterstützung erkennen",
+        "probe_description": "Sendet eine kleine Testanfrage, um zu prüfen, ob dieses Modell Tools aufrufen kann.",
+        "probe_button": "Erkennen",
+        "probe_success": "Das Modell hat das Test-Tool aufgerufen — Tool-Aufrufe sind aktiviert.",
+        "probe_no_support": "Das Modell hat das Test-Tool nicht aufgerufen. Du kannst Tool-Aufrufe weiterhin manuell aktivieren.",
+        "probe_failed": "Erkennung fehlgeschlagen. Prüfe die Verbindung zum Anbieter und versuche es erneut."
       },
       "flags": {
         "text": {
@@ -743,6 +758,12 @@
       "pin": "Chat anheften",
       "unpin": "Chat lösen"
     },
+    "tags": {
+      "title": "Chat-Tags",
+      "description": "Kommagetrennte Labels zum Organisieren dieses Chats.",
+      "placeholder": "Arbeit, Recherche, Privat",
+      "action": "Tags bearbeiten"
+    },
     "groups": {
       "pinned": "Angeheftet"
     }
@@ -772,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Lokal",
+      "header_tooltip": "Lokale Daten und Datenschutz prüfen",
+      "device_local": "Dieses Gerät",
+      "synced": "Synchronisiert",
+      "inventory": {
+        "title": "Deine Daten",
+        "description": "Alle gespeicherten Daten vor Sicherung oder Löschung ansehen.",
+        "chat": "Chats",
+        "chat_count": "{{sessions}} Sitzungen · {{messages}} Nachrichten",
+        "knowledge": "Wissen und Gedächtnis",
+        "knowledge_count": "{{files}} Dateien · {{vectors}} Vektoren",
+        "settings": "Lokale Einstellungen und Provider-Geheimnisse",
+        "settings_description": "Endpunkte, API-Schlüssel, Berechtigungen und Gerätestatus",
+        "preferences": "Übertragbare Einstellungen",
+        "preferences_description": "Anzeige- und Verhaltenseinstellungen in Browser Sync"
+      }
+    },
     "chat_display": {
       "title": "Chat-Anzeige",
       "description": "Konfigurieren Sie die Anzeige von Chat-Informationen",
@@ -1395,6 +1434,39 @@
         "default_url": "Standard-URL",
         "api_key_required_title": "API-Schlüssel erforderlich",
         "api_key_required": "Füge einen API-Schlüssel für {{name}} hinzu, bevor du die Verbindung testest."
+      },
+      "add": {
+        "button": "Anbieter hinzufügen",
+        "title": "Eigenen Anbieter hinzufügen",
+        "description": "Ollama, einen OpenAI-kompatiblen Server oder Anthropic verbinden.",
+        "name_label": "Name",
+        "name_placeholder": "Mein Heimserver",
+        "wire_label": "API-Typ",
+        "wire_openai": "OpenAI-kompatibel",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP oder ein anderer kompatibler Endpunkt",
+        "wire_ollama": "Ollama",
+        "wire_ollama_description": "Ein weiterer lokaler oder entfernter Ollama-Server",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "Native Claude Messages API",
+        "api_key_label": "API-Schlüssel (optional)",
+        "api_key_required_label": "API-Schlüssel",
+        "remote_notice": "Remote-Anbieter: Prompts, Dateien und Tool-Kontext verlassen dein Gerät.",
+        "submit": "Anbieter hinzufügen",
+        "added_title": "Anbieter hinzugefügt",
+        "added_description": "{{name}} wurde hinzugefügt. Teste die Verbindung, um Modelle zu finden.",
+        "failed_title": "Anbieter konnte nicht hinzugefügt werden",
+        "remove": "Entfernen",
+        "remove_failed_title": "Anbieter konnte nicht entfernt werden",
+        "remove_confirm_title": "{{name}} entfernen?",
+        "remove_confirm_description": "Verbindungseinstellungen und Modellzuordnungen werden gelöscht. Deine Chats bleiben erhalten.",
+        "custom_badge": "Eigener"
+      },
+      "models": {
+        "title": "Modell-IDs (optional)",
+        "description": "Füge Modelle manuell hinzu, wenn der Anbieter sie nicht über seinen Erkennungs-Endpunkt liefert.",
+        "add": "Hinzufügen",
+        "remove": "Entfernen",
+        "placeholder": "z. B. Modellname oder ID"
       }
     },
     "migration": {
@@ -1623,6 +1695,15 @@
             "description": "Für Modelle ohne natives Tool-Calling: Tools im Prompt beschreiben und die Aufrufe zurückparsen. Experimentell; weniger zuverlässig als natives Tool-Calling."
           }
         }
+      },
+      "approvals": {
+        "title": "Freigaben",
+        "description": "Tools mit „Immer zulassen“ laufen auf diesem Gerät ohne erneute Nachfrage. Widerrufe eine Freigabe, um wieder gefragt zu werden.",
+        "empty": "Keine dauerhaften Freigaben. Tools, die eine Erlaubnis brauchen, fragen im Chat nach.",
+        "granted_on": "Erteilt am {{date}}",
+        "revoke": "Widerrufen",
+        "clear_all": "Alle widerrufen",
+        "origin_any": "Überall"
       }
     },
     "search": {
@@ -1722,16 +1803,33 @@
     "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
   },
   "onboarding": {
+    "step": "Schritt {{current}} von {{total}}",
+    "continue": "Weiter",
+    "privacy": {
+      "host_access": "Der Seitenzugriff erlaubt der Erweiterung, von dir angefragte Websites zu lesen. Nichts wird gesendet, außer du konfigurierst einen Remote-Anbieter."
+    },
     "permissions": {
       "title": "Willkommen bei Ollama Client",
-      "privacy": "Alles läuft auf deinem Gerät. Deine Chats und Daten verlassen es nie.",
+      "privacy": "Mit einem lokalen Anbieter bleiben Chats auf diesem Gerät. Ein Remote-Anbieter erhält nur, was du ihm sendest.",
       "body": "Einige Funktionen – Lesezeichen- & Verlaufswissen, Erinnerungen, Dateien speichern und Tab-Gruppen – benötigen optionale Browser-Berechtigungen. Sie bleiben aus, bis du sie erlaubst. Gewähre nur, was du möchtest.",
+      "optional_title": "Optionalen Zugriff wählen",
       "open": "Berechtigungen öffnen",
       "dismiss": "Später"
     },
     "provider": {
       "title": "Anbieter verbinden",
-      "open_setup": "Anbieter einrichten"
+      "description": "Prüfe jetzt den Standard-Ollama-Endpunkt. Du kannst ihn ändern oder später einen anderen Anbieter einrichten.",
+      "connected": "Verbunden. {{count}} Modell(e) gefunden.",
+      "skip": "Vorerst überspringen",
+      "open_setup": "Anbieter einrichten",
+      "errors": {
+        "cors": "Ollama läuft, blockiert aber diese Erweiterung. Starte es mit dem folgenden Befehl neu.",
+        "auth": "Der Anbieter hat API-Schlüssel oder Zugriffseinstellungen abgelehnt.",
+        "not-found": "Der Server antwortet, aber dies ist kein gültiger Anbieter-Endpunkt. Prüfe Port und Basis-URL.",
+        "timeout": "Der Anbieter antwortet zu langsam. Prüfe, ob er läuft und der Port stimmt.",
+        "unavailable": "Ollama ist nicht erreichbar. Es ist möglicherweise gestoppt, nutzt einen anderen Port oder blockiert Erweiterungs-Ursprünge.",
+        "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut."
+      }
     }
   }
 }

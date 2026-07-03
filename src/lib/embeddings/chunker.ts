@@ -20,6 +20,11 @@ export interface TextChunk {
   endPos: number
 }
 
+export interface ChunkDocument {
+  pageContent: string
+  metadata: Record<string, unknown>
+}
+
 /**
  * Estimates the number of tokens in a text string.
  * Uses a standard rule of thumb for English/Code: 1 token ≈ 4 characters.
@@ -436,6 +441,37 @@ export async function chunkTextAsync(
   // Alternatively, we can implement a simple yielding loop here if we refactor the chunkers.
 
   return chunkText(text, options)
+}
+
+/**
+ * Single document-chunking entrypoint used by files, live page context, and
+ * chat-memory ingestion. Metadata survives splitting and chunk indexes are
+ * stable across multi-page documents.
+ */
+export async function chunkDocuments(
+  documents: ChunkDocument[],
+  options: ChunkOptions
+): Promise<ChunkDocument[]> {
+  const chunked: ChunkDocument[] = []
+
+  for (const document of documents) {
+    const chunks = await chunkTextAsync(document.pageContent, options)
+    for (const chunk of chunks) {
+      chunked.push({
+        pageContent: chunk.text,
+        metadata: {
+          ...document.metadata,
+          chunkIndex: chunked.length
+        }
+      })
+    }
+  }
+
+  const totalChunks = chunked.length
+  return chunked.map((document) => ({
+    ...document,
+    metadata: { ...document.metadata, totalChunks }
+  }))
 }
 
 /**

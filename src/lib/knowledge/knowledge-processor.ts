@@ -1,8 +1,8 @@
+import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { fromDocuments } from "@/lib/embeddings/vector-store"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { getTextSplitter } from "@/lib/text-processing"
-import type { Document } from "@/lib/text-processing/types"
 
 export interface ProcessingProgress {
   fileId: string
@@ -61,7 +61,7 @@ export async function processKnowledge(
     const pageDocuments = (pages || [])
       .filter((page) => page.text.trim().length > 0)
       .map(
-        (page): Document => ({
+        (page): ChunkDocument => ({
           pageContent: page.text,
           metadata: {
             ...baseMetadata,
@@ -70,7 +70,7 @@ export async function processKnowledge(
         })
       )
 
-    const documents: Document[] =
+    const documents: ChunkDocument[] =
       pageDocuments.length > 0
         ? pageDocuments
         : [
@@ -80,12 +80,14 @@ export async function processKnowledge(
             }
           ]
 
-    // 2. Get configured text splitter
-    const textSplitter = await getTextSplitter()
-
-    // 3. Split document into chunks
+    // 2. Split through the one app-owned chunker used by every RAG source.
+    const embeddingConfig = await getEmbeddingConfig()
     logger.verbose("Splitting document", "processKnowledge", { fileName })
-    const chunks = await textSplitter.splitDocuments(documents)
+    const chunks = await chunkDocuments(documents, {
+      chunkSize: embeddingConfig.chunkSize,
+      chunkOverlap: embeddingConfig.chunkOverlap,
+      strategy: embeddingConfig.chunkingStrategy
+    })
     logger.verbose("Created chunks from document", "processKnowledge", {
       fileName,
       chunkCount: chunks.length
@@ -100,7 +102,7 @@ export async function processKnowledge(
       totalChunks: chunks.length
     })
 
-    // 4. Store chunks with embeddings
+    // 3. Store chunks with embeddings
     logger.verbose("Storing embeddings for document", "processKnowledge", {
       fileName
     })

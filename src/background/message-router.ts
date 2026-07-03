@@ -1,6 +1,5 @@
 import type { Runtime } from "webextension-polyfill"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
 import {
   checkEmbeddingModelExists,
   handlePrepareEmbeddingModel
@@ -272,17 +271,12 @@ export const registerMessageRouter = () => {
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS: {
-        handleEmbedFileChunks(message, response).catch((err) => {
-          safeSendResponse(response, {
-            success: false,
-            error: {
-              status: 0,
-              message: err instanceof Error ? err.message : String(err)
-            }
-          })
-        })
-        return true
+      case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
+        // A visible approval prompt sends this periodically. Runtime messages
+        // reset Chromium's MV3 idle timer without adding a standing `alarms`
+        // permission; SQLite recovery remains the crash/restart fallback.
+        safeSendResponse(response, { success: true })
+        return
       }
 
       case MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE: {
@@ -333,13 +327,18 @@ export const registerMessageRouter = () => {
 
       case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {
         const payload = message.payload as
-          | { callId?: unknown; approved?: unknown }
+          | { callId?: unknown; approved?: unknown; scope?: unknown }
           | undefined
         const valid = typeof payload?.callId === "string"
         if (valid) {
+          const scope =
+            payload?.scope === "session" || payload?.scope === "always"
+              ? payload.scope
+              : undefined
           resolveToolConfirmation(
             payload.callId as string,
-            payload?.approved === true
+            payload?.approved === true,
+            scope
           )
         }
         // Respond synchronously — returning true without ever calling

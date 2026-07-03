@@ -13,11 +13,12 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
-import { Info } from "@/lib/lucide-icon"
+import { Info, Loader2, Zap } from "@/lib/lucide-icon"
 import type {
   ModelCapabilities,
   ModelCapabilityOverride
 } from "@/lib/providers/capabilities"
+import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 
 import { CAPABILITY_META, type CapabilityFlag } from "./capability-meta"
@@ -26,6 +27,8 @@ interface ModelCapabilitySheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   providerId: string
+  /** Stored config name — used for custom providers, which have no static meta. */
+  providerDisplayName?: string
   modelName: string
   /**
    * Effective capabilities (detection with any saved override applied). Seeds
@@ -40,6 +43,12 @@ interface ModelCapabilitySheetProps {
   hasOverride: boolean
   onSave: (override: ModelCapabilityOverride) => void | Promise<void>
   onReset: () => void | Promise<void>
+  /**
+   * Run the one-shot tool-calling probe against the live provider. The parent
+   * persists the result; the sheet's toggles refresh through the reactive
+   * probe storage. Absent → no Detect button.
+   */
+  onProbe?: () => Promise<CapabilityProbeResult>
 }
 
 type Draft = Record<CapabilityFlag, boolean>
@@ -62,17 +71,20 @@ export const ModelCapabilitySheet = ({
   open,
   onOpenChange,
   providerId,
+  providerDisplayName,
   modelName,
   current,
   detected,
   canSelfReport,
   hasOverride,
   onSave,
-  onReset
+  onReset,
+  onProbe
 }: ModelCapabilitySheetProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft>(() => toDraft(current))
+  const [probing, setProbing] = useState(false)
 
   // The draft differs from what detection produced — the user has edited
   // something this session.
@@ -88,7 +100,7 @@ export const ModelCapabilitySheet = ({
     if (open && !isDirty) setDraft(toDraft(current))
   }, [open, current, isDirty])
 
-  const providerName = getProviderDisplayName(providerId)
+  const providerName = getProviderDisplayName(providerId, providerDisplayName)
 
   // Reset is meaningful when there is a saved override to clear, or when the
   // user has edited the toggles in this open session.
@@ -116,6 +128,33 @@ export const ModelCapabilitySheet = ({
     // Drop any saved override and snap the toggles back to detection.
     if (hasOverride) await onReset()
     setDraft(toDraft(detected))
+  }
+
+  const handleProbe = async () => {
+    if (!onProbe) return
+    setProbing(true)
+    try {
+      const result = await onProbe()
+      // The persisted probe flows back through reactive storage and reseeds
+      // the toggles (unless the user has unsaved edits) — only report here.
+      toast({
+        description: t(
+          result.toolCalling
+            ? "model.capabilities.sheet.probe_success"
+            : "model.capabilities.sheet.probe_no_support"
+        )
+      })
+    } catch (error) {
+      logger.warn("Tool-calling probe failed", "ModelCapabilitySheet", {
+        error
+      })
+      toast({
+        variant: "destructive",
+        description: t("model.capabilities.sheet.probe_failed")
+      })
+    } finally {
+      setProbing(false)
+    }
   }
 
   return (
@@ -147,6 +186,31 @@ export const ModelCapabilitySheet = ({
                   })}
             </span>
           </div>
+
+          {onProbe && (
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-control border border-border px-3 py-2.5">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm font-medium text-foreground">
+                  {t("model.capabilities.sheet.probe_title")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t("model.capabilities.sheet.probe_description")}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleProbe}
+                disabled={probing}>
+                {probing ? (
+                  <Loader2 className="icon-sm mr-2 animate-spin" />
+                ) : (
+                  <Zap className="icon-sm mr-2" />
+                )}
+                {t("model.capabilities.sheet.probe_button")}
+              </Button>
+            </div>
+          )}
 
           {CAPABILITY_META.map(({ flag, icon: Icon, labelKey, descKey }) => {
             const switchId = `capability-${flag}`

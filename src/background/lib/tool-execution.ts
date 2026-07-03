@@ -18,14 +18,24 @@ import type {
   ToolRuntimePolicy
 } from "@/lib/tools"
 import { resolveToolRuntimePolicy } from "@/lib/tools"
+import { hasAlwaysGrant } from "@/lib/tools/approval/approval-grants"
+import {
+  confirmationRequired,
+  effectiveRisk
+} from "@/lib/tools/approval/approval-policy"
 import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
 import { awaitToolConfirmation } from "./tool-confirmation-registry"
+import { hasSessionGrant } from "./tool-session-grants"
 
 export interface PreparedToolCall {
   call: ToolCall
   run: ToolRun
   policy: ToolRuntimePolicy
-  /** Require explicit user approval before running (destructive tools). */
+  /**
+   * Pause for explicit user approval before running. Resolved from the tool's
+   * risk level and any standing grants (see `approval-policy.ts`), not a
+   * per-tool boolean.
+   */
   requiresConfirmation: boolean
 }
 
@@ -116,7 +126,8 @@ export const buildImageMessage = (
 export const prepareToolCall = async (
   registry: ToolRegistry,
   call: ToolCall,
-  toolResultMaxChars?: number
+  toolResultMaxChars?: number,
+  ctx?: ToolContext
 ): Promise<PreparedToolCall> => {
   const definition = await registry.getDefinition(call.name)
   const policy = resolveToolRuntimePolicy(
@@ -125,10 +136,20 @@ export const prepareToolCall = async (
       ? { maxResultChars: toolResultMaxChars }
       : undefined
   )
+  // Low risk never prompts — skip the grant lookup (a storage read) entirely,
+  // which is the hot path for read-only tools.
+  const risk = effectiveRisk(definition)
+  const requiresConfirmation =
+    risk === "low"
+      ? false
+      : confirmationRequired(definition, {
+          hasSessionGrant: hasSessionGrant(ctx?.sessionId, call.name),
+          hasAlwaysGrant: await hasAlwaysGrant(call.name)
+        })
   return {
     call,
     policy,
-    requiresConfirmation: definition?.requiresConfirmation ?? false,
+    requiresConfirmation,
     run: {
       toolId: call.name,
       callId: call.id,
@@ -161,17 +182,27 @@ export const runPreparedToolCall = async (
   ctx: ToolContext,
   signal?: AbortSignal,
   /** Re-emit the trace so the UI reflects awaiting/running transitions live. */
-  emitTrace?: () => void
+  emitTrace?: () => void,
+  /**
+   * Force-persist resumable loop state after the trace enters
+   * `awaiting-confirmation`, before the in-memory promise starts waiting.
+   */
+  persistAwaitingConfirmation?: () => Promise<void>
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
 
-  // Destructive tools pause for explicit user approval before running. A denial
-  // (or an abort while waiting) returns a declined result to the model instead
-  // of executing — the tool never runs without a yes.
+  // Confirmation-gated tools pause for explicit user approval before running.
+  // A denial (or an abort while waiting) returns a declined result to the model
+  // instead of executing — the tool never runs without a yes.
   if (prepared.requiresConfirmation) {
     run.status = "awaiting-confirmation"
     emitTrace?.()
-    const approved = await awaitToolConfirmation(call.id, signal)
+    await persistAwaitingConfirmation?.()
+    const approved = await awaitToolConfirmation(
+      call.id,
+      { toolName: call.name, sessionId: ctx.sessionId },
+      signal
+    )
     if (!approved) {
       run.status = "error"
       run.completedAt = Date.now()

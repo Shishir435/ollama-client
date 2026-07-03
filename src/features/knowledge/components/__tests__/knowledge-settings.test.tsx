@@ -7,7 +7,6 @@ import {
   within
 } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import { DEFAULT_EMBEDDING_CONFIG, type EmbeddingConfig } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { FeedbackSettings } from "../feedback-settings"
@@ -114,14 +113,6 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() })
 }))
 
-vi.mock("@/lib/config/knowledge-config", () => ({
-  knowledgeConfig: {
-    setChunkSize: vi.fn().mockResolvedValue(undefined),
-    setChunkOverlap: vi.fn().mockResolvedValue(undefined),
-    setSplittingStrategy: vi.fn().mockResolvedValue(undefined)
-  }
-}))
-
 vi.mock("@/lib/embeddings/feedback-service", () => ({
   feedbackService: {
     getStatistics: vi.fn(),
@@ -155,35 +146,21 @@ describe("knowledge settings", () => {
     vi.mocked(feedbackService.clearAllFeedback).mockResolvedValue(undefined)
   })
 
-  it("syncs text splitting config and persists enhanced chunking changes", async () => {
-    const setConfig = mockStorage({
+  it("shows one chunking strategy surface", () => {
+    mockStorage({
       ...DEFAULT_EMBEDDING_CONFIG,
-      useEnhancedChunking: true,
       chunkSize: 700,
       chunkOverlap: 80
     })
 
     render(<TextSplittingSettings />)
 
-    await waitFor(() => {
-      expect(knowledgeConfig.setChunkSize).toHaveBeenCalledWith(700)
-      expect(knowledgeConfig.setChunkOverlap).toHaveBeenCalledWith(80)
-      expect(knowledgeConfig.setSplittingStrategy).toHaveBeenCalledWith(
-        "recursive"
-      )
-    })
-
-    fireEvent.click(
-      screen.getByRole("switch", {
-        name: /model.embedding_config.enhanced_chunking_label/
-      })
-    )
-
-    const update = setConfig.mock.calls.at(-1)?.[0]
-    expect(typeof update).toBe("function")
-    expect(update(DEFAULT_EMBEDDING_CONFIG)).toEqual(
-      expect.objectContaining({ useEnhancedChunking: false })
-    )
+    expect(
+      screen.getByText("model.embedding_config.chunking_strategy_label")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText("model.embedding_config.enhanced_chunking_label")
+    ).not.toBeInTheDocument()
   })
 
   it("persists feedback toggles and clears feedback after confirmation", async () => {

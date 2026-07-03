@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
-import { useChatInput } from "@/features/chat/stores/chat-input-store"
+import {
+  useChatInput,
+  useComposerUi
+} from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 import { buildPromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-context"
@@ -25,7 +28,6 @@ import {
 } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ChromeMessage, ImageAttachment } from "@/types"
-import { ChatInputAttachmentSheet } from "./chat-input/chat-input-attachment-sheet"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import { ComposerShell } from "./chat-input/composer-shell"
@@ -54,6 +56,8 @@ export const ChatInputBox = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
+  const { promptLibraryOpen, focused, setPromptLibraryOpen, setFocused } =
+    useComposerUi()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
   const { loadingIds, tabContents } = useTabContents()
@@ -64,12 +68,9 @@ export const ChatInputBox = ({
     null
   )
   const sendingRef = useRef(false)
-  const [showPromptOverlay, setShowPromptOverlay] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [showSessionMetrics, setShowSessionMetrics] =
     useSessionMetricsPreference()
-  const [showAttachmentSheet, setShowAttachmentSheet] = useState(false)
 
   const {
     processFiles,
@@ -146,11 +147,11 @@ export const ChatInputBox = ({
     if (e.key === "/" && e.ctrlKey) {
       e.preventDefault()
       updateSelection()
-      setShowPromptOverlay(true)
+      setPromptLibraryOpen(true)
     }
 
     if (e.key === "Escape") {
-      setShowPromptOverlay(false)
+      setPromptLibraryOpen(false)
     }
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
@@ -230,7 +231,7 @@ export const ChatInputBox = ({
       const newPrompt = addSpaceIfNeeded(before, after)
       setInput(newPrompt + input)
     }
-    setShowPromptOverlay(false)
+    setPromptLibraryOpen(false)
     requestAnimationFrame(() => {
       if (textareaRef.current) {
         const pos = (start ?? 0) + prompt.length
@@ -396,11 +397,11 @@ export const ChatInputBox = ({
   const isPreparingTabContext = tabAccess && pendingTabCount > 0
   return (
     <div className="relative">
-      {showPromptOverlay && (
+      {promptLibraryOpen && (
         <PromptSelectorSheet
-          open={showPromptOverlay}
+          open={promptLibraryOpen}
           onSelect={handleSelectPrompt}
-          onClose={() => setShowPromptOverlay(false)}
+          onClose={() => setPromptLibraryOpen(false)}
           variableContext={buildPromptTemplateVariableContext({
             input,
             selectionStart: selectionStartRef.current,
@@ -412,7 +413,7 @@ export const ChatInputBox = ({
       )}
 
       <ComposerShell
-        isFocused={isFocused}
+        isFocused={focused}
         isDragging={isDragging}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -432,10 +433,10 @@ export const ChatInputBox = ({
           onSelect={updateSelection}
           onKeyUp={updateSelection}
           onFocus={() => {
-            setIsFocused(true)
+            setFocused(true)
             updateSelection()
           }}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => setFocused(false)}
           className={cn(
             "max-h-75 min-h-11 w-full resize-none border-0 bg-transparent",
             "pb-14 pl-4 pr-14 pt-3 text-sm leading-relaxed scrollbar-none",
@@ -450,9 +451,10 @@ export const ChatInputBox = ({
           isLoading={isLoading}
           onFilesSelected={handleFilesSelected}
           processingStates={processingStates}
-          onAttachmentClick={() => setShowAttachmentSheet(true)}
+          onRemoveFile={clearProcessingState}
           acceptImages={!visionUnsupported}
-          imageCount={images.length}
+          images={images}
+          onRemoveImage={removeImage}
           onCaptureScreenshot={captureScreenshot}
           showScreenshot={!visionUnsupported}
         />
@@ -468,14 +470,6 @@ export const ChatInputBox = ({
           />
         </div>
       </ComposerShell>
-      <ChatInputAttachmentSheet
-        open={showAttachmentSheet}
-        onOpenChange={setShowAttachmentSheet}
-        processingStates={processingStates}
-        onRemove={clearProcessingState}
-        images={images}
-        onRemoveImage={removeImage}
-      />
     </div>
   )
 }

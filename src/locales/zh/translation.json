@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "重试",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "back": "返回"
     },
     "updated_at": "已更新",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ 未知错误: {{message}}",
       "no_message": "无消息",
       "response_failed_title": "响应生成失败",
-      "unknown_error_description": "发生未知错误"
+      "unknown_error_description": "发生未知错误",
+      "report_issue": "报告问题"
     },
     "composer": {
       "rag": "文件",
@@ -450,7 +452,10 @@
       "title": "确认操作",
       "body": "助手想要执行：{{action}}。是否允许？",
       "allow": "允许",
-      "deny": "拒绝"
+      "deny": "拒绝",
+      "allow_once": "允许一次",
+      "allow_session": "在此对话中允许",
+      "allow_always": "始终允许"
     }
   },
   "file_upload": {
@@ -458,7 +463,9 @@
       "aria_label": "上传文件",
       "tooltip": "上传文件（PDF、DOCX、CSV、HTML、文本）",
       "aria_label_with_images": "上传文件或图片",
-      "tooltip_with_images": "上传文件或图片 (PDF、DOCX、CSV、HTML、文本、图片)"
+      "tooltip_with_images": "上传文件或图片 (PDF、DOCX、CSV、HTML、文本、图片)",
+      "formats": "PDF、DOCX、CSV、HTML、文本",
+      "formats_with_images": "PDF、DOCX、CSV、HTML、文本、图片"
     },
     "preview": {
       "remove_aria_label": "移除文件",
@@ -541,6 +548,7 @@
       "add_button": "添加"
     },
     "embedding_config": {
+      "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
       "total_vectors": "总向量数",
       "storage_used": "已用存储空间",
@@ -574,7 +582,8 @@
       "chunking_strategy_label": "分块策略",
       "strategy_fixed": "固定大小",
       "strategy_semantic": "语义边界",
-      "strategy_hybrid": "混合 (推荐)",
+      "strategy_hybrid": "混合",
+      "strategy_markdown": "Markdown 结构",
       "embedding_gen_title": "嵌入生成",
       "embedding_gen_description": "配置嵌入生成性能",
       "batch_size_label": "批处理大小",
@@ -659,7 +668,13 @@
         "note_self_report": "{{provider}} 会自动报告此模型的能力。此处的更改将覆盖检测到的结果。",
         "reset": "重置为检测值",
         "save": "保存",
-        "save_error": "无法保存能力。请重试。"
+        "save_error": "无法保存能力。请重试。",
+        "probe_title": "检测工具支持",
+        "probe_description": "发送一个小型测试请求，检查此模型能否调用工具。",
+        "probe_button": "检测",
+        "probe_success": "模型调用了测试工具——工具调用已开启。",
+        "probe_no_support": "模型没有调用测试工具。你仍然可以手动开启工具调用。",
+        "probe_failed": "检测失败。请检查提供商连接后重试。"
       },
       "flags": {
         "text": {
@@ -743,6 +758,12 @@
       "pin": "置顶对话",
       "unpin": "取消置顶"
     },
+    "tags": {
+      "title": "聊天标签",
+      "description": "添加以逗号分隔的标签来整理此聊天。",
+      "placeholder": "工作, 研究, 个人",
+      "action": "编辑标签"
+    },
     "groups": {
       "pinned": "已置顶"
     }
@@ -772,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "本地",
+      "header_tooltip": "查看本地数据和隐私控制",
+      "device_local": "此设备",
+      "synced": "已同步",
+      "inventory": {
+        "title": "你的数据",
+        "description": "备份或清除前查看 Ollama Client 存储的全部数据。",
+        "chat": "聊天",
+        "chat_count": "{{sessions}} 个会话 · {{messages}} 条消息",
+        "knowledge": "知识和记忆",
+        "knowledge_count": "{{files}} 个文件 · {{vectors}} 个向量",
+        "settings": "本地设置和提供商密钥",
+        "settings_description": "端点、API 密钥、权限和设备状态",
+        "preferences": "可同步偏好",
+        "preferences_description": "存储在浏览器同步中的显示和行为设置"
+      }
+    },
     "chat_display": {
       "title": "聊天显示",
       "description": "配置聊天信息的显示方式",
@@ -1395,6 +1434,39 @@
         "default_url": "默认 URL",
         "api_key_required_title": "需要 API 密钥",
         "api_key_required": "请先为 {{name}} 添加 API 密钥，然后再测试连接。"
+      },
+      "add": {
+        "button": "添加提供商",
+        "title": "添加自定义提供商",
+        "description": "连接 Ollama、OpenAI 兼容服务器或 Anthropic。",
+        "name_label": "名称",
+        "name_placeholder": "我的家庭服务器",
+        "wire_label": "API 类型",
+        "wire_openai": "OpenAI 兼容",
+        "wire_openai_description": "vLLM、LocalAI、KoboldCPP 或其他兼容端点",
+        "wire_ollama": "Ollama",
+        "wire_ollama_description": "另一个本地或远程 Ollama 服务器",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "原生 Claude Messages API",
+        "api_key_label": "API 密钥（可选）",
+        "api_key_required_label": "API 密钥",
+        "remote_notice": "远程提供商：发送到这里的提示、文件和工具上下文将离开您的设备。",
+        "submit": "添加提供商",
+        "added_title": "提供商已添加",
+        "added_description": "已添加 {{name}}。测试连接以发现模型。",
+        "failed_title": "无法添加提供商",
+        "remove": "移除",
+        "remove_failed_title": "无法移除提供商",
+        "remove_confirm_title": "移除 {{name}}？",
+        "remove_confirm_description": "其连接设置和模型映射将被删除。你的聊天记录会保留。",
+        "custom_badge": "自定义"
+      },
+      "models": {
+        "title": "模型 ID（可选）",
+        "description": "当提供商未从发现端点返回模型时，手动添加模型。",
+        "add": "添加",
+        "remove": "移除",
+        "placeholder": "例如模型名称或 ID"
       }
     },
     "migration": {
@@ -1623,6 +1695,15 @@
             "description": "对于无法原生调用工具的模型，在提示词中描述工具并解析其调用。实验性功能，可靠性低于原生工具调用。"
           }
         }
+      },
+      "approvals": {
+        "title": "审批",
+        "description": "标记为“始终允许”的工具在此设备上运行时不再询问。撤销授权后，下次会再次询问。",
+        "empty": "没有长期授权。需要权限的工具会在对话中询问。",
+        "granted_on": "授权于 {{date}}",
+        "revoke": "撤销",
+        "clear_all": "全部撤销",
+        "origin_any": "任意位置"
       }
     },
     "search": {
@@ -1722,16 +1803,33 @@
     "failed_to_fetch_models": "无法获取模型"
   },
   "onboarding": {
+    "step": "第 {{current}} 步，共 {{total}} 步",
+    "continue": "继续",
+    "privacy": {
+      "host_access": "页面访问权限让扩展读取您指定的网站。除非配置远程提供商，否则不会向外发送任何内容。"
+    },
     "permissions": {
       "title": "欢迎使用 Ollama Client",
-      "privacy": "一切都在您的设备上运行。您的聊天和数据绝不会离开设备。",
+      "privacy": "使用本地提供商时，聊天保留在此设备上。远程提供商只会收到您选择发送的内容。",
       "body": "部分功能（书签与历史记录知识、提醒、保存文件和标签组）需要可选的浏览器权限。在您允许之前它们保持关闭；只授予您需要的权限。",
+      "optional_title": "选择可选访问权限",
       "open": "打开权限",
       "dismiss": "以后再说"
     },
     "provider": {
       "title": "连接提供商",
-      "open_setup": "设置提供商"
+      "description": "立即检查默认 Ollama 端点。您可以修改它，也可以稍后配置其他提供商。",
+      "connected": "已连接。找到 {{count}} 个模型。",
+      "skip": "暂时跳过",
+      "open_setup": "设置提供商",
+      "errors": {
+        "cors": "Ollama 正在运行，但阻止了此扩展。请使用下面的命令重启。",
+        "auth": "提供商拒绝了 API 密钥或访问设置。",
+        "not-found": "服务器已响应，但这不是有效的提供商端点。请检查端口和基础 URL。",
+        "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
+        "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
+        "server-error": "提供商返回服务器错误。请检查日志后重试。"
+      }
     }
   }
 }

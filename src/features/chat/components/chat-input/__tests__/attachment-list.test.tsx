@@ -1,13 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { ChatInputAttachmentSheet } from "@/features/chat/components/chat-input/chat-input-attachment-sheet"
+import { AttachmentList } from "@/features/chat/components/chat-input/attachment-list"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: { count?: number }) =>
       ({
-        "chat.input.attachments": `${values?.count ?? 0} attachments`,
         "file_upload.preview.remove_aria_label": "Remove file",
         "file_upload.area.files_ready": `${values?.count ?? 0} files ready`,
         "tabs.inspector.chars": `${values?.count ?? 0} chars`
@@ -15,8 +14,8 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
-describe("ChatInputAttachmentSheet", () => {
-  it("shows attached files as expandable sheet rows", () => {
+describe("AttachmentList", () => {
+  it("shows attached files as expandable rows", () => {
     const onRemove = vi.fn()
     const longText = `${"template ".repeat(100)}tail marker`
     const state: FileProcessingState = {
@@ -35,16 +34,8 @@ describe("ChatInputAttachmentSheet", () => {
       }
     }
 
-    render(
-      <ChatInputAttachmentSheet
-        open
-        onOpenChange={vi.fn()}
-        processingStates={[state]}
-        onRemove={onRemove}
-      />
-    )
+    render(<AttachmentList processingStates={[state]} onRemove={onRemove} />)
 
-    expect(screen.getByText("1 attachments")).toBeInTheDocument()
     expect(screen.getByText("prompt-templates.json")).toBeInTheDocument()
     expect(screen.getByText(`${longText.length} chars`)).toBeInTheDocument()
 
@@ -56,5 +47,10 @@ describe("ChatInputAttachmentSheet", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove file" }))
     expect(onRemove).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows an empty state when nothing is staged", () => {
+    render(<AttachmentList processingStates={[]} onRemove={vi.fn()} />)
+    expect(screen.getByText("0 files ready")).toBeInTheDocument()
   })
 })

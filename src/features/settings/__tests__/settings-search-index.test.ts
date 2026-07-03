@@ -25,7 +25,7 @@ const t = (key: string) => messages[key] ?? key
 const entries: SettingsEntry[] = [
   {
     id: "settings-presets",
-    tab: "chat",
+    tab: "general",
     sectionId: "presets",
     labelKey: "settings.presets.title",
     descriptionKey: "settings.presets.description",
@@ -41,7 +41,7 @@ const entries: SettingsEntry[] = [
   },
   {
     id: "provider-base-url",
-    tab: "providers",
+    tab: "models",
     sectionId: "providers",
     labelKey: "settings.providers.base_url",
     descriptionKey: "settings.providers.base_url_default",
@@ -50,7 +50,7 @@ const entries: SettingsEntry[] = [
   },
   {
     id: "max-tab-context-chars",
-    tab: "knowledge-web",
+    tab: "knowledge",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_tab_context_chars",
     aliases: ["character budget"]
@@ -73,7 +73,7 @@ describe("settings-search-index", () => {
     ).toMatchObject({
       entryId: "settings-presets",
       focusId: "settings-presets",
-      tab: "chat",
+      tab: "general",
       displayContext: "Presets"
     })
   })
@@ -96,7 +96,7 @@ describe("settings-search-index", () => {
     const records = buildSettingsSearchRecords(entries, t)
     const [hit] = rankSettingsSearchRecords("character budget", records)
     expect(hit.record.entryId).toBe("max-tab-context-chars")
-    expect(hit.record.tab).toBe("knowledge-web")
+    expect(hit.record.tab).toBe("knowledge")
   })
 
   it("caps crowded records per focus id", () => {

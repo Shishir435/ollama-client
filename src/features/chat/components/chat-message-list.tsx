@@ -22,6 +22,7 @@ export interface ChatMessageListProps {
   highlightedMessage: ChatMessage | null
   onRegenerate: (message: ChatMessage, model?: string) => void
   onUpdateMessage: (message: ChatMessage, content: string) => void
+  onForkMessage: (message: ChatMessage, content: string) => void
   onDeleteMessage: (message: ChatMessage) => void
   onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
@@ -44,6 +45,7 @@ export const ChatMessageList = ({
   hasMore,
   onLoadMore,
   onUpdateMessage,
+  onForkMessage,
   onDeleteMessage,
   onNavigate
 }: ChatMessageListProps) => {
@@ -189,6 +191,7 @@ export const ChatMessageList = ({
                       : undefined
                   }
                   onUpdate={(content) => onUpdateMessage(msg, content)}
+                  onFork={(content) => onForkMessage(msg, content)}
                   onDelete={() => onDeleteMessage(msg)}
                   onNavigate={onNavigate}
                 />

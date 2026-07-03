@@ -2,12 +2,10 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 import { browser } from "@/lib/browser-api"
 import {
-  DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_FILE_UPLOAD_CONFIG,
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { processFile } from "@/lib/file-processors"
 import type {
@@ -18,11 +16,7 @@ import { processKnowledge } from "@/lib/knowledge"
 import { markKnowledgeFileEmbedded } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type {
-  EmbeddingConfig,
-  EmbeddingStatusMessage,
-  FileUploadConfig
-} from "@/types"
+import type { FileUploadConfig } from "@/types"
 import {
   ensureProcessedFileId,
   registerKnowledgeFile,
@@ -42,14 +36,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       instance: plasmoGlobalStorage
     },
     DEFAULT_FILE_UPLOAD_CONFIG
-  )
-
-  const [embeddingConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
   )
 
   const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
@@ -107,297 +93,100 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
             })
           }
 
-          // Generate embeddings if enabled
-          const safeEmbeddingConfig =
-            embeddingConfig || DEFAULT_EMBEDDING_CONFIG
+          // One ingestion path: processKnowledge owns chunking + embedding for
+          // files, using the same app chunker as live page context.
           if (safeConfig.autoEmbedFiles) {
             try {
-              // Check if using new knowledge processor (enhanced text splitters)
-              const useNewProcessor =
-                safeEmbeddingConfig.useEnhancedChunking || false
-
-              if (useNewProcessor) {
-                // Use new knowledge processor with enhanced text splitters
-                logger.info(
-                  `Processing file "${file.name}" with enhanced knowledge system`,
-                  "useFileUpload"
-                )
-
-                const processResult = await processKnowledge({
-                  fileId: result.metadata.fileId || file.name,
-                  fileName: result.metadata.fileName,
-                  content: result.text,
-                  pages: result.pages,
-                  contentType: file.type || "text/plain",
-                  onProgress: (progress) => {
-                    if (
-                      safeConfig.showEmbeddingProgress &&
-                      progress.status === "processing"
-                    ) {
-                      const progressPercent =
-                        progress.totalChunks > 0
-                          ? Math.round(
-                              (progress.processedChunks /
-                                progress.totalChunks) *
-                                100
-                            )
-                          : 0
-
-                      setProcessingStates((prev) => {
-                        const next = new Map(prev)
-                        next.set(file, {
-                          file,
-                          status: "processing",
-                          progress: progressPercent,
-                          result
-                        })
-                        return next
-                      })
-                    }
-                  }
-                })
-
-                if (processResult.success) {
-                  logger.info(
-                    `Successfully processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`,
-                    "useFileUpload"
-                  )
-                  await markKnowledgeFileEmbedded(fileId)
-                  void browser.runtime
-                    .sendMessage({
-                      type: MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE,
-                      payload: {
-                        id: `embed-file-${fileId}`,
-                        title: "File embedding done",
-                        message: `${result.metadata.fileName || "File"} is ready for local knowledge search.`
-                      }
-                    })
-                    .catch((error) => {
-                      logger.debug?.(
-                        "File embedding notification skipped",
-                        "useFileUpload",
-                        { error }
-                      )
-                    })
-                } else {
-                  logger.error(
-                    `Failed to process "${file.name}"`,
-                    "useFileUpload",
-                    { error: processResult.error }
-                  )
-                }
-
-                // Mark as complete
-                if (safeConfig.showEmbeddingProgress) {
+              const processResult = await processKnowledge({
+                fileId: result.metadata.fileId || file.name,
+                fileName: result.metadata.fileName,
+                content: result.text,
+                pages: result.pages,
+                contentType: file.type || "text/plain",
+                onProgress: (progress) => {
+                  if (!safeConfig.showEmbeddingProgress) return
+                  const progressPercent =
+                    progress.totalChunks > 0
+                      ? Math.round(
+                          (progress.processedChunks / progress.totalChunks) *
+                            100
+                        )
+                      : 0
                   setProcessingStates((prev) => {
                     const next = new Map(prev)
                     next.set(file, {
                       file,
-                      status: processResult.success ? "success" : "error",
-                      progress: 100,
-                      error: processResult.error,
+                      status: "processing",
+                      progress: progressPercent,
                       result
                     })
                     return next
                   })
                 }
-
-                if (!safeConfig.showEmbeddingProgress) {
-                  setProcessingStates((prev) => {
-                    const next = new Map(prev)
-                    next.set(file, {
-                      file,
-                      status: processResult.success ? "success" : "error",
-                      error: processResult.error,
-                      result
-                    })
-                    return next
-                  })
-                }
-
-                if (onFileProcessed) {
-                  onFileProcessed(result)
-                }
-
-                // Skip old chunking system
-                continue
-              }
-
-              // Use old chunking system (backward compatibility)
-              const chunks = await chunkTextAsync(result.text, {
-                chunkSize: safeEmbeddingConfig.chunkSize,
-                chunkOverlap: safeEmbeddingConfig.chunkOverlap,
-                strategy: safeEmbeddingConfig.chunkingStrategy
               })
+
+              if (!processResult.success) {
+                throw new Error(
+                  processResult.error || "Failed to embed processed file"
+                )
+              }
 
               logger.info(
-                `Chunked file "${file.name}" into ${chunks.length} chunks (embedding queued in background)`,
+                `Processed "${file.name}": ${processResult.chunkCount} chunks, ${processResult.vectorIds.length} embeddings`,
                 "useFileUpload"
               )
-
-              // Mark status as queued so UI doesn't block while background processes embeddings
-              if (safeConfig.showEmbeddingProgress) {
-                setProcessingStates((prev) => {
-                  const next = new Map(prev)
-                  next.set(file, {
-                    file,
-                    status: "processing",
-                    progress: 0,
-                    result
-                  })
-                  return next
+              await markKnowledgeFileEmbedded(fileId)
+              void browser.runtime
+                .sendMessage({
+                  type: MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE,
+                  payload: {
+                    id: `embed-file-${fileId}`,
+                    title: "File embedding done",
+                    message: `${result.metadata.fileName || "File"} is ready for local knowledge search.`
+                  }
                 })
-              }
-
-              // Stream chunks to background via a dedicated port to avoid sending one large message
-              const port = browser.runtime.connect({
-                name: MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS
-              })
-
-              // Send init metadata
-              port.postMessage({
-                type: "init",
-                payload: {
-                  metadata: {
-                    fileId: result.metadata.fileId || file.name,
-                    title: result.metadata.fileName,
-                    timestamp: Date.now()
-                  }
-                }
-              })
-
-              // Listen for progress updates from background
-              port.onMessage.addListener((msg: unknown) => {
-                try {
-                  const m = msg as EmbeddingStatusMessage
-                  if (m?.status === "progress") {
-                    const processed = m.processed || 0
-                    const total = m.total || 0
-                    const progress =
-                      total > 0 ? Math.round((processed / total) * 100) : 0
-                    if (safeConfig.showEmbeddingProgress) {
-                      setProcessingStates((prev) => {
-                        const next = new Map(prev)
-                        next.set(file, {
-                          file,
-                          status: "processing",
-                          progress,
-                          result
-                        })
-                        return next
-                      })
-                    }
-                  } else if (m?.status === "done") {
-                    // Embedding complete
-                    if (safeConfig.showEmbeddingProgress) {
-                      setProcessingStates((prev) => {
-                        const next = new Map(prev)
-                        next.set(file, {
-                          file,
-                          status: "success",
-                          progress: 100,
-                          result
-                        })
-                        return next
-                      })
-                    }
-                    try {
-                      port.disconnect()
-                    } catch (e) {
-                      logger.warn(
-                        "Port already disconnected",
-                        "useFileUpload",
-                        { error: e }
-                      )
-                    }
-                  } else if (m?.status === "error") {
-                    logger.warn("Background embedding error", "useFileUpload", {
-                      error: m?.message
-                    })
-                    if (safeConfig.showEmbeddingProgress) {
-                      setProcessingStates((prev) => {
-                        const next = new Map(prev)
-                        next.set(file, {
-                          file,
-                          status: "error",
-                          error: m?.message || "Embedding error",
-                          result
-                        })
-                        return next
-                      })
-                    }
-                    try {
-                      port.disconnect()
-                    } catch (e) {
-                      logger.warn(
-                        "Port already disconnected on error",
-                        "useFileUpload",
-                        { error: e }
-                      )
-                    }
-                  }
-                } catch (e) {
-                  logger.warn("Error handling port message", "useFileUpload", {
-                    error: e
-                  })
-                }
-              })
-
-              // Stream batches to background to avoid sending a huge single message
-              const batchSize = safeConfig.embeddingBatchSize || 3
-              for (let i = 0; i < chunks.length; i += batchSize) {
-                const batch = chunks
-                  .slice(i, i + batchSize)
-                  .map((c) => ({ index: c.index, text: c.text }))
-                try {
-                  port.postMessage({
-                    type: "batch",
-                    payload: { chunks: batch }
-                  })
-                  // Yield to event loop to keep UI responsive during heavy sending
-                  await new Promise((resolve) => setTimeout(resolve, 0))
-                } catch (e) {
-                  logger.warn(
-                    "Failed to post batch to embed port",
+                .catch((error) => {
+                  logger.debug?.(
+                    "File embedding notification skipped",
                     "useFileUpload",
-                    { error: e }
+                    { error }
                   )
-                  try {
-                    port.disconnect()
-                  } catch (e) {
-                    logger.warn(
-                      "Port already disconnected on batch fail",
-                      "useFileUpload",
-                      { error: e }
-                    )
-                  }
-                  break
-                }
-              }
-
-              // Signal end of stream
-              try {
-                port.postMessage({ type: "done" })
-              } catch (e) {
-                logger.warn("Failed to send done signal", "useFileUpload", {
-                  error: e
                 })
-              }
             } catch (embeddingError) {
-              logger.error(
-                `Failed to queue embeddings for "${file.name}"`,
-                "useFileUpload",
-                { error: embeddingError }
+              const message = getDisplayErrorMessage(
+                embeddingError,
+                "Failed to embed processed file"
               )
+              logger.error(`Failed to embed "${file.name}"`, "useFileUpload", {
+                error: embeddingError
+              })
+              setProcessingStates((prev) => {
+                const next = new Map(prev)
+                next.set(file, {
+                  file,
+                  status: "error",
+                  error: message,
+                  result
+                })
+                return next
+              })
+              if (onError) {
+                onError(
+                  embeddingError instanceof Error
+                    ? embeddingError
+                    : new Error(message)
+                )
+              }
+              continue
             }
           }
 
-          // Update state with success
           setProcessingStates((prev) => {
             const next = new Map(prev)
             next.set(file, {
               file,
               status: "success",
+              progress: safeConfig.showEmbeddingProgress ? 100 : undefined,
               result
             })
             return next
@@ -430,9 +219,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       onError,
       processingStates,
       safeConfig.autoEmbedFiles,
-      safeConfig.embeddingBatchSize,
-      safeConfig.showEmbeddingProgress,
-      embeddingConfig
+      safeConfig.showEmbeddingProgress
     ]
   )
 

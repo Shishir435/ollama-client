@@ -8,12 +8,22 @@ import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostMessage } from "@/background/lib/utils"
-import { DEFAULT_MAX_RAG_CONTEXT_CHARS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_MAX_RAG_CONTEXT_CHARS,
+  DEFAULT_MEMORY_ENABLED,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { getSession } from "@/lib/repositories/chat-history"
+import {
+  deleteToolLoopRun,
+  getToolLoopRun,
+  saveToolLoopRun,
+  type ToolLoopMode
+} from "@/lib/repositories/tool-loop-runs"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -72,7 +82,7 @@ export const handleChatWithModel = withErrorContext(
     // --- System Prompt & Context Injection ---
     const isMemoryEnabled =
       (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
-      true
+      DEFAULT_MEMORY_ENABLED
     // A per-chat system prompt override, when set, replaces the model's
     // configured prompt for this session only. Empty/whitespace is ignored, and
     // a failed read degrades to the model default rather than breaking the turn.
@@ -247,27 +257,78 @@ export const handleChatWithModel = withErrorContext(
           sessionId: msg.payload.sessionId,
           model
         }
-        if (resolvedTools.mode === "non-native") {
-          await streamChatWithNonNativeTools({
-            provider,
-            request,
-            tools: resolvedTools.tools,
-            registry: getToolRegistry(),
-            onChunk,
-            signal: ac.signal,
-            ctx,
-            toolResultMaxChars
-          })
-        } else {
-          await streamChatWithTools({
-            provider,
-            request,
-            registry: getToolRegistry(),
-            onChunk,
-            signal: ac.signal,
-            ctx,
-            toolResultMaxChars
-          })
+        const mode: ToolLoopMode = resolvedTools.mode
+        const durableRun = msg.payload.requestId
+          ? await getToolLoopRun(msg.payload.requestId)
+          : null
+        const initialState =
+          durableRun &&
+          durableRun.model === model &&
+          durableRun.mode === mode &&
+          durableRun.sessionId === msg.payload.sessionId
+            ? durableRun.state
+            : undefined
+        const onCheckpoint = msg.payload.requestId
+          ? async (
+              state: NonNullable<typeof initialState>,
+              awaitingConfirmation: boolean
+            ) => {
+              await saveToolLoopRun({
+                requestId: msg.payload.requestId as string,
+                sessionId: msg.payload.sessionId,
+                model,
+                providerId,
+                mode,
+                status: awaitingConfirmation
+                  ? "awaiting-confirmation"
+                  : "running",
+                state,
+                updatedAt: Date.now()
+              })
+            }
+          : undefined
+
+        try {
+          if (resolvedTools.mode === "non-native") {
+            await streamChatWithNonNativeTools({
+              provider,
+              request,
+              tools: resolvedTools.tools,
+              registry: getToolRegistry(),
+              onChunk,
+              signal: ac.signal,
+              ctx,
+              toolResultMaxChars,
+              initialState,
+              onCheckpoint
+            })
+          } else {
+            await streamChatWithTools({
+              provider,
+              request,
+              registry: getToolRegistry(),
+              onChunk,
+              signal: ac.signal,
+              ctx,
+              toolResultMaxChars,
+              initialState,
+              onCheckpoint
+            })
+          }
+        } finally {
+          // Any exit on this SW instance — done, aborted, or a thrown tool
+          // error — ends the run, so the checkpoint must go with it (a stale
+          // row could be replayed if the requestId ever recurs). The one case
+          // a checkpoint must survive, an MV3 SW restart, never executes this.
+          if (msg.payload.requestId) {
+            await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
+              logger.warn(
+                "Failed to remove completed tool-loop checkpoint",
+                "handleChatWithModel",
+                { error }
+              )
+            })
+          }
         }
       } else {
         await provider.streamChat(request, onChunk, ac.signal)

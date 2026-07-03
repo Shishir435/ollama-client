@@ -3,7 +3,9 @@ import type { Database } from "sql.js"
 import { logger } from "@/lib/logger"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
+import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
+import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 
 /**
  * A single forward-only schema migration. `up` must be idempotent-safe for the
@@ -43,6 +45,16 @@ export const MIGRATIONS: Migration[] = [
     version: 3,
     name: "add-session-system-prompt-column",
     up: ensureSessionsSystemPromptColumn
+  },
+  {
+    version: 4,
+    name: "add-tool-loop-runs-table",
+    up: ensureToolLoopRunsTable
+  },
+  {
+    version: 5,
+    name: "add-session-tags-column",
+    up: ensureSessionsTagsColumn
   }
 ]
 

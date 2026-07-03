@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
@@ -20,7 +20,7 @@ export const ChatBackfillPanel = () => {
       key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
-    true
+    DEFAULT_MEMORY_ENABLED
   )
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })

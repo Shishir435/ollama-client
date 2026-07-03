@@ -26,6 +26,10 @@ export const ProviderConnectionPanel = ({
   updateConfig
 }: ProviderConnectionPanelProps) => {
   const { t } = useTranslation()
+  // Custom providers have no shipped default URL — omit the description.
+  const defaultBaseUrl = DEFAULT_PROVIDERS.find(
+    (p) => p.id === activeConfig.id
+  )?.baseUrl
 
   return (
     <>
@@ -33,10 +37,11 @@ export const ProviderConnectionPanel = ({
         focusId="provider-base-url"
         label={t("settings.providers.base_url")}
         description={
-          <>
-            {t("settings.providers.base_url_default")}:{" "}
-            {DEFAULT_PROVIDERS.find((p) => p.id === activeConfig.id)?.baseUrl}
-          </>
+          defaultBaseUrl ? (
+            <>
+              {t("settings.providers.base_url_default")}: {defaultBaseUrl}
+            </>
+          ) : undefined
         }>
         <SettingsActionRow>
           <Input
@@ -54,8 +59,7 @@ export const ProviderConnectionPanel = ({
         </SettingsActionRow>
         {isRemoteEndpoint && (
           <p className="mt-2 text-xs text-status-warning">
-            This endpoint is remote. Prompts and responses will be sent outside
-            your local machine.
+            {t("settings.providers.add.remote_notice")}
           </p>
         )}
         {cspCompatibilityHint && (

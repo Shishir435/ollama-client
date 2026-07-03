@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   createdAt INTEGER,
   updatedAt INTEGER,
   pinned INTEGER DEFAULT 0,
-  systemPrompt TEXT
+  systemPrompt TEXT,
+  tags TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -48,10 +49,24 @@ CREATE TABLE IF NOT EXISTS kv_store (
   value TEXT
 );
 
+-- Resumable checkpoints for tool-calling chat turns. Rows exist only while a
+-- tool loop is active and are force-flushed at approval/step boundaries.
+CREATE TABLE IF NOT EXISTS tool_loop_runs (
+  requestId TEXT PRIMARY KEY,
+  sessionId TEXT,
+  model TEXT NOT NULL,
+  providerId TEXT,
+  mode TEXT NOT NULL,
+  status TEXT NOT NULL,
+  state TEXT NOT NULL,
+  updatedAt INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_sessionId ON messages(sessionId);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);
+CREATE INDEX IF NOT EXISTS idx_tool_loop_runs_sessionId ON tool_loop_runs(sessionId);
 
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (

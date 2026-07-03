@@ -103,50 +103,33 @@ export const Chat = () => {
 
   const handleUpdateMessage = async (message: ChatMessage, content: string) => {
     if (!message.id) return
-
-    // If it's an assistant message, just update locally (no forking supported yet for assistant edits)
-    // Or if content is same, ignore
     if (message.content === content) return
+    if (typeof message.id !== "number") return
 
-    if (message.role === "user") {
-      if (currentSessionId) {
-        if (typeof message.id !== "number") return
+    await updateMessage(message.id, { content })
+    if (currentSessionId) {
+      await embedMessage({ ...message, content }, currentSessionId)
+    }
+  }
 
-        /*
-         * Forking Logic
-         * 1. Fork the message (creates new branch)
-         */
-        const newLeafId = await forkMessage(
-          currentSessionId,
-          message.id,
-          content
-        )
+  const handleForkMessage = async (message: ChatMessage, content: string) => {
+    if (
+      message.role !== "user" ||
+      typeof message.id !== "number" ||
+      !currentSessionId
+    ) {
+      return
+    }
 
-        /*
-         * 2. We need to trigger response generation for this new branch.
-         * We need to construct the context history for the new branch.
-         * We can do this by taking the messages up to the point of fork, and adding the new message.
-         */
-        const messageIndex = messages.findIndex((m) => m.id === message.id)
-        if (messageIndex !== -1 && newLeafId) {
-          const precedingMessages = messages.slice(0, messageIndex)
-          const newMessage = { ...message, id: newLeafId, content }
-          const contextMessages = [...precedingMessages, newMessage]
-
-          // Ensure the new User message is embedded for semantic search!
-          await embedMessage(newMessage, currentSessionId)
-
-          await generateResponse(undefined, currentSessionId, contextMessages)
-        }
-      }
-    } else {
-      // Assistant or System: just update content
-      if (typeof message.id !== "number") return
-      await updateMessage(message.id, { content })
-      if (currentSessionId) {
-        const updatedMsg = { ...message, content }
-        await embedMessage(updatedMsg, currentSessionId)
-      }
+    const newLeafId = await forkMessage(currentSessionId, message.id, content)
+    const messageIndex = messages.findIndex((item) => item.id === message.id)
+    if (messageIndex !== -1 && newLeafId) {
+      const newMessage = { ...message, id: newLeafId, content }
+      await embedMessage(newMessage, currentSessionId)
+      await generateResponse(undefined, currentSessionId, [
+        ...messages.slice(0, messageIndex),
+        newMessage
+      ])
     }
   }
 
@@ -184,6 +167,7 @@ export const Chat = () => {
             isStreaming={isStreaming}
             highlightedMessage={highlightedMessage}
             onUpdateMessage={handleUpdateMessage}
+            onForkMessage={handleForkMessage}
             onDeleteMessage={handleDeleteMessage}
             onRegenerate={handleRegenerate}
             hasMore={hasMore}

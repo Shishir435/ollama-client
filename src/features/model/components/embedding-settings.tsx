@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_MEMORY_ENABLED,
   DEFAULT_PROVIDER_ID,
   type EmbeddingConfig,
   STORAGE_KEYS
@@ -79,7 +80,7 @@ export const EmbeddingSettings = () => {
       key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
-    true
+    DEFAULT_MEMORY_ENABLED
   )
 
   const { models } = useProviderModels()

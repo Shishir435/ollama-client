@@ -94,6 +94,23 @@ export const clearModelCapabilityOverride = (
     }
   })
 
+/** Drop every override scoped to a provider (provider removed). */
+export const clearModelCapabilityOverridesForProvider = (
+  providerId: string
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllModelCapabilityOverrides()
+    const prefix = `${providerId}::`
+    let changed = false
+    for (const key of Object.keys(all)) {
+      if (key.startsWith(prefix)) {
+        delete all[key]
+        changed = true
+      }
+    }
+    if (changed) await plasmoGlobalStorage.set(STORAGE_KEY, all)
+  })
+
 /** Drop undefined fields; return null if nothing meaningful remains. */
 const pruneEmptyOverride = (
   override: ModelCapabilityOverride

@@ -4,6 +4,7 @@ import {
   DEFAULT_GROUNDED_ONLY_MODE,
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
+  DEFAULT_MEMORY_ENABLED,
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -52,7 +53,7 @@ export const useChatConfig = (): ChatConfig => {
       key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
-    true
+    DEFAULT_MEMORY_ENABLED
   )
   const [maxTabContextChars] = useStorage<number>(
     {

@@ -18,17 +18,34 @@ type StoredFile = FileAttachment & { sessionId: string; id?: number }
 type RowValue = string | number | null | Uint8Array
 type Row = Record<string, RowValue>
 
-const sessionFromRow = (row: Row): ChatSession => ({
-  id: row.id as string,
-  title: (row.title as string) ?? "",
-  modelId: (row.modelId as string | null) ?? undefined,
-  currentLeafId: (row.currentLeafId as number | null) ?? undefined,
-  createdAt: row.createdAt as number,
-  updatedAt: row.updatedAt as number,
-  pinned: row.pinned === 1,
-  systemPrompt: (row.systemPrompt as string | null) ?? undefined,
-  messages: []
-})
+const parseTags = (raw: RowValue): string[] => {
+  if (typeof raw !== "string" || raw.length === 0) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter((tag): tag is string => typeof tag === "string")
+      : []
+  } catch {
+    return []
+  }
+}
+
+const sessionFromRow = (row: Row): ChatSession => {
+  const systemPrompt = (row.systemPrompt as string | null) ?? undefined
+  const tags = parseTags(row.tags)
+  return {
+    id: row.id as string,
+    title: (row.title as string) ?? "",
+    modelId: (row.modelId as string | null) ?? undefined,
+    currentLeafId: (row.currentLeafId as number | null) ?? undefined,
+    createdAt: row.createdAt as number,
+    updatedAt: row.updatedAt as number,
+    pinned: row.pinned === 1,
+    ...(systemPrompt ? { systemPrompt } : {}),
+    ...(tags.length > 0 ? { tags } : {}),
+    messages: []
+  }
+}
 
 const parseMetrics = (raw: RowValue): ChatMessage["metrics"] => {
   if (typeof raw !== "string" || raw.length === 0) return undefined
@@ -122,8 +139,8 @@ const withTransaction = async (work: () => Promise<void>): Promise<void> => {
 
 const putSessionRow = async (session: ChatSession): Promise<void> => {
   await run(
-    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -132,7 +149,8 @@ const putSessionRow = async (session: ChatSession): Promise<void> => {
       session.createdAt,
       session.updatedAt,
       session.pinned ? 1 : 0,
-      session.systemPrompt ?? null
+      session.systemPrompt ?? null,
+      session.tags?.length ? JSON.stringify(session.tags) : null
     ]
   )
 }
@@ -167,8 +185,8 @@ export const getLatestSession = async (): Promise<ChatSession | undefined> => {
 
 export const addSession = async (session: ChatSession): Promise<string> => {
   await run(
-    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -177,7 +195,8 @@ export const addSession = async (session: ChatSession): Promise<string> => {
       session.createdAt,
       session.updatedAt,
       session.pinned ? 1 : 0,
-      session.systemPrompt ?? null
+      session.systemPrompt ?? null,
+      session.tags?.length ? JSON.stringify(session.tags) : null
     ]
   )
   return session.id
@@ -283,6 +302,10 @@ export const updateSession = async (
   if (Object.hasOwn(updates, "systemPrompt")) {
     fields.push("systemPrompt = ?")
     values.push(updates.systemPrompt ?? null)
+  }
+  if (Object.hasOwn(updates, "tags")) {
+    fields.push("tags = ?")
+    values.push(updates.tags?.length ? JSON.stringify(updates.tags) : null)
   }
   if (Object.hasOwn(updates, "updatedAt")) {
     fields.push("updatedAt = ?")

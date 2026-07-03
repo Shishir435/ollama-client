@@ -448,6 +448,64 @@ describe("useChatStream", () => {
     expect(setIsStreaming).toHaveBeenCalledWith(false)
   })
 
+  it("reconnects an awaiting approval with the same request id", () => {
+    vi.useFakeTimers()
+    const resumedPort = {
+      postMessage: vi.fn(),
+      onMessage: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      onDisconnect: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      disconnect: vi.fn()
+    } as any
+    vi.mocked(browser.runtime.connect)
+      .mockReturnValueOnce(mockPort)
+      .mockReturnValueOnce(resumedPort)
+
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({
+        toolRuns: [
+          {
+            toolId: "danger",
+            callId: "call-1",
+            label: "danger",
+            status: "awaiting-confirmation",
+            startedAt: 1
+          }
+        ]
+      })
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+      vi.advanceTimersByTime(250)
+    })
+
+    const originalPayload = mockPort.postMessage.mock.calls[0][0].payload
+    expect(resumedPort.postMessage).toHaveBeenCalledWith({
+      type: PROVIDER_MESSAGE_KEYS.CHAT_WITH_MODEL,
+      payload: originalPayload
+    })
+    expect(setIsLoading).not.toHaveBeenLastCalledWith(false)
+    vi.useRealTimers()
+  })
+
   it("should handle stop when port not created", () => {
     const { result } = renderHook(() =>
       useChatStream({

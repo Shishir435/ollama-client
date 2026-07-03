@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { AnthropicProvider } from "../anthropic"
 import { ProviderFactory } from "../factory"
 import { KoboldCppProvider } from "../koboldcpp"
 import { LlamaCppProvider } from "../llama-cpp"
@@ -15,6 +16,15 @@ vi.mock("../manager", () => ({
     getModelMapping: vi.fn(),
     getProviderConfig: vi.fn()
   }
+}))
+
+vi.mock("../anthropic", () => ({
+  AnthropicProvider: vi
+    .fn()
+    // biome-ignore lint: Vitest mock constructor requires regular function
+    .mockImplementation(function () {
+      return { id: "anthropic", streamChat: vi.fn() }
+    })
 }))
 
 vi.mock("../ollama", () => {
@@ -160,6 +170,20 @@ describe("ProviderFactory", () => {
 
       const _provider = await ProviderFactory.getProvider("openai-custom")
       expect(OpenAICompatibleProvider).toHaveBeenCalled()
+    })
+
+    it("should return AnthropicProvider for ANTHROPIC type", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "custom:anthropic:test",
+        name: "Claude",
+        type: ProviderType.ANTHROPIC,
+        enabled: true,
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKey: "sk-ant-test"
+      })
+
+      await ProviderFactory.getProvider("custom:anthropic:test")
+      expect(AnthropicProvider).toHaveBeenCalled()
     })
 
     it("should return VllmProvider for VLLM id", async () => {

@@ -151,7 +151,9 @@ describe("ProviderSettings", () => {
     const { container } = renderProviderSettings()
 
     expect(screen.getByDisplayValue("secret")).toBeInTheDocument()
-    expect(screen.getByText(/This endpoint is remote/)).toBeInTheDocument()
+    expect(
+      screen.getByText("settings.providers.add.remote_notice")
+    ).toBeInTheDocument()
     expect(screen.getByText("CSP hint")).toBeInTheDocument()
     expect(
       container.querySelector('[data-settings-focus-id="provider-api-key"]')
@@ -163,7 +165,7 @@ describe("ProviderSettings", () => {
     ).toBeInTheDocument()
 
     const customModelInput = screen.getByPlaceholderText(
-      "e.g. google/gemini-pro"
+      "settings.providers.models.placeholder"
     )
     fireEvent.change(customModelInput, { target: { value: "new-model" } })
     fireEvent.keyDown(customModelInput, { key: "Enter" })
@@ -171,11 +173,11 @@ describe("ProviderSettings", () => {
       customModels: ["remote-model", "new-model"]
     })
 
-    const modelChip = screen.getByText("remote-model").closest("div")
+    const modelChip = screen.getByText("remote-model").parentElement
     expect(modelChip).not.toBeNull()
     fireEvent.click(
       within(modelChip as HTMLElement).getByRole("button", {
-        name: "common.close remote-model"
+        name: "settings.providers.models.remove remote-model"
       })
     )
     expect(actions.updateConfig).toHaveBeenCalledWith({ customModels: [] })

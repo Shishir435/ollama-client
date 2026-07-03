@@ -103,6 +103,12 @@ export interface ChatMessage {
   /** For `role: "tool"` result messages — the originating tool call id. */
   toolCallId?: string
   /**
+   * For `role: "tool"` result messages — true when the result is an error or
+   * a user denial. Providers with a native error channel (Anthropic
+   * `is_error`) surface it so the model doesn't read failures as successes.
+   */
+  toolIsError?: boolean
+  /**
    * Terminal error for this assistant turn. Set when the stream ends in an
    * error so the UI can offer an inline retry for retryable failures.
    */
@@ -194,6 +200,8 @@ export interface ChatSession {
    * configured system prompt for this session only.
    */
   systemPrompt?: string
+  /** User-managed labels for filtering and organizing chat history. */
+  tags?: string[]
 }
 
 export interface ChatStreamMessage {
@@ -284,6 +292,7 @@ export interface ChatSessionState {
   togglePinSession: (id: string) => Promise<void>
   /** Set (or clear, with an empty string) a session's system-prompt override. */
   setSessionSystemPrompt: (id: string, systemPrompt: string) => Promise<void>
+  setSessionTags?: (id: string, tags: string[]) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   /**

@@ -91,4 +91,20 @@ describe("AdvancedSection", () => {
     // summary never shown when expanded
     expect(screen.queryByText("should not show")).toBeNull()
   })
+
+  it("opens when a deep-link focus forces it", () => {
+    const { rerender } = render(
+      <AdvancedSection title="Advanced">
+        <div>hidden content</div>
+      </AdvancedSection>
+    )
+    expect(screen.queryByText("hidden content")).toBeNull()
+
+    rerender(
+      <AdvancedSection title="Advanced" forceOpen>
+        <div>hidden content</div>
+      </AdvancedSection>
+    )
+    expect(screen.getByText("hidden content")).toBeInTheDocument()
+  })
 })

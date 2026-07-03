@@ -180,6 +180,7 @@ export const ChatMessageSchema = z.object({
   toolCalls: z.array(ToolCallSchema).optional(),
   toolName: z.string().optional(),
   toolCallId: z.string().optional(),
+  toolIsError: z.boolean().optional(),
   timestamp: z.number().optional(),
   metrics: ChatMessageMetricsSchema.optional(),
   parentId: z.union([z.number(), z.string()]).optional(),

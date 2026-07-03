@@ -7,6 +7,34 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-04
+
+### Added
+- Durable SQLite checkpoints for native and prompt-based tool loops, with
+  approval-prompt keepalive and same-request recovery after an MV3
+  service-worker restart.
+- A localized three-step first-run flow covering the local privacy contract,
+  an in-app Ollama connection check with CORS/port guidance, and optional
+  browser permissions.
+- Native Anthropic Messages API support for user-added providers, including
+  model discovery, streaming, images, tool calls, and manual model IDs.
+- Session tags, explicit message forks, and a local-data inventory with
+  backup and wipe controls promoted into Privacy settings.
+
+### Changed
+- Provider settings now show only verified Ollama, LM Studio, and llama.cpp
+  built-ins. vLLM, LocalAI, KoboldCPP, and other compatible endpoints use the
+  redesigned custom-provider flow.
+- Composer context controls now use one full-height tray for page context,
+  knowledge, web search, files, screenshots, and attachment inspection.
+- Settings now use six intent-based tabs; legacy deep links redirect to their
+  new destination.
+- RAG ingestion and live-page retrieval now share one chunker implementation.
+- Reasoning trace events use isolated activity, tool, and thinking renderers.
+- Message edits update in place by default; Fork remains an explicit action.
+- Chat-memory indexing is off by default for new profiles.
+- Bumped package version to `0.12.1`.
+
 ## [0.11.25] - 2026-06-30
 
 ### Added

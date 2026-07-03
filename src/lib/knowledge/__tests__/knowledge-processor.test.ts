@@ -1,25 +1,26 @@
 import { describe, expect, it, vi } from "vitest"
+import * as chunker from "@/lib/embeddings/chunker"
 import * as vectorStore from "@/lib/embeddings/vector-store"
-import * as textProcessing from "@/lib/text-processing"
 import { processKnowledge, processKnowledgeBatch } from "../knowledge-processor"
 
 // Mock dependencies
 vi.mock("@/lib/embeddings/vector-store")
-vi.mock("@/lib/text-processing")
+vi.mock("@/lib/embeddings/chunker")
+vi.mock("@/lib/embeddings/config", () => ({
+  getEmbeddingConfig: vi.fn().mockResolvedValue({
+    chunkSize: 500,
+    chunkOverlap: 50,
+    chunkingStrategy: "markdown"
+  })
+}))
 
 describe("processKnowledge", () => {
-  const mockSplitter = {
-    splitDocuments: vi.fn().mockImplementation(async (docs: any[]) => {
-      return docs.map((doc) => ({
+  it("processes document successfully", async () => {
+    vi.mocked(chunker.chunkDocuments).mockImplementation(async (docs: any[]) =>
+      docs.map((doc) => ({
         pageContent: "chunk1",
         metadata: doc.metadata
       }))
-    })
-  }
-
-  it("processes document successfully", async () => {
-    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(
-      mockSplitter as any
     )
     vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1, 2])
 
@@ -35,11 +36,14 @@ describe("processKnowledge", () => {
 
     expect(result.success).toBe(true)
     expect(result.chunkCount).toBe(1)
-    expect(mockSplitter.splitDocuments).toHaveBeenCalledWith([
-      expect.objectContaining({
-        metadata: expect.objectContaining({ page: 2 })
-      })
-    ])
+    expect(chunker.chunkDocuments).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          metadata: expect.objectContaining({ page: 2 })
+        })
+      ],
+      expect.objectContaining({ strategy: "markdown" })
+    )
     expect(vectorStore.fromDocuments).toHaveBeenCalled()
     expect(onProgress).toHaveBeenCalledWith(
       expect.objectContaining({ status: "processing" })
@@ -50,7 +54,7 @@ describe("processKnowledge", () => {
   })
 
   it("handles errors gracefully", async () => {
-    vi.mocked(textProcessing.getTextSplitter).mockRejectedValue(
+    vi.mocked(chunker.chunkDocuments).mockRejectedValue(
       new Error("Split error")
     )
 
@@ -76,14 +80,9 @@ describe("processKnowledgeBatch", () => {
     // Mock successful processing for both files
     // We can't easily mock processKnowledge directly since it's in the same module
     // But we can rely on the mocked dependencies behaving correctly
-    const mockSplitter = {
-      splitDocuments: vi
-        .fn()
-        .mockResolvedValue([{ pageContent: "chunk", metadata: {} }])
-    }
-    vi.mocked(textProcessing.getTextSplitter).mockResolvedValue(
-      mockSplitter as any
-    )
+    vi.mocked(chunker.chunkDocuments).mockResolvedValue([
+      { pageContent: "chunk", metadata: {} }
+    ])
     vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1])
 
     const files = [
@@ -97,6 +96,6 @@ describe("processKnowledgeBatch", () => {
     expect(results.size).toBe(2)
     expect(results.get("f1")?.success).toBe(true)
     expect(results.get("f2")?.success).toBe(true)
-    expect(textProcessing.getTextSplitter).toHaveBeenCalledTimes(2)
+    expect(chunker.chunkDocuments).toHaveBeenCalledTimes(2)
   })
 })

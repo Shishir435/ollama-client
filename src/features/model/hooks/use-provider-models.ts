@@ -84,23 +84,14 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
     })
   )
 
-  // Persist model→provider mappings so the background script can route correctly.
-  // On collision (same model name from multiple providers), the first one wins.
-  const mappings: Record<string, string> = {}
-  allModels.forEach((m) => {
-    if (m.providerId && m.providerId !== DEFAULT_PROVIDER_ID) {
-      if (mappings[m.name]) {
-        logger.warn(
-          `Model name collision: "${m.name}" is served by both "${mappings[m.name]}" and "${m.providerId}". Keeping first mapping.`,
-          "useProviderModels"
-        )
-      } else {
-        mappings[m.name] = m.providerId
-      }
-    }
-  })
-  if (Object.keys(mappings).length > 0) {
-    await ProviderManager.saveModelMappings(mappings)
+  // Persist model→provider mappings so the background script can route
+  // correctly. Keys are provider-scoped, so name collisions across providers
+  // are all recorded — bare-name lookups disambiguate by provider order.
+  const pairs = allModels
+    .filter((m) => m.providerId && m.providerId !== DEFAULT_PROVIDER_ID)
+    .map((m) => ({ modelId: m.name, providerId: m.providerId as string }))
+  if (pairs.length > 0) {
+    await ProviderManager.saveModelMappings(pairs)
   }
 
   allModels.sort((a, b) => a.name.localeCompare(b.name))

@@ -82,7 +82,7 @@ export const LANDING_TITLE =
   "Ollama Client — Ollama browser extension for local AI"
 
 export const LANDING_DESCRIPTION =
-  "Use Ollama, LM Studio, llama.cpp, vLLM, LocalAI, or KoboldCPP inside Chrome and Firefox with local-first RAG, files, tools, and page context."
+  "Use verified Ollama, LM Studio, and llama.cpp profiles, or add OpenAI-compatible endpoints and Anthropic, inside Chrome and Firefox."
 
 export const KEYWORDS =
   "ollama browser extension, local llm browser extension, chrome extension for ollama, lm studio browser extension, open webui alternative, local ai assistant, offline ai browser, private ai chat, local rag, browser ai agent, self-hosted ai, firefox extension, llama.cpp, vllm, localai, koboldcpp, openai compatible, open source"

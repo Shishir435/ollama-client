@@ -13,12 +13,11 @@ import {
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { KoboldCppProvider } from "../src/lib/providers/koboldcpp"
+import { AnthropicProvider } from "../src/lib/providers/anthropic"
 import { LlamaCppProvider } from "../src/lib/providers/llama-cpp"
 import { LMStudioProvider } from "../src/lib/providers/lm-studio"
-import { LocalAIProvider } from "../src/lib/providers/localai"
 import { OllamaProvider } from "../src/lib/providers/ollama"
-import { VllmProvider } from "../src/lib/providers/vllm"
+import { OpenAICompatibleProvider } from "../src/lib/providers/openai-compatible"
 import {
   type LLMProvider,
   type ProviderConfig,
@@ -116,37 +115,27 @@ const providers: Array<{
   },
   {
     config: {
-      id: ProviderId.VLLM,
+      id: "custom:openai:docs",
       type: ProviderType.OPENAI,
-      name: "vLLM",
-      enabled: false,
-      baseUrl: "http://localhost:8001/v1"
-    },
-    build: (c) => new VllmProvider(c),
-    notes: "High-throughput OpenAI-compatible inference server."
-  },
-  {
-    config: {
-      id: ProviderId.LOCALAI,
-      type: ProviderType.OPENAI,
-      name: "LocalAI",
+      name: "OpenAI-compatible (custom)",
       enabled: false,
       baseUrl: "http://localhost:8080/v1"
     },
-    build: (c) => new LocalAIProvider(c),
-    notes: "OpenAI-compatible with multi-backend model orchestration."
+    build: (c) => new OpenAICompatibleProvider(c),
+    notes:
+      "User-added vLLM, LocalAI, KoboldCPP, or another compatible endpoint."
   },
   {
     config: {
-      id: ProviderId.KOBOLDCPP,
-      type: ProviderType.OPENAI,
-      name: "KoboldCPP",
+      id: "custom:anthropic:docs",
+      type: ProviderType.ANTHROPIC,
+      name: "Anthropic",
       enabled: false,
-      baseUrl: "http://localhost:5001/v1"
+      baseUrl: "https://api.anthropic.com/v1"
     },
-    build: (c) => new KoboldCppProvider(c),
-    notes: "OpenAI-compatible with KoboldCPP's extended sampler controls."
-  },
+    build: (c) => new AnthropicProvider(c),
+    notes: "Optional remote provider using the native Claude Messages API."
+  }
 ]
 
 /** Capability columns in the order they appear in the table. */

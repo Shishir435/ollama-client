@@ -34,16 +34,30 @@ const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
   }) as Promise<PageContentResponse>
 
 /**
- * Read a tab's readable content via the content script's extractor (Defuddle →
- * Readability → basic, plus YouTube/Udemy transcripts).
- *
- * The content script is matched on `<all_urls>` but only exists on tabs that
- * loaded *after* the extension did, so a stale tab (common just after an
- * extension reload) has no receiver and `sendMessage` rejects with "Receiving
- * end does not exist." We recover by injecting the content script on demand and
- * retrying once — no page refresh needed. Throws on restricted pages where
- * injection is blocked (callers should pre-check with {@link classifyTabAccess}).
+ * Request page content, recovering from the missing-receiver case. The content
+ * script is matched on `<all_urls>` but only exists on tabs that loaded *after*
+ * the extension did, so a stale tab (common right after install or an extension
+ * reload) rejects with "Receiving end does not exist." Inject on demand and
+ * retry once — no page refresh needed. Throws when injection itself is blocked
+ * (restricted pages); callers should pre-check with {@link classifyTabAccess}.
  */
+export const requestPageContentWithRecovery = async (
+  tabId: number
+): Promise<PageContentResponse> => {
+  try {
+    return await requestPageContent(tabId)
+  } catch (firstError) {
+    logger.debug("requestPageContent: no receiver, injecting", "tabUtils", {
+      error: firstError
+    })
+    await browser.scripting.executeScript({
+      target: { tabId },
+      files: [CONTENT_SCRIPT_FILE]
+    })
+    return await requestPageContent(tabId)
+  }
+}
+
 const getCurrentTabSignature = async (tabId: number) => {
   try {
     const tab = await browser.tabs.get(tabId)
@@ -74,6 +88,12 @@ export const clearTabContentCache = (tabId?: number) => {
   else tabContentCache.delete(tabId)
 }
 
+/**
+ * Read a tab's readable content via the content script's extractor (Defuddle →
+ * Readability → basic, plus YouTube/Udemy transcripts), with the
+ * missing-receiver recovery from {@link requestPageContentWithRecovery} and a
+ * per-tab cache keyed by the tab's url/title signature.
+ */
 export const readTabContent = async (
   tabId: number,
   { force = false }: { force?: boolean } = {}
@@ -101,23 +121,10 @@ export const readTabContent = async (
   }
 
   try {
-    return cacheAndReturn(await requestPageContent(tabId))
-  } catch (firstError) {
-    logger.debug("readTabContent: no receiver, injecting", "tabUtils", {
-      error: firstError
-    })
-    await browser.scripting.executeScript({
-      target: { tabId },
-      files: [CONTENT_SCRIPT_FILE]
-    })
-    try {
-      return cacheAndReturn(await requestPageContent(tabId))
-    } catch (retryError) {
-      logger.debug("readTabContent: retry failed", "tabUtils", {
-        error: retryError
-      })
-      throw retryError
-    }
+    return cacheAndReturn(await requestPageContentWithRecovery(tabId))
+  } catch (error) {
+    logger.debug("readTabContent: recovery failed", "tabUtils", { error })
+    throw error
   }
 }
 

@@ -1,5 +1,4 @@
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
-import { handleEmbedFileChunksPort } from "@/background/handlers/handle-embed-chunks"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
@@ -85,31 +84,6 @@ export const registerPortRouter = () => {
         const msg = message as ChromeMessage
         await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
       })
-    }
-
-    if (port.name === MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS) {
-      try {
-        handleEmbedFileChunksPort(port)
-      } catch (err) {
-        logger.error(
-          "Error attaching embed chunks port handler",
-          "BackgroundSW",
-          { error: err }
-        )
-        try {
-          port.postMessage({
-            status: "error",
-            message: err instanceof Error ? err.message : String(err)
-          } as unknown as ChromeMessage)
-        } catch (e) {
-          logger.warn(
-            "Port already closed during error response",
-            "BackgroundSW",
-            { error: e }
-          )
-        }
-        port.disconnect()
-      }
     }
   })
 }

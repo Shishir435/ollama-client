@@ -103,13 +103,6 @@ export interface RuntimeMessageMap {
     }
     response: RuntimeResponse
   }
-  [MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS
-      payload?: unknown
-    }
-    response: RuntimeResponse
-  }
   [MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL]: {
     request: {
       type: typeof MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL

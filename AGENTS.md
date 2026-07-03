@@ -6,7 +6,7 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
 
-Supported user-facing providers (all live, all in `src/lib/providers/`): **Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, LocalAI**. `openai-compatible.ts` is the shared OpenAI-compatible base implementation, not a separate configured provider.
+Verified built-in providers: **Ollama, LM Studio, llama.cpp**. Users add vLLM, LocalAI, KoboldCPP, and other compatible servers through the OpenAI-compatible custom-provider flow. Anthropic is a custom provider backed by the native Claude Messages API. `openai-compatible.ts` is the shared implementation, not a separate built-in tile.
 
 ## Development Commands
 
@@ -65,11 +65,11 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 ### Provider System (`src/lib/providers/`)
 
 - `types.ts` — `LLMProvider` interface, `ProviderConfig`, `ProviderType`, `ProviderId` enums
-- `registry.ts` — static registry of all available providers
+- `registry.ts` — static metadata for verified built-in providers
 - `factory.ts` — `ProviderFactory.getProviderForModel()` and friends
 - `manager.ts` — `ProviderManager` for config + model mappings via `ProviderStorageKey`
 - `selected-model.ts` — currently-active model state
-- Individual provider implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`, `vllm.ts`, `koboldcpp.ts`, `localai.ts`; `openai-compatible.ts` provides the shared OpenAI-compatible base class. OpenAI-compatible subclasses are picked from a small `OPENAI_COMPAT_CONSTRUCTORS` map inside `factory.ts`; anything not in that map falls back to plain `OpenAICompatibleProvider`.
+- Verified built-in implementations: `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts`. `openai-compatible.ts` handles custom OpenAI-compatible endpoints; `anthropic.ts` handles native Claude Messages API requests. Legacy vLLM/LocalAI/KoboldCPP subclasses remain compatibility-only and are not built-in UI profiles.
 
 **Default fallback** is Ollama when no explicit model→provider mapping exists.
 
@@ -79,7 +79,9 @@ Chat-history storage now runs on sql.js (SQLite-in-WASM). The Dexie chat-history
 
 - **Chat / sessions / messages / files**: routed through `src/lib/repositories/chat-history.ts` — a SQLite-only facade over `src/lib/repositories/sqlite-chat-history.ts`. New code should keep using the facade rather than importing SQLite internals directly.
 - **SQLite**: `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`). The on-install `runEmbeddingDimensionMigration` lives under `src/lib/migration/` and is invoked from `src/background/index.ts`. There is no `src/background/migrations/` directory anymore.
+- **Session metadata**: pinned state, per-chat system prompts, and user tags live on SQLite `sessions`; add columns through forward-only migrations.
 - **SQLite durability contract**: writes are debounced 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()` where needed.
+- **Tool-loop durability**: active native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 service-worker restart; do not remove this checkpoint/reconnect contract when changing tool execution.
 - **Vectors / embeddings**: `src/lib/embeddings/` (HNSW + keyword index). Vector storage still lives in IndexedDB via `lib/embeddings/storage.ts`. The vector store has not been migrated to SQLite yet.
 - **Settings / config / per-extension state**: `@plasmohq/storage` accessed through `src/lib/plasmo-global-storage.ts`. Sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
 
@@ -99,7 +101,7 @@ Each feature folder should own its UI, hooks, and (if needed) its Zustand store:
 - `model/` — model management UI, provider/embedding settings screens
 - `file-upload/` — file ingestion for RAG, per-format processors under `processors/`
 - `prompt/` — prompt templates
-- `settings/` — settings registry, i18n-backed settings search index, and search/deep-link tests
+- `settings/` — six intent tabs (General, Models, Knowledge, Browser, Privacy, Help), settings registry, i18n-backed search, and legacy deep-link redirects
 - `memory/`, `knowledge/`, `context/`, `tabs/` — auxiliary chat-context features
 
 Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. **Feature-scoped stores live under `features/<x>/stores/`, never in `src/stores/`.**
@@ -107,6 +109,7 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 ### RAG / Embeddings
 
 - Live RAG pipeline: `src/features/chat/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`).
+- All file, memory, and live-page splitting routes through `src/lib/embeddings/chunker.ts`. Do not recreate a parallel text-splitter pipeline.
 - Embedding plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`) with configurable weights.
@@ -230,6 +233,7 @@ If you change anything under `src/locales/`, run `pnpm generate:resources` manua
   - Default model download location on macOS: `~/Library/Caches/llama.cpp`
   - Example: `llama-server -m ~/Library/Caches/llama.cpp/<model>.gguf --port 8000 --host 0.0.0.0`
 - **OpenAI**: <https://platform.openai.com/docs/api-reference>
+- **Anthropic**: <https://platform.claude.com/docs/en/api/messages/create>
 - **vLLM** (OpenAI-compatible server): <https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html>
 - **KoboldCPP** (OpenAI-compatible endpoints): <https://github.com/LostRuins/koboldcpp/wiki>
 - **LocalAI** (OpenAI-compatible): <https://localai.io/features/openai-functions/>

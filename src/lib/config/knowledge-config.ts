@@ -4,9 +4,6 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { CharacterTextSplitter } from "../text-processing/character-text-splitter"
-import { RecursiveCharacterTextSplitter } from "../text-processing/recursive-character-text-splitter"
-import type { TextSplitter } from "../text-processing/types"
 
 export const KNOWLEDGE_CONFIG_KEYS = {
   CHUNK_SIZE: "knowledge.chunkSize",
@@ -172,33 +169,3 @@ export class KnowledgeConfig {
 }
 
 export const knowledgeConfig = new KnowledgeConfig()
-
-/**
- * Get configured text splitter based on user settings
- */
-export async function getTextSplitter(): Promise<TextSplitter> {
-  const chunkSize = await knowledgeConfig.getChunkSize()
-  const chunkOverlap = await knowledgeConfig.getChunkOverlap()
-  const strategy = await knowledgeConfig.getSplittingStrategy()
-
-  if (strategy === "character") {
-    const rawSeparator = await knowledgeConfig.getCharacterSeparator()
-    // Process escape sequences
-    const separator = rawSeparator
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\r/g, "\r")
-
-    return new CharacterTextSplitter({
-      chunkSize,
-      chunkOverlap,
-      separator
-    })
-  }
-
-  // Default: recursive
-  return new RecursiveCharacterTextSplitter({
-    chunkSize,
-    chunkOverlap
-  })
-}

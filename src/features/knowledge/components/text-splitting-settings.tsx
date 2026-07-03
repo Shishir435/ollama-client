@@ -1,11 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import {
-  SettingsFormField,
-  SettingsSliderField,
-  SettingsSwitch
-} from "@/components/settings"
+import { SettingsFormField, SettingsSliderField } from "@/components/settings"
 import {
   Select,
   SelectContent,
@@ -13,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import {
   type ChunkingStrategy,
   DEFAULT_EMBEDDING_CONFIG,
@@ -45,18 +40,6 @@ export const TextSplittingSettings = () => {
     setChunkOverlap(safeChunkOverlap)
   }, [safeChunkSize, safeChunkOverlap])
 
-  // Update knowledge config when storage changes
-  useEffect(() => {
-    const updateKnowledgeConfig = async () => {
-      await knowledgeConfig.setChunkSize(safeChunkSize)
-      await knowledgeConfig.setChunkOverlap(safeChunkOverlap)
-      await knowledgeConfig.setSplittingStrategy(
-        config.useEnhancedChunking ? "recursive" : "character"
-      )
-    }
-    updateKnowledgeConfig()
-  }, [config.useEnhancedChunking, safeChunkSize, safeChunkOverlap])
-
   const handleChunkSizeChange = (value: number[]) => {
     const size = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkSize
     setChunkSize(size)
@@ -82,33 +65,8 @@ export const TextSplittingSettings = () => {
     }))
   }
 
-  const handleEnhancedChunkingChange = (checked: boolean) => {
-    setConfig((prev) => ({
-      ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
-      useEnhancedChunking: checked
-    }))
-  }
-
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <SettingsSwitch
-          id="enhanced-chunking"
-          label={t("model.embedding_config.enhanced_chunking_label")}
-          description={t(
-            "model.embedding_config.enhanced_chunking_description"
-          )}
-          checked={config.useEnhancedChunking}
-          onCheckedChange={handleEnhancedChunkingChange}
-        />
-
-        {config.useEnhancedChunking && (
-          <div className="rounded-control bg-muted p-4 text-sm text-muted-foreground">
-            <p>{t("model.embedding_config.enhanced_chunking_info")}</p>
-          </div>
-        )}
-      </div>
-
       <SettingsSliderField
         focusId="chunk-size"
         label={t("model.embedding_config.chunk_size_label")}
@@ -133,33 +91,33 @@ export const TextSplittingSettings = () => {
         onValueChange={(value) => handleChunkOverlapChange([value])}
       />
 
-      {!config.useEnhancedChunking && (
-        <SettingsFormField
-          focusId="chunking-strategy"
-          label={t("model.embedding_config.chunking_strategy_label")}>
-          <Select
-            value={config.chunkingStrategy}
-            onValueChange={(value) => {
-              if (value !== null)
-                handleStrategyChange(value as ChunkingStrategy)
-            }}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="fixed">
-                {t("model.embedding_config.strategy_fixed")}
-              </SelectItem>
-              <SelectItem value="semantic">
-                {t("model.embedding_config.strategy_semantic")}
-              </SelectItem>
-              <SelectItem value="hybrid">
-                {t("model.embedding_config.strategy_hybrid")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsFormField>
-      )}
+      <SettingsFormField
+        focusId="chunking-strategy"
+        label={t("model.embedding_config.chunking_strategy_label")}>
+        <Select
+          value={config.chunkingStrategy}
+          onValueChange={(value) => {
+            if (value !== null) handleStrategyChange(value as ChunkingStrategy)
+          }}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fixed">
+              {t("model.embedding_config.strategy_fixed")}
+            </SelectItem>
+            <SelectItem value="semantic">
+              {t("model.embedding_config.strategy_semantic")}
+            </SelectItem>
+            <SelectItem value="hybrid">
+              {t("model.embedding_config.strategy_hybrid")}
+            </SelectItem>
+            <SelectItem value="markdown">
+              {t("model.embedding_config.strategy_markdown")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </SettingsFormField>
     </div>
   )
 }

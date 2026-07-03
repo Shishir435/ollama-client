@@ -1,5 +1,6 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
+import { AnthropicProvider } from "./anthropic"
 import { KoboldCppProvider } from "./koboldcpp"
 import { LlamaCppProvider } from "./llama-cpp"
 import { LMStudioProvider } from "./lm-studio"
@@ -31,6 +32,8 @@ function instantiate(config: ProviderConfig): LLMProvider {
   switch (config.type) {
     case ProviderType.OLLAMA:
       return new OllamaProvider(config)
+    case ProviderType.ANTHROPIC:
+      return new AnthropicProvider(config)
     case ProviderType.OPENAI: {
       const Ctor =
         OPENAI_COMPAT_CONSTRUCTORS[config.id] ?? OpenAICompatibleProvider

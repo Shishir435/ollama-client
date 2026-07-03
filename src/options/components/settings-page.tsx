@@ -19,6 +19,7 @@ import {
 } from "@/components/layout"
 import { PerformanceWarning } from "@/components/performance-warning"
 import {
+  AdvancedSection,
   type NavSection,
   PresetPicker,
   SettingsMobileNav,
@@ -30,16 +31,19 @@ import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatDisplaySettings, SpeechSettings } from "@/features/chat/components"
 import { ContextSettings } from "@/features/context/components/context-settings"
+import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { RestoreSessionsLimitSettings } from "@/features/permissions/components/restore-sessions-limit-settings"
+import { PrivacyDataInventory } from "@/features/privacy/components/privacy-data-inventory"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
   isSettingsTab,
+  resolveSettingsTab,
   type SettingsTab
 } from "@/features/settings/settings-registry"
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
@@ -49,16 +53,10 @@ import {
   BookOpen,
   Bot,
   Brain,
-  Database,
   FileText,
   Github,
-  HardDrive,
-  Library,
   Lock,
-  MessageSquare,
-  Server,
-  Volume2,
-  Zap
+  MessageSquare
 } from "@/lib/lucide-icon"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
@@ -69,15 +67,19 @@ export const SettingsPage = () => {
   const desktopSearchRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
   const highlightTimersRef = useRef<Set<number>>(new Set())
+  const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return new URLSearchParams(window.location.search).get("focus")
+  })
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    if (typeof window === "undefined") return "chat"
+    if (typeof window === "undefined") return "general"
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
     // Honor the registry's tab for a deep-linked focus id so links survive a
     // control moving tabs. The focus id's home tab wins over a stale `tab`.
     const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
     const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-    return entryTab || (requestedTab as SettingsTab) || "chat"
+    return entryTab || resolveSettingsTab(requestedTab) || "general"
   })
 
   const navSections: NavSection[] = [
@@ -85,52 +87,23 @@ export const SettingsPage = () => {
       title: t("settings.sections.setup"),
       items: [
         {
-          key: "providers",
-          label: t("settings.tabs.providers"),
-          icon: Server,
-          badge: "New"
-        },
-        { key: "model-behavior", label: t("settings.tabs.models"), icon: Bot }
-      ]
-    },
-    {
-      title: t("settings.sections.chat"),
-      items: [
-        {
-          key: "chat",
+          key: "general",
           label: t("settings.tabs.general"),
           icon: MessageSquare
         },
         {
-          key: "prompt-library",
-          label: t("settings.tabs.prompts"),
-          icon: Library
+          key: "models",
+          label: t("settings.tabs.models"),
+          icon: Bot
         },
-        { key: "speech", label: t("settings.tabs.voices"), icon: Volume2 }
-      ]
-    },
-    {
-      title: t("settings.sections.knowledge"),
-      items: [
         {
-          key: "knowledge-web",
+          key: "knowledge",
           label: t("settings.tabs.context"),
           icon: Brain,
           badge: "Beta"
         },
         {
-          key: "saved-knowledge",
-          label: t("settings.tabs.embeddings"),
-          icon: Database,
-          badge: "Beta"
-        }
-      ]
-    },
-    {
-      title: t("settings.sections.page_tabs"),
-      items: [
-        {
-          key: "page-tabs",
+          key: "browser",
           label: t("settings.tabs.extraction"),
           icon: FileText
         }
@@ -143,21 +116,17 @@ export const SettingsPage = () => {
           key: "privacy",
           label: t("settings.tabs.permissions"),
           icon: Lock
-        },
-        { key: "data-backup", label: t("settings.tabs.reset"), icon: HardDrive }
+        }
       ]
     },
     {
       title: t("settings.sections.more"),
-      items: [
-        { key: "shortcuts", label: t("settings.tabs.shortcuts"), icon: Zap },
-        { key: "help", label: t("settings.tabs.guides"), icon: BookOpen }
-      ]
+      items: [{ key: "help", label: t("settings.tabs.guides"), icon: BookOpen }]
     }
   ]
 
   const tabContent: Record<string, ReactNode> = {
-    chat: (
+    general: (
       <SectionStack>
         <PerformanceWarning />
         <TwoColumnGrid>
@@ -165,56 +134,46 @@ export const SettingsPage = () => {
           <ChatDisplaySettings />
         </TwoColumnGrid>
         <PresetPicker />
+        <AdvancedSection
+          title={t("settings.sections.more")}
+          forceOpen={Boolean(activeFocusId)}
+          summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
+          <SectionStack>
+            <SpeechSettings />
+            <PromptTemplateManager />
+            <ShortcutsSettings />
+          </SectionStack>
+        </AdvancedSection>
       </SectionStack>
     ),
-    "model-behavior": (
+    models: (
       <SectionStack>
+        <ProviderSettings />
         <ModelSettingsForm />
       </SectionStack>
     ),
-    providers: (
-      <SectionStack>
-        <ProviderSettings />
-      </SectionStack>
-    ),
-    shortcuts: (
-      <SectionStack>
-        <ShortcutsSettings />
-      </SectionStack>
-    ),
-    "prompt-library": (
-      <SectionStack>
-        <PromptTemplateManager />
-      </SectionStack>
-    ),
-    "page-tabs": (
+    browser: (
       <SectionStack>
         <ContentExtractionSettings />
       </SectionStack>
     ),
-    "knowledge-web": (
+    knowledge: (
       <SectionStack>
         <ContextSettings />
-      </SectionStack>
-    ),
-    "saved-knowledge": (
-      <SectionStack>
-        <EmbeddingSettings />
-      </SectionStack>
-    ),
-    speech: (
-      <SectionStack>
-        <SpeechSettings />
+        <AdvancedSection
+          title={t("settings.tabs.embeddings")}
+          forceOpen={Boolean(activeFocusId)}
+          summary={t("model.embedding_config.title")}>
+          <EmbeddingSettings />
+        </AdvancedSection>
       </SectionStack>
     ),
     privacy: (
       <SectionStack>
+        <PrivacyDataInventory />
+        <DataMigrationSettings />
         <PermissionsPanel />
         <RestoreSessionsLimitSettings />
-      </SectionStack>
-    ),
-    "data-backup": (
-      <SectionStack>
         <ResetStorage />
       </SectionStack>
     ),
@@ -234,7 +193,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (!validTabKeys.has(activeTab)) {
-      setActiveTab("chat")
+      setActiveTab("general")
     }
   }, [activeTab, validTabKeys])
 
@@ -328,6 +287,7 @@ export const SettingsPage = () => {
         url.searchParams.set("focus", record.focusId)
         window.history.replaceState({}, "", url.toString())
       }
+      setActiveFocusId(record.focusId)
       if (record.tab !== activeTab) {
         setActiveTab(record.tab)
       } else {

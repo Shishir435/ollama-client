@@ -1,6 +1,7 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
+import { getCapabilityProbe } from "@/lib/providers/capability-probe"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
@@ -82,11 +83,15 @@ export const resolveModelTools = async (
     }
   }
 
-  const override = await getModelCapabilityOverride(resolvedProviderId, model)
+  const [override, probed] = await Promise.all([
+    getModelCapabilityOverride(resolvedProviderId, model),
+    getCapabilityProbe(resolvedProviderId, model)
+  ])
   const capabilities = getModelCapabilities({
     providerId: resolvedProviderId,
     ollamaCapabilities,
-    override
+    override,
+    probed
   })
 
   // Native when the model supports tool-calling; otherwise fall back to the

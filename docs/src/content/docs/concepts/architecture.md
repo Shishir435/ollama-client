@@ -151,6 +151,7 @@ Images are stored as chat attachments and routed only when the selected model su
 
 - Ollama receives base64 image payloads through its native `images` field.
 - OpenAI-compatible providers receive `image_url` content parts.
+- Anthropic receives native image content blocks through the Messages API.
 
 Images reuse the existing file metadata path for local persistence and preview display, so no separate image-history store is needed.
 
@@ -159,7 +160,7 @@ Images reuse the existing file metadata path for local persistence and preview d
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
 - Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
-- Default profiles: Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
+- Built-in profiles: Ollama, LM Studio, and llama.cpp. Other OpenAI-compatible endpoints and Anthropic are user-added.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.
 
@@ -178,6 +179,9 @@ Runtime ports support continuous chunk delivery better than one-shot messages, a
 - **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point and now routes to SQLite only.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
 - **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
+- **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Legacy deep links resolve through the settings registry.
+- **RAG splitting**: files, chat memory, and live page sources share `src/lib/embeddings/chunker.ts`; the retired parallel text-splitter tree must not be restored.
+- **Session organization**: tags are JSON stored in the SQLite `sessions.tags` column and exposed through the chat-session store.
 - **Export / restore**: ZIP bundles with versioned manifests; includes the chat SQLite blob plus Dexie dumps for vector embeddings and knowledge sets.
 
 ### Chat-history storage

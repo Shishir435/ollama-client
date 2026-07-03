@@ -18,7 +18,7 @@ Manual context is best when you know exactly what the model should use.
 |---|---|---|
 | Files | Composer attachment button or drag/drop | Text is extracted, chunked, embedded, and available to RAG/file search. |
 | Images | Composer attachment button, drag/drop, or paste | Enabled only for vision-capable models. PNG, JPEG, and WebP are supported. |
-| Current tabs | Context menu in the composer | Selected tab text is injected into the prompt up to your configured context limit. |
+| Current tabs | Context tray in the composer | Selected tab text is injected into the prompt up to your configured context limit. |
 | Selected text | Selection overlay or browser selection capture | Useful for short page snippets that should stay visible in the prompt. |
 
 Manual context remains useful even with tool calling. It gives the user direct control and works with models that do not support tools.
@@ -52,7 +52,7 @@ The tool loop is provider-agnostic. Ollama receives native tool definitions, whi
 
 ## Web search
 
-Web search is off by default. When enabled, tool-capable models see one tool: `web_search({ query, count? })`. The selected backend remains a settings/runtime concern, so adding or removing a provider does not change the model-visible interface.
+When configured and active, tool-capable models see one tool: `web_search({ query, count? })`. The selected backend remains a settings/runtime concern, so adding or removing a provider does not change the model-visible interface.
 
 Supported search providers:
 
@@ -102,7 +102,8 @@ Tool and image data are not sent anywhere until a chat turn is sent to a provide
 - With a remote provider, prompts, extracted context, tool results, files snippets, and images included in that turn are sent to that endpoint.
 - Tool results are trimmed before being returned to the model so a long page or transcript does not dominate the prompt.
 - Web search provider config is device-local. API keys are masked in settings and should not appear in logs.
-- Browser tab access can be disabled from settings or the composer context controls.
+- Browser tab access can be disabled from settings or the composer context tray.
+- Chat-memory indexing is off on new profiles until you explicitly enable it.
 - URL exclusions still apply to tab tools and manual tab context.
 
 Tool calls do not create separate chat-history rows. The persisted conversation keeps the final answer and trace metadata.

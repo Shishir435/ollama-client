@@ -10,6 +10,7 @@ import {
   ChevronRight,
   GitFork,
   MoreHorizontal,
+  SquarePen,
   Trash2
 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
@@ -28,6 +29,7 @@ export const ChatMessageFooter = ({
   feedbackEnabled = true,
   onRegenerate,
   onEdit,
+  onFork,
   onDelete,
   onExport,
   onNavigate
@@ -39,6 +41,7 @@ export const ChatMessageFooter = ({
   feedbackEnabled?: boolean
   onRegenerate?: (model: string) => void
   onEdit?: () => void
+  onFork?: () => void
   onDelete?: () => void
   onExport?: (format: "json" | "pdf" | "markdown" | "text") => void
   onNavigate?: (nodeId: number | string) => void
@@ -126,10 +129,21 @@ export const ChatMessageFooter = ({
         {onEdit && isUser && (
           <TooltipActionButton
             variant="ghost"
-            label={isUser ? t("chat.actions.fork") : t("chat.actions.edit")}
+            label={t("chat.actions.edit")}
             size="icon"
             className={footerButtonClass}
             onClick={onEdit}
+            icon={<SquarePen className="icon-xs" />}
+          />
+        )}
+
+        {onFork && isUser && (
+          <TooltipActionButton
+            variant="ghost"
+            label={t("chat.actions.fork")}
+            size="icon"
+            className={footerButtonClass}
+            onClick={onFork}
             icon={<GitFork className="icon-xs" />}
           />
         )}

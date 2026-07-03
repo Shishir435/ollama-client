@@ -8,12 +8,14 @@ export interface ChatMessageEditorProps {
   initialContent: string
   onSave: (newContent: string) => void
   onCancel: () => void
+  submitLabel?: string
 }
 
 export const ChatMessageEditor = ({
   initialContent,
   onSave,
-  onCancel
+  onCancel,
+  submitLabel
 }: ChatMessageEditorProps) => {
   const { t } = useTranslation()
   const [content, setContent] = useState(initialContent)
@@ -49,7 +51,7 @@ export const ChatMessageEditor = ({
         value={content}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
-        className="min-h-[60px] resize-none border-0 p-0 shadow-none focus-visible:ring-0"
+        className="min-h-15 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
         placeholder={t("chat.editor.placeholder")}
       />
       <div className="flex justify-end gap-2">
@@ -57,7 +59,7 @@ export const ChatMessageEditor = ({
           {t("common.cancel")}
         </Button>
         <Button size="sm" onClick={() => onSave(content)}>
-          {t("common.save")}
+          {submitLabel ?? t("common.save")}
         </Button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { ChevronDown, ChevronRight, type LucideIcon } from "@/lib/lucide-icon"
@@ -17,6 +17,8 @@ interface AdvancedSectionProps {
   summary?: React.ReactNode
   /** Start expanded. Defaults to collapsed. Ignored when `destructive`. */
   defaultOpen?: boolean
+  /** Expand when a settings-search deep link targets content inside. */
+  forceOpen?: boolean
   /**
    * Marks the block as containing delete/clear actions. Destructive content is
    * never auto-collapsed: the section renders expanded with no collapse toggle,
@@ -34,11 +36,15 @@ export const AdvancedSection = ({
   badge,
   summary,
   defaultOpen = false,
+  forceOpen = false,
   destructive = false,
   className,
   children
 }: AdvancedSectionProps) => {
   const [open, setOpen] = useState(defaultOpen)
+  useEffect(() => {
+    if (forceOpen) setOpen(true)
+  }, [forceOpen])
   // Destructive blocks are always expanded and have no toggle.
   const expanded = destructive || open
   const Chevron = expanded ? ChevronDown : ChevronRight

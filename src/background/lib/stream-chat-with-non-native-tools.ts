@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
+import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolContext, ToolDefinition, ToolRegistry } from "@/lib/tools"
 import { parseNonNativeToolCalls } from "@/lib/tools/non-native/non-native-tool-parser"
 import {
@@ -7,7 +8,7 @@ import {
   formatNonNativeToolResult,
   NON_NATIVE_TOOL_CALL_OPEN
 } from "@/lib/tools/non-native/non-native-tool-protocol"
-import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
+import type { ChatMessage, ChatStreamMessage } from "@/types"
 import {
   type PreparedToolCall,
   prepareToolCall,
@@ -25,6 +26,11 @@ interface StreamChatWithNonNativeToolsOptions {
   ctx: ToolContext
   maxIterations?: number
   toolResultMaxChars?: number
+  initialState?: DurableToolLoopState
+  onCheckpoint?: (
+    state: DurableToolLoopState,
+    awaitingConfirmation: boolean
+  ) => Promise<void>
 }
 
 const DEFAULT_MAX_ITERATIONS = 5
@@ -133,76 +139,113 @@ export const streamChatWithNonNativeTools = async ({
   signal,
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
-  toolResultMaxChars
+  toolResultMaxChars,
+  initialState,
+  onCheckpoint
 }: StreamChatWithNonNativeToolsOptions): Promise<void> => {
-  const workingMessages = injectToolPrompt(
-    request.messages,
-    buildNonNativeToolPrompt(tools)
-  )
+  const state: DurableToolLoopState =
+    initialState?.phase === "model" || initialState?.phase === "tools"
+      ? initialState
+      : {
+          iteration: 0,
+          phase: "model",
+          workingMessages: injectToolPrompt(
+            request.messages,
+            buildNonNativeToolPrompt(tools)
+          ),
+          toolRuns: []
+        }
+  const workingMessages = state.workingMessages
   // Never forward a `tools` array to the provider on this path — the model
   // doesn't support native calls and some endpoints 400 on an unusable field.
   const baseRequest: ChatRequest = { ...request, tools: undefined }
-  const toolRuns: ToolRun[] = []
-  let lastMetrics: ChatStreamMessage["metrics"] | undefined
+  const toolRuns = state.toolRuns
+  let lastMetrics = state.lastMetrics
   const streamId = ++streamSeq
 
-  for (let iteration = 0; iteration < maxIterations; iteration++) {
+  const checkpoint = async (awaitingConfirmation = false) => {
+    state.lastMetrics = lastMetrics
+    await onCheckpoint?.(state, awaitingConfirmation)
+  }
+
+  if (initialState) onChunk({ toolRuns: [...toolRuns] })
+
+  for (; state.iteration < maxIterations; ) {
     if (signal?.aborted) {
       onChunk({ done: true, aborted: true })
       return
     }
 
-    const gate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
-    let metrics: ChatStreamMessage["metrics"] | undefined
-    let stopped = false
+    if (state.phase === "model") {
+      const gate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
+      let metrics: ChatStreamMessage["metrics"] | undefined
+      let stopped = false
 
-    await provider.streamChat(
-      { ...baseRequest, messages: workingMessages },
-      (chunk) => {
-        if (chunk.done && !chunk.error && !chunk.aborted) {
-          if (chunk.metrics) metrics = chunk.metrics
-          return
-        }
-        if (chunk.error || chunk.aborted) {
-          stopped = true
-          onChunk(chunk)
-          return
-        }
-        if (typeof chunk.thinkingDelta === "string") {
-          onChunk({ thinkingDelta: chunk.thinkingDelta })
-        }
-        if (typeof chunk.delta === "string") {
-          gate.push(chunk.delta)
-        }
-      },
-      signal
-    )
+      await provider.streamChat(
+        { ...baseRequest, messages: workingMessages },
+        (chunk) => {
+          if (chunk.done && !chunk.error && !chunk.aborted) {
+            if (chunk.metrics) metrics = chunk.metrics
+            return
+          }
+          if (chunk.error || chunk.aborted) {
+            stopped = true
+            onChunk(chunk)
+            return
+          }
+          if (typeof chunk.thinkingDelta === "string") {
+            onChunk({ thinkingDelta: chunk.thinkingDelta })
+          }
+          if (typeof chunk.delta === "string") {
+            gate.push(chunk.delta)
+          }
+        },
+        signal
+      )
 
-    if (stopped) return
-    if (metrics) lastMetrics = metrics
+      if (stopped) return
+      if (metrics) lastMetrics = metrics
 
-    const { toolCalls: parsedCalls } = parseNonNativeToolCalls(gate.text)
-    const toolCalls = parsedCalls.map((call) => ({
-      ...call,
-      id: `s${streamId}_i${iteration}_${call.id}`
-    }))
+      const { toolCalls: parsedCalls } = parseNonNativeToolCalls(gate.text)
+      const toolCalls = parsedCalls.map((call) => ({
+        ...call,
+        id: `s${streamId}_i${state.iteration}_${call.id}`
+      }))
 
-    if (toolCalls.length === 0) {
-      gate.flushTail()
-      onChunk({ done: true, metrics, toolRuns: [...toolRuns] })
-      return
+      if (toolCalls.length === 0) {
+        gate.flushTail()
+        onChunk({ done: true, metrics, toolRuns: [...toolRuns] })
+        return
+      }
+
+      workingMessages.push({ role: "assistant", content: gate.text })
+      state.phase = "tools"
+      state.pendingToolCalls = toolCalls
+      state.nextToolIndex = 0
+      state.nonNativeResponseParts = []
+      if (onCheckpoint) await checkpoint()
     }
 
-    // Echo the raw assistant turn (with the tool-call markup) so the model sees
-    // its own request when reasoning over the results next turn.
-    workingMessages.push({ role: "assistant", content: gate.text })
-
+    const toolCalls = state.pendingToolCalls ?? []
     const prepared = await Promise.all(
       toolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars)
+        prepareToolCall(registry, call, toolResultMaxChars, ctx)
       )
     )
-    const responseParts: string[] = []
+    const responseParts = state.nonNativeResponseParts ?? []
+
+    const startToolRun = (item: PreparedToolCall) => {
+      const existing = toolRuns.find((run) => run.callId === item.call.id)
+      if (existing) {
+        item.run = existing
+        item.run.status = "running"
+        item.run.completedAt = undefined
+        item.run.error = undefined
+      } else {
+        toolRuns.push(item.run)
+      }
+      onChunk({ toolRuns: [...toolRuns] })
+    }
 
     const runAndFormat = async (item: PreparedToolCall): Promise<string> => {
       const { content } = await runPreparedToolCall(
@@ -210,13 +253,14 @@ export const streamChatWithNonNativeTools = async ({
         registry,
         ctx,
         signal,
-        () => onChunk({ toolRuns: [...toolRuns] })
+        () => onChunk({ toolRuns: [...toolRuns] }),
+        onCheckpoint ? () => checkpoint(true) : undefined
       )
       onChunk({ toolRuns: [...toolRuns] })
       return formatNonNativeToolResult(item.call.name, content)
     }
 
-    for (let index = 0; index < prepared.length; ) {
+    for (let index = state.nextToolIndex ?? 0; index < prepared.length; ) {
       const item = prepared[index]
       if (item.policy.parallelizable) {
         const group: PreparedToolCall[] = []
@@ -227,24 +271,30 @@ export const streamChatWithNonNativeTools = async ({
           group.push(prepared[index])
           index++
         }
-        for (const g of group) {
-          toolRuns.push(g.run)
-        }
-        onChunk({ toolRuns: [...toolRuns] })
+        for (const g of group) startToolRun(g)
         const groupResults = await Promise.all(group.map(runAndFormat))
         responseParts.push(...groupResults)
+        state.nextToolIndex = index
+        if (onCheckpoint) await checkpoint()
         continue
       }
-      toolRuns.push(item.run)
-      onChunk({ toolRuns: [...toolRuns] })
+      startToolRun(item)
       responseParts.push(await runAndFormat(item))
       index++
+      state.nextToolIndex = index
+      if (onCheckpoint) await checkpoint()
     }
 
     workingMessages.push({
       role: "user",
       content: responseParts.join("\n")
     })
+    state.iteration += 1
+    state.phase = "model"
+    state.pendingToolCalls = undefined
+    state.nextToolIndex = undefined
+    state.nonNativeResponseParts = undefined
+    if (onCheckpoint) await checkpoint()
   }
 
   // Iteration cap: one final plain pass so the user gets an answer.

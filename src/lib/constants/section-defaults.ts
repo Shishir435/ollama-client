@@ -97,11 +97,6 @@ export const SECTION_DEFAULTS: Record<string, SectionDefault[]> = {
   chunking: [
     {
       storageKey: EMBEDDINGS.CONFIG,
-      field: "useEnhancedChunking",
-      value: DEFAULT_EMBEDDING_CONFIG.useEnhancedChunking
-    },
-    {
-      storageKey: EMBEDDINGS.CONFIG,
       field: "chunkSize",
       value: DEFAULT_EMBEDDING_CONFIG.chunkSize
     },

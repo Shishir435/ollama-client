@@ -21,6 +21,16 @@ vi.mock("../add-session-system-prompt-column", () => ({
     ensureSessionsSystemPromptColumn(db)
 }))
 
+const ensureToolLoopRunsTable = vi.fn()
+vi.mock("../add-tool-loop-runs-table", () => ({
+  ensureToolLoopRunsTable: (db: unknown) => ensureToolLoopRunsTable(db)
+}))
+
+const ensureSessionsTagsColumn = vi.fn()
+vi.mock("../add-session-tags-column", () => ({
+  ensureSessionsTagsColumn: (db: unknown) => ensureSessionsTagsColumn(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -51,6 +61,8 @@ beforeEach(() => {
   ensureMessagesThinkingColumn.mockClear()
   ensureSessionsPinnedColumn.mockClear()
   ensureSessionsSystemPromptColumn.mockClear()
+  ensureToolLoopRunsTable.mockClear()
+  ensureSessionsTagsColumn.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -86,6 +98,8 @@ describe("migration-runner", () => {
     expect(ensureMessagesThinkingColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
+    expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -97,6 +111,8 @@ describe("migration-runner", () => {
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
+    expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
