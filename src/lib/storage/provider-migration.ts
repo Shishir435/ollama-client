@@ -69,10 +69,18 @@ export const migrateLegacyProviderStorage = async (
     const scopedMappings = await storage.get<Record<string, string>>(
       ProviderStorageKey.MODEL_MAPPINGS_V2
     )
-    const scopedProviderId = selectedModel
-      ? Object.entries(scopedMappings ?? {}).find(
-          ([key, providerId]) => key === `${providerId}::${selectedModel}`
-        )?.[1]
+    // Parse the provider id out of the key itself (`providerId::modelName`)
+    // rather than reconstructing the key from the entry's value — the two are
+    // equivalent for well-formed rows, but key-parsing still resolves if a
+    // row's value ever disagrees with its key.
+    const scopedSuffix = `::${selectedModel}`
+    const scopedKey = selectedModel
+      ? Object.keys(scopedMappings ?? {}).find((key) =>
+          key.endsWith(scopedSuffix)
+        )
+      : undefined
+    const scopedProviderId = scopedKey
+      ? scopedKey.slice(0, scopedKey.length - scopedSuffix.length)
       : undefined
     const mappedProviderId =
       (selectedModel ? modelMappings?.[selectedModel] : undefined) ??

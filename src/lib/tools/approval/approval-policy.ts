@@ -49,8 +49,11 @@ export const allowedScopesForRisk = (risk: ToolRiskLevel): ApprovalScope[] => {
       return ["once"]
     case "high":
       return ["once", "session", "always"]
+    // Per the policy table above, medium caps out at a per-chat grant — a
+    // permanent "always" bypass is reserved for tools the user re-confirms
+    // often enough (high) to make that trade-off deliberately.
     case "medium":
-      return ["once", "session", "always"]
+      return ["once", "session"]
     default:
       return []
   }

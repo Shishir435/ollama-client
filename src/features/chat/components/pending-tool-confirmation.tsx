@@ -28,8 +28,8 @@ const SCOPE_LABEL_KEYS: Record<ApprovalScope, string> = {
  * `awaiting-confirmation` status and posts the decision back via a CONFIRM_TOOL
  * runtime message (keyed by the tool-call id) with the chosen grant scope. The
  * offered scopes follow the tool's risk level: medium may be granted for the
- * chat or always, high likewise (but defaults to once), critical only ever
- * allows a single call. Renders nothing when idle.
+ * chat at most, high adds "always allow" (but defaults to once), critical only
+ * ever allows a single call. Renders nothing when idle.
  */
 export const PendingToolConfirmation = ({
   messages

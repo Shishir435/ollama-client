@@ -288,40 +288,47 @@ export const handleChatWithModel = withErrorContext(
             }
           : undefined
 
-        if (resolvedTools.mode === "non-native") {
-          await streamChatWithNonNativeTools({
-            provider,
-            request,
-            tools: resolvedTools.tools,
-            registry: getToolRegistry(),
-            onChunk,
-            signal: ac.signal,
-            ctx,
-            toolResultMaxChars,
-            initialState,
-            onCheckpoint
-          })
-        } else {
-          await streamChatWithTools({
-            provider,
-            request,
-            registry: getToolRegistry(),
-            onChunk,
-            signal: ac.signal,
-            ctx,
-            toolResultMaxChars,
-            initialState,
-            onCheckpoint
-          })
-        }
-        if (msg.payload.requestId) {
-          await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
-            logger.warn(
-              "Failed to remove completed tool-loop checkpoint",
-              "handleChatWithModel",
-              { error }
-            )
-          })
+        try {
+          if (resolvedTools.mode === "non-native") {
+            await streamChatWithNonNativeTools({
+              provider,
+              request,
+              tools: resolvedTools.tools,
+              registry: getToolRegistry(),
+              onChunk,
+              signal: ac.signal,
+              ctx,
+              toolResultMaxChars,
+              initialState,
+              onCheckpoint
+            })
+          } else {
+            await streamChatWithTools({
+              provider,
+              request,
+              registry: getToolRegistry(),
+              onChunk,
+              signal: ac.signal,
+              ctx,
+              toolResultMaxChars,
+              initialState,
+              onCheckpoint
+            })
+          }
+        } finally {
+          // Any exit on this SW instance — done, aborted, or a thrown tool
+          // error — ends the run, so the checkpoint must go with it (a stale
+          // row could be replayed if the requestId ever recurs). The one case
+          // a checkpoint must survive, an MV3 SW restart, never executes this.
+          if (msg.payload.requestId) {
+            await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
+              logger.warn(
+                "Failed to remove completed tool-loop checkpoint",
+                "handleChatWithModel",
+                { error }
+              )
+            })
+          }
         }
       } else {
         await provider.streamChat(request, onChunk, ac.signal)

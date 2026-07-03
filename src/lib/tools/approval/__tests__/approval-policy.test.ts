@@ -72,12 +72,8 @@ describe("scopes", () => {
     expect(allowedScopesForRisk("critical")).toEqual(["once"])
   })
 
-  it("offers once/session/always for medium and high", () => {
-    expect(allowedScopesForRisk("medium")).toEqual([
-      "once",
-      "session",
-      "always"
-    ])
+  it("caps medium at a per-chat grant; only high offers always", () => {
+    expect(allowedScopesForRisk("medium")).toEqual(["once", "session"])
     expect(allowedScopesForRisk("high")).toEqual(["once", "session", "always"])
   })
 
