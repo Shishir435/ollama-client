@@ -14,6 +14,12 @@ import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { getSession } from "@/lib/repositories/chat-history"
+import {
+  deleteToolLoopRun,
+  getToolLoopRun,
+  saveToolLoopRun,
+  type ToolLoopMode
+} from "@/lib/repositories/tool-loop-runs"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -247,6 +253,37 @@ export const handleChatWithModel = withErrorContext(
           sessionId: msg.payload.sessionId,
           model
         }
+        const mode: ToolLoopMode = resolvedTools.mode
+        const durableRun = msg.payload.requestId
+          ? await getToolLoopRun(msg.payload.requestId)
+          : null
+        const initialState =
+          durableRun &&
+          durableRun.model === model &&
+          durableRun.mode === mode &&
+          durableRun.sessionId === msg.payload.sessionId
+            ? durableRun.state
+            : undefined
+        const onCheckpoint = msg.payload.requestId
+          ? async (
+              state: NonNullable<typeof initialState>,
+              awaitingConfirmation: boolean
+            ) => {
+              await saveToolLoopRun({
+                requestId: msg.payload.requestId as string,
+                sessionId: msg.payload.sessionId,
+                model,
+                providerId,
+                mode,
+                status: awaitingConfirmation
+                  ? "awaiting-confirmation"
+                  : "running",
+                state,
+                updatedAt: Date.now()
+              })
+            }
+          : undefined
+
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
             provider,
@@ -256,7 +293,9 @@ export const handleChatWithModel = withErrorContext(
             onChunk,
             signal: ac.signal,
             ctx,
-            toolResultMaxChars
+            toolResultMaxChars,
+            initialState,
+            onCheckpoint
           })
         } else {
           await streamChatWithTools({
@@ -266,7 +305,18 @@ export const handleChatWithModel = withErrorContext(
             onChunk,
             signal: ac.signal,
             ctx,
-            toolResultMaxChars
+            toolResultMaxChars,
+            initialState,
+            onCheckpoint
+          })
+        }
+        if (msg.payload.requestId) {
+          await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
+            logger.warn(
+              "Failed to remove completed tool-loop checkpoint",
+              "handleChatWithModel",
+              { error }
+            )
           })
         }
       } else {

@@ -35,31 +35,30 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
     name: "llama.cpp",
     enabled: false,
     baseUrl: "http://localhost:8000/v1"
-  },
-  {
-    id: ProviderId.VLLM,
-    type: ProviderType.OPENAI,
-    name: "vLLM",
-    enabled: false,
-    baseUrl: "http://localhost:8001/v1"
-  },
-  {
-    id: ProviderId.LOCALAI,
-    type: ProviderType.OPENAI,
-    name: "LocalAI",
-    enabled: false,
-    baseUrl: "http://localhost:8080/v1"
-  },
-  {
-    id: ProviderId.KOBOLDCPP,
-    type: ProviderType.OPENAI,
-    name: "KoboldCpp",
-    enabled: false,
-    baseUrl: "http://localhost:5001/v1"
   }
 ]
 
 const DEFAULT_PROVIDER_IDS = new Set(DEFAULT_PROVIDERS.map((p) => p.id))
+const REMOVED_BETA_DEFAULTS: Record<
+  string,
+  { baseUrl: string; name: string; customId: string }
+> = {
+  [ProviderId.VLLM]: {
+    baseUrl: "http://localhost:8001/v1",
+    name: "vLLM",
+    customId: "custom:openai:legacy-vllm"
+  },
+  [ProviderId.LOCALAI]: {
+    baseUrl: "http://localhost:8080/v1",
+    name: "LocalAI",
+    customId: "custom:openai:legacy-localai"
+  },
+  [ProviderId.KOBOLDCPP]: {
+    baseUrl: "http://localhost:5001/v1",
+    name: "KoboldCpp",
+    customId: "custom:openai:legacy-koboldcpp"
+  }
+}
 
 // Built-in ids and user-added `custom:` ids survive; anything else is stale
 // data from an old version and gets dropped.
@@ -68,14 +67,49 @@ const isKnownProviderId = (id: string): boolean =>
 
 const sanitizeStoredProviders = (
   providers: ProviderConfig[]
-): { providers: ProviderConfig[]; removed: ProviderConfig[] } => {
+): {
+  providers: ProviderConfig[]
+  removed: ProviderConfig[]
+  migrated: Array<{ from: string; to: string }>
+} => {
+  const kept: ProviderConfig[] = []
+  const removed: ProviderConfig[] = []
+  const migrated: Array<{ from: string; to: string }> = []
+
+  for (const provider of providers) {
+    const id = String(provider.id)
+    if (isKnownProviderId(id)) {
+      kept.push(provider)
+      continue
+    }
+
+    const legacy = REMOVED_BETA_DEFAULTS[id]
+    const wasConfigured =
+      legacy &&
+      (provider.enabled ||
+        Boolean(provider.apiKey?.trim()) ||
+        Boolean(provider.customModels?.length) ||
+        provider.baseUrl !== legacy.baseUrl ||
+        provider.name !== legacy.name)
+    if (legacy && wasConfigured) {
+      kept.push({
+        ...provider,
+        id: legacy.customId,
+        type: ProviderType.OPENAI
+      })
+      migrated.push({ from: id, to: legacy.customId })
+      continue
+    }
+
+    removed.push(provider)
+  }
+
   return {
-    providers: providers.filter((provider) =>
-      isKnownProviderId(String(provider.id))
-    ),
-    removed: providers.filter(
-      (provider) => !isKnownProviderId(String(provider.id))
-    )
+    providers: [
+      ...new Map(kept.map((provider) => [provider.id, provider])).values()
+    ],
+    removed,
+    migrated
   }
 }
 
@@ -91,7 +125,26 @@ const readScopedModelMappings = async (): Promise<Record<string, string>> => {
   const v2 = await plasmoGlobalStorage.get<Record<string, string>>(
     ProviderStorageKey.MODEL_MAPPINGS_V2
   )
-  if (v2) return v2
+  if (v2) {
+    const normalized: Record<string, string> = {}
+    let changed = false
+    for (const [key, providerId] of Object.entries(v2)) {
+      const targetProviderId =
+        REMOVED_BETA_DEFAULTS[providerId]?.customId ?? providerId
+      const separator = key.indexOf("::")
+      const modelId = separator >= 0 ? key.slice(separator + 2) : key
+      const targetKey = scopedModelKey(targetProviderId, modelId)
+      normalized[targetKey] = targetProviderId
+      if (targetKey !== key || targetProviderId !== providerId) changed = true
+    }
+    if (changed) {
+      await plasmoGlobalStorage.set(
+        ProviderStorageKey.MODEL_MAPPINGS_V2,
+        normalized
+      )
+    }
+    return normalized
+  }
 
   const legacy = await plasmoGlobalStorage.get<Record<string, string>>(
     ProviderStorageKey.MODEL_MAPPINGS
@@ -100,7 +153,9 @@ const readScopedModelMappings = async (): Promise<Record<string, string>> => {
   if (legacy) {
     for (const [modelId, providerId] of Object.entries(legacy)) {
       if (typeof providerId === "string" && providerId) {
-        migrated[scopedModelKey(providerId, modelId)] = providerId
+        const targetProviderId =
+          REMOVED_BETA_DEFAULTS[providerId]?.customId ?? providerId
+        migrated[scopedModelKey(targetProviderId, modelId)] = targetProviderId
       }
     }
     await plasmoGlobalStorage.set(
@@ -158,12 +213,13 @@ export const ProviderManager = {
     }
 
     const sanitized = sanitizeStoredProviders(stored)
-    if (sanitized.removed.length > 0) {
+    if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
       logger.info(
-        "Removed provider configs not present in the provider UI",
+        "Sanitized provider configs not present in the built-in provider UI",
         "ProviderManager",
         {
-          providers: sanitized.removed.map((provider) => provider.id)
+          removed: sanitized.removed.map((provider) => provider.id),
+          migrated: sanitized.migrated
         }
       )
       stored = sanitized.providers
@@ -214,7 +270,7 @@ export const ProviderManager = {
       return merged
     }
 
-    if (sanitized.removed.length > 0) {
+    if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
       await ProviderManager.saveProviders(stored)
     }
 
@@ -364,20 +420,42 @@ export const ProviderManager = {
     baseUrl: string
     wire: CustomProviderWire
     apiKey?: string
+    customModels?: string[]
   }): Promise<ProviderConfig> {
     const name = input.name.trim()
     if (!name) {
       throw createAppError("Provider name is required", { kind: "validation" })
     }
     validateProviderBaseUrl(input.baseUrl)
+    if (input.wire === "anthropic" && !input.apiKey?.trim()) {
+      throw createAppError("Anthropic API key is required", {
+        kind: "validation"
+      })
+    }
+
+    const type =
+      input.wire === "ollama"
+        ? ProviderType.OLLAMA
+        : input.wire === "anthropic"
+          ? ProviderType.ANTHROPIC
+          : ProviderType.OPENAI
 
     const config: ProviderConfig = {
       id: makeCustomProviderId(input.wire),
-      type: input.wire === "ollama" ? ProviderType.OLLAMA : ProviderType.OPENAI,
+      type,
       name,
       enabled: true,
       baseUrl: input.baseUrl,
-      ...(input.apiKey ? { apiKey: input.apiKey } : {})
+      ...(input.apiKey?.trim() ? { apiKey: input.apiKey.trim() } : {}),
+      ...(input.customModels?.length
+        ? {
+            customModels: [
+              ...new Set(
+                input.customModels.map((model) => model.trim()).filter(Boolean)
+              )
+            ]
+          }
+        : {})
     }
 
     const providers = await ProviderManager.getProviders()

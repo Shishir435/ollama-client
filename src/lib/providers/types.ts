@@ -9,6 +9,7 @@ import type {
 export enum ProviderType {
   OLLAMA = "ollama",
   OPENAI = "openai",
+  ANTHROPIC = "anthropic",
   CUSTOM = "custom"
 }
 
@@ -24,14 +25,14 @@ export enum ProviderId {
 
 /**
  * User-added providers get ids of the form `custom:<wire>:<random>`, where
- * `<wire>` is the wire protocol ("openai" | "ollama"). Encoding the protocol in
- * the id lets synchronous call sites (capability defaults, factory) resolve it
- * without an async config lookup. The protocol is immutable per provider — a
- * different protocol is a different provider.
+ * `<wire>` is the wire protocol ("openai" | "ollama" | "anthropic"). Encoding
+ * the protocol in the id lets synchronous call sites (capability defaults,
+ * factory) resolve it without an async config lookup. The protocol is immutable
+ * per provider — a different protocol is a different provider.
  */
 export const CUSTOM_PROVIDER_PREFIX = "custom:"
 
-export type CustomProviderWire = "openai" | "ollama"
+export type CustomProviderWire = "openai" | "ollama" | "anthropic"
 
 export const isCustomProviderId = (id: string): boolean =>
   id.startsWith(CUSTOM_PROVIDER_PREFIX)
@@ -45,7 +46,10 @@ export const customProviderWireFromId = (
 ): CustomProviderWire | null => {
   if (!isCustomProviderId(id)) return null
   const wire = id.slice(CUSTOM_PROVIDER_PREFIX.length).split(":")[0]
-  return wire === "ollama" ? "ollama" : "openai"
+  if (wire === "ollama" || wire === "openai" || wire === "anthropic") {
+    return wire
+  }
+  return null
 }
 
 /**

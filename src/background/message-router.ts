@@ -285,6 +285,14 @@ export const registerMessageRouter = () => {
         return true
       }
 
+      case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
+        // A visible approval prompt sends this periodically. Runtime messages
+        // reset Chromium's MV3 idle timer without adding a standing `alarms`
+        // permission; SQLite recovery remains the crash/restart fallback.
+        safeSendResponse(response, { success: true })
+        return
+      }
+
       case MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE: {
         const payload = message.payload as
           | { id?: string; title?: unknown; message?: unknown }

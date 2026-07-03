@@ -31,6 +31,7 @@ import { ProviderCustomModels } from "@/features/model/components/provider-custo
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
 import { isBetaProvider } from "@/lib/providers/registry"
+import { ProviderId } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
 export const ProviderSettings = () => {
@@ -194,7 +195,7 @@ export const ProviderSettings = () => {
                 updateConfig={updateConfig}
               />
 
-              {!isLocalProvider && (
+              {activeConfig.id !== ProviderId.OLLAMA && (
                 <ProviderCustomModels
                   activeConfig={activeConfig}
                   updateConfig={updateConfig}

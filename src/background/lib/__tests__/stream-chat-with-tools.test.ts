@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import type { LLMProvider } from "@/lib/providers/types"
+import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
@@ -687,5 +688,61 @@ describe("streamChatWithTools", () => {
     expect(run).not.toHaveBeenCalled()
     const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
     expect(trace?.[0]).toMatchObject({ toolId: "danger", status: "error" })
+  })
+
+  it("resumes an approval checkpoint without repeating the model turn", async () => {
+    const provider = scriptedProvider([
+      [{ delta: "resumed answer" }, { done: true }]
+    ])
+    const run = vi.fn(async () => ({ content: "ran once" }))
+    const registry = registryWith(run, gatedDef)
+    const initialState: DurableToolLoopState = {
+      iteration: 0,
+      phase: "tools",
+      workingMessages: [
+        { role: "user", content: "hi" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [{ id: "resume-c1", name: "danger", arguments: {} }]
+        }
+      ],
+      toolRuns: [
+        {
+          toolId: "danger",
+          callId: "resume-c1",
+          label: "danger",
+          risk: "high",
+          status: "awaiting-confirmation",
+          startedAt: 1
+        }
+      ],
+      pendingToolCalls: [{ id: "resume-c1", name: "danger", arguments: {} }],
+      nextToolIndex: 0,
+      toolResultMessages: [],
+      imageMessages: []
+    }
+    const checkpoints: Array<{ awaiting: boolean; next?: number }> = []
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry,
+      onChunk: () => {},
+      ctx: {},
+      initialState,
+      onCheckpoint: async (state, awaiting) => {
+        checkpoints.push({ awaiting, next: state.nextToolIndex })
+      }
+    })
+
+    await vi.waitFor(() =>
+      expect(checkpoints.some((entry) => entry.awaiting)).toBe(true)
+    )
+    expect(provider.streamChat).not.toHaveBeenCalled()
+    resolveToolConfirmation("resume-c1", true)
+    await promise
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
   })
 })

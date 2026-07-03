@@ -9,6 +9,7 @@ import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
 import type { ChromeSidePanel } from "@/types"
@@ -147,6 +148,11 @@ const registerToolRegistryInvalidation = () => {
 export const initializeBackgroundStartup = () => {
   void migrateLegacyProviderStorage()
   void runEmbeddingDimensionMigration()
+  void pruneStaleToolLoopRuns().catch((error) => {
+    logger.warn("Failed to prune stale tool-loop checkpoints", "BackgroundSW", {
+      error
+    })
+  })
   initializeContextMenu()
   registerActionHandler()
   registerInstallHandlers()

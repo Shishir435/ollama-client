@@ -26,6 +26,10 @@ interface PendingConfirmation {
 }
 
 const pending = new Map<string, PendingConfirmation>()
+const earlyDecisions = new Map<
+  string,
+  { approved: boolean; scope?: ApprovalScope }
+>()
 
 /**
  * Wait for the user's decision on a tool call. Resolves `true` on approval,
@@ -39,10 +43,7 @@ export const awaitToolConfirmation = (
   signal?: AbortSignal
 ): Promise<boolean> =>
   new Promise((resolve) => {
-    if (signal?.aborted) {
-      resolve(false)
-      return
-    }
+    let onAbort: (() => void) | undefined
 
     const settle = (approved: boolean, scope?: ApprovalScope) => {
       pending.delete(callId)
@@ -65,7 +66,21 @@ export const awaitToolConfirmation = (
       resolve(approved)
     }
 
-    const onAbort = () => settle(false)
+    if (signal?.aborted) {
+      settle(false)
+      return
+    }
+
+    // A user can click while the sidepanel is reconnecting to a restarted
+    // worker, before the restored loop has re-registered this waiter.
+    const early = earlyDecisions.get(callId)
+    if (early) {
+      earlyDecisions.delete(callId)
+      settle(early.approved, early.scope)
+      return
+    }
+
+    onAbort = () => settle(false)
     signal?.addEventListener("abort", onAbort, { once: true })
 
     // Last write wins if the same id somehow re-registers.
@@ -78,11 +93,24 @@ export const resolveToolConfirmation = (
   approved: boolean,
   scope?: ApprovalScope
 ): void => {
-  pending.get(callId)?.resolve(approved, scope)
+  const entry = pending.get(callId)
+  if (entry) {
+    entry.resolve(approved, scope)
+    return
+  }
+
+  // Short reconnect race buffer. Bounded because model-provided ids are
+  // untrusted and runtime messages can arrive without a matching stream.
+  if (earlyDecisions.size >= 100) {
+    const oldest = earlyDecisions.keys().next().value
+    if (oldest) earlyDecisions.delete(oldest)
+  }
+  earlyDecisions.set(callId, { approved, scope })
 }
 
 /** Deny every outstanding confirmation (e.g. on a hard reset). */
 export const clearPendingConfirmations = (): void => {
   for (const entry of pending.values()) entry.resolve(false)
   pending.clear()
+  earlyDecisions.clear()
 }

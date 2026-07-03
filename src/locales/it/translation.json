@@ -1408,13 +1408,19 @@
       "add": {
         "button": "Aggiungi provider",
         "title": "Aggiungi un provider personalizzato",
-        "description": "Collega qualsiasi server compatibile OpenAI o un'altra istanza Ollama.",
+        "description": "Collega Ollama, un server compatibile OpenAI o Anthropic.",
         "name_label": "Nome",
         "name_placeholder": "Il mio server di casa",
         "wire_label": "Tipo di API",
         "wire_openai": "Compatibile OpenAI",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP o un altro endpoint compatibile",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "Un altro server Ollama locale o remoto",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "API Messages nativa di Claude",
         "api_key_label": "Chiave API (facoltativa)",
+        "api_key_required_label": "Chiave API",
+        "remote_notice": "Provider remoto: prompt, file e contesto degli strumenti inviati qui lasciano il dispositivo.",
         "submit": "Aggiungi provider",
         "added_title": "Provider aggiunto",
         "added_description": "{{name}} è stato aggiunto. Prova la connessione per scoprire i modelli.",
@@ -1424,6 +1430,13 @@
         "remove_confirm_title": "Rimuovere {{name}}?",
         "remove_confirm_description": "Le impostazioni di connessione e le mappature dei modelli verranno eliminate. Le tue chat vengono conservate.",
         "custom_badge": "Personalizzato"
+      },
+      "models": {
+        "title": "ID modelli (facoltativo)",
+        "description": "Aggiungi manualmente i modelli quando il provider non li restituisce dall’endpoint di rilevamento.",
+        "add": "Aggiungi",
+        "remove": "Rimuovi",
+        "placeholder": "es. nome o ID del modello"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "Impossibile recuperare i modelli"
   },
   "onboarding": {
+    "step": "Passaggio {{current}} di {{total}}",
+    "continue": "Continua",
+    "privacy": {
+      "host_access": "L’accesso alle pagine consente all’estensione di leggere i siti richiesti. Nulla viene inviato a meno che non configuri un provider remoto."
+    },
     "permissions": {
       "title": "Benvenuto in Ollama Client",
-      "privacy": "Tutto viene eseguito sul tuo dispositivo. Le tue chat e i tuoi dati non lo lasciano mai.",
+      "privacy": "Con un provider locale, le chat restano su questo dispositivo. Un provider remoto riceve solo ciò che scegli di inviare.",
       "body": "Alcune funzioni — conoscenza di segnalibri e cronologia, promemoria, salvataggio file e gruppi di schede — richiedono autorizzazioni facoltative del browser. Restano disattivate finché non le abiliti; concedi solo ciò che vuoi.",
+      "optional_title": "Scegli gli accessi facoltativi",
       "open": "Apri autorizzazioni",
       "dismiss": "Più tardi"
     },
     "provider": {
       "title": "Connetti un provider",
-      "open_setup": "Configura provider"
+      "description": "Verifica ora l’endpoint Ollama predefinito. Puoi cambiarlo o configurare un altro provider in seguito.",
+      "connected": "Connesso. Trovati {{count}} modelli.",
+      "skip": "Salta per ora",
+      "open_setup": "Configura provider",
+      "errors": {
+        "cors": "Ollama è in esecuzione ma blocca questa estensione. Riavvialo con il comando seguente.",
+        "auth": "Il provider ha rifiutato la chiave API o le impostazioni di accesso.",
+        "not-found": "Il server risponde, ma l’endpoint non è valido. Controlla porta e URL di base.",
+        "timeout": "Il provider impiega troppo tempo. Controlla che sia attivo e che la porta sia corretta.",
+        "unavailable": "Ollama non è raggiungibile. Potrebbe essere fermo, su un’altra porta o bloccare le origini dell’estensione.",
+        "server-error": "Il provider ha restituito un errore server. Controlla i log e riprova."
+      }
     }
   }
 }

@@ -1,9 +1,9 @@
 ---
 title: Provider Setup
-description: Configure Ollama, LM Studio, llama.cpp, or any OpenAI-compatible local server to chat with local LLMs from your browser.
+description: Configure Ollama, LM Studio, llama.cpp, Anthropic, or any OpenAI-compatible server.
 ---
 
-Recommended setup is Ollama as the primary local provider, with LM Studio and llama.cpp as local alternatives. vLLM, LocalAI, and KoboldCPP also work once configured.
+Verified built-ins are Ollama, LM Studio, and llama.cpp. Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint through **Add provider**. Anthropic uses its native Messages API and sends selected chat context to Anthropic.
 
 Web search is configured separately in the Context tab. Use SearXNG for local/self-hosted search, or Brave Search/Tavily when you want an API-backed provider.
 
@@ -18,7 +18,8 @@ Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-c
 | Ollama | `http://localhost:11434` | Recommended baseline. Tool calling plus fullest model-management support. |
 | LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery. |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible. Run with `llama-server`. |
-| vLLM / LocalAI / KoboldCPP | User configured | OpenAI-compatible servers; use your actual URL. |
+| OpenAI-compatible | User configured | Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint. |
+| Anthropic | `https://api.anthropic.com/v1` | Remote Claude Messages API; API key required. |
 
 ## 3. Start Ollama (primary path)
 

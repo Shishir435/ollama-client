@@ -1408,13 +1408,19 @@
       "add": {
         "button": "Ajouter un fournisseur",
         "title": "Ajouter un fournisseur personnalisé",
-        "description": "Connectez n'importe quel serveur compatible OpenAI ou une autre instance Ollama.",
+        "description": "Connectez Ollama, un serveur compatible OpenAI ou Anthropic.",
         "name_label": "Nom",
         "name_placeholder": "Mon serveur maison",
         "wire_label": "Type d'API",
         "wire_openai": "Compatible OpenAI",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP ou un autre endpoint compatible",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "Un autre serveur Ollama local ou distant",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "API Messages Claude native",
         "api_key_label": "Clé API (facultative)",
+        "api_key_required_label": "Clé API",
+        "remote_notice": "Fournisseur distant : les prompts, fichiers et contextes d’outils envoyés ici quittent votre appareil.",
         "submit": "Ajouter le fournisseur",
         "added_title": "Fournisseur ajouté",
         "added_description": "{{name}} a été ajouté. Testez la connexion pour découvrir les modèles.",
@@ -1424,6 +1430,13 @@
         "remove_confirm_title": "Supprimer {{name}} ?",
         "remove_confirm_description": "Ses paramètres de connexion et ses associations de modèles seront supprimés. Vos conversations sont conservées.",
         "custom_badge": "Personnalisé"
+      },
+      "models": {
+        "title": "ID de modèles (facultatif)",
+        "description": "Ajoutez manuellement les modèles lorsque le fournisseur ne les renvoie pas via son endpoint de découverte.",
+        "add": "Ajouter",
+        "remove": "Supprimer",
+        "placeholder": "ex. nom ou ID du modèle"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "Impossible de récupérer les modèles"
   },
   "onboarding": {
+    "step": "Étape {{current}} sur {{total}}",
+    "continue": "Continuer",
+    "privacy": {
+      "host_access": "L’accès aux pages permet à l’extension de lire les sites que vous demandez. Rien n’est envoyé sauf si vous configurez un fournisseur distant."
+    },
     "permissions": {
       "title": "Bienvenue dans Ollama Client",
-      "privacy": "Tout s’exécute sur votre appareil. Vos conversations et données ne le quittent jamais.",
+      "privacy": "Avec un fournisseur local, les conversations restent sur cet appareil. Un fournisseur distant ne reçoit que ce que vous choisissez d’envoyer.",
       "body": "Certaines fonctionnalités — favoris et historique, rappels, enregistrement de fichiers et groupes d’onglets — nécessitent des autorisations facultatives du navigateur. Elles restent désactivées tant que vous ne les autorisez pas ; n’accordez que ce que vous voulez.",
+      "optional_title": "Choisir les accès facultatifs",
       "open": "Ouvrir les autorisations",
       "dismiss": "Plus tard"
     },
     "provider": {
       "title": "Connecter un fournisseur",
-      "open_setup": "Configurer un fournisseur"
+      "description": "Vérifiez maintenant le point d’accès Ollama par défaut. Vous pourrez le modifier ou configurer un autre fournisseur plus tard.",
+      "connected": "Connecté. {{count}} modèle(s) trouvé(s).",
+      "skip": "Ignorer pour l’instant",
+      "open_setup": "Configurer un fournisseur",
+      "errors": {
+        "cors": "Ollama fonctionne mais bloque cette extension. Redémarrez-le avec la commande ci-dessous.",
+        "auth": "Le fournisseur a refusé la clé API ou les paramètres d’accès.",
+        "not-found": "Le serveur répond, mais ce point d’accès n’est pas valide. Vérifiez le port et l’URL de base.",
+        "timeout": "Le fournisseur met trop de temps à répondre. Vérifiez son fonctionnement et le port.",
+        "unavailable": "Ollama est inaccessible. Il peut être arrêté, utiliser un autre port ou bloquer les origines d’extension.",
+        "server-error": "Le fournisseur a renvoyé une erreur serveur. Consultez ses journaux, puis réessayez."
+      }
     }
   }
 }

@@ -14,12 +14,12 @@ const homepageFaq = [
   {
     question: "Does Ollama Client send chats to a cloud service?",
     answer:
-      "No. Ollama Client stores chats and knowledge locally and sends model requests only to the provider endpoint you configure, such as Ollama, LM Studio, llama.cpp, vLLM, LocalAI, or KoboldCPP."
+      "No. Ollama Client stores chats and knowledge locally and sends model requests only to the provider endpoint you configure, including optional remote providers such as Anthropic."
   },
   {
     question: "Can I use Ollama Client with LM Studio or llama.cpp?",
     answer:
-      "Yes. Ollama Client supports Ollama plus local OpenAI-compatible servers including LM Studio, llama.cpp, vLLM, LocalAI, and KoboldCPP."
+      "Yes. Ollama Client includes verified Ollama, LM Studio, and llama.cpp profiles, plus user-added OpenAI-compatible servers."
   },
   {
     question: "Is Ollama Client an Open WebUI alternative?",
@@ -72,7 +72,7 @@ const features = [
   {
     title: "Multi-provider local models",
     description:
-      "Ollama, LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP. Capability-aware routing with provider-aware model selection."
+      "Verified Ollama, LM Studio, and llama.cpp profiles, plus user-added OpenAI-compatible endpoints and Anthropic."
   },
   {
     title: "Multi-chat sessions",
@@ -144,7 +144,7 @@ const stack = [
     </h1>
     <p class="mt-5 max-w-2xl text-balance text-[15px] leading-relaxed text-foreground/70">
       Ollama Client is an open-source browser extension for Ollama, LM Studio,
-      llama.cpp, vLLM, LocalAI, KoboldCPP, and other OpenAI-compatible servers.
+      llama.cpp, user-added OpenAI-compatible servers, and Anthropic.
       Chat with local AI models inside Chrome and Firefox with RAG, file upload,
       web search, tool calling, and page context — all without a mandatory cloud
       API.

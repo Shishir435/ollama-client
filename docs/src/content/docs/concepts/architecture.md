@@ -151,6 +151,7 @@ Images are stored as chat attachments and routed only when the selected model su
 
 - Ollama receives base64 image payloads through its native `images` field.
 - OpenAI-compatible providers receive `image_url` content parts.
+- Anthropic receives native image content blocks through the Messages API.
 
 Images reuse the existing file metadata path for local persistence and preview display, so no separate image-history store is needed.
 
@@ -159,7 +160,7 @@ Images reuse the existing file metadata path for local persistence and preview d
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
 - Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
-- Default profiles: Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
+- Built-in profiles: Ollama, LM Studio, and llama.cpp. Other OpenAI-compatible endpoints and Anthropic are user-added.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.
 

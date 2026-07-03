@@ -1,7 +1,8 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
+import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
-import type { ChatMessage, ChatStreamMessage, ToolRun } from "@/types"
+import type { ChatMessage, ChatStreamMessage } from "@/types"
 import {
   buildImageMessage,
   type PreparedToolCall,
@@ -20,6 +21,13 @@ interface StreamChatWithToolsOptions {
   maxIterations?: number
   /** Per-result character cap; results above this are trimmed (transparency). */
   toolResultMaxChars?: number
+  /** Restored SQLite checkpoint after a service-worker restart. */
+  initialState?: DurableToolLoopState
+  /** Force-persist state at model/tool/approval boundaries. */
+  onCheckpoint?: (
+    state: DurableToolLoopState,
+    awaitingConfirmation: boolean
+  ) => Promise<void>
 }
 
 const DEFAULT_MAX_ITERATIONS = 5
@@ -56,67 +64,99 @@ export const streamChatWithTools = async ({
   signal,
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
-  toolResultMaxChars
+  toolResultMaxChars,
+  initialState,
+  onCheckpoint
 }: StreamChatWithToolsOptions): Promise<void> => {
-  const workingMessages: ChatMessage[] = [...request.messages]
-  const toolRuns: ToolRun[] = []
-  let lastFinalMetrics: ChatStreamMessage["metrics"] | undefined
+  const state: DurableToolLoopState =
+    initialState?.phase === "model" || initialState?.phase === "tools"
+      ? initialState
+      : {
+          iteration: 0,
+          phase: "model",
+          workingMessages: [...request.messages],
+          toolRuns: []
+        }
+  const workingMessages = state.workingMessages
+  const toolRuns = state.toolRuns
+  let lastFinalMetrics = state.lastMetrics
 
-  for (let iteration = 0; iteration < maxIterations; iteration++) {
+  const checkpoint = async (awaitingConfirmation = false) => {
+    state.lastMetrics = lastFinalMetrics
+    await onCheckpoint?.(state, awaitingConfirmation)
+  }
+
+  // Reconnects need the saved trace immediately so the existing approval
+  // prompt stays actionable while the background re-registers its waiter.
+  if (initialState) onChunk({ toolRuns: [...toolRuns] })
+
+  for (; state.iteration < maxIterations; ) {
     if (signal?.aborted) {
       onChunk({ done: true, aborted: true })
       return
     }
 
-    const pendingToolCalls: ToolCall[] = []
-    let iterationContent = ""
-    let finalMetrics: ChatStreamMessage["metrics"] | undefined
-    let stopped = false
+    if (state.phase === "model") {
+      const pendingToolCalls: ToolCall[] = []
+      let iterationContent = ""
+      let finalMetrics: ChatStreamMessage["metrics"] | undefined
+      let stopped = false
 
-    await provider.streamChat(
-      { ...request, messages: workingMessages },
-      (chunk) => {
-        if (chunk.toolCalls && chunk.toolCalls.length > 0) {
-          pendingToolCalls.push(...chunk.toolCalls)
-          return
-        }
-        // Hold the terminal `done` — only the final iteration finalizes the UI.
-        // Keep the metrics-bearing done; providers also emit a trailing bare
-        // `{ done: true }` (no metrics) at stream end, which must not clobber it.
-        if (chunk.done && !chunk.error && !chunk.aborted) {
-          if (chunk.metrics) finalMetrics = chunk.metrics
-          return
-        }
-        if (chunk.error || chunk.aborted) {
-          stopped = true
+      await provider.streamChat(
+        { ...request, messages: workingMessages },
+        (chunk) => {
+          if (chunk.toolCalls && chunk.toolCalls.length > 0) {
+            pendingToolCalls.push(...chunk.toolCalls)
+            return
+          }
+          if (chunk.done && !chunk.error && !chunk.aborted) {
+            if (chunk.metrics) finalMetrics = chunk.metrics
+            return
+          }
+          if (chunk.error || chunk.aborted) {
+            stopped = true
+            onChunk(chunk)
+            return
+          }
+          if (typeof chunk.delta === "string") {
+            iterationContent += chunk.delta
+          }
           onChunk(chunk)
-          return
-        }
-        if (typeof chunk.delta === "string") {
-          iterationContent += chunk.delta
-        }
-        onChunk(chunk)
-      },
-      signal
-    )
+        },
+        signal
+      )
 
-    if (stopped) return
-    if (finalMetrics) lastFinalMetrics = finalMetrics
+      if (stopped) return
+      if (finalMetrics) lastFinalMetrics = finalMetrics
 
-    if (pendingToolCalls.length === 0) {
-      onChunk({ done: true, metrics: finalMetrics, toolRuns })
-      return
+      if (pendingToolCalls.length === 0) {
+        onChunk({ done: true, metrics: finalMetrics, toolRuns })
+        return
+      }
+
+      workingMessages.push({
+        role: "assistant",
+        content: iterationContent,
+        toolCalls: pendingToolCalls
+      })
+      state.phase = "tools"
+      state.pendingToolCalls = pendingToolCalls
+      state.nextToolIndex = 0
+      state.toolResultMessages = []
+      state.imageMessages = []
+      if (onCheckpoint) await checkpoint()
     }
 
-    // Echo the assistant tool-call turn back to the provider.
-    workingMessages.push({
-      role: "assistant",
-      content: iterationContent,
-      toolCalls: pendingToolCalls
-    })
-
     const startToolRun = (prepared: PreparedToolCall) => {
-      toolRuns.push(prepared.run)
+      const existing = toolRuns.find((run) => run.callId === prepared.call.id)
+      if (existing) {
+        prepared.run = existing
+        prepared.run.status = "running"
+        prepared.run.completedAt = undefined
+        prepared.run.error = undefined
+      } else {
+        toolRuns.push(prepared.run)
+      }
       onChunk({ toolRuns: [...toolRuns] })
     }
 
@@ -128,7 +168,8 @@ export const streamChatWithTools = async ({
         registry,
         ctx,
         signal,
-        () => onChunk({ toolRuns: [...toolRuns] })
+        () => onChunk({ toolRuns: [...toolRuns] }),
+        onCheckpoint ? () => checkpoint(true) : undefined
       )
       onChunk({ toolRuns: [...toolRuns] })
 
@@ -143,25 +184,26 @@ export const streamChatWithTools = async ({
       }
     }
 
+    const pendingToolCalls = state.pendingToolCalls ?? []
     const preparedCalls = await Promise.all(
       pendingToolCalls.map((call) =>
         prepareToolCall(registry, call, toolResultMaxChars, ctx)
       )
     )
-    const toolResultMessages: ChatMessage[] = []
+    const toolResultMessages = state.toolResultMessages ?? []
     // `tool`-role messages can't carry images on Ollama / OpenAI-compatible
     // providers, so image-bearing tool results become follow-up user messages.
     // They are appended AFTER all tool results so each assistant tool-call turn's
     // `tool` replies stay consecutive (strict endpoints reject an interleaved
     // user message between them).
-    const imageMessages: ChatMessage[] = []
+    const imageMessages = state.imageMessages ?? []
 
     const collect = (executed: ExecutedToolCall) => {
       toolResultMessages.push(executed.toolMessage)
       if (executed.imageMessage) imageMessages.push(executed.imageMessage)
     }
 
-    for (let index = 0; index < preparedCalls.length; ) {
+    for (let index = state.nextToolIndex ?? 0; index < preparedCalls.length; ) {
       const prepared = preparedCalls[index]
       if (prepared.policy.parallelizable) {
         // Run consecutive safe tools together, but keep group boundaries so a
@@ -183,15 +225,26 @@ export const streamChatWithTools = async ({
         // `Promise.all` preserves input order, so tool result messages are
         // appended in the same order the model requested them.
         for (const executed of groupResults) collect(executed)
+        state.nextToolIndex = index
+        if (onCheckpoint) await checkpoint()
         continue
       }
 
       startToolRun(prepared)
       collect(await executeToolCall(prepared))
       index++
+      state.nextToolIndex = index
+      if (onCheckpoint) await checkpoint()
     }
 
     workingMessages.push(...toolResultMessages, ...imageMessages)
+    state.iteration += 1
+    state.phase = "model"
+    state.pendingToolCalls = undefined
+    state.nextToolIndex = undefined
+    state.toolResultMessages = undefined
+    state.imageMessages = undefined
+    if (onCheckpoint) await checkpoint()
   }
 
   // Iteration cap hit: make one final, tool-disabled synthesis pass over the

@@ -10,17 +10,15 @@ import {
   type CustomProviderWire,
   isCustomProviderId,
   type ProviderConfig,
-  ProviderId
+  ProviderId,
+  ProviderType
 } from "@/lib/providers/types"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
   ProviderId.OLLAMA,
   ProviderId.LM_STUDIO,
-  ProviderId.LLAMA_CPP,
-  ProviderId.VLLM,
-  ProviderId.LOCALAI,
-  ProviderId.KOBOLDCPP
+  ProviderId.LLAMA_CPP
 ]
 
 const isLocalhostEndpoint = (baseUrl?: string) => {
@@ -118,7 +116,10 @@ export const useProviderSettingsState = () => {
 
     // Custom endpoints may be keyless local/LAN servers — never require a key
     // for them; a real 401 from the test surfaces its own error.
-    if (!isLocalProvider && !isCustomProvider && !activeConfig.apiKey?.trim()) {
+    if (
+      activeConfig.type === ProviderType.ANTHROPIC &&
+      !activeConfig.apiKey?.trim()
+    ) {
       const message = t("settings.providers.test_connection.api_key_required", {
         name: activeConfig.name
       })
@@ -239,6 +240,7 @@ export const useProviderSettingsState = () => {
     baseUrl: string
     wire: CustomProviderWire
     apiKey?: string
+    customModels?: string[]
   }): Promise<boolean> => {
     try {
       const config = await ProviderManager.addCustomProvider(input)

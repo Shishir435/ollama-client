@@ -7,7 +7,7 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
     <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
   <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
-  <img alt="Providers" src="https://img.shields.io/badge/Providers-6-1d4ed8?style=for-the-badge" />
+  <img alt="Providers" src="https://img.shields.io/badge/Providers-3%20built--in%20%2B%20custom-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
@@ -18,7 +18,7 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
 Ollama Client gives you a browser-native chat workspace for local and bring-your-own remote models:
 
 - Chat from the browser sidepanel with streaming responses and cancellation.
-- Route models across Ollama, LM Studio, llama.cpp, vLLM, KoboldCPP, and LocalAI.
+- Use verified built-ins for Ollama, LM Studio, and llama.cpp; add other OpenAI-compatible servers or Anthropic from Settings.
 - Upload files and use local retrieval-augmented generation over your own content.
 - Attach images for vision-capable models.
 - Let tool-capable models read the current tab, selected text, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
@@ -33,9 +33,8 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 | Ollama           | `http://localhost:11434`   | Default fallback with tool calling and fullest local model-management support |
 | LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible server via `llama-server`                          |
-| vLLM             | User configured            | OpenAI-compatible local or remote serving                            |
-| KoboldCPP        | User configured            | OpenAI-compatible endpoints with KoboldCPP sampler support           |
-| LocalAI          | User configured            | OpenAI-compatible multi-backend local serving                        |
+| OpenAI-compatible | User configured           | Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint         |
+| Anthropic        | `https://api.anthropic.com/v1` | Optional remote provider using the native Claude Messages API     |
 
 Model routing uses saved model-to-provider mappings first. If a mapping is missing, the historical fallback is Ollama.
 

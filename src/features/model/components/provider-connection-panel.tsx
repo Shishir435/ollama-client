@@ -59,8 +59,7 @@ export const ProviderConnectionPanel = ({
         </SettingsActionRow>
         {isRemoteEndpoint && (
           <p className="mt-2 text-xs text-status-warning">
-            This endpoint is remote. Prompts and responses will be sent outside
-            your local machine.
+            {t("settings.providers.add.remote_notice")}
           </p>
         )}
         {cspCompatibilityHint && (

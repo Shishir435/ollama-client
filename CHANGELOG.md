@@ -7,6 +7,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Durable SQLite checkpoints for native and prompt-based tool loops, with
+  approval-prompt keepalive and same-request recovery after an MV3
+  service-worker restart.
+- A localized three-step first-run flow covering the local privacy contract,
+  an in-app Ollama connection check with CORS/port guidance, and optional
+  browser permissions.
+- Native Anthropic Messages API support for user-added providers, including
+  model discovery, streaming, images, tool calls, and manual model IDs.
+
+### Changed
+- Provider settings now show only verified Ollama, LM Studio, and llama.cpp
+  built-ins. vLLM, LocalAI, KoboldCPP, and other compatible endpoints use the
+  redesigned custom-provider flow.
+
 ## [0.11.25] - 2026-06-30
 
 ### Added

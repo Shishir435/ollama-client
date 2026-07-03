@@ -182,7 +182,12 @@ export const runPreparedToolCall = async (
   ctx: ToolContext,
   signal?: AbortSignal,
   /** Re-emit the trace so the UI reflects awaiting/running transitions live. */
-  emitTrace?: () => void
+  emitTrace?: () => void,
+  /**
+   * Force-persist resumable loop state after the trace enters
+   * `awaiting-confirmation`, before the in-memory promise starts waiting.
+   */
+  persistAwaitingConfirmation?: () => Promise<void>
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
 
@@ -192,6 +197,7 @@ export const runPreparedToolCall = async (
   if (prepared.requiresConfirmation) {
     run.status = "awaiting-confirmation"
     emitTrace?.()
+    await persistAwaitingConfirmation?.()
     const approved = await awaitToolConfirmation(
       call.id,
       { toolName: call.name, sessionId: ctx.sessionId },

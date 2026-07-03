@@ -34,6 +34,14 @@ describe("ProviderManager", () => {
     })
   })
 
+  it("ships only the three verified built-in providers", () => {
+    expect(DEFAULT_PROVIDERS.map((provider) => provider.id)).toEqual([
+      ProviderId.OLLAMA,
+      ProviderId.LM_STUDIO,
+      ProviderId.LLAMA_CPP
+    ])
+  })
+
   it("removes stale OpenAI config that is no longer in the provider UI", async () => {
     storage.get.mockImplementation(async (key: string) => {
       if (key === ProviderStorageKey.CONFIG) {
@@ -90,6 +98,39 @@ describe("ProviderManager", () => {
     expect(providers.map((p) => p.id)).toContain("custom:openai:abc123")
   })
 
+  it("drops untouched beta defaults but preserves configured ones as custom", async () => {
+    backing.set(ProviderStorageKey.CONFIG, [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: ProviderId.VLLM,
+        type: ProviderType.OPENAI,
+        name: "vLLM",
+        enabled: false,
+        baseUrl: "http://localhost:8001/v1"
+      },
+      {
+        id: ProviderId.LOCALAI,
+        type: ProviderType.OPENAI,
+        name: "LocalAI",
+        enabled: true,
+        baseUrl: "http://lan-box:8080/v1"
+      }
+    ])
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(providers.map((provider) => provider.id)).not.toContain(
+      ProviderId.VLLM
+    )
+    expect(providers).toContainEqual(
+      expect.objectContaining({
+        id: "custom:openai:legacy-localai",
+        name: "LocalAI",
+        baseUrl: "http://lan-box:8080/v1"
+      })
+    )
+  })
+
   describe("custom provider CRUD", () => {
     it("adds an openai-wire custom provider", async () => {
       const config = await ProviderManager.addCustomProvider({
@@ -117,6 +158,30 @@ describe("ProviderManager", () => {
       expect(config.id).toMatch(/^custom:ollama:/)
       expect(config.type).toBe(ProviderType.OLLAMA)
       expect(config.apiKey).toBeUndefined()
+    })
+
+    it("adds a native Anthropic provider with manual models", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "Claude",
+        baseUrl: "https://api.anthropic.com/v1",
+        wire: "anthropic",
+        apiKey: "sk-ant-test",
+        customModels: ["claude-sonnet", "claude-sonnet", " "]
+      })
+
+      expect(config.id).toMatch(/^custom:anthropic:/)
+      expect(config.type).toBe(ProviderType.ANTHROPIC)
+      expect(config.customModels).toEqual(["claude-sonnet"])
+    })
+
+    it("requires an API key for Anthropic", async () => {
+      await expect(
+        ProviderManager.addCustomProvider({
+          name: "Claude",
+          baseUrl: "https://api.anthropic.com/v1",
+          wire: "anthropic"
+        })
+      ).rejects.toThrow(/API key/i)
     })
 
     it("rejects empty names and invalid URLs", async () => {
@@ -177,47 +242,63 @@ describe("ProviderManager", () => {
     })
 
     it("keeps colliding mappings from two providers", async () => {
+      const customId = "custom:openai:vllm"
       await ProviderManager.setModelMapping("llama3", ProviderId.LM_STUDIO)
-      await ProviderManager.setModelMapping("llama3", ProviderId.VLLM)
+      await ProviderManager.setModelMapping("llama3", customId)
 
       const providers = await ProviderManager.getModelProviders("llama3")
-      expect(providers.sort()).toEqual(
-        [ProviderId.LM_STUDIO, ProviderId.VLLM].sort()
-      )
+      expect(providers.sort()).toEqual([ProviderId.LM_STUDIO, customId].sort())
     })
 
     it("resolves bare-name collisions preferring enabled providers", async () => {
-      backing.set(
-        ProviderStorageKey.CONFIG,
-        DEFAULT_PROVIDERS.map((p) =>
-          p.id === ProviderId.VLLM ? { ...p, enabled: true } : p
-        )
-      )
-      // LM Studio stays disabled (default), vLLM enabled above.
+      const customId = "custom:openai:vllm"
+      backing.set(ProviderStorageKey.CONFIG, [
+        ...DEFAULT_PROVIDERS,
+        {
+          id: customId,
+          type: ProviderType.OPENAI,
+          name: "vLLM",
+          enabled: true,
+          baseUrl: "http://localhost:8001/v1"
+        }
+      ])
       await ProviderManager.setModelMapping("llama3", ProviderId.LM_STUDIO)
-      await ProviderManager.setModelMapping("llama3", ProviderId.VLLM)
+      await ProviderManager.setModelMapping("llama3", customId)
 
       expect(await ProviderManager.getModelMapping("llama3")).toEqual({
-        providerId: ProviderId.VLLM
+        providerId: customId
       })
     })
 
     it("migrates the legacy flat map to scoped keys once", async () => {
       backing.set(ProviderStorageKey.MODEL_MAPPINGS, {
         llama3: ProviderId.LM_STUDIO,
-        qwen3: ProviderId.VLLM
+        qwen3: "custom:openai:vllm"
       })
 
       expect(await ProviderManager.getModelMapping("llama3")).toEqual({
         providerId: ProviderId.LM_STUDIO
       })
       expect(await ProviderManager.getModelMapping("qwen3")).toEqual({
-        providerId: ProviderId.VLLM
+        providerId: "custom:openai:vllm"
       })
       // Legacy key deleted; scoped map holds provider-prefixed keys.
       expect(backing.has(ProviderStorageKey.MODEL_MAPPINGS)).toBe(false)
       expect(backing.get(ProviderStorageKey.MODEL_MAPPINGS_V2)).toMatchObject({
         [`${ProviderId.LM_STUDIO}::llama3`]: ProviderId.LM_STUDIO
+      })
+    })
+
+    it("remaps scoped beta-provider mappings to migrated custom ids", async () => {
+      backing.set(ProviderStorageKey.MODEL_MAPPINGS_V2, {
+        [`${ProviderId.VLLM}::qwen3`]: ProviderId.VLLM
+      })
+
+      expect(await ProviderManager.getModelMapping("qwen3")).toEqual({
+        providerId: "custom:openai:legacy-vllm"
+      })
+      expect(backing.get(ProviderStorageKey.MODEL_MAPPINGS_V2)).toEqual({
+        "custom:openai:legacy-vllm::qwen3": "custom:openai:legacy-vllm"
       })
     })
 

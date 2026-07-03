@@ -1,5 +1,5 @@
 import { ShieldAlert } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -76,6 +76,18 @@ export const PendingToolConfirmation = ({
       }))
       .filter(({ key }) => !responded.has(key))
   )
+
+  useEffect(() => {
+    if (pending.length === 0) return
+    const keepAlive = () => {
+      void runtime
+        .sendMessage({ type: MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE })
+        .catch(() => undefined)
+    }
+    keepAlive()
+    const interval = window.setInterval(keepAlive, 20_000)
+    return () => window.clearInterval(interval)
+  }, [pending.length])
 
   if (pending.length === 0) return null
 

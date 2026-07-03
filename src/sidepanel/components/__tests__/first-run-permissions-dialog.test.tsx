@@ -16,6 +16,14 @@ vi.mock("@/lib/browser-api", () => ({
   runtime: { getURL: api.getURL }
 }))
 
+const providers = vi.hoisted(() => ({
+  getProviderConfig: vi.fn(),
+  updateProviderConfig: vi.fn()
+}))
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: providers
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
@@ -23,6 +31,14 @@ vi.mock("react-i18next", () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   store.set.mockResolvedValue(undefined)
+  providers.getProviderConfig.mockResolvedValue({
+    id: "ollama",
+    type: "ollama",
+    enabled: true,
+    name: "Ollama",
+    baseUrl: "http://localhost:11434"
+  })
+  providers.updateProviderConfig.mockResolvedValue(undefined)
 })
 
 describe("FirstRunPermissionsDialog", () => {
@@ -34,6 +50,8 @@ describe("FirstRunPermissionsDialog", () => {
       expect(screen.getByText("onboarding.permissions.title")).toBeTruthy()
     )
 
+    fireEvent.click(screen.getByText("onboarding.continue"))
+    fireEvent.click(screen.getByText("onboarding.provider.skip"))
     fireEvent.click(screen.getByText("onboarding.permissions.open"))
 
     expect(store.set).toHaveBeenCalledWith("onboarding-permissions-seen", true)

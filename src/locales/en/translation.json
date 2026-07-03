@@ -1599,8 +1599,8 @@
       "base_url": "Base URL",
       "base_url_default": "Default",
       "api_key": "API Key",
-      "custom_models": "Custom Models",
-      "custom_models_description": "Add models manually if they don't appear in the auto-discovered list.",
+      "custom_models": "Manual model IDs",
+      "custom_models_description": "Add IDs missing from discovery. Removing one only removes the manual entry; it never deletes the model from the server.",
       "test_connection": {
         "success_title": "Connection Successful",
         "success_description": "Successfully connected to {{name}} at {{url}}. Found {{count}} model(s).",
@@ -1618,13 +1618,19 @@
       "add": {
         "button": "Add provider",
         "title": "Add a custom provider",
-        "description": "Connect any OpenAI-compatible server or another Ollama instance.",
+        "description": "Connect Ollama, an OpenAI-compatible server, or Anthropic.",
         "name_label": "Name",
         "name_placeholder": "My home server",
         "wire_label": "API type",
         "wire_openai": "OpenAI-compatible",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP, or another compatible endpoint",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "Another local or remote Ollama server",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "Native Claude Messages API",
         "api_key_label": "API key (optional)",
+        "api_key_required_label": "API key",
+        "remote_notice": "Remote provider: prompts, files, and tool context sent here leave your device.",
         "submit": "Add provider",
         "added_title": "Provider added",
         "added_description": "{{name}} was added. Test the connection to discover models.",
@@ -1634,6 +1640,13 @@
         "remove_confirm_title": "Remove {{name}}?",
         "remove_confirm_description": "Its connection settings and model mappings will be deleted. Your chats are kept.",
         "custom_badge": "Custom"
+      },
+      "models": {
+        "title": "Model IDs (optional)",
+        "description": "Add IDs missing from discovery. Removing one later will not delete the model from the server.",
+        "add": "Add",
+        "remove": "Remove",
+        "placeholder": "e.g. model-name-or-id"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "Failed to fetch models"
   },
   "onboarding": {
+    "step": "Step {{current}} of {{total}}",
+    "continue": "Continue",
+    "privacy": {
+      "host_access": "Page access lets the extension read sites you ask about. Nothing is sent anywhere unless you configure a remote provider."
+    },
     "permissions": {
       "title": "Welcome to Ollama Client",
-      "privacy": "Everything runs on your device. Your chats and data never leave it.",
+      "privacy": "With a local provider, chats stay on this device. A remote provider receives only what you choose to send it.",
       "body": "Some features — bookmarks & history knowledge, reminders, saving files, and tab groups — need optional browser permissions. They stay off until you allow them, so grant only what you want.",
+      "optional_title": "Choose optional access",
       "open": "Open Permissions",
       "dismiss": "Maybe later"
     },
     "provider": {
       "title": "Connect a provider",
-      "open_setup": "Set up provider"
+      "description": "Check the default Ollama endpoint now. You can change it or configure another provider later.",
+      "connected": "Connected. Found {{count}} model(s).",
+      "skip": "Skip for now",
+      "open_setup": "Set up provider",
+      "errors": {
+        "cors": "Ollama is running but blocked this extension. Restart it with the command below.",
+        "auth": "The provider rejected its API key or access settings.",
+        "not-found": "Server responded, but this is not a valid provider endpoint. Check the port and base URL.",
+        "timeout": "Provider took too long to respond. Check that it is running and the port is correct.",
+        "unavailable": "Could not reach Ollama. It may be stopped, on another port, or blocking extension origins.",
+        "server-error": "Provider returned a server error. Check its logs, then retry."
+      }
     }
   }
 }

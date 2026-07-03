@@ -1408,13 +1408,19 @@
       "add": {
         "button": "プロバイダーを追加",
         "title": "カスタムプロバイダーを追加",
-        "description": "OpenAI互換サーバーや別のOllamaインスタンスを接続できます。",
+        "description": "Ollama、OpenAI互換サーバー、またはAnthropicを接続します。",
         "name_label": "名前",
         "name_placeholder": "自宅サーバー",
         "wire_label": "APIタイプ",
         "wire_openai": "OpenAI互換",
+        "wire_openai_description": "vLLM、LocalAI、KoboldCPP、その他の互換エンドポイント",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "別のローカルまたはリモートOllamaサーバー",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "ネイティブClaude Messages API",
         "api_key_label": "APIキー（任意）",
+        "api_key_required_label": "APIキー",
+        "remote_notice": "リモートプロバイダー：ここへ送信したプロンプト、ファイル、ツールコンテキストはデバイス外へ送られます。",
         "submit": "プロバイダーを追加",
         "added_title": "プロバイダーを追加しました",
         "added_description": "{{name}} を追加しました。接続をテストしてモデルを検出してください。",
@@ -1424,6 +1430,13 @@
         "remove_confirm_title": "{{name}} を削除しますか？",
         "remove_confirm_description": "接続設定とモデルの割り当てが削除されます。チャットは保持されます。",
         "custom_badge": "カスタム"
+      },
+      "models": {
+        "title": "モデルID（任意）",
+        "description": "プロバイダーの検出エンドポイントから返らないモデルを手動で追加します。",
+        "add": "追加",
+        "remove": "削除",
+        "placeholder": "例：モデル名またはID"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "モデルの取得に失敗しました"
   },
   "onboarding": {
+    "step": "{{total}} ステップ中 {{current}}",
+    "continue": "続ける",
+    "privacy": {
+      "host_access": "ページアクセスにより、依頼したサイトを拡張機能が読み取れます。リモートプロバイダーを設定しない限り、外部には送信されません。"
+    },
     "permissions": {
       "title": "Ollama Client へようこそ",
-      "privacy": "すべてがお使いのデバイス上で動作します。チャットやデータが外部に送信されることはありません。",
+      "privacy": "ローカルプロバイダーでは、チャットはこのデバイス内に保持されます。リモートプロバイダーには送信を選んだ内容だけが渡ります。",
       "body": "一部の機能（ブックマーク・履歴の知識、リマインダー、ファイル保存、タブグループ）には任意のブラウザ権限が必要です。許可するまでオフのままです。必要なものだけ許可してください。",
+      "optional_title": "任意アクセスを選択",
       "open": "権限を開く",
       "dismiss": "後で"
     },
     "provider": {
       "title": "プロバイダーを接続",
-      "open_setup": "プロバイダーを設定"
+      "description": "既定の Ollama エンドポイントを確認します。後で変更したり、別のプロバイダーを設定したりできます。",
+      "connected": "接続しました。{{count}} 個のモデルが見つかりました。",
+      "skip": "今はスキップ",
+      "open_setup": "プロバイダーを設定",
+      "errors": {
+        "cors": "Ollama は動作していますが、この拡張機能を拒否しました。以下のコマンドで再起動してください。",
+        "auth": "プロバイダーが API キーまたはアクセス設定を拒否しました。",
+        "not-found": "サーバーは応答しましたが、有効なエンドポイントではありません。ポートとベース URL を確認してください。",
+        "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
+        "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
+        "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。"
+      }
     }
   }
 }

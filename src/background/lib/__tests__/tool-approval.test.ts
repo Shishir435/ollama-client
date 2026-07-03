@@ -13,6 +13,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { hasAlwaysGrant } from "@/lib/tools/approval/approval-grants"
 import {
   awaitToolConfirmation,
+  clearPendingConfirmations,
   resolveToolConfirmation
 } from "../tool-confirmation-registry"
 import {
@@ -47,6 +48,7 @@ describe("tool session grants", () => {
 describe("confirmation scopes", () => {
   beforeEach(() => {
     clearSessionGrants()
+    clearPendingConfirmations()
     grantStore.clear()
   })
 
@@ -106,5 +108,16 @@ describe("confirmation scopes", () => {
 
     await expect(pending).resolves.toBe(false)
     expect(hasSessionGrant("s1", "restore_session")).toBe(false)
+  })
+
+  it("consumes a decision that arrived before restart recovery registered", async () => {
+    resolveToolConfirmation("recovered-call", true, "session")
+    const pending = awaitToolConfirmation("recovered-call", {
+      toolName: "restore_session",
+      sessionId: "s1"
+    })
+
+    await expect(pending).resolves.toBe(true)
+    expect(hasSessionGrant("s1", "restore_session")).toBe(true)
   })
 })

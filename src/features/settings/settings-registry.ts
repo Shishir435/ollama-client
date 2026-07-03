@@ -277,13 +277,18 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     searchKeys: [
       "settings.providers.add.title",
       "settings.providers.add.wire_openai",
-      "settings.providers.add.wire_ollama"
+      "settings.providers.add.wire_ollama",
+      "settings.providers.add.wire_anthropic",
+      "settings.providers.models.title"
     ],
     aliases: [
       "provider",
       "add provider",
       "custom provider",
       "openai compatible",
+      "anthropic",
+      "claude",
+      "manual model",
       "second ollama",
       "remote server",
       "lan"

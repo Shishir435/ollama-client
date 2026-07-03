@@ -212,5 +212,10 @@ describe("getModelCapabilities", () => {
       modelDetails: false,
       toolCalling: true
     })
+    expect(getProviderCapabilities("custom:anthropic:x")).toMatchObject({
+      embeddings: false,
+      modelDiscovery: true,
+      toolCalling: true
+    })
   })
 })

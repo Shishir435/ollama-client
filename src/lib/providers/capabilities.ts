@@ -218,6 +218,18 @@ export const OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES: ProviderCapabilities = {
   toolCalling: false
 }
 
+export const ANTHROPIC_PROVIDER_CAPABILITIES: ProviderCapabilities = {
+  chat: true,
+  embeddings: false,
+  modelDiscovery: true,
+  modelDetails: false,
+  modelPull: false,
+  modelUnload: false,
+  modelDelete: false,
+  providerVersion: false,
+  toolCalling: true
+}
+
 export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
   [ProviderId.OLLAMA]: {
     chat: true,
@@ -271,6 +283,9 @@ export const getProviderCapabilities = (
   }
   if (wire === "openai") {
     return { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES, toolCalling: true }
+  }
+  if (wire === "anthropic") {
+    return { ...ANTHROPIC_PROVIDER_CAPABILITIES }
   }
   return null
 }

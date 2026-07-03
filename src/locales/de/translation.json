@@ -1408,13 +1408,19 @@
       "add": {
         "button": "Anbieter hinzufügen",
         "title": "Eigenen Anbieter hinzufügen",
-        "description": "Beliebigen OpenAI-kompatiblen Server oder eine weitere Ollama-Instanz verbinden.",
+        "description": "Ollama, einen OpenAI-kompatiblen Server oder Anthropic verbinden.",
         "name_label": "Name",
         "name_placeholder": "Mein Heimserver",
         "wire_label": "API-Typ",
         "wire_openai": "OpenAI-kompatibel",
+        "wire_openai_description": "vLLM, LocalAI, KoboldCPP oder ein anderer kompatibler Endpunkt",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "Ein weiterer lokaler oder entfernter Ollama-Server",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "Native Claude Messages API",
         "api_key_label": "API-Schlüssel (optional)",
+        "api_key_required_label": "API-Schlüssel",
+        "remote_notice": "Remote-Anbieter: Prompts, Dateien und Tool-Kontext verlassen dein Gerät.",
         "submit": "Anbieter hinzufügen",
         "added_title": "Anbieter hinzugefügt",
         "added_description": "{{name}} wurde hinzugefügt. Teste die Verbindung, um Modelle zu finden.",
@@ -1424,6 +1430,13 @@
         "remove_confirm_title": "{{name}} entfernen?",
         "remove_confirm_description": "Verbindungseinstellungen und Modellzuordnungen werden gelöscht. Deine Chats bleiben erhalten.",
         "custom_badge": "Eigener"
+      },
+      "models": {
+        "title": "Modell-IDs (optional)",
+        "description": "Füge Modelle manuell hinzu, wenn der Anbieter sie nicht über seinen Erkennungs-Endpunkt liefert.",
+        "add": "Hinzufügen",
+        "remove": "Entfernen",
+        "placeholder": "z. B. Modellname oder ID"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
   },
   "onboarding": {
+    "step": "Schritt {{current}} von {{total}}",
+    "continue": "Weiter",
+    "privacy": {
+      "host_access": "Der Seitenzugriff erlaubt der Erweiterung, von dir angefragte Websites zu lesen. Nichts wird gesendet, außer du konfigurierst einen Remote-Anbieter."
+    },
     "permissions": {
       "title": "Willkommen bei Ollama Client",
-      "privacy": "Alles läuft auf deinem Gerät. Deine Chats und Daten verlassen es nie.",
+      "privacy": "Mit einem lokalen Anbieter bleiben Chats auf diesem Gerät. Ein Remote-Anbieter erhält nur, was du ihm sendest.",
       "body": "Einige Funktionen – Lesezeichen- & Verlaufswissen, Erinnerungen, Dateien speichern und Tab-Gruppen – benötigen optionale Browser-Berechtigungen. Sie bleiben aus, bis du sie erlaubst. Gewähre nur, was du möchtest.",
+      "optional_title": "Optionalen Zugriff wählen",
       "open": "Berechtigungen öffnen",
       "dismiss": "Später"
     },
     "provider": {
       "title": "Anbieter verbinden",
-      "open_setup": "Anbieter einrichten"
+      "description": "Prüfe jetzt den Standard-Ollama-Endpunkt. Du kannst ihn ändern oder später einen anderen Anbieter einrichten.",
+      "connected": "Verbunden. {{count}} Modell(e) gefunden.",
+      "skip": "Vorerst überspringen",
+      "open_setup": "Anbieter einrichten",
+      "errors": {
+        "cors": "Ollama läuft, blockiert aber diese Erweiterung. Starte es mit dem folgenden Befehl neu.",
+        "auth": "Der Anbieter hat API-Schlüssel oder Zugriffseinstellungen abgelehnt.",
+        "not-found": "Der Server antwortet, aber dies ist kein gültiger Anbieter-Endpunkt. Prüfe Port und Basis-URL.",
+        "timeout": "Der Anbieter antwortet zu langsam. Prüfe, ob er läuft und der Port stimmt.",
+        "unavailable": "Ollama ist nicht erreichbar. Es ist möglicherweise gestoppt, nutzt einen anderen Port oder blockiert Erweiterungs-Ursprünge.",
+        "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut."
+      }
     }
   }
 }

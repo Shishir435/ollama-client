@@ -1408,13 +1408,19 @@
       "add": {
         "button": "添加提供商",
         "title": "添加自定义提供商",
-        "description": "连接任何兼容 OpenAI 的服务器或另一个 Ollama 实例。",
+        "description": "连接 Ollama、OpenAI 兼容服务器或 Anthropic。",
         "name_label": "名称",
         "name_placeholder": "我的家庭服务器",
         "wire_label": "API 类型",
         "wire_openai": "OpenAI 兼容",
+        "wire_openai_description": "vLLM、LocalAI、KoboldCPP 或其他兼容端点",
         "wire_ollama": "Ollama",
+        "wire_ollama_description": "另一个本地或远程 Ollama 服务器",
+        "wire_anthropic": "Anthropic",
+        "wire_anthropic_description": "原生 Claude Messages API",
         "api_key_label": "API 密钥（可选）",
+        "api_key_required_label": "API 密钥",
+        "remote_notice": "远程提供商：发送到这里的提示、文件和工具上下文将离开您的设备。",
         "submit": "添加提供商",
         "added_title": "提供商已添加",
         "added_description": "已添加 {{name}}。测试连接以发现模型。",
@@ -1424,6 +1430,13 @@
         "remove_confirm_title": "移除 {{name}}？",
         "remove_confirm_description": "其连接设置和模型映射将被删除。你的聊天记录会保留。",
         "custom_badge": "自定义"
+      },
+      "models": {
+        "title": "模型 ID（可选）",
+        "description": "当提供商未从发现端点返回模型时，手动添加模型。",
+        "add": "添加",
+        "remove": "移除",
+        "placeholder": "例如模型名称或 ID"
       }
     },
     "migration": {
@@ -1760,16 +1773,33 @@
     "failed_to_fetch_models": "无法获取模型"
   },
   "onboarding": {
+    "step": "第 {{current}} 步，共 {{total}} 步",
+    "continue": "继续",
+    "privacy": {
+      "host_access": "页面访问权限让扩展读取您指定的网站。除非配置远程提供商，否则不会向外发送任何内容。"
+    },
     "permissions": {
       "title": "欢迎使用 Ollama Client",
-      "privacy": "一切都在您的设备上运行。您的聊天和数据绝不会离开设备。",
+      "privacy": "使用本地提供商时，聊天保留在此设备上。远程提供商只会收到您选择发送的内容。",
       "body": "部分功能（书签与历史记录知识、提醒、保存文件和标签组）需要可选的浏览器权限。在您允许之前它们保持关闭；只授予您需要的权限。",
+      "optional_title": "选择可选访问权限",
       "open": "打开权限",
       "dismiss": "以后再说"
     },
     "provider": {
       "title": "连接提供商",
-      "open_setup": "设置提供商"
+      "description": "立即检查默认 Ollama 端点。您可以修改它，也可以稍后配置其他提供商。",
+      "connected": "已连接。找到 {{count}} 个模型。",
+      "skip": "暂时跳过",
+      "open_setup": "设置提供商",
+      "errors": {
+        "cors": "Ollama 正在运行，但阻止了此扩展。请使用下面的命令重启。",
+        "auth": "提供商拒绝了 API 密钥或访问设置。",
+        "not-found": "服务器已响应，但这不是有效的提供商端点。请检查端口和基础 URL。",
+        "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
+        "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
+        "server-error": "提供商返回服务器错误。请检查日志后重试。"
+      }
     }
   }
 }

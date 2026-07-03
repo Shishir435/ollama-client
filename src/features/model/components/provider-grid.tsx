@@ -63,7 +63,7 @@ export const ProviderGrid = ({
   const { t } = useTranslation()
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {providers.map((provider) => {
         const isSelected = selectedId === provider.id
         const autoHealth = providerHealth[provider.id]

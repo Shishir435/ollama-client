@@ -92,7 +92,7 @@ export const useChatStream = ({
     generatedMessage
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
-    const port = browser.runtime.connect({
+    let port = browser.runtime.connect({
       name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
     })
     portRef.current = port
@@ -116,11 +116,20 @@ export const useChatStream = ({
 
     let firstChunk = true
     let streamSettled = false
+    let resumeAttempts = 0
     const thinkingState: ThinkingParserState = makeThinkingParserState()
+    const requestPayload = {
+      model,
+      providerId,
+      messages,
+      sessionId,
+      requestId
+    }
 
     const cleanupPort = () => {
       streamSettled = true
       port.onMessage.removeListener(listener)
+      port.onDisconnect.removeListener(handleDisconnect)
       port.disconnect()
       if (portRef.current === port) {
         portRef.current = null
@@ -307,14 +316,50 @@ export const useChatStream = ({
       }
     }
 
-    port.onMessage.addListener(listener)
-
-    port.onDisconnect.addListener(() => {
+    const handleDisconnect = () => {
       if (browser.runtime.lastError) {
         logger.debug("Port disconnected unexpectedly", "useChatStream", {
           error: browser.runtime.lastError.message
         })
       }
+      const awaitingConfirmation =
+        assistantMessage.metrics?.toolRuns?.some(
+          (run) => run.status === "awaiting-confirmation"
+        ) ?? false
+
+      // Reconnect with the same request id after an MV3 worker restart.
+      // Background restores its force-flushed SQLite checkpoint and
+      // re-registers the exact pending tool call.
+      if (
+        !streamSettled &&
+        !assistantMessage.done &&
+        awaitingConfirmation &&
+        currentRequestIdRef.current === requestId &&
+        resumeAttempts < 3
+      ) {
+        resumeAttempts += 1
+        window.setTimeout(() => {
+          if (
+            streamSettled ||
+            assistantMessage.done ||
+            currentRequestIdRef.current !== requestId
+          ) {
+            return
+          }
+          port = browser.runtime.connect({
+            name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
+          })
+          portRef.current = port
+          port.onMessage.addListener(listener)
+          port.onDisconnect.addListener(handleDisconnect)
+          port.postMessage({
+            type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
+            payload: requestPayload
+          })
+        }, 250)
+        return
+      }
+
       if (!streamSettled && !assistantMessage.done) {
         setIsLoading(false)
         setIsStreaming(false)
@@ -330,17 +375,13 @@ export const useChatStream = ({
           currentRequestIdRef.current = null
         }
       }
-    })
+    }
 
+    port.onMessage.addListener(listener)
+    port.onDisconnect.addListener(handleDisconnect)
     port.postMessage({
       type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
-      payload: {
-        model,
-        providerId,
-        messages,
-        sessionId,
-        requestId
-      }
+      payload: requestPayload
     })
   }
 
@@ -354,15 +395,14 @@ export const useChatStream = ({
     }
 
     try {
+      const requestId = currentRequestIdRef.current
+      currentRequestIdRef.current = null
       portRef.current.postMessage({
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
-        payload: currentRequestIdRef.current
-          ? { requestId: currentRequestIdRef.current }
-          : undefined
+        payload: requestId ? { requestId } : undefined
       })
       portRef.current.disconnect()
       portRef.current = null
-      currentRequestIdRef.current = null
     } catch (error) {
       logger.error("Failed to send stop message", "useChatStream", { error })
     } finally {

@@ -1,6 +1,6 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import type { LucideIcon } from "@/lib/lucide-icon"
-import { Bot, Cpu, Server, Shield, Sparkles } from "@/lib/lucide-icon"
+import { Bot, Cpu, Server, Sparkles } from "@/lib/lucide-icon"
 import { isCustomProviderId, ProviderId } from "./types"
 
 export type ProviderIcon =
@@ -41,24 +41,6 @@ export const PROVIDER_REGISTRY: Record<string, ProviderMeta> = {
     id: ProviderId.LLAMA_CPP,
     displayName: "llama.cpp",
     icon: { kind: "lucide", icon: Bot }
-  },
-  [ProviderId.VLLM]: {
-    id: ProviderId.VLLM,
-    displayName: "vLLM",
-    icon: { kind: "lucide", icon: Server },
-    isBeta: true
-  },
-  [ProviderId.LOCALAI]: {
-    id: ProviderId.LOCALAI,
-    displayName: "LocalAI",
-    icon: { kind: "lucide", icon: Sparkles },
-    isBeta: true
-  },
-  [ProviderId.KOBOLDCPP]: {
-    id: ProviderId.KOBOLDCPP,
-    displayName: "KoboldCpp",
-    icon: { kind: "lucide", icon: Shield },
-    isBeta: true
   }
 }
 
